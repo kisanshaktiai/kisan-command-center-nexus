@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -210,7 +209,7 @@ export default function WhiteLabelConfig() {
     setConfig({
       ...config,
       [section]: {
-        ...config[section],
+        ...(config[section] || {}),
         [field]: value
       }
     });
