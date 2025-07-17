@@ -1,152 +1,109 @@
 
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { 
-  LayoutDashboard, 
+  Home, 
   Users, 
   UserPlus, 
-  Settings, 
   CreditCard, 
-  Flag,
+  DollarSign,
+  Flag, 
+  Palette, 
   Activity,
-  BarChart3, 
-  Bell, 
-  FileText, 
-  Puzzle, 
-  Shield, 
-  Globe
+  ChevronLeft,
+  Settings
 } from 'lucide-react';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
+} from '@/components/ui/sidebar';
 
-interface SuperAdminSidebarProps {
-  activeSection: string;
-  onSectionChange: (section: string) => void;
-}
+const navigationItems = [
+  {
+    title: 'Platform Management',
+    items: [
+      { title: 'Overview', href: '/super-admin', icon: Home },
+      { title: 'Tenant Management', href: '/super-admin/tenants', icon: Users },
+      { title: 'Tenant Onboarding', href: '/super-admin/onboarding', icon: UserPlus },
+      { title: 'Platform Monitoring', href: '/super-admin/monitoring', icon: Activity },
+    ]
+  },
+  {
+    title: 'Billing & Revenue',
+    items: [
+      { title: 'Subscription Management', href: '/super-admin/subscriptions', icon: CreditCard },
+      { title: 'Billing & Payments', href: '/super-admin/billing', icon: DollarSign },
+    ]
+  },
+  {
+    title: 'Configuration',
+    items: [
+      { title: 'Feature Flags', href: '/super-admin/features', icon: Flag },
+      { title: 'White Label Config', href: '/super-admin/white-label', icon: Palette },
+    ]
+  }
+];
 
-const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ 
-  activeSection, 
-  onSectionChange 
-}) => {
-  const menuItems = [
-    {
-      id: 'overview',
-      label: 'Overview',
-      icon: LayoutDashboard,
-      description: 'Platform overview and statistics'
-    },
-    {
-      id: 'tenant-management',
-      label: 'Tenant Management',
-      icon: Users,
-      description: 'Manage tenant accounts and settings'
-    },
-    {
-      id: 'tenant-onboarding',
-      label: 'Tenant Onboarding',
-      icon: UserPlus,
-      description: 'Onboard new tenants'
-    },
-    {
-      id: 'white-label-config',
-      label: 'White Label Config',
-      icon: Settings,
-      description: 'Customize tenant branding'
-    },
-    {
-      id: 'subscription-management',
-      label: 'Subscription Management',
-      icon: CreditCard,
-      description: 'Manage subscriptions and billing'
-    },
-    {
-      id: 'feature-flags',
-      label: 'Feature Flags',
-      icon: Flag,
-      description: 'Control feature rollouts'
-    },
-    {
-      id: 'platform-monitoring',
-      label: 'Platform Monitoring',
-      icon: Activity,
-      description: 'Monitor system health and analytics'
-    },
-    {
-      id: 'analytics',
-      label: 'Platform Analytics',
-      icon: BarChart3,
-      description: 'Detailed analytics and insights'
-    },
-    {
-      id: 'notifications',
-      label: 'Notifications',
-      icon: Bell,
-      description: 'System notifications and alerts'
-    },
-    {
-      id: 'reports',
-      label: 'Reports',
-      icon: FileText,
-      description: 'Generate and view reports'
-    },
-    {
-      id: 'integrations',
-      label: 'Integrations',
-      icon: Puzzle,
-      description: 'Manage third-party integrations'
-    },
-    {
-      id: 'system-health',
-      label: 'System Health',
-      icon: Activity,
-      description: 'Monitor system performance'
-    },
-    {
-      id: 'security',
-      label: 'Security',
-      icon: Shield,
-      description: 'Security settings and monitoring'
-    },
-    {
-      id: 'global-settings',
-      label: 'Global Settings',
-      icon: Globe,
-      description: 'Platform-wide settings'
-    }
-  ];
+export function SuperAdminSidebar() {
+  const location = useLocation();
 
   return (
-    <div className="p-4 space-y-2">
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Super Admin</h2>
-        <p className="text-sm text-gray-600">Platform management and monitoring</p>
-      </div>
-      
-      <nav className="space-y-1">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Button
-              key={item.id}
-              variant={activeSection === item.id ? "default" : "ghost"}
-              className={cn(
-                "w-full justify-start h-auto p-3 text-left",
-                activeSection === item.id && "bg-primary text-primary-foreground"
-              )}
-              onClick={() => onSectionChange(item.id)}
-            >
-              <div className="flex items-start gap-3">
-                <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium">{item.label}</div>
-                  <div className="text-xs opacity-75 mt-1">{item.description}</div>
-                </div>
-              </div>
-            </Button>
-          );
-        })}
-      </nav>
-    </div>
-  );
-};
+    <Sidebar>
+      <SidebarHeader className="border-b p-4">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <Settings className="w-4 h-4 text-primary-foreground" />
+          </div>
+          <div>
+            <h2 className="font-semibold">Super Admin</h2>
+            <p className="text-xs text-muted-foreground">Platform Management</p>
+          </div>
+        </div>
+      </SidebarHeader>
 
-export default SuperAdminSidebar;
+      <SidebarContent>
+        {navigationItems.map((group) => (
+          <SidebarGroup key={group.title}>
+            <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === item.href}
+                    >
+                      <Link to={item.href} className="flex items-center gap-2">
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+
+      <SidebarFooter className="border-t p-4">
+        <Link 
+          to="/" 
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to Application
+        </Link>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
