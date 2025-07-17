@@ -46,10 +46,12 @@ interface TenantSubscription {
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
-  subscription_plans?: SubscriptionPlan;
+  subscription_plans?: {
+    name: string;
+    plan_type: string;
+  };
   tenants?: {
     name: string;
-    tenant_type: string;
   };
 }
 
@@ -87,7 +89,7 @@ export default function SubscriptionManagement() {
         .select(`
           *,
           subscription_plans(name, plan_type),
-          tenants(name, tenant_type)
+          tenants(name)
         `)
         .order('created_at', { ascending: false });
       
@@ -98,7 +100,7 @@ export default function SubscriptionManagement() {
 
   // Create/Update plan mutation
   const createPlanMutation = useMutation({
-    mutationFn: async (planData: Partial<SubscriptionPlan>) => {
+    mutationFn: async (planData: Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>) => {
       const { data, error } = await supabase
         .from('subscription_plans')
         .insert([planData])
@@ -299,9 +301,9 @@ export default function SubscriptionManagement() {
                     <div key={subscription.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-4">
                         <div>
-                          <h4 className="font-medium">{subscription.tenants?.name}</h4>
+                          <h4 className="font-medium">{subscription.tenants?.name || 'Unknown Tenant'}</h4>
                           <p className="text-sm text-muted-foreground">
-                            {subscription.subscription_plans?.name} • {subscription.billing_interval}
+                            {subscription.subscription_plans?.name || 'Unknown Plan'} • {subscription.billing_interval}
                           </p>
                         </div>
                       </div>
@@ -384,12 +386,17 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
     e.preventDefault();
     
     const planData = {
-      ...formData,
+      name: formData.name,
+      description: formData.description,
+      plan_type: formData.plan_type,
       price_monthly: formData.price_monthly ? parseFloat(formData.price_monthly) : null,
       price_quarterly: formData.price_quarterly ? parseFloat(formData.price_quarterly) : null,
       price_annually: formData.price_annually ? parseFloat(formData.price_annually) : null,
       features: formData.features.split(',').map(f => f.trim()).filter(Boolean),
-      limits: formData.limits ? JSON.parse(formData.limits) : {}
+      limits: formData.limits ? JSON.parse(formData.limits) : {},
+      is_active: formData.is_active,
+      is_custom: false,
+      tenant_id: null
     };
     
     onSubmit(planData);

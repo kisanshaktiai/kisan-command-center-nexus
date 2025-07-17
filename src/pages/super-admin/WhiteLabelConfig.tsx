@@ -8,7 +8,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { ColorPicker } from '@/components/ui/color-picker';
 import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -73,7 +72,6 @@ interface WhiteLabelConfig {
 interface Tenant {
   id: string;
   name: string;
-  tenant_type: string;
 }
 
 export default function WhiteLabelConfig() {
@@ -88,7 +86,7 @@ export default function WhiteLabelConfig() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, name, tenant_type')
+        .select('id, name')
         .eq('status', 'active')
         .order('name');
       
@@ -194,7 +192,15 @@ export default function WhiteLabelConfig() {
   const handleSave = () => {
     if (!config) return;
     
-    const { id, created_at, updated_at, ...configData } = config;
+    const configData = {
+      brand_identity: config.brand_identity,
+      domain_config: config.domain_config,
+      email_templates: config.email_templates,
+      app_store_config: config.app_store_config,
+      pwa_config: config.pwa_config,
+      splash_screens: config.splash_screens
+    };
+    
     saveConfigMutation.mutate(configData);
   };
 
@@ -264,7 +270,7 @@ export default function WhiteLabelConfig() {
             <option value="">Select a tenant...</option>
             {tenants.map((tenant) => (
               <option key={tenant.id} value={tenant.id}>
-                {tenant.name} ({tenant.tenant_type})
+                {tenant.name}
               </option>
             ))}
           </select>

@@ -24,7 +24,6 @@ interface OnboardingWorkflow {
   updated_at: string;
   tenants?: {
     name: string;
-    tenant_type: string;
     status: string;
   };
 }
@@ -64,7 +63,7 @@ export default function TenantOnboarding() {
         .from('onboarding_workflows')
         .select(`
           *,
-          tenants(name, tenant_type, status)
+          tenants(name, status)
         `)
         .order('created_at', { ascending: false });
       
@@ -103,10 +102,16 @@ export default function TenantOnboarding() {
   const { data: availableTenants = [] } = useQuery({
     queryKey: ['available-tenants'],
     queryFn: async () => {
+      const { data: workflowData } = await supabase
+        .from('onboarding_workflows')
+        .select('tenant_id');
+      
+      const existingTenantIds = workflowData?.map(w => w.tenant_id) || [];
+      
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, name, tenant_type')
-        .not('id', 'in', `(${workflows.map(w => w.tenant_id).join(',')})`)
+        .select('id, name')
+        .not('id', 'in', existingTenantIds.length > 0 ? `(${existingTenantIds.join(',')})` : '()')
         .eq('status', 'active');
       
       if (error) throw error;
@@ -239,7 +244,7 @@ export default function TenantOnboarding() {
                   <option value="">Choose a tenant...</option>
                   {availableTenants.map((tenant) => (
                     <option key={tenant.id} value={tenant.id}>
-                      {tenant.name} ({tenant.tenant_type})
+                      {tenant.name}
                     </option>
                   ))}
                 </select>
@@ -274,9 +279,9 @@ export default function TenantOnboarding() {
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle>{workflow.tenants?.name}</CardTitle>
+                        <CardTitle>{workflow.tenants?.name || 'Unknown Tenant'}</CardTitle>
                         <CardDescription>
-                          {workflow.tenants?.tenant_type} • Started {new Date(workflow.started_at).toLocaleDateString()}
+                          Started {new Date(workflow.started_at).toLocaleDateString()}
                         </CardDescription>
                       </div>
                       <Badge className={getStatusColor(workflow.status)}>
@@ -306,7 +311,7 @@ export default function TenantOnboarding() {
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle>{workflow.tenants?.name}</CardTitle>
+                      <CardTitle>{workflow.tenants?.name || 'Unknown Tenant'}</CardTitle>
                       <CardDescription>
                         Completed {workflow.completed_at ? new Date(workflow.completed_at).toLocaleDateString() : 'N/A'}
                       </CardDescription>
@@ -366,7 +371,7 @@ export default function TenantOnboarding() {
         <Dialog open={!!selectedWorkflow} onOpenChange={() => setSelectedWorkflow(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{selectedWorkflow.tenants?.name} - Onboarding Progress</DialogTitle>
+              <DialogTitle>{selectedWorkflow.tenants?.name || 'Unknown Tenant'} - Onboarding Progress</DialogTitle>
               <DialogDescription>Track and manage onboarding steps</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
