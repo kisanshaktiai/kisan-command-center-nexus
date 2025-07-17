@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,10 +7,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor } from 'lucide-react';
+import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor, Code, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+
+// Import the new components
+import { CSSInjectionPanel } from '@/components/white-label/CSSInjectionPanel';
+import { DomainHealthPanel } from '@/components/white-label/DomainHealthPanel';
+import { ContentManagementPanel } from '@/components/white-label/ContentManagementPanel';
+import { DistributionOptionsPanel } from '@/components/white-label/DistributionOptionsPanel';
+import { AdvancedAppCustomizationPanel } from '@/components/white-label/AdvancedAppCustomizationPanel';
 
 interface WhiteLabelConfig {
   id: string;
@@ -65,6 +71,65 @@ interface WhiteLabelConfig {
     desktop_splash?: string;
     loading_animation?: string;
   };
+  // New configuration sections
+  css_injection?: {
+    enabled?: boolean;
+    custom_css?: string;
+    mobile_css?: string;
+    print_css?: string;
+  };
+  app_customization?: {
+    bundle_id?: string;
+    app_version?: string;
+    build_number?: number;
+    minimum_ios_version?: string;
+    minimum_android_version?: string;
+    supported_languages?: string;
+    custom_menu?: any[];
+    visible_modules?: Record<string, boolean>;
+    custom_fields?: string;
+    business_rules?: string;
+    loading_animation_url?: string;
+    transition_duration?: number;
+    animations_enabled?: boolean;
+    respect_reduce_motion?: boolean;
+    animation_preset?: string;
+  };
+  content_management?: {
+    help_center_url?: string;
+    documentation_url?: string;
+    getting_started_guide?: string;
+    onboarding_video?: string;
+    tutorial_videos?: string[];
+    terms_of_service?: string;
+    privacy_policy?: string;
+    data_processing_agreement?: string;
+    faq_items?: Array<{ question: string; answer: string }>;
+    custom_messaging_enabled?: boolean;
+    welcome_message?: string;
+    success_messages?: string;
+    error_messages?: string;
+  };
+  distribution?: {
+    pwa_enabled?: boolean;
+    pwa_install_prompt?: string;
+    pwa_offline_support?: boolean;
+    pwa_cache_strategy?: string;
+    private_store_enabled?: boolean;
+    store_url?: string;
+    store_name?: string;
+    distribution_groups?: string;
+    require_authentication?: boolean;
+    url_scheme?: string;
+    universal_links_domain?: string;
+    deep_link_routes?: string;
+    update_channel?: string;
+    auto_updates?: boolean;
+    update_check_interval?: number;
+    force_update?: boolean;
+    minimum_version?: string;
+    update_message?: string;
+  };
   created_at: string;
   updated_at: string;
 }
@@ -117,7 +182,7 @@ export default function WhiteLabelConfig() {
     if (whiteLabelConfig) {
       setConfig(whiteLabelConfig);
     } else if (selectedTenant) {
-      // Initialize with default config
+      // Initialize with default config including new sections
       setConfig({
         id: '',
         tenant_id: selectedTenant,
@@ -148,6 +213,29 @@ export default function WhiteLabelConfig() {
           icons: []
         },
         splash_screens: {},
+        css_injection: {
+          enabled: false,
+          custom_css: '',
+          mobile_css: '',
+          print_css: ''
+        },
+        app_customization: {
+          animations_enabled: true,
+          respect_reduce_motion: true,
+          transition_duration: 300,
+          animation_preset: 'standard',
+          visible_modules: {}
+        },
+        content_management: {
+          custom_messaging_enabled: false,
+          faq_items: []
+        },
+        distribution: {
+          pwa_enabled: true,
+          auto_updates: true,
+          update_channel: 'stable',
+          update_check_interval: 24
+        },
         created_at: '',
         updated_at: ''
       });
@@ -198,7 +286,11 @@ export default function WhiteLabelConfig() {
       email_templates: config.email_templates,
       app_store_config: config.app_store_config,
       pwa_config: config.pwa_config,
-      splash_screens: config.splash_screens
+      splash_screens: config.splash_screens,
+      css_injection: config.css_injection,
+      app_customization: config.app_customization,
+      content_management: config.content_management,
+      distribution: config.distribution
     };
     
     saveConfigMutation.mutate(configData);
@@ -282,30 +374,38 @@ export default function WhiteLabelConfig() {
 
       {selectedTenant && config && (
         <Tabs defaultValue="brand" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="brand" className="flex items-center gap-2">
-              <Palette className="w-4 h-4" />
+          <TabsList className="grid w-full grid-cols-8 text-xs">
+            <TabsTrigger value="brand" className="flex items-center gap-1">
+              <Palette className="w-3 h-3" />
               Brand
             </TabsTrigger>
-            <TabsTrigger value="domain" className="flex items-center gap-2">
-              <Globe className="w-4 h-4" />
+            <TabsTrigger value="domain" className="flex items-center gap-1">
+              <Globe className="w-3 h-3" />
               Domain
             </TabsTrigger>
-            <TabsTrigger value="email" className="flex items-center gap-2">
-              <Mail className="w-4 h-4" />
+            <TabsTrigger value="email" className="flex items-center gap-1">
+              <Mail className="w-3 h-3" />
               Email
             </TabsTrigger>
-            <TabsTrigger value="mobile" className="flex items-center gap-2">
-              <Smartphone className="w-4 h-4" />
+            <TabsTrigger value="mobile" className="flex items-center gap-1">
+              <Smartphone className="w-3 h-3" />
               Mobile
             </TabsTrigger>
-            <TabsTrigger value="pwa" className="flex items-center gap-2">
-              <Monitor className="w-4 h-4" />
+            <TabsTrigger value="pwa" className="flex items-center gap-1">
+              <Monitor className="w-3 h-3" />
               PWA
             </TabsTrigger>
-            <TabsTrigger value="splash" className="flex items-center gap-2">
-              <Eye className="w-4 h-4" />
-              Splash
+            <TabsTrigger value="advanced" className="flex items-center gap-1">
+              <Settings className="w-3 h-3" />
+              Advanced
+            </TabsTrigger>
+            <TabsTrigger value="content" className="flex items-center gap-1">
+              <Eye className="w-3 h-3" />
+              Content
+            </TabsTrigger>
+            <TabsTrigger value="distribution" className="flex items-center gap-1">
+              <Download className="w-3 h-3" />
+              Distribution
             </TabsTrigger>
           </TabsList>
 
@@ -462,6 +562,8 @@ export default function WhiteLabelConfig() {
                 </div>
               </CardContent>
             </Card>
+
+            <DomainHealthPanel config={config} />
           </TabsContent>
 
           {/* Email Templates */}
@@ -711,75 +813,20 @@ export default function WhiteLabelConfig() {
             </Card>
           </TabsContent>
 
-          {/* Splash Screens */}
-          <TabsContent value="splash" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Splash Screens</CardTitle>
-                <CardDescription>Configure loading screens for different devices</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="mobile_splash">Mobile Splash Screen</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="mobile_splash"
-                      value={config.splash_screens.mobile_splash || ''}
-                      onChange={(e) => updateConfig('splash_screens', 'mobile_splash', e.target.value)}
-                      placeholder="https://example.com/mobile-splash.png"
-                    />
-                    <Button variant="outline">
-                      <Upload className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
+          {/* New Advanced Tab */}
+          <TabsContent value="advanced" className="space-y-4">
+            <AdvancedAppCustomizationPanel config={config} updateConfig={updateConfig} />
+            <CSSInjectionPanel config={config} updateConfig={updateConfig} />
+          </TabsContent>
 
-                <div>
-                  <Label htmlFor="tablet_splash">Tablet Splash Screen</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="tablet_splash"
-                      value={config.splash_screens.tablet_splash || ''}
-                      onChange={(e) => updateConfig('splash_screens', 'tablet_splash', e.target.value)}
-                      placeholder="https://example.com/tablet-splash.png"
-                    />
-                    <Button variant="outline">
-                      <Upload className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
+          {/* New Content Tab */}
+          <TabsContent value="content" className="space-y-4">
+            <ContentManagementPanel config={config} updateConfig={updateConfig} />
+          </TabsContent>
 
-                <div>
-                  <Label htmlFor="desktop_splash">Desktop Splash Screen</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="desktop_splash"
-                      value={config.splash_screens.desktop_splash || ''}
-                      onChange={(e) => updateConfig('splash_screens', 'desktop_splash', e.target.value)}
-                      placeholder="https://example.com/desktop-splash.png"
-                    />
-                    <Button variant="outline">
-                      <Upload className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="loading_animation">Loading Animation URL</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="loading_animation"
-                      value={config.splash_screens.loading_animation || ''}
-                      onChange={(e) => updateConfig('splash_screens', 'loading_animation', e.target.value)}
-                      placeholder="https://example.com/loading.gif"
-                    />
-                    <Button variant="outline">
-                      <Upload className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* New Distribution Tab */}
+          <TabsContent value="distribution" className="space-y-4">
+            <DistributionOptionsPanel config={config} updateConfig={updateConfig} />
           </TabsContent>
         </Tabs>
       )}
