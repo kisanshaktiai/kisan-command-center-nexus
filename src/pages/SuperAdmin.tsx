@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
@@ -13,6 +12,7 @@ import FeatureFlags from '@/pages/super-admin/FeatureFlags';
 import { Toaster } from "@/components/ui/sonner";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import PlatformMonitoring from '@/pages/super-admin/PlatformMonitoring';
 
 export default function SuperAdmin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -73,6 +73,8 @@ export default function SuperAdmin() {
         return <SubscriptionManagement />;
       case 'feature-flags':
         return <FeatureFlags />;
+      case 'platform-monitoring':
+        return <PlatformMonitoring />;
       case 'analytics':
         return <div className="p-6"><h1 className="text-2xl font-bold">Platform Analytics</h1><p>Coming soon...</p></div>;
       case 'notifications':

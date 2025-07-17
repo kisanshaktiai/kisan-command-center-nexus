@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_model_metrics: {
+        Row: {
+          accuracy_score: number | null
+          avg_response_time_ms: number | null
+          created_at: string | null
+          error_rate: number | null
+          id: string
+          metadata: Json | null
+          model_name: string
+          model_version: string | null
+          query_count: number | null
+          resource_usage: Json | null
+          tenant_id: string | null
+          timestamp: string
+        }
+        Insert: {
+          accuracy_score?: number | null
+          avg_response_time_ms?: number | null
+          created_at?: string | null
+          error_rate?: number | null
+          id?: string
+          metadata?: Json | null
+          model_name: string
+          model_version?: string | null
+          query_count?: number | null
+          resource_usage?: Json | null
+          tenant_id?: string | null
+          timestamp?: string
+        }
+        Update: {
+          accuracy_score?: number | null
+          avg_response_time_ms?: number | null
+          created_at?: string | null
+          error_rate?: number | null
+          id?: string
+          metadata?: Json | null
+          model_name?: string
+          model_version?: string | null
+          query_count?: number | null
+          resource_usage?: Json | null
+          tenant_id?: string | null
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_model_metrics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_reports: {
         Row: {
           end_date: string
@@ -312,6 +365,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dashboard_configs: {
+        Row: {
+          created_at: string | null
+          dashboard_name: string
+          id: string
+          is_default: boolean | null
+          is_public: boolean | null
+          layout: Json
+          updated_at: string | null
+          user_id: string
+          widgets: Json
+        }
+        Insert: {
+          created_at?: string | null
+          dashboard_name: string
+          id?: string
+          is_default?: boolean | null
+          is_public?: boolean | null
+          layout: Json
+          updated_at?: string | null
+          user_id: string
+          widgets?: Json
+        }
+        Update: {
+          created_at?: string | null
+          dashboard_name?: string
+          id?: string
+          is_default?: boolean | null
+          is_public?: boolean | null
+          layout?: Json
+          updated_at?: string | null
+          user_id?: string
+          widgets?: Json
+        }
+        Relationships: []
       }
       data_migration_jobs: {
         Row: {
@@ -936,6 +1025,56 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "feature_configs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_metrics: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          metadata: Json | null
+          metric_name: string
+          period_end: string | null
+          period_start: string | null
+          tenant_id: string | null
+          timestamp: string
+        }
+        Insert: {
+          amount: number
+          category?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          metadata?: Json | null
+          metric_name: string
+          period_end?: string | null
+          period_start?: string | null
+          tenant_id?: string | null
+          timestamp?: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          metadata?: Json | null
+          metric_name?: string
+          period_end?: string | null
+          period_start?: string | null
+          tenant_id?: string | null
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_metrics_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1667,6 +1806,74 @@ export type Database = {
           },
         ]
       }
+      platform_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alert_name: string
+          created_at: string | null
+          current_value: number | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          metric_name: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: Database["public"]["Enums"]["alert_severity"]
+          status: Database["public"]["Enums"]["alert_status"] | null
+          tenant_id: string | null
+          threshold_value: number | null
+          triggered_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_name: string
+          created_at?: string | null
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          metric_name?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: Database["public"]["Enums"]["alert_severity"]
+          status?: Database["public"]["Enums"]["alert_status"] | null
+          tenant_id?: string | null
+          threshold_value?: number | null
+          triggered_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_name?: string
+          created_at?: string | null
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          metric_name?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: Database["public"]["Enums"]["alert_severity"]
+          status?: Database["public"]["Enums"]["alert_status"] | null
+          tenant_id?: string | null
+          threshold_value?: number | null
+          triggered_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prescription_maps: {
         Row: {
           application_method: string | null
@@ -2179,6 +2386,51 @@ export type Database = {
           },
         ]
       }
+      scheduled_reports: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          last_run_at: string | null
+          next_run_at: string | null
+          recipients: string[]
+          report_config: Json
+          report_name: string
+          schedule_cron: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          recipients: string[]
+          report_config: Json
+          report_name: string
+          schedule_cron: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          recipients?: string[]
+          report_config?: Json
+          report_name?: string
+          schedule_cron?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       soil_health: {
         Row: {
           bulk_density: number | null
@@ -2327,6 +2579,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "subscription_plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_metrics: {
+        Row: {
+          created_at: string | null
+          id: string
+          labels: Json | null
+          metadata: Json | null
+          metric_name: string
+          metric_type: Database["public"]["Enums"]["metric_type"]
+          tenant_id: string | null
+          timestamp: string
+          unit: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          labels?: Json | null
+          metadata?: Json | null
+          metric_name: string
+          metric_type: Database["public"]["Enums"]["metric_type"]
+          tenant_id?: string | null
+          timestamp?: string
+          unit?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          labels?: Json | null
+          metadata?: Json | null
+          metric_name?: string
+          metric_type?: Database["public"]["Enums"]["metric_type"]
+          tenant_id?: string | null
+          timestamp?: string
+          unit?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_metrics_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2705,6 +3004,59 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      usage_analytics: {
+        Row: {
+          created_at: string | null
+          endpoint_path: string | null
+          feature_name: string
+          id: string
+          metadata: Json | null
+          response_time_ms: number | null
+          session_duration: unknown | null
+          status_code: number | null
+          tenant_id: string | null
+          timestamp: string
+          usage_count: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          endpoint_path?: string | null
+          feature_name: string
+          id?: string
+          metadata?: Json | null
+          response_time_ms?: number | null
+          session_duration?: unknown | null
+          status_code?: number | null
+          tenant_id?: string | null
+          timestamp?: string
+          usage_count?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          endpoint_path?: string | null
+          feature_name?: string
+          id?: string
+          metadata?: Json | null
+          response_time_ms?: number | null
+          session_duration?: unknown | null
+          status_code?: number | null
+          tenant_id?: string | null
+          timestamp?: string
+          usage_count?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_analytics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_profiles: {
         Row: {
@@ -5770,6 +6122,8 @@ export type Database = {
       }
     }
     Enums: {
+      alert_severity: "low" | "medium" | "high" | "critical"
+      alert_status: "active" | "acknowledged" | "resolved"
       billing_interval: "monthly" | "quarterly" | "annually"
       language_code:
         | "en"
@@ -5783,6 +6137,7 @@ export type Database = {
         | "ml"
         | "or"
         | "bn"
+      metric_type: "system" | "usage" | "ai_model" | "financial" | "custom"
       onboarding_step_status:
         | "pending"
         | "in_progress"
@@ -5951,6 +6306,8 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      alert_severity: ["low", "medium", "high", "critical"],
+      alert_status: ["active", "acknowledged", "resolved"],
       billing_interval: ["monthly", "quarterly", "annually"],
       language_code: [
         "en",
@@ -5965,6 +6322,7 @@ export const Constants = {
         "or",
         "bn",
       ],
+      metric_type: ["system", "usage", "ai_model", "financial", "custom"],
       onboarding_step_status: [
         "pending",
         "in_progress",
