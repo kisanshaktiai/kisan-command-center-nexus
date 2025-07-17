@@ -25,7 +25,6 @@ const App = () => (
               <Route index element={<Overview />} />
               <Route path="tenants" element={<TenantManagement />} />
               <Route path="features" element={<FeatureFlags />} />
-              {/* Additional super admin routes will be added here */}
             </Route>
           </Routes>
         </BrowserRouter>

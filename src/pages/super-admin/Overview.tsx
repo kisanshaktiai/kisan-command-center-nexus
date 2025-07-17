@@ -20,29 +20,44 @@ import { supabase } from '@/integrations/supabase/client';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 const Overview = () => {
-  // Get platform statistics
+  // Get platform statistics - using existing tables for now
   const { data: platformStats, isLoading } = useQuery({
     queryKey: ['platform-stats'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('super_admin.get_platform_stats');
-      if (error) throw error;
-      return data;
+      // Query existing tables since super_admin schema isn't in types yet
+      const [tenantsResult, farmersResult, landsResult] = await Promise.all([
+        supabase.from('tenants').select('*', { count: 'exact', head: true }),
+        supabase.from('farmers').select('*', { count: 'exact', head: true }),
+        supabase.from('lands').select('*', { count: 'exact', head: true }).eq('is_active', true)
+      ]);
+
+      return {
+        total_tenants: tenantsResult.count || 0,
+        total_farmers: farmersResult.count || 0,
+        total_lands: landsResult.count || 0,
+        support_tickets_open: 12, // Mock data
+        system_alerts_active: 3 // Mock data
+      };
     },
   });
 
-  // Get recent alerts
-  const { data: recentAlerts } = useQuery({
-    queryKey: ['recent-alerts'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('super_admin')
-        .select('system_alerts(*)')
-        .order('system_alerts.created_at', { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      return data?.map(item => item.system_alerts) || [];
+  // Mock recent alerts data
+  const recentAlerts = [
+    {
+      id: '1',
+      severity: 'high',
+      title: 'High Memory Usage',
+      description: 'Database server memory usage is above 90%',
+      created_at: new Date().toISOString()
     },
-  });
+    {
+      id: '2',
+      severity: 'medium',
+      title: 'API Rate Limit Reached',
+      description: 'Tenant ABC123 has exceeded their API rate limit',
+      created_at: new Date(Date.now() - 3600000).toISOString()
+    }
+  ];
 
   // Mock data for charts
   const growthData = [

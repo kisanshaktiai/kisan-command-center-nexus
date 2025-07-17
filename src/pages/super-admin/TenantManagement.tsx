@@ -30,17 +30,13 @@ const TenantManagement = () => {
   const [newTenantOpen, setNewTenantOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // Get all tenants
+  // Get all tenants from the existing tenants table
   const { data: tenants, isLoading } = useQuery({
     queryKey: ['super-admin-tenants'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select(`
-          *,
-          tenant_subscriptions:super_admin.tenant_subscriptions(*),
-          user_tenants(count)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -242,7 +238,7 @@ const TenantManagement = () => {
                       {tenant.subscription_plan || 'Free'}
                     </TableCell>
                     <TableCell>
-                      {tenant.user_tenants?.[0]?.count || 0}
+                      0 {/* This would come from user_tenants count */}
                     </TableCell>
                     <TableCell>
                       {new Date(tenant.created_at).toLocaleDateString()}
