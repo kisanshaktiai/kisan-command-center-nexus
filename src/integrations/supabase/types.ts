@@ -313,6 +313,68 @@ export type Database = {
           },
         ]
       }
+      data_migration_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_log: Json | null
+          failed_records: number | null
+          id: string
+          mapping_config: Json | null
+          migration_type: string
+          processed_records: number | null
+          progress_data: Json | null
+          source_config: Json | null
+          started_at: string | null
+          status: string | null
+          tenant_id: string | null
+          total_records: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_log?: Json | null
+          failed_records?: number | null
+          id?: string
+          mapping_config?: Json | null
+          migration_type: string
+          processed_records?: number | null
+          progress_data?: Json | null
+          source_config?: Json | null
+          started_at?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          total_records?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_log?: Json | null
+          failed_records?: number | null
+          id?: string
+          mapping_config?: Json | null
+          migration_type?: string
+          processed_records?: number | null
+          progress_data?: Json | null
+          source_config?: Json | null
+          started_at?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          total_records?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_migration_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       data_transformations: {
         Row: {
           created_at: string
@@ -833,6 +895,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "farmers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_configs: {
+        Row: {
+          config_data: Json | null
+          created_at: string | null
+          feature_name: string
+          id: string
+          is_enabled: boolean | null
+          limits: Json | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          config_data?: Json | null
+          created_at?: string | null
+          feature_name: string
+          id?: string
+          is_enabled?: boolean | null
+          limits?: Json | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          config_data?: Json | null
+          created_at?: string | null
+          feature_name?: string
+          id?: string
+          is_enabled?: boolean | null
+          limits?: Json | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_configs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1464,6 +1567,106 @@ export type Database = {
           },
         ]
       }
+      onboarding_steps: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          step_data: Json | null
+          step_name: string
+          step_number: number
+          step_status:
+            | Database["public"]["Enums"]["onboarding_step_status"]
+            | null
+          updated_at: string | null
+          validation_errors: Json | null
+          workflow_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          step_data?: Json | null
+          step_name: string
+          step_number: number
+          step_status?:
+            | Database["public"]["Enums"]["onboarding_step_status"]
+            | null
+          updated_at?: string | null
+          validation_errors?: Json | null
+          workflow_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          step_data?: Json | null
+          step_name?: string
+          step_number?: number
+          step_status?:
+            | Database["public"]["Enums"]["onboarding_step_status"]
+            | null
+          updated_at?: string | null
+          validation_errors?: Json | null
+          workflow_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_steps_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_workflows: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_step: number | null
+          id: string
+          metadata: Json | null
+          started_at: string | null
+          status: string | null
+          tenant_id: string | null
+          total_steps: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_step?: number | null
+          id?: string
+          metadata?: Json | null
+          started_at?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          total_steps?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_step?: number | null
+          id?: string
+          metadata?: Json | null
+          started_at?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          total_steps?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_workflows_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prescription_maps: {
         Row: {
           application_method: string | null
@@ -2072,6 +2275,115 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_plans: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          is_custom: boolean | null
+          limits: Json | null
+          name: string
+          plan_type: Database["public"]["Enums"]["subscription_plan_type"]
+          price_annually: number | null
+          price_monthly: number | null
+          price_quarterly: number | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_custom?: boolean | null
+          limits?: Json | null
+          name: string
+          plan_type: Database["public"]["Enums"]["subscription_plan_type"]
+          price_annually?: number | null
+          price_monthly?: number | null
+          price_quarterly?: number | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_custom?: boolean | null
+          limits?: Json | null
+          name?: string
+          plan_type?: Database["public"]["Enums"]["subscription_plan_type"]
+          price_annually?: number | null
+          price_monthly?: number | null
+          price_quarterly?: number | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string | null
+          email: string
+          expires_at: string | null
+          id: string
+          invitation_token: string
+          invited_by: string | null
+          role: string
+          status: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email: string
+          expires_at?: string | null
+          id?: string
+          invitation_token: string
+          invited_by?: string | null
+          role: string
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string | null
+          id?: string
+          invitation_token?: string
+          invited_by?: string | null
+          role?: string
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_invitations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_branding: {
         Row: {
           accent_color: string | null
@@ -2231,6 +2543,69 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tenant_features_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_subscriptions: {
+        Row: {
+          auto_renew: boolean | null
+          billing_address: Json | null
+          billing_interval: Database["public"]["Enums"]["billing_interval"]
+          created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          metadata: Json | null
+          payment_method: Json | null
+          plan_id: string | null
+          status: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_renew?: boolean | null
+          billing_address?: Json | null
+          billing_interval: Database["public"]["Enums"]["billing_interval"]
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_method?: Json | null
+          plan_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_renew?: boolean | null
+          billing_address?: Json | null
+          billing_interval?: Database["public"]["Enums"]["billing_interval"]
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_method?: Json | null
+          plan_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_subscriptions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -3187,6 +3562,53 @@ export type Database = {
           url?: string
         }
         Relationships: []
+      }
+      white_label_configs: {
+        Row: {
+          app_store_config: Json | null
+          brand_identity: Json | null
+          created_at: string | null
+          domain_config: Json | null
+          email_templates: Json | null
+          id: string
+          pwa_config: Json | null
+          splash_screens: Json | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          app_store_config?: Json | null
+          brand_identity?: Json | null
+          created_at?: string | null
+          domain_config?: Json | null
+          email_templates?: Json | null
+          id?: string
+          pwa_config?: Json | null
+          splash_screens?: Json | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          app_store_config?: Json | null
+          brand_identity?: Json | null
+          created_at?: string | null
+          domain_config?: Json | null
+          email_templates?: Json | null
+          id?: string
+          pwa_config?: Json | null
+          splash_screens?: Json | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "white_label_configs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       yield_predictions: {
         Row: {
@@ -5348,6 +5770,7 @@ export type Database = {
       }
     }
     Enums: {
+      billing_interval: "monthly" | "quarterly" | "annually"
       language_code:
         | "en"
         | "hi"
@@ -5360,8 +5783,15 @@ export type Database = {
         | "ml"
         | "or"
         | "bn"
+      onboarding_step_status:
+        | "pending"
+        | "in_progress"
+        | "completed"
+        | "skipped"
+        | "failed"
       payment_status: "pending" | "paid" | "partial" | "overdue" | "failed"
       subscription_plan: "starter" | "growth" | "enterprise" | "custom"
+      subscription_plan_type: "basic" | "premium" | "enterprise" | "custom"
       tenant_status: "trial" | "active" | "suspended" | "cancelled"
       tenant_type:
         | "agri_company"
@@ -5521,6 +5951,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      billing_interval: ["monthly", "quarterly", "annually"],
       language_code: [
         "en",
         "hi",
@@ -5534,8 +5965,16 @@ export const Constants = {
         "or",
         "bn",
       ],
+      onboarding_step_status: [
+        "pending",
+        "in_progress",
+        "completed",
+        "skipped",
+        "failed",
+      ],
       payment_status: ["pending", "paid", "partial", "overdue", "failed"],
       subscription_plan: ["starter", "growth", "enterprise", "custom"],
+      subscription_plan_type: ["basic", "premium", "enterprise", "custom"],
       tenant_status: ["trial", "active", "suspended", "cancelled"],
       tenant_type: [
         "agri_company",

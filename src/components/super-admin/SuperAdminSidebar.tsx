@@ -1,185 +1,152 @@
 
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import {
-  LayoutDashboard,
-  Building2,
-  CreditCard,
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  LayoutDashboard, 
+  Users, 
   Settings,
-  Brain,
-  Activity,
-  HeadphonesIcon,
-  Database,
-  GitBranch,
+  BarChart3,
   Shield,
-  FileBarChart,
-  X,
-  Users,
-  AlertTriangle,
-  Flag,
-  Wrench
-} from 'lucide-react';
+  Database,
+  Globe,
+  CreditCard,
+  GitBranch,
+  UserPlus,
+  Palette,
+  FileText,
+  Package,
+  Bell
+} from "lucide-react";
 
 interface SuperAdminSidebarProps {
-  open: boolean;
-  setOpen: (open: boolean) => void;
+  className?: string;
+  activeSection: string;
+  onSectionChange: (section: string) => void;
 }
 
-const navigation = [
+const sidebarItems = [
   {
-    name: 'Overview',
-    href: '/super-admin',
+    id: 'overview',
+    label: 'Overview',
     icon: LayoutDashboard,
-    end: true
+    description: 'Platform overview and key metrics'
   },
   {
-    name: 'Tenant Management',
-    href: '/super-admin/tenants',
-    icon: Building2
+    id: 'tenant-management',
+    label: 'Tenant Management',
+    icon: Users,
+    description: 'Manage tenant accounts and organizations'
   },
   {
-    name: 'User Management',
-    href: '/super-admin/users',
-    icon: Users
+    id: 'tenant-onboarding',
+    label: 'Tenant Onboarding',
+    icon: UserPlus,
+    description: 'Onboarding workflows and automation'
   },
   {
-    name: 'Subscriptions & Billing',
-    href: '/super-admin/billing',
-    icon: CreditCard
+    id: 'white-label-config',
+    label: 'White-Label Config',
+    icon: Palette,
+    description: 'Branding and customization settings'
   },
   {
-    name: 'System Alerts',
-    href: '/super-admin/alerts',
-    icon: AlertTriangle
+    id: 'subscription-management',
+    label: 'Subscription Management',
+    icon: CreditCard,
+    description: 'Plans, billing, and subscriptions'
   },
   {
-    name: 'Feature Flags',
-    href: '/super-admin/features',
-    icon: Flag
+    id: 'feature-flags',
+    label: 'Feature Flags',
+    icon: GitBranch,
+    description: 'Feature toggles and A/B testing'
   },
   {
-    name: 'Platform Configuration',
-    href: '/super-admin/config',
-    icon: Settings
+    id: 'analytics',
+    label: 'Platform Analytics',
+    icon: BarChart3,
+    description: 'Usage analytics and insights'
   },
   {
-    name: 'AI Model Management',
-    href: '/super-admin/ai-models',
-    icon: Brain
+    id: 'notifications',
+    label: 'Notifications',
+    icon: Bell,
+    description: 'System alerts and notifications'
   },
   {
-    name: 'System Monitoring',
-    href: '/super-admin/monitoring',
-    icon: Activity
+    id: 'reports',
+    label: 'Reports',
+    icon: FileText,
+    description: 'Generate and view reports'
   },
   {
-    name: 'Support Tickets',
-    href: '/super-admin/support',
-    icon: HeadphonesIcon
+    id: 'integrations',
+    label: 'Integrations',
+    icon: Package,
+    description: 'Third-party integrations'
   },
   {
-    name: 'Database Management',
-    href: '/super-admin/database',
-    icon: Database
+    id: 'system-health',
+    label: 'System Health',
+    icon: Database,
+    description: 'System monitoring and health'
   },
   {
-    name: 'DevOps Tools',
-    href: '/super-admin/devops',
-    icon: GitBranch
+    id: 'security',
+    label: 'Security',
+    icon: Shield,
+    description: 'Security settings and audit logs'
   },
   {
-    name: 'Security & Compliance',
-    href: '/super-admin/security',
-    icon: Shield
-  },
-  {
-    name: 'Analytics & Reports',
-    href: '/super-admin/analytics',
-    icon: FileBarChart
-  },
-  {
-    name: 'System Maintenance',
-    href: '/super-admin/maintenance',
-    icon: Wrench
+    id: 'global-settings',
+    label: 'Global Settings',
+    icon: Settings,
+    description: 'System-wide configuration'
   }
 ];
 
-export const SuperAdminSidebar = ({ open, setOpen }: SuperAdminSidebarProps) => {
-  const location = useLocation();
-
+export default function SuperAdminSidebar({ 
+  className, 
+  activeSection, 
+  onSectionChange 
+}: SuperAdminSidebarProps) {
   return (
-    <>
-      {/* Mobile overlay */}
-      {open && (
-        <div 
-          className="fixed inset-0 z-40 lg:hidden bg-black/50"
-          onClick={() => setOpen(false)}
-        />
-      )}
-      
-      {/* Sidebar */}
-      <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
-        open ? "translate-x-0" : "-translate-x-full"
-      )}>
-        <div className="flex items-center justify-between h-16 px-6 border-b">
-          <div className="flex items-center space-x-2">
-            <Shield className="w-8 h-8 text-primary" />
-            <div>
-              <h1 className="text-lg font-bold">Super Admin</h1>
-              <p className="text-xs text-muted-foreground">KisanShaktiAI</p>
+    <div className={cn("pb-12", className)}>
+      <div className="space-y-4 py-4">
+        <div className="px-3 py-2">
+          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+            Super Admin
+          </h2>
+          <ScrollArea className="h-[600px] px-1">
+            <div className="space-y-1">
+              {sidebarItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Button
+                    key={item.id}
+                    variant={activeSection === item.id ? "secondary" : "ghost"}
+                    className={cn(
+                      "w-full justify-start h-auto p-3",
+                      activeSection === item.id && "bg-muted font-medium"
+                    )}
+                    onClick={() => onSectionChange(item.id)}
+                  >
+                    <Icon className="mr-3 h-4 w-4 flex-shrink-0" />
+                    <div className="text-left">
+                      <div className="font-medium">{item.label}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {item.description}
+                      </div>
+                    </div>
+                  </Button>
+                );
+              })}
             </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="lg:hidden"
-            onClick={() => setOpen(false)}
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-        
-        <ScrollArea className="flex-1 px-3 py-4">
-          <nav className="space-y-1">
-            {navigation.map((item) => {
-              const isActive = item.end 
-                ? location.pathname === item.href
-                : location.pathname.startsWith(item.href);
-              
-              return (
-                <NavLink
-                  key={item.name}
-                  to={item.href}
-                  className={cn(
-                    "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-foreground hover:bg-accent hover:text-accent-foreground"
-                  )}
-                  onClick={() => setOpen(false)}
-                >
-                  <item.icon className="w-5 h-5 mr-3" />
-                  {item.name}
-                </NavLink>
-              );
-            })}
-          </nav>
-        </ScrollArea>
-        
-        <Separator />
-        
-        <div className="p-4">
-          <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span>System Operational</span>
-          </div>
+          </ScrollArea>
         </div>
       </div>
-    </>
+    </div>
   );
-};
+}
