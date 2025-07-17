@@ -1,927 +1,779 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Palette, Globe, Mail, Smartphone, Monitor, Upload } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { ColorPicker } from '@/components/ui/color-picker';
+import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 interface WhiteLabelConfig {
   id: string;
   tenant_id: string;
-  brand_identity: any;
-  domain_config: any;
-  email_templates: any;
-  app_store_config: any;
-  pwa_config: any;
-  splash_screens: any;
-  tenant_name?: string;
+  brand_identity: {
+    logo_url?: string;
+    primary_color?: string;
+    secondary_color?: string;
+    accent_color?: string;
+    font_family?: string;
+    company_name?: string;
+  };
+  domain_config: {
+    custom_domain?: string;
+    subdomain?: string;
+    ssl_enabled?: boolean;
+    redirect_urls?: string[];
+  };
+  email_templates: {
+    welcome_template?: string;
+    notification_template?: string;
+    invoice_template?: string;
+    header_color?: string;
+    footer_text?: string;
+  };
+  app_store_config: {
+    app_name?: string;
+    app_description?: string;
+    app_icon?: string;
+    screenshots?: string[];
+    keywords?: string[];
+    category?: string;
+  };
+  pwa_config: {
+    app_name?: string;
+    short_name?: string;
+    description?: string;
+    theme_color?: string;
+    background_color?: string;
+    display?: string;
+    orientation?: string;
+    icons?: Array<{
+      src: string;
+      sizes: string;
+      type: string;
+    }>;
+  };
+  splash_screens: {
+    mobile_splash?: string;
+    tablet_splash?: string;
+    desktop_splash?: string;
+    loading_animation?: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+interface Tenant {
+  id: string;
+  name: string;
+  tenant_type: string;
 }
 
 export default function WhiteLabelConfig() {
-  const [configs, setConfigs] = useState<WhiteLabelConfig[]>([]);
-  const [selectedConfig, setSelectedConfig] = useState<WhiteLabelConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<string>('');
+  const [config, setConfig] = useState<WhiteLabelConfig | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchWhiteLabelConfigs();
-  }, []);
+  // Fetch tenants
+  const { data: tenants = [], isLoading: tenantsLoading } = useQuery({
+    queryKey: ['tenants-for-config'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, name, tenant_type')
+        .eq('status', 'active')
+        .order('name');
+      
+      if (error) throw error;
+      return data as Tenant[];
+    }
+  });
 
-  const fetchWhiteLabelConfigs = async () => {
-    try {
+  // Fetch white-label config for selected tenant
+  const { data: whiteLabelConfig, isLoading: configLoading } = useQuery({
+    queryKey: ['white-label-config', selectedTenant],
+    queryFn: async () => {
+      if (!selectedTenant) return null;
+      
       const { data, error } = await supabase
         .from('white_label_configs')
-        .select(`
-          *,
-          tenants:tenant_id (
-            name
-          )
-        `)
-        .order('created_at', { ascending: false });
+        .select('*')
+        .eq('tenant_id', selectedTenant)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data as WhiteLabelConfig;
+    },
+    enabled: !!selectedTenant
+  });
 
-      if (error) throw error;
+  useEffect(() => {
+    if (whiteLabelConfig) {
+      setConfig(whiteLabelConfig);
+    } else if (selectedTenant) {
+      // Initialize with default config
+      setConfig({
+        id: '',
+        tenant_id: selectedTenant,
+        brand_identity: {
+          primary_color: '#3b82f6',
+          secondary_color: '#64748b',
+          accent_color: '#10b981',
+          font_family: 'Inter',
+          company_name: ''
+        },
+        domain_config: {
+          ssl_enabled: true,
+          redirect_urls: []
+        },
+        email_templates: {
+          header_color: '#3b82f6',
+          footer_text: 'Powered by KisanShaktiAI'
+        },
+        app_store_config: {
+          category: 'Agriculture',
+          keywords: ['agriculture', 'farming', 'crops']
+        },
+        pwa_config: {
+          display: 'standalone',
+          orientation: 'portrait',
+          theme_color: '#3b82f6',
+          background_color: '#ffffff',
+          icons: []
+        },
+        splash_screens: {},
+        created_at: '',
+        updated_at: ''
+      });
+    }
+  }, [whiteLabelConfig, selectedTenant]);
 
-      const formattedConfigs = data?.map(config => ({
-        ...config,
-        tenant_name: config.tenants?.name || 'Unknown Tenant'
-      })) || [];
-
-      setConfigs(formattedConfigs);
-      if (formattedConfigs.length > 0) {
-        setSelectedConfig(formattedConfigs[0]);
+  // Save configuration mutation
+  const saveConfigMutation = useMutation({
+    mutationFn: async (configData: Partial<WhiteLabelConfig>) => {
+      if (whiteLabelConfig) {
+        // Update existing config
+        const { data, error } = await supabase
+          .from('white_label_configs')
+          .update(configData)
+          .eq('id', whiteLabelConfig.id)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return data;
+      } else {
+        // Create new config
+        const { data, error } = await supabase
+          .from('white_label_configs')
+          .insert([{ ...configData, tenant_id: selectedTenant }])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return data;
       }
-    } catch (error) {
-      console.error('Error fetching white-label configs:', error);
-      toast.error('Failed to load white-label configurations');
-    } finally {
-      setLoading(false);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['white-label-config'] });
+      toast.success('Configuration saved successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to save configuration: ' + error.message);
     }
+  });
+
+  const handleSave = () => {
+    if (!config) return;
+    
+    const { id, created_at, updated_at, ...configData } = config;
+    saveConfigMutation.mutate(configData);
   };
 
-  const updateConfig = async (section: string, data: any) => {
-    if (!selectedConfig) return;
-
-    setSaving(true);
-    try {
-      const updateData = {
-        [section]: { ...selectedConfig[section as keyof WhiteLabelConfig], ...data }
-      };
-
-      const { error } = await supabase
-        .from('white_label_configs')
-        .update(updateData)
-        .eq('id', selectedConfig.id);
-
-      if (error) throw error;
-
-      setSelectedConfig({ ...selectedConfig, ...updateData });
-      toast.success('Configuration updated successfully');
-    } catch (error) {
-      console.error('Error updating configuration:', error);
-      toast.error('Failed to update configuration');
-    } finally {
-      setSaving(false);
-    }
+  const updateConfig = (section: keyof WhiteLabelConfig, field: string, value: any) => {
+    if (!config) return;
+    
+    setConfig({
+      ...config,
+      [section]: {
+        ...config[section],
+        [field]: value
+      }
+    });
   };
 
-  if (loading) {
-    return <div className="flex items-center justify-center h-64">Loading...</div>;
+  const generateEmailPreview = (template: string) => {
+    const userName = 'John Doe';
+    const appName = config?.app_store_config?.app_name || 'KisanShaktiAI';
+    const companyName = config?.brand_identity?.company_name || 'Your Company';
+    
+    return template
+      .replace(/\{\{user_name\}\}/g, userName)
+      .replace(/\{\{app_name\}\}/g, appName)
+      .replace(/\{\{company_name\}\}/g, companyName);
+  };
+
+  if (tenantsLoading) {
+    return <div className="text-center py-8">Loading tenants...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">White-Label Configuration</h1>
-          <p className="text-muted-foreground">
-            Customize branding and appearance for tenant applications
-          </p>
+          <h1 className="text-3xl font-bold">White-Label Configuration</h1>
+          <p className="text-muted-foreground">Customize branding and appearance for tenants</p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setPreviewMode(!previewMode)}
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            {previewMode ? 'Exit Preview' : 'Preview'}
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={!config || saveConfigMutation.isPending}
+          >
+            {saveConfigMutation.isPending ? 'Saving...' : 'Save Configuration'}
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Select Tenant</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {configs.map((config) => (
-              <div
-                key={config.id}
-                className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                  selectedConfig?.id === config.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted hover:bg-muted/80'
-                }`}
-                onClick={() => setSelectedConfig(config)}
-              >
-                <div className="font-medium">{config.tenant_name}</div>
-                <div className="text-sm opacity-70">
-                  {config.brand_identity?.app_name || 'No app name set'}
-                </div>
-              </div>
+      {/* Tenant Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Select Tenant</CardTitle>
+          <CardDescription>Choose a tenant to configure white-label settings</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <select
+            className="w-full p-2 border rounded-md"
+            value={selectedTenant}
+            onChange={(e) => setSelectedTenant(e.target.value)}
+          >
+            <option value="">Select a tenant...</option>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.name} ({tenant.tenant_type})
+              </option>
             ))}
-          </CardContent>
-        </Card>
+          </select>
+        </CardContent>
+      </Card>
 
-        <div className="col-span-3">
-          {selectedConfig ? (
-            <Tabs defaultValue="branding" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-6">
-                <TabsTrigger value="branding">Branding</TabsTrigger>
-                <TabsTrigger value="domain">Domain</TabsTrigger>
-                <TabsTrigger value="email">Email</TabsTrigger>
-                <TabsTrigger value="mobile">Mobile</TabsTrigger>
-                <TabsTrigger value="pwa">PWA</TabsTrigger>
-                <TabsTrigger value="preview">Preview</TabsTrigger>
-              </TabsList>
+      {selectedTenant && config && (
+        <Tabs defaultValue="brand" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="brand" className="flex items-center gap-2">
+              <Palette className="w-4 h-4" />
+              Brand
+            </TabsTrigger>
+            <TabsTrigger value="domain" className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              Domain
+            </TabsTrigger>
+            <TabsTrigger value="email" className="flex items-center gap-2">
+              <Mail className="w-4 h-4" />
+              Email
+            </TabsTrigger>
+            <TabsTrigger value="mobile" className="flex items-center gap-2">
+              <Smartphone className="w-4 h-4" />
+              Mobile
+            </TabsTrigger>
+            <TabsTrigger value="pwa" className="flex items-center gap-2">
+              <Monitor className="w-4 h-4" />
+              PWA
+            </TabsTrigger>
+            <TabsTrigger value="splash" className="flex items-center gap-2">
+              <Eye className="w-4 h-4" />
+              Splash
+            </TabsTrigger>
+          </TabsList>
 
-              <TabsContent value="branding">
-                <BrandingConfiguration 
-                  config={selectedConfig.brand_identity || {}}
-                  onUpdate={(data) => updateConfig('brand_identity', data)}
-                  saving={saving}
-                />
-              </TabsContent>
-
-              <TabsContent value="domain">
-                <DomainConfiguration 
-                  config={selectedConfig.domain_config || {}}
-                  onUpdate={(data) => updateConfig('domain_config', data)}
-                  saving={saving}
-                />
-              </TabsContent>
-
-              <TabsContent value="email">
-                <EmailTemplateConfiguration 
-                  config={selectedConfig.email_templates || {}}
-                  onUpdate={(data) => updateConfig('email_templates', data)}
-                  saving={saving}
-                />
-              </TabsContent>
-
-              <TabsContent value="mobile">
-                <MobileAppConfiguration 
-                  config={selectedConfig.app_store_config || {}}
-                  onUpdate={(data) => updateConfig('app_store_config', data)}
-                  saving={saving}
-                />
-              </TabsContent>
-
-              <TabsContent value="pwa">
-                <PWAConfiguration 
-                  config={selectedConfig.pwa_config || {}}
-                  onUpdate={(data) => updateConfig('pwa_config', data)}
-                  saving={saving}
-                />
-              </TabsContent>
-
-              <TabsContent value="preview">
-                <ConfigurationPreview config={selectedConfig} />
-              </TabsContent>
-            </Tabs>
-          ) : (
+          {/* Brand Identity */}
+          <TabsContent value="brand" className="space-y-4">
             <Card>
-              <CardContent className="flex items-center justify-center h-64">
-                <div className="text-center">
-                  <Palette className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium">No Configuration Selected</h3>
-                  <p className="text-muted-foreground">
-                    Select a tenant to view and edit their white-label configuration
-                  </p>
+              <CardHeader>
+                <CardTitle>Brand Identity</CardTitle>
+                <CardDescription>Configure colors, fonts, and branding elements</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="company_name">Company Name</Label>
+                    <Input
+                      id="company_name"
+                      value={config.brand_identity.company_name || ''}
+                      onChange={(e) => updateConfig('brand_identity', 'company_name', e.target.value)}
+                      placeholder="Your Company Name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="font_family">Font Family</Label>
+                    <select
+                      className="w-full p-2 border rounded-md"
+                      value={config.brand_identity.font_family || 'Inter'}
+                      onChange={(e) => updateConfig('brand_identity', 'font_family', e.target.value)}
+                    >
+                      <option value="Inter">Inter</option>
+                      <option value="Roboto">Roboto</option>
+                      <option value="Open Sans">Open Sans</option>
+                      <option value="Lato">Lato</option>
+                      <option value="Poppins">Poppins</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <Label htmlFor="primary_color">Primary Color</Label>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        type="color"
+                        value={config.brand_identity.primary_color || '#3b82f6'}
+                        onChange={(e) => updateConfig('brand_identity', 'primary_color', e.target.value)}
+                        className="w-16 h-10"
+                      />
+                      <Input
+                        value={config.brand_identity.primary_color || '#3b82f6'}
+                        onChange={(e) => updateConfig('brand_identity', 'primary_color', e.target.value)}
+                        placeholder="#3b82f6"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="secondary_color">Secondary Color</Label>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        type="color"
+                        value={config.brand_identity.secondary_color || '#64748b'}
+                        onChange={(e) => updateConfig('brand_identity', 'secondary_color', e.target.value)}
+                        className="w-16 h-10"
+                      />
+                      <Input
+                        value={config.brand_identity.secondary_color || '#64748b'}
+                        onChange={(e) => updateConfig('brand_identity', 'secondary_color', e.target.value)}
+                        placeholder="#64748b"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="accent_color">Accent Color</Label>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        type="color"
+                        value={config.brand_identity.accent_color || '#10b981'}
+                        onChange={(e) => updateConfig('brand_identity', 'accent_color', e.target.value)}
+                        className="w-16 h-10"
+                      />
+                      <Input
+                        value={config.brand_identity.accent_color || '#10b981'}
+                        onChange={(e) => updateConfig('brand_identity', 'accent_color', e.target.value)}
+                        placeholder="#10b981"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="logo_url">Logo URL</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="logo_url"
+                      value={config.brand_identity.logo_url || ''}
+                      onChange={(e) => updateConfig('brand_identity', 'logo_url', e.target.value)}
+                      placeholder="https://example.com/logo.png"
+                    />
+                    <Button variant="outline">
+                      <Upload className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          )}
-        </div>
-      </div>
+          </TabsContent>
+
+          {/* Domain Configuration */}
+          <TabsContent value="domain" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Domain Configuration</CardTitle>
+                <CardDescription>Set up custom domains and SSL settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="custom_domain">Custom Domain</Label>
+                    <Input
+                      id="custom_domain"
+                      value={config.domain_config.custom_domain || ''}
+                      onChange={(e) => updateConfig('domain_config', 'custom_domain', e.target.value)}
+                      placeholder="app.yourcompany.com"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="subdomain">Subdomain</Label>
+                    <Input
+                      id="subdomain"
+                      value={config.domain_config.subdomain || ''}
+                      onChange={(e) => updateConfig('domain_config', 'subdomain', e.target.value)}
+                      placeholder="yourcompany"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="ssl_enabled"
+                    checked={config.domain_config.ssl_enabled || false}
+                    onCheckedChange={(checked) => updateConfig('domain_config', 'ssl_enabled', checked)}
+                  />
+                  <Label htmlFor="ssl_enabled">Enable SSL Certificate</Label>
+                </div>
+
+                <div>
+                  <Label htmlFor="redirect_urls">Redirect URLs (one per line)</Label>
+                  <Textarea
+                    id="redirect_urls"
+                    value={(config.domain_config.redirect_urls || []).join('\n')}
+                    onChange={(e) => updateConfig('domain_config', 'redirect_urls', e.target.value.split('\n').filter(Boolean))}
+                    placeholder="https://yoursite.com/auth/callback"
+                    rows={3}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Email Templates */}
+          <TabsContent value="email" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Email Templates</CardTitle>
+                <CardDescription>Customize email templates and branding</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="header_color">Header Color</Label>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        type="color"
+                        value={config.email_templates.header_color || '#3b82f6'}
+                        onChange={(e) => updateConfig('email_templates', 'header_color', e.target.value)}
+                        className="w-16 h-10"
+                      />
+                      <Input
+                        value={config.email_templates.header_color || '#3b82f6'}
+                        onChange={(e) => updateConfig('email_templates', 'header_color', e.target.value)}
+                        placeholder="#3b82f6"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="footer_text">Footer Text</Label>
+                    <Input
+                      id="footer_text"
+                      value={config.email_templates.footer_text || ''}
+                      onChange={(e) => updateConfig('email_templates', 'footer_text', e.target.value)}
+                      placeholder="Powered by KisanShaktiAI"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="welcome_template">Welcome Email Template</Label>
+                  <Textarea
+                    id="welcome_template"
+                    value={config.email_templates.welcome_template || ''}
+                    onChange={(e) => updateConfig('email_templates', 'welcome_template', e.target.value)}
+                    placeholder="Welcome {{user_name}} to {{app_name}}! We're excited to have you on board."
+                    rows={4}
+                  />
+                  {config.email_templates.welcome_template && (
+                    <div className="mt-2 p-3 bg-gray-50 rounded-md">
+                      <Label className="text-sm font-medium">Preview:</Label>
+                      <div className="text-sm text-gray-600">
+                        {generateEmailPreview(config.email_templates.welcome_template)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="notification_template">Notification Email Template</Label>
+                  <Textarea
+                    id="notification_template"
+                    value={config.email_templates.notification_template || ''}
+                    onChange={(e) => updateConfig('email_templates', 'notification_template', e.target.value)}
+                    placeholder="Hi {{user_name}}, you have a new notification from {{app_name}}."
+                    rows={4}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Mobile App Configuration */}
+          <TabsContent value="mobile" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Mobile App Configuration</CardTitle>
+                <CardDescription>Configure app store listing and mobile app settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="app_name">App Name</Label>
+                    <Input
+                      id="app_name"
+                      value={config.app_store_config.app_name || ''}
+                      onChange={(e) => updateConfig('app_store_config', 'app_name', e.target.value)}
+                      placeholder="KisanShakti"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="category">Category</Label>
+                    <select
+                      className="w-full p-2 border rounded-md"
+                      value={config.app_store_config.category || 'Agriculture'}
+                      onChange={(e) => updateConfig('app_store_config', 'category', e.target.value)}
+                    >
+                      <option value="Agriculture">Agriculture</option>
+                      <option value="Business">Business</option>
+                      <option value="Productivity">Productivity</option>
+                      <option value="Education">Education</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="app_description">App Description</Label>
+                  <Textarea
+                    id="app_description"
+                    value={config.app_store_config.app_description || ''}
+                    onChange={(e) => updateConfig('app_store_config', 'app_description', e.target.value)}
+                    placeholder="A comprehensive agricultural management platform..."
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="keywords">Keywords (comma-separated)</Label>
+                  <Input
+                    id="keywords"
+                    value={(config.app_store_config.keywords || []).join(', ')}
+                    onChange={(e) => updateConfig('app_store_config', 'keywords', e.target.value.split(',').map(k => k.trim()))}
+                    placeholder="agriculture, farming, crops, soil, weather"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="app_icon">App Icon URL</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="app_icon"
+                      value={config.app_store_config.app_icon || ''}
+                      onChange={(e) => updateConfig('app_store_config', 'app_icon', e.target.value)}
+                      placeholder="https://example.com/app-icon.png"
+                    />
+                    <Button variant="outline">
+                      <Upload className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* PWA Configuration */}
+          <TabsContent value="pwa" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>PWA Configuration</CardTitle>
+                <CardDescription>Configure Progressive Web App settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="pwa_app_name">App Name</Label>
+                    <Input
+                      id="pwa_app_name"
+                      value={config.pwa_config.app_name || ''}
+                      onChange={(e) => updateConfig('pwa_config', 'app_name', e.target.value)}
+                      placeholder="KisanShaktiAI"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="short_name">Short Name</Label>
+                    <Input
+                      id="short_name"
+                      value={config.pwa_config.short_name || ''}
+                      onChange={(e) => updateConfig('pwa_config', 'short_name', e.target.value)}
+                      placeholder="KisanShakti"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="pwa_description">Description</Label>
+                  <Textarea
+                    id="pwa_description"
+                    value={config.pwa_config.description || ''}
+                    onChange={(e) => updateConfig('pwa_config', 'description', e.target.value)}
+                    placeholder="Agricultural management platform"
+                    rows={2}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="theme_color">Theme Color</Label>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        type="color"
+                        value={config.pwa_config.theme_color || '#3b82f6'}
+                        onChange={(e) => updateConfig('pwa_config', 'theme_color', e.target.value)}
+                        className="w-16 h-10"
+                      />
+                      <Input
+                        value={config.pwa_config.theme_color || '#3b82f6'}
+                        onChange={(e) => updateConfig('pwa_config', 'theme_color', e.target.value)}
+                        placeholder="#3b82f6"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="background_color">Background Color</Label>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        type="color"
+                        value={config.pwa_config.background_color || '#ffffff'}
+                        onChange={(e) => updateConfig('pwa_config', 'background_color', e.target.value)}
+                        className="w-16 h-10"
+                      />
+                      <Input
+                        value={config.pwa_config.background_color || '#ffffff'}
+                        onChange={(e) => updateConfig('pwa_config', 'background_color', e.target.value)}
+                        placeholder="#ffffff"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="display">Display Mode</Label>
+                    <select
+                      className="w-full p-2 border rounded-md"
+                      value={config.pwa_config.display || 'standalone'}
+                      onChange={(e) => updateConfig('pwa_config', 'display', e.target.value)}
+                    >
+                      <option value="standalone">Standalone</option>
+                      <option value="fullscreen">Fullscreen</option>
+                      <option value="minimal-ui">Minimal UI</option>
+                      <option value="browser">Browser</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="orientation">Orientation</Label>
+                    <select
+                      className="w-full p-2 border rounded-md"
+                      value={config.pwa_config.orientation || 'portrait'}
+                      onChange={(e) => updateConfig('pwa_config', 'orientation', e.target.value)}
+                    >
+                      <option value="portrait">Portrait</option>
+                      <option value="landscape">Landscape</option>
+                      <option value="any">Any</option>
+                    </select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Splash Screens */}
+          <TabsContent value="splash" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Splash Screens</CardTitle>
+                <CardDescription>Configure loading screens for different devices</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="mobile_splash">Mobile Splash Screen</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="mobile_splash"
+                      value={config.splash_screens.mobile_splash || ''}
+                      onChange={(e) => updateConfig('splash_screens', 'mobile_splash', e.target.value)}
+                      placeholder="https://example.com/mobile-splash.png"
+                    />
+                    <Button variant="outline">
+                      <Upload className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="tablet_splash">Tablet Splash Screen</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="tablet_splash"
+                      value={config.splash_screens.tablet_splash || ''}
+                      onChange={(e) => updateConfig('splash_screens', 'tablet_splash', e.target.value)}
+                      placeholder="https://example.com/tablet-splash.png"
+                    />
+                    <Button variant="outline">
+                      <Upload className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="desktop_splash">Desktop Splash Screen</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="desktop_splash"
+                      value={config.splash_screens.desktop_splash || ''}
+                      onChange={(e) => updateConfig('splash_screens', 'desktop_splash', e.target.value)}
+                      placeholder="https://example.com/desktop-splash.png"
+                    />
+                    <Button variant="outline">
+                      <Upload className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="loading_animation">Loading Animation URL</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="loading_animation"
+                      value={config.splash_screens.loading_animation || ''}
+                      onChange={(e) => updateConfig('splash_screens', 'loading_animation', e.target.value)}
+                      placeholder="https://example.com/loading.gif"
+                    />
+                    <Button variant="outline">
+                      <Upload className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
-  );
-}
-
-function BrandingConfiguration({ config, onUpdate, saving }: {
-  config: any;
-  onUpdate: (data: any) => void;
-  saving: boolean;
-}) {
-  const [formData, setFormData] = useState({
-    app_name: config.app_name || '',
-    app_tagline: config.app_tagline || '',
-    logo_url: config.logo_url || '',
-    primary_color: config.primary_color || '#007bff',
-    secondary_color: config.secondary_color || '#6c757d',
-    accent_color: config.accent_color || '#28a745',
-    font_family: config.font_family || 'Inter',
-    ...config
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onUpdate(formData);
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Palette className="h-5 w-5" />
-          <span>Brand Identity</span>
-        </CardTitle>
-        <CardDescription>
-          Configure the visual identity and branding elements
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="app_name">Application Name</Label>
-              <Input
-                id="app_name"
-                value={formData.app_name}
-                onChange={(e) => setFormData({ ...formData, app_name: e.target.value })}
-                placeholder="Your App Name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="app_tagline">Tagline</Label>
-              <Input
-                id="app_tagline"
-                value={formData.app_tagline}
-                onChange={(e) => setFormData({ ...formData, app_tagline: e.target.value })}
-                placeholder="Your app's tagline"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="logo_url">Logo URL</Label>
-            <div className="flex space-x-2">
-              <Input
-                id="logo_url"
-                value={formData.logo_url}
-                onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
-                placeholder="https://example.com/logo.png"
-              />
-              <Button type="button" variant="outline">
-                <Upload className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="primary_color">Primary Color</Label>
-              <div className="flex space-x-2">
-                <Input
-                  id="primary_color"
-                  type="color"
-                  value={formData.primary_color}
-                  onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })}
-                  className="w-16"
-                />
-                <Input
-                  value={formData.primary_color}
-                  onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })}
-                  placeholder="#007bff"
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="secondary_color">Secondary Color</Label>
-              <div className="flex space-x-2">
-                <Input
-                  id="secondary_color"
-                  type="color"
-                  value={formData.secondary_color}
-                  onChange={(e) => setFormData({ ...formData, secondary_color: e.target.value })}
-                  className="w-16"
-                />
-                <Input
-                  value={formData.secondary_color}
-                  onChange={(e) => setFormData({ ...formData, secondary_color: e.target.value })}
-                  placeholder="#6c757d"
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="accent_color">Accent Color</Label>
-              <div className="flex space-x-2">
-                <Input
-                  id="accent_color"
-                  type="color"
-                  value={formData.accent_color}
-                  onChange={(e) => setFormData({ ...formData, accent_color: e.target.value })}
-                  className="w-16"
-                />
-                <Input
-                  value={formData.accent_color}
-                  onChange={(e) => setFormData({ ...formData, accent_color: e.target.value })}
-                  placeholder="#28a745"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="font_family">Font Family</Label>
-            <Select 
-              value={formData.font_family} 
-              onValueChange={(value) => setFormData({ ...formData, font_family: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Inter">Inter</SelectItem>
-                <SelectItem value="Roboto">Roboto</SelectItem>
-                <SelectItem value="Open Sans">Open Sans</SelectItem>
-                <SelectItem value="Lato">Lato</SelectItem>
-                <SelectItem value="Montserrat">Montserrat</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Saving...' : 'Save Branding'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function DomainConfiguration({ config, onUpdate, saving }: {
-  config: any;
-  onUpdate: (data: any) => void;
-  saving: boolean;
-}) {
-  const [formData, setFormData] = useState({
-    custom_domain: config.custom_domain || '',
-    subdomain: config.subdomain || '',
-    ssl_enabled: config.ssl_enabled || true,
-    redirect_www: config.redirect_www || true,
-    ...config
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onUpdate(formData);
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Globe className="h-5 w-5" />
-          <span>Domain Configuration</span>
-        </CardTitle>
-        <CardDescription>
-          Set up custom domains and SSL configuration
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <Label htmlFor="custom_domain">Custom Domain</Label>
-            <Input
-              id="custom_domain"
-              value={formData.custom_domain}
-              onChange={(e) => setFormData({ ...formData, custom_domain: e.target.value })}
-              placeholder="app.yourcompany.com"
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              Point your domain's CNAME to our servers
-            </p>
-          </div>
-
-          <div>
-            <Label htmlFor="subdomain">Subdomain</Label>
-            <div className="flex items-center space-x-2">
-              <Input
-                id="subdomain"
-                value={formData.subdomain}
-                onChange={(e) => setFormData({ ...formData, subdomain: e.target.value })}
-                placeholder="yourcompany"
-              />
-              <span className="text-muted-foreground">.kisanshakti.app</span>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="ssl_enabled">SSL Certificate</Label>
-                <p className="text-sm text-muted-foreground">
-                  Automatically provision SSL certificates
-                </p>
-              </div>
-              <Switch
-                id="ssl_enabled"
-                checked={formData.ssl_enabled}
-                onCheckedChange={(checked) => setFormData({ ...formData, ssl_enabled: checked })}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="redirect_www">Redirect WWW</Label>
-                <p className="text-sm text-muted-foreground">
-                  Redirect www.domain.com to domain.com
-                </p>
-              </div>
-              <Switch
-                id="redirect_www"
-                checked={formData.redirect_www}
-                onCheckedChange={(checked) => setFormData({ ...formData, redirect_www: checked })}
-              />
-            </div>
-          </div>
-
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Saving...' : 'Save Domain Settings'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function EmailTemplateConfiguration({ config, onUpdate, saving }: {
-  config: any;
-  onUpdate: (data: any) => void;
-  saving: boolean;
-}) {
-  const [selectedTemplate, setSelectedTemplate] = useState('welcome');
-  const [formData, setFormData] = useState({
-    welcome: config.welcome || {
-      subject: 'Welcome to {{app_name}}',
-      html: '<h1>Welcome {{user_name}}!</h1><p>Thank you for joining {{app_name}}.</p>'
-    },
-    reset_password: config.reset_password || {
-      subject: 'Reset your password',
-      html: '<h1>Password Reset</h1><p>Click the link below to reset your password.</p>'
-    },
-    ...config
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onUpdate(formData);
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Mail className="h-5 w-5" />
-          <span>Email Templates</span>
-        </CardTitle>
-        <CardDescription>
-          Customize email templates with your branding
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <Label>Select Template</Label>
-            <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="welcome">Welcome Email</SelectItem>
-                <SelectItem value="reset_password">Password Reset</SelectItem>
-                <SelectItem value="invitation">Team Invitation</SelectItem>
-                <SelectItem value="notification">Notification</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="subject">Subject Line</Label>
-            <Input
-              id="subject"
-              value={formData[selectedTemplate]?.subject || ''}
-              onChange={(e) => setFormData({
-                ...formData,
-                [selectedTemplate]: {
-                  ...formData[selectedTemplate],
-                  subject: e.target.value
-                }
-              })}
-              placeholder="Email subject"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="html">HTML Content</Label>
-            <Textarea
-              id="html"
-              value={formData[selectedTemplate]?.html || ''}
-              onChange={(e) => setFormData({
-                ...formData,
-                [selectedTemplate]: {
-                  ...formData[selectedTemplate],
-                  html: e.target.value
-                }
-              })}
-              placeholder="HTML email content"
-              rows={10}
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              Use variables like {{user_name}}, {{app_name}}, {{company_name}}
-            </p>
-          </div>
-
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Saving...' : 'Save Email Template'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function MobileAppConfiguration({ config, onUpdate, saving }: {
-  config: any;
-  onUpdate: (data: any) => void;
-  saving: boolean;
-}) {
-  const [formData, setFormData] = useState({
-    app_name: config.app_name || '',
-    app_description: config.app_description || '',
-    app_icon_url: config.app_icon_url || '',
-    splash_screen_url: config.splash_screen_url || '',
-    app_store_url: config.app_store_url || '',
-    play_store_url: config.play_store_url || '',
-    ...config
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onUpdate(formData);
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Smartphone className="h-5 w-5" />
-          <span>Mobile App Configuration</span>
-        </CardTitle>
-        <CardDescription>
-          Configure mobile app branding and store listings
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="app_name">App Name</Label>
-              <Input
-                id="app_name"
-                value={formData.app_name}
-                onChange={(e) => setFormData({ ...formData, app_name: e.target.value })}
-                placeholder="Your Mobile App"
-              />
-            </div>
-            <div>
-              <Label htmlFor="app_description">App Description</Label>
-              <Input
-                id="app_description"
-                value={formData.app_description}
-                onChange={(e) => setFormData({ ...formData, app_description: e.target.value })}
-                placeholder="App description for stores"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="app_icon_url">App Icon URL</Label>
-              <Input
-                id="app_icon_url"
-                value={formData.app_icon_url}
-                onChange={(e) => setFormData({ ...formData, app_icon_url: e.target.value })}
-                placeholder="https://example.com/icon.png"
-              />
-            </div>
-            <div>
-              <Label htmlFor="splash_screen_url">Splash Screen URL</Label>
-              <Input
-                id="splash_screen_url"
-                value={formData.splash_screen_url}
-                onChange={(e) => setFormData({ ...formData, splash_screen_url: e.target.value })}
-                placeholder="https://example.com/splash.png"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="app_store_url">App Store URL</Label>
-              <Input
-                id="app_store_url"
-                value={formData.app_store_url}
-                onChange={(e) => setFormData({ ...formData, app_store_url: e.target.value })}
-                placeholder="https://apps.apple.com/..."
-              />
-            </div>
-            <div>
-              <Label htmlFor="play_store_url">Play Store URL</Label>
-              <Input
-                id="play_store_url"
-                value={formData.play_store_url}
-                onChange={(e) => setFormData({ ...formData, play_store_url: e.target.value })}
-                placeholder="https://play.google.com/..."
-              />
-            </div>
-          </div>
-
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Saving...' : 'Save Mobile Settings'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function PWAConfiguration({ config, onUpdate, saving }: {
-  config: any;
-  onUpdate: (data: any) => void;
-  saving: boolean;
-}) {
-  const [formData, setFormData] = useState({
-    name: config.name || '',
-    short_name: config.short_name || '',
-    description: config.description || '',
-    theme_color: config.theme_color || '#007bff',
-    background_color: config.background_color || '#ffffff',
-    display: config.display || 'standalone',
-    orientation: config.orientation || 'portrait',
-    ...config
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onUpdate(formData);
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Monitor className="h-5 w-5" />
-          <span>PWA Configuration</span>
-        </CardTitle>
-        <CardDescription>
-          Configure Progressive Web App settings
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">App Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Your Progressive Web App"
-              />
-            </div>
-            <div>
-              <Label htmlFor="short_name">Short Name</Label>
-              <Input
-                id="short_name"
-                value={formData.short_name}
-                onChange={(e) => setFormData({ ...formData, short_name: e.target.value })}
-                placeholder="YourApp"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="App description for PWA manifest"
-              rows={3}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="theme_color">Theme Color</Label>
-              <div className="flex space-x-2">
-                <Input
-                  id="theme_color"
-                  type="color"
-                  value={formData.theme_color}
-                  onChange={(e) => setFormData({ ...formData, theme_color: e.target.value })}
-                  className="w-16"
-                />
-                <Input
-                  value={formData.theme_color}
-                  onChange={(e) => setFormData({ ...formData, theme_color: e.target.value })}
-                  placeholder="#007bff"
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="background_color">Background Color</Label>
-              <div className="flex space-x-2">
-                <Input
-                  id="background_color"
-                  type="color"
-                  value={formData.background_color}
-                  onChange={(e) => setFormData({ ...formData, background_color: e.target.value })}
-                  className="w-16"
-                />
-                <Input
-                  value={formData.background_color}
-                  onChange={(e) => setFormData({ ...formData, background_color: e.target.value })}
-                  placeholder="#ffffff"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="display">Display Mode</Label>
-              <Select 
-                value={formData.display} 
-                onValueChange={(value) => setFormData({ ...formData, display: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standalone">Standalone</SelectItem>
-                  <SelectItem value="fullscreen">Fullscreen</SelectItem>
-                  <SelectItem value="minimal-ui">Minimal UI</SelectItem>
-                  <SelectItem value="browser">Browser</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="orientation">Orientation</Label>
-              <Select 
-                value={formData.orientation} 
-                onValueChange={(value) => setFormData({ ...formData, orientation: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="portrait">Portrait</SelectItem>
-                  <SelectItem value="landscape">Landscape</SelectItem>
-                  <SelectItem value="any">Any</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Saving...' : 'Save PWA Settings'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ConfigurationPreview({ config }: { config: WhiteLabelConfig }) {
-  const branding = config.brand_identity || {};
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Configuration Preview</CardTitle>
-        <CardDescription>
-          Preview how your white-label configuration will look
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          <div className="border rounded-lg p-6" style={{
-            backgroundColor: branding.background_color || '#ffffff',
-            color: branding.text_color || '#000000'
-          }}>
-            <div className="flex items-center space-x-4 mb-6">
-              {branding.logo_url && (
-                <img 
-                  src={branding.logo_url} 
-                  alt="Logo" 
-                  className="h-12 w-12 object-contain"
-                />
-              )}
-              <div>
-                <h2 
-                  className="text-2xl font-bold"
-                  style={{ color: branding.primary_color || '#007bff' }}
-                >
-                  {branding.app_name || 'Your App Name'}
-                </h2>
-                <p className="text-muted-foreground">
-                  {branding.app_tagline || 'Your app tagline'}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <Button 
-                style={{ 
-                  backgroundColor: branding.primary_color || '#007bff',
-                  color: '#ffffff'
-                }}
-              >
-                Primary Button
-              </Button>
-              <Button 
-                variant="outline"
-                style={{ 
-                  borderColor: branding.secondary_color || '#6c757d',
-                  color: branding.secondary_color || '#6c757d'
-                }}
-              >
-                Secondary Button
-              </Button>
-              <Button 
-                style={{ 
-                  backgroundColor: branding.accent_color || '#28a745',
-                  color: '#ffffff'
-                }}
-              >
-                Accent Button
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Brand Colors</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <div 
-                    className="w-6 h-6 rounded"
-                    style={{ backgroundColor: branding.primary_color || '#007bff' }}
-                  />
-                  <span>Primary: {branding.primary_color || '#007bff'}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div 
-                    className="w-6 h-6 rounded"
-                    style={{ backgroundColor: branding.secondary_color || '#6c757d' }}
-                  />
-                  <span>Secondary: {branding.secondary_color || '#6c757d'}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div 
-                    className="w-6 h-6 rounded"
-                    style={{ backgroundColor: branding.accent_color || '#28a745' }}
-                  />
-                  <span>Accent: {branding.accent_color || '#28a745'}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Domain Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Globe className="h-4 w-4" />
-                  <span>
-                    {config.domain_config?.custom_domain || 'No custom domain'}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant={config.domain_config?.ssl_enabled ? 'default' : 'secondary'}>
-                    {config.domain_config?.ssl_enabled ? 'SSL Enabled' : 'SSL Disabled'}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

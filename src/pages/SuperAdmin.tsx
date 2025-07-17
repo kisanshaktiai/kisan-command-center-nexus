@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import SuperAdminAuth from '@/components/super-admin/SuperAdminAuth';
-import SuperAdminHeader from '@/components/super-admin/SuperAdminHeader';
+import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
+import { SuperAdminHeader } from '@/components/super-admin/SuperAdminHeader';
 import SuperAdminSidebar from '@/components/super-admin/SuperAdminSidebar';
 import Overview from '@/pages/super-admin/Overview';
 import TenantManagement from '@/pages/super-admin/TenantManagement';
@@ -11,30 +11,49 @@ import WhiteLabelConfig from '@/pages/super-admin/WhiteLabelConfig';
 import SubscriptionManagement from '@/pages/super-admin/SubscriptionManagement';
 import FeatureFlags from '@/pages/super-admin/FeatureFlags';
 import { Toaster } from "@/components/ui/sonner";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function SuperAdmin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
+  // Check authentication status
   useEffect(() => {
-    // Check if user is authenticated as super admin
-    const superAdminAuth = localStorage.getItem('super_admin_authenticated');
-    if (superAdminAuth === 'true') {
-      setIsAuthenticated(true);
-    }
-  }, []);
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email?.includes('admin')) {
+        setIsAuthenticated(true);
+      }
+    };
 
-  const handleLogout = () => {
-    localStorage.removeItem('super_admin_authenticated');
-    setIsAuthenticated(false);
-    navigate('/');
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user?.email?.includes('admin')) {
+        setIsAuthenticated(true);
+      } else if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false);
+        navigate('/');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  // Mock admin user data
+  const adminUser = {
+    full_name: 'Super Admin',
+    email: 'admin@kisanshaktiai.com',
+    role: 'super_admin'
   };
 
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background">
-        <SuperAdminAuth onAuthenticated={() => setIsAuthenticated(true)} />
+        <SuperAdminAuth />
         <Toaster />
       </div>
     );
@@ -75,7 +94,10 @@ export default function SuperAdmin() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SuperAdminHeader onLogout={handleLogout} />
+      <SuperAdminHeader 
+        setSidebarOpen={setSidebarOpen}
+        adminUser={adminUser}
+      />
       
       <div className="flex">
         <aside className="w-80 border-r bg-muted/10">
