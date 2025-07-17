@@ -18,9 +18,11 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+type AlertStatus = 'active' | 'acknowledged' | 'resolved';
+
 const AlertsPanel = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState<string>('all');
   const [unreadCount, setUnreadCount] = useState(0);
   const queryClient = useQueryClient();
 
@@ -37,7 +39,7 @@ const AlertsPanel = () => {
         if (filter === 'unresolved') {
           query = query.in('status', ['active', 'acknowledged']);
         } else {
-          query = query.eq('status', filter);
+          query = query.eq('status', filter as AlertStatus);
         }
       }
 
@@ -58,11 +60,11 @@ const AlertsPanel = () => {
 
   // Acknowledge alert mutation
   const acknowledgeAlert = useMutation({
-    mutationFn: async (alertId) => {
+    mutationFn: async (alertId: string) => {
       const { error } = await supabase
         .from('platform_alerts')
         .update({
-          status: 'acknowledged',
+          status: 'acknowledged' as AlertStatus,
           acknowledged_at: new Date().toISOString(),
           acknowledged_by: 'current-user-id' // Should use actual user ID
         })
@@ -71,17 +73,17 @@ const AlertsPanel = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['platform-alerts']);
+      queryClient.invalidateQueries({ queryKey: ['platform-alerts'] });
     },
   });
 
   // Resolve alert mutation
   const resolveAlert = useMutation({
-    mutationFn: async (alertId) => {
+    mutationFn: async (alertId: string) => {
       const { error } = await supabase
         .from('platform_alerts')
         .update({
-          status: 'resolved',
+          status: 'resolved' as AlertStatus,
           resolved_at: new Date().toISOString(),
           resolved_by: 'current-user-id' // Should use actual user ID
         })
@@ -90,7 +92,7 @@ const AlertsPanel = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['platform-alerts']);
+      queryClient.invalidateQueries({ queryKey: ['platform-alerts'] });
     },
   });
 
@@ -100,8 +102,8 @@ const AlertsPanel = () => {
       id: '1',
       alert_name: 'High CPU Usage',
       description: 'Database server CPU usage exceeded 90% for 5 minutes',
-      severity: 'critical',
-      status: 'active',
+      severity: 'critical' as const,
+      status: 'active' as AlertStatus,
       metric_name: 'cpu_usage',
       current_value: 94.2,
       threshold_value: 90,
@@ -112,8 +114,8 @@ const AlertsPanel = () => {
       id: '2',
       alert_name: 'API Response Time Alert',
       description: 'Average API response time exceeds acceptable threshold',
-      severity: 'high',
-      status: 'acknowledged',
+      severity: 'high' as const,
+      status: 'acknowledged' as AlertStatus,
       metric_name: 'response_time',
       current_value: 2.8,
       threshold_value: 2.0,
@@ -125,8 +127,8 @@ const AlertsPanel = () => {
       id: '3',
       alert_name: 'Storage Usage Warning',
       description: 'Database storage usage approaching limit',
-      severity: 'medium',
-      status: 'active',
+      severity: 'medium' as const,
+      status: 'active' as AlertStatus,
       metric_name: 'storage_usage',
       current_value: 82.5,
       threshold_value: 80,
@@ -137,8 +139,8 @@ const AlertsPanel = () => {
       id: '4',
       alert_name: 'Payment Processing Error',
       description: 'Multiple payment processing failures detected',
-      severity: 'high',
-      status: 'resolved',
+      severity: 'high' as const,
+      status: 'resolved' as AlertStatus,
       metric_name: 'payment_errors',
       current_value: 5,
       threshold_value: 3,
@@ -150,7 +152,7 @@ const AlertsPanel = () => {
 
   const alertsToShow = alerts?.length > 0 ? alerts : mockAlerts;
 
-  const getSeverityColor = (severity) => {
+  const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return 'destructive';
       case 'high': return 'destructive';
@@ -160,7 +162,7 @@ const AlertsPanel = () => {
     }
   };
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (status: AlertStatus) => {
     switch (status) {
       case 'active': return <AlertTriangle className="h-4 w-4 text-red-500" />;
       case 'acknowledged': return <Eye className="h-4 w-4 text-yellow-500" />;
@@ -169,7 +171,7 @@ const AlertsPanel = () => {
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: AlertStatus) => {
     switch (status) {
       case 'active': return 'destructive';
       case 'acknowledged': return 'secondary';
@@ -178,7 +180,7 @@ const AlertsPanel = () => {
     }
   };
 
-  const formatTimeAgo = (timestamp) => {
+  const formatTimeAgo = (timestamp: string) => {
     const now = new Date();
     const time = new Date(timestamp);
     const diffMs = now.getTime() - time.getTime();

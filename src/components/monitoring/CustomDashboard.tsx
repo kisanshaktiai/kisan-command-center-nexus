@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,10 @@ import {
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+
+interface DashboardData {
+  name: string;
+}
 
 const CustomDashboard = () => {
   const [isCreating, setIsCreating] = useState(false);
@@ -85,15 +90,19 @@ const CustomDashboard = () => {
 
   // Create dashboard mutation
   const createDashboard = useMutation({
-    mutationFn: async (dashboardData) => {
+    mutationFn: async (dashboardData: DashboardData) => {
+      // Get current user ID - in a real app, this would come from auth
+      const currentUserId = 'current-user-id'; // Replace with actual user ID from auth
+      
       const { data, error } = await supabase
         .from('dashboard_configs')
-        .insert([{
+        .insert({
           dashboard_name: dashboardData.name,
           layout: { cols: 12, rows: 10 },
           widgets: [],
-          is_default: false
-        }])
+          is_default: false,
+          user_id: currentUserId
+        })
         .select()
         .single();
 
@@ -101,7 +110,7 @@ const CustomDashboard = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['dashboard-configs']);
+      queryClient.invalidateQueries({ queryKey: ['dashboard-configs'] });
       setIsCreating(false);
       setNewDashboardName('');
     },
@@ -109,7 +118,7 @@ const CustomDashboard = () => {
 
   // Delete dashboard mutation
   const deleteDashboard = useMutation({
-    mutationFn: async (dashboardId) => {
+    mutationFn: async (dashboardId: string) => {
       const { error } = await supabase
         .from('dashboard_configs')
         .delete()
@@ -118,7 +127,7 @@ const CustomDashboard = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['dashboard-configs']);
+      queryClient.invalidateQueries({ queryKey: ['dashboard-configs'] });
     },
   });
 
@@ -128,7 +137,7 @@ const CustomDashboard = () => {
     }
   };
 
-  const renderWidget = (widget) => {
+  const renderWidget = (widget: any) => {
     const WidgetIcon = widgetTypes.find(t => t.id === widget.type)?.icon || BarChart3;
     
     return (
@@ -148,9 +157,9 @@ const CustomDashboard = () => {
     );
   };
 
-  const renderDashboardPreview = (dashboard) => (
+  const renderDashboardPreview = (dashboard: any) => (
     <div className="grid grid-cols-12 gap-4 h-64 overflow-hidden">
-      {dashboard.widgets?.slice(0, 6).map((widget) => (
+      {dashboard.widgets?.slice(0, 6).map((widget: any) => (
         <div 
           key={widget.id} 
           className={`col-span-${Math.min(widget.position?.w || 4, 6)}`}
