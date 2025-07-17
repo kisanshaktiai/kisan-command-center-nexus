@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -13,11 +12,13 @@ import { supabase } from '@/integrations/supabase/client';
 interface UsageRecord {
   id: string;
   tenant_id: string;
-  metric_type: 'api_calls' | 'storage_gb' | 'bandwidth_gb' | 'users' | 'transactions' | 'custom';
+  subscription_id: string;
+  metric_name: string;
   quantity: number;
-  recorded_at: string;
-  billing_period_start: string;
-  billing_period_end: string;
+  unit: string;
+  timestamp: string;
+  metadata: Record<string, any>;
+  created_at: string;
   tenants?: {
     name: string;
   };
@@ -44,24 +45,24 @@ export function UsageTracking() {
           *,
           tenants(name),
           tenant_subscriptions(
-            billing_plans(name, usage_limits)
+            billing_plans!tenant_subscriptions_billing_plan_id_fkey(name, usage_limits)
           )
         `)
-        .order('recorded_at', { ascending: false });
+        .order('timestamp', { ascending: false });
 
       if (selectedTenant !== 'all') {
         query = query.eq('tenant_id', selectedTenant);
       }
 
       if (metricFilter !== 'all') {
-        query = query.eq('metric_type', metricFilter);
+        query = query.eq('metric_name', metricFilter);
       }
 
       // Filter by period
       const now = new Date();
       if (periodFilter === 'current_month') {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        query = query.gte('recorded_at', startOfMonth.toISOString());
+        query = query.gte('timestamp', startOfMonth.toISOString());
       }
 
       const { data, error } = await query.limit(1000);
@@ -88,15 +89,15 @@ export function UsageTracking() {
 
   // Aggregate usage data by tenant and metric
   const aggregatedUsage = usageRecords.reduce((acc, record) => {
-    const key = `${record.tenant_id}-${record.metric_type}`;
+    const key = `${record.tenant_id}-${record.metric_name}`;
     if (!acc[key]) {
       acc[key] = {
         tenant_id: record.tenant_id,
         tenant_name: record.tenants?.name || 'Unknown',
-        metric_type: record.metric_type,
+        metric_name: record.metric_name,
         total_quantity: 0,
         plan_name: record.tenant_subscriptions?.billing_plans?.name || 'No Plan',
-        usage_limit: record.tenant_subscriptions?.billing_plans?.usage_limits?.[`max_${record.metric_type.replace('_calls', '').replace('_gb', '')}`] || 0,
+        usage_limit: record.tenant_subscriptions?.billing_plans?.usage_limits?.[record.metric_name] || -1,
         records: []
       };
     }
@@ -105,21 +106,12 @@ export function UsageTracking() {
     return acc;
   }, {} as Record<string, any>);
 
-  // Prepare chart data
-  const chartData = Object.values(aggregatedUsage).map((usage: any) => ({
-    tenant: usage.tenant_name,
-    metric: usage.metric_type,
-    usage: usage.total_quantity,
-    limit: usage.usage_limit === -1 ? 'Unlimited' : usage.usage_limit,
-    utilization: usage.usage_limit === -1 ? 0 : (usage.total_quantity / usage.usage_limit) * 100
-  }));
-
   // Usage trend data for chart
   const trendData = usageRecords
-    .filter(record => record.metric_type === 'api_calls')
+    .filter(record => record.metric_name === 'api_calls')
     .slice(-30)
     .map(record => ({
-      date: new Date(record.recorded_at).toLocaleDateString(),
+      date: new Date(record.timestamp).toLocaleDateString(),
       usage: record.quantity
     }));
 
@@ -143,11 +135,11 @@ export function UsageTracking() {
     return metric.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  const formatQuantity = (quantity: number, metric: string) => {
-    if (metric.includes('gb')) {
+  const formatQuantity = (quantity: number, unit: string) => {
+    if (unit === 'GB') {
       return `${quantity.toFixed(2)} GB`;
     }
-    return quantity.toLocaleString();
+    return `${quantity.toLocaleString()} ${unit}`;
   };
 
   if (isLoading) {
@@ -165,7 +157,7 @@ export function UsageTracking() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {usageRecords.filter(r => r.metric_type === 'api_calls').reduce((sum, r) => sum + r.quantity, 0).toLocaleString()}
+              {usageRecords.filter(r => r.metric_name === 'api_calls').reduce((sum, r) => sum + r.quantity, 0).toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
@@ -178,7 +170,7 @@ export function UsageTracking() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {usageRecords.filter(r => r.metric_type === 'storage_gb').reduce((sum, r) => sum + r.quantity, 0).toFixed(1)} GB
+              {usageRecords.filter(r => r.metric_name === 'storage_gb').reduce((sum, r) => sum + r.quantity, 0).toFixed(1)} GB
             </div>
             <p className="text-xs text-muted-foreground">Across all tenants</p>
           </CardContent>
@@ -191,7 +183,7 @@ export function UsageTracking() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {usageRecords.filter(r => r.metric_type === 'bandwidth_gb').reduce((sum, r) => sum + r.quantity, 0).toFixed(1)} GB
+              {usageRecords.filter(r => r.metric_name === 'bandwidth_gb').reduce((sum, r) => sum + r.quantity, 0).toFixed(1)} GB
             </div>
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
@@ -277,47 +269,51 @@ export function UsageTracking() {
           {/* Usage by Tenant */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Usage by Tenant</h3>
-            {Object.values(aggregatedUsage).map((usage: any) => (
-              <div key={`${usage.tenant_id}-${usage.metric_type}`} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-4">
-                  {getMetricIcon(usage.metric_type)}
-                  <div>
-                    <h4 className="font-medium">{usage.tenant_name}</h4>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>{formatMetricName(usage.metric_type)}</span>
-                      <span>•</span>
-                      <span>{usage.plan_name}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <div className="font-medium">
-                      {formatQuantity(usage.total_quantity, usage.metric_type)}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      of {usage.usage_limit === -1 ? 'Unlimited' : formatQuantity(usage.usage_limit, usage.metric_type)}
-                    </div>
-                  </div>
-                  
-                  {usage.usage_limit !== -1 && (
-                    <div className="w-32">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className={getUtilizationColor(usage.utilization)}>
-                          {usage.utilization.toFixed(1)}%
-                        </span>
+            {Object.values(aggregatedUsage).map((usage: any) => {
+              const utilization = usage.usage_limit !== -1 ? (usage.total_quantity / usage.usage_limit) * 100 : 0;
+              
+              return (
+                <div key={`${usage.tenant_id}-${usage.metric_name}`} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-4">
+                    {getMetricIcon(usage.metric_name)}
+                    <div>
+                      <h4 className="font-medium">{usage.tenant_name}</h4>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>{formatMetricName(usage.metric_name)}</span>
+                        <span>•</span>
+                        <span>{usage.plan_name}</span>
                       </div>
-                      <Progress value={Math.min(usage.utilization, 100)} className="h-2" />
                     </div>
-                  )}
+                  </div>
                   
-                  {usage.total_quantity > usage.usage_limit && usage.usage_limit !== -1 && (
-                    <Badge variant="destructive">Over Limit</Badge>
-                  )}
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="font-medium">
+                        {formatQuantity(usage.total_quantity, usage.records[0]?.unit || '')}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        of {usage.usage_limit === -1 ? 'Unlimited' : formatQuantity(usage.usage_limit, usage.records[0]?.unit || '')}
+                      </div>
+                    </div>
+                    
+                    {usage.usage_limit !== -1 && (
+                      <div className="w-32">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className={getUtilizationColor(utilization)}>
+                            {utilization.toFixed(1)}%
+                          </span>
+                        </div>
+                        <Progress value={Math.min(utilization, 100)} className="h-2" />
+                      </div>
+                    )}
+                    
+                    {usage.total_quantity > usage.usage_limit && usage.usage_limit !== -1 && (
+                      <Badge variant="destructive">Over Limit</Badge>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>

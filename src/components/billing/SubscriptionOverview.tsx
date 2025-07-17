@@ -5,28 +5,27 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Calendar, DollarSign, TrendingUp, Search, Filter } from 'lucide-react';
+import { Users, Calendar, DollarSign, TrendingUp, Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TenantSubscription {
   id: string;
   tenant_id: string;
-  status: 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing' | 'paused';
-  billing_interval: 'monthly' | 'quarterly' | 'annually';
+  billing_plan_id: string;
+  status: string;
   current_period_start: string;
   current_period_end: string;
   trial_start: string | null;
   trial_end: string | null;
-  cancel_at_period_end: boolean;
-  auto_renew: boolean;
-  discount_percentage: number;
+  cancelled_at: string | null;
   created_at: string;
   billing_plans?: {
     name: string;
     plan_type: string;
     base_price: number;
     currency: string;
+    billing_interval: string;
   };
   tenants?: {
     name: string;
@@ -46,7 +45,7 @@ export function SubscriptionOverview() {
         .from('tenant_subscriptions')
         .select(`
           *,
-          billing_plans(name, plan_type, base_price, currency),
+          billing_plans!tenant_subscriptions_billing_plan_id_fkey(name, plan_type, base_price, currency, billing_interval),
           tenants(name)
         `)
         .order('created_at', { ascending: false });
@@ -60,27 +59,19 @@ export function SubscriptionOverview() {
   const { data: analytics } = useQuery({
     queryKey: ['subscription-analytics'],
     queryFn: async () => {
-      const [totalMRR, churnRate, avgLifetime] = await Promise.all([
-        // Calculate MRR
-        supabase
-          .from('tenant_subscriptions')
-          .select('billing_plans(base_price, billing_interval)')
-          .eq('status', 'active'),
-        // Calculate churn rate (simplified)
-        supabase
-          .from('tenant_subscriptions')
-          .select('status')
-          .in('status', ['canceled', 'past_due']),
-        // Average subscription lifetime
-        supabase
-          .from('tenant_subscriptions')
-          .select('created_at, canceled_at')
-          .not('canceled_at', 'is', null)
-      ]);
+      // Calculate MRR from active subscriptions
+      const { data: activeSubscriptions, error } = await supabase
+        .from('tenant_subscriptions')
+        .select(`
+          billing_plans!tenant_subscriptions_billing_plan_id_fkey(base_price, billing_interval)
+        `)
+        .eq('status', 'active');
+
+      if (error) throw error;
 
       let mrr = 0;
-      if (totalMRR.data) {
-        mrr = totalMRR.data.reduce((sum, sub) => {
+      if (activeSubscriptions) {
+        mrr = activeSubscriptions.reduce((sum, sub) => {
           const plan = sub.billing_plans;
           if (!plan) return sum;
           
@@ -95,13 +86,14 @@ export function SubscriptionOverview() {
         }, 0);
       }
 
-      const churnCount = churnRate.data?.length || 0;
-      const totalCount = subscriptions.length;
-      const churn = totalCount > 0 ? (churnCount / totalCount) * 100 : 0;
+      // Calculate churn rate (simplified)
+      const totalSubs = subscriptions.length;
+      const cancelledSubs = subscriptions.filter(s => s.status === 'cancelled').length;
+      const churnRate = totalSubs > 0 ? (cancelledSubs / totalSubs) * 100 : 0;
 
       return {
         mrr,
-        churnRate: churn,
+        churnRate,
         avgLifetime: 8.5, // Placeholder
         newSignups: 15 // Placeholder
       };
@@ -121,10 +113,9 @@ export function SubscriptionOverview() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-500';
-      case 'trialing': return 'bg-blue-500';
       case 'past_due': return 'bg-yellow-500';
-      case 'canceled': return 'bg-red-500';
-      case 'paused': return 'bg-gray-500';
+      case 'cancelled': return 'bg-red-500';
+      case 'suspended': return 'bg-gray-500';
       default: return 'bg-gray-500';
     }
   };
@@ -217,10 +208,9 @@ export function SubscriptionOverview() {
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="trialing">Trialing</SelectItem>
                 <SelectItem value="past_due">Past Due</SelectItem>
-                <SelectItem value="canceled">Canceled</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
               </SelectContent>
             </Select>
             <Select value={planFilter} onValueChange={setPlanFilter}>
@@ -247,13 +237,7 @@ export function SubscriptionOverview() {
                         {subscription.billing_plans?.name || 'Unknown Plan'}
                       </Badge>
                       <span>•</span>
-                      <span>{subscription.billing_interval}</span>
-                      {subscription.discount_percentage > 0 && (
-                        <>
-                          <span>•</span>
-                          <span>{subscription.discount_percentage}% discount</span>
-                        </>
-                      )}
+                      <span>{subscription.billing_plans?.billing_interval}</span>
                     </div>
                   </div>
                 </div>

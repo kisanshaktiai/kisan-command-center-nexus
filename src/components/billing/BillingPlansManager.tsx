@@ -21,7 +21,7 @@ interface BillingPlan {
   plan_type: string;
   base_price: number;
   currency: string;
-  billing_interval: 'monthly' | 'quarterly' | 'annually';
+  billing_interval: string;
   trial_days: number;
   features: Record<string, any>;
   usage_limits: Record<string, any>;
@@ -353,7 +353,7 @@ function PlanForm({
           <Label htmlFor="billing_interval">Billing Interval</Label>
           <Select 
             value={formData.billing_interval} 
-            onValueChange={(value: any) => setFormData({ ...formData, billing_interval: value })}
+            onValueChange={(value) => setFormData({ ...formData, billing_interval: value })}
           >
             <SelectTrigger>
               <SelectValue />

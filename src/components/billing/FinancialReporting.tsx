@@ -12,7 +12,6 @@ import { supabase } from '@/integrations/supabase/client';
 export function FinancialReporting() {
   const [reportType, setReportType] = useState('revenue');
   const [periodFilter, setPeriodFilter] = useState('this_month');
-  const [exportFormat, setExportFormat] = useState('pdf');
 
   // Fetch financial data
   const { data: financialData, isLoading } = useQuery({
@@ -54,7 +53,7 @@ export function FinancialReporting() {
           .from('tenant_subscriptions')
           .select(`
             *,
-            billing_plans(name, plan_type, base_price, currency),
+            billing_plans!tenant_subscriptions_billing_plan_id_fkey(name, plan_type, base_price, currency, billing_interval),
             tenants(name)
           `)
           .eq('status', 'active')
@@ -130,8 +129,8 @@ export function FinancialReporting() {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   const handleExport = () => {
-    // This would integrate with report generation service
-    console.log(`Exporting ${reportType} report as ${exportFormat}`);
+    console.log(`Exporting ${reportType} report`);
+    // Implementation for report export would go here
   };
 
   if (isLoading) {

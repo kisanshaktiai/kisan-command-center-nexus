@@ -13,22 +13,18 @@ import { toast } from 'sonner';
 interface Invoice {
   id: string;
   tenant_id: string;
+  subscription_id: string | null;
   invoice_number: string;
-  status: 'draft' | 'pending' | 'paid' | 'overdue' | 'void' | 'uncollectible';
-  currency: string;
-  subtotal: number;
-  tax_amount: number;
-  discount_amount: number;
+  status: string;
   total_amount: number;
-  amount_paid: number;
   amount_due: number;
-  billing_period_start: string | null;
-  billing_period_end: string | null;
+  currency: string;
   issued_at: string;
-  due_date: string | null;
+  due_date: string;
   paid_at: string | null;
-  pdf_url: string | null;
+  line_items: any[];
   created_at: string;
+  updated_at: string;
   tenants?: {
     name: string;
   };
@@ -55,7 +51,7 @@ export function InvoiceManagement() {
           *,
           tenants(name),
           tenant_subscriptions(
-            billing_plans(name)
+            billing_plans!tenant_subscriptions_billing_plan_id_fkey(name)
           )
         `)
         .order('issued_at', { ascending: false })
@@ -73,7 +69,6 @@ export function InvoiceManagement() {
       const { data, error } = await supabase
         .from('invoices')
         .update({ 
-          pdf_url: `https://example.com/invoices/${invoiceId}.pdf`,
           status: 'pending'
         })
         .eq('id', invoiceId)
@@ -123,7 +118,7 @@ export function InvoiceManagement() {
         .update({ 
           status: 'paid',
           paid_at: new Date().toISOString(),
-          amount_paid: supabase.rpc('get_invoice_total', { invoice_id: invoiceId })
+          amount_due: 0
         })
         .eq('id', invoiceId)
         .select()
@@ -178,14 +173,13 @@ export function InvoiceManagement() {
       case 'paid': return 'bg-green-500';
       case 'pending': return 'bg-blue-500';
       case 'overdue': return 'bg-red-500';
-      case 'draft': return 'bg-gray-500';
-      case 'void': return 'bg-gray-400';
+      case 'cancelled': return 'bg-gray-500';
       default: return 'bg-gray-500';
     }
   };
 
   const isOverdue = (invoice: Invoice) => {
-    return invoice.due_date && new Date(invoice.due_date) < new Date() && invoice.status === 'pending';
+    return new Date(invoice.due_date) < new Date() && invoice.status === 'pending';
   };
 
   if (isLoading) {
@@ -282,11 +276,10 @@ export function InvoiceManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="paid">Paid</SelectItem>
                 <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="void">Void</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
             <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -316,20 +309,8 @@ export function InvoiceManagement() {
                       <span>{invoice.tenants?.name || 'Unknown Tenant'}</span>
                       <span>•</span>
                       <span>Issued: {new Date(invoice.issued_at).toLocaleDateString()}</span>
-                      {invoice.due_date && (
-                        <>
-                          <span>•</span>
-                          <span>Due: {new Date(invoice.due_date).toLocaleDateString()}</span>
-                        </>
-                      )}
-                      {invoice.billing_period_start && invoice.billing_period_end && (
-                        <>
-                          <span>•</span>
-                          <span>
-                            Period: {new Date(invoice.billing_period_start).toLocaleDateString()} - {new Date(invoice.billing_period_end).toLocaleDateString()}
-                          </span>
-                        </>
-                      )}
+                      <span>•</span>
+                      <span>Due: {new Date(invoice.due_date).toLocaleDateString()}</span>
                     </div>
                   </div>
                 </div>
@@ -354,20 +335,14 @@ export function InvoiceManagement() {
                     <Button variant="outline" size="sm">
                       <Eye className="w-4 h-4" />
                     </Button>
-                    {invoice.pdf_url ? (
-                      <Button variant="outline" size="sm">
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    ) : (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => generateInvoiceMutation.mutate(invoice.id)}
-                      >
-                        Generate PDF
-                      </Button>
-                    )}
-                    {invoice.status === 'draft' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => generateInvoiceMutation.mutate(invoice.id)}
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                    {invoice.status === 'pending' && (
                       <Button 
                         variant="outline" 
                         size="sm"
