@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { SuperAdminHeader } from '@/components/super-admin/SuperAdminHeader';
 import { SuperAdminSidebar } from '@/components/super-admin/SuperAdminSidebar';
@@ -14,12 +14,21 @@ import PlatformMonitoring from './super-admin/PlatformMonitoring';
 import { SidebarProvider } from '@/components/ui/sidebar';
 
 export default function SuperAdmin() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Mock admin user for now
+  const adminUser = {
+    name: 'Super Admin',
+    email: 'admin@example.com',
+    avatar: '',
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <SuperAdminSidebar />
         <div className="flex-1 flex flex-col">
-          <SuperAdminHeader />
+          <SuperAdminHeader setSidebarOpen={setSidebarOpen} adminUser={adminUser} />
           <main className="flex-1 p-6 bg-gray-50">
             <Routes>
               <Route path="/" element={<Overview />} />
