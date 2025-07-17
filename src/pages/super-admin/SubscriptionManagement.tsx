@@ -15,19 +15,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-interface SubscriptionPlan {
+interface BillingPlan {
   id: string;
   name: string;
   description: string | null;
-  plan_type: 'basic' | 'premium' | 'enterprise' | 'custom';
-  price_monthly: number | null;
-  price_quarterly: number | null;
-  price_annually: number | null;
+  plan_type: 'starter' | 'growth' | 'enterprise' | 'custom';
+  base_price: number;
+  currency: string;
+  billing_interval: 'monthly' | 'quarterly' | 'annually';
   features: string[];
-  limits: Record<string, any>;
+  usage_limits: Record<string, any>;
   is_active: boolean;
   is_custom: boolean;
-  tenant_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -35,18 +34,16 @@ interface SubscriptionPlan {
 interface TenantSubscription {
   id: string;
   tenant_id: string;
-  plan_id: string;
-  billing_interval: 'monthly' | 'quarterly' | 'annually';
+  billing_plan_id: string;
   status: string;
   current_period_start: string;
-  current_period_end: string | null;
-  auto_renew: boolean;
-  payment_method: Record<string, any>;
-  billing_address: Record<string, any>;
-  metadata: Record<string, any>;
+  current_period_end: string;
+  trial_start: string | null;
+  trial_end: string | null;
+  cancelled_at: string | null;
   created_at: string;
   updated_at: string;
-  subscription_plans?: {
+  billing_plans?: {
     name: string;
     plan_type: string;
   };
@@ -56,18 +53,18 @@ interface TenantSubscription {
 }
 
 export default function SubscriptionManagement() {
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch subscription plans
+  // Fetch billing plans
   const { data: plans = [], isLoading: plansLoading } = useQuery({
-    queryKey: ['subscription-plans'],
+    queryKey: ['billing-plans'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('subscription_plans')
+        .from('billing_plans')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('sort_order', { ascending: true });
       
       if (error) throw error;
       
@@ -76,7 +73,7 @@ export default function SubscriptionManagement() {
         ...plan,
         features: Array.isArray(plan.features) ? plan.features : 
                  typeof plan.features === 'string' ? JSON.parse(plan.features) : []
-      })) as SubscriptionPlan[];
+      })) as BillingPlan[];
     }
   });
 
@@ -88,7 +85,7 @@ export default function SubscriptionManagement() {
         .from('tenant_subscriptions')
         .select(`
           *,
-          subscription_plans(name, plan_type),
+          billing_plans(name, plan_type),
           tenants(name)
         `)
         .order('created_at', { ascending: false });
@@ -100,9 +97,9 @@ export default function SubscriptionManagement() {
 
   // Create/Update plan mutation
   const createPlanMutation = useMutation({
-    mutationFn: async (planData: Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (planData: Omit<BillingPlan, 'id' | 'created_at' | 'updated_at'>) => {
       const { data, error } = await supabase
-        .from('subscription_plans')
+        .from('billing_plans')
         .insert([planData])
         .select()
         .single();
@@ -111,7 +108,7 @@ export default function SubscriptionManagement() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
       toast.success('Plan created successfully');
       setIsCreateDialogOpen(false);
     },
@@ -121,9 +118,9 @@ export default function SubscriptionManagement() {
   });
 
   const updatePlanMutation = useMutation({
-    mutationFn: async ({ id, ...planData }: Partial<SubscriptionPlan> & { id: string }) => {
+    mutationFn: async ({ id, ...planData }: Partial<BillingPlan> & { id: string }) => {
       const { data, error } = await supabase
-        .from('subscription_plans')
+        .from('billing_plans')
         .update(planData)
         .eq('id', id)
         .select()
@@ -133,7 +130,7 @@ export default function SubscriptionManagement() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
       toast.success('Plan updated successfully');
     },
     onError: (error: any) => {
@@ -144,14 +141,14 @@ export default function SubscriptionManagement() {
   const deletePlanMutation = useMutation({
     mutationFn: async (planId: string) => {
       const { error } = await supabase
-        .from('subscription_plans')
+        .from('billing_plans')
         .delete()
         .eq('id', planId);
       
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
       toast.success('Plan deleted successfully');
     },
     onError: (error: any) => {
@@ -161,16 +158,16 @@ export default function SubscriptionManagement() {
 
   const getPlanTypeColor = (type: string) => {
     switch (type) {
-      case 'basic': return 'bg-blue-500';
-      case 'premium': return 'bg-purple-500';
+      case 'starter': return 'bg-blue-500';
+      case 'growth': return 'bg-purple-500';
       case 'enterprise': return 'bg-green-500';
       case 'custom': return 'bg-orange-500';
       default: return 'bg-gray-500';
     }
   };
 
-  const formatPrice = (price: number | null) => {
-    return price ? `₹${price.toLocaleString()}` : 'Custom';
+  const formatPrice = (price: number | null, currency: string) => {
+    return price ? `${currency === 'USD' ? '$' : '₹'}${price.toLocaleString()}` : 'Custom';
   };
 
   return (
@@ -189,8 +186,8 @@ export default function SubscriptionManagement() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create Subscription Plan</DialogTitle>
-              <DialogDescription>Configure a new subscription plan for tenants</DialogDescription>
+              <DialogTitle>Create Billing Plan</DialogTitle>
+              <DialogDescription>Configure a new billing plan for tenants</DialogDescription>
             </DialogHeader>
             <CreatePlanForm onSubmit={createPlanMutation.mutate} />
           </DialogContent>
@@ -243,16 +240,12 @@ export default function SubscriptionManagement() {
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Monthly</span>
-                        <span className="font-medium">{formatPrice(plan.price_monthly)}</span>
+                        <span className="text-sm text-muted-foreground">Price</span>
+                        <span className="font-medium">{formatPrice(plan.base_price, plan.currency)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Quarterly</span>
-                        <span className="font-medium">{formatPrice(plan.price_quarterly)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Annually</span>
-                        <span className="font-medium">{formatPrice(plan.price_annually)}</span>
+                        <span className="text-sm text-muted-foreground">Billing</span>
+                        <span className="font-medium">{plan.billing_interval}</span>
                       </div>
                     </div>
                     
@@ -262,7 +255,7 @@ export default function SubscriptionManagement() {
                         {plan.features.slice(0, 3).map((feature, index) => (
                           <div key={index} className="flex items-center gap-2 text-sm">
                             <CheckCircle className="w-3 h-3 text-green-500" />
-                            {feature.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            {feature}
                           </div>
                         ))}
                         {plan.features.length > 3 && (
@@ -303,7 +296,7 @@ export default function SubscriptionManagement() {
                         <div>
                           <h4 className="font-medium">{subscription.tenants?.name || 'Unknown Tenant'}</h4>
                           <p className="text-sm text-muted-foreground">
-                            {subscription.subscription_plans?.name || 'Unknown Plan'} • {subscription.billing_interval}
+                            {subscription.billing_plans?.name || 'Unknown Plan'} • {subscription.status}
                           </p>
                         </div>
                       </div>
@@ -313,11 +306,10 @@ export default function SubscriptionManagement() {
                         </Badge>
                         <div className="text-right">
                           <div className="text-sm font-medium">
-                            Next billing: {subscription.current_period_end ? 
-                              new Date(subscription.current_period_end).toLocaleDateString() : 'N/A'}
+                            Next billing: {new Date(subscription.current_period_end).toLocaleDateString()}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            Auto-renew: {subscription.auto_renew ? 'Yes' : 'No'}
+                            Started: {new Date(subscription.created_at).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
@@ -337,8 +329,8 @@ export default function SubscriptionManagement() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">₹2,45,000</div>
-                <p className="text-xs text-muted-foreground">+12% from last month</p>
+                <div className="text-2xl font-bold">$45,231</div>
+                <p className="text-xs text-muted-foreground">+20.1% from last month</p>
               </CardContent>
             </Card>
             <Card>
@@ -347,8 +339,8 @@ export default function SubscriptionManagement() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{subscriptions.length}</div>
-                <p className="text-xs text-muted-foreground">+5 new this month</p>
+                <div className="text-2xl font-bold">{subscriptions.filter(s => s.status === 'active').length}</div>
+                <p className="text-xs text-muted-foreground">+{subscriptions.length} total subscriptions</p>
               </CardContent>
             </Card>
             <Card>
@@ -373,12 +365,12 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    plan_type: 'basic' as const,
-    price_monthly: '',
-    price_quarterly: '',
-    price_annually: '',
+    plan_type: 'starter' as const,
+    base_price: '',
+    currency: 'USD',
+    billing_interval: 'monthly' as const,
     features: '',
-    limits: '',
+    usage_limits: '',
     is_active: true
   });
 
@@ -389,14 +381,14 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
       name: formData.name,
       description: formData.description,
       plan_type: formData.plan_type,
-      price_monthly: formData.price_monthly ? parseFloat(formData.price_monthly) : null,
-      price_quarterly: formData.price_quarterly ? parseFloat(formData.price_quarterly) : null,
-      price_annually: formData.price_annually ? parseFloat(formData.price_annually) : null,
+      base_price: formData.base_price ? parseFloat(formData.base_price) : 0,
+      currency: formData.currency,
+      billing_interval: formData.billing_interval,
       features: formData.features.split(',').map(f => f.trim()).filter(Boolean),
-      limits: formData.limits ? JSON.parse(formData.limits) : {},
+      usage_limits: formData.usage_limits ? JSON.parse(formData.usage_limits) : {},
       is_active: formData.is_active,
       is_custom: false,
-      tenant_id: null
+      sort_order: 0
     };
     
     onSubmit(planData);
@@ -424,8 +416,8 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="basic">Basic</SelectItem>
-              <SelectItem value="premium">Premium</SelectItem>
+              <SelectItem value="starter">Starter</SelectItem>
+              <SelectItem value="growth">Growth</SelectItem>
               <SelectItem value="enterprise">Enterprise</SelectItem>
               <SelectItem value="custom">Custom</SelectItem>
             </SelectContent>
@@ -444,34 +436,45 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
       
       <div className="grid gap-4 md:grid-cols-3">
         <div>
-          <Label htmlFor="price_monthly">Monthly Price (₹)</Label>
+          <Label htmlFor="base_price">Price</Label>
           <Input
-            id="price_monthly"
+            id="base_price"
             type="number"
             step="0.01"
-            value={formData.price_monthly}
-            onChange={(e) => setFormData({ ...formData, price_monthly: e.target.value })}
+            value={formData.base_price}
+            onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
           />
         </div>
         <div>
-          <Label htmlFor="price_quarterly">Quarterly Price (₹)</Label>
-          <Input
-            id="price_quarterly"
-            type="number"
-            step="0.01"
-            value={formData.price_quarterly}
-            onChange={(e) => setFormData({ ...formData, price_quarterly: e.target.value })}
-          />
+          <Label htmlFor="currency">Currency</Label>
+          <Select 
+            value={formData.currency} 
+            onValueChange={(value) => setFormData({ ...formData, currency: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="USD">USD</SelectItem>
+              <SelectItem value="INR">INR</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div>
-          <Label htmlFor="price_annually">Annual Price (₹)</Label>
-          <Input
-            id="price_annually"
-            type="number"
-            step="0.01"
-            value={formData.price_annually}
-            onChange={(e) => setFormData({ ...formData, price_annually: e.target.value })}
-          />
+          <Label htmlFor="billing_interval">Billing Interval</Label>
+          <Select 
+            value={formData.billing_interval} 
+            onValueChange={(value: any) => setFormData({ ...formData, billing_interval: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="quarterly">Quarterly</SelectItem>
+              <SelectItem value="annually">Annually</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
       
@@ -481,17 +484,17 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
           id="features"
           value={formData.features}
           onChange={(e) => setFormData({ ...formData, features: e.target.value })}
-          placeholder="farmer_management, analytics, weather_data"
+          placeholder="Basic AI recommendations, Weather alerts, Up to 5 land plots"
         />
       </div>
       
       <div>
-        <Label htmlFor="limits">Limits (JSON)</Label>
+        <Label htmlFor="usage_limits">Usage Limits (JSON)</Label>
         <Textarea
-          id="limits"
-          value={formData.limits}
-          onChange={(e) => setFormData({ ...formData, limits: e.target.value })}
-          placeholder='{"max_farmers": 100, "storage_gb": 5}'
+          id="usage_limits"
+          value={formData.usage_limits}
+          onChange={(e) => setFormData({ ...formData, usage_limits: e.target.value })}
+          placeholder='{"land_plots": 5, "api_calls": 1000}'
         />
       </div>
       

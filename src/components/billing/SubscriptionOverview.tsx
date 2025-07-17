@@ -41,11 +41,11 @@ export function SubscriptionOverview() {
   const { data: subscriptions = [], isLoading } = useQuery({
     queryKey: ['tenant-subscriptions-overview'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('tenant_subscriptions')
         .select(`
           *,
-          billing_plans!tenant_subscriptions_billing_plan_id_fkey(name, plan_type, base_price, currency, billing_interval),
+          billing_plans(name, plan_type, base_price, currency, billing_interval),
           tenants(name)
         `)
         .order('created_at', { ascending: false });
@@ -60,10 +60,10 @@ export function SubscriptionOverview() {
     queryKey: ['subscription-analytics'],
     queryFn: async () => {
       // Calculate MRR from active subscriptions
-      const { data: activeSubscriptions, error } = await (supabase as any)
+      const { data: activeSubscriptions, error } = await supabase
         .from('tenant_subscriptions')
         .select(`
-          billing_plans!tenant_subscriptions_billing_plan_id_fkey(base_price, billing_interval)
+          billing_plans(base_price, billing_interval)
         `)
         .eq('status', 'active');
 
@@ -143,7 +143,7 @@ export function SubscriptionOverview() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{(analytics?.mrr || 0).toLocaleString()}</div>
+            <div className="text-2xl font-bold">${(analytics?.mrr || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">+8.2% from last month</p>
           </CardContent>
         </Card>
@@ -245,7 +245,7 @@ export function SubscriptionOverview() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <div className="font-medium">
-                      {subscription.billing_plans?.currency === 'INR' ? '₹' : '$'}
+                      {subscription.billing_plans?.currency === 'USD' ? '$' : '₹'}
                       {subscription.billing_plans?.base_price?.toLocaleString() || 0}
                     </div>
                     <div className="text-sm text-muted-foreground">

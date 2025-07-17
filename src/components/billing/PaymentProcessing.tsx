@@ -37,7 +37,7 @@ export function PaymentProcessing() {
   const { data: payments = [], isLoading: paymentsLoading } = useQuery({
     queryKey: ['payments'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('payments')
         .select(`
           *,
@@ -54,7 +54,7 @@ export function PaymentProcessing() {
   // Retry payment mutation
   const retryPaymentMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('payments')
         .update({ status: 'pending' })
         .eq('id', paymentId)
@@ -76,7 +76,7 @@ export function PaymentProcessing() {
   // Refund payment mutation
   const refundPaymentMutation = useMutation({
     mutationFn: async ({ paymentId, amount }: { paymentId: string; amount: number }) => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('payments')
         .update({ 
           status: 'failed',
@@ -156,7 +156,7 @@ export function PaymentProcessing() {
               {payments.filter(p => p.status === 'completed').length}
             </div>
             <p className="text-xs text-muted-foreground">
-              ₹{payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0).toLocaleString()} total
+              ${payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0).toLocaleString()} total
             </p>
           </CardContent>
         </Card>
@@ -257,7 +257,7 @@ export function PaymentProcessing() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <div className="font-medium">
-                      {payment.currency === 'INR' ? '₹' : '$'}{payment.amount.toLocaleString()}
+                      {payment.currency === 'USD' ? '$' : '₹'}{payment.amount.toLocaleString()}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {payment.currency}

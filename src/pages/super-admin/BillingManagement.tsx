@@ -1,147 +1,161 @@
 
-import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { CreditCard, DollarSign, FileText, TrendingUp, Users, AlertCircle } from 'lucide-react';
-import { BillingPlansManager } from '@/components/billing/BillingPlansManager';
-import { SubscriptionOverview } from '@/components/billing/SubscriptionOverview';
-import { PaymentProcessing } from '@/components/billing/PaymentProcessing';
-import { InvoiceManagement } from '@/components/billing/InvoiceManagement';
-import { UsageTracking } from '@/components/billing/UsageTracking';
-import { FinancialReporting } from '@/components/billing/FinancialReporting';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DollarSign, CreditCard, Users, TrendingUp } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { SubscriptionOverview } from '@/components/billing/SubscriptionOverview';
+import { PaymentProcessing } from '@/components/billing/PaymentProcessing';
+import { UsageTracking } from '@/components/billing/UsageTracking';
 
 export default function BillingManagement() {
-  const [activeTab, setActiveTab] = useState('overview');
-
-  // Use mock data for billing overview metrics until tables are available
-  const { data: metrics, isLoading: metricsLoading } = useQuery({
-    queryKey: ['billing-metrics'],
+  // Fetch billing overview data
+  const { data: overviewData, isLoading } = useQuery({
+    queryKey: ['billing-overview'],
     queryFn: async () => {
-      try {
-        // For now, return mock data since billing tables may not be available
-        return {
-          activeSubscriptions: 15,
-          pendingInvoices: 3,
-          failedPayments: 1,
-          totalRevenue: 125000,
-          pendingAmount: 25000
-        };
-      } catch (error) {
-        console.error('Error fetching billing metrics:', error);
-        return {
-          activeSubscriptions: 0,
-          pendingInvoices: 0,
-          failedPayments: 0,
-          totalRevenue: 0,
-          pendingAmount: 0
-        };
-      }
+      // Get all data in parallel
+      const [invoicesRes, paymentsRes, subscriptionsRes] = await Promise.all([
+        supabase.from('invoices').select('amount, status, created_at'),
+        supabase.from('payments').select('amount, status, created_at'),
+        supabase.from('tenant_subscriptions').select('*, billing_plans(base_price, billing_interval)')
+      ]);
+
+      if (invoicesRes.error) throw invoicesRes.error;
+      if (paymentsRes.error) throw paymentsRes.error;
+      if (subscriptionsRes.error) throw subscriptionsRes.error;
+
+      const invoices = invoicesRes.data || [];
+      const payments = paymentsRes.data || [];
+      const subscriptions = subscriptionsRes.data || [];
+
+      // Calculate metrics
+      const totalRevenue = payments
+        .filter(p => p.status === 'completed')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      const thisMonthRevenue = payments
+        .filter(p => {
+          const paymentDate = new Date(p.created_at);
+          const now = new Date();
+          return p.status === 'completed' && 
+                 paymentDate.getMonth() === now.getMonth() &&
+                 paymentDate.getFullYear() === now.getFullYear();
+        })
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      const outstandingAmount = invoices
+        .filter(i => i.status === 'sent' || i.status === 'overdue')
+        .reduce((sum, i) => sum + i.amount, 0);
+
+      // Calculate MRR
+      const mrr = subscriptions
+        .filter(s => s.status === 'active')
+        .reduce((sum, sub) => {
+          if (!sub.billing_plans) return sum;
+          let monthlyPrice = sub.billing_plans.base_price;
+          if (sub.billing_plans.billing_interval === 'quarterly') {
+            monthlyPrice = sub.billing_plans.base_price / 3;
+          } else if (sub.billing_plans.billing_interval === 'annually') {
+            monthlyPrice = sub.billing_plans.base_price / 12;
+          }
+          return sum + monthlyPrice;
+        }, 0);
+
+      return {
+        totalRevenue,
+        thisMonthRevenue,
+        outstandingAmount,
+        mrr,
+        totalSubscriptions: subscriptions.length,
+        activeSubscriptions: subscriptions.filter(s => s.status === 'active').length
+      };
     }
   });
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
+
+  if (isLoading) {
+    return <div className="text-center py-8">Loading billing data...</div>;
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Billing & Payment Management</h1>
-          <p className="text-muted-foreground">Comprehensive billing system for multi-tenant SaaS platform</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold">Billing Management</h1>
+        <p className="text-muted-foreground">Monitor and manage platform billing and subscriptions</p>
       </div>
 
-      {/* Overview Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      {/* Overview Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(overviewData?.totalRevenue || 0)}</div>
+            <p className="text-xs text-muted-foreground">All time revenue</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">This Month</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(overviewData?.thisMonthRevenue || 0)}</div>
+            <p className="text-xs text-muted-foreground">Revenue this month</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(overviewData?.outstandingAmount || 0)}</div>
+            <p className="text-xs text-muted-foreground">Pending invoices</p>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics?.activeSubscriptions || 0}</div>
-            <p className="text-xs text-muted-foreground">+12% from last month</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{(metrics?.totalRevenue || 0).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+8% from last month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Invoices</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.pendingInvoices || 0}</div>
-            <p className="text-xs text-muted-foreground">₹{(metrics?.pendingAmount || 0).toLocaleString()} total</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Failed Payments</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.failedPayments || 0}</div>
-            <p className="text-xs text-muted-foreground">Needs attention</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">15.3%</div>
-            <p className="text-xs text-muted-foreground">MRR growth</p>
+            <div className="text-2xl font-bold">{overviewData?.activeSubscriptions || 0}</div>
+            <p className="text-xs text-muted-foreground">MRR: {formatCurrency(overviewData?.mrr || 0)}</p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="plans">Plans</TabsTrigger>
+      {/* Billing Tabs */}
+      <Tabs defaultValue="subscriptions" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="usage">Usage</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="usage">Usage Tracking</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
+        <TabsContent value="subscriptions">
           <SubscriptionOverview />
         </TabsContent>
 
-        <TabsContent value="plans" className="space-y-4">
-          <BillingPlansManager />
-        </TabsContent>
-
-        <TabsContent value="payments" className="space-y-4">
+        <TabsContent value="payments">
           <PaymentProcessing />
         </TabsContent>
 
-        <TabsContent value="invoices" className="space-y-4">
-          <InvoiceManagement />
-        </TabsContent>
-
-        <TabsContent value="usage" className="space-y-4">
+        <TabsContent value="usage">
           <UsageTracking />
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-4">
-          <FinancialReporting />
         </TabsContent>
       </Tabs>
     </div>
