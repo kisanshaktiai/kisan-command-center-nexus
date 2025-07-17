@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -90,7 +91,7 @@ export default function WhiteLabelConfig() {
         .order('name');
       
       if (error) throw error;
-      return data as Tenant[];
+      return (data || []) as Tenant[];
     }
   });
 
@@ -104,10 +105,10 @@ export default function WhiteLabelConfig() {
         .from('white_label_configs')
         .select('*')
         .eq('tenant_id', selectedTenant)
-        .single();
+        .maybeSingle();
       
       if (error && error.code !== 'PGRST116') throw error;
-      return data as WhiteLabelConfig;
+      return data as WhiteLabelConfig | null;
     },
     enabled: !!selectedTenant
   });
@@ -206,10 +207,13 @@ export default function WhiteLabelConfig() {
   const updateConfig = (section: keyof WhiteLabelConfig, field: string, value: any) => {
     if (!config) return;
     
+    const currentSection = config[section];
+    const sectionValue = typeof currentSection === 'object' && currentSection !== null ? currentSection : {};
+    
     setConfig({
       ...config,
       [section]: {
-        ...(config[section] || {}),
+        ...sectionValue,
         [field]: value
       }
     });
