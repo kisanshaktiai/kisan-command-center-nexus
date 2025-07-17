@@ -86,14 +86,47 @@ const TenantManagement = () => {
 
   const getTenantTypeColor = (type: string) => {
     switch (type) {
-      case 'enterprise':
+      case 'agri_company':
         return 'bg-purple-100 text-purple-800';
-      case 'business':
+      case 'dealer':
         return 'bg-blue-100 text-blue-800';
-      case 'startup':
+      case 'ngo':
         return 'bg-green-100 text-green-800';
+      case 'government':
+        return 'bg-orange-100 text-orange-800';
+      case 'university':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'sugar_factory':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'cooperative':
+        return 'bg-pink-100 text-pink-800';
+      case 'insurance':
+        return 'bg-teal-100 text-teal-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getTenantTypeLabel = (type: string) => {
+    switch (type) {
+      case 'agri_company':
+        return 'Agriculture Company';
+      case 'dealer':
+        return 'Dealer';
+      case 'ngo':
+        return 'NGO';
+      case 'government':
+        return 'Government';
+      case 'university':
+        return 'University';
+      case 'sugar_factory':
+        return 'Sugar Factory';
+      case 'cooperative':
+        return 'Cooperative';
+      case 'insurance':
+        return 'Insurance';
+      default:
+        return type;
     }
   };
 
@@ -156,12 +189,12 @@ const TenantManagement = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Enterprise</CardTitle>
+            <CardTitle className="text-sm font-medium">Agriculture Companies</CardTitle>
             <Database className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {tenants?.filter(t => t.type === 'enterprise').length || 0}
+              {tenants?.filter(t => t.type === 'agri_company').length || 0}
             </div>
           </CardContent>
         </Card>
@@ -226,7 +259,7 @@ const TenantManagement = () => {
                     </TableCell>
                     <TableCell>
                       <Badge className={getTenantTypeColor(tenant.type)}>
-                        {tenant.type}
+                        {getTenantTypeLabel(tenant.type)}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -263,7 +296,7 @@ const TenantForm = ({ onSubmit, isLoading }: { onSubmit: (data: any) => void; is
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
-    type: 'startup',
+    type: 'agri_company',
     owner_name: '',
     owner_email: '',
     owner_phone: '',
@@ -306,9 +339,14 @@ const TenantForm = ({ onSubmit, isLoading }: { onSubmit: (data: any) => void; is
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="startup">Startup</SelectItem>
-            <SelectItem value="business">Business</SelectItem>
-            <SelectItem value="enterprise">Enterprise</SelectItem>
+            <SelectItem value="agri_company">Agriculture Company</SelectItem>
+            <SelectItem value="dealer">Dealer</SelectItem>
+            <SelectItem value="ngo">NGO</SelectItem>
+            <SelectItem value="government">Government</SelectItem>
+            <SelectItem value="university">University</SelectItem>
+            <SelectItem value="sugar_factory">Sugar Factory</SelectItem>
+            <SelectItem value="cooperative">Cooperative</SelectItem>
+            <SelectItem value="insurance">Insurance</SelectItem>
           </SelectContent>
         </Select>
       </div>
