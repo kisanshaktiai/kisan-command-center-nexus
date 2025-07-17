@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, Eye, EyeOff } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 export const SuperAdminAuth = () => {
@@ -15,6 +16,9 @@ export const SuperAdminAuth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,21 +26,17 @@ export const SuperAdminAuth = () => {
     setError('');
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error: authError } = await signIn(email, password);
 
       if (authError) throw authError;
 
-      // For now, simple check for admin email pattern
-      // In production, you'd verify against the super_admin.admin_users table
+      // Check for admin email pattern
       if (!email.includes('admin')) {
-        await supabase.auth.signOut();
         throw new Error('Access denied. Super admin privileges required.');
       }
 
       toast.success('Welcome to Super Admin Dashboard');
+      navigate('/super-admin');
     } catch (err: any) {
       setError(err.message);
       toast.error(err.message);
