@@ -1806,6 +1806,51 @@ export type Database = {
           },
         ]
       }
+      pending_admin_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          email: string
+          expires_at: string
+          full_name: string
+          id: string
+          metadata: Json | null
+          password_hash: string
+          rejection_reason: string | null
+          request_token: string
+          requested_at: string
+          status: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          email: string
+          expires_at?: string
+          full_name: string
+          id?: string
+          metadata?: Json | null
+          password_hash: string
+          rejection_reason?: string | null
+          request_token?: string
+          requested_at?: string
+          status?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          email?: string
+          expires_at?: string
+          full_name?: string
+          id?: string
+          metadata?: Json | null
+          password_hash?: string
+          rejection_reason?: string | null
+          request_token?: string
+          requested_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       platform_alerts: {
         Row: {
           acknowledged_at: string | null

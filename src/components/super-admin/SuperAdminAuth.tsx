@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
+import { Shield, Eye, EyeOff, UserPlus, LogIn, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +20,7 @@ export const SuperAdminAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('login');
+  const [signupSuccess, setSignupSuccess] = useState(false);
   
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -59,24 +60,24 @@ export const SuperAdminAuth = () => {
     try {
       validateAdminEmail(email);
 
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: fullName,
-            role: 'super_admin'
-          }
+      // Call the custom edge function for admin request
+      const { data, error } = await supabase.functions.invoke('request-admin-access', {
+        body: {
+          fullName,
+          email,
+          password
         }
       });
 
-      if (signUpError) throw signUpError;
+      if (error) throw error;
 
-      toast.success('Super admin account created! Please check your email to confirm your account.');
-      setActiveTab('login');
+      setSignupSuccess(true);
+      toast.success('Admin access request submitted successfully!');
+      
+      // Reset form
+      setFullName('');
+      setEmail('');
+      setPassword('');
     } catch (err: any) {
       setError(err.message);
       toast.error(err.message);
@@ -84,6 +85,46 @@ export const SuperAdminAuth = () => {
       setIsLoading(false);
     }
   };
+
+  if (signupSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-4 text-center">
+            <div className="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+              <Clock className="w-8 h-8 text-orange-600" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold">Request Submitted</CardTitle>
+              <CardDescription>
+                Your super admin access request is pending approval
+              </CardDescription>
+            </div>
+          </CardHeader>
+          
+          <CardContent className="text-center space-y-4">
+            <Alert>
+              <AlertDescription>
+                Your request has been sent to the administrators for review. 
+                You will receive an email notification once your access is approved.
+              </AlertDescription>
+            </Alert>
+            
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSignupSuccess(false);
+                setActiveTab('login');
+              }}
+              className="w-full"
+            >
+              Return to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
@@ -109,7 +150,7 @@ export const SuperAdminAuth = () => {
               </TabsTrigger>
               <TabsTrigger value="signup" className="flex items-center gap-2">
                 <UserPlus className="w-4 h-4" />
-                Sign Up
+                Request Access
               </TabsTrigger>
             </TabsList>
 
@@ -181,6 +222,12 @@ export const SuperAdminAuth = () => {
                   </Alert>
                 )}
 
+                <Alert>
+                  <AlertDescription>
+                    Access requests are reviewed by administrators. You'll receive an email notification once approved.
+                  </AlertDescription>
+                </Alert>
+
                 <div className="space-y-2">
                   <Label htmlFor="signup-name">Full Name</Label>
                   <Input
@@ -248,7 +295,7 @@ export const SuperAdminAuth = () => {
                   className="w-full"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Creating Account...' : 'Create Super Admin Account'}
+                  {isLoading ? 'Submitting Request...' : 'Request Super Admin Access'}
                 </Button>
               </form>
             </TabsContent>
@@ -256,7 +303,7 @@ export const SuperAdminAuth = () => {
           
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>Secure access with audit logging enabled</p>
-            <p className="mt-1">2FA required for production access</p>
+            <p className="mt-1">All requests are reviewed by administrators</p>
           </div>
         </CardContent>
       </Card>
