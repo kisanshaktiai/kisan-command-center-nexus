@@ -1,16 +1,17 @@
 
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, CheckCircle, DollarSign } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle, Plus, Edit, Trash2, DollarSign, Users, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -23,8 +24,8 @@ interface BillingPlan {
   currency: string;
   billing_interval: string;
   trial_days: number;
-  features: Record<string, any>;
-  usage_limits: Record<string, any>;
+  features: any;
+  usage_limits: any;
   is_active: boolean;
   is_public: boolean;
   created_at: string;
@@ -32,35 +33,45 @@ interface BillingPlan {
 }
 
 export function BillingPlansManager() {
+  const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [editingPlan, setEditingPlan] = useState<BillingPlan | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch billing plans with type assertion
-  const { data: plans = [], isLoading } = useQuery({
+  const { data: plans = [], isLoading: plansLoading } = useQuery({
     queryKey: ['billing-plans'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('billing_plans' as any)
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return (data || []) as BillingPlan[];
+      try {
+        const { data, error } = await (supabase as any)
+          .from('billing_plans')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return (data || []) as BillingPlan[];
+      } catch (error) {
+        console.error('Error fetching billing plans:', error);
+        return [];
+      }
     }
   });
 
   // Create plan mutation
   const createPlanMutation = useMutation({
     mutationFn: async (planData: Omit<BillingPlan, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await (supabase as any)
-        .from('billing_plans')
-        .insert([planData])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await (supabase as any)
+          .from('billing_plans')
+          .insert([planData])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        console.error('Error creating plan:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
@@ -75,20 +86,24 @@ export function BillingPlansManager() {
   // Update plan mutation
   const updatePlanMutation = useMutation({
     mutationFn: async ({ id, ...planData }: Partial<BillingPlan> & { id: string }) => {
-      const { data, error } = await (supabase as any)
-        .from('billing_plans')
-        .update(planData)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await (supabase as any)
+          .from('billing_plans')
+          .update(planData)
+          .eq('id', id)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        console.error('Error updating plan:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
       toast.success('Plan updated successfully');
-      setEditingPlan(null);
     },
     onError: (error: any) => {
       toast.error('Failed to update plan: ' + error.message);
@@ -98,12 +113,17 @@ export function BillingPlansManager() {
   // Delete plan mutation
   const deletePlanMutation = useMutation({
     mutationFn: async (planId: string) => {
-      const { error } = await (supabase as any)
-        .from('billing_plans')
-        .delete()
-        .eq('id', planId);
-      
-      if (error) throw error;
+      try {
+        const { error } = await (supabase as any)
+          .from('billing_plans')
+          .delete()
+          .eq('id', planId);
+        
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error deleting plan:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
@@ -124,20 +144,25 @@ export function BillingPlansManager() {
     }
   };
 
-  const formatPrice = (price: number, currency: string, interval: string) => {
-    return `${currency === 'INR' ? '₹' : '$'}${price.toLocaleString()}/${interval}`;
+  const formatPrice = (price: number, currency: string = 'INR') => {
+    return `${currency === 'INR' ? '₹' : '$'}${price.toLocaleString()}`;
   };
 
-  if (isLoading) {
-    return <div className="text-center py-8">Loading billing plans...</div>;
-  }
+  const getFeaturesList = (features: any) => {
+    if (!features || typeof features !== 'object') return [];
+    
+    if (Array.isArray(features)) return features;
+    
+    // Convert object to array of feature names
+    return Object.keys(features).filter(key => features[key] === true);
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">Billing Plans</h2>
-          <p className="text-muted-foreground">Manage subscription plans and pricing</p>
+          <h1 className="text-3xl font-bold">Billing Plans Management</h1>
+          <p className="text-muted-foreground">Create and manage subscription plans for tenants</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
@@ -149,137 +174,174 @@ export function BillingPlansManager() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create Billing Plan</DialogTitle>
-              <DialogDescription>Configure a new subscription plan</DialogDescription>
+              <DialogDescription>Configure a new billing plan for tenants</DialogDescription>
             </DialogHeader>
-            <PlanForm onSubmit={createPlanMutation.mutate} />
+            <CreatePlanForm onSubmit={createPlanMutation.mutate} />
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {plans.map((plan) => (
-          <Card key={plan.id} className="relative">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    {plan.name}
-                    <Badge className={getPlanTypeColor(plan.plan_type)}>
-                      {plan.plan_type}
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription>{plan.description}</CardDescription>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingPlan(plan)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deletePlanMutation.mutate(plan.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold">
-                  {formatPrice(plan.base_price, plan.currency, plan.billing_interval)}
-                </div>
-                {plan.trial_days > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    {plan.trial_days} days free trial
-                  </p>
-                )}
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium mb-2">Features</h4>
-                <div className="space-y-1">
-                  {Object.entries(plan.features).slice(0, 4).map(([key, value]) => 
-                    value && (
-                      <div key={key} className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="w-3 h-3 text-green-500" />
-                        {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+      <Tabs defaultValue="plans" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="plans">Plans</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="plans" className="space-y-4">
+          {plansLoading ? (
+            <div className="text-center py-8">Loading plans...</div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {plans.map((plan) => (
+                <Card key={plan.id} className="relative">
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          {plan.name}
+                          <Badge className={getPlanTypeColor(plan.plan_type)}>
+                            {plan.plan_type}
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription>{plan.description}</CardDescription>
                       </div>
-                    )
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium mb-2">Usage Limits</h4>
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  {Object.entries(plan.usage_limits).map(([key, value]) => (
-                    <div key={key}>
-                      {key.replace(/_/g, ' ')}: {value === -1 ? 'Unlimited' : value}
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedPlan(plan)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deletePlanMutation.mutate(plan.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Price</span>
+                        <span className="font-medium">{formatPrice(plan.base_price, plan.currency)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Billing</span>
+                        <span className="font-medium">{plan.billing_interval}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Trial Days</span>
+                        <span className="font-medium">{plan.trial_days}</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-sm font-medium mb-2">Features</h4>
+                      <div className="space-y-1">
+                        {getFeaturesList(plan.features).slice(0, 3).map((feature, index) => (
+                          <div key={index} className="flex items-center gap-2 text-sm">
+                            <CheckCircle className="w-3 h-3 text-green-500" />
+                            {typeof feature === 'string' ? feature.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : String(feature)}
+                          </div>
+                        ))}
+                        {getFeaturesList(plan.features).length > 3 && (
+                          <div className="text-xs text-muted-foreground">
+                            +{getFeaturesList(plan.features).length - 3} more features
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Status</span>
-                <Badge variant={plan.is_active ? 'default' : 'secondary'}>
-                  {plan.is_active ? 'Active' : 'Inactive'}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Edit Plan Dialog */}
-      <Dialog open={!!editingPlan} onOpenChange={(open) => !open && setEditingPlan(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Billing Plan</DialogTitle>
-            <DialogDescription>Update the plan configuration</DialogDescription>
-          </DialogHeader>
-          {editingPlan && (
-            <PlanForm 
-              initialData={editingPlan}
-              onSubmit={(data) => updatePlanMutation.mutate({ id: editingPlan.id, ...data })}
-            />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Status</span>
+                      <Badge variant={plan.is_active ? 'default' : 'secondary'}>
+                        {plan.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Plans</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{plans.length}</div>
+                <p className="text-xs text-muted-foreground">Active billing plans</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active Plans</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{plans.filter(p => p.is_active).length}</div>
+                <p className="text-xs text-muted-foreground">Currently active</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Avg Price</CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  ₹{plans.length > 0 ? Math.round(plans.reduce((sum, p) => sum + p.base_price, 0) / plans.length) : 0}
+                </div>
+                <p className="text-xs text-muted-foreground">Average plan price</p>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
-// Plan Form Component
-function PlanForm({ 
-  initialData, 
-  onSubmit 
-}: { 
-  initialData?: BillingPlan;
-  onSubmit: (data: any) => void;
-}) {
+// Create Plan Form Component
+function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
   const [formData, setFormData] = useState({
-    name: initialData?.name || '',
-    description: initialData?.description || '',
-    plan_type: initialData?.plan_type || 'starter',
-    base_price: initialData?.base_price || 0,
-    currency: initialData?.currency || 'INR',
-    billing_interval: initialData?.billing_interval || 'monthly',
-    trial_days: initialData?.trial_days || 0,
-    features: initialData?.features || {},
-    usage_limits: initialData?.usage_limits || {},
-    is_active: initialData?.is_active ?? true,
-    is_public: initialData?.is_public ?? true,
+    name: '',
+    description: '',
+    plan_type: 'starter',
+    base_price: 0,
+    currency: 'INR',
+    billing_interval: 'monthly',
+    trial_days: 0,
+    features: '{}',
+    usage_limits: '{}',
+    is_active: true,
+    is_public: true
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    
+    try {
+      const planData = {
+        ...formData,
+        base_price: Number(formData.base_price),
+        trial_days: Number(formData.trial_days),
+        features: formData.features ? JSON.parse(formData.features) : {},
+        usage_limits: formData.usage_limits ? JSON.parse(formData.usage_limits) : {}
+      };
+      
+      onSubmit(planData);
+    } catch (error) {
+      toast.error('Invalid JSON in features or usage limits');
+    }
   };
 
   return (
@@ -330,7 +392,7 @@ function PlanForm({
             type="number"
             step="0.01"
             value={formData.base_price}
-            onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) })}
+            onChange={(e) => setFormData({ ...formData, base_price: Number(e.target.value) })}
           />
         </div>
         <div>
@@ -366,14 +428,34 @@ function PlanForm({
           </Select>
         </div>
       </div>
-
+      
       <div>
         <Label htmlFor="trial_days">Trial Days</Label>
         <Input
           id="trial_days"
           type="number"
           value={formData.trial_days}
-          onChange={(e) => setFormData({ ...formData, trial_days: parseInt(e.target.value) })}
+          onChange={(e) => setFormData({ ...formData, trial_days: Number(e.target.value) })}
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="features">Features (JSON)</Label>
+        <Textarea
+          id="features"
+          value={formData.features}
+          onChange={(e) => setFormData({ ...formData, features: e.target.value })}
+          placeholder='{"farmer_management": true, "analytics": true}'
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="usage_limits">Usage Limits (JSON)</Label>
+        <Textarea
+          id="usage_limits"
+          value={formData.usage_limits}
+          onChange={(e) => setFormData({ ...formData, usage_limits: e.target.value })}
+          placeholder='{"max_farmers": 100, "storage_gb": 5}'
         />
       </div>
       
@@ -396,9 +478,7 @@ function PlanForm({
         </div>
       </div>
       
-      <Button type="submit" className="w-full">
-        {initialData ? 'Update Plan' : 'Create Plan'}
-      </Button>
+      <Button type="submit" className="w-full">Create Plan</Button>
     </form>
   );
 }
