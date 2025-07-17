@@ -39,7 +39,7 @@ export function UsageTracking() {
   const { data: usageRecords = [], isLoading } = useQuery({
     queryKey: ['usage-records', selectedTenant, metricFilter, periodFilter],
     queryFn: async () => {
-      let query = supabase
+      let query = (supabase as any)
         .from('usage_records')
         .select(`
           *,
@@ -68,7 +68,7 @@ export function UsageTracking() {
       const { data, error } = await query.limit(1000);
       
       if (error) throw error;
-      return data as UsageRecord[];
+      return (data || []) as UsageRecord[];
     }
   });
 

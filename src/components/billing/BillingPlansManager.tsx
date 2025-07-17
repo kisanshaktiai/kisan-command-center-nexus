@@ -36,24 +36,24 @@ export function BillingPlansManager() {
   const [editingPlan, setEditingPlan] = useState<BillingPlan | null>(null);
   const queryClient = useQueryClient();
 
-  // Fetch billing plans
+  // Fetch billing plans with type assertion
   const { data: plans = [], isLoading } = useQuery({
     queryKey: ['billing-plans'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('billing_plans')
+        .from('billing_plans' as any)
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as BillingPlan[];
+      return (data || []) as BillingPlan[];
     }
   });
 
   // Create plan mutation
   const createPlanMutation = useMutation({
     mutationFn: async (planData: Omit<BillingPlan, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('billing_plans')
         .insert([planData])
         .select()
@@ -75,7 +75,7 @@ export function BillingPlansManager() {
   // Update plan mutation
   const updatePlanMutation = useMutation({
     mutationFn: async ({ id, ...planData }: Partial<BillingPlan> & { id: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('billing_plans')
         .update(planData)
         .eq('id', id)
@@ -98,7 +98,7 @@ export function BillingPlansManager() {
   // Delete plan mutation
   const deletePlanMutation = useMutation({
     mutationFn: async (planId: string) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('billing_plans')
         .delete()
         .eq('id', planId);

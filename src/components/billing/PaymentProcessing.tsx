@@ -25,9 +25,6 @@ interface Payment {
   tenants?: {
     name: string;
   };
-  invoices?: {
-    invoice_number: string;
-  };
 }
 
 export function PaymentProcessing() {
@@ -40,7 +37,7 @@ export function PaymentProcessing() {
   const { data: payments = [], isLoading: paymentsLoading } = useQuery({
     queryKey: ['payments'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('payments')
         .select(`
           *,
@@ -50,15 +47,14 @@ export function PaymentProcessing() {
         .limit(100);
       
       if (error) throw error;
-      return data as Payment[];
+      return (data || []) as Payment[];
     }
   });
 
   // Retry payment mutation
   const retryPaymentMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      // This would integrate with actual payment gateway
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('payments')
         .update({ status: 'pending' })
         .eq('id', paymentId)
@@ -80,8 +76,7 @@ export function PaymentProcessing() {
   // Refund payment mutation
   const refundPaymentMutation = useMutation({
     mutationFn: async ({ paymentId, amount }: { paymentId: string; amount: number }) => {
-      // This would integrate with actual payment gateway
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('payments')
         .update({ 
           status: 'failed',

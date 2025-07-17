@@ -41,7 +41,7 @@ export function SubscriptionOverview() {
   const { data: subscriptions = [], isLoading } = useQuery({
     queryKey: ['tenant-subscriptions-overview'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('tenant_subscriptions')
         .select(`
           *,
@@ -51,7 +51,7 @@ export function SubscriptionOverview() {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as TenantSubscription[];
+      return (data || []) as TenantSubscription[];
     }
   });
 
@@ -60,7 +60,7 @@ export function SubscriptionOverview() {
     queryKey: ['subscription-analytics'],
     queryFn: async () => {
       // Calculate MRR from active subscriptions
-      const { data: activeSubscriptions, error } = await supabase
+      const { data: activeSubscriptions, error } = await (supabase as any)
         .from('tenant_subscriptions')
         .select(`
           billing_plans!tenant_subscriptions_billing_plan_id_fkey(base_price, billing_interval)
@@ -71,7 +71,7 @@ export function SubscriptionOverview() {
 
       let mrr = 0;
       if (activeSubscriptions) {
-        mrr = activeSubscriptions.reduce((sum, sub) => {
+        mrr = activeSubscriptions.reduce((sum: number, sub: any) => {
           const plan = sub.billing_plans;
           if (!plan) return sum;
           
