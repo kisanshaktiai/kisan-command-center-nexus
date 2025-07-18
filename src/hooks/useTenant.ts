@@ -25,12 +25,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       const tenant = await tenantService.detectTenant();
       
       if (!tenant) {
-        throw new Error('Unable to determine tenant context. Please ensure you are accessing the application through a valid tenant subdomain.');
+        throw new Error('Unable to determine tenant context. Please ensure you are accessing the application through a valid tenant subdomain or contact support.');
       }
       
       setCurrentTenant(tenant);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to detect tenant';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to detect tenant. Please check your network connection and try again.';
       console.error('Tenant detection failed:', errorMessage);
       setError(errorMessage);
       setCurrentTenant(null);
