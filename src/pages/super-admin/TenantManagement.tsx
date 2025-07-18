@@ -76,7 +76,26 @@ export default function TenantManagement() {
         console.error('Error fetching tenants:', error);
         return [];
       }
-      return data || [];
+      
+      // Transform database tenants to match our Tenant interface
+      const transformedTenants = (data || []).map(tenant => ({
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug || '',
+        type: tenant.type || 'basic',
+        subscription_plan: tenant.subscription_plan || '',
+        subscription_status: (tenant.subscription_status as 'active' | 'trial' | 'expired' | 'cancelled') || 'trial',
+        status: (tenant.status as 'active' | 'inactive' | 'suspended') || 'active',
+        is_active: tenant.is_active !== undefined ? tenant.is_active : true,
+        settings: tenant.settings || {},
+        created_at: tenant.created_at,
+        updated_at: tenant.updated_at,
+        branding: tenant.branding || {},
+        user_count: tenant.user_count || 0,
+        last_activity: tenant.last_activity
+      }));
+      
+      return transformedTenants;
     },
   });
 
@@ -93,11 +112,12 @@ export default function TenantManagement() {
           .from('farmers')
           .select('id');
 
+        const safeTenantsData = tenantsData || [];
         const stats: TenantStats = {
-          totalTenants: tenantsData?.length || 0,
-          activeTenants: tenantsData?.filter(t => t.is_active).length || 0,
-          trialTenants: tenantsData?.filter(t => t.subscription_status === 'trial').length || 0,
-          inactiveTenants: tenantsData?.filter(t => !t.is_active).length || 0,
+          totalTenants: safeTenantsData.length,
+          activeTenants: safeTenantsData.filter(t => t.is_active !== false).length,
+          trialTenants: safeTenantsData.filter(t => t.subscription_status === 'trial').length,
+          inactiveTenants: safeTenantsData.filter(t => t.is_active === false).length,
           totalUsers: usersData?.length || 0,
           monthlyRevenue: 0 // Mock value
         };
@@ -412,7 +432,7 @@ function CreateTenantForm({ onSubmit }: { onSubmit: (data: any) => void }) {
       type: formData.type,
       settings: JSON.parse(formData.settings || '{}'),
       is_active: formData.is_active,
-      subscription_status: 'trial'
+      subscription_status: 'trial' as const
     };
     
     onSubmit(tenantData);

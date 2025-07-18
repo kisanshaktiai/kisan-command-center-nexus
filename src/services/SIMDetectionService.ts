@@ -25,10 +25,12 @@ export class SIMDetectionService {
       // Check if we're in a mobile environment with Capacitor
       if (typeof window !== 'undefined' && (window as any).Capacitor) {
         try {
-          // Try to import SIM plugin dynamically
-          const { SIM } = await import('@capacitor-community/sim');
-          const simInfo = await SIM.getSimInfo();
-          return simInfo;
+          // Dynamically import SIM plugin only if Capacitor is available
+          const SIMModule = await import('@capacitor-community/sim').catch(() => null);
+          if (SIMModule && SIMModule.SIM) {
+            const simInfo = await SIMModule.SIM.getSimInfo();
+            return simInfo;
+          }
         } catch (error) {
           console.warn('SIM plugin not available or failed:', error);
           return this.getMockSIMInfo();

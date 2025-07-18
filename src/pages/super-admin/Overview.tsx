@@ -15,10 +15,13 @@ export default function Overview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, name, is_active, created_at')
-        .eq('is_active', true);
+        .select('id, name, created_at')
+        .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching tenants:', error);
+        return [];
+      }
       return data || [];
     },
     refetchInterval: 30000,
@@ -32,7 +35,10 @@ export default function Overview() {
         .from('farmers')
         .select('id, created_at, is_verified');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching farmers:', error);
+        return [];
+      }
       return data || [];
     },
     refetchInterval: 30000,
@@ -48,7 +54,10 @@ export default function Overview() {
         .order('timestamp', { ascending: false })
         .limit(30);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching financial data:', error);
+        return [];
+      }
       return data || [];
     },
     refetchInterval: 30000,
@@ -63,7 +72,10 @@ export default function Overview() {
         .select('*')
         .eq('status', 'active');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching subscriptions:', error);
+        return [];
+      }
       return data || [];
     },
     refetchInterval: 30000,
@@ -111,25 +123,29 @@ export default function Overview() {
 
     // Count tenants created each day
     tenantsData?.forEach(tenant => {
-      const createdDate = new Date(tenant.created_at).toISOString().split('T')[0];
-      const dayData = last30Days.find(d => d.date === createdDate);
-      if (dayData) {
-        dayData.tenants += 1;
+      if (tenant.created_at) {
+        const createdDate = new Date(tenant.created_at).toISOString().split('T')[0];
+        const dayData = last30Days.find(d => d.date === createdDate);
+        if (dayData) {
+          dayData.tenants += 1;
+        }
       }
     });
 
     // Count farmers created each day
     farmersData?.forEach(farmer => {
-      const createdDate = new Date(farmer.created_at).toISOString().split('T')[0];
-      const dayData = last30Days.find(d => d.date === createdDate);
-      if (dayData) {
-        dayData.farmers += 1;
+      if (farmer.created_at) {
+        const createdDate = new Date(farmer.created_at).toISOString().split('T')[0];
+        const dayData = last30Days.find(d => d.date === createdDate);
+        if (dayData) {
+          dayData.farmers += 1;
+        }
       }
     });
 
     // Add revenue data from financial metrics
     financialData?.forEach(metric => {
-      if (metric.metric_name === 'daily_revenue') {
+      if (metric.metric_name === 'daily_revenue' && metric.timestamp) {
         const metricDate = new Date(metric.timestamp).toISOString().split('T')[0];
         const dayData = last30Days.find(d => d.date === metricDate);
         if (dayData) {

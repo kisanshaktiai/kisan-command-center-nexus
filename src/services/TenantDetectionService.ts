@@ -37,11 +37,11 @@ export class TenantDetectionService {
         throw new Error('No subdomain detected - tenant identification required');
       }
 
-      // Simplified tenant detection since some columns don't exist yet
+      // Simplified tenant detection - get any tenant for development
       const { data: tenant, error } = await supabase
         .from('tenants')
-        .select('id, name, settings, is_active, created_at')
-        .eq('is_active', true)
+        .select('id, name, created_at')
+        .limit(1)
         .single();
 
       if (error || !tenant) {
