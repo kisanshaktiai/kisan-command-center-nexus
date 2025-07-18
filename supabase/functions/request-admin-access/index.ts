@@ -14,6 +14,60 @@ interface AdminRequestData {
   password: string;
 }
 
+interface PasswordValidation {
+  isValid: boolean;
+  errors: string[];
+}
+
+function validatePassword(password: string): PasswordValidation {
+  const errors: string[] = [];
+
+  // Length checks
+  if (password.length < 12) {
+    errors.push('Password must be at least 12 characters long');
+  }
+  if (password.length > 64) {
+    errors.push('Password must not exceed 64 characters');
+  }
+
+  // Character type checks
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push('Password must contain at least one lowercase letter');
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain at least one number');
+  }
+  if (!/[@#$%&*!?.,;:+=\-_~`^|<>()[\]{}\\/"']/.test(password)) {
+    errors.push('Password must contain at least one special character');
+  }
+
+  // No spaces allowed
+  if (/\s/.test(password)) {
+    errors.push('Password cannot contain spaces');
+  }
+
+  // Common password blacklist
+  const commonPasswords = [
+    'password123', 'admin123', 'administrator', 'password1234', 
+    'admin1234', 'welcome123', 'qwerty123', 'abc123456', 
+    'password@123', 'admin@123', 'kisanshakti123', 'superadmin123',
+    'adminpassword', 'passwordadmin', 'kisanshakti@123'
+  ];
+
+  const lowercasePassword = password.toLowerCase();
+  if (commonPasswords.some(common => lowercasePassword.includes(common))) {
+    errors.push('Password contains common patterns that are not allowed');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -47,6 +101,18 @@ const handler = async (req: Request): Promise<Response> => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return new Response(JSON.stringify({ error: "Please provide a valid email address" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      console.error('Password validation failed:', passwordValidation.errors);
+      return new Response(JSON.stringify({ 
+        error: `Password requirements not met: ${passwordValidation.errors.join(', ')}` 
+      }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });

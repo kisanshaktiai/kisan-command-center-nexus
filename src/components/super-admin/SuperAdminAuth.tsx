@@ -11,6 +11,7 @@ import { Shield, Eye, EyeOff, UserPlus, LogIn, Clock, Mail, Key } from 'lucide-r
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { PasswordStrength, validatePassword } from '@/components/ui/password-strength';
 
 export const SuperAdminAuth = () => {
   const [email, setEmail] = useState('');
@@ -95,6 +96,12 @@ export const SuperAdminAuth = () => {
 
     try {
       validateEmail(email);
+
+      // Validate password before submission
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        throw new Error(passwordValidation.errors[0]);
+      }
 
       // Call the custom edge function for admin request
       const { data, error } = await supabase.functions.invoke('request-admin-access', {
@@ -347,7 +354,8 @@ export const SuperAdminAuth = () => {
                       placeholder="Create a strong password"
                       required
                       disabled={isLoading}
-                      minLength={6}
+                      minLength={12}
+                      maxLength={64}
                     />
                     <Button
                       type="button"
@@ -364,9 +372,11 @@ export const SuperAdminAuth = () => {
                       )}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Minimum 6 characters required
-                  </p>
+                  
+                  {/* Password Strength Indicator */}
+                  {password && (
+                    <PasswordStrength password={password} />
+                  )}
                 </div>
                 
                 <Button
