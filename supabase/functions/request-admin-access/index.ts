@@ -89,8 +89,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { fullName, email, password }: AdminRequestData = await req.json();
 
+    console.log('Processing admin request for email:', email);
+
     // Validate input
     if (!fullName || !email || !password) {
+      console.error('Missing required fields:', { fullName: !!fullName, email: !!email, password: !!password });
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -100,6 +103,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
+      console.error('Invalid email format:', email);
       return new Response(JSON.stringify({ error: "Please provide a valid email address" }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -118,50 +122,55 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Check if email already exists in pending requests or auth.users
-    const { data: existingRequest } = await supabaseClient
+    // First, delete any existing expired or rejected requests for this email
+    const { error: deleteError } = await supabaseClient
+      .from('pending_admin_requests')
+      .delete()
+      .eq('email', email)
+      .or('status.eq.rejected,expires_at.lt.now()');
+
+    if (deleteError) {
+      console.error('Error cleaning up old requests:', deleteError);
+    } else {
+      console.log('Cleaned up old requests for email:', email);
+    }
+
+    // Check for existing pending requests after cleanup
+    const { data: existingRequest, error: fetchError } = await supabaseClient
       .from('pending_admin_requests')
       .select('id, status, created_at, expires_at')
       .eq('email', email)
+      .eq('status', 'pending')
       .single();
 
+    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      console.error('Error checking existing requests:', fetchError);
+      return new Response(JSON.stringify({ error: "Database error occurred" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     if (existingRequest) {
-      // Check if the request has expired
       const now = new Date();
       const expiresAt = new Date(existingRequest.expires_at);
       
-      if (now > expiresAt) {
-        // Delete expired request
-        await supabaseClient
-          .from('pending_admin_requests')
-          .delete()
-          .eq('id', existingRequest.id);
-        
-        console.log('Deleted expired request for email:', email);
-      } else if (existingRequest.status === 'pending') {
-        // Request is still valid and pending
+      if (now <= expiresAt) {
+        console.log('Found active pending request for email:', email);
         return new Response(JSON.stringify({ 
           error: "A pending admin request already exists for this email. Please wait for approval or contact the administrator." 
         }), {
           status: 400,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
-      } else if (existingRequest.status === 'rejected') {
-        // Previous request was rejected, allow new request
-        await supabaseClient
-          .from('pending_admin_requests')
-          .delete()
-          .eq('id', existingRequest.id);
-        
-        console.log('Deleted rejected request for email:', email);
       }
     }
 
-    // Store password encrypted for security (temporary storage for 24 hours)
+    // Encrypt password temporarily for storage
     const encoder = new TextEncoder();
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
-      encoder.encode('kisanshakti-temp-key'), // In production, use proper key management
+      encoder.encode('kisanshakti-temp-key-v2'), // Changed key for security
       { name: 'PBKDF2' },
       false,
       ['deriveBits', 'deriveKey']
@@ -188,20 +197,21 @@ const handler = async (req: Request): Promise<Response> => {
       encoder.encode(password)
     );
     
-    // Store encrypted password with salt and iv for decryption
     const encryptedPassword = {
       data: Array.from(new Uint8Array(encryptedData)),
       salt: Array.from(salt),
       iv: Array.from(iv)
     };
 
-    // Create pending request
+    console.log('Creating new admin request for email:', email);
+
+    // Create pending request with better error handling
     const { data: pendingRequest, error: insertError } = await supabaseClient
       .from('pending_admin_requests')
       .insert({
         full_name: fullName,
         email: email,
-        password_hash: JSON.stringify(encryptedPassword), // Store encrypted password
+        password_hash: JSON.stringify(encryptedPassword),
         status: 'pending',
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
       })
@@ -210,13 +220,28 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (insertError) {
       console.error('Error creating pending request:', insertError);
-      return new Response(JSON.stringify({ error: "Failed to create request. Please try again." }), {
+      
+      // Handle specific database errors
+      if (insertError.code === '23505') { // Unique constraint violation
+        return new Response(JSON.stringify({ 
+          error: "A request for this email already exists. Please wait for processing or contact support." 
+        }), {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+      
+      return new Response(JSON.stringify({ 
+        error: "Failed to create request. Please try again later." 
+      }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
-    // Send notification email to admin@kisanshakti.in
+    console.log('Successfully created admin request:', pendingRequest.id);
+
+    // Send notification email to admin
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (resendApiKey) {
       try {
@@ -243,10 +268,14 @@ const handler = async (req: Request): Promise<Response> => {
             <p style="font-size: 12px; color: #666;">This request will expire in 24 hours.</p>
           `,
         });
+
+        console.log('Notification email sent successfully');
       } catch (emailError) {
         console.error('Failed to send notification email:', emailError);
         // Don't fail the request if email fails
       }
+    } else {
+      console.warn('RESEND_API_KEY not configured, skipping email notification');
     }
 
     return new Response(JSON.stringify({ 
@@ -258,7 +287,7 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
   } catch (error: any) {
-    console.error("Error in request-admin-access function:", error);
+    console.error("Unexpected error in request-admin-access function:", error);
     return new Response(JSON.stringify({ 
       error: "An unexpected error occurred. Please try again later." 
     }), {

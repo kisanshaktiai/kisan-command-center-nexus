@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -94,6 +95,19 @@ export const SuperAdminAuth = () => {
     setError('');
 
     try {
+      // Client-side validation
+      if (!fullName.trim()) {
+        throw new Error('Full name is required');
+      }
+      
+      if (!email.trim()) {
+        throw new Error('Email is required');
+      }
+      
+      if (!password.trim()) {
+        throw new Error('Password is required');
+      }
+
       validateEmail(email);
 
       // Validate password before submission
@@ -102,24 +116,32 @@ export const SuperAdminAuth = () => {
         throw new Error(passwordValidation.errors[0]);
       }
 
+      console.log('Submitting admin request for:', email);
+
       // Call the custom edge function for admin request
       const { data, error } = await supabase.functions.invoke('request-admin-access', {
         body: {
-          fullName,
-          email,
+          fullName: fullName.trim(),
+          email: email.trim(),
           password
         }
       });
 
+      console.log('Edge function response:', { data, error });
+
       if (error) {
-        // Handle edge function errors more gracefully
         console.error('Edge function error:', error);
         throw new Error(error.message || 'Failed to submit admin request');
       }
 
       if (data?.error) {
-        // Handle application-level errors from the edge function
+        console.error('Application error from edge function:', data.error);
         throw new Error(data.error);
+      }
+
+      if (!data?.success) {
+        console.error('Unexpected response from edge function:', data);
+        throw new Error('Invalid response from server');
       }
 
       setSignupSuccess(true);
@@ -129,15 +151,19 @@ export const SuperAdminAuth = () => {
       setFullName('');
       setEmail('');
       setPassword('');
+      
     } catch (err: any) {
       console.error('Signup error:', err);
-      let errorMessage = err.message;
+      let errorMessage = err.message || 'An unexpected error occurred';
       
       // Provide more user-friendly error messages
-      if (errorMessage.includes('pending request already exists')) {
+      if (errorMessage.includes('pending request already exists') || 
+          errorMessage.includes('request for this email already exists')) {
         errorMessage = 'A request for this email is already pending approval. Please wait for administrator review or contact support.';
       } else if (errorMessage.includes('Edge Function returned a non-2xx status code')) {
         errorMessage = 'Unable to submit request. Please check your details and try again.';
+      } else if (errorMessage.includes('Failed to create request')) {
+        errorMessage = 'Unable to process your request right now. Please try again in a few minutes.';
       }
       
       setError(errorMessage);
