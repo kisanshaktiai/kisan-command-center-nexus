@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { 
   Plus, 
   Search, 
@@ -39,7 +37,10 @@ const TenantManagement = () => {
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching tenants:', error);
+        throw error;
+      }
       return data;
     },
   });
@@ -47,13 +48,20 @@ const TenantManagement = () => {
   // Create new tenant
   const createTenantMutation = useMutation({
     mutationFn: async (tenantData: any) => {
+      console.log('Creating tenant with data:', tenantData);
+      
       const { data, error } = await supabase
         .from('tenants')
         .insert([tenantData])
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating tenant:', error);
+        throw error;
+      }
+      
+      console.log('Tenant created successfully:', data);
       return data;
     },
     onSuccess: () => {
@@ -62,7 +70,8 @@ const TenantManagement = () => {
       toast.success('Tenant created successfully');
     },
     onError: (error: any) => {
-      toast.error('Failed to create tenant: ' + error.message);
+      console.error('Create tenant error:', error);
+      toast.error('Failed to create tenant: ' + (error.message || 'Unknown error'));
     },
   });
 
@@ -303,8 +312,59 @@ const TenantForm = ({ onSubmit, isLoading }: { onSubmit: (data: any) => void; is
     status: 'active'
   });
 
+  // Function to generate slug from name
+  const generateSlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9 -]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .trim('-'); // Remove leading/trailing hyphens
+  };
+
+  // Handle name change and auto-generate slug
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    const slug = generateSlug(name);
+    
+    setFormData({ 
+      ...formData, 
+      name,
+      slug
+    });
+  };
+
+  // Handle manual slug change
+  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const slug = generateSlug(e.target.value);
+    setFormData({ ...formData, slug });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!formData.name.trim()) {
+      toast.error('Tenant name is required');
+      return;
+    }
+    
+    if (!formData.slug.trim()) {
+      toast.error('Tenant slug is required');
+      return;
+    }
+    
+    if (!formData.owner_name.trim()) {
+      toast.error('Owner name is required');
+      return;
+    }
+    
+    if (!formData.owner_email.trim()) {
+      toast.error('Owner email is required');
+      return;
+    }
+
+    console.log('Submitting form data:', formData);
     onSubmit(formData);
   };
 
@@ -315,7 +375,7 @@ const TenantForm = ({ onSubmit, isLoading }: { onSubmit: (data: any) => void; is
         <Input
           id="name"
           value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          onChange={handleNameChange}
           placeholder="Enter tenant name"
           required
         />
@@ -326,10 +386,13 @@ const TenantForm = ({ onSubmit, isLoading }: { onSubmit: (data: any) => void; is
         <Input
           id="slug"
           value={formData.slug}
-          onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+          onChange={handleSlugChange}
           placeholder="tenant-slug"
           required
         />
+        <p className="text-xs text-muted-foreground">
+          Auto-generated from tenant name. Edit if needed.
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -371,6 +434,17 @@ const TenantForm = ({ onSubmit, isLoading }: { onSubmit: (data: any) => void; is
           onChange={(e) => setFormData({ ...formData, owner_email: e.target.value })}
           placeholder="owner@example.com"
           required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="owner_phone">Owner Phone (Optional)</Label>
+        <Input
+          id="owner_phone"
+          type="tel"
+          value={formData.owner_phone}
+          onChange={(e) => setFormData({ ...formData, owner_phone: e.target.value })}
+          placeholder="+1234567890"
         />
       </div>
 
