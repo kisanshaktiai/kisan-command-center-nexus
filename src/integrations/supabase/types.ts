@@ -968,7 +968,7 @@ export type Database = {
           has_loan?: boolean | null
           has_storage?: boolean | null
           has_tractor?: boolean | null
-          id: string
+          id?: string
           irrigation_type?: string | null
           is_verified?: boolean | null
           last_app_open?: string | null

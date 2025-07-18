@@ -101,11 +101,11 @@ const PredictiveInsights = () => {
     );
   }
 
-  // Generate forecasts based on actual data
+  // Generate forecasts based on actual data with proper null checks
   const capacityForecast = React.useMemo(() => {
-    if (!systemMetrics) return [];
+    if (!systemMetrics?.apiLogs) return [];
 
-    const avgRequestsPerHour = systemMetrics.apiLogs.length / 24;
+    const avgRequestsPerHour = (systemMetrics.apiLogs?.length || 0) / 24;
     const currentUtilization = Math.min(85, avgRequestsPerHour / 10); // Simplified calculation
 
     return Array.from({ length: 6 }, (_, i) => ({
@@ -117,12 +117,12 @@ const PredictiveInsights = () => {
   }, [systemMetrics]);
 
   const revenueForecast = React.useMemo(() => {
-    if (!systemMetrics) return [];
+    if (!systemMetrics?.financialMetrics) return [];
 
-    const recentRevenue = systemMetrics.financialMetrics
+    const recentRevenue = (systemMetrics.financialMetrics || [])
       .filter(m => m.metric_name === 'monthly_revenue')
       .slice(0, 3)
-      .reduce((sum, m) => sum + m.amount, 0) / 3;
+      .reduce((sum, m) => sum + (m.amount || 0), 0) / 3;
 
     return Array.from({ length: 6 }, (_, i) => {
       const baseRevenue = recentRevenue || 45000;
@@ -152,7 +152,7 @@ const PredictiveInsights = () => {
 
   const totalRisk = tenantRisk?.filter(t => t.risk_score >= 80).length || 0;
   const riskRevenue = tenantRisk?.filter(t => t.risk_score >= 80)
-    .reduce((sum, t) => sum + t.revenue_impact, 0) || 0;
+    .reduce((sum, t) => sum + (t.revenue_impact || 0), 0) || 0;
 
   return (
     <div className="space-y-6">
@@ -341,7 +341,7 @@ const PredictiveInsights = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {tenantRisk?.map((tenant) => (
+            {tenantRisk && tenantRisk.length > 0 ? tenantRisk.map((tenant) => (
               <div key={tenant.tenant} className="border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -371,9 +371,7 @@ const PredictiveInsights = () => {
                   </div>
                 </div>
               </div>
-            ))}
-
-            {!tenantRisk || tenantRisk.length === 0 && (
+            )) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Lightbulb className="h-8 w-8 mx-auto mb-2" />
                 <p>No high-risk tenants identified at this time.</p>
