@@ -47,10 +47,54 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (action === 'approve') {
-      // Create the user account
+      // Decrypt the password
+      let originalPassword: string;
+      try {
+        const encryptedPasswordData = JSON.parse(pendingRequest.password_hash);
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
+        
+        const keyMaterial = await crypto.subtle.importKey(
+          'raw',
+          encoder.encode('kisanshakti-temp-key'), // Same key used for encryption
+          { name: 'PBKDF2' },
+          false,
+          ['deriveBits', 'deriveKey']
+        );
+        
+        const salt = new Uint8Array(encryptedPasswordData.salt);
+        const key = await crypto.subtle.deriveKey(
+          {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: 100000,
+            hash: 'SHA-256',
+          },
+          keyMaterial,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['decrypt']
+        );
+        
+        const iv = new Uint8Array(encryptedPasswordData.iv);
+        const encryptedData = new Uint8Array(encryptedPasswordData.data);
+        
+        const decryptedData = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: iv },
+          key,
+          encryptedData
+        );
+        
+        originalPassword = decoder.decode(decryptedData);
+      } catch (decryptError) {
+        console.error('Error decrypting password:', decryptError);
+        return new Response('Failed to decrypt password', { status: 500 });
+      }
+
+      // Create the user account with the original password
       const { data: authUser, error: signUpError } = await supabaseClient.auth.admin.createUser({
         email: pendingRequest.email,
-        password: pendingRequest.password_hash, // This should be the original password
+        password: originalPassword, // Use the decrypted original password
         email_confirm: true,
         user_metadata: {
           full_name: pendingRequest.full_name,
@@ -60,7 +104,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       if (signUpError) {
         console.error('Error creating user:', signUpError);
-        return new Response('Failed to create user account', { status: 500 });
+        return new Response(`Failed to create user account: ${signUpError.message}`, { status: 500 });
       }
 
       // Update the request status

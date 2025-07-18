@@ -51,12 +51,43 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Hash the password (simple hash for demo - in production use proper bcrypt)
+    // Store password encrypted for security (temporary storage for 24 hours)
     const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode('kisanshakti-temp-key'), // In production, use proper key management
+      { name: 'PBKDF2' },
+      false,
+      ['deriveBits', 'deriveKey']
+    );
+    
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const key = await crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: 100000,
+        hash: 'SHA-256',
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt']
+    );
+    
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encryptedData = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv },
+      key,
+      encoder.encode(password)
+    );
+    
+    // Store encrypted password with salt and iv for decryption
+    const encryptedPassword = {
+      data: Array.from(new Uint8Array(encryptedData)),
+      salt: Array.from(salt),
+      iv: Array.from(iv)
+    };
 
     // Check if email already exists in pending requests or auth.users
     const { data: existingRequest } = await supabaseClient
@@ -79,8 +110,9 @@ const handler = async (req: Request): Promise<Response> => {
       .insert({
         full_name: fullName,
         email: email,
-        password_hash: passwordHash,
-        status: 'pending'
+        password_hash: JSON.stringify(encryptedPassword), // Store encrypted password
+        status: 'pending',
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
       })
       .select()
       .single();
