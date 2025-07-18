@@ -55,6 +55,15 @@ export const SuperAdminHeader = ({ setSidebarOpen, adminUser }: SuperAdminHeader
     }
   };
 
+  const getInitials = (name: string) => {
+    if (!name) return 'SA';
+    return name
+      .split(' ')
+      .map((n: string) => n[0])
+      .join('')
+      .toUpperCase();
+  };
+
   return (
     <header className="bg-card border-b px-4 py-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
@@ -98,20 +107,16 @@ export const SuperAdminHeader = ({ setSidebarOpen, adminUser }: SuperAdminHeader
               <Button variant="ghost" className="flex items-center space-x-2">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>
-                    {adminUser.full_name
-                      .split(' ')
-                      .map((n: string) => n[0])
-                      .join('')
-                      .toUpperCase()}
+                    {getInitials(adminUser.full_name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium">{adminUser.full_name}</p>
+                  <p className="text-sm font-medium">{adminUser.full_name || 'Super Admin'}</p>
                   <Badge 
                     variant="secondary" 
-                    className={`text-xs ${getRoleColor(adminUser.role)}`}
+                    className={`text-xs ${getRoleColor(adminUser.role || 'super_admin')}`}
                   >
-                    {adminUser.role.replace('_', ' ').toUpperCase()}
+                    {(adminUser.role || 'super_admin').replace('_', ' ').toUpperCase()}
                   </Badge>
                 </div>
               </Button>
@@ -120,7 +125,7 @@ export const SuperAdminHeader = ({ setSidebarOpen, adminUser }: SuperAdminHeader
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div>
-                  <p className="font-medium">{adminUser.full_name}</p>
+                  <p className="font-medium">{adminUser.full_name || 'Super Admin'}</p>
                   <p className="text-xs text-muted-foreground">{adminUser.email}</p>
                 </div>
               </DropdownMenuLabel>

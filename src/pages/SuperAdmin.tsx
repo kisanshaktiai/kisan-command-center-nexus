@@ -20,9 +20,9 @@ export default function SuperAdmin() {
   const { user } = useAuth();
 
   const adminUser = {
-    name: user?.user_metadata?.full_name || 'Super Admin',
+    full_name: user?.user_metadata?.full_name || 'Super Admin',
     email: user?.email || 'admin@example.com',
-    avatar: user?.user_metadata?.avatar_url || '',
+    role: 'super_admin',
   };
 
   return (
