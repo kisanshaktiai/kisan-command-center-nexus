@@ -67,20 +67,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAdminStatus = async (user: User) => {
     try {
-      // Check if user exists in super_admin.admin_users table
-      const { data: adminUser, error } = await supabase
-        .from('super_admin.admin_users')
-        .select('role, is_active')
-        .eq('id', user.id)
-        .eq('is_active', true)
-        .single();
+      // Use raw SQL query to check the super_admin.admin_users table
+      const { data: adminUser, error } = await supabase.rpc('exec_sql', {
+        sql: `
+          SELECT role, is_active 
+          FROM super_admin.admin_users 
+          WHERE id = $1 AND is_active = true
+        `,
+        params: [user.id]
+      });
 
-      if (!error && adminUser) {
+      if (!error && adminUser && adminUser.length > 0) {
         setIsAdmin(true);
-        console.log('User is admin with role:', adminUser.role);
+        console.log('User is admin with role:', adminUser[0].role);
       } else {
-        setIsAdmin(false);
-        console.log('User is not an admin');
+        // Fallback: check by email since we might not have the user.id in the table yet
+        const { data: adminUserByEmail, error: emailError } = await supabase.rpc('exec_sql', {
+          sql: `
+            SELECT role, is_active 
+            FROM super_admin.admin_users 
+            WHERE email = $1 AND is_active = true
+          `,
+          params: [user.email]
+        });
+
+        if (!emailError && adminUserByEmail && adminUserByEmail.length > 0) {
+          setIsAdmin(true);
+          console.log('User is admin with role:', adminUserByEmail[0].role);
+        } else {
+          setIsAdmin(false);
+          console.log('User is not an admin');
+        }
       }
     } catch (error) {
       console.error('Error checking admin status:', error);
