@@ -50,19 +50,30 @@ const TenantManagement = () => {
     mutationFn: async (tenantData: any) => {
       console.log('Creating tenant with data:', tenantData);
       
-      const { data, error } = await supabase
+      // Create the tenant first
+      const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
-        .insert([tenantData])
+        .insert([{
+          name: tenantData.name,
+          slug: tenantData.slug,
+          type: tenantData.type,
+          status: tenantData.status,
+          settings: {
+            owner_name: tenantData.owner_name,
+            owner_email: tenantData.owner_email,
+            owner_phone: tenantData.owner_phone,
+          }
+        }])
         .select()
         .single();
       
-      if (error) {
-        console.error('Error creating tenant:', error);
-        throw error;
+      if (tenantError) {
+        console.error('Error creating tenant:', tenantError);
+        throw tenantError;
       }
       
-      console.log('Tenant created successfully:', data);
-      return data;
+      console.log('Tenant created successfully:', tenant);
+      return tenant;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['super-admin-tenants'] });
