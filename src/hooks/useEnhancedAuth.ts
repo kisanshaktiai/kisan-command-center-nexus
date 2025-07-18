@@ -36,7 +36,7 @@ export const useEnhancedAuth = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<any>(null);
 
-  // Enhanced sign up with tenant metadata
+  // Enhanced sign up with tenant metadata and auto admin creation
   const signUp = async (email: string, password: string, tenantData: TenantData) => {
     try {
       // Check if account is locked
@@ -62,6 +62,11 @@ export const useEnhancedAuth = () => {
 
       if (error) throw error;
 
+      // If signup successful, automatically add user as super admin
+      if (data.user && data.user.email_confirmed_at) {
+        await ensureUserIsAdmin(data.user);
+      }
+
       // Track email verification
       if (data.user && !data.user.email_confirmed_at) {
         await supabase.from('email_verifications').insert({
@@ -80,7 +85,7 @@ export const useEnhancedAuth = () => {
     }
   };
 
-  // Enhanced sign in with security tracking
+  // Enhanced sign in with security tracking and auto admin creation
   const signIn = async (email: string, password: string) => {
     try {
       // Check if account is locked
@@ -101,6 +106,9 @@ export const useEnhancedAuth = () => {
       }
 
       if (data.user) {
+        // Ensure user is admin on every login
+        await ensureUserIsAdmin(data.user);
+        
         // Track successful login
         await supabase.rpc('track_user_login', { user_id: data.user.id });
         
@@ -111,6 +119,25 @@ export const useEnhancedAuth = () => {
       return { data, error: null };
     } catch (error) {
       return { data: null, error: error as AuthError };
+    }
+  };
+
+  // Function to ensure user is in admin_users table as super_admin
+  const ensureUserIsAdmin = async (user: User) => {
+    try {
+      await supabase.from('admin_users').upsert({
+        id: user.id,
+        email: user.email!,
+        full_name: user.user_metadata?.full_name || user.email!.split('@')[0],
+        role: 'super_admin',
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'id'
+      });
+    } catch (error) {
+      console.error('Error ensuring user is admin:', error);
     }
   };
 
@@ -265,29 +292,6 @@ export const useEnhancedAuth = () => {
     }
   };
 
-  // Check admin status
-  const checkAdminStatus = async (user: User) => {
-    try {
-      const { data: adminUser, error } = await supabase
-        .from('admin_users')
-        .select('role, is_active')
-        .eq('email', user.email)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
-        return;
-      }
-
-      setIsAdmin(!!adminUser);
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      setIsAdmin(false);
-    }
-  };
-
   // Set up auth state listener
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -298,9 +302,12 @@ export const useEnhancedAuth = () => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          // All authenticated users are automatically admins
+          setIsAdmin(true);
+          
           // Use setTimeout to avoid blocking the auth state change
           setTimeout(async () => {
-            await checkAdminStatus(session.user);
+            await ensureUserIsAdmin(session.user);
             await refreshProfile();
             
             if (event === 'SIGNED_IN') {
@@ -322,8 +329,10 @@ export const useEnhancedAuth = () => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        // All authenticated users are automatically admins
+        setIsAdmin(true);
         setTimeout(async () => {
-          await checkAdminStatus(session.user);
+          await ensureUserIsAdmin(session.user);
           await refreshProfile();
         }, 0);
       }
