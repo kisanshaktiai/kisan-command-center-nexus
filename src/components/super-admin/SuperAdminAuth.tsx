@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -112,7 +111,16 @@ export const SuperAdminAuth = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Handle edge function errors more gracefully
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to submit admin request');
+      }
+
+      if (data?.error) {
+        // Handle application-level errors from the edge function
+        throw new Error(data.error);
+      }
 
       setSignupSuccess(true);
       toast.success('Admin access request submitted successfully!');
@@ -122,8 +130,18 @@ export const SuperAdminAuth = () => {
       setEmail('');
       setPassword('');
     } catch (err: any) {
-      setError(err.message);
-      toast.error(err.message);
+      console.error('Signup error:', err);
+      let errorMessage = err.message;
+      
+      // Provide more user-friendly error messages
+      if (errorMessage.includes('pending request already exists')) {
+        errorMessage = 'A request for this email is already pending approval. Please wait for administrator review or contact support.';
+      } else if (errorMessage.includes('Edge Function returned a non-2xx status code')) {
+        errorMessage = 'Unable to submit request. Please check your details and try again.';
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

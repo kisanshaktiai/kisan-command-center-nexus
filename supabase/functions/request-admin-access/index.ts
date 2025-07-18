@@ -118,6 +118,45 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // Check if email already exists in pending requests or auth.users
+    const { data: existingRequest } = await supabaseClient
+      .from('pending_admin_requests')
+      .select('id, status, created_at, expires_at')
+      .eq('email', email)
+      .single();
+
+    if (existingRequest) {
+      // Check if the request has expired
+      const now = new Date();
+      const expiresAt = new Date(existingRequest.expires_at);
+      
+      if (now > expiresAt) {
+        // Delete expired request
+        await supabaseClient
+          .from('pending_admin_requests')
+          .delete()
+          .eq('id', existingRequest.id);
+        
+        console.log('Deleted expired request for email:', email);
+      } else if (existingRequest.status === 'pending') {
+        // Request is still valid and pending
+        return new Response(JSON.stringify({ 
+          error: "A pending admin request already exists for this email. Please wait for approval or contact the administrator." 
+        }), {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      } else if (existingRequest.status === 'rejected') {
+        // Previous request was rejected, allow new request
+        await supabaseClient
+          .from('pending_admin_requests')
+          .delete()
+          .eq('id', existingRequest.id);
+        
+        console.log('Deleted rejected request for email:', email);
+      }
+    }
+
     // Store password encrypted for security (temporary storage for 24 hours)
     const encoder = new TextEncoder();
     const keyMaterial = await crypto.subtle.importKey(
@@ -156,21 +195,6 @@ const handler = async (req: Request): Promise<Response> => {
       iv: Array.from(iv)
     };
 
-    // Check if email already exists in pending requests or auth.users
-    const { data: existingRequest } = await supabaseClient
-      .from('pending_admin_requests')
-      .select('id')
-      .eq('email', email)
-      .eq('status', 'pending')
-      .single();
-
-    if (existingRequest) {
-      return new Response(JSON.stringify({ error: "A pending request already exists for this email" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
     // Create pending request
     const { data: pendingRequest, error: insertError } = await supabaseClient
       .from('pending_admin_requests')
@@ -186,7 +210,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (insertError) {
       console.error('Error creating pending request:', insertError);
-      return new Response(JSON.stringify({ error: "Failed to create request" }), {
+      return new Response(JSON.stringify({ error: "Failed to create request. Please try again." }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
@@ -195,29 +219,34 @@ const handler = async (req: Request): Promise<Response> => {
     // Send notification email to admin@kisanshakti.in
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (resendApiKey) {
-      const resend = new Resend(resendApiKey);
-      
-      const approvalUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/approve-admin-request?token=${pendingRequest.request_token}&action=approve`;
-      const rejectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/approve-admin-request?token=${pendingRequest.request_token}&action=reject`;
+      try {
+        const resend = new Resend(resendApiKey);
+        
+        const approvalUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/approve-admin-request?token=${pendingRequest.request_token}&action=approve`;
+        const rejectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/approve-admin-request?token=${pendingRequest.request_token}&action=reject`;
 
-      await resend.emails.send({
-        from: "KisanShaktiAI <admin@kisanshakti.in>",
-        to: ["admin@kisanshakti.in"],
-        subject: "New Admin Access Request",
-        html: `
-          <h2>New Admin Access Request</h2>
-          <p><strong>Name:</strong> ${fullName}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Requested at:</strong> ${new Date().toLocaleString()}</p>
-          
-          <div style="margin: 20px 0;">
-            <a href="${approvalUrl}" style="background-color: #10b981; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Approve Request</a>
-            <a href="${rejectUrl}" style="background-color: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reject Request</a>
-          </div>
-          
-          <p style="font-size: 12px; color: #666;">This request will expire in 24 hours.</p>
-        `,
-      });
+        await resend.emails.send({
+          from: "KisanShaktiAI <admin@kisanshakti.in>",
+          to: ["admin@kisanshakti.in"],
+          subject: "New Admin Access Request",
+          html: `
+            <h2>New Admin Access Request</h2>
+            <p><strong>Name:</strong> ${fullName}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Requested at:</strong> ${new Date().toLocaleString()}</p>
+            
+            <div style="margin: 20px 0;">
+              <a href="${approvalUrl}" style="background-color: #10b981; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Approve Request</a>
+              <a href="${rejectUrl}" style="background-color: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reject Request</a>
+            </div>
+            
+            <p style="font-size: 12px; color: #666;">This request will expire in 24 hours.</p>
+          `,
+        });
+      } catch (emailError) {
+        console.error('Failed to send notification email:', emailError);
+        // Don't fail the request if email fails
+      }
     }
 
     return new Response(JSON.stringify({ 
@@ -230,7 +259,9 @@ const handler = async (req: Request): Promise<Response> => {
 
   } catch (error: any) {
     console.error("Error in request-admin-access function:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: "An unexpected error occurred. Please try again later." 
+    }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
