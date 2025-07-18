@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -5,11 +6,11 @@ import { useQuery } from '@tanstack/react-query';
 interface Tenant {
   id: string;
   name: string;
-  slug?: string; // Make optional in case it's missing from DB
+  slug?: string;
   type: string;
   subscription_plan: string | null;
   status: string;
-  settings: Record<string, any> | null; // Allow null from database
+  settings: Record<string, any> | null;
   created_at: string;
 }
 
@@ -62,7 +63,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           throw new Error(`Query error: ${queryError.message}`);
         }
         
-        // Type-safe mapping with proper error handling
         const mappedTenants = (data || [])
           .map(item => {
             if (!item.tenants || typeof item.tenants !== 'object') {
