@@ -6,6 +6,9 @@ import { useQuery } from '@tanstack/react-query';
 interface Tenant {
   id: string;
   name: string;
+  slug: string;
+  type: string;
+  subscription_plan: string | null;
   status: string;
   settings: Record<string, any>;
   created_at: string;
@@ -40,6 +43,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           tenants!inner (
             id,
             name,
+            slug,
+            type,
+            subscription_plan,
             status,
             settings,
             created_at
