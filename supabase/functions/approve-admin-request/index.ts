@@ -91,11 +91,11 @@ const handler = async (req: Request): Promise<Response> => {
         return new Response('Failed to decrypt password', { status: 500 });
       }
 
-      // Create the user account with the original password
+      // Create the user account with OTP-based authentication
       const { data: authUser, error: signUpError } = await supabaseClient.auth.admin.createUser({
         email: pendingRequest.email,
-        password: originalPassword, // Use the decrypted original password
-        email_confirm: true,
+        password: originalPassword,
+        email_confirm: false, // We'll use OTP for email confirmation
         user_metadata: {
           full_name: pendingRequest.full_name,
           role: 'super_admin'
@@ -113,9 +113,22 @@ const handler = async (req: Request): Promise<Response> => {
         .update({
           status: 'approved',
           approved_at: new Date().toISOString(),
-          approved_by: 'kisanshaktiai@gmail.com'
+          approved_by: 'admin@kisanshakti.in'
         })
         .eq('id', pendingRequest.id);
+
+      // Send OTP to the approved user
+      const { error: otpError } = await supabaseClient.auth.admin.generateLink({
+        type: 'magiclink',
+        email: pendingRequest.email,
+        options: {
+          redirectTo: `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'supabase.com')}/auth`
+        }
+      });
+
+      if (otpError) {
+        console.error('Error generating OTP:', otpError);
+      }
 
       // Send approval email to the user
       const resendApiKey = Deno.env.get("RESEND_API_KEY");
@@ -123,14 +136,15 @@ const handler = async (req: Request): Promise<Response> => {
         const resend = new Resend(resendApiKey);
         
         await resend.emails.send({
-          from: "KisanShaktiAI <onboarding@resend.dev>",
+          from: "KisanShaktiAI <admin@kisanshakti.in>",
           to: [pendingRequest.email],
-          subject: "Super Admin Access Approved",
+          subject: "Admin Access Approved - OTP Required",
           html: `
             <h2>Welcome to KisanShaktiAI!</h2>
             <p>Dear ${pendingRequest.full_name},</p>
-            <p>Your super admin access request has been approved. You can now log in to the KisanShaktiAI platform.</p>
+            <p>Your admin access request has been approved. For security, we use OTP-based authentication.</p>
             <p><strong>Email:</strong> ${pendingRequest.email}</p>
+            <p>You will receive an OTP code every time you log in. Check your email for the OTP when you attempt to sign in.</p>
             <p>Thank you for joining our team!</p>
           `,
         });
@@ -155,7 +169,7 @@ const handler = async (req: Request): Promise<Response> => {
         .update({
           status: 'rejected',
           rejection_reason: rejectionReason,
-          approved_by: 'kisanshaktiai@gmail.com'
+          approved_by: 'admin@kisanshakti.in'
         })
         .eq('id', pendingRequest.id);
 
@@ -165,15 +179,15 @@ const handler = async (req: Request): Promise<Response> => {
         const resend = new Resend(resendApiKey);
         
         await resend.emails.send({
-          from: "KisanShaktiAI <onboarding@resend.dev>",
+          from: "KisanShaktiAI <admin@kisanshakti.in>",
           to: [pendingRequest.email],
-          subject: "Super Admin Access Request Update",
+          subject: "Admin Access Request Update",
           html: `
             <h2>Access Request Update</h2>
             <p>Dear ${pendingRequest.full_name},</p>
-            <p>We regret to inform you that your super admin access request has been declined.</p>
+            <p>We regret to inform you that your admin access request has been declined.</p>
             <p><strong>Reason:</strong> ${rejectionReason}</p>
-            <p>If you have any questions, please contact our support team.</p>
+            <p>If you have any questions, please contact our support team at admin@kisanshakti.in.</p>
           `,
         });
       }

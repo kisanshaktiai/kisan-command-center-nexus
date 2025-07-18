@@ -908,7 +908,11 @@ export type Database = {
           irrigation_type: string | null
           is_verified: boolean | null
           last_app_open: string | null
+          last_login_at: string | null
           loan_amount: number | null
+          login_attempts: number | null
+          mobile_number: string | null
+          pin_hash: string | null
           preferred_dealer_id: string | null
           primary_crops: string[] | null
           shc_id: string | null
@@ -938,7 +942,11 @@ export type Database = {
           irrigation_type?: string | null
           is_verified?: boolean | null
           last_app_open?: string | null
+          last_login_at?: string | null
           loan_amount?: number | null
+          login_attempts?: number | null
+          mobile_number?: string | null
+          pin_hash?: string | null
           preferred_dealer_id?: string | null
           primary_crops?: string[] | null
           shc_id?: string | null
@@ -968,7 +976,11 @@ export type Database = {
           irrigation_type?: string | null
           is_verified?: boolean | null
           last_app_open?: string | null
+          last_login_at?: string | null
           loan_amount?: number | null
+          login_attempts?: number | null
+          mobile_number?: string | null
+          pin_hash?: string | null
           preferred_dealer_id?: string | null
           primary_crops?: string[] | null
           shc_id?: string | null
@@ -4812,6 +4824,10 @@ export type Database = {
         Returns: unknown
       }
       get_current_tenant_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_jwt_farmer_id: {
         Args: Record<PropertyKey, never>
         Returns: string
       }

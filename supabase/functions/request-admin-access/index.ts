@@ -43,9 +43,10 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Validate admin email requirement
-    if (!email.includes('admin')) {
-      return new Response(JSON.stringify({ error: "Super admin email must contain 'admin' for security purposes" }), {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return new Response(JSON.stringify({ error: "Please provide a valid email address" }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
@@ -125,7 +126,7 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Send notification email to kisanshaktiai@gmail.com
+    // Send notification email to admin@kisanshakti.in
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (resendApiKey) {
       const resend = new Resend(resendApiKey);
@@ -134,11 +135,11 @@ const handler = async (req: Request): Promise<Response> => {
       const rejectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/approve-admin-request?token=${pendingRequest.request_token}&action=reject`;
 
       await resend.emails.send({
-        from: "KisanShaktiAI <onboarding@resend.dev>",
-        to: ["kisanshaktiai@gmail.com"],
-        subject: "New Super Admin Access Request",
+        from: "KisanShaktiAI <admin@kisanshakti.in>",
+        to: ["admin@kisanshakti.in"],
+        subject: "New Admin Access Request",
         html: `
-          <h2>New Super Admin Access Request</h2>
+          <h2>New Admin Access Request</h2>
           <p><strong>Name:</strong> ${fullName}</p>
           <p><strong>Email:</strong> ${email}</p>
           <p><strong>Requested at:</strong> ${new Date().toLocaleString()}</p>
@@ -148,7 +149,7 @@ const handler = async (req: Request): Promise<Response> => {
             <a href="${rejectUrl}" style="background-color: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reject Request</a>
           </div>
           
-          <p style="font-size: 12px; color: #666;">This request will expire in 7 days.</p>
+          <p style="font-size: 12px; color: #666;">This request will expire in 24 hours.</p>
         `,
       });
     }
