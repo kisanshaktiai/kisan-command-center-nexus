@@ -1,5 +1,4 @@
-
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -24,19 +23,19 @@ interface TenantContextType {
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
-export const TenantProvider = ({ children }: { children: React.ReactNode }) => {
+export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   
-  const { data: tenants = [], isLoading, error } = useQuery({
+  const queryResult = useQuery({
     queryKey: ['user-tenants'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userResponse = await supabase.auth.getUser();
       
-      if (!user) {
+      if (!userResponse.data.user) {
         throw new Error('User not authenticated');
       }
 
-      const { data, error } = await supabase
+      const tenantsResponse = await supabase
         .from('user_tenants')
         .select(`
           tenant_id,
@@ -51,15 +50,22 @@ export const TenantProvider = ({ children }: { children: React.ReactNode }) => {
             created_at
           )
         `)
-        .eq('user_id', user.id)
+        .eq('user_id', userResponse.data.user.id)
         .eq('is_active', true);
 
-      if (error) throw error;
+      if (tenantsResponse.error) {
+        throw tenantsResponse.error;
+      }
       
-      return data?.map(item => item.tenants).filter(Boolean) || [];
+      const mappedTenants = tenantsResponse.data?.map(item => item.tenants).filter(Boolean) || [];
+      return mappedTenants;
     },
     enabled: true,
   });
+
+  const tenants = queryResult.data || [];
+  const isLoading = queryResult.isLoading;
+  const error = queryResult.error;
 
   useEffect(() => {
     if (tenants.length > 0 && !currentTenant) {
@@ -74,7 +80,7 @@ export const TenantProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const value: TenantContextType = {
+  const contextValue: TenantContextType = {
     currentTenant,
     tenants,
     isLoading,
@@ -82,10 +88,10 @@ export const TenantProvider = ({ children }: { children: React.ReactNode }) => {
     error: error as Error | null,
   };
 
-  return (
-    <TenantContext.Provider value={value}>
-      {children}
-    </TenantContext.Provider>
+  return React.createElement(
+    TenantContext.Provider,
+    { value: contextValue },
+    children
   );
 };
 
