@@ -10,7 +10,7 @@ export function createTypedSupabaseClient() {
       return supabase.from(table);
     },
     rpc: (funcName: string, args?: any) => {
-      return supabase.rpc(funcName, args);
+      return supabase.rpc(funcName as any, args);
     },
   };
 }
