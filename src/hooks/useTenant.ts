@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -6,11 +5,11 @@ import { useQuery } from '@tanstack/react-query';
 interface Tenant {
   id: string;
   name: string;
-  slug: string;
+  slug?: string; // Make optional in case it's missing from DB
   type: string;
   subscription_plan: string | null;
   status: string;
-  settings: Record<string, any>;
+  settings: Record<string, any> | null; // Allow null from database
   created_at: string;
 }
 
@@ -26,39 +25,75 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
-
+  
   const { data: tenants = [], isLoading, error } = useQuery({
     queryKey: ['user-tenants'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('User not authenticated');
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          throw new Error(`Authentication error: ${userError.message}`);
+        }
+        
+        if (!user) {
+          throw new Error('User not authenticated');
+        }
+
+        const { data, error: queryError } = await supabase
+          .from('user_tenants')
+          .select(`
+            tenant_id,
+            tenants!inner (
+              id,
+              name,
+              slug,
+              type,
+              subscription_plan,
+              status,
+              settings,
+              created_at
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+
+        if (queryError) {
+          throw new Error(`Query error: ${queryError.message}`);
+        }
+        
+        // Type-safe mapping with proper error handling
+        const mappedTenants = (data || [])
+          .map(item => {
+            if (!item.tenants || typeof item.tenants !== 'object') {
+              console.warn('Invalid tenant data:', item);
+              return null;
+            }
+            
+            return {
+              id: item.tenants.id,
+              name: item.tenants.name || 'Unknown Tenant',
+              slug: item.tenants.slug || '',
+              type: item.tenants.type || 'unknown',
+              subscription_plan: item.tenants.subscription_plan,
+              status: item.tenants.status || 'inactive',
+              settings: item.tenants.settings || {},
+              created_at: item.tenants.created_at
+            } as Tenant;
+          })
+          .filter((tenant): tenant is Tenant => tenant !== null);
+        
+        console.log('Fetched tenants:', mappedTenants);
+        return mappedTenants;
+        
+      } catch (err) {
+        console.error('Error fetching tenants:', err);
+        throw err;
       }
-
-      const { data, error } = await supabase
-        .from('user_tenants')
-        .select(`
-          tenant_id,
-          tenants!inner (
-            id,
-            name,
-            slug,
-            type,
-            subscription_plan,
-            status,
-            settings,
-            created_at
-          )
-        `)
-        .eq('user_id', user.id)
-        .eq('is_active', true);
-
-      if (error) throw error;
-      
-      return data?.map(item => item.tenants).filter(Boolean) || [];
     },
     enabled: true,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   useEffect(() => {
@@ -71,6 +106,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const tenant = tenants.find(t => t.id === tenantId);
     if (tenant) {
       setCurrentTenant(tenant);
+      console.log('Switched to tenant:', tenant);
+    } else {
+      console.warn('Tenant not found:', tenantId);
     }
   };
 
