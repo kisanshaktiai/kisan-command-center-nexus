@@ -11,6 +11,12 @@ interface Tenant {
   status: string;
   settings: Record<string, any>;
   created_at: string;
+  branding?: {
+    logo_url?: string;
+    company_name?: string;
+    tagline?: string;
+    primary_color?: string;
+  };
 }
 
 interface TenantContextType {

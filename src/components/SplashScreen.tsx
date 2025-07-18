@@ -54,7 +54,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             Tenant Detection Failed
           </h1>
           <p className="text-gray-600 mb-6">
-            {error}
+            {error?.message || 'An error occurred'}
           </p>
           <button
             onClick={() => window.location.reload()}
