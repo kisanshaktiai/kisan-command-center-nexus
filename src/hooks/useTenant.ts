@@ -27,6 +27,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { data: tenants = [], isLoading, error } = useQuery({
     queryKey: ['user-tenants'],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await supabase
         .from('user_tenants')
         .select(`
@@ -39,10 +45,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             created_at
           )
         `)
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', user.id)
         .eq('is_active', true);
 
       if (error) throw error;
+      
       return data?.map(item => item.tenants).filter(Boolean) || [];
     },
     enabled: true,
