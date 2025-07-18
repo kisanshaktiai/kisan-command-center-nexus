@@ -5,43 +5,145 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Users, Building, DollarSign, Activity, TrendingUp, AlertTriangle } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Overview() {
-  // Mock data until Supabase types are regenerated
+  // Fetch real tenants data
+  const { data: tenantsData } = useQuery({
+    queryKey: ['platform-tenants'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, name, status, created_at')
+        .eq('status', 'active');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 30000,
+  });
+
+  // Fetch real farmers/users data
+  const { data: farmersData } = useQuery({
+    queryKey: ['platform-farmers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('farmers')
+        .select('id, created_at, is_verified');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 30000,
+  });
+
+  // Fetch financial metrics
+  const { data: financialData } = useQuery({
+    queryKey: ['platform-financial'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('financial_metrics')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(30);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 30000,
+  });
+
+  // Fetch tenant subscriptions
+  const { data: subscriptionsData } = useQuery({
+    queryKey: ['platform-subscriptions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tenant_subscriptions')
+        .select(`
+          *,
+          billing_plans(base_price, currency)
+        `)
+        .eq('status', 'active');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 30000,
+  });
+
+  // Fetch system alerts
+  const { data: alertsData } = useQuery({
+    queryKey: ['platform-alerts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_alerts')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 30000,
+  });
+
+  // Calculate platform metrics from real data
   const platformMetrics = {
-    totalTenants: 125,
-    totalFarmers: 3450,
-    totalRevenue: 125000,
-    mrr: 15420,
-    activeSubscriptions: 98,
-    growthData: Array.from({ length: 30 }, (_, i) => ({
-      date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      tenants: Math.floor(Math.random() * 5) + 1,
-      farmers: Math.floor(Math.random() * 20) + 5,
-      revenue: Math.floor(Math.random() * 1000) + 500
-    }))
+    totalTenants: tenantsData?.length || 0,
+    totalFarmers: farmersData?.length || 0,
+    totalRevenue: financialData?.reduce((sum, metric) => {
+      return metric.metric_name === 'total_revenue' ? sum + (metric.amount || 0) : sum;
+    }, 0) || 0,
+    mrr: subscriptionsData?.reduce((sum, sub) => sum + (sub.billing_plans?.base_price || 0), 0) || 0,
+    activeSubscriptions: subscriptionsData?.length || 0,
   };
 
-  const alerts = [
-    {
-      id: '1',
-      alert_name: 'High API Usage',
-      description: 'Tenant "Farm Fresh Co." approaching API limits',
-      severity: 'medium',
-      status: 'active',
-      created_at: new Date().toISOString()
-    },
-    {
-      id: '2',
-      alert_name: 'Payment Failed',
-      description: 'Subscription payment failed for "Green Valley Farms"',
-      severity: 'high',
-      status: 'active',
-      created_at: new Date().toISOString()
-    }
-  ];
+  // Generate growth data from actual database records (last 30 days)
+  const growthData = React.useMemo(() => {
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (29 - i));
+      return {
+        date: date.toISOString().split('T')[0],
+        tenants: 0,
+        farmers: 0,
+        revenue: 0
+      };
+    });
 
-  const isLoading = false;
+    // Count tenants created each day
+    tenantsData?.forEach(tenant => {
+      const createdDate = new Date(tenant.created_at).toISOString().split('T')[0];
+      const dayData = last30Days.find(d => d.date === createdDate);
+      if (dayData) {
+        dayData.tenants += 1;
+      }
+    });
+
+    // Count farmers created each day
+    farmersData?.forEach(farmer => {
+      const createdDate = new Date(farmer.created_at).toISOString().split('T')[0];
+      const dayData = last30Days.find(d => d.date === createdDate);
+      if (dayData) {
+        dayData.farmers += 1;
+      }
+    });
+
+    // Add revenue data from financial metrics
+    financialData?.forEach(metric => {
+      if (metric.metric_name === 'daily_revenue') {
+        const metricDate = new Date(metric.timestamp).toISOString().split('T')[0];
+        const dayData = last30Days.find(d => d.date === metricDate);
+        if (dayData) {
+          dayData.revenue += metric.amount || 0;
+        }
+      }
+    });
+
+    return last30Days;
+  }, [tenantsData, farmersData, financialData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -60,10 +162,6 @@ export default function Overview() {
     }
   };
 
-  if (isLoading) {
-    return <div className="text-center py-8">Loading platform overview...</div>;
-  }
-
   return (
     <div className="space-y-6">
       <div>
@@ -79,7 +177,7 @@ export default function Overview() {
             <Building className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{platformMetrics?.totalTenants || 0}</div>
+            <div className="text-2xl font-bold">{platformMetrics.totalTenants}</div>
             <p className="text-xs text-muted-foreground">Active organizations</p>
           </CardContent>
         </Card>
@@ -90,7 +188,7 @@ export default function Overview() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{platformMetrics?.totalFarmers || 0}</div>
+            <div className="text-2xl font-bold">{platformMetrics.totalFarmers}</div>
             <p className="text-xs text-muted-foreground">Registered farmers</p>
           </CardContent>
         </Card>
@@ -101,7 +199,7 @@ export default function Overview() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(platformMetrics?.mrr || 0)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(platformMetrics.mrr)}</div>
             <p className="text-xs text-muted-foreground">MRR from subscriptions</p>
           </CardContent>
         </Card>
@@ -112,7 +210,7 @@ export default function Overview() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{platformMetrics?.activeSubscriptions || 0}</div>
+            <div className="text-2xl font-bold">{platformMetrics.activeSubscriptions}</div>
             <p className="text-xs text-muted-foreground">Paying customers</p>
           </CardContent>
         </Card>
@@ -127,7 +225,7 @@ export default function Overview() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={platformMetrics?.growthData || []}>
+              <AreaChart data={growthData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
@@ -145,7 +243,7 @@ export default function Overview() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={platformMetrics?.growthData || []}>
+              <LineChart data={growthData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
@@ -169,8 +267,8 @@ export default function Overview() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {alerts.length > 0 ? (
-                alerts.map((alert) => (
+              {alertsData && alertsData.length > 0 ? (
+                alertsData.map((alert) => (
                   <div key={alert.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
                       <h4 className="font-medium">{alert.alert_name}</h4>

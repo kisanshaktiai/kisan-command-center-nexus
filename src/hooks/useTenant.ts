@@ -1,70 +1,85 @@
 
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { TenantDetectionService, TenantInfo } from '@/services/TenantDetectionService';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+
+interface Tenant {
+  id: string;
+  name: string;
+  status: string;
+  settings: Record<string, any>;
+  created_at: string;
+}
 
 interface TenantContextType {
-  currentTenant: TenantInfo | null;
+  currentTenant: Tenant | null;
+  tenants: Tenant[];
   isLoading: boolean;
-  error: string | null;
-  refreshTenant: () => Promise<void>;
+  switchTenant: (tenantId: string) => void;
+  error: Error | null;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
-export function TenantProvider({ children }: { children: ReactNode }) {
-  const [currentTenant, setCurrentTenant] = useState<TenantInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
 
-  const detectTenant = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const tenantService = TenantDetectionService.getInstance();
-      const tenant = await tenantService.detectTenant();
-      
-      if (!tenant) {
-        throw new Error('Unable to determine tenant context. Please ensure you are accessing the application through a valid tenant subdomain or contact support.');
-      }
-      
+  const { data: tenants = [], isLoading, error } = useQuery({
+    queryKey: ['user-tenants'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_tenants')
+        .select(`
+          tenant_id,
+          tenants!inner (
+            id,
+            name,
+            status,
+            settings,
+            created_at
+          )
+        `)
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('is_active', true);
+
+      if (error) throw error;
+      return data?.map(item => item.tenants).filter(Boolean) || [];
+    },
+    enabled: true,
+  });
+
+  useEffect(() => {
+    if (tenants.length > 0 && !currentTenant) {
+      setCurrentTenant(tenants[0]);
+    }
+  }, [tenants, currentTenant]);
+
+  const switchTenant = (tenantId: string) => {
+    const tenant = tenants.find(t => t.id === tenantId);
+    if (tenant) {
       setCurrentTenant(tenant);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to detect tenant. Please check your network connection and try again.';
-      console.error('Tenant detection failed:', errorMessage);
-      setError(errorMessage);
-      setCurrentTenant(null);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const refreshTenant = async () => {
-    await detectTenant();
+  const value: TenantContextType = {
+    currentTenant,
+    tenants,
+    isLoading,
+    switchTenant,
+    error: error as Error | null,
   };
 
-  useEffect(() => {
-    detectTenant();
-  }, []);
-
   return (
-    <TenantContext.Provider
-      value={{
-        currentTenant,
-        isLoading,
-        error,
-        refreshTenant,
-      }}
-    >
+    <TenantContext.Provider value={value}>
       {children}
     </TenantContext.Provider>
   );
-}
+};
 
-export function useTenant() {
+export const useTenant = () => {
   const context = useContext(TenantContext);
   if (context === undefined) {
     throw new Error('useTenant must be used within a TenantProvider');
   }
   return context;
-}
+};
