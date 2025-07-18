@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { safeGet } from '@/lib/supabase-helpers';
 
 interface TenantData {
   organizationName: string;
@@ -39,10 +40,15 @@ export const useEnhancedAuth = () => {
   // Enhanced sign up with tenant metadata and auto admin creation
   const signUp = async (email: string, password: string, tenantData: TenantData) => {
     try {
-      // Check if account is locked
-      const { data: isLocked } = await supabase.rpc('is_account_locked', { user_email: email });
-      if (isLocked) {
-        throw new Error('Account is temporarily locked due to multiple failed login attempts. Please try again later.');
+      // Check if account is locked using RPC call with error handling
+      try {
+        const { data: isLocked } = await supabase.rpc('is_account_locked', { user_email: email });
+        if (isLocked) {
+          throw new Error('Account is temporarily locked due to multiple failed login attempts. Please try again later.');
+        }
+      } catch (rpcError) {
+        console.warn('Could not check account lock status:', rpcError);
+        // Continue with signup if RPC fails
       }
 
       const { data, error } = await supabase.auth.signUp({
@@ -67,16 +73,28 @@ export const useEnhancedAuth = () => {
         await ensureUserIsAdmin(data.user);
       }
 
-      // Track email verification
+      // Track email verification with safe insert
       if (data.user && !data.user.email_confirmed_at) {
-        await supabase.from('email_verifications').insert({
-          user_id: data.user.id,
-          email: email,
-          token: crypto.randomUUID(),
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          tenant_id: tenantData.tenantId,
-          verification_type: 'signup'
-        });
+        try {
+          const verificationData = {
+            user_id: data.user.id,
+            email: email,
+            verification_token: crypto.randomUUID(),
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            tenant_id: tenantData.tenantId,
+            verification_type: 'signup'
+          };
+
+          const { error: verificationError } = await supabase
+            .from('email_verifications')
+            .insert(verificationData);
+
+          if (verificationError) {
+            console.warn('Could not create email verification record:', verificationError);
+          }
+        } catch (verificationInsertError) {
+          console.warn('Error creating email verification:', verificationInsertError);
+        }
       }
 
       return { data, error: null };
@@ -88,10 +106,15 @@ export const useEnhancedAuth = () => {
   // Enhanced sign in with security tracking and auto admin creation
   const signIn = async (email: string, password: string) => {
     try {
-      // Check if account is locked
-      const { data: isLocked } = await supabase.rpc('is_account_locked', { user_email: email });
-      if (isLocked) {
-        throw new Error('Account is temporarily locked due to multiple failed login attempts. Please try again later.');
+      // Check if account is locked with error handling
+      try {
+        const { data: isLocked } = await supabase.rpc('is_account_locked', { user_email: email });
+        if (isLocked) {
+          throw new Error('Account is temporarily locked due to multiple failed login attempts. Please try again later.');
+        }
+      } catch (rpcError) {
+        console.warn('Could not check account lock status:', rpcError);
+        // Continue with login if RPC fails
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -100,8 +123,12 @@ export const useEnhancedAuth = () => {
       });
 
       if (error) {
-        // Track failed login attempt
-        await supabase.rpc('track_failed_login', { user_email: email });
+        // Track failed login attempt with error handling
+        try {
+          await supabase.rpc('track_failed_login', { p_user_id: null, user_email: email });
+        } catch (trackError) {
+          console.warn('Could not track failed login:', trackError);
+        }
         throw error;
       }
 
@@ -109,8 +136,12 @@ export const useEnhancedAuth = () => {
         // Ensure user is admin on every login
         await ensureUserIsAdmin(data.user);
         
-        // Track successful login
-        await supabase.rpc('track_user_login', { user_id: data.user.id });
+        // Track successful login with error handling
+        try {
+          await supabase.rpc('track_user_login', { p_user_id: data.user.id });
+        } catch (trackError) {
+          console.warn('Could not track user login:', trackError);
+        }
         
         // Track session
         await trackSession();
@@ -125,17 +156,23 @@ export const useEnhancedAuth = () => {
   // Function to ensure user is in admin_users table as super_admin
   const ensureUserIsAdmin = async (user: User) => {
     try {
-      await supabase.from('admin_users').upsert({
+      const adminData = {
         id: user.id,
         email: user.email!,
-        full_name: user.user_metadata?.full_name || user.email!.split('@')[0],
+        full_name: safeGet(user.user_metadata, 'full_name', user.email!.split('@')[0]),
         role: 'super_admin',
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'id'
-      });
+      };
+
+      const { error } = await supabase
+        .from('admin_users')
+        .upsert(adminData, { onConflict: 'id' });
+
+      if (error) {
+        console.warn('Could not ensure user is admin:', error);
+      }
     } catch (error) {
       console.error('Error ensuring user is admin:', error);
     }
@@ -153,16 +190,28 @@ export const useEnhancedAuth = () => {
       });
 
       if (!error) {
-        // Track password reset request
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData.user) {
-          await supabase.from('password_reset_requests').insert({
-            user_id: userData.user.id,
-            email: email,
-            token: crypto.randomUUID(),
-            expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour
-            tenant_id: tenantId
-          });
+        // Track password reset request with safe insert
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData.user) {
+            const resetData = {
+              user_id: userData.user.id,
+              email: email,
+              reset_token: crypto.randomUUID(),
+              expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour
+              tenant_id: tenantId
+            };
+
+            const { error: resetError } = await supabase
+              .from('password_reset_requests')
+              .insert(resetData);
+
+            if (resetError) {
+              console.warn('Could not create password reset record:', resetError);
+            }
+          }
+        } catch (resetInsertError) {
+          console.warn('Error creating password reset request:', resetInsertError);
         }
       }
 
@@ -180,14 +229,26 @@ export const useEnhancedAuth = () => {
       });
 
       if (!error && data.user) {
-        // Track email change verification
-        await supabase.from('email_verifications').insert({
-          user_id: data.user.id,
-          email: newEmail,
-          token: crypto.randomUUID(),
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          verification_type: 'email_change'
-        });
+        // Track email change verification with safe insert
+        try {
+          const verificationData = {
+            user_id: data.user.id,
+            email: newEmail,
+            verification_token: crypto.randomUUID(),
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            verification_type: 'email_change'
+          };
+
+          const { error: verificationError } = await supabase
+            .from('email_verifications')
+            .insert(verificationData);
+
+          if (verificationError) {
+            console.warn('Could not create email verification record:', verificationError);
+          }
+        } catch (verificationInsertError) {
+          console.warn('Error creating email verification:', verificationInsertError);
+        }
       }
 
       return { data, error };
@@ -204,10 +265,19 @@ export const useEnhancedAuth = () => {
       });
 
       if (!error && data.user) {
-        // Update password changed timestamp
-        await supabase.from('user_profiles')
-          .update({ password_changed_at: new Date().toISOString() })
-          .eq('id', data.user.id);
+        // Update password changed timestamp with safe update
+        try {
+          const { error: profileError } = await supabase
+            .from('user_profiles')
+            .update({ password_changed_at: new Date().toISOString() })
+            .eq('id', data.user.id);
+
+          if (profileError) {
+            console.warn('Could not update password timestamp:', profileError);
+          }
+        } catch (profileUpdateError) {
+          console.warn('Error updating profile:', profileUpdateError);
+        }
       }
 
       return { data, error };
@@ -249,9 +319,18 @@ export const useEnhancedAuth = () => {
         expires_at: new Date(session.expires_at! * 1000).toISOString()
       };
 
-      await supabase.from('user_sessions').upsert(sessionData, {
-        onConflict: 'session_id'
-      });
+      // Try to insert session tracking with error handling
+      try {
+        const { error } = await supabase
+          .from('user_sessions')
+          .upsert(sessionData, { onConflict: 'session_id' });
+
+        if (error) {
+          console.warn('Could not track session:', error);
+        }
+      } catch (sessionTrackError) {
+        console.warn('Error tracking session:', sessionTrackError);
+      }
     } catch (error) {
       console.error('Error tracking session:', error);
     }
@@ -261,10 +340,19 @@ export const useEnhancedAuth = () => {
   const signOut = async () => {
     try {
       if (session) {
-        // Clean up session tracking
-        await supabase.from('user_sessions')
-          .update({ is_active: false })
-          .eq('session_id', session.access_token.substring(0, 32));
+        // Clean up session tracking with error handling
+        try {
+          const { error } = await supabase
+            .from('user_sessions')
+            .update({ is_active: false })
+            .eq('session_id', session.access_token.substring(0, 32));
+
+          if (error) {
+            console.warn('Could not update session status:', error);
+          }
+        } catch (sessionUpdateError) {
+          console.warn('Error updating session:', sessionUpdateError);
+        }
       }
       
       await supabase.auth.signOut();
@@ -282,10 +370,12 @@ export const useEnhancedAuth = () => {
         .from('user_profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid errors when no profile exists
 
       if (!error && data) {
         setProfile(data);
+      } else if (error) {
+        console.warn('Could not refresh profile:', error);
       }
     } catch (error) {
       console.error('Error refreshing profile:', error);
@@ -349,9 +439,14 @@ export const useEnhancedAuth = () => {
 
     const updateActivity = async () => {
       try {
-        await supabase.from('user_sessions')
+        const { error } = await supabase
+          .from('user_sessions')
           .update({ last_activity_at: new Date().toISOString() })
           .eq('session_id', session.access_token.substring(0, 32));
+
+        if (error) {
+          console.warn('Could not update session activity:', error);
+        }
       } catch (error) {
         console.error('Error updating session activity:', error);
       }

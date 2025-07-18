@@ -1,6 +1,8 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { isTenant } from '@/lib/supabase-helpers';
 
 interface Tenant {
   id: string;
@@ -35,36 +37,58 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const queryResult = useQuery({
     queryKey: ['user-tenants'],
     queryFn: async () => {
-      const userResponse = await supabase.auth.getUser();
-      
-      if (!userResponse.data.user) {
-        throw new Error('User not authenticated');
-      }
+      try {
+        const userResponse = await supabase.auth.getUser();
+        
+        if (!userResponse.data.user) {
+          throw new Error('User not authenticated');
+        }
 
-      const tenantsResponse = await supabase
-        .from('user_tenants')
-        .select(`
-          tenant_id,
-          tenants!inner (
-            id,
-            name,
-            slug,
-            type,
-            subscription_plan,
-            status,
-            settings,
-            created_at
-          )
-        `)
-        .eq('user_id', userResponse.data.user.id)
-        .eq('is_active', true);
+        const tenantsResponse = await supabase
+          .from('user_tenants')
+          .select(`
+            tenant_id,
+            tenants!inner (
+              id,
+              name,
+              slug,
+              type,
+              subscription_plan,
+              status,
+              settings,
+              created_at
+            )
+          `)
+          .eq('user_id', userResponse.data.user.id)
+          .eq('is_active', true);
 
-      if (tenantsResponse.error) {
-        throw tenantsResponse.error;
+        if (tenantsResponse.error) {
+          throw tenantsResponse.error;
+        }
+        
+        // Safely map tenants with type checking
+        const mappedTenants = tenantsResponse.data?.map(item => {
+          const tenant = item.tenants;
+          if (isTenant(tenant)) {
+            return {
+              id: tenant.id,
+              name: tenant.name || 'Unknown',
+              slug: tenant.slug || '',
+              type: tenant.type || 'basic',
+              subscription_plan: tenant.subscription_plan || null,
+              status: tenant.status || 'active',
+              settings: tenant.settings || {},
+              created_at: tenant.created_at || new Date().toISOString()
+            } as Tenant;
+          }
+          return null;
+        }).filter(Boolean) || [];
+        
+        return mappedTenants;
+      } catch (error) {
+        console.error('Error fetching tenants:', error);
+        throw error;
       }
-      
-      const mappedTenants = tenantsResponse.data?.map(item => item.tenants).filter(Boolean) || [];
-      return mappedTenants;
     },
     enabled: true,
   });
@@ -81,8 +105,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const switchTenant = (tenantId: string) => {
     const tenant = tenants.find(t => t.id === tenantId);
-    if (tenant) {
+    if (tenant && isTenant(tenant)) {
       setCurrentTenant(tenant);
+    } else {
+      console.error('Invalid tenant selected:', tenantId);
     }
   };
 

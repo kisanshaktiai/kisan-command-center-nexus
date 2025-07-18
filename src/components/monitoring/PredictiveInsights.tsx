@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +17,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { isBillingPlan, safeGet } from '@/lib/supabase-helpers';
 
 const PredictiveInsights = () => {
   const { data: systemMetrics, isLoading } = useQuery({
@@ -75,12 +75,18 @@ const PredictiveInsights = () => {
         const ageInDays = (new Date().getTime() - new Date(sub.created_at).getTime()) / (1000 * 60 * 60 * 24);
         const riskScore = Math.min(90, Math.max(10, 50 + (Math.random() - 0.5) * 40));
         
+        // Safely access billing plan data
+        const billingPlan = Array.isArray(sub.billing_plans) ? sub.billing_plans[0] : sub.billing_plans;
+        const basePrice = isBillingPlan(billingPlan) ? billingPlan.base_price : 0;
+        const tenantName = sub.tenants && typeof sub.tenants === 'object' && 'name' in sub.tenants 
+          ? sub.tenants.name : 'Unknown';
+        
         return {
-          tenant: sub.tenants?.name || 'Unknown',
+          tenant: tenantName,
           risk_score: riskScore,
           factors: riskScore > 70 ? ['usage_decline', 'support_tickets'] : 
                    riskScore > 50 ? ['payment_delays'] : ['low_engagement'],
-          revenue_impact: sub.billing_plans?.base_price || 0
+          revenue_impact: basePrice || 0
         };
       }).sort((a, b) => b.risk_score - a.risk_score).slice(0, 4) || [];
     },
@@ -122,7 +128,7 @@ const PredictiveInsights = () => {
     const recentRevenue = (systemMetrics.financialMetrics || [])
       .filter(m => m.metric_name === 'monthly_revenue')
       .slice(0, 3)
-      .reduce((sum, m) => sum + (m.amount || 0), 0) / 3;
+      .reduce((sum, m) => sum + (safeGet(m, 'amount', 0)), 0) / 3;
 
     return Array.from({ length: 6 }, (_, i) => {
       const baseRevenue = recentRevenue || 45000;

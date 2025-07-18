@@ -8,52 +8,93 @@ import { PaymentProcessing } from '@/components/billing/PaymentProcessing';
 import { UsageTracking } from '@/components/billing/UsageTracking';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { safeGet, isBillingPlan } from '@/lib/supabase-helpers';
 
 export default function BillingManagement() {
   const { data: billingMetrics, isLoading } = useQuery({
     queryKey: ['billing-metrics'],
     queryFn: async () => {
-      const { data: subscriptions, error: subError } = await supabase
-        .from('tenant_subscriptions')
-        .select(`
-          *,
-          billing_plans(name, base_price, currency),
-          tenants(name)
-        `)
-        .eq('status', 'active');
+      try {
+        const { data: subscriptions, error: subError } = await supabase
+          .from('tenant_subscriptions')
+          .select(`
+            *,
+            billing_plans(name, base_price, currency),
+            tenants(name)
+          `)
+          .eq('status', 'active');
 
-      if (subError) throw subError;
+        if (subError) {
+          console.error('Error fetching subscriptions:', subError);
+          throw subError;
+        }
 
-      const { data: payments, error: payError } = await supabase
-        .from('payments')
-        .select('*')
-        .gte('created_at', new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString());
+        const { data: payments, error: payError } = await supabase
+          .from('payments')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      if (payError) throw payError;
+        if (payError) {
+          console.error('Error fetching payments:', payError);
+          // Don't throw here, continue with empty payments
+        }
 
-      const totalRevenue = payments?.reduce((sum, payment) => 
-        payment.status === 'completed' ? sum + payment.amount : sum, 0) || 0;
-      
-      const thisMonthRevenue = payments?.filter(p => 
-        new Date(p.created_at) >= new Date(new Date().setMonth(new Date().getMonth() - 1))
-      ).reduce((sum, payment) => 
-        payment.status === 'completed' ? sum + payment.amount : sum, 0) || 0;
+        // Safely calculate metrics with type checking
+        const safePayments = payments || [];
+        
+        const totalRevenue = safePayments.reduce((sum, payment) => {
+          const amount = safeGet(payment, 'amount', 0);
+          const status = safeGet(payment, 'status', '');
+          return status === 'completed' ? sum + Number(amount) : sum;
+        }, 0);
 
-      const outstandingAmount = payments?.filter(p => 
-        p.status === 'pending' || p.status === 'failed'
-      ).reduce((sum, payment) => sum + payment.amount, 0) || 0;
+        const thisMonthStart = new Date();
+        thisMonthStart.setDate(1);
+        thisMonthStart.setHours(0, 0, 0, 0);
 
-      const mrr = subscriptions?.reduce((sum, sub) => 
-        sum + (sub.billing_plans?.base_price || 0), 0) || 0;
+        const thisMonthRevenue = safePayments.filter(p => 
+          new Date(safeGet(p, 'created_at', '')) >= thisMonthStart
+        ).reduce((sum, payment) => {
+          const amount = safeGet(payment, 'amount', 0);
+          const status = safeGet(payment, 'status', '');
+          return status === 'completed' ? sum + Number(amount) : sum;
+        }, 0);
 
-      return {
-        totalRevenue,
-        thisMonthRevenue,
-        outstandingAmount,
-        mrr,
-        totalSubscriptions: subscriptions?.length || 0,
-        activeSubscriptions: subscriptions?.filter(s => s.status === 'active').length || 0
-      };
+        const outstandingAmount = safePayments.filter(p => {
+          const status = safeGet(p, 'status', '');
+          return status === 'pending' || status === 'failed';
+        }).reduce((sum, payment) => {
+          const amount = safeGet(payment, 'amount', 0);
+          return sum + Number(amount);
+        }, 0);
+
+        // Calculate MRR from subscriptions
+        const mrr = (subscriptions || []).reduce((sum, sub) => {
+          const billingPlan = Array.isArray(sub.billing_plans) ? sub.billing_plans[0] : sub.billing_plans;
+          const basePrice = isBillingPlan(billingPlan) ? billingPlan.base_price : 0;
+          return sum + Number(basePrice || 0);
+        }, 0);
+
+        return {
+          totalRevenue,
+          thisMonthRevenue,
+          outstandingAmount,
+          mrr,
+          totalSubscriptions: subscriptions?.length || 0,
+          activeSubscriptions: subscriptions?.filter(s => safeGet(s, 'status', '') === 'active').length || 0
+        };
+      } catch (error) {
+        console.error('Error in billing metrics query:', error);
+        // Return default values instead of throwing
+        return {
+          totalRevenue: 0,
+          thisMonthRevenue: 0,
+          outstandingAmount: 0,
+          mrr: 0,
+          totalSubscriptions: 0,
+          activeSubscriptions: 0
+        };
+      }
     },
     refetchInterval: 30000, // Real-time updates every 30 seconds
   });
@@ -62,7 +103,7 @@ export default function BillingManagement() {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
-    }).format(amount);
+    }).format(amount || 0);
   };
 
   if (isLoading) {

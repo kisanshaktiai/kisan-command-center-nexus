@@ -28,15 +28,40 @@ export default function AuthCallback() {
           // Update email verification status if this was an email confirmation
           const type = searchParams.get('type');
           if (type === 'signup' && data.session.user) {
-            await supabase.from('user_profiles')
-              .update({ email_verified_at: new Date().toISOString() })
-              .eq('id', data.session.user.id);
+            try {
+              // Safely update user profile with type checking
+              const updateData = {
+                email_verified_at: new Date().toISOString(),
+              };
+              
+              const { error: profileError } = await supabase
+                .from('user_profiles')
+                .update(updateData)
+                .eq('id', data.session.user.id);
 
-            // Mark email verification as completed
-            await supabase.from('email_verifications')
-              .update({ verified_at: new Date().toISOString() })
-              .eq('user_id', data.session.user.id)
-              .eq('verification_type', 'signup');
+              if (profileError) {
+                console.warn('Could not update user profile:', profileError);
+              }
+
+              // Mark email verification as completed with safe update
+              const verificationUpdate = {
+                verified_at: new Date().toISOString(),
+                is_verified: true,
+              };
+
+              const { error: verificationError } = await supabase
+                .from('email_verifications')
+                .update(verificationUpdate)
+                .eq('user_id', data.session.user.id)
+                .eq('verification_type', 'signup');
+
+              if (verificationError) {
+                console.warn('Could not update email verification:', verificationError);
+              }
+            } catch (updateError) {
+              console.warn('Error updating verification status:', updateError);
+              // Don't fail the auth process for this
+            }
           }
 
           setStatus('success');
