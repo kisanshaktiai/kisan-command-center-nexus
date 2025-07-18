@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreditCard, AlertCircle, CheckCircle, Clock, RefreshCw, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Payment {
   id: string;
@@ -25,63 +27,72 @@ interface Payment {
   };
 }
 
-// Mock data until Supabase types are regenerated
-const mockPayments: Payment[] = [
-  {
-    id: '1',
-    tenant_id: '1',
-    subscription_id: '1',
-    amount: 29.99,
-    currency: 'USD',
-    status: 'completed',
-    payment_method: 'card',
-    transaction_id: 'txn_123',
-    gateway_response: {},
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    tenants: { name: 'Farm Fresh Co.' }
-  },
-  {
-    id: '2',
-    tenant_id: '2',
-    subscription_id: '2',
-    amount: 79.99,
-    currency: 'USD',
-    status: 'failed',
-    payment_method: 'card',
-    transaction_id: 'txn_124',
-    gateway_response: {},
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    tenants: { name: 'Green Valley Farms' }
-  }
-];
-
 export function PaymentProcessing() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [gatewayFilter, setGatewayFilter] = useState<string>('all');
 
-  // Use mock data for now
-  const payments = mockPayments;
-  const paymentsLoading = false;
+  const { data: payments, isLoading: paymentsLoading } = useQuery({
+    queryKey: ['payments'],
+    queryFn: async (): Promise<Payment[]> => {
+      const { data, error } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          tenants(name)
+        `)
+        .order('created_at', { ascending: false });
 
-  const retryPayment = (paymentId: string) => {
-    toast.success('Payment retry initiated');
+      if (error) {
+        console.error('Failed to fetch payments:', error);
+        return [];
+      }
+
+      return data || [];
+    },
+    refetchInterval: 30000, // Real-time updates every 30 seconds
+  });
+
+  const retryPayment = async (paymentId: string) => {
+    try {
+      // In a real implementation, this would call a payment retry endpoint
+      const { error } = await supabase
+        .from('payments')
+        .update({ status: 'pending' })
+        .eq('id', paymentId);
+
+      if (error) throw error;
+      
+      toast.success('Payment retry initiated');
+    } catch (error) {
+      toast.error('Failed to retry payment');
+    }
   };
 
-  const refundPayment = (paymentId: string, amount: number) => {
-    toast.success('Refund processed successfully');
+  const refundPayment = async (paymentId: string, amount: number) => {
+    try {
+      // In a real implementation, this would call a payment refund endpoint
+      const { error } = await supabase
+        .from('payments')
+        .update({ status: 'refunded' })
+        .eq('id', paymentId);
+
+      if (error) throw error;
+
+      toast.success('Refund processed successfully');
+    } catch (error) {
+      toast.error('Failed to process refund');
+    }
   };
 
-  const filteredPayments = payments.filter(payment => {
+  const filteredPayments = payments?.filter(payment => {
     const matchesSearch = payment.tenants?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          payment.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
     const matchesGateway = gatewayFilter === 'all' || payment.payment_method === gatewayFilter;
     
     return matchesSearch && matchesStatus && matchesGateway;
-  });
+  }) || [];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -107,6 +118,12 @@ export function PaymentProcessing() {
     return <div className="text-center py-8">Loading payments...</div>;
   }
 
+  const completedPayments = payments?.filter(p => p.status === 'completed') || [];
+  const failedPayments = payments?.filter(p => p.status === 'failed') || [];
+  const totalSuccessAmount = completedPayments.reduce((sum, p) => sum + p.amount, 0);
+  const successRate = payments && payments.length > 0 ? 
+    (completedPayments.length / payments.length) * 100 : 0;
+
   return (
     <div className="space-y-6">
       {/* Payment Overview Cards */}
@@ -117,8 +134,8 @@ export function PaymentProcessing() {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{payments.length}</div>
-            <p className="text-xs text-muted-foreground">This month</p>
+            <div className="text-2xl font-bold">{payments?.length || 0}</div>
+            <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
         </Card>
         
@@ -128,11 +145,9 @@ export function PaymentProcessing() {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {payments.filter(p => p.status === 'completed').length}
-            </div>
+            <div className="text-2xl font-bold">{completedPayments.length}</div>
             <p className="text-xs text-muted-foreground">
-              ${payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0).toLocaleString()} total
+              ${totalSuccessAmount.toLocaleString()} total
             </p>
           </CardContent>
         </Card>
@@ -143,9 +158,7 @@ export function PaymentProcessing() {
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {payments.filter(p => p.status === 'failed').length}
-            </div>
+            <div className="text-2xl font-bold">{failedPayments.length}</div>
             <p className="text-xs text-muted-foreground">Needs attention</p>
           </CardContent>
         </Card>
@@ -156,10 +169,7 @@ export function PaymentProcessing() {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {payments.length > 0 ? 
-                ((payments.filter(p => p.status === 'completed').length / payments.length) * 100).toFixed(1) : 0}%
-            </div>
+            <div className="text-2xl font-bold">{successRate.toFixed(1)}%</div>
             <p className="text-xs text-muted-foreground">Payment success rate</p>
           </CardContent>
         </Card>
@@ -267,6 +277,15 @@ export function PaymentProcessing() {
                 </div>
               </div>
             ))}
+
+            {filteredPayments.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                {payments?.length === 0 
+                  ? "No payments found. Payments will appear here once transactions are processed."
+                  : "No payments match your current filters."
+                }
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

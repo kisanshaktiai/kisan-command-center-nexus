@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Users, Calendar, DollarSign, TrendingUp, Search } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TenantSubscription {
   id: string;
@@ -30,76 +32,82 @@ interface TenantSubscription {
   };
 }
 
-// Mock data until Supabase types are regenerated
-const mockSubscriptions: TenantSubscription[] = [
-  {
-    id: '1',
-    tenant_id: '1',
-    billing_plan_id: '1',
-    status: 'active',
-    current_period_start: new Date().toISOString(),
-    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    trial_start: null,
-    trial_end: null,
-    cancelled_at: null,
-    created_at: new Date().toISOString(),
-    billing_plans: {
-      name: 'Starter',
-      plan_type: 'starter',
-      base_price: 29.99,
-      currency: 'USD',
-      billing_interval: 'monthly'
-    },
-    tenants: { name: 'Farm Fresh Co.' }
-  },
-  {
-    id: '2',
-    tenant_id: '2',
-    billing_plan_id: '2',
-    status: 'active',
-    current_period_start: new Date().toISOString(),
-    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    trial_start: null,
-    trial_end: null,
-    cancelled_at: null,
-    created_at: new Date().toISOString(),
-    billing_plans: {
-      name: 'Growth',
-      plan_type: 'growth',
-      base_price: 79.99,
-      currency: 'USD',
-      billing_interval: 'monthly'
-    },
-    tenants: { name: 'Green Valley Farms' }
-  }
-];
-
 export function SubscriptionOverview() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
 
-  // Use mock data for now
-  const subscriptions = mockSubscriptions;
-  const isLoading = false;
+  const { data: subscriptions, isLoading } = useQuery({
+    queryKey: ['tenant-subscriptions'],
+    queryFn: async (): Promise<TenantSubscription[]> => {
+      const { data, error } = await supabase
+        .from('tenant_subscriptions')
+        .select(`
+          *,
+          billing_plans(name, plan_type, base_price, currency, billing_interval),
+          tenants(name)
+        `)
+        .order('created_at', { ascending: false });
 
-  // Mock analytics
-  const analytics = {
-    mrr: subscriptions.reduce((sum, sub) => sum + (sub.billing_plans?.base_price || 0), 0),
-    churnRate: 2.1,
-    avgLifetime: 8.5,
-    newSignups: 15
-  };
+      if (error) {
+        console.error('Failed to fetch subscriptions:', error);
+        return [];
+      }
+
+      return data || [];
+    },
+    refetchInterval: 30000, // Real-time updates every 30 seconds
+  });
+
+  const { data: analytics } = useQuery({
+    queryKey: ['subscription-analytics'],
+    queryFn: async () => {
+      if (!subscriptions) return null;
+
+      const mrr = subscriptions
+        .filter(sub => sub.status === 'active')
+        .reduce((sum, sub) => sum + (sub.billing_plans?.base_price || 0), 0);
+
+      const activeCount = subscriptions.filter(sub => sub.status === 'active').length;
+      const cancelledCount = subscriptions.filter(sub => sub.status === 'cancelled').length;
+      
+      const churnRate = subscriptions.length > 0 ? 
+        (cancelledCount / subscriptions.length) * 100 : 0;
+
+      // Calculate average lifetime (simplified)
+      const avgLifetime = subscriptions.length > 0 ? 
+        subscriptions.reduce((sum, sub) => {
+          const start = new Date(sub.created_at);
+          const end = sub.cancelled_at ? new Date(sub.cancelled_at) : new Date();
+          return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        }, 0) / subscriptions.length : 0;
+
+      const thisMonthSignups = subscriptions.filter(sub => {
+        const created = new Date(sub.created_at);
+        const thisMonth = new Date();
+        return created.getMonth() === thisMonth.getMonth() && 
+               created.getFullYear() === thisMonth.getFullYear();
+      }).length;
+
+      return {
+        mrr,
+        churnRate,
+        avgLifetime,
+        newSignups: thisMonthSignups
+      };
+    },
+    enabled: !!subscriptions,
+  });
 
   // Filter subscriptions
-  const filteredSubscriptions = subscriptions.filter(sub => {
+  const filteredSubscriptions = subscriptions?.filter(sub => {
     const matchesSearch = sub.tenants?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          sub.billing_plans?.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || sub.status === statusFilter;
     const matchesPlan = planFilter === 'all' || sub.billing_plans?.plan_type === planFilter;
     
     return matchesSearch && matchesStatus && matchesPlan;
-  });
+  }) || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -135,7 +143,7 @@ export function SubscriptionOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${(analytics?.mrr || 0).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+8.2% from last month</p>
+            <p className="text-xs text-muted-foreground">From active subscriptions</p>
           </CardContent>
         </Card>
         
@@ -146,7 +154,7 @@ export function SubscriptionOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{(analytics?.churnRate || 0).toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">-0.5% from last month</p>
+            <p className="text-xs text-muted-foreground">Subscription cancellations</p>
           </CardContent>
         </Card>
 
@@ -156,8 +164,8 @@ export function SubscriptionOverview() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics?.avgLifetime || 0} months</div>
-            <p className="text-xs text-muted-foreground">+0.3 from last month</p>
+            <div className="text-2xl font-bold">{(analytics?.avgLifetime || 0).toFixed(1)} months</div>
+            <p className="text-xs text-muted-foreground">Customer retention</p>
           </CardContent>
         </Card>
 
@@ -254,6 +262,15 @@ export function SubscriptionOverview() {
                 </div>
               </div>
             ))}
+
+            {filteredSubscriptions.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                {subscriptions?.length === 0 
+                  ? "No subscriptions found. Create your first subscription plan to get started."
+                  : "No subscriptions match your current filters."
+                }
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

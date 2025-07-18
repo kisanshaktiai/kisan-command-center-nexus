@@ -8,8 +8,6 @@ import {
   Activity, 
   TrendingUp, 
   Globe, 
-  Smartphone, 
-  Monitor,
   Clock,
   BarChart3
 } from 'lucide-react';
@@ -30,55 +28,46 @@ const UsageAnalytics: React.FC<UsageAnalyticsProps> = ({ refreshInterval }) => {
       const hoursBack = timeRange === '24h' ? 24 : timeRange === '7d' ? 168 : 720;
       const startTime = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
 
-      const { data, error } = await supabase
-        .from('usage_analytics')
+      const { data: apiLogs, error: logsError } = await supabase
+        .from('api_logs')
         .select('*')
-        .gte('timestamp', startTime)
-        .order('timestamp', { ascending: false });
+        .gte('created_at', startTime)
+        .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data || [];
+      if (logsError) throw logsError;
+
+      const { data: tenantData, error: tenantError } = await supabase
+        .from('tenants')
+        .select('*')
+        .eq('status', 'active');
+
+      if (tenantError) throw tenantError;
+
+      return {
+        apiLogs: apiLogs || [],
+        tenants: tenantData || []
+      };
     },
     refetchInterval: refreshInterval,
   });
 
-  // Mock data for demonstration
-  const featureUsage = [
-    { name: 'AI Chat', usage: 4520, trend: '+12%' },
-    { name: 'Land Analysis', usage: 3200, trend: '+8%' },
-    { name: 'Weather Data', usage: 2800, trend: '+15%' },
-    { name: 'Market Prices', usage: 2100, trend: '+5%' },
-    { name: 'Crop Planning', usage: 1850, trend: '+22%' },
-    { name: 'Financial Tracking', usage: 1200, trend: '+18%' },
-  ];
+  const { data: metricsData } = useQuery({
+    queryKey: ['usage-metrics', timeRange],
+    queryFn: async () => {
+      const hoursBack = timeRange === '24h' ? 24 : timeRange === '7d' ? 168 : 720;
+      const startTime = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
 
-  const endpointData = [
-    { endpoint: '/api/chat', requests: 15420, avg_response: 245, errors: 12 },
-    { endpoint: '/api/lands', requests: 8750, avg_response: 156, errors: 3 },
-    { endpoint: '/api/weather', requests: 6200, avg_response: 89, errors: 1 },
-    { endpoint: '/api/market', requests: 4800, avg_response: 112, errors: 8 },
-    { endpoint: '/api/auth', requests: 12500, avg_response: 67, errors: 15 },
-  ];
+      const { data: aiMetrics, error } = await supabase
+        .from('ai_model_metrics')
+        .select('*')
+        .gte('timestamp', startTime);
 
-  const deviceTypes = [
-    { name: 'Mobile', value: 68, color: '#8884d8' },
-    { name: 'Desktop', value: 25, color: '#82ca9d' },
-    { name: 'Tablet', value: 7, color: '#ffc658' },
-  ];
+      if (error) throw error;
 
-  const hourlyUsage = Array.from({ length: 24 }, (_, i) => ({
-    hour: `${i}:00`,
-    requests: Math.floor(Math.random() * 1000) + 200,
-    users: Math.floor(Math.random() * 150) + 50,
-  }));
-
-  const storageUsage = [
-    { tenant: 'Tenant A', storage: 245.6, bandwidth: 1.2 },
-    { tenant: 'Tenant B', storage: 189.3, bandwidth: 0.8 },
-    { tenant: 'Tenant C', storage: 156.7, bandwidth: 0.6 },
-    { tenant: 'Tenant D', storage: 134.2, bandwidth: 0.5 },
-    { tenant: 'Tenant E', storage: 98.4, bandwidth: 0.4 },
-  ];
+      return aiMetrics || [];
+    },
+    refetchInterval: refreshInterval,
+  });
 
   if (isLoading) {
     return (
@@ -93,6 +82,30 @@ const UsageAnalytics: React.FC<UsageAnalyticsProps> = ({ refreshInterval }) => {
       </div>
     );
   }
+
+  const totalRequests = usageData?.apiLogs?.length || 0;
+  const uniqueTenants = new Set(usageData?.apiLogs?.map(log => log.tenant_id)).size;
+  const avgResponseTime = usageData?.apiLogs?.reduce((sum, log) => 
+    sum + (log.response_time_ms || 0), 0) / totalRequests || 0;
+  const errorRate = usageData?.apiLogs?.filter(log => 
+    log.status_code >= 400).length / totalRequests * 100 || 0;
+
+  const endpointStats = usageData?.apiLogs?.reduce((acc, log) => {
+    const key = log.endpoint;
+    if (!acc[key]) {
+      acc[key] = { requests: 0, avgTime: 0, errors: 0 };
+    }
+    acc[key].requests++;
+    acc[key].avgTime = (acc[key].avgTime + (log.response_time_ms || 0)) / acc[key].requests;
+    if (log.status_code >= 400) acc[key].errors++;
+    return acc;
+  }, {} as Record<string, any>) || {};
+
+  const chartData = Object.entries(endpointStats).slice(0, 10).map(([endpoint, stats]) => ({
+    endpoint: endpoint.split('/').pop() || endpoint,
+    requests: stats.requests,
+    avgTime: Math.round(stats.avgTime)
+  }));
 
   return (
     <div className="space-y-6">
@@ -119,25 +132,19 @@ const UsageAnalytics: React.FC<UsageAnalyticsProps> = ({ refreshInterval }) => {
             <Globe className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">47.2K</div>
-            <p className="text-xs text-muted-foreground">
-              <TrendingUp className="w-3 h-3 inline mr-1" />
-              +12% from last period
-            </p>
+            <div className="text-2xl font-bold">{totalRequests.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">API calls processed</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,247</div>
-            <p className="text-xs text-muted-foreground">
-              <TrendingUp className="w-3 h-3 inline mr-1" />
-              +8% from last period
-            </p>
+            <div className="text-2xl font-bold">{uniqueTenants}</div>
+            <p className="text-xs text-muted-foreground">Unique tenant requests</p>
           </CardContent>
         </Card>
 
@@ -147,10 +154,8 @@ const UsageAnalytics: React.FC<UsageAnalyticsProps> = ({ refreshInterval }) => {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">156ms</div>
-            <p className="text-xs text-muted-foreground">
-              -5ms from last period
-            </p>
+            <div className="text-2xl font-bold">{Math.round(avgResponseTime)}ms</div>
+            <p className="text-xs text-muted-foreground">Average API response</p>
           </CardContent>
         </Card>
 
@@ -160,139 +165,68 @@ const UsageAnalytics: React.FC<UsageAnalyticsProps> = ({ refreshInterval }) => {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0.12%</div>
-            <p className="text-xs text-muted-foreground">
-              -0.03% from last period
-            </p>
+            <div className="text-2xl font-bold">{errorRate.toFixed(2)}%</div>
+            <p className="text-xs text-muted-foreground">Failed requests</p>
           </CardContent>
         </Card>
       </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Hourly Usage Pattern</CardTitle>
-            <CardDescription>Requests and active users by hour</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={hourlyUsage}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hour" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="requests" stroke="hsl(var(--primary))" strokeWidth={2} name="Requests" />
-                <Line type="monotone" dataKey="users" stroke="hsl(var(--secondary))" strokeWidth={2} name="Users" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Device Distribution</CardTitle>
-            <CardDescription>Usage by device type</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={deviceTypes}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {deviceTypes.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Feature Usage */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Feature Adoption
-          </CardTitle>
-          <CardDescription>Most popular features and their usage trends</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {featureUsage.map((feature) => (
-              <div key={feature.name} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Activity className="h-4 w-4 text-primary" />
-                  <div>
-                    <h4 className="font-medium">{feature.name}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {feature.usage.toLocaleString()} uses
-                    </p>
-                  </div>
-                </div>
-                <Badge variant="outline" className="text-green-600">
-                  {feature.trend}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* API Endpoints Performance */}
       <Card>
         <CardHeader>
           <CardTitle>API Endpoint Performance</CardTitle>
-          <CardDescription>Performance metrics for top API endpoints</CardDescription>
+          <CardDescription>Request volume and response times by endpoint</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="endpoint" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="requests" fill="hsl(var(--primary))" name="Requests" />
+              <Bar dataKey="avgTime" fill="hsl(var(--secondary))" name="Avg Time (ms)" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Endpoint Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Endpoint Statistics
+          </CardTitle>
+          <CardDescription>Detailed performance metrics for each endpoint</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {endpointData.map((endpoint) => (
-              <div key={endpoint.endpoint} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <h4 className="font-medium font-mono text-sm">{endpoint.endpoint}</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {endpoint.requests.toLocaleString()} requests | {endpoint.avg_response}ms avg
-                  </p>
+            {Object.entries(endpointStats).map(([endpoint, stats]) => (
+              <div key={endpoint} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Activity className="h-4 w-4 text-primary" />
+                  <div>
+                    <h4 className="font-medium font-mono text-sm">{endpoint}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {stats.requests.toLocaleString()} requests | {Math.round(stats.avgTime)}ms avg
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={endpoint.errors < 5 ? 'default' : 'destructive'}>
-                    {endpoint.errors} errors
+                  <Badge variant={stats.errors < 5 ? 'default' : 'destructive'}>
+                    {stats.errors} errors
                   </Badge>
                 </div>
               </div>
             ))}
+            
+            {Object.keys(endpointStats).length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                No API usage data available for the selected time range.
+              </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Storage & Bandwidth */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Storage & Bandwidth Usage</CardTitle>
-          <CardDescription>Top consuming tenants</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={storageUsage}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="tenant" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="storage" fill="hsl(var(--primary))" name="Storage (GB)" />
-              <Bar dataKey="bandwidth" fill="hsl(var(--secondary))" name="Bandwidth (TB)" />
-            </BarChart>
-          </ResponsiveContainer>
         </CardContent>
       </Card>
     </div>

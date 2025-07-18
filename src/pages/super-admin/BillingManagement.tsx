@@ -6,19 +6,57 @@ import { DollarSign, CreditCard, Users, TrendingUp } from 'lucide-react';
 import { SubscriptionOverview } from '@/components/billing/SubscriptionOverview';
 import { PaymentProcessing } from '@/components/billing/PaymentProcessing';
 import { UsageTracking } from '@/components/billing/UsageTracking';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function BillingManagement() {
-  // Mock data until Supabase types are regenerated
-  const overviewData = {
-    totalRevenue: 15420.50,
-    thisMonthRevenue: 3240.75,
-    outstandingAmount: 1250.00,
-    mrr: 2890.99,
-    totalSubscriptions: 45,
-    activeSubscriptions: 42
-  };
+  const { data: billingMetrics, isLoading } = useQuery({
+    queryKey: ['billing-metrics'],
+    queryFn: async () => {
+      const { data: subscriptions, error: subError } = await supabase
+        .from('tenant_subscriptions')
+        .select(`
+          *,
+          billing_plans(name, base_price, currency),
+          tenants(name)
+        `)
+        .eq('status', 'active');
 
-  const isLoading = false;
+      if (subError) throw subError;
+
+      const { data: payments, error: payError } = await supabase
+        .from('payments')
+        .select('*')
+        .gte('created_at', new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString());
+
+      if (payError) throw payError;
+
+      const totalRevenue = payments?.reduce((sum, payment) => 
+        payment.status === 'completed' ? sum + payment.amount : sum, 0) || 0;
+      
+      const thisMonthRevenue = payments?.filter(p => 
+        new Date(p.created_at) >= new Date(new Date().setMonth(new Date().getMonth() - 1))
+      ).reduce((sum, payment) => 
+        payment.status === 'completed' ? sum + payment.amount : sum, 0) || 0;
+
+      const outstandingAmount = payments?.filter(p => 
+        p.status === 'pending' || p.status === 'failed'
+      ).reduce((sum, payment) => sum + payment.amount, 0) || 0;
+
+      const mrr = subscriptions?.reduce((sum, sub) => 
+        sum + (sub.billing_plans?.base_price || 0), 0) || 0;
+
+      return {
+        totalRevenue,
+        thisMonthRevenue,
+        outstandingAmount,
+        mrr,
+        totalSubscriptions: subscriptions?.length || 0,
+        activeSubscriptions: subscriptions?.filter(s => s.status === 'active').length || 0
+      };
+    },
+    refetchInterval: 30000, // Real-time updates every 30 seconds
+  });
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -46,7 +84,7 @@ export default function BillingManagement() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(overviewData?.totalRevenue || 0)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(billingMetrics?.totalRevenue || 0)}</div>
             <p className="text-xs text-muted-foreground">All time revenue</p>
           </CardContent>
         </Card>
@@ -57,7 +95,7 @@ export default function BillingManagement() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(overviewData?.thisMonthRevenue || 0)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(billingMetrics?.thisMonthRevenue || 0)}</div>
             <p className="text-xs text-muted-foreground">Revenue this month</p>
           </CardContent>
         </Card>
@@ -68,7 +106,7 @@ export default function BillingManagement() {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(overviewData?.outstandingAmount || 0)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(billingMetrics?.outstandingAmount || 0)}</div>
             <p className="text-xs text-muted-foreground">Pending invoices</p>
           </CardContent>
         </Card>
@@ -79,8 +117,8 @@ export default function BillingManagement() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overviewData?.activeSubscriptions || 0}</div>
-            <p className="text-xs text-muted-foreground">MRR: {formatCurrency(overviewData?.mrr || 0)}</p>
+            <div className="text-2xl font-bold">{billingMetrics?.activeSubscriptions || 0}</div>
+            <p className="text-xs text-muted-foreground">MRR: {formatCurrency(billingMetrics?.mrr || 0)}</p>
           </CardContent>
         </Card>
       </div>

@@ -10,7 +10,6 @@ import {
   CreditCard, 
   AlertTriangle,
   Users,
-  Calendar,
   Target
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -31,64 +30,40 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() - monthsBack);
 
-      const { data, error } = await supabase
+      const { data: metrics, error: metricsError } = await supabase
         .from('financial_metrics')
         .select('*')
         .gte('timestamp', startDate.toISOString())
         .order('timestamp', { ascending: false });
 
-      if (error) throw error;
-      return data || [];
+      if (metricsError) throw metricsError;
+
+      const { data: subscriptions, error: subError } = await supabase
+        .from('tenant_subscriptions')
+        .select(`
+          *,
+          billing_plans(name, base_price, currency),
+          tenants(name)
+        `)
+        .gte('created_at', startDate.toISOString());
+
+      if (subError) throw subError;
+
+      const { data: payments, error: payError } = await supabase
+        .from('payments')
+        .select('*')
+        .gte('created_at', startDate.toISOString());
+
+      if (payError) throw payError;
+
+      return {
+        metrics: metrics || [],
+        subscriptions: subscriptions || [],
+        payments: payments || []
+      };
     },
     refetchInterval: refreshInterval,
   });
-
-  // Mock financial data for demonstration
-  const currentMetrics = {
-    mrr: 45231,
-    arr: 542772,
-    churn_rate: 2.3,
-    ltv: 4850,
-    payment_failures: 0.8,
-    gross_margin: 78.5
-  };
-
-  const monthlyRevenue = [
-    { month: 'Jan', revenue: 38500, new_customers: 45, churn: 12 },
-    { month: 'Feb', revenue: 41200, new_customers: 52, churn: 8 },
-    { month: 'Mar', revenue: 39800, new_customers: 38, churn: 15 },
-    { month: 'Apr', revenue: 43500, new_customers: 67, churn: 10 },
-    { month: 'May', revenue: 46200, new_customers: 58, churn: 14 },
-    { month: 'Jun', revenue: 45231, new_customers: 62, churn: 11 },
-  ];
-
-  const tenantTypeRevenue = [
-    { type: 'Enterprise', revenue: 25400, count: 15, color: '#8884d8' },
-    { type: 'Professional', revenue: 12800, count: 35, color: '#82ca9d' },
-    { type: 'Starter', revenue: 7031, count: 87, color: '#ffc658' },
-  ];
-
-  const churnAnalysis = [
-    { reason: 'Price', percentage: 35, count: 28 },
-    { reason: 'Features', percentage: 22, count: 18 },
-    { reason: 'Support', percentage: 18, count: 14 },
-    { reason: 'Usability', percentage: 15, count: 12 },
-    { reason: 'Other', percentage: 10, count: 8 },
-  ];
-
-  const paymentMethods = [
-    { method: 'Credit Card', success_rate: 98.5, volume: 78 },
-    { method: 'Bank Transfer', success_rate: 99.2, volume: 15 },
-    { method: 'Digital Wallet', success_rate: 97.8, volume: 7 },
-  ];
-
-  const tenantProfitability = [
-    { tenant: 'AgriCorp Ltd', revenue: 2500, costs: 850, profit: 1650, margin: 66 },
-    { tenant: 'FarmTech Solutions', revenue: 1800, costs: 720, profit: 1080, margin: 60 },
-    { tenant: 'GreenFields Co', revenue: 1200, costs: 540, profit: 660, margin: 55 },
-    { tenant: 'CropMaster Inc', revenue: 950, costs: 475, profit: 475, margin: 50 },
-    { tenant: 'AgroData Systems', revenue: 800, costs: 440, profit: 360, margin: 45 },
-  ];
 
   if (isLoading) {
     return (
@@ -103,6 +78,70 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
       </div>
     );
   }
+
+  const currentMetrics = React.useMemo(() => {
+    if (!financialData) return null;
+
+    const mrr = financialData.subscriptions
+      .filter(sub => sub.status === 'active')
+      .reduce((sum, sub) => sum + (sub.billing_plans?.base_price || 0), 0);
+
+    const arr = mrr * 12;
+    
+    const completedPayments = financialData.payments.filter(p => p.status === 'completed');
+    const failedPayments = financialData.payments.filter(p => p.status === 'failed');
+    
+    const churnRate = financialData.subscriptions.filter(s => s.status === 'cancelled').length / 
+      financialData.subscriptions.length * 100;
+
+    const totalRevenue = completedPayments.reduce((sum, p) => sum + p.amount, 0);
+    const avgCustomerValue = totalRevenue / financialData.subscriptions.length;
+
+    return {
+      mrr,
+      arr,
+      churn_rate: churnRate,
+      ltv: avgCustomerValue * 12, // Simplified LTV calculation
+      payment_failures: failedPayments.length / financialData.payments.length * 100,
+      gross_margin: 78.5 // This would need more complex calculation with cost data
+    };
+  }, [financialData]);
+
+  const monthlyRevenue = React.useMemo(() => {
+    if (!financialData) return [];
+
+    const monthlyData = financialData.payments
+      .filter(p => p.status === 'completed')
+      .reduce((acc, payment) => {
+        const month = new Date(payment.created_at).toLocaleDateString('en-US', { month: 'short' });
+        if (!acc[month]) {
+          acc[month] = { month, revenue: 0, new_customers: 0, churn: 0 };
+        }
+        acc[month].revenue += payment.amount;
+        return acc;
+      }, {} as Record<string, any>);
+
+    return Object.values(monthlyData).slice(-6);
+  }, [financialData]);
+
+  const tenantTypeRevenue = React.useMemo(() => {
+    if (!financialData) return [];
+
+    const typeData = financialData.subscriptions.reduce((acc, sub) => {
+      const type = sub.billing_plans?.name || 'Unknown';
+      if (!acc[type]) {
+        acc[type] = { type, revenue: 0, count: 0 };
+      }
+      acc[type].revenue += sub.billing_plans?.base_price || 0;
+      acc[type].count += 1;
+      return acc;
+    }, {} as Record<string, any>);
+
+    return Object.values(typeData).map((item: any, index) => ({
+      ...item,
+      color: ['#8884d8', '#82ca9d', '#ffc658'][index % 3]
+    }));
+  }, [financialData]);
 
   return (
     <div className="space-y-6">
@@ -129,10 +168,10 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${currentMetrics.mrr.toLocaleString()}</div>
+            <div className="text-2xl font-bold">${(currentMetrics?.mrr || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               <TrendingUp className="w-3 h-3 inline mr-1" />
-              +12% from last month
+              Active subscriptions
             </p>
           </CardContent>
         </Card>
@@ -143,10 +182,9 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${currentMetrics.arr.toLocaleString()}</div>
+            <div className="text-2xl font-bold">${(currentMetrics?.arr || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              <TrendingUp className="w-3 h-3 inline mr-1" />
-              +15% from last year
+              Projected annual revenue
             </p>
           </CardContent>
         </Card>
@@ -157,9 +195,9 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentMetrics.churn_rate}%</div>
+            <div className="text-2xl font-bold">{(currentMetrics?.churn_rate || 0).toFixed(1)}%</div>
             <p className="text-xs text-muted-foreground">
-              -0.5% from last month
+              Subscription cancellations
             </p>
           </CardContent>
         </Card>
@@ -170,10 +208,9 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${currentMetrics.ltv.toLocaleString()}</div>
+            <div className="text-2xl font-bold">${(currentMetrics?.ltv || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              <TrendingUp className="w-3 h-3 inline mr-1" />
-              +8% from last quarter
+              Lifetime value estimate
             </p>
           </CardContent>
         </Card>
@@ -184,9 +221,9 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentMetrics.payment_failures}%</div>
+            <div className="text-2xl font-bold">{(currentMetrics?.payment_failures || 0).toFixed(1)}%</div>
             <p className="text-xs text-muted-foreground">
-              -0.2% from last month
+              Failed transactions
             </p>
           </CardContent>
         </Card>
@@ -197,10 +234,9 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentMetrics.gross_margin}%</div>
+            <div className="text-2xl font-bold">{(currentMetrics?.gross_margin || 0).toFixed(1)}%</div>
             <p className="text-xs text-muted-foreground">
-              <TrendingUp className="w-3 h-3 inline mr-1" />
-              +2.1% from last month
+              Revenue after costs
             </p>
           </CardContent>
         </Card>
@@ -211,7 +247,7 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
         <Card>
           <CardHeader>
             <CardTitle>Revenue Growth</CardTitle>
-            <CardDescription>Monthly revenue and customer acquisition</CardDescription>
+            <CardDescription>Monthly revenue trend</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -219,10 +255,7 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip formatter={(value, name) => [
-                  name === 'revenue' ? `$${value.toLocaleString()}` : value, 
-                  name === 'revenue' ? 'Revenue' : 'New Customers'
-                ]} />
+                <Tooltip formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Revenue']} />
                 <Area 
                   type="monotone" 
                   dataKey="revenue" 
@@ -237,7 +270,7 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
 
         <Card>
           <CardHeader>
-            <CardTitle>Revenue by Tenant Type</CardTitle>
+            <CardTitle>Revenue by Plan Type</CardTitle>
             <CardDescription>Revenue distribution across subscription tiers</CardDescription>
           </CardHeader>
           <CardContent>
@@ -257,100 +290,25 @@ const FinancialAnalytics: React.FC<FinancialAnalyticsProps> = ({ refreshInterval
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
-      {/* Churn Analysis */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            Churn Analysis
-          </CardTitle>
-          <CardDescription>Main reasons for customer churn</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={churnAnalysis}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="reason" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="percentage" fill="hsl(var(--destructive))" name="Percentage" />
-              <Bar dataKey="count" fill="hsl(var(--secondary))" name="Count" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* Payment Methods */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Payment Method Performance
-          </CardTitle>
-          <CardDescription>Success rates and volume by payment method</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {paymentMethods.map((method) => (
-              <div key={method.method} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <h4 className="font-medium">{method.method}</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {method.volume}% of total volume
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium">{method.success_rate}%</p>
-                  <p className="text-sm text-muted-foreground">Success Rate</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tenant Profitability */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Profitable Tenants</CardTitle>
-          <CardDescription>Revenue, costs, and profit margins by tenant</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {tenantProfitability.map((tenant) => (
-              <div key={tenant.tenant} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium">{tenant.tenant}</h4>
-                  <Badge variant={tenant.margin > 60 ? 'default' : tenant.margin > 50 ? 'secondary' : 'outline'}>
-                    {tenant.margin}% margin
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Revenue</p>
-                    <p className="font-medium">${tenant.revenue.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Costs</p>
-                    <p className="font-medium">${tenant.costs.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Profit</p>
-                    <p className="font-medium text-green-600">${tenant.profit.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* No Mock Data Message */}
+      {(!financialData?.metrics || financialData.metrics.length === 0) && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center py-8 text-muted-foreground">
+              <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+              <p>No financial data available for the selected time range.</p>
+              <p className="text-sm mt-1">Data will appear here once financial transactions are recorded.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -7,8 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { 
   Activity, 
   TrendingUp, 
-  AlertTriangle, 
-  CheckCircle,
+  AlertTriangle,
   Zap
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -41,14 +40,6 @@ interface WastageRecord {
   tenant_id: string;
 }
 
-interface ResourceSummary {
-  total_equipment: number;
-  active_equipment: number;
-  avg_utilization: number;
-  total_wastage_cost: number;
-  efficiency_trend: number;
-}
-
 const ResourceUtilization: React.FC<ResourceUtilizationProps> = ({ refreshInterval }) => {
   const [timeRange, setTimeRange] = useState('7d');
   const [resourceType, setResourceType] = useState('all');
@@ -68,7 +59,7 @@ const ResourceUtilization: React.FC<ResourceUtilizationProps> = ({ refreshInterv
 
       if (error) {
         console.error('Failed to fetch equipment utilization:', error);
-        throw error;
+        return [];
       }
 
       return data || [];
@@ -93,7 +84,7 @@ const ResourceUtilization: React.FC<ResourceUtilizationProps> = ({ refreshInterv
 
       if (error) {
         console.error('Failed to fetch wastage data:', error);
-        throw error;
+        return [];
       }
 
       return data || [];
@@ -103,7 +94,7 @@ const ResourceUtilization: React.FC<ResourceUtilizationProps> = ({ refreshInterv
   });
 
   // Calculate resource summary
-  const resourceSummary: ResourceSummary = React.useMemo(() => {
+  const resourceSummary = React.useMemo(() => {
     if (!equipmentData || !wastageData) {
       return {
         total_equipment: 0,
@@ -116,9 +107,11 @@ const ResourceUtilization: React.FC<ResourceUtilizationProps> = ({ refreshInterv
 
     const totalEquipment = equipmentData.length;
     const activeEquipment = equipmentData.filter(eq => eq.status === 'active').length;
-    const avgUtilization = equipmentData.reduce((sum, eq) => sum + eq.utilization_percentage, 0) / totalEquipment;
+    const avgUtilization = totalEquipment > 0 ? 
+      equipmentData.reduce((sum, eq) => sum + eq.utilization_percentage, 0) / totalEquipment : 0;
     const totalWastageCost = wastageData.reduce((sum, w) => sum + w.cost_impact, 0);
-    const avgEfficiency = equipmentData.reduce((sum, eq) => sum + eq.efficiency_score, 0) / totalEquipment;
+    const avgEfficiency = totalEquipment > 0 ? 
+      equipmentData.reduce((sum, eq) => sum + eq.efficiency_score, 0) / totalEquipment : 0;
 
     return {
       total_equipment: totalEquipment,
