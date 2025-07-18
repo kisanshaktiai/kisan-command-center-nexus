@@ -36,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Check if user is admin after setting session
+          // Check admin status after setting session
           setTimeout(async () => {
             await checkAdminStatus(session.user);
           }, 0);
@@ -67,10 +67,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAdminStatus = async (user: User) => {
     try {
-      // For now, check if email contains 'admin' - this matches the RLS policies
-      // In production, you'd check against the user_tenants table with super_admin role
-      const isAdminUser = user.email?.includes('admin') || false;
-      setIsAdmin(isAdminUser);
+      // Check if user exists in super_admin.admin_users table
+      const { data: adminUser, error } = await supabase
+        .from('super_admin.admin_users')
+        .select('role, is_active')
+        .eq('id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!error && adminUser) {
+        setIsAdmin(true);
+        console.log('User is admin with role:', adminUser.role);
+      } else {
+        setIsAdmin(false);
+        console.log('User is not an admin');
+      }
     } catch (error) {
       console.error('Error checking admin status:', error);
       setIsAdmin(false);

@@ -17,14 +17,11 @@ export const SuperAdminAuth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('login');
   const [signupSuccess, setSignupSuccess] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpMode, setOtpMode] = useState(false);
   
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -36,7 +33,7 @@ export const SuperAdminAuth = () => {
     }
   };
 
-  const handleRequestOtp = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -44,40 +41,8 @@ export const SuperAdminAuth = () => {
     try {
       validateEmail(email);
       
-      // Send OTP using Supabase magic link
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: email,
-        options: {
-          shouldCreateUser: false, // Only allow existing users
-        }
-      });
-
-      if (otpError) throw otpError;
-
-      setOtpSent(true);
-      setOtpMode(true);
-      toast.success('OTP sent to your email. Please check your inbox.');
-    } catch (err: any) {
-      setError(err.message);
-      toast.error(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: email,
-        token: otp,
-        type: 'email'
-      });
-
-      if (verifyError) throw verifyError;
+      const { error } = await signIn(email, password);
+      if (error) throw error;
 
       toast.success('Welcome to Admin Dashboard');
       navigate('/super-admin');
@@ -95,7 +60,6 @@ export const SuperAdminAuth = () => {
     setError('');
 
     try {
-      // Client-side validation
       if (!fullName.trim()) {
         throw new Error('Full name is required');
       }
@@ -110,7 +74,6 @@ export const SuperAdminAuth = () => {
 
       validateEmail(email);
 
-      // Validate password before submission
       const passwordValidation = validatePassword(password);
       if (!passwordValidation.isValid) {
         throw new Error(passwordValidation.errors[0]);
@@ -118,8 +81,7 @@ export const SuperAdminAuth = () => {
 
       console.log('Submitting admin request for:', email);
 
-      // Call the custom edge function for admin request
-      const { data, error } = await supabase.functions.invoke('request-admin-access', {
+      const { data, error } = await supabase.functions.invoke('simple-admin-request', {
         body: {
           fullName: fullName.trim(),
           email: email.trim(),
@@ -127,49 +89,47 @@ export const SuperAdminAuth = () => {
         }
       });
 
-      console.log('Edge function response:', { data, error });
+      console.log('Response:', { data, error });
 
       if (error) {
-        console.error('Edge function error:', error);
         throw new Error(error.message || 'Failed to submit admin request');
       }
 
       if (data?.error) {
-        console.error('Application error from edge function:', data.error);
         throw new Error(data.error);
-      }
-
-      if (!data?.success) {
-        console.error('Unexpected response from edge function:', data);
-        throw new Error('Invalid response from server');
       }
 
       setSignupSuccess(true);
       toast.success('Admin access request submitted successfully!');
       
-      // Reset form
       setFullName('');
       setEmail('');
       setPassword('');
       
     } catch (err: any) {
       console.error('Signup error:', err);
-      let errorMessage = err.message || 'An unexpected error occurred';
-      
-      // Provide more user-friendly error messages
-      if (errorMessage.includes('pending request already exists') || 
-          errorMessage.includes('request for this email already exists')) {
-        errorMessage = 'A request for this email is already pending approval. Please wait for administrator review or contact support.';
-      } else if (errorMessage.includes('Edge Function returned a non-2xx status code')) {
-        errorMessage = 'Unable to submit request. Please check your details and try again.';
-      } else if (errorMessage.includes('Failed to create request')) {
-        errorMessage = 'Unable to process your request right now. Please try again in a few minutes.';
-      }
-      
-      setError(errorMessage);
-      toast.error(errorMessage);
+      setError(err.message || 'An unexpected error occurred');
+      toast.error(err.message || 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Create super admin button (only show in development)
+  const createSuperAdmin = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-super-admin', {
+        body: {
+          email: 'kisanshaktiai@gmail.com',
+          password: 'Aptech@9898#',
+          fullName: 'Amarsinh Patil'
+        }
+      });
+
+      if (error) throw error;
+      toast.success('Super admin created successfully!');
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
@@ -223,7 +183,7 @@ export const SuperAdminAuth = () => {
           <div>
             <CardTitle className="text-2xl font-bold">Admin Access</CardTitle>
             <CardDescription>
-              Secure OTP-based access to KisanShaktiAI platform administration
+              Access to KisanShaktiAI platform administration
             </CardDescription>
           </div>
         </CardHeader>
@@ -242,106 +202,75 @@ export const SuperAdminAuth = () => {
             </TabsList>
 
             <TabsContent value="login">
-              {!otpMode ? (
-                <form onSubmit={handleRequestOtp} className="space-y-4">
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <Alert>
-                    <Mail className="h-4 w-4" />
-                    <AlertDescription>
-                      We use OTP-based authentication for enhanced security. Enter your email to receive a login code.
-                    </AlertDescription>
+              <form onSubmit={handleLogin} className="space-y-4">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
                   </Alert>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email">Email Address</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="your-email@example.com"
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <Button
-                    type="submit"
-                    className="w-full"
+                )}
+                
+                <div className="space-y-2">
+                  <Label htmlFor="login-email">Email Address</Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your-email@example.com"
+                    required
                     disabled={isLoading}
-                  >
-                    {isLoading ? 'Sending OTP...' : 'Send Login Code'}
-                  </Button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
+                  />
+                </div>
 
-                  <Alert>
-                    <Key className="h-4 w-4" />
-                    <AlertDescription>
-                      Enter the 6-digit code sent to {email}
-                    </AlertDescription>
-                  </Alert>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="otp">Verification Code</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Password</Label>
+                  <div className="relative">
                     <Input
-                      id="otp"
-                      type="text"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      placeholder="Enter 6-digit code"
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
                       required
                       disabled={isLoading}
-                      maxLength={6}
                     />
-                  </div>
-                  
-                  <div className="flex gap-2">
                     <Button
                       type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setOtpMode(false);
-                        setOtpSent(false);
-                        setOtp('');
-                        setError('');
-                      }}
-                      disabled={isLoading}
-                      className="flex-1"
-                    >
-                      Back
-                    </Button>
-                    <Button
-                      type="submit"
-                      className="flex-1"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
                       disabled={isLoading}
                     >
-                      {isLoading ? 'Verifying...' : 'Verify & Login'}
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
+                </div>
+                
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Signing In...' : 'Sign In'}
+                </Button>
 
+                {/* Development helper button */}
+                {process.env.NODE_ENV === 'development' && (
                   <Button
                     type="button"
-                    variant="ghost"
-                    onClick={handleRequestOtp}
-                    disabled={isLoading}
-                    className="w-full text-sm"
+                    variant="outline"
+                    onClick={createSuperAdmin}
+                    className="w-full text-xs"
                   >
-                    Resend Code
+                    Create Super Admin (Dev Only)
                   </Button>
-                </form>
-              )}
+                )}
+              </form>
             </TabsContent>
 
             <TabsContent value="signup">
@@ -382,9 +311,6 @@ export const SuperAdminAuth = () => {
                     required
                     disabled={isLoading}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Any valid email address can be used for admin access requests
-                  </p>
                 </div>
                 
                 <div className="space-y-2">
@@ -417,7 +343,6 @@ export const SuperAdminAuth = () => {
                     </Button>
                   </div>
                   
-                  {/* Password Strength Indicator */}
                   {password && (
                     <PasswordStrength password={password} />
                   )}
@@ -435,7 +360,7 @@ export const SuperAdminAuth = () => {
           </Tabs>
           
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Secure OTP-based access with audit logging enabled</p>
+            <p>Secure access with audit logging enabled</p>
             <p className="mt-1">All requests are reviewed by administrators</p>
           </div>
         </CardContent>
