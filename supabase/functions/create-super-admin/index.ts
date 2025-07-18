@@ -1,83 +1,107 @@
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
-const handler = async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Use service role key to create admin user
+    console.log('Create super admin function called')
+    
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
 
-    const { email, password, fullName } = await req.json();
+    const { email, password, fullName } = await req.json()
+    
+    console.log('Attempting to create user:', email)
 
-    console.log('Creating super admin user:', email);
-
-    // Create the user in Supabase Auth
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: email,
-      password: password,
+    // Create the user using the admin client
+    const { data: user, error: userError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
       email_confirm: true, // Auto-confirm email
       user_metadata: {
-        full_name: fullName,
-        role: 'super_admin'
+        full_name: fullName
       }
-    });
+    })
 
-    if (authError) {
-      console.error('Auth user creation error:', authError);
-      return new Response(JSON.stringify({ error: authError.message }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    if (userError) {
+      console.error('Error creating user:', userError)
+      return new Response(
+        JSON.stringify({ error: userError.message }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
-    console.log('Super admin user created successfully:', authUser.user.id);
+    console.log('User created successfully:', user.user?.id)
 
-    // Update the super_admin.admin_users table with the auth user ID
-    const { error: updateError } = await supabaseAdmin
-      .from('super_admin.admin_users')
-      .update({ id: authUser.user.id })
-      .eq('email', email);
+    // Insert into admin_users table
+    const { error: insertError } = await supabaseAdmin
+      .from('admin_users')
+      .insert({
+        id: user.user!.id,
+        email: email,
+        full_name: fullName,
+        role: 'super_admin',
+        is_active: true,
+        created_by: user.user!.id // Self-created
+      })
 
-    if (updateError) {
-      console.error('Admin users table update error:', updateError);
-      // Don't fail the request if this update fails
+    if (insertError) {
+      console.error('Error inserting admin user:', insertError)
+      // Try to clean up the auth user if admin insertion fails
+      await supabaseAdmin.auth.admin.deleteUser(user.user!.id)
+      
+      return new Response(
+        JSON.stringify({ error: `Failed to create admin record: ${insertError.message}` }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      userId: authUser.user.id,
-      message: "Super admin created successfully" 
-    }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    console.log('Super admin created successfully')
 
-  } catch (error: any) {
-    console.error("Error creating super admin:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return new Response(
+      JSON.stringify({ 
+        message: 'Super admin created successfully',
+        user_id: user.user!.id,
+        email: email
+      }),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+
+  } catch (error) {
+    console.error('Unexpected error:', error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
   }
-};
-
-serve(handler);
+})

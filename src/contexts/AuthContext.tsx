@@ -67,13 +67,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAdminStatus = async (user: User) => {
     try {
-      // Simple check: if the user email matches the super admin email, they're an admin
-      // This is a simplified approach that works without complex schema queries
-      const adminEmails = ['kisanshaktiai@gmail.com']; // Add more admin emails as needed
+      // First try to check the admin_users table
+      const { data: adminUser, error } = await supabase
+        .from('admin_users')
+        .select('role, is_active')
+        .eq('email', user.email)
+        .eq('is_active', true)
+        .single();
+
+      if (!error && adminUser) {
+        setIsAdmin(true);
+        console.log('User is admin with role:', adminUser.role);
+        return;
+      }
+      
+      // Fallback: Simple email check for development
+      const adminEmails = ['kisanshaktiai@gmail.com'];
       
       if (adminEmails.includes(user.email || '')) {
         setIsAdmin(true);
-        console.log('User is admin:', user.email);
+        console.log('User is admin (fallback check):', user.email);
       } else {
         setIsAdmin(false);
         console.log('User is not an admin');
