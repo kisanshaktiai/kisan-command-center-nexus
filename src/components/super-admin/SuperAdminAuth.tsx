@@ -1,29 +1,33 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Eye, EyeOff, UserPlus, LogIn, Clock, Mail, Key } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { Shield, Eye, EyeOff, UserPlus, LogIn, Clock, Mail, Key, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { PasswordStrength, validatePassword } from '@/components/ui/password-strength';
 
 export const SuperAdminAuth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [organizationName, setOrganizationName] = useState('');
+  const [organizationType, setOrganizationType] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('login');
   const [signupSuccess, setSignupSuccess] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
   
-  const { signIn } = useAuth();
+  const { signIn, signUp, resetPassword } = useEnhancedAuth();
   const navigate = useNavigate();
 
   const validateEmail = (email: string) => {
@@ -72,6 +76,10 @@ export const SuperAdminAuth = () => {
         throw new Error('Password is required');
       }
 
+      if (!organizationName.trim()) {
+        throw new Error('Organization name is required');
+      }
+
       validateEmail(email);
 
       const passwordValidation = validatePassword(password);
@@ -79,32 +87,29 @@ export const SuperAdminAuth = () => {
         throw new Error(passwordValidation.errors[0]);
       }
 
-      console.log('Submitting admin request for:', email);
+      const tenantData = {
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        organizationName: organizationName.trim(),
+        organizationType: organizationType || 'business'
+      };
 
-      const { data, error } = await supabase.functions.invoke('simple-admin-request', {
-        body: {
-          fullName: fullName.trim(),
-          email: email.trim(),
-          password
-        }
-      });
-
-      console.log('Response:', { data, error });
+      const { error } = await signUp(email.trim(), password, tenantData);
 
       if (error) {
-        throw new Error(error.message || 'Failed to submit admin request');
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
+        throw new Error(error.message || 'Failed to create account');
       }
 
       setSignupSuccess(true);
-      toast.success('Admin access request submitted successfully!');
+      toast.success('Account created successfully! Please check your email to verify your account.');
       
+      // Clear form
       setFullName('');
       setEmail('');
       setPassword('');
+      setPhone('');
+      setOrganizationName('');
+      setOrganizationType('');
       
     } catch (err: any) {
       console.error('Signup error:', err);
@@ -115,21 +120,30 @@ export const SuperAdminAuth = () => {
     }
   };
 
-  // Create super admin button (only show in development)
-  const createSuperAdmin = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('create-super-admin', {
-        body: {
-          email: 'kisanshaktiai@gmail.com',
-          password: 'Aptech@9898#',
-          fullName: 'Amarsinh Patil'
-        }
-      });
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
 
+    try {
+      if (!resetEmail.trim()) {
+        throw new Error('Email is required');
+      }
+
+      validateEmail(resetEmail);
+
+      const { error } = await resetPassword(resetEmail.trim());
       if (error) throw error;
-      toast.success('Super admin created successfully!');
-    } catch (error: any) {
-      toast.error(error.message);
+
+      toast.success('Password reset email sent! Please check your inbox.');
+      setShowForgotPassword(false);
+      setResetEmail('');
+      
+    } catch (err: any) {
+      setError(err.message);
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -138,13 +152,13 @@ export const SuperAdminAuth = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-4 text-center">
-            <div className="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
-              <Clock className="w-8 h-8 text-orange-600" />
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+              <Mail className="w-8 h-8 text-green-600" />
             </div>
             <div>
-              <CardTitle className="text-2xl font-bold">Request Submitted</CardTitle>
+              <CardTitle className="text-2xl font-bold">Check Your Email</CardTitle>
               <CardDescription>
-                Your admin access request is pending approval
+                We've sent you a verification link
               </CardDescription>
             </div>
           </CardHeader>
@@ -152,8 +166,8 @@ export const SuperAdminAuth = () => {
           <CardContent className="text-center space-y-4">
             <Alert>
               <AlertDescription>
-                Your request has been sent to the administrators for review. 
-                You will receive an email notification once your access is approved.
+                Please check your email and click the verification link to activate your account.
+                You may need to check your spam folder.
               </AlertDescription>
             </Alert>
             
@@ -173,6 +187,66 @@ export const SuperAdminAuth = () => {
     );
   }
 
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-4 text-center">
+            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+              <Key className="w-8 h-8 text-blue-600" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold">Reset Password</CardTitle>
+              <CardDescription>
+                Enter your email to receive a reset link
+              </CardDescription>
+            </div>
+          </CardHeader>
+          
+          <CardContent>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              
+              <div className="space-y-2">
+                <Label htmlFor="resetEmail">Email Address</Label>
+                <Input
+                  id="resetEmail"
+                  type="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder="your-email@example.com"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading || !resetEmail}
+              >
+                {isLoading ? 'Sending Reset Link...' : 'Send Reset Link'}
+              </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowForgotPassword(false)}
+                className="w-full"
+              >
+                Back to Login
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
       <Card className="w-full max-w-md">
@@ -183,7 +257,7 @@ export const SuperAdminAuth = () => {
           <div>
             <CardTitle className="text-2xl font-bold">Admin Access</CardTitle>
             <CardDescription>
-              Access to KisanShaktiAI platform administration
+              Secure access to KisanShaktiAI platform
             </CardDescription>
           </div>
         </CardHeader>
@@ -197,7 +271,7 @@ export const SuperAdminAuth = () => {
               </TabsTrigger>
               <TabsTrigger value="signup" className="flex items-center gap-2">
                 <UserPlus className="w-4 h-4" />
-                Request Access
+                Sign Up
               </TabsTrigger>
             </TabsList>
 
@@ -205,6 +279,7 @@ export const SuperAdminAuth = () => {
               <form onSubmit={handleLogin} className="space-y-4">
                 {error && (
                   <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
@@ -251,6 +326,17 @@ export const SuperAdminAuth = () => {
                   </div>
                 </div>
                 
+                <div className="flex items-center justify-between">
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="p-0 h-auto text-sm"
+                  >
+                    Forgot password?
+                  </Button>
+                </div>
+                
                 <Button
                   type="submit"
                   className="w-full"
@@ -258,18 +344,6 @@ export const SuperAdminAuth = () => {
                 >
                   {isLoading ? 'Signing In...' : 'Sign In'}
                 </Button>
-
-                {/* Development helper button */}
-                {process.env.NODE_ENV === 'development' && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={createSuperAdmin}
-                    className="w-full text-xs"
-                  >
-                    Create Super Admin (Dev Only)
-                  </Button>
-                )}
               </form>
             </TabsContent>
 
@@ -277,31 +351,47 @@ export const SuperAdminAuth = () => {
               <form onSubmit={handleSignUp} className="space-y-4">
                 {error && (
                   <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
 
                 <Alert>
+                  <Mail className="h-4 w-4" />
                   <AlertDescription>
-                    Access requests are reviewed by administrators. You'll receive an email notification once approved.
+                    You'll receive an email verification link after signing up.
                   </AlertDescription>
                 </Alert>
 
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Enter your full name"
-                    required
-                    disabled={isLoading}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-name">Full Name *</Label>
+                    <Input
+                      id="signup-name"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="John Doe"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-phone">Phone</Label>
+                    <Input
+                      id="signup-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+1234567890"
+                      disabled={isLoading}
+                    />
+                  </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email Address</Label>
+                  <Label htmlFor="signup-email">Email Address *</Label>
                   <Input
                     id="signup-email"
                     type="email"
@@ -312,9 +402,40 @@ export const SuperAdminAuth = () => {
                     disabled={isLoading}
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="organization-name">Organization Name *</Label>
+                  <Input
+                    id="organization-name"
+                    type="text"
+                    value={organizationName}
+                    onChange={(e) => setOrganizationName(e.target.value)}
+                    placeholder="Your Organization"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="organization-type">Organization Type</Label>
+                  <select
+                    id="organization-type"
+                    value={organizationType}
+                    onChange={(e) => setOrganizationType(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isLoading}
+                  >
+                    <option value="">Select type</option>
+                    <option value="business">Business</option>
+                    <option value="ngo">NGO</option>
+                    <option value="government">Government</option>
+                    <option value="cooperative">Cooperative</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
+                  <Label htmlFor="signup-password">Password *</Label>
                   <div className="relative">
                     <Input
                       id="signup-password"
@@ -353,15 +474,15 @@ export const SuperAdminAuth = () => {
                   className="w-full"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Submitting Request...' : 'Request Admin Access'}
+                  {isLoading ? 'Creating Account...' : 'Create Account'}
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
           
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Secure access with audit logging enabled</p>
-            <p className="mt-1">All requests are reviewed by administrators</p>
+            <p>🔒 Secure authentication with advanced protection</p>
+            <p className="mt-1">Your data is encrypted and protected</p>
           </div>
         </CardContent>
       </Card>

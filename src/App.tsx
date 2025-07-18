@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,6 +6,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { navItems } from "./nav-items";
 import SuperAdmin from "./pages/SuperAdmin";
 import Auth from "./pages/Auth";
+import AuthCallback from "./pages/auth/AuthCallback";
+import ResetPassword from "./pages/auth/ResetPassword";
 import Overview from "./pages/super-admin/Overview";
 import TenantManagement from "./pages/super-admin/TenantManagement";
 import FeatureFlags from "./pages/super-admin/FeatureFlags";
@@ -22,6 +23,8 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/auth/reset-password" element={<ResetPassword />} />
               {navItems.map(({ to, page }) => (
                 <Route key={to} path={to} element={page} />
               ))}
