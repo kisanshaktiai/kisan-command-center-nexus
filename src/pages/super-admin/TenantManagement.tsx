@@ -149,6 +149,17 @@ export default function TenantManagement() {
       // Set plan limits based on subscription plan
       const planLimits = getPlanLimits(formData.subscription_plan);
       
+      // Ensure metadata and business_address are properly formatted
+      const metadata = formData.metadata && typeof formData.metadata === 'object' 
+        ? formData.metadata 
+        : {};
+      
+      const businessAddress = formData.business_address && typeof formData.business_address === 'object'
+        ? formData.business_address
+        : formData.business_address
+          ? { address: formData.business_address }
+          : null;
+      
       const tenantData = {
         ...formData,
         max_farmers: formData.max_farmers || planLimits.farmers,
@@ -158,7 +169,8 @@ export default function TenantManagement() {
         max_api_calls_per_day: formData.max_api_calls_per_day || planLimits.api_calls,
         subscription_start_date: formData.subscription_start_date || new Date().toISOString(),
         trial_ends_at: formData.trial_ends_at || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        metadata: formData.metadata || {},
+        metadata,
+        business_address: businessAddress,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -196,6 +208,17 @@ export default function TenantManagement() {
       // Set plan limits based on subscription plan
       const planLimits = getPlanLimits(formData.subscription_plan);
       
+      // Ensure metadata and business_address are properly formatted
+      const metadata = formData.metadata && typeof formData.metadata === 'object' 
+        ? formData.metadata 
+        : {};
+      
+      const businessAddress = formData.business_address && typeof formData.business_address === 'object'
+        ? formData.business_address
+        : formData.business_address
+          ? { address: formData.business_address }
+          : null;
+      
       const updateData = {
         ...formData,
         max_farmers: formData.max_farmers || planLimits.farmers,
@@ -203,7 +226,8 @@ export default function TenantManagement() {
         max_products: formData.max_products || planLimits.products,
         max_storage_gb: formData.max_storage_gb || planLimits.storage,
         max_api_calls_per_day: formData.max_api_calls_per_day || planLimits.api_calls,
-        metadata: formData.metadata || {},
+        metadata,
+        business_address: businessAddress,
         updated_at: new Date().toISOString(),
       };
 
@@ -266,6 +290,18 @@ export default function TenantManagement() {
 
   const openEditDialog = (tenant: DatabaseTenant) => {
     setEditingTenant(tenant);
+    
+    // Safely handle metadata and business_address
+    const metadata = tenant.metadata && typeof tenant.metadata === 'object' 
+      ? tenant.metadata as Record<string, any>
+      : {};
+    
+    const businessAddress = tenant.business_address && typeof tenant.business_address === 'object'
+      ? tenant.business_address as Record<string, any>
+      : tenant.business_address
+        ? { address: tenant.business_address }
+        : undefined;
+    
     setFormData({
       name: tenant.name,
       slug: tenant.slug,
@@ -275,7 +311,7 @@ export default function TenantManagement() {
       owner_email: tenant.owner_email || '',
       owner_phone: tenant.owner_phone || '',
       business_registration: tenant.business_registration || '',
-      business_address: tenant.business_address,
+      business_address: businessAddress,
       established_date: tenant.established_date || '',
       subscription_plan: tenant.subscription_plan || 'starter',
       subscription_start_date: tenant.subscription_start_date || '',
@@ -288,7 +324,7 @@ export default function TenantManagement() {
       max_api_calls_per_day: tenant.max_api_calls_per_day || 10000,
       subdomain: tenant.subdomain || '',
       custom_domain: tenant.custom_domain || '',
-      metadata: tenant.metadata || {},
+      metadata,
     });
     setIsEditDialogOpen(true);
   };
@@ -645,16 +681,21 @@ function TenantForm({ formData, setFormData, onSubmit, isEditing }: TenantFormPr
           <Label htmlFor="business_address">Business Address</Label>
           <Textarea
             id="business_address"
-            value={formData.business_address ? JSON.stringify(formData.business_address, null, 2) : ''}
+            value={
+              formData.business_address && typeof formData.business_address === 'object'
+                ? JSON.stringify(formData.business_address, null, 2)
+                : formData.business_address || ''
+            }
             onChange={(e) => {
               try {
                 const parsed = JSON.parse(e.target.value);
                 handleChange('business_address', parsed);
               } catch {
+                // If it's not valid JSON, store as string and convert later
                 handleChange('business_address', e.target.value);
               }
             }}
-            placeholder="Enter business address (JSON format)"
+            placeholder="Enter business address (JSON format or plain text)"
             rows={3}
           />
         </div>
@@ -806,13 +847,18 @@ function TenantForm({ formData, setFormData, onSubmit, isEditing }: TenantFormPr
           <Label htmlFor="metadata">Metadata (JSON)</Label>
           <Textarea
             id="metadata"
-            value={formData.metadata ? JSON.stringify(formData.metadata, null, 2) : '{}'}
+            value={
+              formData.metadata && typeof formData.metadata === 'object'
+                ? JSON.stringify(formData.metadata, null, 2)
+                : '{}'
+            }
             onChange={(e) => {
               try {
                 const parsed = JSON.parse(e.target.value);
                 handleChange('metadata', parsed);
               } catch {
                 // Keep the string value for now, will be validated on submit
+                // Don't update the form data until valid JSON is entered
               }
             }}
             placeholder="Enter metadata in JSON format"
