@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -76,6 +75,33 @@ interface TenantStats {
   inactiveTenants: number;
   totalUsers: number;
   monthlyRevenue: number;
+}
+
+// Define proper types for tenant updates
+type TenantStatus = 'trial' | 'active' | 'suspended' | 'cancelled';
+type TenantType = 'basic' | 'premium' | 'enterprise';
+type SubscriptionPlan = 'starter' | 'professional' | 'enterprise';
+
+interface TenantUpdate {
+  name?: string;
+  slug?: string;
+  type?: TenantType;
+  status?: TenantStatus;
+  owner_name?: string;
+  owner_email?: string;
+  owner_phone?: string;
+  business_registration?: string;
+  business_address?: any;
+  established_date?: string;
+  subscription_plan?: SubscriptionPlan;
+  max_farmers?: number;
+  max_dealers?: number;
+  max_products?: number;
+  max_storage_gb?: number;
+  max_api_calls_per_day?: number;
+  subdomain?: string;
+  custom_domain?: string;
+  settings?: Record<string, any>;
 }
 
 export default function TenantManagement() {
@@ -187,19 +213,19 @@ export default function TenantManagement() {
     try {
       console.log('Creating tenant with data:', tenantData);
       
-      // Prepare the data for insertion
+      // Prepare the data for insertion with proper types
       const insertData = {
         name: tenantData.name,
         slug: tenantData.slug,
-        type: tenantData.type || 'basic',
-        status: 'trial',
+        type: tenantData.type as TenantType || 'basic' as TenantType,
+        status: 'trial' as TenantStatus,
         owner_name: tenantData.owner_name,
         owner_email: tenantData.owner_email,
         owner_phone: tenantData.owner_phone,
         business_registration: tenantData.business_registration,
         business_address: tenantData.business_address || {},
         established_date: tenantData.established_date || null,
-        subscription_plan: tenantData.subscription_plan || 'starter',
+        subscription_plan: tenantData.subscription_plan as SubscriptionPlan || 'starter' as SubscriptionPlan,
         max_farmers: tenantData.max_farmers || 1000,
         max_dealers: tenantData.max_dealers || 50,
         max_products: tenantData.max_products || 100,
@@ -211,9 +237,11 @@ export default function TenantManagement() {
         settings: tenantData.settings || {}
       };
 
+      console.log('Prepared insert data:', insertData);
+
       const { data, error } = await supabase
         .from('tenants')
-        .insert([insertData])
+        .insert(insertData)
         .select()
         .single();
 
@@ -232,7 +260,7 @@ export default function TenantManagement() {
     }
   };
 
-  const updateTenant = async (tenantId: string, updates: any) => {
+  const updateTenant = async (tenantId: string, updates: TenantUpdate) => {
     try {
       console.log('Updating tenant:', tenantId, updates);
       
@@ -300,8 +328,8 @@ export default function TenantManagement() {
         return <Badge variant="outline">Trial</Badge>;
       case 'suspended':
         return <Badge variant="secondary">Suspended</Badge>;
-      case 'expired':
-        return <Badge variant="destructive">Expired</Badge>;
+      case 'cancelled':
+        return <Badge variant="destructive">Cancelled</Badge>;
       default:
         return <Badge variant="outline">Trial</Badge>;
     }
@@ -820,7 +848,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
 }
 
 // Edit Tenant Form Component
-function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubmit: (data: any) => void; onCancel: () => void }) {
+function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubmit: (data: TenantUpdate) => void; onCancel: () => void }) {
   const [formData, setFormData] = useState({
     name: tenant.name,
     slug: tenant.slug || '',
@@ -882,7 +910,7 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="edit-type">Tenant Type</Label>
-              <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
+              <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as TenantType })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -895,7 +923,7 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
             </div>
             <div>
               <Label htmlFor="edit-status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as 'trial' | 'active' | 'suspended' | 'expired' })}>
+              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as TenantStatus })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -903,7 +931,7 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
                   <SelectItem value="trial">Trial</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="suspended">Suspended</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
             </div>
