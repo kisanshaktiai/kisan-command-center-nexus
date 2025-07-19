@@ -9,7 +9,7 @@ interface Tenant {
   name: string;
   slug: string;
   type: string;
-  subscription_plan: string | null;
+  subscription_plan: 'kisan' | 'shakti' | 'ai';
   status: string;
   settings: Record<string, any>;
   created_at: string;
@@ -48,13 +48,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // we'll use a simplified approach
         console.log('Tenant fetching simplified for type safety');
         
-        // Return mock data structure for now
+        // Return mock data structure for now with new plan types
         const mockTenants = [{
           id: 'default-tenant',
           name: 'Default Tenant',
           slug: 'default',
           type: 'basic',
-          subscription_plan: 'starter',
+          subscription_plan: 'kisan' as 'kisan' | 'shakti' | 'ai',
           status: 'active',
           settings: {},
           created_at: new Date().toISOString()

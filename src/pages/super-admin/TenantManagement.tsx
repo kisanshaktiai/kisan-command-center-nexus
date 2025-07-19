@@ -83,8 +83,8 @@ interface TenantStats {
   monthlyRevenue: number;
 }
 
-// Updated interface for tenant creation - matching actual Supabase schema
-interface TenantCreateData {
+// Database interface matching Supabase schema
+interface DatabaseTenant {
   name: string;
   slug: string;
   type: TenantType;
@@ -235,39 +235,13 @@ export default function TenantManagement() {
     },
   });
 
-  const createTenant = async (tenantData: TenantCreateData) => {
+  const createTenant = async (tenantData: DatabaseTenant) => {
     try {
       console.log('Creating tenant with data:', tenantData);
       
-      // Prepare the data for insertion - using only fields that exist in database schema
-      const insertData = {
-        name: tenantData.name,
-        slug: tenantData.slug,
-        type: tenantData.type,
-        status: 'trial' as const,
-        owner_name: tenantData.owner_name,
-        owner_email: tenantData.owner_email,
-        owner_phone: tenantData.owner_phone,
-        business_registration: tenantData.business_registration,
-        business_address: tenantData.business_address || {},
-        established_date: tenantData.established_date || null,
-        subscription_plan: tenantData.subscription_plan,
-        max_farmers: tenantData.max_farmers || 1000,
-        max_dealers: tenantData.max_dealers || 50,
-        max_products: tenantData.max_products || 100,
-        max_storage_gb: tenantData.max_storage_gb || 10,
-        max_api_calls_per_day: tenantData.max_api_calls_per_day || 10000,
-        subdomain: tenantData.subdomain,
-        custom_domain: tenantData.custom_domain,
-        metadata: tenantData.metadata || {},
-        settings: tenantData.settings || {}
-      };
-
-      console.log('Prepared insert data:', insertData);
-
       const { data, error } = await supabase
         .from('tenants')
-        .insert(insertData)
+        .insert([tenantData])
         .select()
         .single();
 
@@ -548,8 +522,8 @@ export default function TenantManagement() {
 }
 
 // Create Tenant Form Component
-function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: TenantCreateData) => void; onCancel: () => void }) {
-  const [formData, setFormData] = useState<TenantCreateData>({
+function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: DatabaseTenant) => void; onCancel: () => void }) {
+  const [formData, setFormData] = useState<DatabaseTenant>({
     // Basic Information
     name: '',
     slug: '',

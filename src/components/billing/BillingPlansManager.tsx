@@ -25,19 +25,12 @@ interface BillingPlan {
   currency: string;
   billing_interval: string;
   features: any;
-  usage_limits: any;
   limits: any;
   is_active: boolean;
   is_custom: boolean;
   created_at: string;
   updated_at: string;
   tenant_id: string | null;
-  // Additional fields that might exist
-  trial_days?: number;
-  is_public?: boolean;
-  price_monthly?: number;
-  price_quarterly?: number;
-  price_annually?: number;
 }
 
 export function BillingPlansManager() {
@@ -61,9 +54,6 @@ export function BillingPlansManager() {
         return (data || []).map(plan => ({
           ...plan,
           plan_type: plan.plan_type as 'kisan' | 'shakti' | 'ai',
-          usage_limits: plan.limits || plan.usage_limits || {},
-          trial_days: 14, // Default value
-          is_public: true, // Default value
         })) as BillingPlan[];
       } catch (error) {
         console.error('Error fetching billing plans:', error);
@@ -86,7 +76,7 @@ export function BillingPlansManager() {
             currency: planData.currency,
             billing_interval: planData.billing_interval,
             features: planData.features,
-            limits: planData.usage_limits,
+            limits: planData.limits,
             is_active: planData.is_active,
             is_custom: planData.is_custom,
             tenant_id: planData.tenant_id
@@ -125,7 +115,7 @@ export function BillingPlansManager() {
             currency: planData.currency,
             billing_interval: planData.billing_interval,
             features: planData.features,
-            limits: planData.usage_limits,
+            limits: planData.limits,
             is_active: planData.is_active,
             is_custom: planData.is_custom
           })
@@ -377,7 +367,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
     currency: 'INR',
     billing_interval: 'monthly',
     features: '[]',
-    usage_limits: '{}',
+    limits: '{}',
     is_active: true,
     is_custom: false,
     tenant_id: null
@@ -391,12 +381,12 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
         ...formData,
         base_price: Number(formData.base_price),
         features: formData.features ? JSON.parse(formData.features) : [],
-        usage_limits: formData.usage_limits ? JSON.parse(formData.usage_limits) : {}
+        limits: formData.limits ? JSON.parse(formData.limits) : {}
       };
       
       onSubmit(planData);
     } catch (error) {
-      toast.error('Invalid JSON in features or usage limits');
+      toast.error('Invalid JSON in features or limits');
     }
   };
 
@@ -497,11 +487,11 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
       </div>
       
       <div>
-        <Label htmlFor="usage_limits">Usage Limits (JSON)</Label>
+        <Label htmlFor="limits">Usage Limits (JSON)</Label>
         <Textarea
-          id="usage_limits"
-          value={formData.usage_limits}
-          onChange={(e) => setFormData({ ...formData, usage_limits: e.target.value })}
+          id="limits"
+          value={formData.limits}
+          onChange={(e) => setFormData({ ...formData, limits: e.target.value })}
           placeholder='{"max_lands": 3, "ai_queries": 100, "soil_reports": 2}'
         />
       </div>
