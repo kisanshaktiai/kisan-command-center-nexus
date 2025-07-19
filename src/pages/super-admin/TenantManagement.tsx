@@ -240,7 +240,7 @@ export default function TenantManagement() {
       
       const { data, error } = await supabase
         .from('tenants')
-        .insert([tenantData])
+        .insert(tenantData)
         .select()
         .single();
 

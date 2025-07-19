@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { CheckCircle, Plus, Edit, Trash2, DollarSign, Users, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { safeGet } from '@/lib/supabase-helpers';
 
 // Type for subscription plans
 type SubscriptionPlan = 'kisan' | 'shakti' | 'ai';
@@ -75,13 +76,13 @@ export function BillingPlansManager() {
           id: plan.id,
           name: plan.name,
           description: plan.description,
-          plan_type: plan.plan_type as SubscriptionPlan,
+          plan_type: safeGet(plan, 'plan_type', 'kisan') as SubscriptionPlan,
           base_price: plan.base_price,
-          currency: plan.currency || 'INR',
+          currency: safeGet(plan, 'currency', 'INR'),
           billing_interval: plan.billing_interval,
           features: plan.features,
           limits: plan.limits,
-          usage_limits: plan.usage_limits || {},
+          usage_limits: safeGet(plan, 'usage_limits', {}),
           is_active: plan.is_active,
           is_custom: plan.is_custom,
           created_at: plan.created_at,
