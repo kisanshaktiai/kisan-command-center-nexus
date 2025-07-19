@@ -105,7 +105,7 @@ export default function TenantManagement() {
           name: tenant.name || 'Unnamed Tenant',
           slug: tenant.slug || '',
           type: tenant.type || 'basic',
-          status: tenant.status || 'trial',
+          status: (tenant.status === 'cancelled' ? 'expired' : tenant.status) as 'trial' | 'active' | 'suspended' | 'expired' || 'trial',
           subscription_plan: tenant.subscription_plan || 'starter',
           subscription_status: (tenant.status === 'active' ? 'active' : 'trial') as 'active' | 'trial' | 'expired' | 'cancelled',
           is_active: tenant.status === 'active',
@@ -284,7 +284,7 @@ export default function TenantManagement() {
               <DialogTitle>Create New Tenant</DialogTitle>
               <DialogDescription>Add a new tenant to your platform</DialogDescription>
             </DialogHeader>
-            <CreateTenantForm onSubmit={createTenant} />
+            <CreateTenantForm onSubmit={createTenant} onCancel={() => setIsCreateDialogOpen(false)} />
           </DialogContent>
         </Dialog>
       </div>
@@ -428,7 +428,8 @@ export default function TenantManagement() {
           {selectedTenant && (
             <EditTenantForm 
               tenant={selectedTenant} 
-              onSubmit={(updates) => updateTenant(selectedTenant.id, updates)} 
+              onSubmit={(updates) => updateTenant(selectedTenant.id, updates)}
+              onCancel={() => setIsEditDialogOpen(false)}
             />
           )}
         </DialogContent>
@@ -438,7 +439,7 @@ export default function TenantManagement() {
 }
 
 // Create Tenant Form Component
-function CreateTenantForm({ onSubmit }: { onSubmit: (data: any) => void }) {
+function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => void; onCancel: () => void }) {
   const [formData, setFormData] = useState({
     // Basic Information
     name: '',
@@ -764,7 +765,7 @@ function CreateTenantForm({ onSubmit }: { onSubmit: (data: any) => void }) {
       </Tabs>
       
       <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={() => {}}>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
         <Button type="submit" className="min-w-[120px]">
@@ -776,12 +777,12 @@ function CreateTenantForm({ onSubmit }: { onSubmit: (data: any) => void }) {
 }
 
 // Edit Tenant Form Component
-function EditTenantForm({ tenant, onSubmit }: { tenant: Tenant; onSubmit: (data: any) => void }) {
+function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubmit: (data: any) => void; onCancel: () => void }) {
   const [formData, setFormData] = useState({
     name: tenant.name,
     slug: tenant.slug || '',
     type: tenant.type || 'basic',
-    status: tenant.status || 'trial',
+    status: (tenant.status === 'cancelled' ? 'expired' : tenant.status) as 'trial' | 'active' | 'suspended' | 'expired' || 'trial',
     owner_name: tenant.owner_name || '',
     owner_email: tenant.owner_email || '',
     owner_phone: tenant.owner_phone || '',
@@ -850,7 +851,7 @@ function EditTenantForm({ tenant, onSubmit }: { tenant: Tenant; onSubmit: (data:
             </div>
             <div>
               <Label htmlFor="edit-status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as 'trial' | 'active' | 'suspended' | 'expired' })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -923,7 +924,7 @@ function EditTenantForm({ tenant, onSubmit }: { tenant: Tenant; onSubmit: (data:
       </Tabs>
       
       <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={() => {}}>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
         <Button type="submit" className="min-w-[120px]">
