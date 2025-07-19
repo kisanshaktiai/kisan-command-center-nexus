@@ -120,6 +120,7 @@ export default function TenantManagement() {
         
         if (error) {
           console.error('Error fetching tenants:', error);
+          toast.error('Failed to fetch tenants');
           return [];
         }
         
@@ -158,6 +159,7 @@ export default function TenantManagement() {
         return transformedTenants;
       } catch (error) {
         console.error('Error in tenants query:', error);
+        toast.error('Failed to fetch tenants');
         return [];
       }
     },

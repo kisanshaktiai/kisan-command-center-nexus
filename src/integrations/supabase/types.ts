@@ -252,6 +252,68 @@ export type Database = {
           },
         ]
       }
+      billing_plans: {
+        Row: {
+          base_price: number
+          billing_interval: string | null
+          created_at: string | null
+          description: string | null
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          is_custom: boolean | null
+          limits: Json | null
+          name: string
+          price_annually: number | null
+          price_monthly: number | null
+          price_quarterly: number | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          base_price?: number
+          billing_interval?: string | null
+          created_at?: string | null
+          description?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_custom?: boolean | null
+          limits?: Json | null
+          name: string
+          price_annually?: number | null
+          price_monthly?: number | null
+          price_quarterly?: number | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          base_price?: number
+          billing_interval?: string | null
+          created_at?: string | null
+          description?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_custom?: boolean | null
+          limits?: Json | null
+          name?: string
+          price_annually?: number | null
+          price_monthly?: number | null
+          price_quarterly?: number | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crop_health_assessments: {
         Row: {
           alert_level: string | null
@@ -917,6 +979,42 @@ export type Database = {
           territory_ids?: string[] | null
           updated_at?: string
           verification_status?: string | null
+        }
+        Relationships: []
+      }
+      email_verifications: {
+        Row: {
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          is_verified: boolean | null
+          updated_at: string | null
+          user_id: string
+          verification_token: string
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          is_verified?: boolean | null
+          updated_at?: string | null
+          user_id: string
+          verification_token: string
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          is_verified?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+          verification_token?: string
+          verified_at?: string | null
         }
         Relationships: []
       }
@@ -1841,6 +1939,111 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "onboarding_workflows_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      password_reset_requests: {
+        Row: {
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          is_used: boolean | null
+          reset_token: string
+          updated_at: string | null
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          is_used?: boolean | null
+          reset_token: string
+          updated_at?: string | null
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          is_used?: boolean | null
+          reset_token?: string
+          updated_at?: string | null
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string | null
+          due_date: string | null
+          gateway_response: Json | null
+          id: string
+          invoice_number: string | null
+          metadata: Json | null
+          payment_date: string | null
+          payment_method: Json | null
+          payment_status: string | null
+          subscription_id: string | null
+          tenant_id: string
+          transaction_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          gateway_response?: Json | null
+          id?: string
+          invoice_number?: string | null
+          metadata?: Json | null
+          payment_date?: string | null
+          payment_method?: Json | null
+          payment_status?: string | null
+          subscription_id?: string | null
+          tenant_id: string
+          transaction_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          gateway_response?: Json | null
+          id?: string
+          invoice_number?: string | null
+          metadata?: Json | null
+          payment_date?: string | null
+          payment_method?: Json | null
+          payment_status?: string | null
+          subscription_id?: string | null
+          tenant_id?: string
+          transaction_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -3018,6 +3221,7 @@ export type Database = {
           owner_email: string | null
           owner_name: string | null
           owner_phone: string | null
+          settings: Json | null
           slug: string
           status: Database["public"]["Enums"]["tenant_status"] | null
           subdomain: string | null
@@ -3048,6 +3252,7 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          settings?: Json | null
           slug: string
           status?: Database["public"]["Enums"]["tenant_status"] | null
           subdomain?: string | null
@@ -3078,6 +3283,7 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          settings?: Json | null
           slug?: string
           status?: Database["public"]["Enums"]["tenant_status"] | null
           subdomain?: string | null
@@ -3159,14 +3365,17 @@ export type Database = {
           device_tokens: Json | null
           display_name: string | null
           district: string | null
+          email_verified_at: string | null
           expertise_areas: string[] | null
           farmer_id: string | null
           full_name: string | null
           gender: string | null
           id: string
+          is_account_locked: boolean | null
           last_active_at: string | null
           metadata: Json | null
           notification_preferences: Json | null
+          password_changed_at: string | null
           phone: string
           phone_verified: boolean | null
           pincode: string | null
@@ -3192,14 +3401,17 @@ export type Database = {
           device_tokens?: Json | null
           display_name?: string | null
           district?: string | null
+          email_verified_at?: string | null
           expertise_areas?: string[] | null
           farmer_id?: string | null
           full_name?: string | null
           gender?: string | null
           id: string
+          is_account_locked?: boolean | null
           last_active_at?: string | null
           metadata?: Json | null
           notification_preferences?: Json | null
+          password_changed_at?: string | null
           phone: string
           phone_verified?: boolean | null
           pincode?: string | null
@@ -3225,14 +3437,17 @@ export type Database = {
           device_tokens?: Json | null
           display_name?: string | null
           district?: string | null
+          email_verified_at?: string | null
           expertise_areas?: string[] | null
           farmer_id?: string | null
           full_name?: string | null
           gender?: string | null
           id?: string
+          is_account_locked?: boolean | null
           last_active_at?: string | null
           metadata?: Json | null
           notification_preferences?: Json | null
+          password_changed_at?: string | null
           phone?: string
           phone_verified?: boolean | null
           pincode?: string | null
@@ -6196,6 +6411,22 @@ export type Database = {
       text: {
         Args: { "": unknown }
         Returns: string
+      }
+      track_failed_login: {
+        Args: {
+          p_user_id: string
+          p_ip_address?: unknown
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
+      track_user_login: {
+        Args: {
+          p_user_id: string
+          p_ip_address?: unknown
+          p_user_agent?: string
+        }
+        Returns: undefined
       }
       unlockrows: {
         Args: { "": string }
