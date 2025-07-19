@@ -15,6 +15,7 @@ import { CheckCircle, Plus, Edit, Trash2, DollarSign, Users, Calendar } from 'lu
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Updated interface to match the actual Supabase schema
 interface BillingPlan {
   id: string;
   name: string;
@@ -23,13 +24,20 @@ interface BillingPlan {
   base_price: number;
   currency: string;
   billing_interval: string;
-  trial_days: number;
   features: any;
   usage_limits: any;
+  limits: any;
   is_active: boolean;
-  is_public: boolean;
+  is_custom: boolean;
   created_at: string;
   updated_at: string;
+  tenant_id: string | null;
+  // Additional fields that might exist
+  trial_days?: number;
+  is_public?: boolean;
+  price_monthly?: number;
+  price_quarterly?: number;
+  price_annually?: number;
 }
 
 export function BillingPlansManager() {
@@ -37,7 +45,7 @@ export function BillingPlansManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch billing plans with type assertion
+  // Fetch billing plans with proper type handling
   const { data: plans = [], isLoading: plansLoading } = useQuery({
     queryKey: ['billing-plans'],
     queryFn: async () => {
@@ -48,7 +56,15 @@ export function BillingPlansManager() {
           .order('created_at', { ascending: false });
         
         if (error) throw error;
-        return (data || []) as BillingPlan[];
+        
+        // Transform data to match our interface
+        return (data || []).map(plan => ({
+          ...plan,
+          plan_type: plan.plan_type as 'kisan' | 'shakti' | 'ai',
+          usage_limits: plan.limits || plan.usage_limits || {},
+          trial_days: 14, // Default value
+          is_public: true, // Default value
+        })) as BillingPlan[];
       } catch (error) {
         console.error('Error fetching billing plans:', error);
         return [];
@@ -62,7 +78,19 @@ export function BillingPlansManager() {
       try {
         const { data, error } = await supabase
           .from('billing_plans')
-          .insert([planData])
+          .insert([{
+            name: planData.name,
+            description: planData.description,
+            plan_type: planData.plan_type,
+            base_price: planData.base_price,
+            currency: planData.currency,
+            billing_interval: planData.billing_interval,
+            features: planData.features,
+            limits: planData.usage_limits,
+            is_active: planData.is_active,
+            is_custom: planData.is_custom,
+            tenant_id: planData.tenant_id
+          }])
           .select()
           .single();
         
@@ -89,7 +117,18 @@ export function BillingPlansManager() {
       try {
         const { data, error } = await supabase
           .from('billing_plans')
-          .update(planData)
+          .update({
+            name: planData.name,
+            description: planData.description,
+            plan_type: planData.plan_type,
+            base_price: planData.base_price,
+            currency: planData.currency,
+            billing_interval: planData.billing_interval,
+            features: planData.features,
+            limits: planData.usage_limits,
+            is_active: planData.is_active,
+            is_custom: planData.is_custom
+          })
           .eq('id', id)
           .select()
           .single();
@@ -255,10 +294,6 @@ export function BillingPlansManager() {
                         <span className="text-sm text-muted-foreground">Billing</span>
                         <span className="font-medium">{plan.billing_interval}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Trial Days</span>
-                        <span className="font-medium">{plan.trial_days || 0}</span>
-                      </div>
                     </div>
                     
                     <div>
@@ -341,11 +376,11 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
     base_price: 0,
     currency: 'INR',
     billing_interval: 'monthly',
-    trial_days: 14,
     features: '[]',
     usage_limits: '{}',
     is_active: true,
-    is_public: true
+    is_custom: false,
+    tenant_id: null
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -355,7 +390,6 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
       const planData = {
         ...formData,
         base_price: Number(formData.base_price),
-        trial_days: Number(formData.trial_days),
         features: formData.features ? JSON.parse(formData.features) : [],
         usage_limits: formData.usage_limits ? JSON.parse(formData.usage_limits) : {}
       };
@@ -453,16 +487,6 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
       </div>
       
       <div>
-        <Label htmlFor="trial_days">Trial Days</Label>
-        <Input
-          id="trial_days"
-          type="number"
-          value={formData.trial_days}
-          onChange={(e) => setFormData({ ...formData, trial_days: Number(e.target.value) })}
-        />
-      </div>
-      
-      <div>
         <Label htmlFor="features">Features (JSON Array)</Label>
         <Textarea
           id="features"
@@ -493,11 +517,11 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
         </div>
         <div className="flex items-center space-x-2">
           <Switch
-            id="is_public"
-            checked={formData.is_public}
-            onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
+            id="is_custom"
+            checked={formData.is_custom}
+            onCheckedChange={(checked) => setFormData({ ...formData, is_custom: checked })}
           />
-          <Label htmlFor="is_public">Public</Label>
+          <Label htmlFor="is_custom">Custom</Label>
         </div>
       </div>
       

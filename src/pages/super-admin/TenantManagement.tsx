@@ -33,13 +33,18 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Updated types for new 3-tier subscription system
+type TenantStatus = 'trial' | 'active' | 'suspended' | 'cancelled';
+type TenantType = 'basic' | 'premium' | 'enterprise';
+type SubscriptionPlan = 'kisan' | 'shakti' | 'ai';
+
 interface Tenant {
   id: string;
   name: string;
   slug: string;
   type: string;
-  status: 'trial' | 'active' | 'suspended' | 'cancelled';
-  subscription_plan: string;
+  status: TenantStatus;
+  subscription_plan: SubscriptionPlan;
   subscription_status: 'active' | 'trial' | 'expired' | 'cancelled';
   is_active: boolean;
   settings: Record<string, any>;
@@ -78,11 +83,31 @@ interface TenantStats {
   monthlyRevenue: number;
 }
 
-// Updated types for new 3-tier subscription system
-type TenantStatus = 'trial' | 'active' | 'suspended' | 'cancelled';
-type TenantType = 'basic' | 'premium' | 'enterprise';
-type SubscriptionPlan = 'kisan' | 'shakti' | 'ai';
+// Updated interface for tenant creation - matching actual Supabase schema
+interface TenantCreateData {
+  name: string;
+  slug: string;
+  type: TenantType;
+  status: TenantStatus;
+  owner_name?: string;
+  owner_email?: string;
+  owner_phone?: string;
+  business_registration?: string;
+  business_address?: any;
+  established_date?: string;
+  subscription_plan: SubscriptionPlan;
+  max_farmers?: number;
+  max_dealers?: number;
+  max_products?: number;
+  max_storage_gb?: number;
+  max_api_calls_per_day?: number;
+  subdomain?: string;
+  custom_domain?: string;
+  metadata?: Record<string, any>;
+  settings?: Record<string, any>;
+}
 
+// Updated interface for tenant updates
 interface TenantUpdate {
   name?: string;
   slug?: string;
@@ -134,8 +159,8 @@ export default function TenantManagement() {
           name: tenant.name || 'Unnamed Tenant',
           slug: tenant.slug || '',
           type: tenant.type || 'basic',
-          status: tenant.status as 'trial' | 'active' | 'suspended' | 'cancelled' || 'trial',
-          subscription_plan: tenant.subscription_plan || 'kisan',
+          status: tenant.status as TenantStatus || 'trial',
+          subscription_plan: tenant.subscription_plan as SubscriptionPlan || 'kisan',
           subscription_status: (tenant.status === 'active' ? 'active' : 'trial') as 'active' | 'trial' | 'expired' | 'cancelled',
           is_active: tenant.status === 'active',
           settings: (tenant.settings as Record<string, any>) || {},
@@ -210,15 +235,15 @@ export default function TenantManagement() {
     },
   });
 
-  const createTenant = async (tenantData: any) => {
+  const createTenant = async (tenantData: TenantCreateData) => {
     try {
       console.log('Creating tenant with data:', tenantData);
       
-      // Prepare the data for insertion with proper types - using database column names directly
+      // Prepare the data for insertion - using only fields that exist in database schema
       const insertData = {
         name: tenantData.name,
         slug: tenantData.slug,
-        type: tenantData.type as 'basic' | 'premium' | 'enterprise' || 'basic',
+        type: tenantData.type,
         status: 'trial' as const,
         owner_name: tenantData.owner_name,
         owner_email: tenantData.owner_email,
@@ -226,7 +251,7 @@ export default function TenantManagement() {
         business_registration: tenantData.business_registration,
         business_address: tenantData.business_address || {},
         established_date: tenantData.established_date || null,
-        subscription_plan: tenantData.subscription_plan as 'kisan' | 'shakti' | 'ai' || 'kisan',
+        subscription_plan: tenantData.subscription_plan,
         max_farmers: tenantData.max_farmers || 1000,
         max_dealers: tenantData.max_dealers || 50,
         max_products: tenantData.max_products || 100,
@@ -336,7 +361,7 @@ export default function TenantManagement() {
     }
   };
 
-  const getPlanDisplayName = (plan: string) => {
+  const getPlanDisplayName = (plan: SubscriptionPlan) => {
     switch (plan) {
       case 'kisan':
         return 'Kisan (Basic)';
@@ -523,12 +548,13 @@ export default function TenantManagement() {
 }
 
 // Create Tenant Form Component
-function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => void; onCancel: () => void }) {
-  const [formData, setFormData] = useState({
+function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: TenantCreateData) => void; onCancel: () => void }) {
+  const [formData, setFormData] = useState<TenantCreateData>({
     // Basic Information
     name: '',
     slug: '',
     type: 'basic',
+    status: 'trial',
     
     // Owner Information
     owner_name: '',
@@ -621,7 +647,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
           
           <div>
             <Label htmlFor="type">Tenant Type</Label>
-            <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
+            <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as TenantType })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -712,7 +738,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
             <div className="grid gap-2 mt-2">
               <Input
                 placeholder="Street Address"
-                value={formData.business_address.street}
+                value={formData.business_address?.street || ''}
                 onChange={(e) => setFormData({
                   ...formData,
                   business_address: { ...formData.business_address, street: e.target.value }
@@ -721,7 +747,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
               <div className="grid gap-2 md:grid-cols-2">
                 <Input
                   placeholder="City"
-                  value={formData.business_address.city}
+                  value={formData.business_address?.city || ''}
                   onChange={(e) => setFormData({
                     ...formData,
                     business_address: { ...formData.business_address, city: e.target.value }
@@ -729,7 +755,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
                 />
                 <Input
                   placeholder="State/Province"
-                  value={formData.business_address.state}
+                  value={formData.business_address?.state || ''}
                   onChange={(e) => setFormData({
                     ...formData,
                     business_address: { ...formData.business_address, state: e.target.value }
@@ -739,7 +765,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
               <div className="grid gap-2 md:grid-cols-2">
                 <Input
                   placeholder="Country"
-                  value={formData.business_address.country}
+                  value={formData.business_address?.country || ''}
                   onChange={(e) => setFormData({
                     ...formData,
                     business_address: { ...formData.business_address, country: e.target.value }
@@ -747,7 +773,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
                 />
                 <Input
                   placeholder="Postal Code"
-                  value={formData.business_address.postal_code}
+                  value={formData.business_address?.postal_code || ''}
                   onChange={(e) => setFormData({
                     ...formData,
                     business_address: { ...formData.business_address, postal_code: e.target.value }
@@ -764,7 +790,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
               <CreditCard className="w-4 h-4 inline mr-1" />
               Subscription Plan
             </Label>
-            <Select value={formData.subscription_plan} onValueChange={(value) => setFormData({ ...formData, subscription_plan: value })}>
+            <Select value={formData.subscription_plan} onValueChange={(value) => setFormData({ ...formData, subscription_plan: value as SubscriptionPlan })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -863,18 +889,18 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
 
 // Edit Tenant Form Component
 function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubmit: (data: TenantUpdate) => void; onCancel: () => void }) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<TenantUpdate>({
     name: tenant.name,
     slug: tenant.slug || '',
     type: tenant.type as TenantType || 'basic',
-    status: tenant.status as TenantStatus || 'trial',
+    status: tenant.status || 'trial',
     owner_name: tenant.owner_name || '',
     owner_email: tenant.owner_email || '',
     owner_phone: tenant.owner_phone || '',
     business_registration: tenant.business_registration || '',
     business_address: tenant.business_address || {},
     established_date: tenant.established_date || '',
-    subscription_plan: tenant.subscription_plan as SubscriptionPlan || 'kisan',
+    subscription_plan: tenant.subscription_plan || 'kisan',
     max_farmers: tenant.max_farmers || 1000,
     max_dealers: tenant.max_dealers || 50,
     max_products: tenant.max_products || 100,
