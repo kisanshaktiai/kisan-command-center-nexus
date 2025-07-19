@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,11 +36,11 @@ import { toast } from 'sonner';
 interface Tenant {
   id: string;
   name: string;
-  slug?: string;
-  type?: string;
-  status?: 'trial' | 'active' | 'suspended' | 'expired';
-  subscription_plan?: string;
-  subscription_status?: 'active' | 'trial' | 'expired' | 'cancelled';
+  slug: string;
+  type: string;
+  status: 'trial' | 'active' | 'suspended' | 'expired';
+  subscription_plan: string;
+  subscription_status: 'active' | 'trial' | 'expired' | 'cancelled';
   is_active: boolean;
   settings: Record<string, any>;
   created_at: string;
@@ -84,43 +85,19 @@ export default function TenantManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Fetch tenants with error handling and data transformation
+  // Fetch tenants with proper error handling
   const { data: tenants, isLoading: tenantsLoading, refetch: refetchTenants } = useQuery({
     queryKey: ['tenants'],
     queryFn: async () => {
       try {
         const { data, error } = await supabase
           .from('tenants')
-          .select(`
-            id,
-            name,
-            slug,
-            type,
-            status,
-            subscription_plan,
-            owner_name,
-            owner_email,
-            owner_phone,
-            business_registration,
-            business_address,
-            established_date,
-            max_farmers,
-            max_dealers,
-            max_products,
-            max_storage_gb,
-            max_api_calls_per_day,
-            subdomain,
-            custom_domain,
-            trial_ends_at,
-            settings,
-            created_at,
-            updated_at
-          `)
+          .select('*')
           .order('created_at', { ascending: false });
         
         if (error) {
           console.error('Error fetching tenants:', error);
-          toast.error('Failed to fetch tenants');
+          toast.error('Failed to fetch tenants: ' + error.message);
           return [];
         }
         
@@ -134,7 +111,7 @@ export default function TenantManagement() {
           subscription_plan: tenant.subscription_plan || 'starter',
           subscription_status: (tenant.status === 'active' ? 'active' : 'trial') as 'active' | 'trial' | 'expired' | 'cancelled',
           is_active: tenant.status === 'active',
-          settings: tenant.settings ? (tenant.settings as Record<string, any>) : {},
+          settings: (tenant.settings as Record<string, any>) || {},
           created_at: tenant.created_at,
           updated_at: tenant.updated_at,
           branding: {},
@@ -208,45 +185,78 @@ export default function TenantManagement() {
 
   const createTenant = async (tenantData: any) => {
     try {
+      console.log('Creating tenant with data:', tenantData);
+      
+      // Prepare the data for insertion
+      const insertData = {
+        name: tenantData.name,
+        slug: tenantData.slug,
+        type: tenantData.type || 'basic',
+        status: 'trial',
+        owner_name: tenantData.owner_name,
+        owner_email: tenantData.owner_email,
+        owner_phone: tenantData.owner_phone,
+        business_registration: tenantData.business_registration,
+        business_address: tenantData.business_address || {},
+        established_date: tenantData.established_date || null,
+        subscription_plan: tenantData.subscription_plan || 'starter',
+        max_farmers: tenantData.max_farmers || 1000,
+        max_dealers: tenantData.max_dealers || 50,
+        max_products: tenantData.max_products || 100,
+        max_storage_gb: tenantData.max_storage_gb || 10,
+        max_api_calls_per_day: tenantData.max_api_calls_per_day || 10000,
+        subdomain: tenantData.subdomain,
+        custom_domain: tenantData.custom_domain,
+        metadata: tenantData.metadata || {},
+        settings: tenantData.settings || {}
+      };
+
       const { data, error } = await supabase
         .from('tenants')
-        .insert([{
-          ...tenantData,
-          settings: tenantData.settings || {}
-        }])
+        .insert([insertData])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
+      console.log('Tenant created successfully:', data);
       toast.success('Tenant created successfully');
       setIsCreateDialogOpen(false);
       refetchTenants();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating tenant:', error);
-      toast.error('Failed to create tenant');
+      toast.error('Failed to create tenant: ' + (error.message || 'Unknown error'));
     }
   };
 
   const updateTenant = async (tenantId: string, updates: any) => {
     try {
+      console.log('Updating tenant:', tenantId, updates);
+      
       const { error } = await supabase
         .from('tenants')
         .update({
           ...updates,
-          settings: updates.settings || {}
+          settings: updates.settings || {},
+          updated_at: new Date().toISOString()
         })
         .eq('id', tenantId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       toast.success('Tenant updated successfully');
       setIsEditDialogOpen(false);
       setSelectedTenant(null);
       refetchTenants();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating tenant:', error);
-      toast.error('Failed to update tenant');
+      toast.error('Failed to update tenant: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -265,9 +275,9 @@ export default function TenantManagement() {
 
       toast.success('Tenant deleted successfully');
       refetchTenants();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting tenant:', error);
-      toast.error('Failed to delete tenant');
+      toast.error('Failed to delete tenant: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -522,6 +532,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submission with data:', formData);
     onSubmit(formData);
   };
 
@@ -730,7 +741,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
                 id="max_farmers"
                 type="number"
                 value={formData.max_farmers}
-                onChange={(e) => setFormData({ ...formData, max_farmers: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, max_farmers: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div>
@@ -739,7 +750,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
                 id="max_dealers"
                 type="number"
                 value={formData.max_dealers}
-                onChange={(e) => setFormData({ ...formData, max_dealers: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, max_dealers: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div>
@@ -748,7 +759,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
                 id="max_products"
                 type="number"
                 value={formData.max_products}
-                onChange={(e) => setFormData({ ...formData, max_products: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, max_products: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div>
@@ -757,7 +768,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
                 id="max_storage_gb"
                 type="number"
                 value={formData.max_storage_gb}
-                onChange={(e) => setFormData({ ...formData, max_storage_gb: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, max_storage_gb: parseInt(e.target.value) || 0 })}
               />
             </div>
           </div>
@@ -768,7 +779,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
               id="max_api_calls_per_day"
               type="number"
               value={formData.max_api_calls_per_day}
-              onChange={(e) => setFormData({ ...formData, max_api_calls_per_day: parseInt(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, max_api_calls_per_day: parseInt(e.target.value) || 0 })}
             />
           </div>
 
@@ -940,7 +951,7 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
                 id="edit-max_farmers"
                 type="number"
                 value={formData.max_farmers}
-                onChange={(e) => setFormData({ ...formData, max_farmers: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, max_farmers: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div>
@@ -949,7 +960,7 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
                 id="edit-max_dealers"
                 type="number"
                 value={formData.max_dealers}
-                onChange={(e) => setFormData({ ...formData, max_dealers: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, max_dealers: parseInt(e.target.value) || 0 })}
               />
             </div>
           </div>
