@@ -19,7 +19,7 @@ interface BillingPlan {
   id: string;
   name: string;
   description: string | null;
-  plan_type: string;
+  plan_type: 'kisan' | 'shakti' | 'ai';
   base_price: number;
   currency: string;
   billing_interval: string;
@@ -42,7 +42,7 @@ export function BillingPlansManager() {
     queryKey: ['billing-plans'],
     queryFn: async () => {
       try {
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('billing_plans')
           .select('*')
           .order('created_at', { ascending: false });
@@ -60,7 +60,7 @@ export function BillingPlansManager() {
   const createPlanMutation = useMutation({
     mutationFn: async (planData: Omit<BillingPlan, 'id' | 'created_at' | 'updated_at'>) => {
       try {
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('billing_plans')
           .insert([planData])
           .select()
@@ -87,7 +87,7 @@ export function BillingPlansManager() {
   const updatePlanMutation = useMutation({
     mutationFn: async ({ id, ...planData }: Partial<BillingPlan> & { id: string }) => {
       try {
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('billing_plans')
           .update(planData)
           .eq('id', id)
@@ -114,7 +114,7 @@ export function BillingPlansManager() {
   const deletePlanMutation = useMutation({
     mutationFn: async (planId: string) => {
       try {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('billing_plans')
           .delete()
           .eq('id', planId);
@@ -136,11 +136,19 @@ export function BillingPlansManager() {
 
   const getPlanTypeColor = (type: string) => {
     switch (type) {
-      case 'starter': return 'bg-blue-500';
-      case 'growth': return 'bg-purple-500';
-      case 'enterprise': return 'bg-green-500';
-      case 'custom': return 'bg-orange-500';
+      case 'kisan': return 'bg-blue-500';
+      case 'shakti': return 'bg-purple-500';
+      case 'ai': return 'bg-green-500';
       default: return 'bg-gray-500';
+    }
+  };
+
+  const getPlanDisplayName = (type: string) => {
+    switch (type) {
+      case 'kisan': return 'Kisan (Basic)';
+      case 'shakti': return 'Shakti (Growth)';
+      case 'ai': return 'AI (Enterprise)';
+      default: return type;
     }
   };
 
@@ -149,12 +157,26 @@ export function BillingPlansManager() {
   };
 
   const getFeaturesList = (features: any) => {
-    if (!features || typeof features !== 'object') return [];
+    if (!features) return [];
     
     if (Array.isArray(features)) return features;
     
+    // If it's a JSON string, try to parse it
+    if (typeof features === 'string') {
+      try {
+        const parsed = JSON.parse(features);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    
     // Convert object to array of feature names
-    return Object.keys(features).filter(key => features[key] === true);
+    if (typeof features === 'object') {
+      return Object.keys(features).filter(key => features[key] === true);
+    }
+    
+    return [];
   };
 
   return (
@@ -162,7 +184,7 @@ export function BillingPlansManager() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Billing Plans Management</h1>
-          <p className="text-muted-foreground">Create and manage subscription plans for tenants</p>
+          <p className="text-muted-foreground">Manage the 3-tier subscription plans: Kisan, Shakti, and AI</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
@@ -198,7 +220,7 @@ export function BillingPlansManager() {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="flex items-center gap-2">
-                          {plan.name}
+                          {getPlanDisplayName(plan.plan_type)}
                           <Badge className={getPlanTypeColor(plan.plan_type)}>
                             {plan.plan_type}
                           </Badge>
@@ -235,7 +257,7 @@ export function BillingPlansManager() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Trial Days</span>
-                        <span className="font-medium">{plan.trial_days}</span>
+                        <span className="font-medium">{plan.trial_days || 0}</span>
                       </div>
                     </div>
                     
@@ -245,7 +267,7 @@ export function BillingPlansManager() {
                         {getFeaturesList(plan.features).slice(0, 3).map((feature, index) => (
                           <div key={index} className="flex items-center gap-2 text-sm">
                             <CheckCircle className="w-3 h-3 text-green-500" />
-                            {typeof feature === 'string' ? feature.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : String(feature)}
+                            {typeof feature === 'string' ? feature : String(feature)}
                           </div>
                         ))}
                         {getFeaturesList(plan.features).length > 3 && (
@@ -315,12 +337,12 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    plan_type: 'starter',
+    plan_type: 'kisan' as 'kisan' | 'shakti' | 'ai',
     base_price: 0,
     currency: 'INR',
     billing_interval: 'monthly',
-    trial_days: 0,
-    features: '{}',
+    trial_days: 14,
+    features: '[]',
     usage_limits: '{}',
     is_active: true,
     is_public: true
@@ -334,7 +356,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
         ...formData,
         base_price: Number(formData.base_price),
         trial_days: Number(formData.trial_days),
-        features: formData.features ? JSON.parse(formData.features) : {},
+        features: formData.features ? JSON.parse(formData.features) : [],
         usage_limits: formData.usage_limits ? JSON.parse(formData.usage_limits) : {}
       };
       
@@ -353,6 +375,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
             id="name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="e.g., Kisan (Basic)"
             required
           />
         </div>
@@ -360,16 +383,15 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
           <Label htmlFor="plan_type">Plan Type</Label>
           <Select 
             value={formData.plan_type} 
-            onValueChange={(value) => setFormData({ ...formData, plan_type: value })}
+            onValueChange={(value) => setFormData({ ...formData, plan_type: value as 'kisan' | 'shakti' | 'ai' })}
           >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="starter">Starter</SelectItem>
-              <SelectItem value="growth">Growth</SelectItem>
-              <SelectItem value="enterprise">Enterprise</SelectItem>
-              <SelectItem value="custom">Custom</SelectItem>
+              <SelectItem value="kisan">Kisan (Basic)</SelectItem>
+              <SelectItem value="shakti">Shakti (Growth)</SelectItem>
+              <SelectItem value="ai">AI (Enterprise)</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -381,6 +403,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
           id="description"
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          placeholder="Plan description..."
         />
       </div>
       
@@ -440,12 +463,12 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
       </div>
       
       <div>
-        <Label htmlFor="features">Features (JSON)</Label>
+        <Label htmlFor="features">Features (JSON Array)</Label>
         <Textarea
           id="features"
           value={formData.features}
           onChange={(e) => setFormData({ ...formData, features: e.target.value })}
-          placeholder='{"farmer_management": true, "analytics": true}'
+          placeholder='["AI Chat (100 queries)", "Weather forecast", "Basic support"]'
         />
       </div>
       
@@ -455,7 +478,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
           id="usage_limits"
           value={formData.usage_limits}
           onChange={(e) => setFormData({ ...formData, usage_limits: e.target.value })}
-          placeholder='{"max_farmers": 100, "storage_gb": 5}'
+          placeholder='{"max_lands": 3, "ai_queries": 100, "soil_reports": 2}'
         />
       </div>
       

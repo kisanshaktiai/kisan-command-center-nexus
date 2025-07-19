@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,7 @@ interface Tenant {
   name: string;
   slug: string;
   type: string;
-  status: 'trial' | 'active' | 'suspended' | 'expired';
+  status: 'trial' | 'active' | 'suspended' | 'cancelled';
   subscription_plan: string;
   subscription_status: 'active' | 'trial' | 'expired' | 'cancelled';
   is_active: boolean;
@@ -77,10 +78,10 @@ interface TenantStats {
   monthlyRevenue: number;
 }
 
-// Define proper types for tenant updates
+// Updated types for new 3-tier subscription system
 type TenantStatus = 'trial' | 'active' | 'suspended' | 'cancelled';
 type TenantType = 'basic' | 'premium' | 'enterprise';
-type SubscriptionPlan = 'starter' | 'professional' | 'enterprise';
+type SubscriptionPlan = 'kisan' | 'shakti' | 'ai';
 
 interface TenantUpdate {
   name?: string;
@@ -133,8 +134,8 @@ export default function TenantManagement() {
           name: tenant.name || 'Unnamed Tenant',
           slug: tenant.slug || '',
           type: tenant.type || 'basic',
-          status: tenant.status as 'trial' | 'active' | 'suspended' | 'expired' || 'trial',
-          subscription_plan: tenant.subscription_plan || 'starter',
+          status: tenant.status as 'trial' | 'active' | 'suspended' | 'cancelled' || 'trial',
+          subscription_plan: tenant.subscription_plan || 'kisan',
           subscription_status: (tenant.status === 'active' ? 'active' : 'trial') as 'active' | 'trial' | 'expired' | 'cancelled',
           is_active: tenant.status === 'active',
           settings: (tenant.settings as Record<string, any>) || {},
@@ -191,7 +192,7 @@ export default function TenantManagement() {
           trialTenants: trialCount,
           inactiveTenants: safeTenantsData.length - activeCount - trialCount,
           totalUsers: usersData?.length || 0,
-          monthlyRevenue: activeCount * 99 // Mock calculation
+          monthlyRevenue: activeCount * 199 // Updated for Shakti plan average
         };
 
         return stats;
@@ -213,19 +214,19 @@ export default function TenantManagement() {
     try {
       console.log('Creating tenant with data:', tenantData);
       
-      // Prepare the data for insertion with proper types
+      // Prepare the data for insertion with proper types - using database column names directly
       const insertData = {
         name: tenantData.name,
         slug: tenantData.slug,
-        type: tenantData.type as TenantType || 'basic' as TenantType,
-        status: 'trial' as TenantStatus,
+        type: tenantData.type as 'basic' | 'premium' | 'enterprise' || 'basic',
+        status: 'trial' as const,
         owner_name: tenantData.owner_name,
         owner_email: tenantData.owner_email,
         owner_phone: tenantData.owner_phone,
         business_registration: tenantData.business_registration,
         business_address: tenantData.business_address || {},
         established_date: tenantData.established_date || null,
-        subscription_plan: tenantData.subscription_plan as SubscriptionPlan || 'starter' as SubscriptionPlan,
+        subscription_plan: tenantData.subscription_plan as 'kisan' | 'shakti' | 'ai' || 'kisan',
         max_farmers: tenantData.max_farmers || 1000,
         max_dealers: tenantData.max_dealers || 50,
         max_products: tenantData.max_products || 100,
@@ -332,6 +333,19 @@ export default function TenantManagement() {
         return <Badge variant="destructive">Cancelled</Badge>;
       default:
         return <Badge variant="outline">Trial</Badge>;
+    }
+  };
+
+  const getPlanDisplayName = (plan: string) => {
+    switch (plan) {
+      case 'kisan':
+        return 'Kisan (Basic)';
+      case 'shakti':
+        return 'Shakti (Growth)';
+      case 'ai':
+        return 'AI (Enterprise)';
+      default:
+        return 'Kisan (Basic)';
     }
   };
 
@@ -452,7 +466,7 @@ export default function TenantManagement() {
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-muted-foreground">Plan:</span>
-                          <Badge variant="outline">{tenant.subscription_plan}</Badge>
+                          <Badge variant="outline">{getPlanDisplayName(tenant.subscription_plan)}</Badge>
                         </div>
                       </div>
                     </div>
@@ -532,8 +546,8 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
     },
     established_date: '',
     
-    // Subscription & Limits
-    subscription_plan: 'starter',
+    // Subscription & Limits - Updated for new 3-tier system
+    subscription_plan: 'kisan',
     max_farmers: 1000,
     max_dealers: 50,
     max_products: 100,
@@ -755,9 +769,9 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="starter">Starter</SelectItem>
-                <SelectItem value="professional">Professional</SelectItem>
-                <SelectItem value="enterprise">Enterprise</SelectItem>
+                <SelectItem value="kisan">Kisan (Basic) - ₹99/month</SelectItem>
+                <SelectItem value="shakti">Shakti (Growth) - ₹199/month</SelectItem>
+                <SelectItem value="ai">AI (Enterprise) - ₹299/month</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -852,15 +866,15 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
   const [formData, setFormData] = useState({
     name: tenant.name,
     slug: tenant.slug || '',
-    type: tenant.type || 'basic',
-    status: tenant.status || 'trial',
+    type: tenant.type as TenantType || 'basic',
+    status: tenant.status as TenantStatus || 'trial',
     owner_name: tenant.owner_name || '',
     owner_email: tenant.owner_email || '',
     owner_phone: tenant.owner_phone || '',
     business_registration: tenant.business_registration || '',
     business_address: tenant.business_address || {},
     established_date: tenant.established_date || '',
-    subscription_plan: tenant.subscription_plan || 'starter',
+    subscription_plan: tenant.subscription_plan as SubscriptionPlan || 'kisan',
     max_farmers: tenant.max_farmers || 1000,
     max_dealers: tenant.max_dealers || 50,
     max_products: tenant.max_products || 100,
@@ -972,6 +986,20 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
         </TabsContent>
 
         <TabsContent value="limits" className="space-y-4">
+          <div>
+            <Label htmlFor="edit-subscription_plan">Subscription Plan</Label>
+            <Select value={formData.subscription_plan} onValueChange={(value) => setFormData({ ...formData, subscription_plan: value as SubscriptionPlan })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="kisan">Kisan (Basic) - ₹99/month</SelectItem>
+                <SelectItem value="shakti">Shakti (Growth) - ₹199/month</SelectItem>
+                <SelectItem value="ai">AI (Enterprise) - ₹299/month</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="edit-max_farmers">Max Farmers</Label>

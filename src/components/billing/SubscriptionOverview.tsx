@@ -26,13 +26,14 @@ interface TenantSubscription {
   updated_at: string;
   billing_plans?: {
     name: string;
-    plan_type: string;
+    plan_type: 'kisan' | 'shakti' | 'ai';
     base_price: number;
     currency: string;
     billing_interval: string;
   };
   tenants?: {
     name: string;
+    subscription_plan: 'kisan' | 'shakti' | 'ai';
   };
 }
 
@@ -44,34 +45,44 @@ export function SubscriptionOverview() {
   const { data: subscriptions, isLoading } = useQuery({
     queryKey: ['tenant-subscriptions'],
     queryFn: async (): Promise<TenantSubscription[]> => {
-      // Mock data for subscriptions since the table was just created
-      const mockSubscriptions = [
-        {
-          id: '1',
-          tenant_id: 'tenant-1',
-          billing_plan_id: 'plan-1',
-          status: 'active',
-          current_period_start: '2024-01-01',
-          current_period_end: '2024-02-01',
+      try {
+        // First, get tenants with their subscription plans
+        const { data: tenantData, error: tenantError } = await supabase
+          .from('tenants')
+          .select('id, name, subscription_plan, status, created_at, updated_at, trial_ends_at');
+        
+        if (tenantError) throw tenantError;
+        
+        // Transform tenant data to subscription format
+        const mockSubscriptions = (tenantData || []).map(tenant => ({
+          id: tenant.id,
+          tenant_id: tenant.id,
+          status: tenant.status || 'trial',
+          current_period_start: tenant.created_at,
+          current_period_end: tenant.trial_ends_at || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           billing_interval: 'monthly' as const,
           auto_renew: true,
           billing_address: {},
-          trial_start: '2024-01-01',
-          trial_end: '2024-01-07',
-          cancelled_at: null,
-          created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z',
-          billing_plans: {
-            name: 'Premium Plan',
-            plan_type: 'growth',
-            base_price: 99.99,
-            currency: 'USD',
-            billing_interval: 'monthly'
+          created_at: tenant.created_at,
+          updated_at: tenant.updated_at || tenant.created_at,
+          tenants: {
+            name: tenant.name,
+            subscription_plan: tenant.subscription_plan as 'kisan' | 'shakti' | 'ai'
           },
-          tenants: { name: 'Sample Company' }
-        }
-      ];
-      return mockSubscriptions;
+          billing_plans: {
+            name: getPlanDisplayName(tenant.subscription_plan),
+            plan_type: tenant.subscription_plan as 'kisan' | 'shakti' | 'ai',
+            base_price: getPlanPrice(tenant.subscription_plan),
+            currency: 'INR',
+            billing_interval: 'monthly'
+          }
+        }));
+        
+        return mockSubscriptions;
+      } catch (error) {
+        console.error('Error fetching subscriptions:', error);
+        return [];
+      }
     },
     refetchInterval: 30000, // Real-time updates every 30 seconds
   });
@@ -126,9 +137,28 @@ export function SubscriptionOverview() {
     return matchesSearch && matchesStatus && matchesPlan;
   }) || [];
 
+  function getPlanDisplayName(plan: string): string {
+    switch (plan) {
+      case 'kisan': return 'Kisan (Basic)';
+      case 'shakti': return 'Shakti (Growth)';
+      case 'ai': return 'AI (Enterprise)';
+      default: return 'Kisan (Basic)';
+    }
+  }
+
+  function getPlanPrice(plan: string): number {
+    switch (plan) {
+      case 'kisan': return 99;
+      case 'shakti': return 199;
+      case 'ai': return 299;
+      default: return 99;
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-500';
+      case 'trial': return 'bg-blue-500';
       case 'past_due': return 'bg-yellow-500';
       case 'cancelled': return 'bg-red-500';
       case 'suspended': return 'bg-gray-500';
@@ -138,9 +168,9 @@ export function SubscriptionOverview() {
 
   const getPlanTypeColor = (type: string) => {
     switch (type) {
-      case 'starter': return 'bg-blue-500';
-      case 'growth': return 'bg-purple-500';
-      case 'enterprise': return 'bg-green-500';
+      case 'kisan': return 'bg-blue-500';
+      case 'shakti': return 'bg-purple-500';
+      case 'ai': return 'bg-green-500';
       default: return 'bg-gray-500';
     }
   };
@@ -159,7 +189,7 @@ export function SubscriptionOverview() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${(analytics?.mrr || 0).toLocaleString()}</div>
+            <div className="text-2xl font-bold">₹{(analytics?.mrr || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">From active subscriptions</p>
           </CardContent>
         </Card>
@@ -202,7 +232,7 @@ export function SubscriptionOverview() {
       <Card>
         <CardHeader>
           <CardTitle>Active Subscriptions</CardTitle>
-          <CardDescription>Manage tenant subscriptions and billing</CardDescription>
+          <CardDescription>Manage tenant subscriptions across Kisan, Shakti, and AI plans</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 mb-6">
@@ -224,6 +254,7 @@ export function SubscriptionOverview() {
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="trial">Trial</SelectItem>
                 <SelectItem value="past_due">Past Due</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
@@ -235,9 +266,9 @@ export function SubscriptionOverview() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Plans</SelectItem>
-                <SelectItem value="starter">Starter</SelectItem>
-                <SelectItem value="growth">Growth</SelectItem>
-                <SelectItem value="enterprise">Enterprise</SelectItem>
+                <SelectItem value="kisan">Kisan (Basic)</SelectItem>
+                <SelectItem value="shakti">Shakti (Growth)</SelectItem>
+                <SelectItem value="ai">AI (Enterprise)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -249,8 +280,8 @@ export function SubscriptionOverview() {
                   <div>
                     <h4 className="font-medium">{subscription.tenants?.name || 'Unknown Tenant'}</h4>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Badge className={getPlanTypeColor(subscription.billing_plans?.plan_type || '')}>
-                        {subscription.billing_plans?.name || 'Unknown Plan'}
+                      <Badge className={getPlanTypeColor(subscription.billing_plans?.plan_type || 'kisan')}>
+                        {getPlanDisplayName(subscription.billing_plans?.plan_type || 'kisan')}
                       </Badge>
                       <span>•</span>
                       <span>{subscription.billing_plans?.billing_interval}</span>
@@ -261,8 +292,7 @@ export function SubscriptionOverview() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <div className="font-medium">
-                      {subscription.billing_plans?.currency === 'USD' ? '$' : '₹'}
-                      {subscription.billing_plans?.base_price?.toLocaleString() || 0}
+                      ₹{subscription.billing_plans?.base_price?.toLocaleString() || '99'}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       Next billing: {new Date(subscription.current_period_end).toLocaleDateString()}
@@ -283,7 +313,7 @@ export function SubscriptionOverview() {
             {filteredSubscriptions.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 {subscriptions?.length === 0 
-                  ? "No subscriptions found. Create your first subscription plan to get started."
+                  ? "No subscriptions found. Create your first tenant to get started."
                   : "No subscriptions match your current filters."
                 }
               </div>
