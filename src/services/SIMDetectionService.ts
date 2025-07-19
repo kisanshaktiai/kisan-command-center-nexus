@@ -26,7 +26,11 @@ export class SIMDetectionService {
       if (typeof window !== 'undefined' && (window as any).Capacitor) {
         try {
           // Dynamically import SIM plugin only if Capacitor is available
-          const SIMModule = await import('@capacitor-community/sim').catch(() => null);
+          const SIMModule = await import('@capacitor-community/sim').catch(() => {
+            console.warn('SIM plugin not available');
+            return null;
+          });
+          
           if (SIMModule && SIMModule.SIM) {
             const simInfo = await SIMModule.SIM.getSimInfo();
             return simInfo;
