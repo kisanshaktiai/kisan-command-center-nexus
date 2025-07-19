@@ -91,7 +91,31 @@ export default function TenantManagement() {
       try {
         const { data, error } = await supabase
           .from('tenants')
-          .select('*')
+          .select(`
+            id,
+            name,
+            slug,
+            type,
+            status,
+            subscription_plan,
+            owner_name,
+            owner_email,
+            owner_phone,
+            business_registration,
+            business_address,
+            established_date,
+            max_farmers,
+            max_dealers,
+            max_products,
+            max_storage_gb,
+            max_api_calls_per_day,
+            subdomain,
+            custom_domain,
+            trial_ends_at,
+            settings,
+            created_at,
+            updated_at
+          `)
           .order('created_at', { ascending: false });
         
         if (error) {
@@ -109,7 +133,7 @@ export default function TenantManagement() {
           subscription_plan: tenant.subscription_plan || 'starter',
           subscription_status: (tenant.status === 'active' ? 'active' : 'trial') as 'active' | 'trial' | 'expired' | 'cancelled',
           is_active: tenant.status === 'active',
-          settings: (tenant.settings as Record<string, any>) || {},
+          settings: tenant.settings ? (tenant.settings as Record<string, any>) : {},
           created_at: tenant.created_at,
           updated_at: tenant.updated_at,
           branding: {},
@@ -184,7 +208,10 @@ export default function TenantManagement() {
     try {
       const { data, error } = await supabase
         .from('tenants')
-        .insert([tenantData])
+        .insert([{
+          ...tenantData,
+          settings: tenantData.settings || {}
+        }])
         .select()
         .single();
 
@@ -203,7 +230,10 @@ export default function TenantManagement() {
     try {
       const { error } = await supabase
         .from('tenants')
-        .update(updates)
+        .update({
+          ...updates,
+          settings: updates.settings || {}
+        })
         .eq('id', tenantId);
 
       if (error) throw error;
@@ -796,7 +826,8 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
     max_storage_gb: tenant.max_storage_gb || 10,
     max_api_calls_per_day: tenant.max_api_calls_per_day || 10000,
     subdomain: tenant.subdomain || '',
-    custom_domain: tenant.custom_domain || ''
+    custom_domain: tenant.custom_domain || '',
+    settings: tenant.settings || {}
   });
 
   const handleSubmit = (e: React.FormEvent) => {
