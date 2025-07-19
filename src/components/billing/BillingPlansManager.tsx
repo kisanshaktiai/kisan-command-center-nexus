@@ -15,22 +15,42 @@ import { CheckCircle, Plus, Edit, Trash2, DollarSign, Users, Calendar } from 'lu
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-// Updated interface to match the actual Supabase schema
+// Type for subscription plans
+type SubscriptionPlan = 'kisan' | 'shakti' | 'ai';
+
+// Updated interface to match the actual Supabase schema after migration
 interface BillingPlan {
   id: string;
   name: string;
   description: string | null;
-  plan_type: 'kisan' | 'shakti' | 'ai';
+  plan_type: SubscriptionPlan;
+  base_price: number;
+  currency: string;
+  billing_interval: string | null;
+  features: any;
+  limits: any;
+  usage_limits: any;
+  is_active: boolean;
+  is_custom: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+  tenant_id: string | null;
+}
+
+// Type for database operations
+interface DatabaseBillingPlan {
+  name: string;
+  description?: string | null;
+  plan_type: SubscriptionPlan;
   base_price: number;
   currency: string;
   billing_interval: string;
   features: any;
   limits: any;
+  usage_limits: any;
   is_active: boolean;
   is_custom: boolean;
-  created_at: string;
-  updated_at: string;
-  tenant_id: string | null;
+  tenant_id?: string | null;
 }
 
 export function BillingPlansManager() {
@@ -41,7 +61,7 @@ export function BillingPlansManager() {
   // Fetch billing plans with proper type handling
   const { data: plans = [], isLoading: plansLoading } = useQuery({
     queryKey: ['billing-plans'],
-    queryFn: async () => {
+    queryFn: async (): Promise<BillingPlan[]> => {
       try {
         const { data, error } = await supabase
           .from('billing_plans')
@@ -50,10 +70,23 @@ export function BillingPlansManager() {
         
         if (error) throw error;
         
-        // Transform data to match our interface
+        // Transform data to match our interface with safe defaults
         return (data || []).map(plan => ({
-          ...plan,
-          plan_type: plan.plan_type as 'kisan' | 'shakti' | 'ai',
+          id: plan.id,
+          name: plan.name,
+          description: plan.description,
+          plan_type: plan.plan_type as SubscriptionPlan,
+          base_price: plan.base_price,
+          currency: plan.currency || 'INR',
+          billing_interval: plan.billing_interval,
+          features: plan.features,
+          limits: plan.limits,
+          usage_limits: plan.usage_limits || {},
+          is_active: plan.is_active,
+          is_custom: plan.is_custom,
+          created_at: plan.created_at,
+          updated_at: plan.updated_at,
+          tenant_id: plan.tenant_id
         })) as BillingPlan[];
       } catch (error) {
         console.error('Error fetching billing plans:', error);
@@ -64,23 +97,11 @@ export function BillingPlansManager() {
 
   // Create plan mutation
   const createPlanMutation = useMutation({
-    mutationFn: async (planData: Omit<BillingPlan, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (planData: DatabaseBillingPlan) => {
       try {
         const { data, error } = await supabase
           .from('billing_plans')
-          .insert([{
-            name: planData.name,
-            description: planData.description,
-            plan_type: planData.plan_type,
-            base_price: planData.base_price,
-            currency: planData.currency,
-            billing_interval: planData.billing_interval,
-            features: planData.features,
-            limits: planData.limits,
-            is_active: planData.is_active,
-            is_custom: planData.is_custom,
-            tenant_id: planData.tenant_id
-          }])
+          .insert([planData])
           .select()
           .single();
         
@@ -105,20 +126,23 @@ export function BillingPlansManager() {
   const updatePlanMutation = useMutation({
     mutationFn: async ({ id, ...planData }: Partial<BillingPlan> & { id: string }) => {
       try {
+        const updateData: Partial<DatabaseBillingPlan> = {
+          name: planData.name,
+          description: planData.description,
+          plan_type: planData.plan_type,
+          base_price: planData.base_price,
+          currency: planData.currency,
+          billing_interval: planData.billing_interval || 'monthly',
+          features: planData.features,
+          limits: planData.limits,
+          usage_limits: planData.usage_limits,
+          is_active: planData.is_active,
+          is_custom: planData.is_custom
+        };
+
         const { data, error } = await supabase
           .from('billing_plans')
-          .update({
-            name: planData.name,
-            description: planData.description,
-            plan_type: planData.plan_type,
-            base_price: planData.base_price,
-            currency: planData.currency,
-            billing_interval: planData.billing_interval,
-            features: planData.features,
-            limits: planData.limits,
-            is_active: planData.is_active,
-            is_custom: planData.is_custom
-          })
+          .update(updateData)
           .eq('id', id)
           .select()
           .single();
@@ -163,7 +187,7 @@ export function BillingPlansManager() {
     }
   });
 
-  const getPlanTypeColor = (type: string) => {
+  const getPlanTypeColor = (type: SubscriptionPlan) => {
     switch (type) {
       case 'kisan': return 'bg-blue-500';
       case 'shakti': return 'bg-purple-500';
@@ -172,7 +196,7 @@ export function BillingPlansManager() {
     }
   };
 
-  const getPlanDisplayName = (type: string) => {
+  const getPlanDisplayName = (type: SubscriptionPlan) => {
     switch (type) {
       case 'kisan': return 'Kisan (Basic)';
       case 'shakti': return 'Shakti (Growth)';
@@ -282,7 +306,7 @@ export function BillingPlansManager() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Billing</span>
-                        <span className="font-medium">{plan.billing_interval}</span>
+                        <span className="font-medium">{plan.billing_interval || 'monthly'}</span>
                       </div>
                     </div>
                     
@@ -358,16 +382,17 @@ export function BillingPlansManager() {
 }
 
 // Create Plan Form Component
-function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
-  const [formData, setFormData] = useState({
+function CreatePlanForm({ onSubmit }: { onSubmit: (data: DatabaseBillingPlan) => void }) {
+  const [formData, setFormData] = useState<DatabaseBillingPlan>({
     name: '',
     description: '',
-    plan_type: 'kisan' as 'kisan' | 'shakti' | 'ai',
+    plan_type: 'kisan',
     base_price: 0,
     currency: 'INR',
     billing_interval: 'monthly',
-    features: '[]',
-    limits: '{}',
+    features: [],
+    limits: {},
+    usage_limits: {},
     is_active: true,
     is_custom: false,
     tenant_id: null
@@ -377,16 +402,17 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
     e.preventDefault();
     
     try {
-      const planData = {
+      const planData: DatabaseBillingPlan = {
         ...formData,
         base_price: Number(formData.base_price),
-        features: formData.features ? JSON.parse(formData.features) : [],
-        limits: formData.limits ? JSON.parse(formData.limits) : {}
+        features: typeof formData.features === 'string' ? JSON.parse(formData.features) : formData.features,
+        limits: typeof formData.limits === 'string' ? JSON.parse(formData.limits) : formData.limits,
+        usage_limits: typeof formData.usage_limits === 'string' ? JSON.parse(formData.usage_limits) : formData.usage_limits
       };
       
       onSubmit(planData);
     } catch (error) {
-      toast.error('Invalid JSON in features or limits');
+      toast.error('Invalid JSON in features, limits, or usage limits');
     }
   };
 
@@ -407,7 +433,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
           <Label htmlFor="plan_type">Plan Type</Label>
           <Select 
             value={formData.plan_type} 
-            onValueChange={(value) => setFormData({ ...formData, plan_type: value as 'kisan' | 'shakti' | 'ai' })}
+            onValueChange={(value) => setFormData({ ...formData, plan_type: value as SubscriptionPlan })}
           >
             <SelectTrigger>
               <SelectValue />
@@ -425,7 +451,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
         <Label htmlFor="description">Description</Label>
         <Textarea
           id="description"
-          value={formData.description}
+          value={formData.description || ''}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           placeholder="Plan description..."
         />
@@ -480,18 +506,18 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
         <Label htmlFor="features">Features (JSON Array)</Label>
         <Textarea
           id="features"
-          value={formData.features}
+          value={typeof formData.features === 'string' ? formData.features : JSON.stringify(formData.features)}
           onChange={(e) => setFormData({ ...formData, features: e.target.value })}
           placeholder='["AI Chat (100 queries)", "Weather forecast", "Basic support"]'
         />
       </div>
       
       <div>
-        <Label htmlFor="limits">Usage Limits (JSON)</Label>
+        <Label htmlFor="usage_limits">Usage Limits (JSON)</Label>
         <Textarea
-          id="limits"
-          value={formData.limits}
-          onChange={(e) => setFormData({ ...formData, limits: e.target.value })}
+          id="usage_limits"
+          value={typeof formData.usage_limits === 'string' ? formData.usage_limits : JSON.stringify(formData.usage_limits)}
+          onChange={(e) => setFormData({ ...formData, usage_limits: e.target.value })}
           placeholder='{"max_lands": 3, "ai_queries": 100, "soil_reports": 2}'
         />
       </div>

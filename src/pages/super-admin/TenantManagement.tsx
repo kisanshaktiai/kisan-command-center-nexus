@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -89,13 +88,13 @@ interface DatabaseTenant {
   slug: string;
   type: TenantType;
   status: TenantStatus;
+  subscription_plan: SubscriptionPlan;
   owner_name?: string;
   owner_email?: string;
   owner_phone?: string;
   business_registration?: string;
   business_address?: any;
   established_date?: string;
-  subscription_plan: SubscriptionPlan;
   max_farmers?: number;
   max_dealers?: number;
   max_products?: number;
@@ -113,13 +112,13 @@ interface TenantUpdate {
   slug?: string;
   type?: TenantType;
   status?: TenantStatus;
+  subscription_plan?: SubscriptionPlan;
   owner_name?: string;
   owner_email?: string;
   owner_phone?: string;
   business_registration?: string;
   business_address?: any;
   established_date?: string;
-  subscription_plan?: SubscriptionPlan;
   max_farmers?: number;
   max_dealers?: number;
   max_products?: number;
@@ -529,6 +528,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: DatabaseTen
     slug: '',
     type: 'basic',
     status: 'trial',
+    subscription_plan: 'kisan',
     
     // Owner Information
     owner_name: '',
@@ -547,7 +547,6 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: DatabaseTen
     established_date: '',
     
     // Subscription & Limits - Updated for new 3-tier system
-    subscription_plan: 'kisan',
     max_farmers: 1000,
     max_dealers: 50,
     max_products: 100,
@@ -629,6 +628,23 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: DatabaseTen
                 <SelectItem value="basic">Basic</SelectItem>
                 <SelectItem value="premium">Premium</SelectItem>
                 <SelectItem value="enterprise">Enterprise</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="subscription_plan">
+              <CreditCard className="w-4 h-4 inline mr-1" />
+              Subscription Plan
+            </Label>
+            <Select value={formData.subscription_plan} onValueChange={(value) => setFormData({ ...formData, subscription_plan: value as SubscriptionPlan })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="kisan">Kisan (Basic) - ₹99/month</SelectItem>
+                <SelectItem value="shakti">Shakti (Growth) - ₹199/month</SelectItem>
+                <SelectItem value="ai">AI (Enterprise) - ₹299/month</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -759,23 +775,6 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: DatabaseTen
         </TabsContent>
 
         <TabsContent value="limits" className="space-y-4">
-          <div>
-            <Label htmlFor="subscription_plan">
-              <CreditCard className="w-4 h-4 inline mr-1" />
-              Subscription Plan
-            </Label>
-            <Select value={formData.subscription_plan} onValueChange={(value) => setFormData({ ...formData, subscription_plan: value as SubscriptionPlan })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="kisan">Kisan (Basic) - ₹99/month</SelectItem>
-                <SelectItem value="shakti">Shakti (Growth) - ₹199/month</SelectItem>
-                <SelectItem value="ai">AI (Enterprise) - ₹299/month</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="max_farmers">Max Farmers</Label>
@@ -868,13 +867,13 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
     slug: tenant.slug || '',
     type: tenant.type as TenantType || 'basic',
     status: tenant.status || 'trial',
+    subscription_plan: tenant.subscription_plan || 'kisan',
     owner_name: tenant.owner_name || '',
     owner_email: tenant.owner_email || '',
     owner_phone: tenant.owner_phone || '',
     business_registration: tenant.business_registration || '',
     business_address: tenant.business_address || {},
     established_date: tenant.established_date || '',
-    subscription_plan: tenant.subscription_plan || 'kisan',
     max_farmers: tenant.max_farmers || 1000,
     max_dealers: tenant.max_dealers || 50,
     max_products: tenant.max_products || 100,
@@ -950,6 +949,20 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
               </Select>
             </div>
           </div>
+
+          <div>
+            <Label htmlFor="edit-subscription_plan">Subscription Plan</Label>
+            <Select value={formData.subscription_plan} onValueChange={(value) => setFormData({ ...formData, subscription_plan: value as SubscriptionPlan })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="kisan">Kisan (Basic) - ₹99/month</SelectItem>
+                <SelectItem value="shakti">Shakti (Growth) - ₹199/month</SelectItem>
+                <SelectItem value="ai">AI (Enterprise) - ₹299/month</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </TabsContent>
 
         <TabsContent value="owner" className="space-y-4">
@@ -986,20 +999,6 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
         </TabsContent>
 
         <TabsContent value="limits" className="space-y-4">
-          <div>
-            <Label htmlFor="edit-subscription_plan">Subscription Plan</Label>
-            <Select value={formData.subscription_plan} onValueChange={(value) => setFormData({ ...formData, subscription_plan: value as SubscriptionPlan })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="kisan">Kisan (Basic) - ₹99/month</SelectItem>
-                <SelectItem value="shakti">Shakti (Growth) - ₹199/month</SelectItem>
-                <SelectItem value="ai">AI (Enterprise) - ₹299/month</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="edit-max_farmers">Max Farmers</Label>
