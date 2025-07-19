@@ -199,7 +199,7 @@ export default function TenantManagement() {
       if (error) throw error;
 
       // Type assertion for the RPC response
-      const result = data as RpcResponse;
+      const result = data as unknown as RpcResponse;
 
       if (result && !result.success) {
         toast({
