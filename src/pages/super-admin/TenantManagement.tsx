@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
-import { Plus, Edit, Trash2, Building2, Users, Settings, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Building2, Users, Settings, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Database types from Supabase
 type DatabaseTenant = Tables<'tenants'>;
@@ -47,12 +47,16 @@ interface TenantFormData {
   metadata?: Record<string, any>;
 }
 
+// Form validation interface
+interface FormErrors {
+  [key: string]: string;
+}
+
 // Type mapping helpers
 const subscriptionPlanOptions: { value: DatabaseSubscriptionPlan; label: string }[] = [
-  { value: 'starter', label: 'Starter' },
-  { value: 'growth', label: 'Growth' },
-  { value: 'enterprise', label: 'Enterprise' },
-  { value: 'custom', label: 'Custom' },
+  { value: 'kisan', label: 'Kisan' },
+  { value: 'shakti', label: 'Shakti' },
+  { value: 'ai', label: 'AI' },
 ];
 
 const tenantTypeOptions: { value: DatabaseTenantType; label: string }[] = [
@@ -76,12 +80,11 @@ const tenantStatusOptions: { value: DatabaseTenantStatus; label: string }[] = [
 // Utility function to get plan limits
 const getPlanLimits = (plan: DatabaseSubscriptionPlan) => {
   const limits = {
-    starter: { farmers: 1000, dealers: 50, products: 100, storage: 10, api_calls: 10000 },
-    growth: { farmers: 5000, dealers: 200, products: 500, storage: 50, api_calls: 50000 },
-    enterprise: { farmers: 20000, dealers: 1000, products: 2000, storage: 200, api_calls: 200000 },
-    custom: { farmers: 50000, dealers: 5000, products: 10000, storage: 1000, api_calls: 1000000 },
+    kisan: { farmers: 1000, dealers: 50, products: 100, storage: 10, api_calls: 10000 },
+    shakti: { farmers: 5000, dealers: 200, products: 500, storage: 50, api_calls: 50000 },
+    ai: { farmers: 20000, dealers: 1000, products: 2000, storage: 200, api_calls: 200000 },
   };
-  return limits[plan] || limits.starter;
+  return limits[plan] || limits.kisan;
 };
 
 export default function TenantManagement() {
@@ -101,7 +104,7 @@ export default function TenantManagement() {
     slug: '',
     type: 'agri_company',
     status: 'trial',
-    subscription_plan: 'starter',
+    subscription_plan: 'kisan',
     max_farmers: 1000,
     max_dealers: 50,
     max_products: 100,
@@ -137,60 +140,51 @@ export default function TenantManagement() {
 
   const handleCreateTenant = async () => {
     try {
-      // Generate slug from name if not provided
-      if (!formData.slug) {
-        formData.slug = formData.name
-          .toLowerCase()
-          .replace(/[^a-z0-9\s-]/g, '')
-          .replace(/\s+/g, '-')
-          .trim();
-      }
-
-      // Set plan limits based on subscription plan
-      const planLimits = getPlanLimits(formData.subscription_plan);
-      
-      // Ensure metadata and business_address are properly formatted
-      const metadata = formData.metadata && typeof formData.metadata === 'object' 
-        ? formData.metadata 
-        : {};
-      
-      const businessAddress = formData.business_address && typeof formData.business_address === 'object'
-        ? formData.business_address
-        : formData.business_address
-          ? { address: formData.business_address }
-          : null;
-      
-      const tenantData = {
-        ...formData,
-        max_farmers: formData.max_farmers || planLimits.farmers,
-        max_dealers: formData.max_dealers || planLimits.dealers,
-        max_products: formData.max_products || planLimits.products,
-        max_storage_gb: formData.max_storage_gb || planLimits.storage,
-        max_api_calls_per_day: formData.max_api_calls_per_day || planLimits.api_calls,
-        subscription_start_date: formData.subscription_start_date || new Date().toISOString(),
-        trial_ends_at: formData.trial_ends_at || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        metadata,
-        business_address: businessAddress,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      const { data, error } = await supabase
-        .from('tenants')
-        .insert([tenantData])
-        .select()
-        .single();
+      // Call the database function for tenant creation with validation
+      const { data, error } = await supabase.rpc('create_tenant_with_validation', {
+        p_name: formData.name,
+        p_slug: formData.slug,
+        p_type: formData.type,
+        p_status: formData.status,
+        p_subscription_plan: formData.subscription_plan,
+        p_owner_name: formData.owner_name || null,
+        p_owner_email: formData.owner_email || null,
+        p_owner_phone: formData.owner_phone || null,
+        p_business_registration: formData.business_registration || null,
+        p_business_address: formData.business_address || null,
+        p_established_date: formData.established_date || null,
+        p_subscription_start_date: formData.subscription_start_date || null,
+        p_subscription_end_date: formData.subscription_end_date || null,
+        p_trial_ends_at: formData.trial_ends_at || null,
+        p_max_farmers: formData.max_farmers || null,
+        p_max_dealers: formData.max_dealers || null,
+        p_max_products: formData.max_products || null,
+        p_max_storage_gb: formData.max_storage_gb || null,
+        p_max_api_calls_per_day: formData.max_api_calls_per_day || null,
+        p_subdomain: formData.subdomain || null,
+        p_custom_domain: formData.custom_domain || null,
+        p_metadata: formData.metadata || {}
+      });
 
       if (error) throw error;
 
+      if (data && !data.success) {
+        toast({
+          title: "Validation Error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
       toast({
         title: "Success",
-        description: "Tenant created successfully",
+        description: data.message || "Tenant created successfully",
       });
 
-      setTenants(prev => [data, ...prev]);
       setIsCreateDialogOpen(false);
       resetForm();
+      fetchTenants(); // Refresh the list
     } catch (error: any) {
       console.error('Error creating tenant:', error);
       toast({
@@ -233,7 +227,7 @@ export default function TenantManagement() {
 
       const { data, error } = await supabase
         .from('tenants')
-        .update(updateData)
+        .update(updateData as any)
         .eq('id', editingTenant.id)
         .select()
         .single();
@@ -313,7 +307,7 @@ export default function TenantManagement() {
       business_registration: tenant.business_registration || '',
       business_address: businessAddress,
       established_date: tenant.established_date || '',
-      subscription_plan: tenant.subscription_plan || 'starter',
+      subscription_plan: tenant.subscription_plan || 'kisan',
       subscription_start_date: tenant.subscription_start_date || '',
       subscription_end_date: tenant.subscription_end_date || '',
       trial_ends_at: tenant.trial_ends_at || '',
@@ -335,7 +329,7 @@ export default function TenantManagement() {
       slug: '',
       type: 'agri_company',
       status: 'trial',
-      subscription_plan: 'starter',
+      subscription_plan: 'kisan',
       max_farmers: 1000,
       max_dealers: 50,
       max_products: 100,
@@ -364,10 +358,9 @@ export default function TenantManagement() {
 
   const getPlanBadgeVariant = (plan: DatabaseSubscriptionPlan | null) => {
     switch (plan) {
-      case 'enterprise': return 'default';
-      case 'growth': return 'secondary';
-      case 'starter': return 'outline';
-      case 'custom': return 'destructive';
+      case 'ai': return 'default';
+      case 'shakti': return 'secondary';
+      case 'kisan': return 'outline';
       default: return 'outline';
     }
   };
@@ -401,7 +394,7 @@ export default function TenantManagement() {
                 Set up a new tenant organization with their subscription and limits.
               </DialogDescription>
             </DialogHeader>
-            <TenantForm 
+            <EnhancedTenantForm 
               formData={formData} 
               setFormData={setFormData} 
               onSubmit={handleCreateTenant}
@@ -483,7 +476,7 @@ export default function TenantManagement() {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Plan</span>
                 <Badge variant={getPlanBadgeVariant(tenant.subscription_plan)}>
-                  {tenant.subscription_plan || 'starter'}
+                  {tenant.subscription_plan || 'kisan'}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
@@ -528,7 +521,7 @@ export default function TenantManagement() {
               Update tenant information, subscription, and limits.
             </DialogDescription>
           </DialogHeader>
-          <TenantForm 
+          <EnhancedTenantForm 
             formData={formData} 
             setFormData={setFormData} 
             onSubmit={handleUpdateTenant}
@@ -540,17 +533,80 @@ export default function TenantManagement() {
   );
 }
 
-// Tenant Form Component
-interface TenantFormProps {
+// Enhanced Tenant Form Component with Navigation
+interface EnhancedTenantFormProps {
   formData: TenantFormData;
   setFormData: React.Dispatch<React.SetStateAction<TenantFormData>>;
   onSubmit: () => void;
   isEditing: boolean;
 }
 
-function TenantForm({ formData, setFormData, onSubmit, isEditing }: TenantFormProps) {
+function EnhancedTenantForm({ formData, setFormData, onSubmit, isEditing }: EnhancedTenantFormProps) {
+  const [currentTab, setCurrentTab] = useState('basic');
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const tabs = [
+    { id: 'basic', label: 'Basic Info' },
+    { id: 'contact', label: 'Contact' },
+    { id: 'subscription', label: 'Subscription' },
+    { id: 'limits', label: 'Limits & Config' }
+  ];
+
+  const currentTabIndex = tabs.findIndex(tab => tab.id === currentTab);
+
+  const validateCurrentTab = () => {
+    const newErrors: FormErrors = {};
+
+    switch (currentTab) {
+      case 'basic':
+        if (!formData.name.trim()) newErrors.name = 'Organization name is required';
+        if (!formData.slug.trim()) newErrors.slug = 'Slug is required';
+        if (formData.slug && !/^[a-z0-9-]+$/.test(formData.slug)) {
+          newErrors.slug = 'Slug must contain only lowercase letters, numbers, and hyphens';
+        }
+        break;
+      case 'contact':
+        if (formData.owner_email && !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(formData.owner_email)) {
+          newErrors.owner_email = 'Invalid email format';
+        }
+        break;
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (validateCurrentTab() && currentTabIndex < tabs.length - 1) {
+      setCurrentTab(tabs[currentTabIndex + 1].id);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentTabIndex > 0) {
+      setCurrentTab(tabs[currentTabIndex - 1].id);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!validateCurrentTab()) return;
+    
+    setIsSubmitting(true);
+    try {
+      await onSubmit();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleChange = (field: keyof TenantFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
     
     // Auto-update limits when subscription plan changes
     if (field === 'subscription_plan') {
@@ -564,317 +620,362 @@ function TenantForm({ formData, setFormData, onSubmit, isEditing }: TenantFormPr
         max_api_calls_per_day: limits.api_calls,
       }));
     }
+
+    // Auto-generate slug from name
+    if (field === 'name' && !isEditing) {
+      const slug = value
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .trim();
+      setFormData(prev => ({ ...prev, slug }));
+    }
   };
 
   return (
-    <Tabs defaultValue="basic" className="w-full">
-      <TabsList className="grid w-full grid-cols-4">
-        <TabsTrigger value="basic">Basic Info</TabsTrigger>
-        <TabsTrigger value="contact">Contact</TabsTrigger>
-        <TabsTrigger value="subscription">Subscription</TabsTrigger>
-        <TabsTrigger value="limits">Limits & Config</TabsTrigger>
-      </TabsList>
+    <div className="space-y-6">
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          {tabs.map(tab => (
+            <TabsTrigger key={tab.id} value={tab.id}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      <TabsContent value="basic" className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <TabsContent value="basic" className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Organization Name*</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleChange('name', e.target.value)}
+                placeholder="Enter organization name"
+                className={errors.name ? 'border-destructive' : ''}
+              />
+              {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="slug">Slug*</Label>
+              <Input
+                id="slug"
+                value={formData.slug}
+                onChange={(e) => handleChange('slug', e.target.value)}
+                placeholder="organization-slug"
+                disabled={isEditing}
+                className={errors.slug ? 'border-destructive' : ''}
+              />
+              {errors.slug && <p className="text-sm text-destructive">{errors.slug}</p>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="type">Organization Type*</Label>
+              <Select value={formData.type} onValueChange={(value) => handleChange('type', value as DatabaseTenantType)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenantTypeOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select value={formData.status} onValueChange={(value) => handleChange('status', value as DatabaseTenantStatus)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenantStatusOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="space-y-2">
-            <Label htmlFor="name">Organization Name*</Label>
+            <Label htmlFor="business_registration">Business Registration</Label>
             <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              placeholder="Enter organization name"
-              required
+              id="business_registration"
+              value={formData.business_registration || ''}
+              onChange={(e) => handleChange('business_registration', e.target.value)}
+              placeholder="Enter business registration number"
             />
           </div>
+        </TabsContent>
+
+        <TabsContent value="contact" className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="owner_name">Owner Name</Label>
+              <Input
+                id="owner_name"
+                value={formData.owner_name || ''}
+                onChange={(e) => handleChange('owner_name', e.target.value)}
+                placeholder="Enter owner name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="owner_email">Owner Email</Label>
+              <Input
+                id="owner_email"
+                type="email"
+                value={formData.owner_email || ''}
+                onChange={(e) => handleChange('owner_email', e.target.value)}
+                placeholder="Enter owner email"
+                className={errors.owner_email ? 'border-destructive' : ''}
+              />
+              {errors.owner_email && <p className="text-sm text-destructive">{errors.owner_email}</p>}
+            </div>
+          </div>
+
           <div className="space-y-2">
-            <Label htmlFor="slug">Slug*</Label>
+            <Label htmlFor="owner_phone">Owner Phone</Label>
             <Input
-              id="slug"
-              value={formData.slug}
-              onChange={(e) => handleChange('slug', e.target.value)}
-              placeholder="organization-slug"
-              disabled={isEditing}
-              required
+              id="owner_phone"
+              value={formData.owner_phone || ''}
+              onChange={(e) => handleChange('owner_phone', e.target.value)}
+              placeholder="Enter owner phone number"
             />
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="type">Organization Type*</Label>
-            <Select value={formData.type} onValueChange={(value) => handleChange('type', value as DatabaseTenantType)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {tenantTypeOptions.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
-            <Select value={formData.status} onValueChange={(value) => handleChange('status', value as DatabaseTenantStatus)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                {tenantStatusOptions.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="business_registration">Business Registration</Label>
-          <Input
-            id="business_registration"
-            value={formData.business_registration || ''}
-            onChange={(e) => handleChange('business_registration', e.target.value)}
-            placeholder="Enter business registration number"
-          />
-        </div>
-      </TabsContent>
-
-      <TabsContent value="contact" className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="owner_name">Owner Name</Label>
-            <Input
-              id="owner_name"
-              value={formData.owner_name || ''}
-              onChange={(e) => handleChange('owner_name', e.target.value)}
-              placeholder="Enter owner name"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="owner_email">Owner Email</Label>
-            <Input
-              id="owner_email"
-              type="email"
-              value={formData.owner_email || ''}
-              onChange={(e) => handleChange('owner_email', e.target.value)}
-              placeholder="Enter owner email"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="owner_phone">Owner Phone</Label>
-          <Input
-            id="owner_phone"
-            value={formData.owner_phone || ''}
-            onChange={(e) => handleChange('owner_phone', e.target.value)}
-            placeholder="Enter owner phone number"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="business_address">Business Address</Label>
-          <Textarea
-            id="business_address"
-            value={
-              formData.business_address && typeof formData.business_address === 'object'
-                ? JSON.stringify(formData.business_address, null, 2)
-                : formData.business_address || ''
-            }
-            onChange={(e) => {
-              try {
-                const parsed = JSON.parse(e.target.value);
-                handleChange('business_address', parsed);
-              } catch {
-                // If it's not valid JSON, store as string and convert later
-                handleChange('business_address', e.target.value);
+            <Label htmlFor="business_address">Business Address</Label>
+            <Textarea
+              id="business_address"
+              value={
+                formData.business_address && typeof formData.business_address === 'object'
+                  ? JSON.stringify(formData.business_address, null, 2)
+                  : formData.business_address || ''
               }
-            }}
-            placeholder="Enter business address (JSON format or plain text)"
-            rows={3}
-          />
-        </div>
-      </TabsContent>
-
-      <TabsContent value="subscription" className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="subscription_plan">Subscription Plan*</Label>
-            <Select 
-              value={formData.subscription_plan} 
-              onValueChange={(value) => handleChange('subscription_plan', value as DatabaseSubscriptionPlan)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select plan" />
-              </SelectTrigger>
-              <SelectContent>
-                {subscriptionPlanOptions.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="established_date">Established Date</Label>
-            <Input
-              id="established_date"
-              type="date"
-              value={formData.established_date || ''}
-              onChange={(e) => handleChange('established_date', e.target.value)}
+              onChange={(e) => {
+                try {
+                  const parsed = JSON.parse(e.target.value);
+                  handleChange('business_address', parsed);
+                } catch {
+                  handleChange('business_address', e.target.value);
+                }
+              }}
+              placeholder="Enter business address (JSON format or plain text)"
+              rows={3}
             />
           </div>
-        </div>
+        </TabsContent>
 
-        <div className="grid grid-cols-2 gap-4">
+        <TabsContent value="subscription" className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="subscription_plan">Subscription Plan*</Label>
+              <Select 
+                value={formData.subscription_plan} 
+                onValueChange={(value) => handleChange('subscription_plan', value as DatabaseSubscriptionPlan)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subscriptionPlanOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="established_date">Established Date</Label>
+              <Input
+                id="established_date"
+                type="date"
+                value={formData.established_date || ''}
+                onChange={(e) => handleChange('established_date', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="subscription_start_date">Subscription Start</Label>
+              <Input
+                id="subscription_start_date"
+                type="datetime-local"
+                value={formData.subscription_start_date ? formData.subscription_start_date.slice(0, 16) : ''}
+                onChange={(e) => handleChange('subscription_start_date', e.target.value ? new Date(e.target.value).toISOString() : '')}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="subscription_end_date">Subscription End</Label>
+              <Input
+                id="subscription_end_date"
+                type="datetime-local"
+                value={formData.subscription_end_date ? formData.subscription_end_date.slice(0, 16) : ''}
+                onChange={(e) => handleChange('subscription_end_date', e.target.value ? new Date(e.target.value).toISOString() : '')}
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
-            <Label htmlFor="subscription_start_date">Subscription Start</Label>
+            <Label htmlFor="trial_ends_at">Trial Ends At</Label>
             <Input
-              id="subscription_start_date"
+              id="trial_ends_at"
               type="datetime-local"
-              value={formData.subscription_start_date ? formData.subscription_start_date.slice(0, 16) : ''}
-              onChange={(e) => handleChange('subscription_start_date', e.target.value ? new Date(e.target.value).toISOString() : '')}
+              value={formData.trial_ends_at ? formData.trial_ends_at.slice(0, 16) : ''}
+              onChange={(e) => handleChange('trial_ends_at', e.target.value ? new Date(e.target.value).toISOString() : '')}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="subscription_end_date">Subscription End</Label>
-            <Input
-              id="subscription_end_date"
-              type="datetime-local"
-              value={formData.subscription_end_date ? formData.subscription_end_date.slice(0, 16) : ''}
-              onChange={(e) => handleChange('subscription_end_date', e.target.value ? new Date(e.target.value).toISOString() : '')}
-            />
+        </TabsContent>
+
+        <TabsContent value="limits" className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="max_farmers">Max Farmers</Label>
+              <Input
+                id="max_farmers"
+                type="number"
+                value={formData.max_farmers || 0}
+                onChange={(e) => handleChange('max_farmers', parseInt(e.target.value))}
+                placeholder="Maximum farmers"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="max_dealers">Max Dealers</Label>
+              <Input
+                id="max_dealers"
+                type="number"
+                value={formData.max_dealers || 0}
+                onChange={(e) => handleChange('max_dealers', parseInt(e.target.value))}
+                placeholder="Maximum dealers"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="trial_ends_at">Trial Ends At</Label>
-          <Input
-            id="trial_ends_at"
-            type="datetime-local"
-            value={formData.trial_ends_at ? formData.trial_ends_at.slice(0, 16) : ''}
-            onChange={(e) => handleChange('trial_ends_at', e.target.value ? new Date(e.target.value).toISOString() : '')}
-          />
-        </div>
-      </TabsContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="max_products">Max Products</Label>
+              <Input
+                id="max_products"
+                type="number"
+                value={formData.max_products || 0}
+                onChange={(e) => handleChange('max_products', parseInt(e.target.value))}
+                placeholder="Maximum products"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="max_storage_gb">Max Storage (GB)</Label>
+              <Input
+                id="max_storage_gb"
+                type="number"
+                value={formData.max_storage_gb || 0}
+                onChange={(e) => handleChange('max_storage_gb', parseInt(e.target.value))}
+                placeholder="Maximum storage in GB"
+              />
+            </div>
+          </div>
 
-      <TabsContent value="limits" className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="max_farmers">Max Farmers</Label>
+            <Label htmlFor="max_api_calls_per_day">Max API Calls Per Day</Label>
             <Input
-              id="max_farmers"
+              id="max_api_calls_per_day"
               type="number"
-              value={formData.max_farmers || 0}
-              onChange={(e) => handleChange('max_farmers', parseInt(e.target.value))}
-              placeholder="Maximum farmers"
+              value={formData.max_api_calls_per_day || 0}
+              onChange={(e) => handleChange('max_api_calls_per_day', parseInt(e.target.value))}
+              placeholder="Maximum API calls per day"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="max_dealers">Max Dealers</Label>
-            <Input
-              id="max_dealers"
-              type="number"
-              value={formData.max_dealers || 0}
-              onChange={(e) => handleChange('max_dealers', parseInt(e.target.value))}
-              placeholder="Maximum dealers"
-            />
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="max_products">Max Products</Label>
-            <Input
-              id="max_products"
-              type="number"
-              value={formData.max_products || 0}
-              onChange={(e) => handleChange('max_products', parseInt(e.target.value))}
-              placeholder="Maximum products"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="subdomain">Subdomain</Label>
+              <Input
+                id="subdomain"
+                value={formData.subdomain || ''}
+                onChange={(e) => handleChange('subdomain', e.target.value)}
+                placeholder="tenant-subdomain"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="custom_domain">Custom Domain</Label>
+              <Input
+                id="custom_domain"
+                value={formData.custom_domain || ''}
+                onChange={(e) => handleChange('custom_domain', e.target.value)}
+                placeholder="custom.domain.com"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="max_storage_gb">Max Storage (GB)</Label>
-            <Input
-              id="max_storage_gb"
-              type="number"
-              value={formData.max_storage_gb || 0}
-              onChange={(e) => handleChange('max_storage_gb', parseInt(e.target.value))}
-              placeholder="Maximum storage in GB"
-            />
-          </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="max_api_calls_per_day">Max API Calls Per Day</Label>
-          <Input
-            id="max_api_calls_per_day"
-            type="number"
-            value={formData.max_api_calls_per_day || 0}
-            onChange={(e) => handleChange('max_api_calls_per_day', parseInt(e.target.value))}
-            placeholder="Maximum API calls per day"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="subdomain">Subdomain</Label>
-            <Input
-              id="subdomain"
-              value={formData.subdomain || ''}
-              onChange={(e) => handleChange('subdomain', e.target.value)}
-              placeholder="tenant-subdomain"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="custom_domain">Custom Domain</Label>
-            <Input
-              id="custom_domain"
-              value={formData.custom_domain || ''}
-              onChange={(e) => handleChange('custom_domain', e.target.value)}
-              placeholder="custom.domain.com"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="metadata">Metadata (JSON)</Label>
-          <Textarea
-            id="metadata"
-            value={
-              formData.metadata && typeof formData.metadata === 'object'
-                ? JSON.stringify(formData.metadata, null, 2)
-                : '{}'
-            }
-            onChange={(e) => {
-              try {
-                const parsed = JSON.parse(e.target.value);
-                handleChange('metadata', parsed);
-              } catch {
-                // Keep the string value for now, will be validated on submit
-                // Don't update the form data until valid JSON is entered
+            <Label htmlFor="metadata">Metadata (JSON)</Label>
+            <Textarea
+              id="metadata"
+              value={
+                formData.metadata && typeof formData.metadata === 'object'
+                  ? JSON.stringify(formData.metadata, null, 2)
+                  : '{}'
               }
-            }}
-            placeholder="Enter metadata in JSON format"
-            rows={4}
-          />
-        </div>
-      </TabsContent>
+              onChange={(e) => {
+                try {
+                  const parsed = JSON.parse(e.target.value);
+                  handleChange('metadata', parsed);
+                } catch {
+                  // Keep the string value for now, will be validated on submit
+                }
+              }}
+              placeholder="Enter metadata in JSON format"
+              rows={4}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
 
-      <div className="flex justify-end space-x-2 pt-6">
-        <Button variant="outline" onClick={() => {}}>
-          Cancel
+      {/* Navigation and Submit Buttons */}
+      <div className="flex justify-between items-center pt-6 border-t">
+        <Button 
+          variant="outline" 
+          onClick={handlePrevious}
+          disabled={currentTabIndex === 0}
+        >
+          <ChevronLeft className="h-4 w-4 mr-2" />
+          Previous
         </Button>
-        <Button onClick={onSubmit}>
-          {isEditing ? 'Update' : 'Create'} Tenant
-        </Button>
+        
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-muted-foreground">
+            {currentTabIndex + 1} of {tabs.length}
+          </span>
+          <div className="flex space-x-1">
+            {tabs.map((_, index) => (
+              <div
+                key={index}
+                className={`h-2 w-2 rounded-full ${
+                  index <= currentTabIndex ? 'bg-primary' : 'bg-muted'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {currentTabIndex < tabs.length - 1 ? (
+          <Button onClick={handleNext}>
+            Next
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        ) : (
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? 'Creating...' : isEditing ? 'Update Tenant' : 'Create Tenant'}
+          </Button>
+        )}
       </div>
-    </Tabs>
+    </div>
   );
 }

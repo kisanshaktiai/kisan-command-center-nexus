@@ -4589,6 +4589,33 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      create_tenant_with_validation: {
+        Args: {
+          p_name: string
+          p_slug: string
+          p_type: string
+          p_status?: string
+          p_subscription_plan?: string
+          p_owner_name?: string
+          p_owner_email?: string
+          p_owner_phone?: string
+          p_business_registration?: string
+          p_business_address?: Json
+          p_established_date?: string
+          p_subscription_start_date?: string
+          p_subscription_end_date?: string
+          p_trial_ends_at?: string
+          p_max_farmers?: number
+          p_max_dealers?: number
+          p_max_products?: number
+          p_max_storage_gb?: number
+          p_max_api_calls_per_day?: number
+          p_subdomain?: string
+          p_custom_domain?: string
+          p_metadata?: Json
+        }
+        Returns: Json
+      }
       disablelongtransactions: {
         Args: Record<PropertyKey, never>
         Returns: string
