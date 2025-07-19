@@ -17,7 +17,7 @@ import { Plus, Edit, Trash2, Building2, Users, Settings, Search, ChevronLeft, Ch
 
 // Database types from Supabase
 type DatabaseTenant = Tables<'tenants'>;
-type DatabaseSubscriptionPlan = DatabaseTenant['subscription_plan'];
+type DatabaseSubscriptionPlan = 'kisan' | 'shakti' | 'ai';
 type DatabaseTenantType = DatabaseTenant['type'];
 type DatabaseTenantStatus = DatabaseTenant['status'];
 
@@ -50,6 +50,14 @@ interface TenantFormData {
 // Form validation interface
 interface FormErrors {
   [key: string]: string;
+}
+
+// RPC Response interface
+interface RpcResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+  tenant_id?: string;
 }
 
 // Type mapping helpers
@@ -85,6 +93,28 @@ const getPlanLimits = (plan: DatabaseSubscriptionPlan) => {
     ai: { farmers: 20000, dealers: 1000, products: 2000, storage: 200, api_calls: 200000 },
   };
   return limits[plan] || limits.kisan;
+};
+
+// Helper function to convert subscription plan
+const convertSubscriptionPlan = (plan: DatabaseSubscriptionPlan): DatabaseTenant['subscription_plan'] => {
+  // Map our frontend plans to database plans
+  const planMapping: Record<DatabaseSubscriptionPlan, DatabaseTenant['subscription_plan']> = {
+    'kisan': 'starter',
+    'shakti': 'growth', 
+    'ai': 'enterprise'
+  };
+  return planMapping[plan] || 'starter';
+};
+
+// Helper function to convert from database plan to frontend plan
+const convertFromDatabasePlan = (dbPlan: DatabaseTenant['subscription_plan']): DatabaseSubscriptionPlan => {
+  const reverseMapping: Record<NonNullable<DatabaseTenant['subscription_plan']>, DatabaseSubscriptionPlan> = {
+    'starter': 'kisan',
+    'growth': 'shakti',
+    'enterprise': 'ai',
+    'custom': 'ai'
+  };
+  return reverseMapping[dbPlan || 'starter'] || 'kisan';
 };
 
 export default function TenantManagement() {
@@ -168,10 +198,13 @@ export default function TenantManagement() {
 
       if (error) throw error;
 
-      if (data && !data.success) {
+      // Type assertion for the RPC response
+      const result = data as RpcResponse;
+
+      if (result && !result.success) {
         toast({
           title: "Validation Error",
-          description: data.error,
+          description: result.error,
           variant: "destructive",
         });
         return;
@@ -179,7 +212,7 @@ export default function TenantManagement() {
 
       toast({
         title: "Success",
-        description: data.message || "Tenant created successfully",
+        description: result?.message || "Tenant created successfully",
       });
 
       setIsCreateDialogOpen(false);
@@ -215,6 +248,7 @@ export default function TenantManagement() {
       
       const updateData = {
         ...formData,
+        subscription_plan: convertSubscriptionPlan(formData.subscription_plan),
         max_farmers: formData.max_farmers || planLimits.farmers,
         max_dealers: formData.max_dealers || planLimits.dealers,
         max_products: formData.max_products || planLimits.products,
@@ -307,7 +341,7 @@ export default function TenantManagement() {
       business_registration: tenant.business_registration || '',
       business_address: businessAddress,
       established_date: tenant.established_date || '',
-      subscription_plan: tenant.subscription_plan || 'kisan',
+      subscription_plan: convertFromDatabasePlan(tenant.subscription_plan),
       subscription_start_date: tenant.subscription_start_date || '',
       subscription_end_date: tenant.subscription_end_date || '',
       trial_ends_at: tenant.trial_ends_at || '',
@@ -356,13 +390,23 @@ export default function TenantManagement() {
     }
   };
 
-  const getPlanBadgeVariant = (plan: DatabaseSubscriptionPlan | null) => {
+  const getPlanBadgeVariant = (plan: DatabaseTenant['subscription_plan']) => {
     switch (plan) {
-      case 'ai': return 'default';
-      case 'shakti': return 'secondary';
-      case 'kisan': return 'outline';
+      case 'enterprise': return 'default';
+      case 'growth': return 'secondary';
+      case 'starter': return 'outline';
       default: return 'outline';
     }
+  };
+
+  const getPlanDisplayName = (plan: DatabaseTenant['subscription_plan']) => {
+    const displayNames = {
+      'starter': 'Kisan',
+      'growth': 'Shakti', 
+      'enterprise': 'AI',
+      'custom': 'Custom'
+    };
+    return displayNames[plan || 'starter'] || 'Kisan';
   };
 
   if (loading) {
@@ -476,7 +520,7 @@ export default function TenantManagement() {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Plan</span>
                 <Badge variant={getPlanBadgeVariant(tenant.subscription_plan)}>
-                  {tenant.subscription_plan || 'kisan'}
+                  {getPlanDisplayName(tenant.subscription_plan)}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
