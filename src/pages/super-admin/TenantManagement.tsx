@@ -31,11 +31,15 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { Database } from '@/integrations/supabase/types';
 
 // Updated types for new 3-tier subscription system
 type TenantStatus = 'trial' | 'active' | 'suspended' | 'cancelled';
 type TenantType = 'basic' | 'premium' | 'enterprise';
 type SubscriptionPlan = 'kisan' | 'shakti' | 'ai';
+
+// Supabase database types
+type DatabaseSubscriptionPlan = Database['public']['Enums']['subscription_plan'];
 
 interface Tenant {
   id: string;
@@ -88,7 +92,7 @@ interface DatabaseTenant {
   slug: string;
   type: TenantType;
   status: TenantStatus;
-  subscription_plan: SubscriptionPlan;
+  subscription_plan: DatabaseSubscriptionPlan;
   owner_name?: string;
   owner_email?: string;
   owner_phone?: string;
@@ -112,7 +116,7 @@ interface TenantUpdate {
   slug?: string;
   type?: TenantType;
   status?: TenantStatus;
-  subscription_plan?: SubscriptionPlan;
+  subscription_plan?: DatabaseSubscriptionPlan;
   owner_name?: string;
   owner_email?: string;
   owner_phone?: string;
@@ -128,6 +132,11 @@ interface TenantUpdate {
   custom_domain?: string;
   settings?: Record<string, any>;
 }
+
+// Helper function to convert SubscriptionPlan to DatabaseSubscriptionPlan
+const convertToDbSubscriptionPlan = (plan: SubscriptionPlan): DatabaseSubscriptionPlan => {
+  return plan as DatabaseSubscriptionPlan;
+};
 
 export default function TenantManagement() {
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
@@ -238,9 +247,15 @@ export default function TenantManagement() {
     try {
       console.log('Creating tenant with data:', tenantData);
       
+      // Convert subscription_plan to the expected database type
+      const dbData = {
+        ...tenantData,
+        subscription_plan: convertToDbSubscriptionPlan(tenantData.subscription_plan)
+      };
+      
       const { data, error } = await supabase
         .from('tenants')
-        .insert(tenantData)
+        .insert(dbData)
         .select()
         .single();
 
@@ -263,13 +278,17 @@ export default function TenantManagement() {
     try {
       console.log('Updating tenant:', tenantId, updates);
       
+      // Convert subscription_plan if it exists
+      const dbUpdates = {
+        ...updates,
+        subscription_plan: updates.subscription_plan ? convertToDbSubscriptionPlan(updates.subscription_plan) : undefined,
+        settings: updates.settings || {},
+        updated_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('tenants')
-        .update({
-          ...updates,
-          settings: updates.settings || {},
-          updated_at: new Date().toISOString()
-        })
+        .update(dbUpdates)
         .eq('id', tenantId);
 
       if (error) {
@@ -528,7 +547,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: DatabaseTen
     slug: '',
     type: 'basic',
     status: 'trial',
-    subscription_plan: 'kisan',
+    subscription_plan: 'kisan' as DatabaseSubscriptionPlan,
     
     // Owner Information
     owner_name: '',
@@ -637,7 +656,7 @@ function CreateTenantForm({ onSubmit, onCancel }: { onSubmit: (data: DatabaseTen
               <CreditCard className="w-4 h-4 inline mr-1" />
               Subscription Plan
             </Label>
-            <Select value={formData.subscription_plan} onValueChange={(value) => setFormData({ ...formData, subscription_plan: value as SubscriptionPlan })}>
+            <Select value={formData.subscription_plan} onValueChange={(value) => setFormData({ ...formData, subscription_plan: value as DatabaseSubscriptionPlan })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -867,7 +886,7 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
     slug: tenant.slug || '',
     type: tenant.type as TenantType || 'basic',
     status: tenant.status || 'trial',
-    subscription_plan: tenant.subscription_plan || 'kisan',
+    subscription_plan: tenant.subscription_plan as DatabaseSubscriptionPlan || 'kisan',
     owner_name: tenant.owner_name || '',
     owner_email: tenant.owner_email || '',
     owner_phone: tenant.owner_phone || '',
@@ -952,7 +971,7 @@ function EditTenantForm({ tenant, onSubmit, onCancel }: { tenant: Tenant; onSubm
 
           <div>
             <Label htmlFor="edit-subscription_plan">Subscription Plan</Label>
-            <Select value={formData.subscription_plan} onValueChange={(value) => setFormData({ ...formData, subscription_plan: value as SubscriptionPlan })}>
+            <Select value={formData.subscription_plan} onValueChange={(value) => setFormData({ ...formData, subscription_plan: value as DatabaseSubscriptionPlan })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
