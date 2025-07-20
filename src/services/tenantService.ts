@@ -3,6 +3,33 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tenant, TenantFormData, RpcResponse, SubscriptionPlan } from '@/types/tenant';
 
 export class TenantService {
+  // Convert database subscription plan to frontend type
+  private static convertSubscriptionPlan(dbPlan: string | null): SubscriptionPlan {
+    switch (dbPlan) {
+      case 'starter':
+      case 'kisan':
+        return 'kisan';
+      case 'growth':
+      case 'shakti':
+        return 'shakti';
+      case 'enterprise':
+      case 'custom':
+      case 'ai':
+        return 'ai';
+      default:
+        return 'kisan';
+    }
+  }
+
+  // Convert database tenant to frontend type
+  private static convertDatabaseTenant(dbTenant: any): Tenant {
+    return {
+      ...dbTenant,
+      subscription_plan: this.convertSubscriptionPlan(dbTenant.subscription_plan),
+      status: dbTenant.status || 'trial',
+    };
+  }
+
   static async fetchTenants(): Promise<Tenant[]> {
     const { data, error } = await supabase
       .from('tenants')
@@ -10,7 +37,9 @@ export class TenantService {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    
+    // Convert database records to frontend types
+    return (data || []).map(this.convertDatabaseTenant);
   }
 
   static async createTenant(formData: TenantFormData): Promise<RpcResponse> {
@@ -76,7 +105,9 @@ export class TenantService {
       .single();
 
     if (error) throw error;
-    return data;
+    
+    // Convert database response to frontend type
+    return this.convertDatabaseTenant(data);
   }
 
   static async deleteTenant(tenantId: string): Promise<void> {
