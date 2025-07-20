@@ -88,6 +88,7 @@ export class TenantService {
       const dbSubscriptionPlan = this.mapUIToDatabasePlan(formData.subscription_plan);
       console.log('TenantService: Using subscription plan:', dbSubscriptionPlan);
 
+      // Prepare parameters for RPC call
       const rpcParams = {
         p_name: formData.name,
         p_slug: formData.slug,
@@ -115,6 +116,7 @@ export class TenantService {
 
       console.log('TenantService: Calling RPC function with params:', rpcParams);
       
+      // Call the database function directly
       const { data, error } = await supabase.rpc('create_tenant_with_validation', rpcParams);
 
       if (error) {
