@@ -2,20 +2,14 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant, TenantFormData, RpcResponse, SubscriptionPlan } from '@/types/tenant';
 
-// Database subscription plan enum type
+// Database subscription plan enum type that matches the database
 type DatabaseSubscriptionPlan = 'Kisan_Basic' | 'Shakti_Growth' | 'AI_Enterprise' | 'custom';
 
 export class TenantService {
   // Map UI subscription plan names to database enum values
   private static mapUIToDatabasePlan(uiPlan: SubscriptionPlan): DatabaseSubscriptionPlan {
-    const planMapping: Record<SubscriptionPlan, DatabaseSubscriptionPlan> = {
-      'Kisan_Basic': 'Kisan_Basic',
-      'Shakti_Growth': 'Shakti_Growth', 
-      'AI_Enterprise': 'AI_Enterprise',
-      'custom': 'custom'
-    };
-    
-    return planMapping[uiPlan] || 'Kisan_Basic';
+    // Direct mapping since UI and database now use the same enum values
+    return uiPlan;
   }
 
   // Convert database subscription plan to frontend type
@@ -24,11 +18,7 @@ export class TenantService {
       'Kisan_Basic': 'Kisan_Basic',
       'Shakti_Growth': 'Shakti_Growth',
       'AI_Enterprise': 'AI_Enterprise',
-      'custom': 'custom',
-      // Legacy mappings for backwards compatibility
-      'starter': 'Kisan_Basic',
-      'growth': 'Shakti_Growth',
-      'enterprise': 'AI_Enterprise'
+      'custom': 'custom'
     };
     
     return planMapping[dbPlan || ''] || 'Kisan_Basic';
@@ -95,9 +85,9 @@ export class TenantService {
         return { success: false, error: 'Subscription plan is required' };
       }
 
-      // Map UI subscription plan to database enum
+      // Map UI subscription plan to database enum (now they match directly)
       const dbSubscriptionPlan = this.mapUIToDatabasePlan(formData.subscription_plan);
-      console.log('TenantService: Mapped subscription plan from', formData.subscription_plan, 'to', dbSubscriptionPlan);
+      console.log('TenantService: Using subscription plan:', dbSubscriptionPlan);
 
       const rpcParams = {
         p_name: formData.name,
@@ -130,50 +120,6 @@ export class TenantService {
 
       if (error) {
         console.error('TenantService: Database error creating tenant:', error);
-        
-        // Handle specific RPC function errors
-        if (error.code === '42883') {
-          console.log('TenantService: RPC function not found, falling back to direct insert');
-          return await this.createTenantDirectly(formData);
-        }
-        
-        // Handle specific RLS errors
-        if (error.message?.includes('row-level security')) {
-          return { 
-            success: false, 
-            error: 'Permission denied. You must be a super admin to create tenants.' 
-          };
-        }
-        
-        if (error.message?.includes('infinite recursion detected')) {
-          return { 
-            success: false, 
-            error: 'Authentication error. Please try logging out and back in.' 
-          };
-        }
-        
-        // Handle PostgreSQL exceptions from our function
-        if (error.message?.includes('VALIDATION_ERROR:')) {
-          return { 
-            success: false, 
-            error: error.message.replace('VALIDATION_ERROR: ', '') 
-          };
-        }
-        
-        if (error.message?.includes('SLUG_ERROR:')) {
-          return { 
-            success: false, 
-            error: error.message.replace('SLUG_ERROR: ', '') 
-          };
-        }
-        
-        if (error.message?.includes('DUPLICATE_SLUG:')) {
-          return { 
-            success: false, 
-            error: 'This slug is already taken. Please choose a different one.' 
-          };
-        }
-        
         return { 
           success: false, 
           error: `Database error: ${error.message}` 
@@ -190,25 +136,16 @@ export class TenantService {
         };
       }
 
-      // Safely convert the response to RpcResponse type
-      const rpcResponse = data as unknown as RpcResponse;
+      // Parse the response from the simplified function
+      const rpcResponse = data as RpcResponse;
       console.log('TenantService: Parsed RPC response:', rpcResponse);
       
-      // Validate the response structure
-      if (typeof rpcResponse !== 'object' || rpcResponse === null || typeof rpcResponse.success !== 'boolean') {
-        console.error('TenantService: Invalid RPC response structure:', data);
-        return { 
-          success: false, 
-          error: 'Invalid response from database function' 
-        };
-      }
-
       if (rpcResponse.success) {
         console.log('TenantService: Tenant created successfully');
         return { 
           success: true, 
-          message: rpcResponse.message || 'Tenant created successfully with branding and features',
-          tenant_id: rpcResponse.data?.tenant_id || rpcResponse.tenant_id,
+          message: rpcResponse.message || 'Tenant created successfully',
+          tenant_id: rpcResponse.data?.tenant_id,
           data: rpcResponse.data
         };
       } else {
@@ -217,85 +154,9 @@ export class TenantService {
       }
     } catch (error: any) {
       console.error('TenantService: Exception in createTenant:', error);
-      
-      // Handle network/connection errors
-      if (error.message?.includes('fetch')) {
-        return { 
-          success: false, 
-          error: 'Network error. Please check your connection and try again.' 
-        };
-      }
-      
       return { 
         success: false, 
         error: error.message || 'An unexpected error occurred while creating the tenant' 
-      };
-    }
-  }
-
-  // Fallback method for direct insertion
-  static async createTenantDirectly(formData: TenantFormData): Promise<RpcResponse> {
-    try {
-      console.log('TenantService: Creating tenant directly via insert');
-      
-      const dbSubscriptionPlan = this.mapUIToDatabasePlan(formData.subscription_plan);
-      const planLimits = this.getPlanLimits(formData.subscription_plan);
-      
-      const tenantData = {
-        name: formData.name,
-        slug: formData.slug,
-        type: formData.type,
-        status: formData.status || 'trial',
-        subscription_plan: dbSubscriptionPlan as DatabaseSubscriptionPlan,
-        owner_name: formData.owner_name || null,
-        owner_email: formData.owner_email || null,
-        owner_phone: formData.owner_phone || null,
-        business_registration: formData.business_registration || null,
-        business_address: formData.business_address || null,
-        established_date: formData.established_date || null,
-        subscription_start_date: formData.subscription_start_date || new Date().toISOString(),
-        subscription_end_date: formData.subscription_end_date || null,
-        trial_ends_at: formData.trial_ends_at || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        max_farmers: formData.max_farmers || planLimits.farmers,
-        max_dealers: formData.max_dealers || planLimits.dealers,
-        max_products: formData.max_products || planLimits.products,
-        max_storage_gb: formData.max_storage_gb || planLimits.storage,
-        max_api_calls_per_day: formData.max_api_calls_per_day || planLimits.api_calls,
-        subdomain: formData.subdomain || null,
-        custom_domain: formData.custom_domain || null,
-        metadata: formData.metadata || {},
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      console.log('TenantService: Direct insert data:', tenantData);
-
-      const { data, error } = await supabase
-        .from('tenants')
-        .insert(tenantData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('TenantService: Direct insert error:', error);
-        return {
-          success: false,
-          error: `Failed to create tenant: ${error.message}`
-        };
-      }
-
-      console.log('TenantService: Tenant created directly:', data);
-      return {
-        success: true,
-        message: 'Tenant created successfully',
-        tenant_id: data.id,
-        data: { tenant_id: data.id }
-      };
-    } catch (error: any) {
-      console.error('TenantService: Exception in createTenantDirectly:', error);
-      return {
-        success: false,
-        error: error.message || 'Failed to create tenant directly'
       };
     }
   }
@@ -319,7 +180,7 @@ export class TenantService {
       
       const updateData = {
         ...formData,
-        subscription_plan: dbSubscriptionPlan as DatabaseSubscriptionPlan,
+        subscription_plan: dbSubscriptionPlan,
         max_farmers: formData.max_farmers || planLimits.farmers,
         max_dealers: formData.max_dealers || planLimits.dealers,
         max_products: formData.max_products || planLimits.products,
