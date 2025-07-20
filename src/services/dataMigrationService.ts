@@ -165,8 +165,16 @@ export class DataMigrationService {
       throw error;
     }
 
+    // Type cast the data to match our interface
+    const typedData: MigrationJob[] = (data || []).map(job => ({
+      ...job,
+      status: job.status as 'pending' | 'running' | 'completed' | 'failed',
+      progress_data: job.progress_data as Record<string, any>,
+      error_log: job.error_log as Array<{ error: string; details?: any }>
+    }));
+
     return {
-      data: data || [],
+      data: typedData,
       count: count || 0,
       totalPages: Math.ceil((count || 0) / limit)
     };
@@ -184,7 +192,15 @@ export class DataMigrationService {
       throw error;
     }
 
-    return data;
+    if (!data) return null;
+
+    // Type cast the data to match our interface
+    return {
+      ...data,
+      status: data.status as 'pending' | 'running' | 'completed' | 'failed',
+      progress_data: data.progress_data as Record<string, any>,
+      error_log: data.error_log as Array<{ error: string; details?: any }>
+    };
   }
 
   static async deleteMigrationJob(jobId: string): Promise<void> {
