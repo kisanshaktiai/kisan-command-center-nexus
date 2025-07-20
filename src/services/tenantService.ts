@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant, TenantFormData, RpcResponse, SubscriptionPlan } from '@/types/tenant';
 
@@ -80,6 +81,30 @@ export class TenantService {
       }
 
       console.log('TenantService: Calling RPC function create_tenant_with_validation...');
+      console.log('TenantService: RPC parameters:', {
+        p_name: formData.name,
+        p_slug: formData.slug,
+        p_type: formData.type,
+        p_status: formData.status || 'trial',
+        p_subscription_plan: formData.subscription_plan,
+        p_owner_name: formData.owner_name || null,
+        p_owner_email: formData.owner_email || null,
+        p_owner_phone: formData.owner_phone || null,
+        p_business_registration: formData.business_registration || null,
+        p_business_address: formData.business_address || null,
+        p_established_date: formData.established_date || null,
+        p_subscription_start_date: formData.subscription_start_date || null,
+        p_subscription_end_date: formData.subscription_end_date || null,
+        p_trial_ends_at: formData.trial_ends_at || null,
+        p_max_farmers: formData.max_farmers || null,
+        p_max_dealers: formData.max_dealers || null,
+        p_max_products: formData.max_products || null,
+        p_max_storage_gb: formData.max_storage_gb || null,
+        p_max_api_calls_per_day: formData.max_api_calls_per_day || null,
+        p_subdomain: formData.subdomain || null,
+        p_custom_domain: formData.custom_domain || null,
+        p_metadata: formData.metadata || {}
+      });
       
       // Try RPC function first
       const { data, error } = await supabase.rpc('create_tenant_with_validation', {
@@ -222,7 +247,9 @@ export class TenantService {
         metadata: formData.metadata || {},
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      } as any;
+      };
+
+      console.log('TenantService: Direct insert data:', tenantData);
 
       const { data, error } = await supabase
         .from('tenants')
@@ -286,7 +313,7 @@ export class TenantService {
 
       const { data, error } = await supabase
         .from('tenants')
-        .update(updateData as any)
+        .update(updateData)
         .eq('id', tenant.id)
         .select()
         .single();
