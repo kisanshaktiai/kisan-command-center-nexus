@@ -7,16 +7,19 @@ export class TenantService {
     switch (dbPlan) {
       case 'starter':
       case 'kisan':
-        return 'kisan';
+      case 'kisan_starter':
+        return 'kisan_starter';
       case 'growth':
       case 'shakti':
-        return 'shakti';
+      case 'shakti_growth':
+        return 'shakti_growth';
       case 'enterprise':
       case 'custom':
       case 'ai':
-        return 'ai';
+      case 'ai_enterprise':
+        return 'ai_enterprise';
       default:
-        return 'kisan';
+        return 'kisan_starter';
     }
   }
 
@@ -272,11 +275,11 @@ export class TenantService {
 
   static getPlanLimits(plan: SubscriptionPlan) {
     const limits = {
-      kisan: { farmers: 1000, dealers: 50, products: 100, storage: 10, api_calls: 10000 },
-      shakti: { farmers: 5000, dealers: 200, products: 500, storage: 50, api_calls: 50000 },
-      ai: { farmers: 20000, dealers: 1000, products: 2000, storage: 200, api_calls: 200000 },
+      kisan_starter: { farmers: 1000, dealers: 50, products: 100, storage: 10, api_calls: 10000 },
+      shakti_growth: { farmers: 5000, dealers: 200, products: 500, storage: 50, api_calls: 50000 },
+      ai_enterprise: { farmers: 20000, dealers: 1000, products: 2000, storage: 200, api_calls: 200000 },
     };
-    return limits[plan] || limits.kisan;
+    return limits[plan] || limits.kisan_starter;
   }
 
   static getStatusBadgeVariant(status: string | null) {
@@ -291,19 +294,19 @@ export class TenantService {
 
   static getPlanBadgeVariant(plan: SubscriptionPlan | null) {
     switch (plan) {
-      case 'ai': return 'default';
-      case 'shakti': return 'secondary';
-      case 'kisan': return 'outline';
+      case 'ai_enterprise': return 'default';
+      case 'shakti_growth': return 'secondary';
+      case 'kisan_starter': return 'outline';
       default: return 'outline';
     }
   }
 
   static getPlanDisplayName(plan: SubscriptionPlan | null) {
     const displayNames = {
-      'kisan': 'Kisan (Basic)',
-      'shakti': 'Shakti (Growth)', 
-      'ai': 'AI (Enterprise)'
+      'kisan_starter': 'Kisan – Starter',
+      'shakti_growth': 'Shakti – Growth', 
+      'ai_enterprise': 'AI – Enterprise'
     };
-    return displayNames[plan || 'kisan'] || 'Kisan (Basic)';
+    return displayNames[plan || 'kisan_starter'] || 'Kisan – Starter';
   }
 }

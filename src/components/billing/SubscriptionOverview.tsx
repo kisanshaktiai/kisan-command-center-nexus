@@ -26,14 +26,14 @@ interface TenantSubscription {
   updated_at: string;
   billing_plans?: {
     name: string;
-    plan_type: 'kisan' | 'shakti' | 'ai';
+    plan_type: 'kisan_starter' | 'shakti_growth' | 'ai_enterprise';
     base_price: number;
     currency: string;
     billing_interval: string;
   };
   tenants?: {
     name: string;
-    subscription_plan: 'kisan' | 'shakti' | 'ai';
+    subscription_plan: 'kisan_starter' | 'shakti_growth' | 'ai_enterprise';
   };
 }
 
@@ -67,11 +67,11 @@ export function SubscriptionOverview() {
           updated_at: tenant.updated_at || tenant.created_at,
           tenants: {
             name: tenant.name,
-            subscription_plan: tenant.subscription_plan as 'kisan' | 'shakti' | 'ai'
+            subscription_plan: tenant.subscription_plan as 'kisan_starter' | 'shakti_growth' | 'ai_enterprise'
           },
           billing_plans: {
             name: getPlanDisplayName(tenant.subscription_plan),
-            plan_type: tenant.subscription_plan as 'kisan' | 'shakti' | 'ai',
+            plan_type: tenant.subscription_plan as 'kisan_starter' | 'shakti_growth' | 'ai_enterprise',
             base_price: getPlanPrice(tenant.subscription_plan),
             currency: 'INR',
             billing_interval: 'monthly'
@@ -139,18 +139,18 @@ export function SubscriptionOverview() {
 
   function getPlanDisplayName(plan: string): string {
     switch (plan) {
-      case 'kisan': return 'Kisan (Basic)';
-      case 'shakti': return 'Shakti (Growth)';
-      case 'ai': return 'AI (Enterprise)';
-      default: return 'Kisan (Basic)';
+      case 'kisan_starter': return 'Kisan – Starter';
+      case 'shakti_growth': return 'Shakti – Growth';
+      case 'ai_enterprise': return 'AI – Enterprise';
+      default: return 'Kisan – Starter';
     }
   }
 
   function getPlanPrice(plan: string): number {
     switch (plan) {
-      case 'kisan': return 99;
-      case 'shakti': return 199;
-      case 'ai': return 299;
+      case 'kisan_starter': return 99;
+      case 'shakti_growth': return 199;
+      case 'ai_enterprise': return 499;
       default: return 99;
     }
   }
@@ -168,9 +168,9 @@ export function SubscriptionOverview() {
 
   const getPlanTypeColor = (type: string) => {
     switch (type) {
-      case 'kisan': return 'bg-blue-500';
-      case 'shakti': return 'bg-purple-500';
-      case 'ai': return 'bg-green-500';
+      case 'kisan_starter': return 'bg-blue-500';
+      case 'shakti_growth': return 'bg-purple-500';
+      case 'ai_enterprise': return 'bg-green-500';
       default: return 'bg-gray-500';
     }
   };
@@ -232,7 +232,7 @@ export function SubscriptionOverview() {
       <Card>
         <CardHeader>
           <CardTitle>Active Subscriptions</CardTitle>
-          <CardDescription>Manage tenant subscriptions across Kisan, Shakti, and AI plans</CardDescription>
+          <CardDescription>Manage tenant subscriptions across Kisan – Starter, Shakti – Growth, and AI – Enterprise plans</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 mb-6">
@@ -266,9 +266,9 @@ export function SubscriptionOverview() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Plans</SelectItem>
-                <SelectItem value="kisan">Kisan (Basic)</SelectItem>
-                <SelectItem value="shakti">Shakti (Growth)</SelectItem>
-                <SelectItem value="ai">AI (Enterprise)</SelectItem>
+              <SelectItem value="kisan_starter">Kisan – Starter</SelectItem>
+              <SelectItem value="shakti_growth">Shakti – Growth</SelectItem>
+              <SelectItem value="ai_enterprise">AI – Enterprise</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -280,8 +280,8 @@ export function SubscriptionOverview() {
                   <div>
                     <h4 className="font-medium">{subscription.tenants?.name || 'Unknown Tenant'}</h4>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Badge className={getPlanTypeColor(subscription.billing_plans?.plan_type || 'kisan')}>
-                        {getPlanDisplayName(subscription.billing_plans?.plan_type || 'kisan')}
+                    <Badge className={getPlanTypeColor(subscription.billing_plans?.plan_type || 'kisan_starter')}>
+                      {getPlanDisplayName(subscription.billing_plans?.plan_type || 'kisan_starter')}
                       </Badge>
                       <span>•</span>
                       <span>{subscription.billing_plans?.billing_interval}</span>

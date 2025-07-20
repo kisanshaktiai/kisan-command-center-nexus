@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { safeGet } from '@/lib/supabase-helpers';
 
 // Type for subscription plans
-type SubscriptionPlan = 'kisan' | 'shakti' | 'ai';
+type SubscriptionPlan = 'kisan_starter' | 'shakti_growth' | 'ai_enterprise';
 
 // Updated interface to match the actual Supabase schema after migration
 interface BillingPlan {
@@ -76,7 +76,7 @@ export function BillingPlansManager() {
           id: plan.id,
           name: plan.name,
           description: plan.description,
-          plan_type: safeGet(plan, 'plan_type', 'kisan') as SubscriptionPlan,
+          plan_type: safeGet(plan, 'plan_type', 'kisan_starter') as SubscriptionPlan,
           base_price: plan.base_price,
           currency: safeGet(plan, 'currency', 'INR'),
           billing_interval: plan.billing_interval,
@@ -190,18 +190,18 @@ export function BillingPlansManager() {
 
   const getPlanTypeColor = (type: SubscriptionPlan) => {
     switch (type) {
-      case 'kisan': return 'bg-blue-500';
-      case 'shakti': return 'bg-purple-500';
-      case 'ai': return 'bg-green-500';
+      case 'kisan_starter': return 'bg-blue-500';
+      case 'shakti_growth': return 'bg-purple-500';
+      case 'ai_enterprise': return 'bg-green-500';
       default: return 'bg-gray-500';
     }
   };
 
   const getPlanDisplayName = (type: SubscriptionPlan) => {
     switch (type) {
-      case 'kisan': return 'Kisan (Basic)';
-      case 'shakti': return 'Shakti (Growth)';
-      case 'ai': return 'AI (Enterprise)';
+      case 'kisan_starter': return 'Kisan – Starter';
+      case 'shakti_growth': return 'Shakti – Growth';
+      case 'ai_enterprise': return 'AI – Enterprise';
       default: return type;
     }
   };
@@ -238,7 +238,7 @@ export function BillingPlansManager() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Billing Plans Management</h1>
-          <p className="text-muted-foreground">Manage the 3-tier subscription plans: Kisan, Shakti, and AI</p>
+          <p className="text-muted-foreground">Manage the 3-tier subscription plans: Kisan – Starter, Shakti – Growth, and AI – Enterprise</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
@@ -387,7 +387,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: DatabaseBillingPlan) =>
   const [formData, setFormData] = useState<DatabaseBillingPlan>({
     name: '',
     description: '',
-    plan_type: 'kisan',
+    plan_type: 'kisan_starter',
     base_price: 0,
     currency: 'INR',
     billing_interval: 'monthly',
@@ -426,7 +426,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: DatabaseBillingPlan) =>
             id="name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="e.g., Kisan (Basic)"
+            placeholder="e.g., Kisan – Starter"
             required
           />
         </div>
@@ -440,9 +440,9 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: DatabaseBillingPlan) =>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="kisan">Kisan (Basic)</SelectItem>
-              <SelectItem value="shakti">Shakti (Growth)</SelectItem>
-              <SelectItem value="ai">AI (Enterprise)</SelectItem>
+            <SelectItem value="kisan_starter">Kisan – Starter</SelectItem>
+            <SelectItem value="shakti_growth">Shakti – Growth</SelectItem>
+            <SelectItem value="ai_enterprise">AI – Enterprise</SelectItem>
             </SelectContent>
           </Select>
         </div>

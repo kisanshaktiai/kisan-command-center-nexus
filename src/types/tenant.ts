@@ -1,6 +1,6 @@
 
 // Tenant type definitions
-export type SubscriptionPlan = 'kisan' | 'shakti' | 'ai';
+export type SubscriptionPlan = 'kisan_starter' | 'shakti_growth' | 'ai_enterprise';
 export type TenantType = 'agri_company' | 'dealer' | 'ngo' | 'government' | 'university' | 'sugar_factory' | 'cooperative' | 'insurance';
 export type TenantStatus = 'trial' | 'active' | 'suspended' | 'cancelled';
 
@@ -71,9 +71,9 @@ export interface Tenant {
 }
 
 export const subscriptionPlanOptions: { value: SubscriptionPlan; label: string }[] = [
-  { value: 'kisan', label: 'Kisan (Basic)' },
-  { value: 'shakti', label: 'Shakti (Growth)' },
-  { value: 'ai', label: 'AI (Enterprise)' },
+  { value: 'kisan_starter', label: 'Kisan – Starter' },
+  { value: 'shakti_growth', label: 'Shakti – Growth' },
+  { value: 'ai_enterprise', label: 'AI – Enterprise' },
 ];
 
 export const tenantTypeOptions: { value: TenantType; label: string }[] = [
