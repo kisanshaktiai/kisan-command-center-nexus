@@ -81,6 +81,7 @@ export class TenantService {
 
       console.log('TenantService: Calling RPC function create_tenant_with_validation...');
       
+      // Try RPC function first
       const { data, error } = await supabase.rpc('create_tenant_with_validation', {
         p_name: formData.name,
         p_slug: formData.slug,
@@ -108,6 +109,12 @@ export class TenantService {
 
       if (error) {
         console.error('TenantService: Database error creating tenant:', error);
+        
+        // Handle specific errors
+        if (error.code === '42883') {
+          console.log('TenantService: RPC function not found, falling back to direct insert');
+          return await this.createTenantDirectly(formData);
+        }
         
         // Handle specific RLS errors
         if (error.message?.includes('row-level security')) {
@@ -179,6 +186,70 @@ export class TenantService {
       return { 
         success: false, 
         error: error.message || 'An unexpected error occurred while creating the tenant' 
+      };
+    }
+  }
+
+  // Fallback method for direct insertion
+  static async createTenantDirectly(formData: TenantFormData): Promise<RpcResponse> {
+    try {
+      console.log('TenantService: Creating tenant directly via insert');
+      
+      const planLimits = this.getPlanLimits(formData.subscription_plan);
+      
+      const tenantData = {
+        name: formData.name,
+        slug: formData.slug,
+        type: formData.type,
+        status: formData.status || 'trial',
+        subscription_plan: formData.subscription_plan,
+        owner_name: formData.owner_name || null,
+        owner_email: formData.owner_email || null,
+        owner_phone: formData.owner_phone || null,
+        business_registration: formData.business_registration || null,
+        business_address: formData.business_address || null,
+        established_date: formData.established_date || null,
+        subscription_start_date: formData.subscription_start_date || new Date().toISOString(),
+        subscription_end_date: formData.subscription_end_date || null,
+        trial_ends_at: formData.trial_ends_at || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        max_farmers: formData.max_farmers || planLimits.farmers,
+        max_dealers: formData.max_dealers || planLimits.dealers,
+        max_products: formData.max_products || planLimits.products,
+        max_storage_gb: formData.max_storage_gb || planLimits.storage,
+        max_api_calls_per_day: formData.max_api_calls_per_day || planLimits.api_calls,
+        subdomain: formData.subdomain || null,
+        custom_domain: formData.custom_domain || null,
+        metadata: formData.metadata || {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('tenants')
+        .insert(tenantData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('TenantService: Direct insert error:', error);
+        return {
+          success: false,
+          error: `Failed to create tenant: ${error.message}`
+        };
+      }
+
+      console.log('TenantService: Tenant created directly:', data);
+      return {
+        success: true,
+        message: 'Tenant created successfully',
+        tenant_id: data.id,
+        data: { tenant_id: data.id }
+      };
+    } catch (error: any) {
+      console.error('TenantService: Exception in createTenantDirectly:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to create tenant directly'
       };
     }
   }
