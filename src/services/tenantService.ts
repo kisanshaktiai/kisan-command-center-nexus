@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant, TenantFormData, RpcResponse, SubscriptionPlan } from '@/types/tenant';
 
@@ -63,21 +62,27 @@ export class TenantService {
       
       // Validate required fields
       if (!formData.name?.trim()) {
+        console.error('TenantService: Validation failed - name is required');
         return { success: false, error: 'Organization name is required' };
       }
       
       if (!formData.slug?.trim()) {
+        console.error('TenantService: Validation failed - slug is required');
         return { success: false, error: 'Slug is required' };
       }
       
       if (!formData.type) {
+        console.error('TenantService: Validation failed - type is required');
         return { success: false, error: 'Organization type is required' };
       }
       
       if (!formData.subscription_plan) {
+        console.error('TenantService: Validation failed - subscription plan is required');
         return { success: false, error: 'Subscription plan is required' };
       }
 
+      console.log('TenantService: Calling RPC function create_tenant_with_validation...');
+      
       const { data, error } = await supabase.rpc('create_tenant_with_validation', {
         p_name: formData.name,
         p_slug: formData.slug,
@@ -108,13 +113,34 @@ export class TenantService {
         throw new Error(`Database error: ${error.message}`);
       }
 
-      console.log('TenantService: RPC response:', data);
+      console.log('TenantService: RPC response data:', data);
+      console.log('TenantService: RPC response type:', typeof data);
       
       if (!data) {
+        console.error('TenantService: No response from database function');
         throw new Error('No response from database function');
       }
 
-      return data as RpcResponse;
+      // Safely convert the Json response to RpcResponse
+      let rpcResponse: RpcResponse;
+      
+      if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        // Cast as unknown first, then to RpcResponse for type safety
+        rpcResponse = data as unknown as RpcResponse;
+        
+        // Validate the response structure
+        if (typeof rpcResponse.success !== 'boolean') {
+          console.error('TenantService: Invalid RPC response structure:', data);
+          throw new Error('Invalid response from database function');
+        }
+        
+        console.log('TenantService: Parsed RPC response:', rpcResponse);
+      } else {
+        console.error('TenantService: Unexpected response format:', data);
+        throw new Error('Unexpected response format from database function');
+      }
+
+      return rpcResponse;
     } catch (error) {
       console.error('TenantService: Exception in createTenant:', error);
       throw error;
