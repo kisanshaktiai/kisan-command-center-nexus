@@ -1,6 +1,6 @@
 
 // Tenant type definitions  
-export type SubscriptionPlan = 'starter' | 'growth' | 'enterprise' | 'custom';
+export type SubscriptionPlan = 'Kisan_Basic' | 'Shakti_Growth' | 'AI_Enterprise' | 'custom';
 export type TenantType = 'agri_company' | 'dealer' | 'ngo' | 'government' | 'university' | 'sugar_factory' | 'cooperative' | 'insurance';
 export type TenantStatus = 'trial' | 'active' | 'suspended' | 'cancelled';
 
@@ -41,13 +41,6 @@ export interface RpcResponse {
   code?: string;
   data?: {
     tenant_id: string;
-    name: string;
-    slug: string;
-    status: string;
-    subscription_plan: string;
-    trial_ends_at: string;
-    limits: Record<string, any>;
-    features_enabled: Record<string, any>;
   };
 }
 
@@ -80,9 +73,9 @@ export interface Tenant {
 }
 
 export const subscriptionPlanOptions: { value: SubscriptionPlan; label: string }[] = [
-  { value: 'starter', label: 'Kisan – Starter' },
-  { value: 'growth', label: 'Shakti – Growth' },
-  { value: 'enterprise', label: 'AI – Enterprise' },
+  { value: 'Kisan_Basic', label: 'Kisan – Starter' },
+  { value: 'Shakti_Growth', label: 'Shakti – Growth' },
+  { value: 'AI_Enterprise', label: 'AI – Enterprise' },
   { value: 'custom', label: 'Custom Plan' },
 ];
 

@@ -5,16 +5,16 @@ export class TenantService {
   // Convert database subscription plan to frontend type
   private static convertSubscriptionPlan(dbPlan: string | null): SubscriptionPlan {
     switch (dbPlan) {
-      case 'starter':
-        return 'starter';
-      case 'growth':
-        return 'growth';
-      case 'enterprise':
-        return 'enterprise';
+      case 'Kisan_Basic':
+        return 'Kisan_Basic';
+      case 'Shakti_Growth':
+        return 'Shakti_Growth';
+      case 'AI_Enterprise':
+        return 'AI_Enterprise';
       case 'custom':
         return 'custom';
       default:
-        return 'starter';
+        return 'Kisan_Basic';
     }
   }
 
@@ -222,7 +222,7 @@ export class TenantService {
         metadata: formData.metadata || {},
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      };
+      } as any;
 
       const { data, error } = await supabase
         .from('tenants')
@@ -329,12 +329,12 @@ export class TenantService {
 
   static getPlanLimits(plan: SubscriptionPlan) {
     const limits = {
-      starter: { farmers: 1000, dealers: 50, products: 100, storage: 10, api_calls: 10000 },
-      growth: { farmers: 5000, dealers: 200, products: 500, storage: 50, api_calls: 50000 },
-      enterprise: { farmers: 20000, dealers: 1000, products: 2000, storage: 200, api_calls: 200000 },
+      Kisan_Basic: { farmers: 1000, dealers: 50, products: 100, storage: 10, api_calls: 10000 },
+      Shakti_Growth: { farmers: 5000, dealers: 200, products: 500, storage: 50, api_calls: 50000 },
+      AI_Enterprise: { farmers: 20000, dealers: 1000, products: 2000, storage: 200, api_calls: 200000 },
       custom: { farmers: 50000, dealers: 2000, products: 5000, storage: 500, api_calls: 500000 },
     };
-    return limits[plan] || limits.starter;
+    return limits[plan] || limits.Kisan_Basic;
   }
 
   static getStatusBadgeVariant(status: string | null) {
@@ -349,9 +349,9 @@ export class TenantService {
 
   static getPlanBadgeVariant(plan: SubscriptionPlan | null) {
     switch (plan) {
-      case 'enterprise': return 'default';
-      case 'growth': return 'secondary';
-      case 'starter': return 'outline';
+      case 'AI_Enterprise': return 'default';
+      case 'Shakti_Growth': return 'secondary';
+      case 'Kisan_Basic': return 'outline';
       case 'custom': return 'destructive';
       default: return 'outline';
     }
@@ -359,11 +359,11 @@ export class TenantService {
 
   static getPlanDisplayName(plan: SubscriptionPlan | null) {
     const displayNames = {
-      'starter': 'Kisan – Starter',
-      'growth': 'Shakti – Growth', 
-      'enterprise': 'AI – Enterprise',
+      'Kisan_Basic': 'Kisan – Starter',
+      'Shakti_Growth': 'Shakti – Growth', 
+      'AI_Enterprise': 'AI – Enterprise',
       'custom': 'Custom Plan'
     };
-    return displayNames[plan || 'starter'] || 'Kisan – Starter';
+    return displayNames[plan || 'Kisan_Basic'] || 'Kisan – Starter';
   }
 }
