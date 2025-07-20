@@ -38,8 +38,17 @@ export interface RpcResponse {
   error?: string;
   message?: string;
   tenant_id?: string;
-  branding_id?: string;
-  features_id?: string;
+  code?: string;
+  data?: {
+    tenant_id: string;
+    name: string;
+    slug: string;
+    status: string;
+    subscription_plan: string;
+    trial_ends_at: string;
+    limits: Record<string, any>;
+    features_enabled: Record<string, any>;
+  };
 }
 
 export interface Tenant {

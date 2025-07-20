@@ -6487,9 +6487,14 @@ export type Database = {
       }
     }
     Enums: {
-      alert_severity: "low" | "medium" | "high" | "critical"
+      alert_severity: "low" | "medium" | "high" | "critical" | "info"
       alert_status: "active" | "acknowledged" | "resolved"
-      billing_interval: "monthly" | "quarterly" | "annually"
+      billing_interval:
+        | "monthly"
+        | "quarterly"
+        | "annually"
+        | "biannual"
+        | "lifetime"
       language_code:
         | "en"
         | "hi"
@@ -6502,6 +6507,8 @@ export type Database = {
         | "ml"
         | "or"
         | "bn"
+        | "ur"
+        | "ne"
       metric_type: "system" | "usage" | "ai_model" | "financial" | "custom"
       onboarding_step_status:
         | "pending"
@@ -6509,10 +6516,27 @@ export type Database = {
         | "completed"
         | "skipped"
         | "failed"
-      payment_status: "pending" | "paid" | "partial" | "overdue" | "failed"
-      subscription_plan: "starter" | "growth" | "enterprise" | "custom"
+      payment_status:
+        | "pending"
+        | "paid"
+        | "partial"
+        | "overdue"
+        | "failed"
+        | "refunded"
+        | "chargeback"
+      subscription_plan:
+        | "Kisan_Basic"
+        | "Shakti_Growth"
+        | "AI_Enterprise"
+        | "custom"
       subscription_plan_type: "basic" | "premium" | "enterprise" | "custom"
-      tenant_status: "trial" | "active" | "suspended" | "cancelled"
+      tenant_status:
+        | "trial"
+        | "active"
+        | "suspended"
+        | "cancelled"
+        | "archived"
+        | "pending_approval"
       tenant_type:
         | "agri_company"
         | "dealer"
@@ -6528,6 +6552,8 @@ export type Database = {
         | "completed"
         | "failed"
         | "cancelled"
+        | "refunded"
+        | "on_hold"
       user_role:
         | "super_admin"
         | "tenant_owner"
@@ -6671,9 +6697,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      alert_severity: ["low", "medium", "high", "critical"],
+      alert_severity: ["low", "medium", "high", "critical", "info"],
       alert_status: ["active", "acknowledged", "resolved"],
-      billing_interval: ["monthly", "quarterly", "annually"],
+      billing_interval: [
+        "monthly",
+        "quarterly",
+        "annually",
+        "biannual",
+        "lifetime",
+      ],
       language_code: [
         "en",
         "hi",
@@ -6686,6 +6718,8 @@ export const Constants = {
         "ml",
         "or",
         "bn",
+        "ur",
+        "ne",
       ],
       metric_type: ["system", "usage", "ai_model", "financial", "custom"],
       onboarding_step_status: [
@@ -6695,10 +6729,30 @@ export const Constants = {
         "skipped",
         "failed",
       ],
-      payment_status: ["pending", "paid", "partial", "overdue", "failed"],
-      subscription_plan: ["starter", "growth", "enterprise", "custom"],
+      payment_status: [
+        "pending",
+        "paid",
+        "partial",
+        "overdue",
+        "failed",
+        "refunded",
+        "chargeback",
+      ],
+      subscription_plan: [
+        "Kisan_Basic",
+        "Shakti_Growth",
+        "AI_Enterprise",
+        "custom",
+      ],
       subscription_plan_type: ["basic", "premium", "enterprise", "custom"],
-      tenant_status: ["trial", "active", "suspended", "cancelled"],
+      tenant_status: [
+        "trial",
+        "active",
+        "suspended",
+        "cancelled",
+        "archived",
+        "pending_approval",
+      ],
       tenant_type: [
         "agri_company",
         "dealer",
@@ -6715,6 +6769,8 @@ export const Constants = {
         "completed",
         "failed",
         "cancelled",
+        "refunded",
+        "on_hold",
       ],
       user_role: [
         "super_admin",

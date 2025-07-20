@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant, TenantFormData, RpcResponse, SubscriptionPlan } from '@/types/tenant';
 
@@ -5,16 +6,10 @@ export class TenantService {
   // Convert database subscription plan to frontend type
   private static convertSubscriptionPlan(dbPlan: string | null): SubscriptionPlan {
     switch (dbPlan) {
-      case 'kisan':
-      case 'kisan_starter':
       case 'starter':
         return 'starter';
-      case 'shakti':
-      case 'shakti_growth':
       case 'growth':
         return 'growth';
-      case 'ai':
-      case 'ai_enterprise':
       case 'enterprise':
         return 'enterprise';
       case 'custom':
@@ -137,7 +132,6 @@ export class TenantService {
       }
 
       console.log('TenantService: RPC response data:', data);
-      console.log('TenantService: RPC response type:', typeof data);
       
       if (!data) {
         console.error('TenantService: No response from database function');
@@ -147,37 +141,25 @@ export class TenantService {
         };
       }
 
-      // Safely convert the Json response to RpcResponse
-      let rpcResponse: RpcResponse;
+      // Handle the response from the RPC function
+      const rpcResponse = data as RpcResponse;
+      console.log('TenantService: Parsed RPC response:', rpcResponse);
       
-      if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-        // Cast as unknown first, then to RpcResponse for type safety
-        rpcResponse = data as unknown as RpcResponse;
-        
-        // Validate the response structure
-        if (typeof rpcResponse.success !== 'boolean') {
-          console.error('TenantService: Invalid RPC response structure:', data);
-          return { 
-            success: false, 
-            error: 'Invalid response from database function' 
-          };
-        }
-        
-        console.log('TenantService: Parsed RPC response:', rpcResponse);
-      } else {
-        console.error('TenantService: Unexpected response format:', data);
+      // Validate the response structure
+      if (typeof rpcResponse.success !== 'boolean') {
+        console.error('TenantService: Invalid RPC response structure:', data);
         return { 
           success: false, 
-          error: 'Unexpected response format from database function' 
+          error: 'Invalid response from database function' 
         };
       }
 
       if (rpcResponse.success) {
-        console.log('TenantService: Tenant created successfully with ID:', rpcResponse.tenant_id);
+        console.log('TenantService: Tenant created successfully');
         return { 
           success: true, 
           message: rpcResponse.message || 'Tenant created successfully with branding and features',
-          tenant_id: rpcResponse.tenant_id
+          tenant_id: rpcResponse.data?.tenant_id || rpcResponse.tenant_id
         };
       } else {
         console.error('TenantService: Tenant creation failed:', rpcResponse.error);
