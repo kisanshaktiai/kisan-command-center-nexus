@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,6 +128,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     // Auto-update limits when subscription plan changes
     if (field === 'subscription_plan') {
       const limits = TenantService.getPlanLimits(value as SubscriptionPlan);
+      console.log('Updating limits for plan:', value, 'with limits:', limits);
       setFormData(prev => ({
         ...prev,
         max_farmers: limits.farmers,
@@ -331,7 +331,10 @@ export const TenantForm: React.FC<TenantFormProps> = ({
               </Label>
               <Select 
                 value={formData.subscription_plan || ''} 
-                onValueChange={(value) => handleChange('subscription_plan', value)}
+                onValueChange={(value) => {
+                  console.log('Subscription plan selected:', value);
+                  handleChange('subscription_plan', value);
+                }}
               >
                 <SelectTrigger className={errors.subscription_plan ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Select plan" />
@@ -345,6 +348,49 @@ export const TenantForm: React.FC<TenantFormProps> = ({
                 </SelectContent>
               </Select>
               {errors.subscription_plan && <p className="text-sm text-destructive">{errors.subscription_plan}</p>}
+              {formData.subscription_plan && (
+                <div className="text-sm text-muted-foreground mt-2">
+                  <p>Plan Features:</p>
+                  <ul className="list-disc list-inside ml-2">
+                    {formData.subscription_plan === 'Kisan_Basic' && (
+                      <>
+                        <li>1,000 farmers</li>
+                        <li>50 dealers</li>
+                        <li>100 products</li>
+                        <li>10GB storage</li>
+                        <li>Basic features included</li>
+                      </>
+                    )}
+                    {formData.subscription_plan === 'Shakti_Growth' && (
+                      <>
+                        <li>5,000 farmers</li>
+                        <li>200 dealers</li>
+                        <li>500 products</li>
+                        <li>50GB storage</li>
+                        <li>Advanced features included</li>
+                      </>
+                    )}
+                    {formData.subscription_plan === 'AI_Enterprise' && (
+                      <>
+                        <li>20,000 farmers</li>
+                        <li>1,000 dealers</li>
+                        <li>2,000 products</li>
+                        <li>200GB storage</li>
+                        <li>All features included</li>
+                      </>
+                    )}
+                    {formData.subscription_plan === 'custom' && (
+                      <>
+                        <li>50,000+ farmers</li>
+                        <li>2,000+ dealers</li>
+                        <li>5,000+ products</li>
+                        <li>500GB+ storage</li>
+                        <li>Custom features</li>
+                      </>
+                    )}
+                  </ul>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="established_date">

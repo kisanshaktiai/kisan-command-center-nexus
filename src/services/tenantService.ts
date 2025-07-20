@@ -3,20 +3,36 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tenant, TenantFormData, RpcResponse, SubscriptionPlan } from '@/types/tenant';
 
 export class TenantService {
+  // Map UI subscription plan names to database enum values
+  private static mapUIToDatabasePlan(uiPlan: SubscriptionPlan): string {
+    const planMapping = {
+      'Kisan_Basic': 'Kisan_Basic',
+      'Shakti_Growth': 'Shakti_Growth', 
+      'AI_Enterprise': 'AI_Enterprise',
+      'custom': 'custom',
+      // Legacy mappings for backwards compatibility
+      'starter': 'Kisan_Basic',
+      'growth': 'Shakti_Growth',
+      'enterprise': 'AI_Enterprise'
+    };
+    
+    return planMapping[uiPlan as keyof typeof planMapping] || 'Kisan_Basic';
+  }
+
   // Convert database subscription plan to frontend type
   private static convertSubscriptionPlan(dbPlan: string | null): SubscriptionPlan {
-    switch (dbPlan) {
-      case 'Kisan_Basic':
-        return 'Kisan_Basic';
-      case 'Shakti_Growth':
-        return 'Shakti_Growth';
-      case 'AI_Enterprise':
-        return 'AI_Enterprise';
-      case 'custom':
-        return 'custom';
-      default:
-        return 'Kisan_Basic';
-    }
+    const planMapping = {
+      'Kisan_Basic': 'Kisan_Basic' as const,
+      'Shakti_Growth': 'Shakti_Growth' as const,
+      'AI_Enterprise': 'AI_Enterprise' as const,
+      'custom': 'custom' as const,
+      // Legacy mappings
+      'starter': 'Kisan_Basic' as const,
+      'growth': 'Shakti_Growth' as const,
+      'enterprise': 'AI_Enterprise' as const
+    };
+    
+    return planMapping[dbPlan as keyof typeof planMapping] || 'Kisan_Basic';
   }
 
   // Convert database tenant to frontend type
@@ -57,7 +73,7 @@ export class TenantService {
 
   static async createTenant(formData: TenantFormData): Promise<RpcResponse> {
     try {
-      console.log('TenantService: Creating tenant with data:', formData);
+      console.log('TenantService: Creating tenant with formData:', formData);
       
       // Validate required fields
       if (!formData.name?.trim()) {
@@ -80,13 +96,16 @@ export class TenantService {
         return { success: false, error: 'Subscription plan is required' };
       }
 
-      console.log('TenantService: Calling RPC function create_tenant_with_validation...');
-      console.log('TenantService: RPC parameters:', {
+      // Map UI subscription plan to database enum
+      const dbSubscriptionPlan = this.mapUIToDatabasePlan(formData.subscription_plan);
+      console.log('TenantService: Mapped subscription plan from', formData.subscription_plan, 'to', dbSubscriptionPlan);
+
+      const rpcParams = {
         p_name: formData.name,
         p_slug: formData.slug,
         p_type: formData.type,
         p_status: formData.status || 'trial',
-        p_subscription_plan: formData.subscription_plan,
+        p_subscription_plan: dbSubscriptionPlan, // Use mapped database enum value
         p_owner_name: formData.owner_name || null,
         p_owner_email: formData.owner_email || null,
         p_owner_phone: formData.owner_phone || null,
@@ -104,38 +123,16 @@ export class TenantService {
         p_subdomain: formData.subdomain || null,
         p_custom_domain: formData.custom_domain || null,
         p_metadata: formData.metadata || {}
-      });
+      };
+
+      console.log('TenantService: Calling RPC function with params:', rpcParams);
       
-      // Try RPC function first
-      const { data, error } = await supabase.rpc('create_tenant_with_validation', {
-        p_name: formData.name,
-        p_slug: formData.slug,
-        p_type: formData.type,
-        p_status: formData.status || 'trial',
-        p_subscription_plan: formData.subscription_plan,
-        p_owner_name: formData.owner_name || null,
-        p_owner_email: formData.owner_email || null,
-        p_owner_phone: formData.owner_phone || null,
-        p_business_registration: formData.business_registration || null,
-        p_business_address: formData.business_address || null,
-        p_established_date: formData.established_date || null,
-        p_subscription_start_date: formData.subscription_start_date || null,
-        p_subscription_end_date: formData.subscription_end_date || null,
-        p_trial_ends_at: formData.trial_ends_at || null,
-        p_max_farmers: formData.max_farmers || null,
-        p_max_dealers: formData.max_dealers || null,
-        p_max_products: formData.max_products || null,
-        p_max_storage_gb: formData.max_storage_gb || null,
-        p_max_api_calls_per_day: formData.max_api_calls_per_day || null,
-        p_subdomain: formData.subdomain || null,
-        p_custom_domain: formData.custom_domain || null,
-        p_metadata: formData.metadata || {}
-      });
+      const { data, error } = await supabase.rpc('create_tenant_with_validation', rpcParams);
 
       if (error) {
         console.error('TenantService: Database error creating tenant:', error);
         
-        // Handle specific errors
+        // Handle specific RPC function errors
         if (error.code === '42883') {
           console.log('TenantService: RPC function not found, falling back to direct insert');
           return await this.createTenantDirectly(formData);
@@ -153,6 +150,28 @@ export class TenantService {
           return { 
             success: false, 
             error: 'Authentication error. Please try logging out and back in.' 
+          };
+        }
+        
+        // Handle PostgreSQL exceptions from our function
+        if (error.message?.includes('VALIDATION_ERROR:')) {
+          return { 
+            success: false, 
+            error: error.message.replace('VALIDATION_ERROR: ', '') 
+          };
+        }
+        
+        if (error.message?.includes('SLUG_ERROR:')) {
+          return { 
+            success: false, 
+            error: error.message.replace('SLUG_ERROR: ', '') 
+          };
+        }
+        
+        if (error.message?.includes('DUPLICATE_SLUG:')) {
+          return { 
+            success: false, 
+            error: 'This slug is already taken. Please choose a different one.' 
           };
         }
         
@@ -220,6 +239,7 @@ export class TenantService {
     try {
       console.log('TenantService: Creating tenant directly via insert');
       
+      const dbSubscriptionPlan = this.mapUIToDatabasePlan(formData.subscription_plan);
       const planLimits = this.getPlanLimits(formData.subscription_plan);
       
       const tenantData = {
@@ -227,7 +247,7 @@ export class TenantService {
         slug: formData.slug,
         type: formData.type,
         status: formData.status || 'trial',
-        subscription_plan: formData.subscription_plan,
+        subscription_plan: dbSubscriptionPlan, // Use mapped database enum value
         owner_name: formData.owner_name || null,
         owner_email: formData.owner_email || null,
         owner_phone: formData.owner_phone || null,
@@ -285,6 +305,7 @@ export class TenantService {
     try {
       console.log('TenantService: Updating tenant with data:', formData);
       
+      const dbSubscriptionPlan = this.mapUIToDatabasePlan(formData.subscription_plan);
       const planLimits = this.getPlanLimits(formData.subscription_plan);
       
       const metadata = formData.metadata && typeof formData.metadata === 'object' 
@@ -299,6 +320,7 @@ export class TenantService {
       
       const updateData = {
         ...formData,
+        subscription_plan: dbSubscriptionPlan, // Use mapped database enum value
         max_farmers: formData.max_farmers || planLimits.farmers,
         max_dealers: formData.max_dealers || planLimits.dealers,
         max_products: formData.max_products || planLimits.products,
