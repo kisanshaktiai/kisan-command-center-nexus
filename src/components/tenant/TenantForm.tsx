@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,18 +41,45 @@ export const TenantForm: React.FC<TenantFormProps> = ({
 
     switch (currentTab) {
       case 'basic':
-        if (!formData.name.trim()) newErrors.name = 'Organization name is required';
-        if (!formData.slug.trim()) newErrors.slug = 'Slug is required';
+        if (!formData.name?.trim()) newErrors.name = 'Organization name is required';
+        if (!formData.slug?.trim()) newErrors.slug = 'Slug is required';
         if (formData.slug && !/^[a-z0-9-]+$/.test(formData.slug)) {
           newErrors.slug = 'Slug must contain only lowercase letters, numbers, and hyphens';
         }
+        if (!formData.type) newErrors.type = 'Organization type is required';
         break;
       case 'contact':
         if (formData.owner_email && !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(formData.owner_email)) {
           newErrors.owner_email = 'Invalid email format';
         }
         break;
+      case 'subscription':
+        if (!formData.subscription_plan) newErrors.subscription_plan = 'Subscription plan is required';
+        break;
     }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validateAllTabs = () => {
+    const newErrors: FormErrors = {};
+
+    // Basic tab validations
+    if (!formData.name?.trim()) newErrors.name = 'Organization name is required';
+    if (!formData.slug?.trim()) newErrors.slug = 'Slug is required';
+    if (formData.slug && !/^[a-z0-9-]+$/.test(formData.slug)) {
+      newErrors.slug = 'Slug must contain only lowercase letters, numbers, and hyphens';
+    }
+    if (!formData.type) newErrors.type = 'Organization type is required';
+
+    // Contact tab validations
+    if (formData.owner_email && !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(formData.owner_email)) {
+      newErrors.owner_email = 'Invalid email format';
+    }
+
+    // Subscription tab validations
+    if (!formData.subscription_plan) newErrors.subscription_plan = 'Subscription plan is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -70,17 +98,27 @@ export const TenantForm: React.FC<TenantFormProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!validateCurrentTab()) return;
+    console.log('Form submission started with data:', formData);
+    
+    if (!validateAllTabs()) {
+      console.log('Form validation failed with errors:', errors);
+      return;
+    }
     
     setIsSubmitting(true);
     try {
+      console.log('Calling onSubmit function...');
       await onSubmit();
+      console.log('onSubmit completed successfully');
+    } catch (error) {
+      console.error('Error in form submission:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleChange = (field: keyof TenantFormData, value: any) => {
+    console.log(`Field changed: ${field} = ${value}`);
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear error when user starts typing
@@ -112,6 +150,20 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     }
   };
 
+  const RequiredLabel = ({ children }: { children: React.ReactNode }) => (
+    <span className="flex items-center gap-1">
+      {children}
+      <span className="text-red-500 text-sm">*</span>
+    </span>
+  );
+
+  const OptionalLabel = ({ children }: { children: React.ReactNode }) => (
+    <span className="flex items-center gap-1">
+      {children}
+      <span className="text-gray-400 text-sm">(Optional)</span>
+    </span>
+  );
+
   return (
     <div className="space-y-6">
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
@@ -126,10 +178,12 @@ export const TenantForm: React.FC<TenantFormProps> = ({
         <TabsContent value="basic" className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Organization Name*</Label>
+              <Label htmlFor="name">
+                <RequiredLabel>Organization Name</RequiredLabel>
+              </Label>
               <Input
                 id="name"
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={(e) => handleChange('name', e.target.value)}
                 placeholder="Enter organization name"
                 className={errors.name ? 'border-destructive' : ''}
@@ -137,10 +191,12 @@ export const TenantForm: React.FC<TenantFormProps> = ({
               {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="slug">Slug*</Label>
+              <Label htmlFor="slug">
+                <RequiredLabel>Slug</RequiredLabel>
+              </Label>
               <Input
                 id="slug"
-                value={formData.slug}
+                value={formData.slug || ''}
                 onChange={(e) => handleChange('slug', e.target.value)}
                 placeholder="organization-slug"
                 disabled={isEditing}
@@ -152,9 +208,11 @@ export const TenantForm: React.FC<TenantFormProps> = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="type">Organization Type*</Label>
-              <Select value={formData.type} onValueChange={(value) => handleChange('type', value)}>
-                <SelectTrigger>
+              <Label htmlFor="type">
+                <RequiredLabel>Organization Type</RequiredLabel>
+              </Label>
+              <Select value={formData.type || ''} onValueChange={(value) => handleChange('type', value)}>
+                <SelectTrigger className={errors.type ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -165,10 +223,13 @@ export const TenantForm: React.FC<TenantFormProps> = ({
                   ))}
                 </SelectContent>
               </Select>
+              {errors.type && <p className="text-sm text-destructive">{errors.type}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
+              <Label htmlFor="status">
+                <OptionalLabel>Status</OptionalLabel>
+              </Label>
+              <Select value={formData.status || 'trial'} onValueChange={(value) => handleChange('status', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
@@ -184,7 +245,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="business_registration">Business Registration</Label>
+            <Label htmlFor="business_registration">
+              <OptionalLabel>Business Registration</OptionalLabel>
+            </Label>
             <Input
               id="business_registration"
               value={formData.business_registration || ''}
@@ -197,7 +260,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
         <TabsContent value="contact" className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="owner_name">Owner Name</Label>
+              <Label htmlFor="owner_name">
+                <OptionalLabel>Owner Name</OptionalLabel>
+              </Label>
               <Input
                 id="owner_name"
                 value={formData.owner_name || ''}
@@ -206,7 +271,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="owner_email">Owner Email</Label>
+              <Label htmlFor="owner_email">
+                <OptionalLabel>Owner Email</OptionalLabel>
+              </Label>
               <Input
                 id="owner_email"
                 type="email"
@@ -220,7 +287,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="owner_phone">Owner Phone</Label>
+            <Label htmlFor="owner_phone">
+              <OptionalLabel>Owner Phone</OptionalLabel>
+            </Label>
             <Input
               id="owner_phone"
               value={formData.owner_phone || ''}
@@ -230,7 +299,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="business_address">Business Address</Label>
+            <Label htmlFor="business_address">
+              <OptionalLabel>Business Address</OptionalLabel>
+            </Label>
             <Textarea
               id="business_address"
               value={
@@ -255,12 +326,14 @@ export const TenantForm: React.FC<TenantFormProps> = ({
         <TabsContent value="subscription" className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="subscription_plan">Subscription Plan*</Label>
+              <Label htmlFor="subscription_plan">
+                <RequiredLabel>Subscription Plan</RequiredLabel>
+              </Label>
               <Select 
-                value={formData.subscription_plan} 
+                value={formData.subscription_plan || ''} 
                 onValueChange={(value) => handleChange('subscription_plan', value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className={errors.subscription_plan ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Select plan" />
                 </SelectTrigger>
                 <SelectContent>
@@ -271,9 +344,12 @@ export const TenantForm: React.FC<TenantFormProps> = ({
                   ))}
                 </SelectContent>
               </Select>
+              {errors.subscription_plan && <p className="text-sm text-destructive">{errors.subscription_plan}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="established_date">Established Date</Label>
+              <Label htmlFor="established_date">
+                <OptionalLabel>Established Date</OptionalLabel>
+              </Label>
               <Input
                 id="established_date"
                 type="date"
@@ -285,7 +361,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="subscription_start_date">Subscription Start</Label>
+              <Label htmlFor="subscription_start_date">
+                <OptionalLabel>Subscription Start</OptionalLabel>
+              </Label>
               <Input
                 id="subscription_start_date"
                 type="datetime-local"
@@ -294,7 +372,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="subscription_end_date">Subscription End</Label>
+              <Label htmlFor="subscription_end_date">
+                <OptionalLabel>Subscription End</OptionalLabel>
+              </Label>
               <Input
                 id="subscription_end_date"
                 type="datetime-local"
@@ -305,7 +385,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="trial_ends_at">Trial Ends At</Label>
+            <Label htmlFor="trial_ends_at">
+              <OptionalLabel>Trial Ends At</OptionalLabel>
+            </Label>
             <Input
               id="trial_ends_at"
               type="datetime-local"
@@ -318,22 +400,26 @@ export const TenantForm: React.FC<TenantFormProps> = ({
         <TabsContent value="limits" className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="max_farmers">Max Farmers</Label>
+              <Label htmlFor="max_farmers">
+                <OptionalLabel>Max Farmers</OptionalLabel>
+              </Label>
               <Input
                 id="max_farmers"
                 type="number"
                 value={formData.max_farmers || 0}
-                onChange={(e) => handleChange('max_farmers', parseInt(e.target.value))}
+                onChange={(e) => handleChange('max_farmers', parseInt(e.target.value) || 0)}
                 placeholder="Maximum farmers"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="max_dealers">Max Dealers</Label>
+              <Label htmlFor="max_dealers">
+                <OptionalLabel>Max Dealers</OptionalLabel>
+              </Label>
               <Input
                 id="max_dealers"
                 type="number"
                 value={formData.max_dealers || 0}
-                onChange={(e) => handleChange('max_dealers', parseInt(e.target.value))}
+                onChange={(e) => handleChange('max_dealers', parseInt(e.target.value) || 0)}
                 placeholder="Maximum dealers"
               />
             </div>
@@ -341,41 +427,49 @@ export const TenantForm: React.FC<TenantFormProps> = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="max_products">Max Products</Label>
+              <Label htmlFor="max_products">
+                <OptionalLabel>Max Products</OptionalLabel>
+              </Label>
               <Input
                 id="max_products"
                 type="number"
                 value={formData.max_products || 0}
-                onChange={(e) => handleChange('max_products', parseInt(e.target.value))}
+                onChange={(e) => handleChange('max_products', parseInt(e.target.value) || 0)}
                 placeholder="Maximum products"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="max_storage_gb">Max Storage (GB)</Label>
+              <Label htmlFor="max_storage_gb">
+                <OptionalLabel>Max Storage (GB)</OptionalLabel>
+              </Label>
               <Input
                 id="max_storage_gb"
                 type="number"
                 value={formData.max_storage_gb || 0}
-                onChange={(e) => handleChange('max_storage_gb', parseInt(e.target.value))}
+                onChange={(e) => handleChange('max_storage_gb', parseInt(e.target.value) || 0)}
                 placeholder="Maximum storage in GB"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="max_api_calls_per_day">Max API Calls Per Day</Label>
+            <Label htmlFor="max_api_calls_per_day">
+              <OptionalLabel>Max API Calls Per Day</OptionalLabel>
+            </Label>
             <Input
               id="max_api_calls_per_day"
               type="number"
               value={formData.max_api_calls_per_day || 0}
-              onChange={(e) => handleChange('max_api_calls_per_day', parseInt(e.target.value))}
+              onChange={(e) => handleChange('max_api_calls_per_day', parseInt(e.target.value) || 0)}
               placeholder="Maximum API calls per day"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="subdomain">Subdomain</Label>
+              <Label htmlFor="subdomain">
+                <OptionalLabel>Subdomain</OptionalLabel>
+              </Label>
               <Input
                 id="subdomain"
                 value={formData.subdomain || ''}
@@ -384,7 +478,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="custom_domain">Custom Domain</Label>
+              <Label htmlFor="custom_domain">
+                <OptionalLabel>Custom Domain</OptionalLabel>
+              </Label>
               <Input
                 id="custom_domain"
                 value={formData.custom_domain || ''}
@@ -395,7 +491,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="metadata">Metadata (JSON)</Label>
+            <Label htmlFor="metadata">
+              <OptionalLabel>Metadata (JSON)</OptionalLabel>
+            </Label>
             <Textarea
               id="metadata"
               value={

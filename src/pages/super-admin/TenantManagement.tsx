@@ -21,7 +21,7 @@ export default function TenantManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  // Form state
+  // Form state with default values
   const [formData, setFormData] = useState<TenantFormData>({
     name: '',
     slug: '',
@@ -42,13 +42,15 @@ export default function TenantManagement() {
   const fetchTenants = async () => {
     try {
       setLoading(true);
+      console.log('Fetching tenants...');
       const data = await TenantService.fetchTenants();
+      console.log('Tenants fetched successfully:', data);
       setTenants(data);
     } catch (error) {
       console.error('Error fetching tenants:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch tenants",
+        description: "Failed to fetch tenants. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -58,17 +60,59 @@ export default function TenantManagement() {
 
   const handleCreateTenant = async () => {
     try {
-      const result = await TenantService.createTenant(formData);
-
-      if (!result.success) {
+      console.log('Creating tenant with data:', formData);
+      
+      // Validate required fields
+      if (!formData.name?.trim()) {
         toast({
           title: "Validation Error",
-          description: result.error,
+          description: "Organization name is required",
           variant: "destructive",
         });
         return;
       }
 
+      if (!formData.slug?.trim()) {
+        toast({
+          title: "Validation Error", 
+          description: "Slug is required",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!formData.type) {
+        toast({
+          title: "Validation Error",
+          description: "Organization type is required", 
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!formData.subscription_plan) {
+        toast({
+          title: "Validation Error",
+          description: "Subscription plan is required",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const result = await TenantService.createTenant(formData);
+      console.log('Create tenant result:', result);
+
+      if (!result.success) {
+        console.error('Tenant creation failed:', result.error);
+        toast({
+          title: "Creation Failed",
+          description: result.error || "Failed to create tenant",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Tenant created successfully');
       toast({
         title: "Success",
         description: result.message || "Tenant created successfully",
@@ -81,17 +125,60 @@ export default function TenantManagement() {
       console.error('Error creating tenant:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create tenant",
+        description: error.message || "Failed to create tenant. Please try again.",
         variant: "destructive",
       });
     }
   };
 
   const handleUpdateTenant = async () => {
-    if (!editingTenant) return;
+    if (!editingTenant) {
+      console.error('No tenant selected for editing');
+      return;
+    }
 
     try {
+      console.log('Updating tenant with data:', formData);
+      
+      // Validate required fields
+      if (!formData.name?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Organization name is required",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!formData.slug?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Slug is required", 
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!formData.type) {
+        toast({
+          title: "Validation Error",
+          description: "Organization type is required",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!formData.subscription_plan) {
+        toast({
+          title: "Validation Error",
+          description: "Subscription plan is required",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const updatedTenant = await TenantService.updateTenant(editingTenant, formData);
+      console.log('Tenant updated successfully:', updatedTenant);
 
       toast({
         title: "Success",
@@ -106,7 +193,7 @@ export default function TenantManagement() {
       console.error('Error updating tenant:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to update tenant",
+        description: error.message || "Failed to update tenant. Please try again.",
         variant: "destructive",
       });
     }
@@ -118,7 +205,9 @@ export default function TenantManagement() {
     }
 
     try {
+      console.log('Deleting tenant:', tenantId);
       await TenantService.deleteTenant(tenantId);
+      console.log('Tenant deleted successfully');
 
       toast({
         title: "Success",
@@ -130,13 +219,14 @@ export default function TenantManagement() {
       console.error('Error deleting tenant:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to delete tenant",
+        description: error.message || "Failed to delete tenant. Please try again.",
         variant: "destructive",
       });
     }
   };
 
   const openEditDialog = (tenant: Tenant) => {
+    console.log('Opening edit dialog for tenant:', tenant);
     setEditingTenant(tenant);
     
     // Safely handle metadata and business_address
@@ -151,9 +241,9 @@ export default function TenantManagement() {
         : undefined;
     
     setFormData({
-      name: tenant.name,
-      slug: tenant.slug,
-      type: tenant.type,
+      name: tenant.name || '',
+      slug: tenant.slug || '',
+      type: tenant.type || 'agri_company',
       status: tenant.status || 'trial',
       owner_name: tenant.owner_name || '',
       owner_email: tenant.owner_email || '',
@@ -178,6 +268,7 @@ export default function TenantManagement() {
   };
 
   const resetForm = () => {
+    console.log('Resetting form to default values');
     setFormData({
       name: '',
       slug: '',
@@ -217,7 +308,10 @@ export default function TenantManagement() {
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => resetForm()}>
+            <Button onClick={() => {
+              console.log('Opening create dialog');
+              resetForm();
+            }}>
               <Plus className="mr-2 h-4 w-4" />
               Add Tenant
             </Button>
