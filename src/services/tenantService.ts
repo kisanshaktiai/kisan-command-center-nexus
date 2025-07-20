@@ -110,7 +110,26 @@ export class TenantService {
 
       if (error) {
         console.error('TenantService: Database error creating tenant:', error);
-        throw new Error(`Database error: ${error.message}`);
+        
+        // Handle specific RLS errors
+        if (error.message?.includes('row-level security')) {
+          return { 
+            success: false, 
+            error: 'Permission denied. You must be a super admin to create tenants.' 
+          };
+        }
+        
+        if (error.message?.includes('infinite recursion detected')) {
+          return { 
+            success: false, 
+            error: 'Authentication error. Please try logging out and back in.' 
+          };
+        }
+        
+        return { 
+          success: false, 
+          error: `Database error: ${error.message}` 
+        };
       }
 
       console.log('TenantService: RPC response data:', data);
@@ -118,7 +137,10 @@ export class TenantService {
       
       if (!data) {
         console.error('TenantService: No response from database function');
-        throw new Error('No response from database function');
+        return { 
+          success: false, 
+          error: 'No response from database function' 
+        };
       }
 
       // Safely convert the Json response to RpcResponse
@@ -131,19 +153,47 @@ export class TenantService {
         // Validate the response structure
         if (typeof rpcResponse.success !== 'boolean') {
           console.error('TenantService: Invalid RPC response structure:', data);
-          throw new Error('Invalid response from database function');
+          return { 
+            success: false, 
+            error: 'Invalid response from database function' 
+          };
         }
         
         console.log('TenantService: Parsed RPC response:', rpcResponse);
       } else {
         console.error('TenantService: Unexpected response format:', data);
-        throw new Error('Unexpected response format from database function');
+        return { 
+          success: false, 
+          error: 'Unexpected response format from database function' 
+        };
       }
 
-      return rpcResponse;
-    } catch (error) {
+      if (rpcResponse.success) {
+        console.log('TenantService: Tenant created successfully with ID:', rpcResponse.tenant_id);
+        return { 
+          success: true, 
+          message: rpcResponse.message || 'Tenant created successfully with branding and features',
+          tenant_id: rpcResponse.tenant_id
+        };
+      } else {
+        console.error('TenantService: Tenant creation failed:', rpcResponse.error);
+        return rpcResponse;
+      }
+    } catch (error: any) {
       console.error('TenantService: Exception in createTenant:', error);
-      throw error;
+      
+      // Handle network/connection errors
+      if (error.message?.includes('fetch')) {
+        return { 
+          success: false, 
+          error: 'Network error. Please check your connection and try again.' 
+        };
+      }
+      
+      return { 
+        success: false, 
+        error: error.message || 'An unexpected error occurred while creating the tenant' 
+      };
     }
   }
 

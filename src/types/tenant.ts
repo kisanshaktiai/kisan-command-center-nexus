@@ -38,6 +38,8 @@ export interface RpcResponse {
   error?: string;
   message?: string;
   tenant_id?: string;
+  branding_id?: string;
+  features_id?: string;
 }
 
 export interface Tenant {
