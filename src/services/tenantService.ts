@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant, TenantFormData, RpcResponse, SubscriptionPlan } from '@/types/tenant';
 
@@ -141,12 +140,12 @@ export class TenantService {
         };
       }
 
-      // Handle the response from the RPC function
-      const rpcResponse = data as RpcResponse;
+      // Safely convert the response to RpcResponse type
+      const rpcResponse = data as unknown as RpcResponse;
       console.log('TenantService: Parsed RPC response:', rpcResponse);
       
       // Validate the response structure
-      if (typeof rpcResponse.success !== 'boolean') {
+      if (typeof rpcResponse !== 'object' || rpcResponse === null || typeof rpcResponse.success !== 'boolean') {
         console.error('TenantService: Invalid RPC response structure:', data);
         return { 
           success: false, 
@@ -159,7 +158,8 @@ export class TenantService {
         return { 
           success: true, 
           message: rpcResponse.message || 'Tenant created successfully with branding and features',
-          tenant_id: rpcResponse.data?.tenant_id || rpcResponse.tenant_id
+          tenant_id: rpcResponse.data?.tenant_id || rpcResponse.tenant_id,
+          data: rpcResponse.data
         };
       } else {
         console.error('TenantService: Tenant creation failed:', rpcResponse.error);
