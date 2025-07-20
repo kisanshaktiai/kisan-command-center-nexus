@@ -2,12 +2,27 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant, TenantFormData, RpcResponse, SubscriptionPlan } from '@/types/tenant';
 
+// Database subscription plan enum type
+type DatabaseSubscriptionPlan = 'Kisan_Basic' | 'Shakti_Growth' | 'AI_Enterprise' | 'custom';
+
 export class TenantService {
   // Map UI subscription plan names to database enum values
-  private static mapUIToDatabasePlan(uiPlan: SubscriptionPlan): string {
-    const planMapping = {
+  private static mapUIToDatabasePlan(uiPlan: SubscriptionPlan): DatabaseSubscriptionPlan {
+    const planMapping: Record<SubscriptionPlan, DatabaseSubscriptionPlan> = {
       'Kisan_Basic': 'Kisan_Basic',
       'Shakti_Growth': 'Shakti_Growth', 
+      'AI_Enterprise': 'AI_Enterprise',
+      'custom': 'custom'
+    };
+    
+    return planMapping[uiPlan] || 'Kisan_Basic';
+  }
+
+  // Convert database subscription plan to frontend type
+  private static convertSubscriptionPlan(dbPlan: string | null): SubscriptionPlan {
+    const planMapping: Record<string, SubscriptionPlan> = {
+      'Kisan_Basic': 'Kisan_Basic',
+      'Shakti_Growth': 'Shakti_Growth',
       'AI_Enterprise': 'AI_Enterprise',
       'custom': 'custom',
       // Legacy mappings for backwards compatibility
@@ -16,23 +31,7 @@ export class TenantService {
       'enterprise': 'AI_Enterprise'
     };
     
-    return planMapping[uiPlan as keyof typeof planMapping] || 'Kisan_Basic';
-  }
-
-  // Convert database subscription plan to frontend type
-  private static convertSubscriptionPlan(dbPlan: string | null): SubscriptionPlan {
-    const planMapping = {
-      'Kisan_Basic': 'Kisan_Basic' as const,
-      'Shakti_Growth': 'Shakti_Growth' as const,
-      'AI_Enterprise': 'AI_Enterprise' as const,
-      'custom': 'custom' as const,
-      // Legacy mappings
-      'starter': 'Kisan_Basic' as const,
-      'growth': 'Shakti_Growth' as const,
-      'enterprise': 'AI_Enterprise' as const
-    };
-    
-    return planMapping[dbPlan as keyof typeof planMapping] || 'Kisan_Basic';
+    return planMapping[dbPlan || ''] || 'Kisan_Basic';
   }
 
   // Convert database tenant to frontend type
@@ -105,7 +104,7 @@ export class TenantService {
         p_slug: formData.slug,
         p_type: formData.type,
         p_status: formData.status || 'trial',
-        p_subscription_plan: dbSubscriptionPlan, // Use mapped database enum value
+        p_subscription_plan: dbSubscriptionPlan,
         p_owner_name: formData.owner_name || null,
         p_owner_email: formData.owner_email || null,
         p_owner_phone: formData.owner_phone || null,
@@ -247,7 +246,7 @@ export class TenantService {
         slug: formData.slug,
         type: formData.type,
         status: formData.status || 'trial',
-        subscription_plan: dbSubscriptionPlan, // Use mapped database enum value
+        subscription_plan: dbSubscriptionPlan as DatabaseSubscriptionPlan,
         owner_name: formData.owner_name || null,
         owner_email: formData.owner_email || null,
         owner_phone: formData.owner_phone || null,
@@ -320,7 +319,7 @@ export class TenantService {
       
       const updateData = {
         ...formData,
-        subscription_plan: dbSubscriptionPlan, // Use mapped database enum value
+        subscription_plan: dbSubscriptionPlan as DatabaseSubscriptionPlan,
         max_farmers: formData.max_farmers || planLimits.farmers,
         max_dealers: formData.max_dealers || planLimits.dealers,
         max_products: formData.max_products || planLimits.products,
