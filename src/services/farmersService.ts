@@ -141,17 +141,23 @@ export class FarmersService {
       return [];
     }
 
+    // Build the OR condition as a single string
+    const conditions = [];
+    if (mobileNumbers.length > 0) {
+      conditions.push(`mobile_number.in.(${mobileNumbers.join(',')})`);
+    }
+    if (emails.length > 0) {
+      conditions.push(`email.in.(${emails.join(',')})`);
+    }
+    if (aadhaarNumbers.length > 0) {
+      conditions.push(`aadhaar_number.in.(${aadhaarNumbers.join(',')})`);
+    }
+
     const { data, error } = await supabase
       .from('farmers')
       .select('mobile_number, email, aadhaar_number')
       .eq('tenant_id', tenantId)
-      .or(
-        [
-          mobileNumbers.length > 0 ? `mobile_number.in.(${mobileNumbers.join(',')})` : null,
-          emails.length > 0 ? `email.in.(${emails.join(',')})` : null,
-          aadhaarNumbers.length > 0 ? `aadhaar_number.in.(${aadhaarNumbers.join(',')})` : null
-        ].filter(Boolean).join(',')
-      );
+      .or(conditions.join(','));
 
     if (error) {
       console.error('Error checking existing farmers:', error);
