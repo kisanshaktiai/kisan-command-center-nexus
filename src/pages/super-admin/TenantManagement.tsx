@@ -250,7 +250,7 @@ export default function TenantManagement() {
       business_registration: tenant.business_registration || '',
       business_address: businessAddress,
       established_date: tenant.established_date || '',
-      subscription_plan: tenant.subscription_plan || 'starter',
+      subscription_plan: tenant.subscription_plan || 'Kisan_Basic',
       subscription_start_date: tenant.subscription_start_date || '',
       subscription_end_date: tenant.subscription_end_date || '',
       trial_ends_at: tenant.trial_ends_at || '',
