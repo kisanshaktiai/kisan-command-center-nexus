@@ -202,7 +202,12 @@ export class FarmersService {
       .order('created_at', { ascending: false });
 
     if (search) {
-      query = query.or(`name.ilike.%${search}%,mobile_number.ilike.%${search}%,village.ilike.%${search}%`);
+      const searchConditions = [];
+      searchConditions.push(`name.ilike.%${search}%`);
+      searchConditions.push(`mobile_number.ilike.%${search}%`);
+      searchConditions.push(`village.ilike.%${search}%`);
+      
+      query = query.or(searchConditions.join(','));
     }
 
     const { data, error, count } = await query
