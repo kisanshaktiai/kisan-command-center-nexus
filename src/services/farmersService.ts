@@ -211,8 +211,7 @@ export class FarmersService {
     }
 
     const { data, error, count } = await query
-      .range((page - 1) * limit, page * limit - 1)
-      .select('*', { count: 'exact' });
+      .range((page - 1) * limit, page * limit - 1);
 
     if (error) {
       console.error('Error fetching farmers:', error);
