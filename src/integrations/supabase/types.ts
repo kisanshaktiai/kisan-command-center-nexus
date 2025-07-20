@@ -4585,6 +4585,10 @@ export type Database = {
         Args: { land_uuid: string }
         Returns: number
       }
+      check_slug_availability: {
+        Args: { p_slug: string }
+        Returns: Json
+      }
       cleanup_expired_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -4871,6 +4875,10 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
+      generate_slug_suggestions: {
+        Args: { p_organization_name: string }
+        Returns: Json
+      }
       geography: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
@@ -5147,6 +5155,10 @@ export type Database = {
       gtrgm_out: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      is_super_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       is_tenant_admin: {
         Args: { _tenant_id: string }
@@ -6468,6 +6480,10 @@ export type Database = {
           new_srid_in: number
         }
         Returns: string
+      }
+      user_has_tenant_access: {
+        Args: { tenant_uuid: string }
+        Returns: boolean
       }
     }
     Enums: {
