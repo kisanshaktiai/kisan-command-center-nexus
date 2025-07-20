@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant, TenantFormData, RpcResponse, SubscriptionPlan } from '@/types/tenant';
 
@@ -136,22 +135,38 @@ export class TenantService {
         };
       }
 
-      // Parse the response from the simplified function
-      const rpcResponse = data as RpcResponse;
-      console.log('TenantService: Parsed RPC response:', rpcResponse);
-      
-      if (rpcResponse.success) {
-        console.log('TenantService: Tenant created successfully');
-        return { 
-          success: true, 
-          message: rpcResponse.message || 'Tenant created successfully',
-          tenant_id: rpcResponse.data?.tenant_id,
-          data: rpcResponse.data
-        };
-      } else {
-        console.error('TenantService: Tenant creation failed:', rpcResponse.error);
-        return rpcResponse;
+      // Type-safe parsing of the response
+      if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        const response = data as any;
+        
+        // Validate that the response has the required structure
+        if (typeof response.success === 'boolean') {
+          console.log('TenantService: Parsed RPC response:', response);
+          
+          if (response.success) {
+            console.log('TenantService: Tenant created successfully');
+            return { 
+              success: true, 
+              message: response.message || 'Tenant created successfully',
+              tenant_id: response.data?.tenant_id,
+              data: response.data
+            };
+          } else {
+            console.error('TenantService: Tenant creation failed:', response.error);
+            return {
+              success: false,
+              error: response.error || 'Unknown error occurred'
+            };
+          }
+        }
       }
+
+      // If we get here, the response format is unexpected
+      console.error('TenantService: Unexpected response format:', data);
+      return { 
+        success: false, 
+        error: 'Unexpected response format from database function' 
+      };
     } catch (error: any) {
       console.error('TenantService: Exception in createTenant:', error);
       return { 
