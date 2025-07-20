@@ -9,7 +9,7 @@ interface Tenant {
   name: string;
   slug: string;
   type: string;
-  subscription_plan: 'kisan_starter' | 'shakti_growth' | 'ai_enterprise';
+  subscription_plan: 'starter' | 'growth' | 'enterprise' | 'custom';
   status: string;
   settings: Record<string, any>;
   created_at: string;
@@ -54,7 +54,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           name: 'Default Tenant',
           slug: 'default',
           type: 'basic',
-          subscription_plan: 'kisan_starter' as 'kisan_starter' | 'shakti_growth' | 'ai_enterprise',
+          subscription_plan: 'starter' as 'starter' | 'growth' | 'enterprise' | 'custom',
           status: 'active',
           settings: {},
           created_at: new Date().toISOString()

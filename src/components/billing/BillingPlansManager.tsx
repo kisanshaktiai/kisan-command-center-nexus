@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { safeGet } from '@/lib/supabase-helpers';
 
 // Type for subscription plans
-type SubscriptionPlan = 'kisan_starter' | 'shakti_growth' | 'ai_enterprise';
+type SubscriptionPlan = 'starter' | 'growth' | 'enterprise' | 'custom';
 
 // Updated interface to match the actual Supabase schema after migration
 interface BillingPlan {
@@ -76,7 +76,7 @@ export function BillingPlansManager() {
           id: plan.id,
           name: plan.name,
           description: plan.description,
-          plan_type: safeGet(plan, 'plan_type', 'kisan_starter') as SubscriptionPlan,
+          plan_type: safeGet(plan, 'plan_type', 'starter') as SubscriptionPlan,
           base_price: plan.base_price,
           currency: safeGet(plan, 'currency', 'INR'),
           billing_interval: plan.billing_interval,
@@ -190,18 +190,20 @@ export function BillingPlansManager() {
 
   const getPlanTypeColor = (type: SubscriptionPlan) => {
     switch (type) {
-      case 'kisan_starter': return 'bg-blue-500';
-      case 'shakti_growth': return 'bg-purple-500';
-      case 'ai_enterprise': return 'bg-green-500';
+      case 'starter': return 'bg-blue-500';
+      case 'growth': return 'bg-purple-500';
+      case 'enterprise': return 'bg-green-500';
+      case 'custom': return 'bg-orange-500';
       default: return 'bg-gray-500';
     }
   };
 
   const getPlanDisplayName = (type: SubscriptionPlan) => {
     switch (type) {
-      case 'kisan_starter': return 'Kisan – Starter';
-      case 'shakti_growth': return 'Shakti – Growth';
-      case 'ai_enterprise': return 'AI – Enterprise';
+      case 'starter': return 'Kisan – Starter';
+      case 'growth': return 'Shakti – Growth';
+      case 'enterprise': return 'AI – Enterprise';
+      case 'custom': return 'Custom Plan';
       default: return type;
     }
   };
@@ -387,7 +389,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: DatabaseBillingPlan) =>
   const [formData, setFormData] = useState<DatabaseBillingPlan>({
     name: '',
     description: '',
-    plan_type: 'kisan_starter',
+    plan_type: 'starter',
     base_price: 0,
     currency: 'INR',
     billing_interval: 'monthly',
@@ -440,9 +442,10 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: DatabaseBillingPlan) =>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-            <SelectItem value="kisan_starter">Kisan – Starter</SelectItem>
-            <SelectItem value="shakti_growth">Shakti – Growth</SelectItem>
-            <SelectItem value="ai_enterprise">AI – Enterprise</SelectItem>
+            <SelectItem value="starter">Kisan – Starter</SelectItem>
+            <SelectItem value="growth">Shakti – Growth</SelectItem>
+            <SelectItem value="enterprise">AI – Enterprise</SelectItem>
+            <SelectItem value="custom">Custom Plan</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -5,21 +5,22 @@ export class TenantService {
   // Convert database subscription plan to frontend type
   private static convertSubscriptionPlan(dbPlan: string | null): SubscriptionPlan {
     switch (dbPlan) {
-      case 'starter':
       case 'kisan':
       case 'kisan_starter':
-        return 'kisan_starter';
-      case 'growth':
+      case 'starter':
+        return 'starter';
       case 'shakti':
       case 'shakti_growth':
-        return 'shakti_growth';
-      case 'enterprise':
-      case 'custom':
+      case 'growth':
+        return 'growth';
       case 'ai':
       case 'ai_enterprise':
-        return 'ai_enterprise';
+      case 'enterprise':
+        return 'enterprise';
+      case 'custom':
+        return 'custom';
       default:
-        return 'kisan_starter';
+        return 'starter';
     }
   }
 
@@ -275,11 +276,12 @@ export class TenantService {
 
   static getPlanLimits(plan: SubscriptionPlan) {
     const limits = {
-      kisan_starter: { farmers: 1000, dealers: 50, products: 100, storage: 10, api_calls: 10000 },
-      shakti_growth: { farmers: 5000, dealers: 200, products: 500, storage: 50, api_calls: 50000 },
-      ai_enterprise: { farmers: 20000, dealers: 1000, products: 2000, storage: 200, api_calls: 200000 },
+      starter: { farmers: 1000, dealers: 50, products: 100, storage: 10, api_calls: 10000 },
+      growth: { farmers: 5000, dealers: 200, products: 500, storage: 50, api_calls: 50000 },
+      enterprise: { farmers: 20000, dealers: 1000, products: 2000, storage: 200, api_calls: 200000 },
+      custom: { farmers: 50000, dealers: 2000, products: 5000, storage: 500, api_calls: 500000 },
     };
-    return limits[plan] || limits.kisan_starter;
+    return limits[plan] || limits.starter;
   }
 
   static getStatusBadgeVariant(status: string | null) {
@@ -294,19 +296,21 @@ export class TenantService {
 
   static getPlanBadgeVariant(plan: SubscriptionPlan | null) {
     switch (plan) {
-      case 'ai_enterprise': return 'default';
-      case 'shakti_growth': return 'secondary';
-      case 'kisan_starter': return 'outline';
+      case 'enterprise': return 'default';
+      case 'growth': return 'secondary';
+      case 'starter': return 'outline';
+      case 'custom': return 'destructive';
       default: return 'outline';
     }
   }
 
   static getPlanDisplayName(plan: SubscriptionPlan | null) {
     const displayNames = {
-      'kisan_starter': 'Kisan – Starter',
-      'shakti_growth': 'Shakti – Growth', 
-      'ai_enterprise': 'AI – Enterprise'
+      'starter': 'Kisan – Starter',
+      'growth': 'Shakti – Growth', 
+      'enterprise': 'AI – Enterprise',
+      'custom': 'Custom Plan'
     };
-    return displayNames[plan || 'kisan_starter'] || 'Kisan – Starter';
+    return displayNames[plan || 'starter'] || 'Kisan – Starter';
   }
 }
