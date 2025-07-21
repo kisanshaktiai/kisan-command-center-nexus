@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
@@ -11,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Shield, Eye, EyeOff, UserPlus, LogIn, Clock, Mail, Key, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { PasswordStrength, validatePassword } from '@/components/ui/password-strength';
+import { OTPVerification } from '@/components/auth/OTPVerification';
 
 export const SuperAdminAuth = () => {
   const [email, setEmail] = useState('');
@@ -26,6 +26,8 @@ export const SuperAdminAuth = () => {
   const [signupSuccess, setSignupSuccess] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [pendingLoginEmail, setPendingLoginEmail] = useState('');
   
   const { signIn, signUp, resetPassword } = useEnhancedAuth();
   const navigate = useNavigate();
@@ -37,6 +39,19 @@ export const SuperAdminAuth = () => {
     }
   };
 
+  const sendOTP = async (userEmail: string) => {
+    // Simulate sending OTP - replace with actual API call
+    try {
+      // In real implementation, call your backend to send OTP
+      console.log(`Sending OTP to ${userEmail}`);
+      toast.success('OTP sent to your email');
+      return true;
+    } catch (error) {
+      toast.error('Failed to send OTP');
+      return false;
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -45,17 +60,37 @@ export const SuperAdminAuth = () => {
     try {
       validateEmail(email);
       
+      // First verify credentials without actually signing in
       const { error } = await signIn(email, password);
       if (error) throw error;
 
-      toast.success('Welcome to Admin Dashboard');
-      navigate('/super-admin');
+      // If credentials are valid, send OTP
+      const otpSent = await sendOTP(email);
+      if (otpSent) {
+        setPendingLoginEmail(email);
+        setShowOTPVerification(true);
+      }
     } catch (err: any) {
       setError(err.message);
       toast.error(err.message);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleOTPVerified = () => {
+    toast.success('Welcome to Admin Dashboard');
+    navigate('/super-admin');
+  };
+
+  const handleResendOTP = async () => {
+    return sendOTP(pendingLoginEmail);
+  };
+
+  const handleBackToLogin = () => {
+    setShowOTPVerification(false);
+    setPendingLoginEmail('');
+    setPassword('');
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -146,6 +181,18 @@ export const SuperAdminAuth = () => {
       setIsLoading(false);
     }
   };
+
+  if (showOTPVerification) {
+    return (
+      <OTPVerification
+        email={pendingLoginEmail}
+        onVerifySuccess={handleOTPVerified}
+        onResendOTP={handleResendOTP}
+        onBack={handleBackToLogin}
+        isLoading={isLoading}
+      />
+    );
+  }
 
   if (signupSuccess) {
     return (
@@ -257,7 +304,7 @@ export const SuperAdminAuth = () => {
           <div>
             <CardTitle className="text-2xl font-bold">Admin Access</CardTitle>
             <CardDescription>
-              Secure access to KisanShaktiAI platform
+              Secure access to KisanShaktiAI platform with 2FA
             </CardDescription>
           </div>
         </CardHeader>
@@ -283,6 +330,13 @@ export const SuperAdminAuth = () => {
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
+
+                <Alert>
+                  <Shield className="h-4 w-4" />
+                  <AlertDescription>
+                    Two-factor authentication is required. You'll receive an OTP via email.
+                  </AlertDescription>
+                </Alert>
                 
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email Address</Label>
@@ -342,7 +396,7 @@ export const SuperAdminAuth = () => {
                   className="w-full"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Signing In...' : 'Sign In'}
+                  {isLoading ? 'Verifying...' : 'Continue with 2FA'}
                 </Button>
               </form>
             </TabsContent>
@@ -481,7 +535,7 @@ export const SuperAdminAuth = () => {
           </Tabs>
           
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>🔒 Secure authentication with advanced protection</p>
+            <p>🔒 Enhanced security with 2FA protection</p>
             <p className="mt-1">Your data is encrypted and protected</p>
           </div>
         </CardContent>

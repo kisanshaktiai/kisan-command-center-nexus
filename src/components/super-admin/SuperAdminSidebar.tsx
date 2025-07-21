@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -11,14 +10,13 @@ import {
   Flag, 
   Palette, 
   Activity,
-  ChevronLeft,
   Settings,
-  Menu,
-  X,
-  ChevronDown
+  ChevronDown,
+  LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navigationItems = [
   {
@@ -53,6 +51,7 @@ interface SuperAdminSidebarProps {
 
 export function SuperAdminSidebar({ isOpen, setIsOpen }: SuperAdminSidebarProps) {
   const location = useLocation();
+  const { signOut } = useAuth();
   const [openGroups, setOpenGroups] = useState<string[]>(['Platform Management']);
 
   const toggleGroup = (groupTitle: string) => {
@@ -64,6 +63,11 @@ export function SuperAdminSidebar({ isOpen, setIsOpen }: SuperAdminSidebarProps)
   };
 
   const closeSidebar = () => setIsOpen(false);
+
+  const handleSignOut = async () => {
+    await signOut();
+    closeSidebar();
+  };
 
   return (
     <>
@@ -92,14 +96,6 @@ export function SuperAdminSidebar({ isOpen, setIsOpen }: SuperAdminSidebarProps)
                 <p className="text-xs text-slate-300">Platform Management</p>
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="ml-auto lg:hidden text-slate-300 hover:text-white hover:bg-slate-700"
-              onClick={closeSidebar}
-            >
-              <X className="h-5 w-5" />
-            </Button>
           </div>
         </div>
 
@@ -170,26 +166,26 @@ export function SuperAdminSidebar({ isOpen, setIsOpen }: SuperAdminSidebarProps)
           ))}
         </div>
 
-        {/* Footer */}
+        {/* Footer - Sign Out */}
         <div className="border-t border-slate-700 p-4">
-          <Link 
-            to="/" 
-            onClick={closeSidebar}
+          <Button
+            onClick={handleSignOut}
+            variant="ghost"
             className={cn(
-              "flex items-center gap-3 text-sm text-slate-300 hover:text-white transition-colors duration-200 p-2 rounded-lg hover:bg-slate-700/50",
-              (!isOpen && window.innerWidth >= 1024) && "lg:justify-center"
+              "w-full justify-start gap-3 text-sm text-slate-300 hover:text-white transition-colors duration-200 p-3 rounded-lg hover:bg-slate-700/50",
+              (!isOpen && window.innerWidth >= 1024) && "lg:justify-center lg:px-3"
             )}
           >
-            <ChevronLeft className="w-4 h-4" />
+            <LogOut className="w-4 h-4" />
             {(isOpen || window.innerWidth < 1024) && (
               <span className={cn(
                 "transition-opacity duration-200",
                 (!isOpen && window.innerWidth >= 1024) && "lg:opacity-0 lg:w-0 lg:overflow-hidden"
               )}>
-                Back to Application
+                Sign Out
               </span>
             )}
-          </Link>
+          </Button>
         </div>
       </div>
     </>
