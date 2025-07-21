@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -8,7 +7,7 @@ import { TenantCard } from '@/components/tenant/TenantCard';
 import { TenantForm } from '@/components/tenant/TenantForm';
 import { TenantFilters } from '@/components/tenant/TenantFilters';
 import { TenantService } from '@/services/tenantService';
-import { Tenant, TenantFormData } from '@/types/tenant';
+import { Tenant, TenantFormData, TenantType, TenantStatus } from '@/types/tenant';
 
 export default function TenantManagement() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -140,8 +139,8 @@ export default function TenantManagement() {
     setFormData({
       name: tenant.name || '',
       slug: tenant.slug || '',
-      type: tenant.type || 'agri_company',
-      status: tenant.status || 'trial',
+      type: tenant.type as TenantType || 'agri_company',
+      status: tenant.status as TenantStatus || 'trial',
       owner_name: tenant.owner_name || '',
       owner_email: tenant.owner_email || '',
       owner_phone: tenant.owner_phone || '',
