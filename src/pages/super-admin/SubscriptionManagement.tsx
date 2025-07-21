@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,7 @@ interface LocalBillingPlan {
   billing_interval: string;
   features: any[];
   usage_limits?: any;
-  limits?: any;
+  limits: any; // Make this required to match the component expectation
   is_active: boolean;
   is_custom?: boolean;
   created_at: string;
@@ -112,7 +113,7 @@ export default function SubscriptionManagement() {
         billing_interval: plan.billing_interval,
         features: convertJsonToArray(plan.features),
         usage_limits: safeGet(plan, 'usage_limits', {}),
-        limits: plan.limits,
+        limits: safeGet(plan, 'limits', {}), // Ensure limits is always defined
         is_active: plan.is_active,
         is_custom: safeGet(plan, 'is_custom', false),
         created_at: plan.created_at,
