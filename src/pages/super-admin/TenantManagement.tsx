@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -18,6 +19,7 @@ export default function TenantManagement() {
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   // Form state with default values
@@ -47,142 +49,49 @@ export default function TenantManagement() {
       setTenants(data);
     } catch (error) {
       console.error('Error fetching tenants:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch tenants. Please try again.",
-        variant: "destructive",
-      });
+      // Error is already handled in TenantService with toast
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreateTenant = async () => {
+    if (isSubmitting) return;
+    
     try {
+      setIsSubmitting(true);
       console.log('Creating tenant with data:', formData);
       
-      // Validate required fields
-      if (!formData.name?.trim()) {
-        toast({
-          title: "Validation Error",
-          description: "Organization name is required",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!formData.slug?.trim()) {
-        toast({
-          title: "Validation Error", 
-          description: "Slug is required",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!formData.type) {
-        toast({
-          title: "Validation Error",
-          description: "Organization type is required", 
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!formData.subscription_plan) {
-        toast({
-          title: "Validation Error",
-          description: "Subscription plan is required",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const result = await TenantService.createTenant(formData);
       console.log('Create tenant result:', result);
 
-      if (!result.success) {
-        console.error('Tenant creation failed:', result.error);
-        toast({
-          title: "Creation Failed",
-          description: result.error || "Failed to create tenant",
-          variant: "destructive",
-        });
-        return;
+      if (result.success) {
+        console.log('Tenant created successfully');
+        setIsCreateDialogOpen(false);
+        resetForm();
+        fetchTenants();
       }
-
-      console.log('Tenant created successfully');
-      toast({
-        title: "Success",
-        description: result.message || "Tenant created successfully",
-      });
-
-      setIsCreateDialogOpen(false);
-      resetForm();
-      fetchTenants();
+      // Error handling is done in TenantService
     } catch (error: any) {
       console.error('Error creating tenant:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create tenant. Please try again.",
-        variant: "destructive",
-      });
+      // Error is already handled in TenantService with toast
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleUpdateTenant = async () => {
-    if (!editingTenant) {
+    if (!editingTenant || isSubmitting) {
       console.error('No tenant selected for editing');
       return;
     }
 
     try {
+      setIsSubmitting(true);
       console.log('Updating tenant with data:', formData);
       
-      // Validate required fields
-      if (!formData.name?.trim()) {
-        toast({
-          title: "Validation Error",
-          description: "Organization name is required",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!formData.slug?.trim()) {
-        toast({
-          title: "Validation Error",
-          description: "Slug is required", 
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!formData.type) {
-        toast({
-          title: "Validation Error",
-          description: "Organization type is required",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!formData.subscription_plan) {
-        toast({
-          title: "Validation Error",
-          description: "Subscription plan is required",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const updatedTenant = await TenantService.updateTenant(editingTenant, formData);
       console.log('Tenant updated successfully:', updatedTenant);
-
-      toast({
-        title: "Success",
-        description: "Tenant updated successfully",
-      });
 
       setTenants(prev => prev.map(t => t.id === editingTenant.id ? updatedTenant : t));
       setIsEditDialogOpen(false);
@@ -190,11 +99,9 @@ export default function TenantManagement() {
       resetForm();
     } catch (error: any) {
       console.error('Error updating tenant:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update tenant. Please try again.",
-        variant: "destructive",
-      });
+      // Error is already handled in TenantService with toast
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -208,19 +115,10 @@ export default function TenantManagement() {
       await TenantService.deleteTenant(tenantId);
       console.log('Tenant deleted successfully');
 
-      toast({
-        title: "Success",
-        description: "Tenant deleted successfully",
-      });
-
       setTenants(prev => prev.filter(t => t.id !== tenantId));
     } catch (error: any) {
       console.error('Error deleting tenant:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete tenant. Please try again.",
-        variant: "destructive",
-      });
+      // Error is already handled in TenantService with toast
     }
   };
 

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant, TenantFormData, RpcResponse, SubscriptionPlan } from '@/types/tenant';
+import { toast } from 'sonner';
 
 // Database subscription plan enum type that matches the database
 type DatabaseSubscriptionPlan = 'Kisan_Basic' | 'Shakti_Growth' | 'AI_Enterprise' | 'custom';
@@ -43,6 +44,7 @@ export class TenantService {
 
       if (error) {
         console.error('TenantService: Error fetching tenants:', error);
+        toast.error(`Failed to fetch tenants: ${error.message}`);
         throw new Error(`Failed to fetch tenants: ${error.message}`);
       }
       
@@ -66,22 +68,30 @@ export class TenantService {
       // Validate required fields
       if (!formData.name?.trim()) {
         console.error('TenantService: Validation failed - name is required');
-        return { success: false, error: 'Organization name is required' };
+        const errorMsg = 'Organization name is required';
+        toast.error(errorMsg);
+        return { success: false, error: errorMsg };
       }
       
       if (!formData.slug?.trim()) {
         console.error('TenantService: Validation failed - slug is required');
-        return { success: false, error: 'Slug is required' };
+        const errorMsg = 'Slug is required';
+        toast.error(errorMsg);
+        return { success: false, error: errorMsg };
       }
       
       if (!formData.type) {
         console.error('TenantService: Validation failed - type is required');
-        return { success: false, error: 'Organization type is required' };
+        const errorMsg = 'Organization type is required';
+        toast.error(errorMsg);
+        return { success: false, error: errorMsg };
       }
       
       if (!formData.subscription_plan) {
         console.error('TenantService: Validation failed - subscription plan is required');
-        return { success: false, error: 'Subscription plan is required' };
+        const errorMsg = 'Subscription plan is required';
+        toast.error(errorMsg);
+        return { success: false, error: errorMsg };
       }
 
       // Map UI subscription plan to database enum (now they match directly)
@@ -121,9 +131,11 @@ export class TenantService {
 
       if (error) {
         console.error('TenantService: Database error creating tenant:', error);
+        const errorMsg = `Database error: ${error.message}`;
+        toast.error(errorMsg);
         return { 
           success: false, 
-          error: `Database error: ${error.message}` 
+          error: errorMsg
         };
       }
 
@@ -131,9 +143,11 @@ export class TenantService {
       
       if (!data) {
         console.error('TenantService: No response from database function');
+        const errorMsg = 'No response from database function';
+        toast.error(errorMsg);
         return { 
           success: false, 
-          error: 'No response from database function' 
+          error: errorMsg
         };
       }
 
@@ -147,6 +161,7 @@ export class TenantService {
           
           if (response.success) {
             console.log('TenantService: Tenant created successfully');
+            toast.success(response.message || 'Tenant created successfully');
             return { 
               success: true, 
               message: response.message || 'Tenant created successfully',
@@ -155,6 +170,7 @@ export class TenantService {
             };
           } else {
             console.error('TenantService: Tenant creation failed:', response.error);
+            toast.error(response.error || 'Unknown error occurred');
             return {
               success: false,
               error: response.error || 'Unknown error occurred'
@@ -165,15 +181,35 @@ export class TenantService {
 
       // If we get here, the response format is unexpected
       console.error('TenantService: Unexpected response format:', data);
+      const errorMsg = 'Unexpected response format from database function';
+      toast.error(errorMsg);
       return { 
         success: false, 
-        error: 'Unexpected response format from database function' 
+        error: errorMsg
       };
     } catch (error: any) {
       console.error('TenantService: Exception in createTenant:', error);
+      let errorMessage = 'An unexpected error occurred while creating the tenant';
+      
+      // Parse specific error types
+      if (error.message.includes('VALIDATION_ERROR')) {
+        errorMessage = error.message.replace('VALIDATION_ERROR: ', '');
+      } else if (error.message.includes('SLUG_ERROR')) {
+        errorMessage = error.message.replace('SLUG_ERROR: ', '');
+      } else if (error.message.includes('DATABASE_ERROR')) {
+        errorMessage = error.message.replace('DATABASE_ERROR: ', '');
+      } else if (error.message.includes('DUPLICATE_SLUG')) {
+        errorMessage = 'A tenant with this slug already exists';
+      } else if (error.message.includes('CONSTRAINT_VIOLATION')) {
+        errorMessage = 'Invalid data provided - please check your inputs';
+      } else if (error.message.includes('FOREIGN_KEY_VIOLATION')) {
+        errorMessage = 'Invalid reference data provided';
+      }
+      
+      toast.error(errorMessage);
       return { 
         success: false, 
-        error: error.message || 'An unexpected error occurred while creating the tenant' 
+        error: errorMessage
       };
     }
   }
@@ -219,10 +255,12 @@ export class TenantService {
 
       if (error) {
         console.error('TenantService: Database error updating tenant:', error);
+        toast.error(`Failed to update tenant: ${error.message}`);
         throw new Error(`Failed to update tenant: ${error.message}`);
       }
       
       console.log('TenantService: Tenant updated successfully:', data);
+      toast.success('Tenant updated successfully');
       
       // Convert database response to frontend type
       return this.convertDatabaseTenant(data);
@@ -243,10 +281,12 @@ export class TenantService {
 
       if (error) {
         console.error('TenantService: Database error deleting tenant:', error);
+        toast.error(`Failed to delete tenant: ${error.message}`);
         throw new Error(`Failed to delete tenant: ${error.message}`);
       }
       
       console.log('TenantService: Tenant deleted successfully');
+      toast.success('Tenant deleted successfully');
     } catch (error) {
       console.error('TenantService: Exception in deleteTenant:', error);
       throw error;
