@@ -27,7 +27,7 @@ export class TenantService {
   private static convertDatabaseTenant(dbTenant: any): Tenant {
     return {
       ...dbTenant,
-      subscription_plan: this.convertSubscriptionPlan(dbTenant.subscription_plan),
+      subscription_plan: TenantService.convertSubscriptionPlan(dbTenant.subscription_plan),
       status: dbTenant.status || 'trial',
       // Include branding and features data if available
       branding: dbTenant.tenant_branding?.[0] || null,
@@ -88,8 +88,8 @@ export class TenantService {
       
       console.log('TenantService: Raw tenants data with relations:', data);
       
-      // Convert database records to frontend types
-      const convertedTenants = (data || []).map(this.convertDatabaseTenant);
+      // Convert database records to frontend types using static method
+      const convertedTenants = (data || []).map(TenantService.convertDatabaseTenant);
       console.log('TenantService: Converted tenants with enhanced data:', convertedTenants);
       
       return convertedTenants;
@@ -149,7 +149,7 @@ export class TenantService {
         return null;
       }
 
-      return this.convertDatabaseTenant(data);
+      return TenantService.convertDatabaseTenant(data);
     } catch (error) {
       console.error('TenantService: Exception in fetchTenantById:', error);
       return null;
@@ -382,7 +382,7 @@ export class TenantService {
       console.log('TenantService: Tenant updated successfully:', data);
       toast.success('Tenant updated successfully');
       
-      return this.convertDatabaseTenant(data);
+      return TenantService.convertDatabaseTenant(data);
     } catch (error) {
       console.error('TenantService: Exception in updateTenant:', error);
       throw error;
