@@ -23,6 +23,13 @@ export default function TenantManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
+  const [formData, setFormData] = useState<TenantFormData>({
+    name: '',
+    slug: '',
+    type: 'agri_company',
+    status: 'trial',
+    subscription_plan: 'Kisan_Basic'
+  });
   const queryClient = useQueryClient();
 
   // Fetch tenants
@@ -61,16 +68,40 @@ export default function TenantManagement() {
     },
   });
 
-  const handleCreate = async (formData: TenantFormData) => {
+  const handleCreate = () => {
     createTenantMutation.mutate(formData);
   };
 
   const handleEdit = (tenant: Tenant) => {
     setSelectedTenant(tenant);
+    setFormData({
+      name: tenant.name,
+      slug: tenant.slug,
+      type: tenant.type as any,
+      status: tenant.status as any,
+      subscription_plan: tenant.subscription_plan,
+      owner_name: tenant.owner_name,
+      owner_email: tenant.owner_email,
+      owner_phone: tenant.owner_phone,
+      business_registration: tenant.business_registration,
+      business_address: tenant.business_address,
+      established_date: tenant.established_date,
+      subscription_start_date: tenant.subscription_start_date,
+      subscription_end_date: tenant.subscription_end_date,
+      trial_ends_at: tenant.trial_ends_at,
+      max_farmers: tenant.max_farmers,
+      max_dealers: tenant.max_dealers,
+      max_products: tenant.max_products,
+      max_storage_gb: tenant.max_storage_gb,
+      max_api_calls_per_day: tenant.max_api_calls_per_day,
+      subdomain: tenant.subdomain,
+      custom_domain: tenant.custom_domain,
+      metadata: tenant.metadata
+    });
     setIsFormOpen(true);
   };
 
-  const handleUpdate = async (formData: TenantFormData) => {
+  const handleUpdate = () => {
     if (!selectedTenant) return;
     updateTenantMutation.mutate({ tenant: selectedTenant, formData });
   };
@@ -80,7 +111,7 @@ export default function TenantManagement() {
     setIsDeleteDialogOpen(true);
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (!selectedTenant) return;
     deleteTenantMutation.mutate(selectedTenant.id);
   };
@@ -233,9 +264,10 @@ export default function TenantManagement() {
             </DialogDescription>
           </DialogHeader>
           <TenantForm
+            formData={formData}
+            setFormData={setFormData}
             onSubmit={selectedTenant ? handleUpdate : handleCreate}
-            initialValues={selectedTenant}
-            isLoading={createTenantMutation.isPending || updateTenantMutation.isPending}
+            isEditing={!!selectedTenant}
           />
         </DialogContent>
       </Dialog>
