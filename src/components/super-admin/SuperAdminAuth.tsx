@@ -35,19 +35,18 @@ export const SuperAdminAuth = () => {
 
   const generateAndSendOTP = async (userEmail: string): Promise<void> => {
     try {
-      // Generate OTP using database function
-      const { data: otp, error } = await supabase.rpc('generate_otp', {
-        p_email: userEmail,
-        p_purpose: 'login'
-      });
-
-      if (error) throw error;
-
-      // In production, send email here
-      console.log(`Generated OTP for ${userEmail}: ${otp}`);
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
       
-      // For demo purposes, show the OTP in console
+      // For demo purposes, show the OTP in console and toast
+      console.log(`Generated OTP for ${userEmail}: ${otp}`);
       toast.success(`OTP sent to ${userEmail}. Check console for demo OTP: ${otp}`);
+      
+      // Store OTP temporarily (in production, use proper storage)
+      localStorage.setItem(`otp_${userEmail}`, JSON.stringify({
+        otp,
+        expires: Date.now() + 10 * 60 * 1000 // 10 minutes
+      }));
     } catch (error: any) {
       console.error('Failed to generate OTP:', error);
       toast.error('Failed to send OTP');
@@ -89,18 +88,25 @@ export const SuperAdminAuth = () => {
 
   const handleOTPVerification = async (otp: string) => {
     try {
-      // Verify OTP using database function
-      const { data: isValid, error } = await supabase.rpc('verify_otp', {
-        p_email: pendingLoginEmail,
-        p_otp_code: otp,
-        p_purpose: 'login'
-      });
-
-      if (error) throw error;
-
-      if (!isValid) {
-        throw new Error('Invalid or expired OTP');
+      // Get stored OTP
+      const storedData = localStorage.getItem(`otp_${pendingLoginEmail}`);
+      if (!storedData) {
+        throw new Error('OTP not found or expired');
       }
+      
+      const { otp: storedOtp, expires } = JSON.parse(storedData);
+      
+      if (Date.now() > expires) {
+        localStorage.removeItem(`otp_${pendingLoginEmail}`);
+        throw new Error('OTP has expired');
+      }
+      
+      if (otp !== storedOtp) {
+        throw new Error('Invalid OTP');
+      }
+      
+      // Clean up stored OTP
+      localStorage.removeItem(`otp_${pendingLoginEmail}`);
 
       // OTP verified successfully, now sign in properly
       const { error: signInError } = await supabase.auth.signInWithPassword({

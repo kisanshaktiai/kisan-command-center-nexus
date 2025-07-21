@@ -9,7 +9,8 @@ import { toast } from 'sonner';
 
 interface OTPVerificationProps {
   email: string;
-  onVerifySuccess: () => void;
+  onVerify?: (otp: string) => Promise<void>;
+  onVerifySuccess?: () => void;
   onResendOTP: () => Promise<void>;
   onBack: () => void;
   isLoading?: boolean;
@@ -17,6 +18,7 @@ interface OTPVerificationProps {
 
 export const OTPVerification: React.FC<OTPVerificationProps> = ({
   email,
+  onVerify,
   onVerifySuccess,
   onResendOTP,
   onBack,
@@ -51,15 +53,18 @@ export const OTPVerification: React.FC<OTPVerificationProps> = ({
     setError('');
 
     try {
-      // Simulate OTP verification - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock verification logic - in real implementation, verify with backend
-      if (otp === '123456') { // Mock valid OTP
+      if (onVerify) {
+        await onVerify(otp);
         toast.success('OTP verified successfully!');
-        onVerifySuccess();
       } else {
-        throw new Error('Invalid OTP. Please try again.');
+        // Fallback mock verification
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (otp === '123456') {
+          toast.success('OTP verified successfully!');
+          onVerifySuccess?.();
+        } else {
+          throw new Error('Invalid OTP. Please try again.');
+        }
       }
     } catch (err: any) {
       setError(err.message);
