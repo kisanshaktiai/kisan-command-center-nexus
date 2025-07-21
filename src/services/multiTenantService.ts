@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { TenantContext } from '@/hooks/useMultiTenant';
@@ -70,13 +69,11 @@ export class MultiTenantService {
         tenant_id: data.id,
         subdomain: data.subdomain,
         custom_domain: data.custom_domain,
-        branding: {
-          primary_color: data.tenant_branding?.[0]?.primary_color || '#10B981',
-          secondary_color: data.tenant_branding?.[0]?.secondary_color || '#065F46',
-          accent_color: data.tenant_branding?.[0]?.accent_color || '#F59E0B',
-          app_name: data.tenant_branding?.[0]?.app_name || data.name,
-          logo_url: data.tenant_branding?.[0]?.logo_url,
-        },
+        primary_color: data.tenant_branding?.[0]?.primary_color || '#10B981',
+        secondary_color: data.tenant_branding?.[0]?.secondary_color || '#065F46',
+        accent_color: data.tenant_branding?.[0]?.accent_color || '#F59E0B',
+        app_name: data.tenant_branding?.[0]?.app_name || data.name,
+        logo_url: data.tenant_branding?.[0]?.logo_url,
         features: {
           ai_chat: data.tenant_features?.[0]?.ai_chat || false,
           weather_forecast: data.tenant_features?.[0]?.weather_forecast || false,
@@ -128,14 +125,20 @@ export class MultiTenantService {
   }
 
   // Apply tenant branding to DOM
-  static applyTenantBranding(branding: TenantContext['branding']): void {
+  static applyTenantBranding(branding: Partial<TenantContext>): void {
     try {
       const root = document.documentElement;
       
       // Apply CSS custom properties for theming
-      root.style.setProperty('--tenant-primary', branding.primary_color);
-      root.style.setProperty('--tenant-secondary', branding.secondary_color);
-      root.style.setProperty('--tenant-accent', branding.accent_color);
+      if (branding.primary_color) {
+        root.style.setProperty('--tenant-primary', branding.primary_color);
+      }
+      if (branding.secondary_color) {
+        root.style.setProperty('--tenant-secondary', branding.secondary_color);
+      }
+      if (branding.accent_color) {
+        root.style.setProperty('--tenant-accent', branding.accent_color);
+      }
 
       // Update document title
       if (branding.app_name) {
@@ -170,18 +173,47 @@ export class MultiTenantService {
 
   // Get tenant-scoped Supabase client
   static getTenantScopedClient() {
-    const client = supabase;
     const tenantId = this.currentTenant?.tenant_id;
 
     if (!tenantId) {
       throw new Error('No tenant context available');
     }
 
+    // Return a wrapper object with tenant-scoped methods
     return {
-      ...client,
-      from: (tableName: string) => {
-        return client.from(tableName).eq('tenant_id', tenantId);
+      // Provide access to the original client for non-tenant-scoped operations
+      client: supabase,
+      
+      // Tenant-scoped query builder
+      from: <T extends keyof typeof supabase.from>(tableName: T) => {
+        const query = supabase.from(tableName as any);
+        // Add tenant filter for tables that have tenant_id
+        return {
+          ...query,
+          select: (columns?: string) => {
+            const selectQuery = query.select(columns);
+            // Try to add tenant filter if the table likely has tenant_id
+            try {
+              return selectQuery.eq('tenant_id', tenantId);
+            } catch {
+              // If tenant_id doesn't exist on this table, return without filter
+              return selectQuery;
+            }
+          },
+          insert: (values: any) => {
+            // Add tenant_id to insert if it's an object
+            if (typeof values === 'object' && !Array.isArray(values)) {
+              return query.insert({ ...values, tenant_id: tenantId });
+            } else if (Array.isArray(values)) {
+              return query.insert(values.map(v => ({ ...v, tenant_id: tenantId })));
+            }
+            return query.insert(values);
+          },
+          update: (values: any) => query.update(values).eq('tenant_id', tenantId),
+          delete: () => query.delete().eq('tenant_id', tenantId),
+        };
       },
+      
       getTenantId: () => tenantId,
     };
   }
@@ -200,7 +232,7 @@ export class MultiTenantService {
       const tenant = await this.detectTenant(hostname);
       
       if (tenant) {
-        this.applyTenantBranding(tenant.branding);
+        this.applyTenantBranding(tenant);
         return tenant;
       }
 
