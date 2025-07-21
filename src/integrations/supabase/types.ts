@@ -3255,6 +3255,7 @@ export type Database = {
           deleted_at: string | null
           established_date: string | null
           id: string
+          isDefault: boolean | null
           max_api_calls_per_day: number | null
           max_dealers: number | null
           max_farmers: number | null
@@ -3286,6 +3287,7 @@ export type Database = {
           deleted_at?: string | null
           established_date?: string | null
           id?: string
+          isDefault?: boolean | null
           max_api_calls_per_day?: number | null
           max_dealers?: number | null
           max_farmers?: number | null
@@ -3317,6 +3319,7 @@ export type Database = {
           deleted_at?: string | null
           established_date?: string | null
           id?: string
+          isDefault?: boolean | null
           max_api_calls_per_day?: number | null
           max_dealers?: number | null
           max_farmers?: number | null

@@ -64,6 +64,11 @@ const convertJsonToArray = (jsonValue: any): any[] => {
   return [];
 };
 
+// Helper function to safely get a property with fallback
+const safeGet = (obj: any, key: string, fallback: any = null) => {
+  return obj && typeof obj === 'object' && key in obj ? obj[key] : fallback;
+};
+
 export default function SubscriptionManagement() {
   const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -92,20 +97,20 @@ export default function SubscriptionManagement() {
 
       console.log('Billing plans fetched:', data);
       
-      // Transform the data to match our interface
+      // Transform the data to match our interface with safe property access
       return (data || []).map(plan => ({
         id: plan.id,
         name: plan.name,
         description: plan.description,
-        plan_type: plan.plan_type,
+        plan_type: safeGet(plan, 'plan_type', 'starter'),
         base_price: plan.base_price,
-        currency: plan.currency,
+        currency: safeGet(plan, 'currency', 'INR'),
         billing_interval: plan.billing_interval,
         features: convertJsonToArray(plan.features),
-        usage_limits: plan.usage_limits,
+        usage_limits: safeGet(plan, 'usage_limits', {}),
         limits: plan.limits,
         is_active: plan.is_active,
-        is_custom: plan.is_custom,
+        is_custom: safeGet(plan, 'is_custom', false),
         created_at: plan.created_at,
         updated_at: plan.updated_at
       }));
@@ -220,11 +225,11 @@ export default function SubscriptionManagement() {
 
   const getPlanTypeColor = (type: string) => {
     switch (type?.toLowerCase()) {
-      case 'kisan_basic':
+      case 'kisan':
       case 'starter': return 'bg-blue-500';
-      case 'shakti_growth':
+      case 'shakti':
       case 'growth': return 'bg-purple-500';
-      case 'ai_enterprise':
+      case 'ai':
       case 'enterprise': return 'bg-green-500';
       case 'custom': return 'bg-orange-500';
       default: return 'bg-gray-500';
@@ -237,9 +242,9 @@ export default function SubscriptionManagement() {
 
   const getPlanDisplayName = (plan: string) => {
     switch (plan) {
-      case 'Kisan_Basic': return 'Kisan – Starter';
-      case 'Shakti_Growth': return 'Shakti – Growth';
-      case 'AI_Enterprise': return 'AI – Enterprise';
+      case 'kisan': return 'Kisan – Starter';
+      case 'shakti': return 'Shakti – Growth';
+      case 'ai': return 'AI – Enterprise';
       case 'custom': return 'Custom Plan';
       default: return plan;
     }
