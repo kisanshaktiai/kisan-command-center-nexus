@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { SuperAdminHeader } from '@/components/super-admin/SuperAdminHeader';
 import { SuperAdminSidebar } from '@/components/super-admin/SuperAdminSidebar';
@@ -16,6 +16,7 @@ import PlatformMonitoring from './super-admin/PlatformMonitoring';
 
 export default function SuperAdmin() {
   const { user } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const adminUser = {
     full_name: user?.user_metadata?.full_name || 'Super Admin',
@@ -25,11 +26,15 @@ export default function SuperAdmin() {
 
   return (
     <ProtectedRoute requireAdmin={true}>
-      <div className="min-h-screen flex w-full bg-gray-50">
-        <SuperAdminSidebar />
-        <div className="flex-1 flex flex-col lg:ml-0">
-          <SuperAdminHeader setSidebarOpen={() => {}} adminUser={adminUser} />
-          <main className="flex-1 p-6">
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-slate-100">
+        <SuperAdminSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+        <div className="flex-1 flex flex-col">
+          <SuperAdminHeader 
+            setSidebarOpen={setSidebarOpen} 
+            adminUser={adminUser} 
+            sidebarOpen={sidebarOpen}
+          />
+          <main className="flex-1 p-6 overflow-auto">
             <Routes>
               <Route path="/" element={<Overview />} />
               <Route path="/tenants" element={<TenantManagement />} />
