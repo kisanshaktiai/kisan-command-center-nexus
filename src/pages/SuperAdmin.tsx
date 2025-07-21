@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { SuperAdminHeader } from '@/components/super-admin/SuperAdminHeader';
 import { SuperAdminSidebar } from '@/components/super-admin/SuperAdminSidebar';
@@ -13,10 +13,8 @@ import BillingManagement from './super-admin/BillingManagement';
 import FeatureFlags from './super-admin/FeatureFlags';
 import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
-import { SidebarProvider } from '@/components/ui/sidebar';
 
 export default function SuperAdmin() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user } = useAuth();
 
   const adminUser = {
@@ -27,26 +25,24 @@ export default function SuperAdmin() {
 
   return (
     <ProtectedRoute requireAdmin={true}>
-      <SidebarProvider>
-        <div className="min-h-screen flex w-full">
-          <SuperAdminSidebar />
-          <div className="flex-1 flex flex-col">
-            <SuperAdminHeader setSidebarOpen={setSidebarOpen} adminUser={adminUser} />
-            <main className="flex-1 p-6 bg-gray-50">
-              <Routes>
-                <Route path="/" element={<Overview />} />
-                <Route path="/tenants" element={<TenantManagement />} />
-                <Route path="/onboarding" element={<TenantOnboarding />} />
-                <Route path="/subscriptions" element={<SubscriptionManagement />} />
-                <Route path="/billing" element={<BillingManagement />} />
-                <Route path="/features" element={<FeatureFlags />} />
-                <Route path="/white-label" element={<WhiteLabelConfig />} />
-                <Route path="/monitoring" element={<PlatformMonitoring />} />
-              </Routes>
-            </main>
-          </div>
+      <div className="min-h-screen flex w-full bg-gray-50">
+        <SuperAdminSidebar />
+        <div className="flex-1 flex flex-col lg:ml-0">
+          <SuperAdminHeader setSidebarOpen={() => {}} adminUser={adminUser} />
+          <main className="flex-1 p-6">
+            <Routes>
+              <Route path="/" element={<Overview />} />
+              <Route path="/tenants" element={<TenantManagement />} />
+              <Route path="/onboarding" element={<TenantOnboarding />} />
+              <Route path="/subscriptions" element={<SubscriptionManagement />} />
+              <Route path="/billing" element={<BillingManagement />} />
+              <Route path="/features" element={<FeatureFlags />} />
+              <Route path="/white-label" element={<WhiteLabelConfig />} />
+              <Route path="/monitoring" element={<PlatformMonitoring />} />
+            </Routes>
+          </main>
         </div>
-      </SidebarProvider>
+      </div>
     </ProtectedRoute>
   );
 }

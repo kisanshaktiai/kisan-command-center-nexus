@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, Bell, LogOut, User, Settings, Shield } from 'lucide-react';
+import { Bell, LogOut, User, Settings, Shield } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
@@ -68,16 +68,8 @@ export const SuperAdminHeader = ({ setSidebarOpen, adminUser }: SuperAdminHeader
     <header className="bg-card border-b px-4 py-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="lg:hidden mr-4"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="w-5 h-5" />
-          </Button>
-          
-          <div>
+          {/* Header content - hamburger button removed since it's now in sidebar */}
+          <div className="ml-12 lg:ml-0">
             <h1 className="text-xl font-semibold text-foreground">
               Super Admin Dashboard
             </h1>
