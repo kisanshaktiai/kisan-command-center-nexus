@@ -39,16 +39,15 @@ export const SuperAdminAuth = () => {
     }
   };
 
-  const sendOTP = async (userEmail: string) => {
+  const sendOTP = async (userEmail: string): Promise<void> => {
     // Simulate sending OTP - replace with actual API call
     try {
       // In real implementation, call your backend to send OTP
       console.log(`Sending OTP to ${userEmail}`);
       toast.success('OTP sent to your email');
-      return true;
     } catch (error) {
       toast.error('Failed to send OTP');
-      return false;
+      throw error;
     }
   };
 
@@ -65,11 +64,9 @@ export const SuperAdminAuth = () => {
       if (error) throw error;
 
       // If credentials are valid, send OTP
-      const otpSent = await sendOTP(email);
-      if (otpSent) {
-        setPendingLoginEmail(email);
-        setShowOTPVerification(true);
-      }
+      await sendOTP(email);
+      setPendingLoginEmail(email);
+      setShowOTPVerification(true);
     } catch (err: any) {
       setError(err.message);
       toast.error(err.message);
@@ -83,8 +80,8 @@ export const SuperAdminAuth = () => {
     navigate('/super-admin');
   };
 
-  const handleResendOTP = async () => {
-    return sendOTP(pendingLoginEmail);
+  const handleResendOTP = async (): Promise<void> => {
+    await sendOTP(pendingLoginEmail);
   };
 
   const handleBackToLogin = () => {
