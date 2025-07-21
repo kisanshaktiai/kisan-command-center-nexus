@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Tenant } from '@/types/tenant';
+import type { Tenant, TenantStatus, SubscriptionPlan, TenantType } from '@/types/tenant';
 
 export default function TenantManagement() {
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
@@ -45,11 +45,11 @@ export default function TenantManagement() {
       }
 
       if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+        query = query.eq('status', statusFilter as TenantStatus);
       }
 
       if (planFilter !== 'all') {
-        query = query.eq('subscription_plan', planFilter);
+        query = query.eq('subscription_plan', planFilter as SubscriptionPlan);
       }
 
       const { data, error } = await query;
@@ -87,9 +87,9 @@ export default function TenantManagement() {
       const updateData = {
         name: data.name,
         slug: data.slug,
-        type: data.type,
-        status: data.status,
-        subscription_plan: data.subscription_plan,
+        type: data.type as TenantType,
+        status: data.status as TenantStatus,
+        subscription_plan: data.subscription_plan as SubscriptionPlan,
         owner_name: data.owner_name,
         owner_email: data.owner_email,
         owner_phone: data.owner_phone,
