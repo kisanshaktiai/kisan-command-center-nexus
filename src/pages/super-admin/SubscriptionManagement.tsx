@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,6 +45,25 @@ interface TenantSubscription {
   owner_email?: string;
 }
 
+// Helper function to safely convert Json to array
+const convertJsonToArray = (jsonValue: any): any[] => {
+  if (Array.isArray(jsonValue)) {
+    return jsonValue;
+  }
+  if (typeof jsonValue === 'string') {
+    try {
+      const parsed = JSON.parse(jsonValue);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  if (jsonValue && typeof jsonValue === 'object') {
+    return Object.keys(jsonValue);
+  }
+  return [];
+};
+
 export default function SubscriptionManagement() {
   const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -73,7 +91,24 @@ export default function SubscriptionManagement() {
       }
 
       console.log('Billing plans fetched:', data);
-      return data || [];
+      
+      // Transform the data to match our interface
+      return (data || []).map(plan => ({
+        id: plan.id,
+        name: plan.name,
+        description: plan.description,
+        plan_type: plan.plan_type,
+        base_price: plan.base_price,
+        currency: plan.currency,
+        billing_interval: plan.billing_interval,
+        features: convertJsonToArray(plan.features),
+        usage_limits: plan.usage_limits,
+        limits: plan.limits,
+        is_active: plan.is_active,
+        is_custom: plan.is_custom,
+        created_at: plan.created_at,
+        updated_at: plan.updated_at
+      }));
     },
   });
 
