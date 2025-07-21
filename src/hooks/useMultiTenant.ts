@@ -1,6 +1,8 @@
+
 import { useState, useEffect, useContext, createContext, ReactNode, useCallback } from 'react';
 import { MultiTenantService } from '@/services/multiTenantService';
 import { supabase } from '@/integrations/supabase/client';
+import * as React from 'react';
 
 interface TenantContext {
   // Core Identity
@@ -352,10 +354,10 @@ export const MultiTenantProvider = ({ children }: { children: ReactNode }) => {
     getPortalUrl,
   };
   
-  return (
-    <MultiTenantContext.Provider value={contextValue}>
-      {children}
-    </MultiTenantContext.Provider>
+  return React.createElement(
+    MultiTenantContext.Provider,
+    { value: contextValue },
+    children
   );
 };
 
