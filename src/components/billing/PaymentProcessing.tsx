@@ -41,8 +41,8 @@ export function PaymentProcessing() {
           id: '1',
           tenant_id: 'tenant-1',
           subscription_id: 'sub-1',
-          amount: 99.99,
-          currency: 'USD',
+          amount: 2999,
+          currency: 'INR',
           status: 'completed',
           payment_method: 'credit_card',
           transaction_id: 'txn_123',
@@ -55,8 +55,8 @@ export function PaymentProcessing() {
           id: '2',
           tenant_id: 'tenant-2',
           subscription_id: 'sub-2',
-          amount: 199.99,
-          currency: 'USD',
+          amount: 5999,
+          currency: 'INR',
           status: 'pending',
           payment_method: 'bank_transfer',
           transaction_id: 'txn_456',
@@ -153,7 +153,7 @@ export function PaymentProcessing() {
           <CardContent>
             <div className="text-2xl font-bold">{completedPayments.length}</div>
             <p className="text-xs text-muted-foreground">
-              ${totalSuccessAmount.toLocaleString()} total
+              ₹{totalSuccessAmount.toLocaleString()} total
             </p>
           </CardContent>
         </Card>
@@ -249,7 +249,7 @@ export function PaymentProcessing() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <div className="font-medium">
-                      {payment.currency === 'USD' ? '$' : '₹'}{payment.amount.toLocaleString()}
+                      ₹{payment.amount.toLocaleString()}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {payment.currency}

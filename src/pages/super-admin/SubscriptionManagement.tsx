@@ -237,7 +237,7 @@ export default function SubscriptionManagement() {
   };
 
   const formatPrice = (price: number | null, currency: string = 'INR') => {
-    return price ? `${currency === 'USD' ? '$' : '₹'}${price.toLocaleString()}` : 'Custom';
+    return price ? `₹${price.toLocaleString()}` : 'Custom';
   };
 
   const getPlanDisplayName = (plan: string) => {
@@ -731,7 +731,7 @@ function CreatePlanForm({
       
       <div className="grid gap-4 md:grid-cols-3">
         <div>
-          <Label htmlFor="base_price">Price</Label>
+          <Label htmlFor="base_price">Price (₹)</Label>
           <Input
             id="base_price"
             type="number"
@@ -750,8 +750,8 @@ function CreatePlanForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="USD">USD</SelectItem>
-              <SelectItem value="INR">INR</SelectItem>
+              <SelectItem value="INR">INR (₹)</SelectItem>
+              <SelectItem value="USD">USD ($)</SelectItem>
             </SelectContent>
           </Select>
         </div>
