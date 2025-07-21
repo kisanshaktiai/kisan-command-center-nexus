@@ -4629,7 +4629,7 @@ export type Database = {
         Args: { land_uuid: string }
         Returns: number
       }
-      check_admin_status: {
+      can_self_insert: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
@@ -5204,7 +5204,7 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
-      is_admin_user: {
+      is_authenticated_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }

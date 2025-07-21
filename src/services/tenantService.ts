@@ -8,7 +8,6 @@ type DatabaseSubscriptionPlan = 'Kisan_Basic' | 'Shakti_Growth' | 'AI_Enterprise
 export class TenantService {
   // Map UI subscription plan names to database enum values
   private static mapUIToDatabasePlan(uiPlan: SubscriptionPlan): DatabaseSubscriptionPlan {
-    // Direct mapping since UI and database now use the same enum values
     return uiPlan;
   }
 
@@ -24,22 +23,61 @@ export class TenantService {
     return planMapping[dbPlan || ''] || 'Kisan_Basic';
   }
 
-  // Convert database tenant to frontend type
+  // Convert database tenant to frontend type with enhanced data
   private static convertDatabaseTenant(dbTenant: any): Tenant {
     return {
       ...dbTenant,
       subscription_plan: this.convertSubscriptionPlan(dbTenant.subscription_plan),
       status: dbTenant.status || 'trial',
+      // Include branding and features data if available
+      branding: dbTenant.tenant_branding?.[0] || null,
+      features: dbTenant.tenant_features?.[0] || null,
     };
   }
 
   static async fetchTenants(): Promise<Tenant[]> {
     try {
-      console.log('TenantService: Fetching tenants from database...');
+      console.log('TenantService: Fetching tenants with comprehensive data...');
       
+      // Fetch tenants with their branding and features data
       const { data, error } = await supabase
         .from('tenants')
-        .select('*')
+        .select(`
+          *,
+          tenant_branding (
+            primary_color,
+            secondary_color,
+            accent_color,
+            background_color,
+            text_color,
+            app_name,
+            app_tagline,
+            logo_url,
+            font_family
+          ),
+          tenant_features (
+            ai_chat,
+            weather_forecast,
+            marketplace,
+            community_forum,
+            satellite_imagery,
+            soil_testing,
+            drone_monitoring,
+            iot_integration,
+            ecommerce,
+            payment_gateway,
+            inventory_management,
+            logistics_tracking,
+            basic_analytics,
+            advanced_analytics,
+            predictive_analytics,
+            custom_reports,
+            api_access,
+            webhook_support,
+            third_party_integrations,
+            white_label_mobile_app
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -48,16 +86,73 @@ export class TenantService {
         throw new Error(`Failed to fetch tenants: ${error.message}`);
       }
       
-      console.log('TenantService: Raw tenants data:', data);
+      console.log('TenantService: Raw tenants data with relations:', data);
       
       // Convert database records to frontend types
       const convertedTenants = (data || []).map(this.convertDatabaseTenant);
-      console.log('TenantService: Converted tenants:', convertedTenants);
+      console.log('TenantService: Converted tenants with enhanced data:', convertedTenants);
       
       return convertedTenants;
     } catch (error) {
       console.error('TenantService: Exception in fetchTenants:', error);
       throw error;
+    }
+  }
+
+  static async fetchTenantById(tenantId: string): Promise<Tenant | null> {
+    try {
+      console.log('TenantService: Fetching tenant by ID:', tenantId);
+      
+      const { data, error } = await supabase
+        .from('tenants')
+        .select(`
+          *,
+          tenant_branding (
+            primary_color,
+            secondary_color,
+            accent_color,
+            background_color,
+            text_color,
+            app_name,
+            app_tagline,
+            logo_url,
+            font_family
+          ),
+          tenant_features (
+            ai_chat,
+            weather_forecast,
+            marketplace,
+            community_forum,
+            satellite_imagery,
+            soil_testing,
+            drone_monitoring,
+            iot_integration,
+            ecommerce,
+            payment_gateway,
+            inventory_management,
+            logistics_tracking,
+            basic_analytics,
+            advanced_analytics,
+            predictive_analytics,
+            custom_reports,
+            api_access,
+            webhook_support,
+            third_party_integrations,
+            white_label_mobile_app
+          )
+        `)
+        .eq('id', tenantId)
+        .single();
+
+      if (error) {
+        console.error('TenantService: Error fetching tenant:', error);
+        return null;
+      }
+
+      return this.convertDatabaseTenant(data);
+    } catch (error) {
+      console.error('TenantService: Exception in fetchTenantById:', error);
+      return null;
     }
   }
 
@@ -94,7 +189,6 @@ export class TenantService {
         return { success: false, error: errorMsg };
       }
 
-      // Map UI subscription plan to database enum (now they match directly)
       const dbSubscriptionPlan = this.mapUIToDatabasePlan(formData.subscription_plan);
       console.log('TenantService: Using subscription plan:', dbSubscriptionPlan);
 
@@ -126,7 +220,6 @@ export class TenantService {
 
       console.log('TenantService: Calling RPC function with params:', rpcParams);
       
-      // Call the database function directly
       const { data, error } = await supabase.rpc('create_tenant_with_validation', rpcParams);
 
       if (error) {
@@ -151,11 +244,9 @@ export class TenantService {
         };
       }
 
-      // Type-safe parsing of the response
       if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
         const response = data as any;
         
-        // Validate that the response has the required structure
         if (typeof response.success === 'boolean') {
           console.log('TenantService: Parsed RPC response:', response);
           
@@ -179,7 +270,6 @@ export class TenantService {
         }
       }
 
-      // If we get here, the response format is unexpected
       console.error('TenantService: Unexpected response format:', data);
       const errorMsg = 'Unexpected response format from database function';
       toast.error(errorMsg);
@@ -191,7 +281,6 @@ export class TenantService {
       console.error('TenantService: Exception in createTenant:', error);
       let errorMessage = 'An unexpected error occurred while creating the tenant';
       
-      // Parse specific error types
       if (error.message.includes('VALIDATION_ERROR')) {
         errorMessage = error.message.replace('VALIDATION_ERROR: ', '');
       } else if (error.message.includes('SLUG_ERROR')) {
@@ -200,10 +289,6 @@ export class TenantService {
         errorMessage = error.message.replace('DATABASE_ERROR: ', '');
       } else if (error.message.includes('DUPLICATE_SLUG')) {
         errorMessage = 'A tenant with this slug already exists';
-      } else if (error.message.includes('CONSTRAINT_VIOLATION')) {
-        errorMessage = 'Invalid data provided - please check your inputs';
-      } else if (error.message.includes('FOREIGN_KEY_VIOLATION')) {
-        errorMessage = 'Invalid reference data provided';
       }
       
       toast.error(errorMessage);
@@ -250,7 +335,42 @@ export class TenantService {
         .from('tenants')
         .update(updateData)
         .eq('id', tenant.id)
-        .select()
+        .select(`
+          *,
+          tenant_branding (
+            primary_color,
+            secondary_color,
+            accent_color,
+            background_color,
+            text_color,
+            app_name,
+            app_tagline,
+            logo_url,
+            font_family
+          ),
+          tenant_features (
+            ai_chat,
+            weather_forecast,
+            marketplace,
+            community_forum,
+            satellite_imagery,
+            soil_testing,
+            drone_monitoring,
+            iot_integration,
+            ecommerce,
+            payment_gateway,
+            inventory_management,
+            logistics_tracking,
+            basic_analytics,
+            advanced_analytics,
+            predictive_analytics,
+            custom_reports,
+            api_access,
+            webhook_support,
+            third_party_integrations,
+            white_label_mobile_app
+          )
+        `)
         .single();
 
       if (error) {
@@ -262,7 +382,6 @@ export class TenantService {
       console.log('TenantService: Tenant updated successfully:', data);
       toast.success('Tenant updated successfully');
       
-      // Convert database response to frontend type
       return this.convertDatabaseTenant(data);
     } catch (error) {
       console.error('TenantService: Exception in updateTenant:', error);
@@ -272,11 +391,16 @@ export class TenantService {
 
   static async deleteTenant(tenantId: string): Promise<void> {
     try {
-      console.log('TenantService: Deleting tenant:', tenantId);
+      console.log('TenantService: Soft deleting tenant:', tenantId);
       
+      // Soft delete by setting deleted_at timestamp
       const { error } = await supabase
         .from('tenants')
-        .update({ deleted_at: new Date().toISOString() })
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          status: 'cancelled',
+          is_active: false 
+        })
         .eq('id', tenantId);
 
       if (error) {
@@ -285,7 +409,7 @@ export class TenantService {
         throw new Error(`Failed to delete tenant: ${error.message}`);
       }
       
-      console.log('TenantService: Tenant deleted successfully');
+      console.log('TenantService: Tenant soft deleted successfully');
       toast.success('Tenant deleted successfully');
     } catch (error) {
       console.error('TenantService: Exception in deleteTenant:', error);

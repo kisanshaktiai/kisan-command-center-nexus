@@ -1,4 +1,3 @@
-
 // Tenant type definitions  
 export type SubscriptionPlan = 'Kisan_Basic' | 'Shakti_Growth' | 'AI_Enterprise' | 'custom';
 export type TenantType = 'agri_company' | 'dealer' | 'ngo' | 'government' | 'university' | 'sugar_factory' | 'cooperative' | 'insurance';
@@ -44,13 +43,48 @@ export interface RpcResponse {
   };
 }
 
+export interface TenantBranding {
+  primary_color?: string;
+  secondary_color?: string;
+  accent_color?: string;
+  background_color?: string;
+  text_color?: string;
+  app_name?: string;
+  app_tagline?: string;
+  logo_url?: string;
+  font_family?: string;
+}
+
+export interface TenantFeatures {
+  ai_chat?: boolean;
+  weather_forecast?: boolean;
+  marketplace?: boolean;
+  community_forum?: boolean;
+  satellite_imagery?: boolean;
+  soil_testing?: boolean;
+  drone_monitoring?: boolean;
+  iot_integration?: boolean;
+  ecommerce?: boolean;
+  payment_gateway?: boolean;
+  inventory_management?: boolean;
+  logistics_tracking?: boolean;
+  basic_analytics?: boolean;
+  advanced_analytics?: boolean;
+  predictive_analytics?: boolean;
+  custom_reports?: boolean;
+  api_access?: boolean;
+  webhook_support?: boolean;
+  third_party_integrations?: boolean;
+  white_label_mobile_app?: boolean;
+}
+
 export interface Tenant {
   id: string;
   name: string;
   slug: string;
-  type: TenantType;
-  status: TenantStatus | null;
-  subscription_plan: SubscriptionPlan | null;
+  type: string;
+  status: string;
+  subscription_plan: SubscriptionPlan;
   owner_name?: string;
   owner_email?: string;
   owner_phone?: string;
@@ -68,8 +102,12 @@ export interface Tenant {
   subdomain?: string;
   custom_domain?: string;
   metadata?: Record<string, any>;
-  created_at?: string;
-  updated_at?: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+  // Enhanced relations
+  branding?: TenantBranding | null;
+  features?: TenantFeatures | null;
 }
 
 export const subscriptionPlanOptions: { value: SubscriptionPlan; label: string }[] = [
