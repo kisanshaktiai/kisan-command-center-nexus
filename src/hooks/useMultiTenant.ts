@@ -1,6 +1,6 @@
-
 import { useState, useEffect, useContext, createContext, ReactNode, useCallback } from 'react';
 import { MultiTenantService } from '@/services/multiTenantService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TenantContext {
   // Core Identity
@@ -375,10 +375,10 @@ export const withFeature = (feature: keyof TenantContext['features']) => {
       const { isFeatureEnabled } = useMultiTenant();
       
       if (!isFeatureEnabled(feature)) {
-        return <div>This feature is not available in your current plan.</div>;
+        return React.createElement('div', null, 'This feature is not available in your current plan.');
       }
       
-      return <Component {...props} />;
+      return React.createElement(Component, props);
     };
   };
 };
@@ -390,10 +390,10 @@ export const withPortal = (allowedPortals: MultiTenantContextType['portalType'][
       const { portalType } = useMultiTenant();
       
       if (!portalType || !allowedPortals.includes(portalType)) {
-        return <div>Access denied for this portal type.</div>;
+        return React.createElement('div', null, 'Access denied for this portal type.');
       }
       
-      return <Component {...props} />;
+      return React.createElement(Component, props);
     };
   };
 };
