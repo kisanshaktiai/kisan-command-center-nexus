@@ -7,7 +7,7 @@ import { Settings, Lock } from 'lucide-react';
 import { useMultiTenant } from '@/hooks/useMultiTenant';
 
 interface FeatureConfig {
-  key: string;
+  key: keyof import('@/hooks/useMultiTenant').TenantContext['features'];
   name: string;
   description: string;
   category: 'Core' | 'Analytics' | 'Integration' | 'Advanced';

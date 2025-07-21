@@ -233,8 +233,8 @@ export class MultiTenantService {
 
     return {
       ...client,
-      from: (table: string) => {
-        return client.from(table).eq('tenant_id', tenantId);
+      from: (tableName: string) => {
+        return client.from(tableName).eq('tenant_id', tenantId);
       },
       getTenantId: () => tenantId,
     };

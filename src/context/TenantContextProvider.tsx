@@ -37,7 +37,9 @@ export const TenantContextProvider: React.FC<{ children: React.ReactNode }> = ({
       const tenantResponse = await apiGateway.getTenantDetails(tenantId);
       if (tenantResponse.success) {
         setTenant(tenantResponse.data);
-        setFeatures(tenantResponse.data?.tenant_features?.[0] || {});
+        // Handle features differently since tenant_features might not exist
+        const tenantFeatures = tenantResponse.data?.features || {};
+        setFeatures(tenantFeatures);
       }
 
       // Load branding
