@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,8 +38,11 @@ export default function TenantManagement() {
     queryFn: async () => {
       let query = supabase
         .from('tenants')
-        .select('*')
-        .ilike('name', `%${searchTerm}%`);
+        .select('*');
+
+      if (searchTerm) {
+        query = query.ilike('name', `%${searchTerm}%`);
+      }
 
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
@@ -77,16 +81,43 @@ export default function TenantManagement() {
 
   // Update tenant mutation
   const updateTenantMutation = useMutation({
-    mutationFn: async ({ tenant, formData }: { tenant: Tenant; formData: TenantFormData }) => {
-      const { data, error } = await supabase
+    mutationFn: async (data: TenantFormData) => {
+      if (!selectedTenant) throw new Error('No tenant selected');
+      
+      const updateData = {
+        name: data.name,
+        slug: data.slug,
+        type: data.type,
+        status: data.status,
+        subscription_plan: data.subscription_plan,
+        owner_name: data.owner_name,
+        owner_email: data.owner_email,
+        owner_phone: data.owner_phone,
+        business_registration: data.business_registration,
+        business_address: data.business_address,
+        established_date: data.established_date,
+        subscription_start_date: data.subscription_start_date,
+        subscription_end_date: data.subscription_end_date,
+        trial_ends_at: data.trial_ends_at,
+        max_farmers: data.max_farmers,
+        max_dealers: data.max_dealers,
+        max_products: data.max_products,
+        max_storage_gb: data.max_storage_gb,
+        max_api_calls_per_day: data.max_api_calls_per_day,
+        subdomain: data.subdomain,
+        custom_domain: data.custom_domain,
+        metadata: data.metadata
+      };
+
+      const { data: result, error } = await supabase
         .from('tenants')
-        .update(formData)
-        .eq('id', tenant.id)
+        .update(updateData)
+        .eq('id', selectedTenant.id)
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
@@ -166,7 +197,7 @@ export default function TenantManagement() {
 
   const handleUpdate = () => {
     if (!selectedTenant) return;
-    updateTenantMutation.mutate({ tenant: selectedTenant, formData });
+    updateTenantMutation.mutate(formData);
   };
 
   const handleDelete = (tenant: Tenant) => {
@@ -215,11 +246,11 @@ export default function TenantManagement() {
 
       <TenantFilters
         searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        planFilter={planFilter}
-        onPlanFilterChange={setPlanFilter}
+        setSearchTerm={setSearchTerm}
+        filterType={statusFilter}
+        setFilterType={setStatusFilter}
+        filterStatus={planFilter}
+        setFilterStatus={setPlanFilter}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -236,7 +267,6 @@ export default function TenantManagement() {
               tenant={tenant}
               onEdit={() => handleEdit(tenant)}
               onDelete={() => handleDelete(tenant)}
-              onView={() => handleView(tenant)}
             />
           ))
         )}
@@ -268,7 +298,7 @@ export default function TenantManagement() {
       {/* Detail Modal */}
       <TenantDetailModal
         isOpen={isDetailOpen}
-        setIsOpen={setIsDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
         tenant={selectedTenant}
       />
 

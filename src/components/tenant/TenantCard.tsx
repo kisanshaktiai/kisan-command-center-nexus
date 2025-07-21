@@ -11,7 +11,7 @@ import { TenantDetailModal } from './TenantDetailModal';
 interface TenantCardProps {
   tenant: Tenant;
   onEdit: (tenant: Tenant) => void;
-  onDelete: (tenantId: string) => void;
+  onDelete: (tenant: Tenant) => void;
 }
 
 export const TenantCard: React.FC<TenantCardProps> = ({ tenant, onEdit, onDelete }) => {
@@ -59,7 +59,7 @@ export const TenantCard: React.FC<TenantCardProps> = ({ tenant, onEdit, onDelete
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDelete(tenant.id);
+                  onDelete(tenant);
                 }}
                 className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
               >
