@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Palette, Globe, Settings } from 'lucide-react';
 
 export function TenantBranding() {
-  const { tenant, isLoading } = useMultiTenant();
+  const { tenant, isLoading, getLimitUsage } = useMultiTenant();
 
   if (isLoading) {
     return (

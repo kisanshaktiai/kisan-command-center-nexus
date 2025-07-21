@@ -4,7 +4,7 @@ import { MultiTenantService } from '@/services/multiTenantService';
 import { supabase } from '@/integrations/supabase/client';
 import * as React from 'react';
 
-interface TenantContext {
+export interface TenantContext {
   // Core Identity
   tenant_id: string;
   subdomain?: string;

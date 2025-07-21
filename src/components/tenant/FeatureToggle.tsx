@@ -4,10 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Settings, Lock } from 'lucide-react';
-import { useMultiTenant } from '@/hooks/useMultiTenant';
+import { useMultiTenant, type TenantContext } from '@/hooks/useMultiTenant';
 
 interface FeatureConfig {
-  key: keyof import('@/hooks/useMultiTenant').TenantContext['features'];
+  key: keyof TenantContext['features'];
   name: string;
   description: string;
   category: 'Core' | 'Analytics' | 'Integration' | 'Advanced';
