@@ -16,7 +16,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { SubscriptionDetailModal } from '@/components/tenant/SubscriptionDetailModal';
 
-interface BillingPlan {
+// Local interface to avoid conflicts with imported types
+interface LocalBillingPlan {
   id: string;
   name: string;
   description: string | null;
@@ -71,7 +72,7 @@ const safeGet = (obj: any, key: string, fallback: any = null) => {
 };
 
 export default function SubscriptionManagement() {
-  const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<LocalBillingPlan | null>(null);
   const [selectedSubscription, setSelectedSubscription] = useState<TenantSubscription | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -86,7 +87,7 @@ export default function SubscriptionManagement() {
   // Fetch billing plans
   const { data: plans = [], isLoading: plansLoading, error: plansError } = useQuery({
     queryKey: ['billing-plans'],
-    queryFn: async (): Promise<BillingPlan[]> => {
+    queryFn: async (): Promise<LocalBillingPlan[]> => {
       console.log('Fetching billing plans...');
       const { data, error } = await supabase
         .from('billing_plans')
@@ -669,7 +670,7 @@ function CreatePlanForm({
   isEditing = false 
 }: { 
   onSubmit: (data: any) => void; 
-  initialData?: BillingPlan;
+  initialData?: LocalBillingPlan;
   isEditing?: boolean;
 }) {
   const [formData, setFormData] = useState({
