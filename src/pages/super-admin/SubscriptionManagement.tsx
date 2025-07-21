@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { SubscriptionDetailModal } from '@/components/tenant/SubscriptionDetailModal';
 
 interface BillingPlan {
   id: string;
@@ -71,8 +72,10 @@ const safeGet = (obj: any, key: string, fallback: any = null) => {
 
 export default function SubscriptionManagement() {
   const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
+  const [selectedSubscription, setSelectedSubscription] = useState<TenantSubscription | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [planToDelete, setPlanToDelete] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -259,6 +262,16 @@ export default function SubscriptionManagement() {
     
     return matchesSearch && matchesStatus && matchesPlan;
   });
+
+  const handleSubscriptionClick = (subscription: TenantSubscription) => {
+    setSelectedSubscription(subscription);
+    // Find the related plan
+    const relatedPlan = plans.find(p => 
+      p.name.toLowerCase().includes(subscription.subscription_plan.toLowerCase())
+    );
+    setSelectedPlan(relatedPlan || null);
+    setIsDetailModalOpen(true);
+  };
 
   if (plansError || subscriptionsError) {
     return (
@@ -455,7 +468,11 @@ export default function SubscriptionManagement() {
               <CardContent>
                 <div className="space-y-4">
                   {filteredSubscriptions.map((subscription) => (
-                    <div key={subscription.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div 
+                      key={subscription.id} 
+                      className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => handleSubscriptionClick(subscription)}
+                    >
                       <div className="flex items-center gap-4">
                         <div>
                           <h4 className="font-medium">{subscription.name}</h4>
@@ -629,6 +646,18 @@ export default function SubscriptionManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Subscription Detail Modal */}
+      <SubscriptionDetailModal
+        subscription={selectedSubscription}
+        plan={selectedPlan}
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedSubscription(null);
+          setSelectedPlan(null);
+        }}
+      />
     </div>
   );
 }

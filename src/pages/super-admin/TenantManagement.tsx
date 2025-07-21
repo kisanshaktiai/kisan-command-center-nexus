@@ -1,237 +1,116 @@
-
-import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Plus, Edit, Trash2, Loader2, Search, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { TenantCard } from '@/components/tenant/TenantCard';
 import { TenantForm } from '@/components/tenant/TenantForm';
-import { TenantFilters } from '@/components/tenant/TenantFilters';
 import { TenantService } from '@/services/tenantService';
-import { Tenant, TenantFormData, TenantType, TenantStatus } from '@/types/tenant';
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tenant, TenantFormData, SubscriptionPlan } from '@/types/tenant';
+import { TenantOnboardingPanel } from '@/components/tenant/TenantOnboardingPanel';
 
 export default function TenantManagement() {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [planFilter, setPlanFilter] = useState<SubscriptionPlan>('all');
+  const queryClient = useQueryClient();
 
-  // Form state with default values
-  const [formData, setFormData] = useState<TenantFormData>({
-    name: '',
-    slug: '',
-    type: 'agri_company',
-    status: 'trial',
-    subscription_plan: 'Kisan_Basic',
-    max_farmers: 1000,
-    max_dealers: 50,
-    max_products: 100,
-    max_storage_gb: 10,
-    max_api_calls_per_day: 10000,
+  // Fetch tenants
+  const { data: tenants = [], isLoading, error } = useQuery({
+    queryKey: ['tenants'],
+    queryFn: () => TenantService.fetchTenants(),
   });
 
-  useEffect(() => {
-    fetchTenants();
-  }, []);
-
-  const fetchTenants = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      console.log('Fetching tenants...');
-      const data = await TenantService.fetchTenants();
-      console.log('Tenants fetched successfully:', data);
-      setTenants(data);
-      
-      if (data.length === 0) {
-        console.log('No tenants found in the database');
-      }
-    } catch (error: any) {
-      console.error('Error fetching tenants:', error);
-      const errorMessage = error.message || 'Failed to fetch tenants';
-      setError(errorMessage);
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+  // Create tenant mutation
+  const createTenantMutation = useMutation(
+    (formData: TenantFormData) => TenantService.createTenant(formData),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['tenants'] });
+        setIsFormOpen(false);
+      },
     }
+  );
+
+  // Update tenant mutation
+  const updateTenantMutation = useMutation(
+    (tenantData: { tenant: Tenant; formData: TenantFormData }) =>
+      TenantService.updateTenant(tenantData.tenant, tenantData.formData),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['tenants'] });
+        setIsFormOpen(false);
+        setSelectedTenant(null);
+      },
+    }
+  );
+
+  // Delete tenant mutation
+  const deleteTenantMutation = useMutation(
+    (tenantId: string) => TenantService.deleteTenant(tenantId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['tenants'] });
+        setIsDeleteDialogOpen(false);
+        setSelectedTenant(null);
+      },
+    }
+  );
+
+  const handleCreate = async (formData: TenantFormData) => {
+    createTenantMutation.mutate(formData as any);
   };
 
-  const handleCreateTenant = async () => {
-    if (isSubmitting) return;
-    
-    try {
-      setIsSubmitting(true);
-      console.log('Creating tenant with data:', formData);
-      
-      const result = await TenantService.createTenant(formData);
-      console.log('Create tenant result:', result);
-
-      if (result.success) {
-        console.log('Tenant created successfully');
-        setIsCreateDialogOpen(false);
-        resetForm();
-        await fetchTenants(); // Refresh the list
-        toast({
-          title: "Success",
-          description: "Tenant created successfully",
-        });
-      }
-    } catch (error: any) {
-      console.error('Error creating tenant:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create tenant",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleEdit = (tenant: Tenant) => {
+    setSelectedTenant(tenant);
+    setIsFormOpen(true);
   };
 
-  const handleUpdateTenant = async () => {
-    if (!editingTenant || isSubmitting) {
-      console.error('No tenant selected for editing');
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      console.log('Updating tenant with data:', formData);
-      
-      const updatedTenant = await TenantService.updateTenant(editingTenant, formData);
-      console.log('Tenant updated successfully:', updatedTenant);
-
-      setTenants(prev => prev.map(t => t.id === editingTenant.id ? updatedTenant : t));
-      setIsEditDialogOpen(false);
-      setEditingTenant(null);
-      resetForm();
-      
-      toast({
-        title: "Success",
-        description: "Tenant updated successfully",
-      });
-    } catch (error: any) {
-      console.error('Error updating tenant:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update tenant",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleUpdate = async (formData: TenantFormData) => {
+    if (!selectedTenant) return;
+    updateTenantMutation.mutate({ tenant: selectedTenant, formData } as any);
   };
 
-  const handleDeleteTenant = async (tenantId: string) => {
-    if (!confirm('Are you sure you want to delete this tenant? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      console.log('Deleting tenant:', tenantId);
-      await TenantService.deleteTenant(tenantId);
-      console.log('Tenant deleted successfully');
-
-      setTenants(prev => prev.filter(t => t.id !== tenantId));
-      toast({
-        title: "Success",
-        description: "Tenant deleted successfully",
-      });
-    } catch (error: any) {
-      console.error('Error deleting tenant:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete tenant",
-        variant: "destructive",
-      });
-    }
+  const handleDelete = (tenantId: string) => {
+    setSelectedTenant(tenants.find((tenant) => tenant.id === tenantId) || null);
+    setIsDeleteDialogOpen(true);
   };
 
-  const openEditDialog = (tenant: Tenant) => {
-    console.log('Opening edit dialog for tenant:', tenant);
-    setEditingTenant(tenant);
-    
-    // Safely handle metadata and business_address
-    const metadata = tenant.metadata && typeof tenant.metadata === 'object' 
-      ? tenant.metadata as Record<string, any>
-      : {};
-    
-    const businessAddress = tenant.business_address && typeof tenant.business_address === 'object'
-      ? tenant.business_address as Record<string, any>
-      : tenant.business_address
-        ? { address: tenant.business_address }
-        : undefined;
-    
-    setFormData({
-      name: tenant.name || '',
-      slug: tenant.slug || '',
-      type: (tenant.type as TenantType) || 'agri_company',
-      status: (tenant.status as TenantStatus) || 'trial',
-      owner_name: tenant.owner_name || '',
-      owner_email: tenant.owner_email || '',
-      owner_phone: tenant.owner_phone || '',
-      business_registration: tenant.business_registration || '',
-      business_address: businessAddress,
-      established_date: tenant.established_date || '',
-      subscription_plan: tenant.subscription_plan || 'Kisan_Basic',
-      subscription_start_date: tenant.subscription_start_date || '',
-      subscription_end_date: tenant.subscription_end_date || '',
-      trial_ends_at: tenant.trial_ends_at || '',
-      max_farmers: tenant.max_farmers || 1000,
-      max_dealers: tenant.max_dealers || 50,
-      max_products: tenant.max_products || 100,
-      max_storage_gb: tenant.max_storage_gb || 10,
-      max_api_calls_per_day: tenant.max_api_calls_per_day || 10000,
-      subdomain: tenant.subdomain || '',
-      custom_domain: tenant.custom_domain || '',
-      metadata,
-    });
-    setIsEditDialogOpen(true);
+  const confirmDelete = async () => {
+    if (!selectedTenant) return;
+    deleteTenantMutation.mutate(selectedTenant.id);
   };
 
-  const resetForm = () => {
-    console.log('Resetting form to default values');
-    setFormData({
-      name: '',
-      slug: '',
-      type: 'agri_company',
-      status: 'trial',
-      subscription_plan: 'Kisan_Basic',
-      max_farmers: 1000,
-      max_dealers: 50,
-      max_products: 100,
-      max_storage_gb: 10,
-      max_api_calls_per_day: 10000,
-    });
+  const handleViewOnboarding = (tenant: Tenant) => {
+    setSelectedTenant(tenant);
+    setShowOnboarding(true);
   };
 
-  const filteredTenants = tenants.filter(tenant => {
-    const matchesSearch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tenant.slug.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || tenant.type === filterType;
-    const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
-    return matchesSearch && matchesType && matchesStatus;
+  // Filter tenants
+  const filteredTenants = tenants.filter((tenant) => {
+    const matchesSearch =
+      tenant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tenant.slug?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || tenant.status === statusFilter;
+    const matchesPlan = planFilter === 'all' || tenant.subscription_plan === planFilter;
+
+    return matchesSearch && matchesStatus && matchesPlan;
   });
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -240,121 +119,153 @@ export default function TenantManagement() {
           <h1 className="text-3xl font-bold">Tenant Management</h1>
           <p className="text-muted-foreground">Manage and configure tenant organizations</p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => {
-              console.log('Opening create dialog');
-              resetForm();
-            }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Tenant
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Tenant</DialogTitle>
-              <DialogDescription>
-                Set up a new tenant organization with their subscription and limits.
-              </DialogDescription>
-            </DialogHeader>
-            <TenantForm 
-              formData={formData} 
-              setFormData={setFormData} 
-              onSubmit={handleCreateTenant}
-              isEditing={false}
-            />
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setIsFormOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Tenant
+        </Button>
       </div>
 
-      {/* Error Alert */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {error}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="ml-2"
-              onClick={() => {
-                setError(null);
-                fetchTenants();
-              }}
-            >
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      <Tabs defaultValue="tenants" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="tenants">All Tenants</TabsTrigger>
+          <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
+        </TabsList>
 
-      {/* Filters */}
-      <TenantFilters
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        filterType={filterType}
-        setFilterType={setFilterType}
-        filterStatus={filterStatus}
-        setFilterStatus={setFilterStatus}
-      />
+        <TabsContent value="tenants" className="space-y-4">
+          {/* Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Filters</CardTitle>
+              <CardDescription>Filter tenants based on different criteria</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Input
+                  type="search"
+                  placeholder="Search by name or slug..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="trial">Trial</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={planFilter} onValueChange={(value) => setPlanFilter(value as SubscriptionPlan)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Plans</SelectItem>
+                    <SelectItem value="Kisan_Basic">Kisan – Starter</SelectItem>
+                    <SelectItem value="Shakti_Growth">Shakti – Growth</SelectItem>
+                    <SelectItem value="AI_Enterprise">AI – Enterprise</SelectItem>
+                    <SelectItem value="custom">Custom Plan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Tenants Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTenants.map((tenant) => (
-          <TenantCard
-            key={tenant.id}
-            tenant={tenant}
-            onEdit={openEditDialog}
-            onDelete={handleDeleteTenant}
-          />
-        ))}
-      </div>
-
-      {/* Empty State */}
-      {!loading && filteredTenants.length === 0 && (
-        <div className="text-center py-12">
-          <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-2 text-sm font-semibold text-muted-foreground">
-            {tenants.length === 0 ? 'No tenants found' : 'No tenants match your filters'}
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {tenants.length === 0 
-              ? 'Get started by creating your first tenant.' 
-              : 'Try adjusting your search or filters.'
-            }
-          </p>
-          {tenants.length === 0 && (
-            <Button 
-              className="mt-4" 
-              onClick={() => {
-                resetForm();
-                setIsCreateDialogOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create First Tenant
-            </Button>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+              Loading tenants...
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-32">
+              <AlertTriangle className="w-6 h-6 text-red-500 mr-2" />
+              Error: {error.message}
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {filteredTenants.map((tenant) => (
+                <div key={tenant.id} className="relative">
+                  <TenantCard
+                    tenant={tenant}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="absolute top-2 right-16 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleViewOnboarding(tenant)}
+                  >
+                    Onboarding
+                  </Button>
+                </div>
+              ))}
+            </div>
           )}
-        </div>
-      )}
+        </TabsContent>
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <TabsContent value="onboarding" className="space-y-4">
+          {selectedTenant ? (
+            <TenantOnboardingPanel
+              tenantId={selectedTenant.id}
+              tenantName={selectedTenant.name}
+            />
+          ) : (
+            <Card>
+              <CardContent className="flex items-center justify-center h-32">
+                <p className="text-muted-foreground">Select a tenant to view onboarding progress</p>
+              </CardContent>
+            </Card>
+          )}
+          
+          <div className="grid gap-4 md:grid-cols-2">
+            {tenants.slice(0, 4).map((tenant) => (
+              <Card key={tenant.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedTenant(tenant)}>
+                <CardHeader>
+                  <CardTitle className="text-lg">{tenant.name}</CardTitle>
+                  <CardDescription>{tenant.subscription_plan}</CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Add/Edit Tenant Dialog */}
+      <Dialog open={isFormOpen} onOpenChange={() => setIsFormOpen(false)}>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Edit Tenant</DialogTitle>
+            <DialogTitle>{selectedTenant ? 'Edit Tenant' : 'Add Tenant'}</DialogTitle>
             <DialogDescription>
-              Update tenant information, subscription, and limits.
+              {selectedTenant ? 'Update tenant details' : 'Create a new tenant organization'}
             </DialogDescription>
           </DialogHeader>
-          <TenantForm 
-            formData={formData} 
-            setFormData={setFormData} 
-            onSubmit={handleUpdateTenant}
-            isEditing={true}
+          <TenantForm
+            onSubmit={selectedTenant ? handleUpdate : handleCreate}
+            initialValues={selectedTenant}
+            isLoading={createTenantMutation.isLoading || updateTenantMutation.isLoading}
           />
         </DialogContent>
       </Dialog>
+
+      {/* Delete Tenant Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={() => setIsDeleteDialogOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tenant</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this tenant? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

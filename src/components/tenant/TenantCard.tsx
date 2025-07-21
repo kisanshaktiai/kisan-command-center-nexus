@@ -1,11 +1,12 @@
 
-import React from 'react';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Building2, Edit, Trash2, Users, Crown, Calendar, MapPin } from 'lucide-react';
+import { Edit, Trash2, Users, Package, Calendar, BarChart3 } from 'lucide-react';
 import { Tenant } from '@/types/tenant';
 import { TenantService } from '@/services/tenantService';
+import { TenantDetailModal } from './TenantDetailModal';
 
 interface TenantCardProps {
   tenant: Tenant;
@@ -14,162 +15,116 @@ interface TenantCardProps {
 }
 
 export const TenantCard: React.FC<TenantCardProps> = ({ tenant, onEdit, onDelete }) => {
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString();
-  };
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
-  const getFeatureCount = () => {
-    if (!tenant.features) return 0;
-    return Object.values(tenant.features).filter(Boolean).length;
+  const handleCardClick = () => {
+    setShowDetailModal(true);
   };
 
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-200">
-      <CardHeader className="pb-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Building2 className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-lg font-semibold truncate">
+    <>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-l-4 border-l-blue-500"
+        onClick={handleCardClick}
+      >
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <CardTitle className="text-lg font-semibold text-gray-900 mb-1">
                 {tenant.name}
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {tenant.slug}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Badge variant={TenantService.getStatusBadgeVariant(tenant.status)}>
-              {tenant.status?.toUpperCase()}
-            </Badge>
-            <Badge variant={TenantService.getPlanBadgeVariant(tenant.subscription_plan)}>
-              {TenantService.getPlanDisplayName(tenant.subscription_plan)}
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        {/* Basic Info */}
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="flex items-center space-x-2">
-            <Crown className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">Type:</span>
-            <span className="text-muted-foreground capitalize">{tenant.type?.replace('_', ' ')}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">Created:</span>
-            <span className="text-muted-foreground">{formatDate(tenant.created_at)}</span>
-          </div>
-        </div>
-
-        {/* Owner Info */}
-        {tenant.owner_name && (
-          <div className="space-y-2">
-            <h4 className="font-medium text-sm">Owner Information</h4>
-            <div className="grid grid-cols-1 gap-1 text-sm">
-              <div className="flex items-center space-x-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span>{tenant.owner_name}</span>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+                  {tenant.slug}
+                </span>
+                <Badge variant="outline" className="capitalize">
+                  {tenant.type}
+                </Badge>
               </div>
-              {tenant.owner_email && (
-                <div className="text-muted-foreground text-xs ml-6">
-                  {tenant.owner_email}
-                </div>
-              )}
+            </div>
+            <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(tenant);
+                }}
+                className="h-8 w-8 p-0"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(tenant.id);
+                }}
+                className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-        )}
-
-        {/* Location */}
-        {tenant.business_address && (
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2 text-sm">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">Location:</span>
-              <span className="text-muted-foreground truncate">
-                {typeof tenant.business_address === 'string' 
-                  ? tenant.business_address 
-                  : tenant.business_address?.city || 'Not specified'
-                }
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Limits */}
-        <div className="space-y-2">
-          <h4 className="font-medium text-sm">Plan Limits</h4>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="bg-muted/50 p-2 rounded">
-              <div className="font-medium">Farmers</div>
-              <div className="text-muted-foreground">{tenant.max_farmers?.toLocaleString() || 'N/A'}</div>
-            </div>
-            <div className="bg-muted/50 p-2 rounded">
-              <div className="font-medium">Dealers</div>
-              <div className="text-muted-foreground">{tenant.max_dealers?.toLocaleString() || 'N/A'}</div>
-            </div>
-            <div className="bg-muted/50 p-2 rounded">
-              <div className="font-medium">Products</div>
-              <div className="text-muted-foreground">{tenant.max_products?.toLocaleString() || 'N/A'}</div>
-            </div>
-            <div className="bg-muted/50 p-2 rounded">
-              <div className="font-medium">Storage</div>
-              <div className="text-muted-foreground">{tenant.max_storage_gb || 'N/A'} GB</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Features */}
-        <div className="space-y-2">
-          <h4 className="font-medium text-sm">Features Enabled</h4>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              {getFeatureCount()} features enabled
-            </span>
-            {tenant.branding?.app_name && (
-              <Badge variant="outline" className="text-xs">
-                Custom Branding
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <Badge 
+                variant={TenantService.getStatusBadgeVariant(tenant.status)}
+                className="capitalize"
+              >
+                {tenant.status}
               </Badge>
-            )}
-          </div>
-        </div>
+              <Badge 
+                variant={TenantService.getPlanBadgeVariant(tenant.subscription_plan)}
+                className="font-medium"
+              >
+                {TenantService.getPlanDisplayName(tenant.subscription_plan)}
+              </Badge>
+            </div>
 
-        {/* Trial Info */}
-        {tenant.status === 'trial' && tenant.trial_ends_at && (
-          <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200">
-            <div className="text-sm">
-              <span className="font-medium text-yellow-800">Trial ends:</span>
-              <span className="text-yellow-700 ml-2">{formatDate(tenant.trial_ends_at)}</span>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-blue-500" />
+                <span className="text-gray-600">
+                  {tenant.max_farmers?.toLocaleString()} farmers
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-green-500" />
+                <span className="text-gray-600">
+                  {tenant.max_products} products
+                </span>
+              </div>
+            </div>
+
+            {tenant.owner_email && (
+              <div className="text-sm text-gray-600 truncate">
+                <strong>Contact:</strong> {tenant.owner_email}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                Created: {new Date(tenant.created_at).toLocaleDateString()}
+              </div>
+              <div className="flex items-center gap-1 text-blue-600">
+                <BarChart3 className="h-3 w-3" />
+                View Details
+              </div>
             </div>
           </div>
-        )}
-      </CardContent>
+        </CardContent>
+      </Card>
 
-      <CardFooter className="flex justify-end space-x-2 pt-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onEdit(tenant)}
-          className="flex items-center space-x-1"
-        >
-          <Edit className="h-4 w-4" />
-          <span>Edit</span>
-        </Button>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => onDelete(tenant.id)}
-          className="flex items-center space-x-1"
-        >
-          <Trash2 className="h-4 w-4" />
-          <span>Delete</span>
-        </Button>
-      </CardFooter>
-    </Card>
+      <TenantDetailModal
+        tenant={tenant}
+        isOpen={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+      />
+    </>
   );
 };
