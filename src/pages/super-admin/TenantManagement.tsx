@@ -1,17 +1,20 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus } from 'lucide-react';
+import { Building2, Plus, AlertCircle } from 'lucide-react';
 import { TenantCard } from '@/components/tenant/TenantCard';
 import { TenantForm } from '@/components/tenant/TenantForm';
 import { TenantFilters } from '@/components/tenant/TenantFilters';
 import { TenantService } from '@/services/tenantService';
 import { Tenant, TenantFormData, TenantType, TenantStatus } from '@/types/tenant';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function TenantManagement() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -42,13 +45,24 @@ export default function TenantManagement() {
   const fetchTenants = async () => {
     try {
       setLoading(true);
+      setError(null);
       console.log('Fetching tenants...');
       const data = await TenantService.fetchTenants();
       console.log('Tenants fetched successfully:', data);
       setTenants(data);
-    } catch (error) {
+      
+      if (data.length === 0) {
+        console.log('No tenants found in the database');
+      }
+    } catch (error: any) {
       console.error('Error fetching tenants:', error);
-      // Error is already handled in TenantService with toast
+      const errorMessage = error.message || 'Failed to fetch tenants';
+      setError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -68,12 +82,19 @@ export default function TenantManagement() {
         console.log('Tenant created successfully');
         setIsCreateDialogOpen(false);
         resetForm();
-        fetchTenants();
+        await fetchTenants(); // Refresh the list
+        toast({
+          title: "Success",
+          description: "Tenant created successfully",
+        });
       }
-      // Error handling is done in TenantService
     } catch (error: any) {
       console.error('Error creating tenant:', error);
-      // Error is already handled in TenantService with toast
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create tenant",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -96,9 +117,18 @@ export default function TenantManagement() {
       setIsEditDialogOpen(false);
       setEditingTenant(null);
       resetForm();
+      
+      toast({
+        title: "Success",
+        description: "Tenant updated successfully",
+      });
     } catch (error: any) {
       console.error('Error updating tenant:', error);
-      // Error is already handled in TenantService with toast
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update tenant",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -115,9 +145,17 @@ export default function TenantManagement() {
       console.log('Tenant deleted successfully');
 
       setTenants(prev => prev.filter(t => t.id !== tenantId));
+      toast({
+        title: "Success",
+        description: "Tenant deleted successfully",
+      });
     } catch (error: any) {
       console.error('Error deleting tenant:', error);
-      // Error is already handled in TenantService with toast
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete tenant",
+        variant: "destructive",
+      });
     }
   };
 
@@ -139,8 +177,8 @@ export default function TenantManagement() {
     setFormData({
       name: tenant.name || '',
       slug: tenant.slug || '',
-      type: tenant.type as TenantType || 'agri_company',
-      status: tenant.status as TenantStatus || 'trial',
+      type: (tenant.type as TenantType) || 'agri_company',
+      status: (tenant.status as TenantStatus) || 'trial',
       owner_name: tenant.owner_name || '',
       owner_email: tenant.owner_email || '',
       owner_phone: tenant.owner_phone || '',
@@ -229,6 +267,27 @@ export default function TenantManagement() {
         </Dialog>
       </div>
 
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-2"
+              onClick={() => {
+                setError(null);
+                fetchTenants();
+              }}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Filters */}
       <TenantFilters
         searchTerm={searchTerm}
@@ -251,15 +310,31 @@ export default function TenantManagement() {
         ))}
       </div>
 
-      {filteredTenants.length === 0 && (
+      {/* Empty State */}
+      {!loading && filteredTenants.length === 0 && (
         <div className="text-center py-12">
           <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-2 text-sm font-semibold text-muted-foreground">No tenants found</h3>
+          <h3 className="mt-2 text-sm font-semibold text-muted-foreground">
+            {tenants.length === 0 ? 'No tenants found' : 'No tenants match your filters'}
+          </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            {searchTerm || filterType !== 'all' || filterStatus !== 'all' 
-              ? 'Try adjusting your search or filters.' 
-              : 'Get started by creating your first tenant.'}
+            {tenants.length === 0 
+              ? 'Get started by creating your first tenant.' 
+              : 'Try adjusting your search or filters.'
+            }
           </p>
+          {tenants.length === 0 && (
+            <Button 
+              className="mt-4" 
+              onClick={() => {
+                resetForm();
+                setIsCreateDialogOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create First Tenant
+            </Button>
+          )}
         </div>
       )}
 
