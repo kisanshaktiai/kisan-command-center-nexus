@@ -4585,6 +4585,10 @@ export type Database = {
         Args: { land_uuid: string }
         Returns: number
       }
+      check_admin_status: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       check_slug_availability: {
         Args: { p_slug: string }
         Returns: Json
