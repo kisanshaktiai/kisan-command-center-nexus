@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { TenantContext } from '@/hooks/useMultiTenant';
@@ -69,11 +70,13 @@ export class MultiTenantService {
         tenant_id: data.id,
         subdomain: data.subdomain,
         custom_domain: data.custom_domain,
-        primary_color: data.tenant_branding?.[0]?.primary_color || '#10B981',
-        secondary_color: data.tenant_branding?.[0]?.secondary_color || '#065F46',
-        accent_color: data.tenant_branding?.[0]?.accent_color || '#F59E0B',
-        app_name: data.tenant_branding?.[0]?.app_name || data.name,
-        logo_url: data.tenant_branding?.[0]?.logo_url,
+        branding: {
+          primary_color: data.tenant_branding?.[0]?.primary_color || '#10B981',
+          secondary_color: data.tenant_branding?.[0]?.secondary_color || '#065F46',
+          accent_color: data.tenant_branding?.[0]?.accent_color || '#F59E0B',
+          app_name: data.tenant_branding?.[0]?.app_name || data.name,
+          logo_url: data.tenant_branding?.[0]?.logo_url,
+        },
         features: {
           ai_chat: data.tenant_features?.[0]?.ai_chat || false,
           weather_forecast: data.tenant_features?.[0]?.weather_forecast || false,
@@ -130,26 +133,26 @@ export class MultiTenantService {
       const root = document.documentElement;
       
       // Apply CSS custom properties for theming
-      if (branding.primary_color) {
-        root.style.setProperty('--tenant-primary', branding.primary_color);
+      if (branding.branding?.primary_color) {
+        root.style.setProperty('--tenant-primary', branding.branding.primary_color);
       }
-      if (branding.secondary_color) {
-        root.style.setProperty('--tenant-secondary', branding.secondary_color);
+      if (branding.branding?.secondary_color) {
+        root.style.setProperty('--tenant-secondary', branding.branding.secondary_color);
       }
-      if (branding.accent_color) {
-        root.style.setProperty('--tenant-accent', branding.accent_color);
+      if (branding.branding?.accent_color) {
+        root.style.setProperty('--tenant-accent', branding.branding.accent_color);
       }
 
       // Update document title
-      if (branding.app_name) {
-        document.title = branding.app_name;
+      if (branding.branding?.app_name) {
+        document.title = branding.branding.app_name;
       }
 
       // Update favicon if logo_url exists
-      if (branding.logo_url) {
+      if (branding.branding?.logo_url) {
         const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
         if (favicon) {
-          favicon.href = branding.logo_url;
+          favicon.href = branding.branding.logo_url;
         }
       }
 
