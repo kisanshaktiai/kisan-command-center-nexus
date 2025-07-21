@@ -10,137 +10,228 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { CheckCircle, Plus, Edit, Trash2, DollarSign, Users, Calendar } from 'lucide-react';
+import { CheckCircle, Plus, Edit, Trash2, DollarSign, Users, Calendar, Loader2, Search, Filter } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface BillingPlan {
   id: string;
   name: string;
   description: string | null;
-  plan_type: 'starter' | 'growth' | 'enterprise' | 'custom';
+  plan_type?: string;
   base_price: number;
-  currency: string;
-  billing_interval: 'monthly' | 'quarterly' | 'annually';
-  features: string[];
-  usage_limits: Record<string, any>;
+  currency?: string;
+  billing_interval: string;
+  features: any[];
+  usage_limits?: any;
+  limits?: any;
   is_active: boolean;
-  is_custom: boolean;
+  is_custom?: boolean;
   created_at: string;
   updated_at: string;
 }
 
 interface TenantSubscription {
   id: string;
-  tenant_id: string;
-  billing_plan_id: string;
+  name: string;
+  subscription_plan: string;
   status: string;
-  current_period_start: string;
-  current_period_end: string;
-  trial_start: string | null;
-  trial_end: string | null;
-  cancelled_at: string | null;
   created_at: string;
-  updated_at: string;
-  billing_plans?: {
-    name: string;
-    plan_type: string;
-  };
-  tenants?: {
-    name: string;
-  };
+  trial_ends_at?: string;
+  subscription_start_date?: string;
+  subscription_end_date?: string;
+  type: string;
+  owner_email?: string;
 }
-
-// Mock data until Supabase types are regenerated
-const mockPlans: BillingPlan[] = [
-  {
-    id: '1',
-    name: 'Starter',
-    description: 'Perfect for small farms getting started',
-    plan_type: 'starter',
-    base_price: 29.99,
-    currency: 'USD',
-    billing_interval: 'monthly',
-    features: ['Basic AI recommendations', 'Weather alerts', 'Up to 5 land plots'],
-    usage_limits: { land_plots: 5, api_calls: 1000 },
-    is_active: true,
-    is_custom: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Growth',
-    description: 'Ideal for growing agricultural businesses',
-    plan_type: 'growth',
-    base_price: 79.99,
-    currency: 'USD',
-    billing_interval: 'monthly',
-    features: ['Advanced AI insights', 'Market price alerts', 'Up to 25 land plots', 'Analytics dashboard'],
-    usage_limits: { land_plots: 25, api_calls: 5000 },
-    is_active: true,
-    is_custom: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }
-];
-
-const mockSubscriptions: TenantSubscription[] = [
-  {
-    id: '1',
-    tenant_id: '1',
-    billing_plan_id: '1',
-    status: 'active',
-    current_period_start: new Date().toISOString(),
-    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    trial_start: null,
-    trial_end: null,
-    cancelled_at: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    billing_plans: {
-      name: 'Starter',
-      plan_type: 'starter'
-    },
-    tenants: { name: 'Demo Farm Co.' }
-  }
-];
 
 export default function SubscriptionManagement() {
   const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [planToDelete, setPlanToDelete] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [planFilter, setPlanFilter] = useState<string>('all');
+  
+  const queryClient = useQueryClient();
 
-  // Use mock data until Supabase types are regenerated
-  const plans = mockPlans;
-  const subscriptions = mockSubscriptions;
-  const plansLoading = false;
-  const subscriptionsLoading = false;
+  // Fetch billing plans
+  const { data: plans = [], isLoading: plansLoading, error: plansError } = useQuery({
+    queryKey: ['billing-plans'],
+    queryFn: async (): Promise<BillingPlan[]> => {
+      console.log('Fetching billing plans...');
+      const { data, error } = await supabase
+        .from('billing_plans')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching billing plans:', error);
+        throw error;
+      }
+
+      console.log('Billing plans fetched:', data);
+      return data || [];
+    },
+  });
+
+  // Fetch tenant subscriptions
+  const { data: subscriptions = [], isLoading: subscriptionsLoading, error: subscriptionsError } = useQuery({
+    queryKey: ['tenant-subscriptions-admin'],
+    queryFn: async (): Promise<TenantSubscription[]> => {
+      console.log('Fetching tenant subscriptions...');
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, name, subscription_plan, status, created_at, trial_ends_at, subscription_start_date, subscription_end_date, type, owner_email')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching tenant subscriptions:', error);
+        throw error;
+      }
+
+      console.log('Tenant subscriptions fetched:', data);
+      return data || [];
+    },
+  });
+
+  // Calculate analytics
+  const analytics = React.useMemo(() => {
+    if (!subscriptions.length) return { totalRevenue: 0, activeSubscriptions: 0, churnRate: 0 };
+
+    const activeCount = subscriptions.filter(sub => sub.status === 'active').length;
+    const totalCount = subscriptions.length;
+    const churnRate = totalCount > 0 ? ((totalCount - activeCount) / totalCount) * 100 : 0;
+
+    // Calculate revenue based on plan pricing
+    const totalRevenue = subscriptions
+      .filter(sub => sub.status === 'active')
+      .reduce((sum, sub) => {
+        const plan = plans.find(p => p.name.toLowerCase().includes(sub.subscription_plan.toLowerCase()));
+        return sum + (plan?.base_price || 0);
+      }, 0);
+
+    return {
+      totalRevenue,
+      activeSubscriptions: activeCount,
+      churnRate: churnRate.toFixed(1),
+    };
+  }, [subscriptions, plans]);
 
   const createPlan = async (planData: any) => {
-    toast.success('Plan created successfully (demo mode)');
-    setIsCreateDialogOpen(false);
+    try {
+      console.log('Creating billing plan:', planData);
+      const { data, error } = await supabase
+        .from('billing_plans')
+        .insert([planData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success('Billing plan created successfully');
+      setIsCreateDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
+    } catch (error: any) {
+      console.error('Error creating billing plan:', error);
+      toast.error(`Failed to create billing plan: ${error.message}`);
+    }
   };
 
   const updatePlan = async (planData: any) => {
-    toast.success('Plan updated successfully (demo mode)');
+    if (!selectedPlan) return;
+
+    try {
+      console.log('Updating billing plan:', planData);
+      const { data, error } = await supabase
+        .from('billing_plans')
+        .update(planData)
+        .eq('id', selectedPlan.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success('Billing plan updated successfully');
+      setIsEditDialogOpen(false);
+      setSelectedPlan(null);
+      queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
+    } catch (error: any) {
+      console.error('Error updating billing plan:', error);
+      toast.error(`Failed to update billing plan: ${error.message}`);
+    }
   };
 
   const deletePlan = async (planId: string) => {
-    toast.success('Plan deleted successfully (demo mode)');
+    try {
+      console.log('Deleting billing plan:', planId);
+      const { error } = await supabase
+        .from('billing_plans')
+        .delete()
+        .eq('id', planId);
+
+      if (error) throw error;
+
+      toast.success('Billing plan deleted successfully');
+      setPlanToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
+    } catch (error: any) {
+      console.error('Error deleting billing plan:', error);
+      toast.error(`Failed to delete billing plan: ${error.message}`);
+    }
   };
 
   const getPlanTypeColor = (type: string) => {
-    switch (type) {
+    switch (type?.toLowerCase()) {
+      case 'kisan_basic':
       case 'starter': return 'bg-blue-500';
+      case 'shakti_growth':
       case 'growth': return 'bg-purple-500';
+      case 'ai_enterprise':
       case 'enterprise': return 'bg-green-500';
       case 'custom': return 'bg-orange-500';
       default: return 'bg-gray-500';
     }
   };
 
-  const formatPrice = (price: number | null, currency: string) => {
+  const formatPrice = (price: number | null, currency: string = 'INR') => {
     return price ? `${currency === 'USD' ? '$' : '₹'}${price.toLocaleString()}` : 'Custom';
   };
+
+  const getPlanDisplayName = (plan: string) => {
+    switch (plan) {
+      case 'Kisan_Basic': return 'Kisan – Starter';
+      case 'Shakti_Growth': return 'Shakti – Growth';
+      case 'AI_Enterprise': return 'AI – Enterprise';
+      case 'custom': return 'Custom Plan';
+      default: return plan;
+    }
+  };
+
+  // Filter subscriptions
+  const filteredSubscriptions = subscriptions.filter(sub => {
+    const matchesSearch = sub.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         sub.subscription_plan?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || sub.status === statusFilter;
+    const matchesPlan = planFilter === 'all' || sub.subscription_plan === planFilter;
+    
+    return matchesSearch && matchesStatus && matchesPlan;
+  });
+
+  if (plansError || subscriptionsError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-500 mb-2">Error loading data</p>
+          <p className="text-sm text-muted-foreground">
+            {plansError?.message || subscriptionsError?.message}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -175,7 +266,10 @@ export default function SubscriptionManagement() {
 
         <TabsContent value="plans" className="space-y-4">
           {plansLoading ? (
-            <div className="text-center py-8">Loading plans...</div>
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin" />
+              <span className="ml-2">Loading plans...</span>
+            </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {plans.map((plan) => (
@@ -185,8 +279,8 @@ export default function SubscriptionManagement() {
                       <div>
                         <CardTitle className="flex items-center gap-2">
                           {plan.name}
-                          <Badge className={getPlanTypeColor(plan.plan_type)}>
-                            {plan.plan_type}
+                          <Badge className={getPlanTypeColor(plan.plan_type || 'starter')}>
+                            {plan.plan_type || 'starter'}
                           </Badge>
                         </CardTitle>
                         <CardDescription>{plan.description}</CardDescription>
@@ -195,14 +289,17 @@ export default function SubscriptionManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setSelectedPlan(plan)}
+                          onClick={() => {
+                            setSelectedPlan(plan);
+                            setIsEditDialogOpen(true);
+                          }}
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => deletePlan(plan.id)}
+                          onClick={() => setPlanToDelete(plan.id)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -224,13 +321,13 @@ export default function SubscriptionManagement() {
                     <div>
                       <h4 className="text-sm font-medium mb-2">Features</h4>
                       <div className="space-y-1">
-                        {plan.features.slice(0, 3).map((feature, index) => (
+                        {(plan.features || []).slice(0, 3).map((feature, index) => (
                           <div key={index} className="flex items-center gap-2 text-sm">
                             <CheckCircle className="w-3 h-3 text-green-500" />
-                            {feature}
+                            {typeof feature === 'string' ? feature : JSON.stringify(feature)}
                           </div>
                         ))}
-                        {plan.features.length > 3 && (
+                        {(plan.features || []).length > 3 && (
                           <div className="text-xs text-muted-foreground">
                             +{plan.features.length - 3} more features
                           </div>
@@ -247,29 +344,94 @@ export default function SubscriptionManagement() {
                   </CardContent>
                 </Card>
               ))}
+              
+              {plans.length === 0 && (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-muted-foreground">No billing plans found. Create your first plan to get started.</p>
+                </div>
+              )}
             </div>
           )}
         </TabsContent>
 
         <TabsContent value="subscriptions" className="space-y-4">
+          {/* Search and Filter Controls */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Subscription Filters</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search tenants or plans..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="trial">Trial</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={planFilter} onValueChange={setPlanFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Filter by plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Plans</SelectItem>
+                    <SelectItem value="Kisan_Basic">Kisan – Starter</SelectItem>
+                    <SelectItem value="Shakti_Growth">Shakti – Growth</SelectItem>
+                    <SelectItem value="AI_Enterprise">AI – Enterprise</SelectItem>
+                    <SelectItem value="custom">Custom Plan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
           {subscriptionsLoading ? (
-            <div className="text-center py-8">Loading subscriptions...</div>
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin" />
+              <span className="ml-2">Loading subscriptions...</span>
+            </div>
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle>Active Subscriptions</CardTitle>
+                <CardTitle>Active Subscriptions ({filteredSubscriptions.length})</CardTitle>
                 <CardDescription>Manage tenant subscriptions and billing</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {subscriptions.map((subscription) => (
+                  {filteredSubscriptions.map((subscription) => (
                     <div key={subscription.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-4">
                         <div>
-                          <h4 className="font-medium">{subscription.tenants?.name || 'Unknown Tenant'}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {subscription.billing_plans?.name || 'Unknown Plan'} • {subscription.status}
-                          </p>
+                          <h4 className="font-medium">{subscription.name}</h4>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Badge className={getPlanTypeColor(subscription.subscription_plan)}>
+                              {getPlanDisplayName(subscription.subscription_plan)}
+                            </Badge>
+                            <span>•</span>
+                            <span>{subscription.type}</span>
+                            {subscription.owner_email && (
+                              <>
+                                <span>•</span>
+                                <span>{subscription.owner_email}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
@@ -278,7 +440,13 @@ export default function SubscriptionManagement() {
                         </Badge>
                         <div className="text-right">
                           <div className="text-sm font-medium">
-                            Next billing: {new Date(subscription.current_period_end).toLocaleDateString()}
+                            {subscription.trial_ends_at ? (
+                              `Trial ends: ${new Date(subscription.trial_ends_at).toLocaleDateString()}`
+                            ) : subscription.subscription_end_date ? (
+                              `Ends: ${new Date(subscription.subscription_end_date).toLocaleDateString()}`
+                            ) : (
+                              'No end date'
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             Started: {new Date(subscription.created_at).toLocaleDateString()}
@@ -287,6 +455,15 @@ export default function SubscriptionManagement() {
                       </div>
                     </div>
                   ))}
+
+                  {filteredSubscriptions.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {subscriptions.length === 0 
+                        ? "No subscriptions found. Tenants will appear here once they're created."
+                        : "No subscriptions match your current filters."
+                      }
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -301,8 +478,8 @@ export default function SubscriptionManagement() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">$45,231</div>
-                <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+                <div className="text-2xl font-bold">₹{analytics.totalRevenue.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">From active subscriptions</p>
               </CardContent>
             </Card>
             <Card>
@@ -311,8 +488,8 @@ export default function SubscriptionManagement() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{subscriptions.filter(s => s.status === 'active').length}</div>
-                <p className="text-xs text-muted-foreground">+{subscriptions.length} total subscriptions</p>
+                <div className="text-2xl font-bold">{analytics.activeSubscriptions}</div>
+                <p className="text-xs text-muted-foreground">+{subscriptions.length} total tenants</p>
               </CardContent>
             </Card>
             <Card>
@@ -321,33 +498,139 @@ export default function SubscriptionManagement() {
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">2.3%</div>
-                <p className="text-xs text-muted-foreground">-0.5% from last month</p>
+                <div className="text-2xl font-bold">{analytics.churnRate}%</div>
+                <p className="text-xs text-muted-foreground">Non-active subscriptions</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Additional Analytics */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Plan Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'custom'].map((plan) => {
+                    const count = subscriptions.filter(s => s.subscription_plan === plan).length;
+                    const percentage = subscriptions.length > 0 ? (count / subscriptions.length) * 100 : 0;
+                    return (
+                      <div key={plan} className="flex justify-between items-center">
+                        <span className="text-sm">{getPlanDisplayName(plan)}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{count}</span>
+                          <span className="text-xs text-muted-foreground">({percentage.toFixed(1)}%)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Status Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {['active', 'trial', 'suspended', 'cancelled'].map((status) => {
+                    const count = subscriptions.filter(s => s.status === status).length;
+                    const percentage = subscriptions.length > 0 ? (count / subscriptions.length) * 100 : 0;
+                    return (
+                      <div key={status} className="flex justify-between items-center">
+                        <span className="text-sm capitalize">{status}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{count}</span>
+                          <span className="text-xs text-muted-foreground">({percentage.toFixed(1)}%)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Plan Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Billing Plan</DialogTitle>
+            <DialogDescription>Update the billing plan configuration</DialogDescription>
+          </DialogHeader>
+          {selectedPlan && (
+            <CreatePlanForm 
+              onSubmit={updatePlan} 
+              initialData={selectedPlan}
+              isEditing={true}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Plan Confirmation */}
+      <AlertDialog open={!!planToDelete} onOpenChange={() => setPlanToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Billing Plan</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this billing plan? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => planToDelete && deletePlan(planToDelete)}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-// Create Plan Form Component
-function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
+// Create/Edit Plan Form Component
+function CreatePlanForm({ 
+  onSubmit, 
+  initialData, 
+  isEditing = false 
+}: { 
+  onSubmit: (data: any) => void; 
+  initialData?: BillingPlan;
+  isEditing?: boolean;
+}) {
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    plan_type: 'starter' as const,
-    base_price: '',
-    currency: 'USD',
-    billing_interval: 'monthly' as const,
-    features: '',
-    usage_limits: '',
-    is_active: true
+    name: initialData?.name || '',
+    description: initialData?.description || '',
+    plan_type: initialData?.plan_type || 'starter',
+    base_price: initialData?.base_price?.toString() || '',
+    currency: initialData?.currency || 'INR',
+    billing_interval: initialData?.billing_interval || 'monthly',
+    features: Array.isArray(initialData?.features) ? initialData.features.join(', ') : '',
+    usage_limits: initialData?.usage_limits ? JSON.stringify(initialData.usage_limits) : initialData?.limits ? JSON.stringify(initialData.limits) : '',
+    is_active: initialData?.is_active ?? true
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    let features = [];
+    try {
+      features = formData.features.split(',').map(f => f.trim()).filter(Boolean);
+    } catch {
+      features = [];
+    }
+
+    let usage_limits = {};
+    try {
+      usage_limits = formData.usage_limits ? JSON.parse(formData.usage_limits) : {};
+    } catch {
+      usage_limits = {};
+    }
     
     const planData = {
       name: formData.name,
@@ -356,11 +639,11 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
       base_price: formData.base_price ? parseFloat(formData.base_price) : 0,
       currency: formData.currency,
       billing_interval: formData.billing_interval,
-      features: formData.features.split(',').map(f => f.trim()).filter(Boolean),
-      usage_limits: formData.usage_limits ? JSON.parse(formData.usage_limits) : {},
+      features,
+      usage_limits,
+      limits: usage_limits, // Also store in limits for backward compatibility
       is_active: formData.is_active,
-      is_custom: false,
-      sort_order: 0
+      is_custom: false
     };
     
     onSubmit(planData);
@@ -382,7 +665,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
           <Label htmlFor="plan_type">Plan Type</Label>
           <Select 
             value={formData.plan_type} 
-            onValueChange={(value: any) => setFormData({ ...formData, plan_type: value })}
+            onValueChange={(value) => setFormData({ ...formData, plan_type: value })}
           >
             <SelectTrigger>
               <SelectValue />
@@ -436,7 +719,7 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
           <Label htmlFor="billing_interval">Billing Interval</Label>
           <Select 
             value={formData.billing_interval} 
-            onValueChange={(value: any) => setFormData({ ...formData, billing_interval: value })}
+            onValueChange={(value) => setFormData({ ...formData, billing_interval: value })}
           >
             <SelectTrigger>
               <SelectValue />
@@ -479,7 +762,9 @@ function CreatePlanForm({ onSubmit }: { onSubmit: (data: any) => void }) {
         <Label htmlFor="is_active">Active</Label>
       </div>
       
-      <Button type="submit" className="w-full">Create Plan</Button>
+      <Button type="submit" className="w-full">
+        {isEditing ? 'Update Plan' : 'Create Plan'}
+      </Button>
     </form>
   );
 }
