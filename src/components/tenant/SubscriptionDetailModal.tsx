@@ -173,7 +173,7 @@ export const SubscriptionDetailModal: React.FC<SubscriptionDetailModalProps> = (
                         <XCircle className="h-4 w-4 text-red-500" />
                       )}
                       <span className={`text-sm ${enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {feature.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        {String(feature).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </span>
                     </div>
                   ))}
@@ -196,10 +196,10 @@ export const SubscriptionDetailModal: React.FC<SubscriptionDetailModalProps> = (
                   {limits.map(([limit, value]) => (
                     <div key={limit} className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">
-                        {limit.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        {String(limit).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </span>
                       <span className="font-medium">
-                        {typeof value === 'number' ? value.toLocaleString() : value}
+                        {typeof value === 'number' ? value.toLocaleString() : String(value)}
                       </span>
                     </div>
                   ))}

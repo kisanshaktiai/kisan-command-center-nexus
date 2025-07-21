@@ -1,23 +1,18 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Loader2, Search, AlertTriangle } from 'lucide-react';
-import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Plus, Loader2, AlertTriangle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { TenantCard } from '@/components/tenant/TenantCard';
 import { TenantForm } from '@/components/tenant/TenantForm';
 import { TenantService } from '@/services/tenantService';
-import { Tenant, TenantFormData, SubscriptionPlan } from '@/types/tenant';
+import { Tenant, TenantFormData } from '@/types/tenant';
 import { TenantOnboardingPanel } from '@/components/tenant/TenantOnboardingPanel';
 
 export default function TenantManagement() {
@@ -27,7 +22,7 @@ export default function TenantManagement() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [planFilter, setPlanFilter] = useState<SubscriptionPlan>('all');
+  const [planFilter, setPlanFilter] = useState<string>('all');
   const queryClient = useQueryClient();
 
   // Fetch tenants
@@ -37,43 +32,37 @@ export default function TenantManagement() {
   });
 
   // Create tenant mutation
-  const createTenantMutation = useMutation(
-    (formData: TenantFormData) => TenantService.createTenant(formData),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['tenants'] });
-        setIsFormOpen(false);
-      },
-    }
-  );
+  const createTenantMutation = useMutation({
+    mutationFn: (formData: TenantFormData) => TenantService.createTenant(formData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenants'] });
+      setIsFormOpen(false);
+    },
+  });
 
   // Update tenant mutation
-  const updateTenantMutation = useMutation(
-    (tenantData: { tenant: Tenant; formData: TenantFormData }) =>
+  const updateTenantMutation = useMutation({
+    mutationFn: (tenantData: { tenant: Tenant; formData: TenantFormData }) =>
       TenantService.updateTenant(tenantData.tenant, tenantData.formData),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['tenants'] });
-        setIsFormOpen(false);
-        setSelectedTenant(null);
-      },
-    }
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenants'] });
+      setIsFormOpen(false);
+      setSelectedTenant(null);
+    },
+  });
 
   // Delete tenant mutation
-  const deleteTenantMutation = useMutation(
-    (tenantId: string) => TenantService.deleteTenant(tenantId),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['tenants'] });
-        setIsDeleteDialogOpen(false);
-        setSelectedTenant(null);
-      },
-    }
-  );
+  const deleteTenantMutation = useMutation({
+    mutationFn: (tenantId: string) => TenantService.deleteTenant(tenantId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenants'] });
+      setIsDeleteDialogOpen(false);
+      setSelectedTenant(null);
+    },
+  });
 
   const handleCreate = async (formData: TenantFormData) => {
-    createTenantMutation.mutate(formData as any);
+    createTenantMutation.mutate(formData);
   };
 
   const handleEdit = (tenant: Tenant) => {
@@ -83,7 +72,7 @@ export default function TenantManagement() {
 
   const handleUpdate = async (formData: TenantFormData) => {
     if (!selectedTenant) return;
-    updateTenantMutation.mutate({ tenant: selectedTenant, formData } as any);
+    updateTenantMutation.mutate({ tenant: selectedTenant, formData });
   };
 
   const handleDelete = (tenantId: string) => {
@@ -158,7 +147,7 @@ export default function TenantManagement() {
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={planFilter} onValueChange={(value) => setPlanFilter(value as SubscriptionPlan)}>
+                <Select value={planFilter} onValueChange={(value) => setPlanFilter(value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Filter by plan" />
                   </SelectTrigger>
@@ -246,7 +235,7 @@ export default function TenantManagement() {
           <TenantForm
             onSubmit={selectedTenant ? handleUpdate : handleCreate}
             initialValues={selectedTenant}
-            isLoading={createTenantMutation.isLoading || updateTenantMutation.isLoading}
+            isLoading={createTenantMutation.isPending || updateTenantMutation.isPending}
           />
         </DialogContent>
       </Dialog>
