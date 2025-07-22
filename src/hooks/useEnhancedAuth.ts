@@ -3,8 +3,6 @@ import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { safeGet } from '@/lib/supabase-helpers';
-import { sessionService } from '@/services/SessionService';
 
 interface TenantData {
   organizationName: string;
@@ -38,6 +36,14 @@ export const useEnhancedAuth = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<any>(null);
 
+  // Check if user has admin role based on metadata
+  const checkAdminStatus = (user: User | null): boolean => {
+    if (!user) return false;
+    
+    const userRole = user.user_metadata?.role || user.app_metadata?.role;
+    return ['super_admin', 'platform_admin', 'admin'].includes(userRole);
+  };
+
   // Enhanced sign up with tenant metadata
   const signUp = async (email: string, password: string, tenantData: TenantData) => {
     try {
@@ -51,7 +57,8 @@ export const useEnhancedAuth = () => {
             organization_type: tenantData.organizationType,
             tenant_id: tenantData.tenantId,
             full_name: tenantData.fullName,
-            phone: tenantData.phone
+            phone: tenantData.phone,
+            role: 'user' // Default role for new signups
           }
         }
       });
@@ -143,7 +150,7 @@ export const useEnhancedAuth = () => {
   const trackSession = async (deviceInfo?: any) => {
     try {
       if (!session) return;
-      console.log('Session tracking active');
+      console.log('Session tracking active for user:', user?.email);
     } catch (error) {
       console.error('Error tracking session:', error);
     }
@@ -152,9 +159,19 @@ export const useEnhancedAuth = () => {
   // Sign out with session cleanup
   const signOut = async () => {
     try {
-      await sessionService.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      // Clear local state
+      setUser(null);
+      setSession(null);
+      setIsAdmin(false);
+      setProfile(null);
+      
+      console.log('User signed out successfully');
     } catch (error) {
       console.error('Error signing out:', error);
+      toast.error('Error signing out');
     }
   };
 
@@ -163,31 +180,65 @@ export const useEnhancedAuth = () => {
     if (!user) return;
     
     try {
-      console.log('Profile refresh active');
+      // Set profile from user metadata
+      setProfile({
+        full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
+        email: user.email,
+        role: user.user_metadata?.role || user.app_metadata?.role || 'user'
+      });
     } catch (error) {
       console.error('Error refreshing profile:', error);
     }
   };
 
-  // Set up auth state listener using session service
+  // Set up auth state listener
   useEffect(() => {
-    const unsubscribe = sessionService.subscribe((sessionData) => {
-      setSession(sessionData.session);
-      setUser(sessionData.user);
-      setIsAdmin(false); // Will be updated by checkAdminStatus
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+        
+        if (session?.user) {
+          const adminStatus = checkAdminStatus(session.user);
+          setIsAdmin(adminStatus);
+          console.log('User admin status:', adminStatus);
+          
+          // Set profile from user metadata
+          setProfile({
+            full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || 'User',
+            email: session.user.email,
+            role: session.user.user_metadata?.role || session.user.app_metadata?.role || 'user'
+          });
+        } else {
+          setIsAdmin(false);
+          setProfile(null);
+        }
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
       setIsLoading(false);
       
-      if (sessionData.isAuthenticated && sessionData.user) {
-        // Check admin status
-        sessionService.isAdmin().then(setIsAdmin);
-        refreshProfile();
-        trackSession();
-      } else {
-        setProfile(null);
+      if (session?.user) {
+        const adminStatus = checkAdminStatus(session.user);
+        setIsAdmin(adminStatus);
+        
+        setProfile({
+          full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || 'User',
+          email: session.user.email,
+          role: session.user.user_metadata?.role || session.user.app_metadata?.role || 'user'
+        });
       }
     });
 
-    return unsubscribe;
+    return () => subscription.unsubscribe();
   }, []);
 
   return {

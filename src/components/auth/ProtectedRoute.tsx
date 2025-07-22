@@ -14,7 +14,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children, 
   requireAdmin = false 
 }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isAdmin, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -36,9 +36,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/auth" replace />;
   }
 
-  console.log('ProtectedRoute: User authenticated:', user.email);
+  if (requireAdmin && !isAdmin) {
+    console.log('ProtectedRoute: Admin access required but user is not admin');
+    return <Navigate to="/auth" replace />;
+  }
 
-  // For admin routes, we trust that the user has already been verified in the login process
-  // The admin verification happens in SuperAdminAuth component before allowing login
+  console.log('ProtectedRoute: Access granted for user:', user.email, 'Admin status:', isAdmin);
   return <>{children}</>;
 };

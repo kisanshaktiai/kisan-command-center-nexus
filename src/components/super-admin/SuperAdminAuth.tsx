@@ -7,15 +7,12 @@ import { Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { OTPVerification } from '@/components/auth/OTPVerification';
 
 export const SuperAdminAuth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showOTPVerification, setShowOTPVerification] = useState(false);
-  const [pendingLoginEmail, setPendingLoginEmail] = useState('');
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -25,54 +22,37 @@ export const SuperAdminAuth = () => {
 
     try {
       console.log('=== SUPER ADMIN LOGIN PROCESS STARTED ===');
-      console.log('Step 1: Checking admin status before authentication for:', email);
+      console.log('Step 1: Authenticating user:', email);
       
-      // Step 1: First check if user is in admin_users table before any authentication
-      const { data: adminUser, error: adminError } = await supabase
-        .from('admin_users')
-        .select('*')
-        .eq('email', email)
-        .eq('is_active', true);
-
-      console.log('Admin user pre-check result:', { adminUser, adminError });
-
-      if (adminError) {
-        console.error('Database error checking admin user:', adminError);
-        throw new Error('Database error occurred');
-      }
-
-      if (!adminUser || adminUser.length === 0) {
-        console.error('No admin user found for email:', email);
-        throw new Error('Access denied: User is not registered as an admin');
-      }
-
-      const user = adminUser[0];
-      console.log('Found admin user:', user);
-
-      if (user.role !== 'super_admin') {
-        console.error('User role is not super_admin:', user.role);
-        throw new Error('Access denied: Insufficient privileges');
-      }
-
-      console.log('Step 2: Admin verification successful, now verifying password for:', email);
-      
-      // Step 2: Now verify password credentials
+      // Step 1: Authenticate user with email/password
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (signInError) {
-        console.error('Password verification failed:', signInError);
-        // Sign out if there was any partial authentication
-        await supabase.auth.signOut();
+        console.error('Authentication failed:', signInError);
         throw new Error('Invalid email or password');
       }
 
-      console.log('Step 3: Password verified successfully, user authenticated');
+      if (!signInData.user) {
+        throw new Error('Authentication failed - no user returned');
+      }
 
-      // Step 3: User is now authenticated and verified as admin, redirect to dashboard
-      console.log('Step 4: Redirecting to super-admin dashboard');
+      console.log('Step 2: Authentication successful, checking user role');
+      
+      // Step 2: Check if user has admin role in metadata
+      const userRole = signInData.user.user_metadata?.role || signInData.user.app_metadata?.role;
+      console.log('User role from metadata:', userRole);
+      
+      if (!userRole || !['super_admin', 'platform_admin', 'admin'].includes(userRole)) {
+        console.error('Access denied - insufficient privileges. User role:', userRole);
+        // Sign out the user since they don't have admin access
+        await supabase.auth.signOut();
+        throw new Error('Access denied: You do not have administrator privileges');
+      }
+
+      console.log('Step 3: Admin privileges verified, redirecting to dashboard');
       toast.success('Login successful');
       navigate('/super-admin');
       
@@ -86,72 +66,6 @@ export const SuperAdminAuth = () => {
       setIsLoading(false);
     }
   };
-
-  const handleOTPVerification = async (otp: string) => {
-    try {
-      console.log('=== OTP VERIFICATION STARTED ===');
-      console.log('Verifying OTP for email:', pendingLoginEmail);
-
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: pendingLoginEmail,
-        token: otp,
-        type: 'email'
-      });
-
-      if (error) {
-        console.error('OTP verification error:', error);
-        throw new Error('Invalid verification code');
-      }
-
-      if (!data.user) {
-        throw new Error('Verification failed');
-      }
-
-      console.log('OTP verified successfully, user logged in');
-      toast.success('Login successful');
-      navigate('/super-admin');
-    } catch (error: any) {
-      console.error('OTP verification failed:', error);
-      toast.error(error.message);
-      throw error;
-    }
-  };
-
-  const handleResendOTP = async (): Promise<void> => {
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: pendingLoginEmail,
-        options: {
-          shouldCreateUser: false,
-        }
-      });
-
-      if (error) throw error;
-      
-      toast.success('New verification code sent');
-    } catch (error: any) {
-      console.error('Failed to resend OTP:', error);
-      toast.error('Failed to resend verification code');
-      throw error;
-    }
-  };
-
-  const handleBackToLogin = () => {
-    setShowOTPVerification(false);
-    setPendingLoginEmail('');
-    setPassword('');
-  };
-
-  if (showOTPVerification) {
-    return (
-      <OTPVerification
-        email={pendingLoginEmail}
-        onVerify={handleOTPVerification}
-        onResendOTP={handleResendOTP}
-        onBack={handleBackToLogin}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
