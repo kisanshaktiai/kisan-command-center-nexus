@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +29,6 @@ export const SuperAdminAuth = () => {
   const [preAuthInfo, setPreAuthInfo] = useState<AdminAccessInfo | null>(null);
   const navigate = useNavigate();
 
-  // Check admin access when email changes (but don't block login)
   useEffect(() => {
     if (email && email.includes('@')) {
       checkAdminAccess(email);
@@ -41,11 +39,12 @@ export const SuperAdminAuth = () => {
 
   const checkAdminAccess = async (userEmail: string) => {
     try {
-      // Check if admin user exists and is active
+      // Check if admin user exists with super_admin role and is active
       const { data: adminUser, error } = await supabase
         .from('admin_users')
         .select('id, email, role, is_active, full_name')
         .eq('email', userEmail)
+        .eq('role', 'super_admin')
         .eq('is_active', true)
         .maybeSingle();
 
@@ -149,7 +148,7 @@ export const SuperAdminAuth = () => {
     setError('');
 
     try {
-      console.log('=== SIMPLIFIED SUPER ADMIN LOGIN PROCESS ===');
+      console.log('=== FLEXIBLE SUPER ADMIN LOGIN PROCESS ===');
       console.log('Step 1: Authenticating user:', email);
       
       // Step 1: Authenticate user with email/password
@@ -177,13 +176,14 @@ export const SuperAdminAuth = () => {
         throw new Error('Authentication failed - no user returned');
       }
 
-      console.log('Step 2: User authenticated successfully, checking admin status...');
+      console.log('Step 2: User authenticated, checking admin status for email:', email);
       
-      // Step 2: Verify admin status from database (single source of truth)
+      // Step 2: Check if the authenticated user's email exists in admin_users with super_admin role
       const { data: adminUser, error: adminError } = await supabase
         .from('admin_users')
         .select('id, email, role, is_active, full_name')
         .eq('email', email)
+        .eq('role', 'super_admin')
         .eq('is_active', true)
         .maybeSingle();
 
@@ -195,13 +195,13 @@ export const SuperAdminAuth = () => {
       }
 
       if (!adminUser) {
-        console.error('No admin user found in admin_users table for email:', email);
-        await logLoginAttempt(signInData.user.id, email, 'failed', 'Access denied - Admin privileges required');
+        console.error('No super admin record found for email:', email);
+        await logLoginAttempt(signInData.user.id, email, 'failed', 'Access denied - Super admin privileges required');
         await supabase.auth.signOut();
-        throw new Error('Access denied: You do not have administrator privileges');
+        throw new Error('Access denied: Super admin privileges required for this email');
       }
 
-      console.log('Step 3: Admin privileges verified, role:', adminUser.role);
+      console.log('Step 3: Super admin privileges verified for:', email, 'Role:', adminUser.role);
       
       // Step 3: Create admin session for tracking
       const sessionToken = await createAdminSession(signInData.user.id);
@@ -214,10 +214,8 @@ export const SuperAdminAuth = () => {
 
       console.log('=== LOGIN SUCCESS - Redirecting to dashboard ===');
       
-      // Step 5: Navigate to super admin dashboard
       toast.success('Login successful');
       
-      // Small delay to ensure auth state is updated before navigation
       setTimeout(() => {
         navigate('/super-admin');
       }, 500);
@@ -226,7 +224,6 @@ export const SuperAdminAuth = () => {
       console.error('Login error:', err);
       setError(err.message);
       toast.error(err.message);
-      // Ensure user is signed out on error
       await supabase.auth.signOut();
     } finally {
       setIsLoading(false);
@@ -251,13 +248,12 @@ export const SuperAdminAuth = () => {
           </p>
         </CardHeader>
         <CardContent>
-          {/* Pre-authentication info display - only show positive confirmation */}
           {preAuthInfo && preAuthInfo.allowed && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
               <div className="text-sm text-green-800">
                 <div className="flex items-center gap-2 mb-2">
                   <Shield className="h-4 w-4" />
-                  <span className="font-medium">Admin Access Verified</span>
+                  <span className="font-medium">Super Admin Access Verified</span>
                 </div>
                 <div className="space-y-1 text-xs">
                   <div className="flex items-center gap-2">
@@ -287,7 +283,7 @@ export const SuperAdminAuth = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@example.com"
+                placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -338,9 +334,8 @@ export const SuperAdminAuth = () => {
             </Button>
           </form>
 
-          {/* Session timeout info */}
           <div className="mt-4 text-xs text-muted-foreground text-center">
-            <p>Sessions expire after 30 minutes of inactivity</p>
+            <p>Only users with super admin role can access this area</p>
             <p>All login attempts are logged for security</p>
           </div>
         </CardContent>

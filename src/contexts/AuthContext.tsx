@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,27 +27,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      console.log('checkAdminStatus: Checking admin status for:', user.email);
+      console.log('checkAdminStatus: Checking admin status for email:', user.email);
       
-      // Direct query to admin_users table - this is the single source of truth
+      // Check if user exists in admin_users table with super_admin role and is active
       const { data: adminUser, error } = await supabase
         .from('admin_users')
-        .select('role, is_active')
+        .select('id, email, role, is_active, full_name')
         .eq('email', user.email)
+        .eq('role', 'super_admin')
         .eq('is_active', true)
         .maybeSingle();
 
       if (error) {
-        console.error('checkAdminStatus: Error checking admin_users:', error);
+        console.error('checkAdminStatus: Error querying admin_users:', error);
         setIsAdmin(false);
         return false;
       }
 
-      console.log('checkAdminStatus: Admin user data:', adminUser);
-
-      const validAdminRoles = ['super_admin', 'platform_admin', 'admin'];
-      const adminStatus = !!(adminUser && validAdminRoles.includes(adminUser.role));
-      
+      const adminStatus = !!adminUser;
+      console.log('checkAdminStatus: Admin user found:', adminUser);
       console.log('checkAdminStatus: Final admin status:', adminStatus);
       
       setIsAdmin(adminStatus);
@@ -64,7 +61,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Signing out...');
       
-      // Clear admin session data
       localStorage.removeItem('admin_session_token');
       localStorage.removeItem('admin_session_info');
       
@@ -74,7 +70,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
       
-      // Clear state
       setUser(null);
       setSession(null);
       setIsAdmin(false);
@@ -89,7 +84,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     console.log('AuthProvider: Setting up auth state listener');
 
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
@@ -97,21 +91,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Only check admin status after user is fully set
         if (session?.user) {
-          // Use a small delay to ensure user state is updated
           setTimeout(async () => {
             await checkAdminStatus();
+            setIsLoading(false);
           }, 100);
         } else {
           setIsAdmin(false);
+          setIsLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Initial session check:', session?.user?.email);
       setSession(session);
@@ -120,12 +111,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         setTimeout(async () => {
           await checkAdminStatus();
+          setIsLoading(false);
         }, 100);
       } else {
         setIsAdmin(false);
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     });
 
     return () => {
@@ -133,6 +124,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, []);
+
+  // Re-run admin check when user changes
+  useEffect(() => {
+    if (user?.email) {
+      checkAdminStatus();
+    }
+  }, [user?.email]);
 
   const value = {
     user,
