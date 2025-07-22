@@ -24,26 +24,52 @@ export const SuperAdminAuth = () => {
     setError('');
 
     try {
-      console.log('Starting login process for:', email);
+      console.log('Step 1: Verifying credentials for:', email);
       
-      // First, verify credentials with Supabase Auth
+      // Step 1: Verify password credentials only (don't actually sign in yet)
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (signInError) {
-        console.error('Auth sign in error:', signInError);
+        console.error('Password verification failed:', signInError);
         throw new Error('Invalid email or password');
       }
 
-      console.log('Credentials verified, user authenticated');
+      console.log('Step 2: Credentials verified, checking admin status');
 
-      // Send OTP using Supabase's built-in OTP system
+      // Step 2: Check if user exists in admin_users table and is super_admin
+      const { data: adminUser, error: adminError } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('email', email)
+        .eq('is_active', true)
+        .single();
+
+      if (adminError || !adminUser) {
+        console.error('Admin user check failed:', adminError);
+        // Sign out the user since they're not an admin
+        await supabase.auth.signOut();
+        throw new Error('Access denied: User is not a super admin');
+      }
+
+      if (adminUser.role !== 'super_admin') {
+        console.error('User is not super admin:', adminUser.role);
+        // Sign out the user since they're not a super admin
+        await supabase.auth.signOut();
+        throw new Error('Access denied: Insufficient privileges');
+      }
+
+      console.log('Step 3: Admin verification successful, sending OTP');
+
+      // Step 3: Sign out temporarily and send OTP for 2FA
+      await supabase.auth.signOut();
+
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: email,
         options: {
-          shouldCreateUser: false, // Don't create new users
+          shouldCreateUser: false,
         }
       });
 
@@ -51,9 +77,6 @@ export const SuperAdminAuth = () => {
         console.error('Error sending OTP:', otpError);
         throw new Error('Failed to send verification code');
       }
-
-      // Sign out temporarily to require OTP verification
-      await supabase.auth.signOut();
 
       setPendingLoginEmail(email);
       setShowOTPVerification(true);
@@ -72,7 +95,6 @@ export const SuperAdminAuth = () => {
     try {
       console.log('Verifying OTP for email:', pendingLoginEmail);
 
-      // Verify OTP using Supabase's built-in system
       const { data, error } = await supabase.auth.verifyOtp({
         email: pendingLoginEmail,
         token: otp,
