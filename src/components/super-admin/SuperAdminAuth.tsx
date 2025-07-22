@@ -29,7 +29,7 @@ export const SuperAdminAuth = () => {
   const [preAuthInfo, setPreAuthInfo] = useState<AdminAccessInfo | null>(null);
   const navigate = useNavigate();
 
-  // Check admin access when email changes
+  // Check admin access when email changes (but don't block login)
   useEffect(() => {
     if (email && email.includes('@')) {
       checkAdminAccess(email);
@@ -46,13 +46,18 @@ export const SuperAdminAuth = () => {
         .select('id, email, role, is_active')
         .eq('email', userEmail)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
-      if (error || !adminUser) {
-        setPreAuthInfo({
-          allowed: false,
-          message: 'Account not found'
-        });
+      if (error) {
+        console.error('Pre-auth check error:', error);
+        // Don't show error to user, just don't show pre-auth info
+        setPreAuthInfo(null);
+        return;
+      }
+
+      if (!adminUser) {
+        // Don't show "access denied" - just show neutral state
+        setPreAuthInfo(null);
         return;
       }
 
@@ -66,10 +71,7 @@ export const SuperAdminAuth = () => {
       });
     } catch (err) {
       console.error('Pre-auth check error:', err);
-      setPreAuthInfo({
-        allowed: false,
-        message: 'Unable to verify account access'
-      });
+      setPreAuthInfo(null);
     }
   };
 
@@ -152,21 +154,9 @@ export const SuperAdminAuth = () => {
 
     try {
       console.log('=== ENHANCED SUPER ADMIN LOGIN PROCESS STARTED ===');
-      console.log('Step 1: Pre-authentication validation for:', email);
-
-      // Step 1: Pre-authentication role check
-      if (!preAuthInfo) {
-        await checkAdminAccess(email);
-      }
-
-      if (preAuthInfo && !preAuthInfo.allowed) {
-        await logLoginAttempt(null, email, 'blocked', preAuthInfo.message);
-        throw new Error(preAuthInfo.message || 'Access denied');
-      }
-
-      console.log('Step 2: Authenticating user:', email);
+      console.log('Step 1: Authenticating user:', email);
       
-      // Step 2: Authenticate user with email/password
+      // Step 1: Authenticate user with email/password
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -191,9 +181,9 @@ export const SuperAdminAuth = () => {
         throw new Error('Authentication failed - no user returned');
       }
 
-      console.log('Step 3: Authentication successful, refreshing session to get latest metadata...');
+      console.log('Step 2: Authentication successful, refreshing session to get latest metadata...');
       
-      // Step 3: Force session refresh to get updated user metadata from database
+      // Step 2: Force session refresh to get updated user metadata from database
       const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
       
       if (refreshError) {
@@ -207,10 +197,10 @@ export const SuperAdminAuth = () => {
         throw new Error('Session refresh failed - no user returned');
       }
 
-      console.log('Step 4: Session refreshed, checking user metadata:', refreshData.user.user_metadata);
+      console.log('Step 3: Session refreshed, checking user metadata:', refreshData.user.user_metadata);
       console.log('App metadata:', refreshData.user.app_metadata);
       
-      // Step 4: Check if user has admin role in metadata with refreshed data
+      // Step 3: Check if user has admin role in metadata with refreshed data
       const userRole = refreshData.user.user_metadata?.role || refreshData.user.app_metadata?.role;
       console.log('Extracted user role from refreshed session:', userRole);
       
@@ -228,18 +218,18 @@ export const SuperAdminAuth = () => {
         throw new Error('Access denied: You do not have administrator privileges');
       }
 
-      console.log('Step 5: Admin privileges verified, role:', userRole);
+      console.log('Step 4: Admin privileges verified, role:', userRole);
       
-      // Step 5: Create admin session for tracking
+      // Step 4: Create admin session for tracking
       const sessionToken = await createAdminSession(refreshData.user.id);
       if (!sessionToken) {
         console.warn('Failed to create admin session, continuing without session tracking');
       }
 
-      // Step 6: Log successful login
+      // Step 5: Log successful login
       await logLoginAttempt(refreshData.user.id, email, 'success');
 
-      // Step 7: Navigate to super admin dashboard
+      // Step 6: Navigate to super admin dashboard
       toast.success('Login successful');
       navigate('/super-admin');
       
@@ -272,7 +262,7 @@ export const SuperAdminAuth = () => {
           </p>
         </CardHeader>
         <CardContent>
-          {/* Pre-authentication info display */}
+          {/* Pre-authentication info display - only show positive confirmation */}
           {preAuthInfo && preAuthInfo.allowed && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
               <div className="text-sm text-green-800">
@@ -296,18 +286,6 @@ export const SuperAdminAuth = () => {
                     <span>Active sessions: {preAuthInfo.active_sessions_count || 0}</span>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {preAuthInfo && !preAuthInfo.allowed && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <div className="text-sm text-red-800">
-                <div className="flex items-center gap-2 mb-1">
-                  <Shield className="h-4 w-4" />
-                  <span className="font-medium">Access Denied</span>
-                </div>
-                <p className="text-xs">{preAuthInfo.message}</p>
               </div>
             </div>
           )}
@@ -365,7 +343,7 @@ export const SuperAdminAuth = () => {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || (preAuthInfo && !preAuthInfo.allowed)}
+              disabled={isLoading}
             >
               {isLoading ? 'Verifying...' : 'Sign In'}
             </Button>
