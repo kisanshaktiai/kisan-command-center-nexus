@@ -39,34 +39,45 @@ export const SuperAdminAuth = () => {
         throw new Error('Authentication failed - no user returned');
       }
 
-      console.log('Step 2: Authentication successful, user data:', signInData.user);
-      console.log('User metadata:', signInData.user.user_metadata);
-      console.log('App metadata:', signInData.user.app_metadata);
+      console.log('Step 2: Authentication successful, refreshing session to get latest metadata...');
       
-      // Step 2: Check if user has admin role in metadata with more robust checking
-      const userRole = signInData.user.user_metadata?.role || signInData.user.app_metadata?.role;
-      console.log('Extracted user role:', userRole);
+      // Step 2: Force session refresh to get updated user metadata from database
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error('Session refresh failed:', refreshError);
+        throw new Error('Failed to refresh session');
+      }
+
+      if (!refreshData.user) {
+        throw new Error('Session refresh failed - no user returned');
+      }
+
+      console.log('Step 3: Session refreshed, checking user metadata:', refreshData.user.user_metadata);
+      console.log('App metadata:', refreshData.user.app_metadata);
+      
+      // Step 3: Check if user has admin role in metadata with refreshed data
+      const userRole = refreshData.user.user_metadata?.role || refreshData.user.app_metadata?.role;
+      console.log('Extracted user role from refreshed session:', userRole);
       
       // Allow super_admin, platform_admin, and admin roles
       const validAdminRoles = ['super_admin', 'platform_admin', 'admin'];
       
       if (!userRole || !validAdminRoles.includes(userRole)) {
         console.error('Access denied - insufficient privileges. User role:', userRole);
-        console.log('Available keys in user_metadata:', Object.keys(signInData.user.user_metadata || {}));
-        console.log('Available keys in app_metadata:', Object.keys(signInData.user.app_metadata || {}));
+        console.log('Available keys in user_metadata:', Object.keys(refreshData.user.user_metadata || {}));
+        console.log('Available keys in app_metadata:', Object.keys(refreshData.user.app_metadata || {}));
         
         // Sign out the user since they don't have admin access
         await supabase.auth.signOut();
         throw new Error('Access denied: You do not have administrator privileges');
       }
 
-      console.log('Step 3: Admin privileges verified, role:', userRole);
+      console.log('Step 4: Admin privileges verified, role:', userRole);
       
-      // Step 3: Wait a moment for the auth state to propagate
-      setTimeout(() => {
-        toast.success('Login successful');
-        navigate('/super-admin');
-      }, 100);
+      // Step 4: Navigate to super admin dashboard
+      toast.success('Login successful');
+      navigate('/super-admin');
       
     } catch (err: any) {
       console.error('Login error:', err);
