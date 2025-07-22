@@ -39,20 +39,25 @@ export const SuperAdminAuth = () => {
         throw new Error('Authentication failed - no user returned');
       }
 
-      console.log('Step 2: Authentication successful, checking user role');
+      console.log('Step 2: Authentication successful, user data:', signInData.user);
+      console.log('User metadata:', signInData.user.user_metadata);
+      console.log('App metadata:', signInData.user.app_metadata);
       
       // Step 2: Check if user has admin role in metadata
       const userRole = signInData.user.user_metadata?.role || signInData.user.app_metadata?.role;
-      console.log('User role from metadata:', userRole);
+      console.log('Extracted user role:', userRole);
       
       if (!userRole || !['super_admin', 'platform_admin', 'admin'].includes(userRole)) {
         console.error('Access denied - insufficient privileges. User role:', userRole);
+        console.log('Available roles in user_metadata:', Object.keys(signInData.user.user_metadata || {}));
+        console.log('Available roles in app_metadata:', Object.keys(signInData.user.app_metadata || {}));
+        
         // Sign out the user since they don't have admin access
         await supabase.auth.signOut();
         throw new Error('Access denied: You do not have administrator privileges');
       }
 
-      console.log('Step 3: Admin privileges verified, redirecting to dashboard');
+      console.log('Step 3: Admin privileges verified, role:', userRole);
       toast.success('Login successful');
       navigate('/super-admin');
       

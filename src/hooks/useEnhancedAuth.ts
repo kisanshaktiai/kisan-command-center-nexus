@@ -38,10 +38,20 @@ export const useEnhancedAuth = () => {
 
   // Check if user has admin role based on metadata
   const checkAdminStatus = (user: User | null): boolean => {
-    if (!user) return false;
+    if (!user) {
+      console.log('checkAdminStatus: No user provided');
+      return false;
+    }
     
     const userRole = user.user_metadata?.role || user.app_metadata?.role;
-    return ['super_admin', 'platform_admin', 'admin'].includes(userRole);
+    console.log('checkAdminStatus: User role found:', userRole);
+    console.log('checkAdminStatus: User metadata:', user.user_metadata);
+    console.log('checkAdminStatus: App metadata:', user.app_metadata);
+    
+    const isUserAdmin = ['super_admin', 'platform_admin', 'admin'].includes(userRole);
+    console.log('checkAdminStatus: Is admin?', isUserAdmin);
+    
+    return isUserAdmin;
   };
 
   // Enhanced sign up with tenant metadata
@@ -193,6 +203,8 @@ export const useEnhancedAuth = () => {
 
   // Set up auth state listener
   useEffect(() => {
+    console.log('useEnhancedAuth: Setting up auth state listener');
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -222,6 +234,8 @@ export const useEnhancedAuth = () => {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('useEnhancedAuth: Checking existing session:', session?.user?.email);
+      
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
