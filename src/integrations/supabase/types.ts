@@ -2073,6 +2073,36 @@ export type Database = {
           },
         ]
       }
+      otp_sessions: {
+        Row: {
+          created_at: string | null
+          email: string
+          expires_at: string | null
+          id: string
+          is_used: boolean | null
+          otp: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          expires_at?: string | null
+          id?: string
+          is_used?: boolean | null
+          otp: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          expires_at?: string | null
+          id?: string
+          is_used?: boolean | null
+          otp?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       password_reset_requests: {
         Row: {
           created_at: string | null
@@ -5008,6 +5038,10 @@ export type Database = {
       gbtreekey8_out: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      generate_otp: {
+        Args: { p_length?: number }
+        Returns: string
       }
       generate_slug_suggestions: {
         Args: { p_organization_name: string }

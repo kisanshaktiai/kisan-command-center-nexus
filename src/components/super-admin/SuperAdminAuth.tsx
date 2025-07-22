@@ -8,6 +8,8 @@ import { Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { OTPVerification } from '@/components/auth/OTPVerification';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const SuperAdminAuth = () => {
   const [email, setEmail] = useState('');
@@ -15,7 +17,10 @@ export const SuperAdminAuth = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showOTPScreen, setShowOTPScreen] = useState(false);
+  const [userId, setUserId] = useState('');
   const navigate = useNavigate();
+  const { checkAdminStatus } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +47,7 @@ export const SuperAdminAuth = () => {
       }
 
       console.log('Auth successful, user ID:', authData.user.id);
+      setUserId(authData.user.id);
 
       // Step 2: Check admin status after successful authentication
       console.log('Checking admin status...');
@@ -77,13 +83,27 @@ export const SuperAdminAuth = () => {
         throw new Error('Administrator account is deactivated');
       }
 
-      console.log('=== LOGIN SUCCESS ===');
-      toast.success('Login successful');
+      console.log('Admin status verified, sending OTP for 2FA...');
       
-      // Navigate to dashboard
-      setTimeout(() => {
-        navigate('/super-admin');
-      }, 500);
+      // Step 3: Send OTP for 2FA
+      try {
+        const response = await supabase.functions.invoke('send-admin-otp', {
+          body: { email, userId: authData.user.id }
+        });
+
+        if (response.error) {
+          console.error('Error sending OTP:', response.error);
+          throw new Error('Failed to send verification code. Please try again.');
+        }
+
+        // Move to OTP verification screen
+        setShowOTPScreen(true);
+        toast.success('Verification code sent to your email');
+        
+      } catch (otpError: any) {
+        console.error('OTP send error:', otpError);
+        throw new Error('Failed to send verification code: ' + otpError.message);
+      }
       
     } catch (err: any) {
       console.error('Login error:', err);
@@ -93,6 +113,73 @@ export const SuperAdminAuth = () => {
       setIsLoading(false);
     }
   };
+
+  const handleVerifyOTP = async (otp: string) => {
+    setIsLoading(true);
+    try {
+      const response = await supabase.functions.invoke('verify-admin-otp', {
+        body: { email, otp }
+      });
+
+      if (response.error) {
+        throw new Error('Invalid or expired verification code');
+      }
+
+      // Make sure to check admin status in context to update UI
+      await checkAdminStatus();
+      
+      console.log('=== LOGIN SUCCESS ===');
+      toast.success('Login successful');
+      
+      // Navigate to dashboard
+      setTimeout(() => {
+        navigate('/super-admin');
+      }, 500);
+    } catch (err: any) {
+      console.error('OTP verification error:', err);
+      setError(err.message);
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    try {
+      setIsLoading(true);
+      const response = await supabase.functions.invoke('send-admin-otp', {
+        body: { email, userId }
+      });
+
+      if (response.error) {
+        throw new Error('Failed to resend verification code');
+      }
+
+      toast.success('New verification code sent to your email');
+    } catch (err: any) {
+      console.error('Resend OTP error:', err);
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    setShowOTPScreen(false);
+  };
+
+  // Show OTP verification screen if we're at that step
+  if (showOTPScreen) {
+    return (
+      <OTPVerification
+        email={email}
+        onVerify={handleVerifyOTP}
+        onResendOTP={handleResendOTP}
+        onBack={handleBack}
+        isLoading={isLoading}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
