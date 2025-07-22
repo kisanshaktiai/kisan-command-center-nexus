@@ -1,40 +1,64 @@
 
 import { useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
 export const useSessionManagement = () => {
-  const updateSessionActivity = useCallback(async () => {
+  const updateSessionActivity = useCallback(() => {
     const sessionToken = localStorage.getItem('admin_session_token');
-    if (!sessionToken) return;
+    const sessionInfo = localStorage.getItem('admin_session_info');
+    
+    if (!sessionToken || !sessionInfo) return;
 
     try {
-      const { data, error } = await supabase
-        .from('admin_sessions')
-        .update({ 
-          last_activity: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes from now
-        })
-        .eq('session_token', sessionToken)
-        .eq('is_active', true)
-        .select();
-
-      if (error || !data || data.length === 0) {
-        console.warn('Session may have expired');
+      const session = JSON.parse(sessionInfo);
+      const now = new Date();
+      const expiresAt = new Date(session.expiresAt);
+      
+      // Check if session has expired
+      if (now > expiresAt) {
+        console.warn('Session has expired');
         localStorage.removeItem('admin_session_token');
+        localStorage.removeItem('admin_session_info');
+        return;
       }
+      
+      // Update last activity
+      session.lastActivity = now.toISOString();
+      
+      // Extend expiration for non-remember sessions
+      if (!session.rememberMe) {
+        session.expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      }
+      
+      localStorage.setItem('admin_session_info', JSON.stringify(session));
+      
+      console.log('Session activity updated');
     } catch (error) {
       console.error('Failed to update session activity:', error);
+      localStorage.removeItem('admin_session_token');
+      localStorage.removeItem('admin_session_info');
     }
   }, []);
 
-  const cleanupExpiredSessions = useCallback(async () => {
+  const cleanupExpiredSessions = useCallback(() => {
+    const sessionToken = localStorage.getItem('admin_session_token');
+    const sessionInfo = localStorage.getItem('admin_session_info');
+    
+    if (!sessionToken || !sessionInfo) return;
+
     try {
-      await supabase
-        .from('admin_sessions')
-        .delete()
-        .lt('expires_at', new Date().toISOString());
+      const session = JSON.parse(sessionInfo);
+      const now = new Date();
+      const expiresAt = new Date(session.expiresAt);
+      
+      if (now > expiresAt) {
+        localStorage.removeItem('admin_session_token');
+        localStorage.removeItem('admin_session_info');
+        console.log('Expired session cleaned up');
+      }
     } catch (error) {
       console.error('Failed to cleanup expired sessions:', error);
+      localStorage.removeItem('admin_session_token');
+      localStorage.removeItem('admin_session_info');
     }
   }, []);
 

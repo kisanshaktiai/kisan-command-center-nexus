@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,21 +40,15 @@ export const SuperAdminAuth = () => {
 
   const checkAdminAccess = async (userEmail: string) => {
     try {
-      // Call the PostgreSQL function directly using SQL
-      const { data, error } = await supabase
+      // Check if admin user exists and is active
+      const { data: adminUser, error } = await supabase
         .from('admin_users')
-        .select(`
-          id,
-          email,
-          role,
-          is_active,
-          last_login:admin_login_audit!user_id(created_at, ip_address)
-        `)
+        .select('id, email, role, is_active')
         .eq('email', userEmail)
         .eq('is_active', true)
         .single();
 
-      if (error || !data) {
+      if (error || !adminUser) {
         setPreAuthInfo({
           allowed: false,
           message: 'Account not found'
@@ -63,21 +56,13 @@ export const SuperAdminAuth = () => {
         return;
       }
 
-      // Count active sessions
-      const { count: sessionCount } = await supabase
-        .from('admin_sessions')
-        .select('*', { count: 'exact' })
-        .eq('user_id', data.id)
-        .eq('is_active', true)
-        .gt('expires_at', new Date().toISOString());
-
       setPreAuthInfo({
         allowed: true,
-        user_id: data.id,
-        role: data.role,
-        last_login: data.last_login?.[0]?.created_at || null,
-        last_login_ip: data.last_login?.[0]?.ip_address || null,
-        active_sessions_count: sessionCount || 0
+        user_id: adminUser.id,
+        role: adminUser.role,
+        last_login: null, // Simplified for now
+        last_login_ip: null, // Simplified for now
+        active_sessions_count: 0 // Simplified for now
       });
     } catch (err) {
       console.error('Pre-auth check error:', err);
@@ -98,15 +83,29 @@ export const SuperAdminAuth = () => {
       const deviceFingerprint = generateDeviceFingerprint();
       const ipAddress = await getUserIP();
 
-      await supabase.from('admin_login_audit').insert({
-        user_id: userId,
-        email: email,
-        attempt_type: attemptType,
-        ip_address: ipAddress,
-        user_agent: navigator.userAgent,
-        device_fingerprint: deviceFingerprint,
-        failure_reason: failureReason
-      });
+      // Store in localStorage for now as a simple logging mechanism
+      const logEntry = {
+        userId,
+        email,
+        attemptType,
+        ipAddress,
+        userAgent: navigator.userAgent,
+        deviceFingerprint,
+        failureReason,
+        timestamp: new Date().toISOString()
+      };
+
+      const existingLogs = JSON.parse(localStorage.getItem('admin_login_logs') || '[]');
+      existingLogs.push(logEntry);
+      
+      // Keep only last 100 entries
+      if (existingLogs.length > 100) {
+        existingLogs.splice(0, existingLogs.length - 100);
+      }
+      
+      localStorage.setItem('admin_login_logs', JSON.stringify(existingLogs));
+      
+      console.log('Login attempt logged:', logEntry);
     } catch (error) {
       console.error('Failed to log login attempt:', error);
     }
@@ -121,28 +120,24 @@ export const SuperAdminAuth = () => {
         Date.now() + (rememberMe ? 30 * 24 * 60 * 60 * 1000 : 30 * 60 * 1000)
       );
 
-      const { data, error } = await supabase
-        .from('admin_sessions')
-        .insert({
-          user_id: userId,
-          session_token: sessionToken,
-          device_fingerprint: deviceFingerprint,
-          ip_address: ipAddress,
-          user_agent: navigator.userAgent,
-          remember_me: rememberMe,
-          expires_at: expiresAt.toISOString()
-        })
-        .select('session_token')
-        .single();
+      // Store session info in localStorage
+      const sessionInfo = {
+        userId,
+        sessionToken,
+        deviceFingerprint,
+        ipAddress,
+        userAgent: navigator.userAgent,
+        rememberMe,
+        expiresAt: expiresAt.toISOString(),
+        createdAt: new Date().toISOString(),
+        lastActivity: new Date().toISOString()
+      };
 
-      if (error) {
-        console.error('Failed to create admin session:', error);
-        return null;
-      }
+      localStorage.setItem('admin_session_token', sessionToken);
+      localStorage.setItem('admin_session_info', JSON.stringify(sessionInfo));
 
-      // Store session token in localStorage for session management
-      localStorage.setItem('admin_session_token', data.session_token);
-      return data.session_token;
+      console.log('Admin session created:', sessionInfo);
+      return sessionToken;
 
     } catch (error) {
       console.error('Session creation error:', error);
