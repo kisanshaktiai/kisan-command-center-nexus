@@ -21,31 +21,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState(false);
 
   const checkAdminStatus = async (): Promise<boolean> => {
-    if (!user?.email) {
-      console.log('checkAdminStatus: No user email available');
+    if (!user?.id) {
+      console.log('checkAdminStatus: No user ID available');
       setIsAdmin(false);
       return false;
     }
 
     try {
-      console.log('checkAdminStatus: Checking admin status for email:', user.email);
+      console.log('checkAdminStatus: Checking for user ID:', user.id);
       
-      // Check if user exists in admin_users table with super_admin role and is active
       const { data: adminUser, error } = await supabase
         .from('admin_users')
-        .select('id, email, role, is_active, full_name')
-        .eq('email', user.email)
-        .eq('role', 'super_admin')
+        .select('id, email, role, is_active')
+        .eq('id', user.id)
         .eq('is_active', true)
-        .maybeSingle();
+        .single();
 
       if (error) {
-        console.error('checkAdminStatus: Error querying admin_users:', error);
+        console.log('checkAdminStatus: Query error:', error.message);
         setIsAdmin(false);
         return false;
       }
 
-      const adminStatus = !!adminUser;
+      const adminStatus = !!adminUser && adminUser.role === 'super_admin';
       console.log('checkAdminStatus: Admin user found:', adminUser);
       console.log('checkAdminStatus: Final admin status:', adminStatus);
       
@@ -61,10 +59,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       console.log('Signing out...');
-      
-      // Clear local storage
-      localStorage.removeItem('admin_session_token');
-      localStorage.removeItem('admin_session_info');
       
       const { error } = await supabase.auth.signOut();
       if (error) {
@@ -86,55 +80,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     console.log('AuthProvider: Setting up auth state listener');
 
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.email || 'No session');
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        // Check admin status for authenticated user
+        checkAdminStatus().finally(() => {
+          setIsLoading(false);
+        });
+      } else {
+        setIsAdmin(false);
+        setIsLoading(false);
+      }
+    });
+
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
+        console.log('Auth state changed:', event, session?.user?.email || 'No session');
         
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Use setTimeout to defer admin check and avoid blocking the auth state change
+          // Check admin status for authenticated user
           setTimeout(async () => {
             try {
               await checkAdminStatus();
             } catch (error) {
               console.error('Error checking admin status:', error);
               setIsAdmin(false);
-            } finally {
-              setIsLoading(false);
             }
-          }, 0);
+          }, 100);
         } else {
           setIsAdmin(false);
+        }
+        
+        if (!session) {
           setIsLoading(false);
         }
       }
     );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email);
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        // Use setTimeout to defer admin check and avoid blocking
-        setTimeout(async () => {
-          try {
-            await checkAdminStatus();
-          } catch (error) {
-            console.error('Error checking admin status:', error);
-            setIsAdmin(false);
-          } finally {
-            setIsLoading(false);
-          }
-        }, 0);
-      } else {
-        setIsAdmin(false);
-        setIsLoading(false);
-      }
-    });
 
     return () => {
       console.log('AuthProvider: Cleaning up auth listener');
@@ -142,14 +131,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Re-run admin check when user changes
+  // Re-check admin status when user changes
   useEffect(() => {
-    if (user?.email) {
-      setTimeout(() => {
-        checkAdminStatus();
-      }, 0);
+    if (user?.id && session) {
+      checkAdminStatus();
     }
-  }, [user?.email]);
+  }, [user?.id]);
 
   const value = {
     user,
