@@ -7,6 +7,7 @@ export interface SessionData {
   session: Session | null;
   isAuthenticated: boolean;
   tokenExpiresAt: number | null;
+  lastActivityAt: number; // Track last activity timestamp
 }
 
 class SessionService {
@@ -15,14 +16,18 @@ class SessionService {
     user: null,
     session: null,
     isAuthenticated: false,
-    tokenExpiresAt: null
+    tokenExpiresAt: null,
+    lastActivityAt: Date.now() // Initialize with current time
   };
   private refreshTimer: NodeJS.Timeout | null = null;
+  private inactivityTimer: NodeJS.Timeout | null = null;
   private listeners: ((sessionData: SessionData) => void)[] = [];
+  private readonly INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
 
   private constructor() {
     this.initializeSession();
     this.setupAuthListener();
+    this.setupActivityTracking();
   }
 
   static getInstance(): SessionService {
@@ -57,8 +62,45 @@ class SessionService {
       
       if (event === 'SIGNED_OUT') {
         this.clearRefreshTimer();
+        this.clearInactivityTimer();
+        this.clearStoredSession();
       }
     });
+  }
+
+  private setupActivityTracking() {
+    // Track user activity events
+    const activityEvents = ['mousedown', 'keydown', 'touchstart', 'click'];
+    
+    activityEvents.forEach(eventType => {
+      window.addEventListener(eventType, this.resetInactivityTimer.bind(this));
+    });
+
+    // Initialize inactivity timer
+    this.resetInactivityTimer();
+  }
+
+  private resetInactivityTimer() {
+    // Update last activity timestamp
+    this.sessionData.lastActivityAt = Date.now();
+    
+    // Clear existing timer
+    this.clearInactivityTimer();
+    
+    // Only set timer if user is authenticated
+    if (this.sessionData.isAuthenticated) {
+      this.inactivityTimer = setTimeout(() => {
+        console.log('User inactive for 5 minutes, signing out...');
+        this.signOut();
+      }, this.INACTIVITY_TIMEOUT);
+    }
+  }
+
+  private clearInactivityTimer() {
+    if (this.inactivityTimer) {
+      clearTimeout(this.inactivityTimer);
+      this.inactivityTimer = null;
+    }
   }
 
   private updateSessionData(session: Session | null) {
@@ -66,13 +108,17 @@ class SessionService {
       user: session?.user || null,
       session: session,
       isAuthenticated: !!session,
-      tokenExpiresAt: session?.expires_at ? session.expires_at * 1000 : null
+      tokenExpiresAt: session?.expires_at ? session.expires_at * 1000 : null,
+      lastActivityAt: Date.now() // Reset activity timestamp on session update
     };
 
     // Set up token refresh timer
     if (session?.expires_at) {
       this.setupTokenRefresh(session.expires_at * 1000);
     }
+
+    // Reset inactivity timer
+    this.resetInactivityTimer();
 
     // Notify listeners
     this.notifyListeners();
@@ -106,6 +152,12 @@ class SessionService {
     }
   }
 
+  private clearStoredSession() {
+    // Clear any stored session data in local storage
+    localStorage.removeItem('supabase.auth.token');
+    localStorage.removeItem('supabase.auth.expires_at');
+  }
+
   private notifyListeners() {
     this.listeners.forEach(listener => listener(this.sessionData));
   }
@@ -125,12 +177,17 @@ class SessionService {
     return Math.max(0, this.sessionData.tokenExpiresAt - Date.now());
   }
 
+  getTimeSinceLastActivity(): number {
+    return Date.now() - this.sessionData.lastActivityAt;
+  }
+
   async refreshSession(): Promise<{ success: boolean; error?: string }> {
     try {
       const { error } = await supabase.auth.refreshSession();
       if (error) {
         return { success: false, error: error.message };
       }
+      this.resetInactivityTimer();
       return { success: true };
     } catch (error) {
       return { success: false, error: 'Failed to refresh session' };
@@ -139,6 +196,8 @@ class SessionService {
 
   async signOut(): Promise<void> {
     this.clearRefreshTimer();
+    this.clearInactivityTimer();
+    this.clearStoredSession();
     await supabase.auth.signOut();
   }
 

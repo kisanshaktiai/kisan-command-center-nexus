@@ -1,16 +1,38 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
+import { Loader2 } from 'lucide-react';
 
 export default function Auth() {
   const { user, isLoading } = useAuth();
+  const [clearingSession, setClearingSession] = useState(true);
 
-  if (isLoading) {
+  useEffect(() => {
+    // Clear any stored form data or autocomplete on initial load
+    const clearSessionData = async () => {
+      // Clear any stored form data in session storage
+      sessionStorage.clear();
+      
+      // Clear localStorage auth data to ensure fresh login
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('supabase.auth.expires_at');
+      
+      // Small delay to ensure clearing is complete
+      setTimeout(() => setClearingSession(false), 100);
+    };
+    
+    clearSessionData();
+  }, []);
+
+  if (isLoading || clearingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
-        <div>Loading...</div>
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div>Preparing authentication...</div>
+        </div>
       </div>
     );
   }
@@ -19,5 +41,9 @@ export default function Auth() {
     return <Navigate to="/super-admin" replace />;
   }
 
-  return <SuperAdminAuth />;
+  return (
+    <div className="min-h-screen">
+      <SuperAdminAuth autocomplete="off" />
+    </div>
+  );
 }

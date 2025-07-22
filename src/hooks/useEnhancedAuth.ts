@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -67,6 +66,10 @@ export const useEnhancedAuth = () => {
   // Enhanced sign in with proper session management
   const signIn = async (email: string, password: string) => {
     try {
+      // Ensure any previous session is cleared
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('supabase.auth.expires_at');
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -149,9 +152,14 @@ export const useEnhancedAuth = () => {
     }
   };
 
-  // Sign out with session cleanup
+  // Enhanced sign out with complete session cleanup
   const signOut = async () => {
     try {
+      // Clear local session data
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('supabase.auth.expires_at');
+      
+      // Use session service to sign out properly
       await sessionService.signOut();
     } catch (error) {
       console.error('Error signing out:', error);

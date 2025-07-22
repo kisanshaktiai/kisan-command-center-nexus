@@ -28,6 +28,7 @@ export const useSession = () => {
     isLoading,
     isTokenExpired: sessionService.isTokenExpired(),
     timeUntilExpiry: sessionService.getTimeUntilExpiry(),
+    timeSinceLastActivity: sessionService.getTimeSinceLastActivity(),
     refreshSession: sessionService.refreshSession,
     signOut: sessionService.signOut,
     isAdmin: sessionService.isAdmin
