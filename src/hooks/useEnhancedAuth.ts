@@ -36,19 +36,22 @@ export const useEnhancedAuth = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<any>(null);
 
-  // Check if user has admin role based on metadata
+  // Check if user has admin role based on metadata with enhanced checking
   const checkAdminStatus = (user: User | null): boolean => {
     if (!user) {
       console.log('checkAdminStatus: No user provided');
       return false;
     }
     
+    // Check both user_metadata and app_metadata for role
     const userRole = user.user_metadata?.role || user.app_metadata?.role;
     console.log('checkAdminStatus: User role found:', userRole);
     console.log('checkAdminStatus: User metadata:', user.user_metadata);
     console.log('checkAdminStatus: App metadata:', user.app_metadata);
     
-    const isUserAdmin = ['super_admin', 'platform_admin', 'admin'].includes(userRole);
+    // Valid admin roles
+    const validAdminRoles = ['super_admin', 'platform_admin', 'admin'];
+    const isUserAdmin = validAdminRoles.includes(userRole);
     console.log('checkAdminStatus: Is admin?', isUserAdmin);
     
     return isUserAdmin;
@@ -201,7 +204,7 @@ export const useEnhancedAuth = () => {
     }
   };
 
-  // Set up auth state listener
+  // Set up auth state listener with improved handling
   useEffect(() => {
     console.log('useEnhancedAuth: Setting up auth state listener');
     

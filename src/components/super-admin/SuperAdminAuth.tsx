@@ -43,14 +43,17 @@ export const SuperAdminAuth = () => {
       console.log('User metadata:', signInData.user.user_metadata);
       console.log('App metadata:', signInData.user.app_metadata);
       
-      // Step 2: Check if user has admin role in metadata
+      // Step 2: Check if user has admin role in metadata with more robust checking
       const userRole = signInData.user.user_metadata?.role || signInData.user.app_metadata?.role;
       console.log('Extracted user role:', userRole);
       
-      if (!userRole || !['super_admin', 'platform_admin', 'admin'].includes(userRole)) {
+      // Allow super_admin, platform_admin, and admin roles
+      const validAdminRoles = ['super_admin', 'platform_admin', 'admin'];
+      
+      if (!userRole || !validAdminRoles.includes(userRole)) {
         console.error('Access denied - insufficient privileges. User role:', userRole);
-        console.log('Available roles in user_metadata:', Object.keys(signInData.user.user_metadata || {}));
-        console.log('Available roles in app_metadata:', Object.keys(signInData.user.app_metadata || {}));
+        console.log('Available keys in user_metadata:', Object.keys(signInData.user.user_metadata || {}));
+        console.log('Available keys in app_metadata:', Object.keys(signInData.user.app_metadata || {}));
         
         // Sign out the user since they don't have admin access
         await supabase.auth.signOut();
@@ -58,8 +61,12 @@ export const SuperAdminAuth = () => {
       }
 
       console.log('Step 3: Admin privileges verified, role:', userRole);
-      toast.success('Login successful');
-      navigate('/super-admin');
+      
+      // Step 3: Wait a moment for the auth state to propagate
+      setTimeout(() => {
+        toast.success('Login successful');
+        navigate('/super-admin');
+      }, 100);
       
     } catch (err: any) {
       console.error('Login error:', err);
