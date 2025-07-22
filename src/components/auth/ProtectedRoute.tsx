@@ -38,12 +38,35 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (requireAdmin && !isAdmin) {
     console.log('ProtectedRoute: Admin access required but user is not admin.');
-    console.log('User role from metadata:', user.user_metadata?.role || user.app_metadata?.role);
+    console.log('User email:', user.email);
     console.log('isAdmin from context:', isAdmin);
     
-    // For admin routes, redirect back to auth for re-verification
-    console.log('Redirecting to auth for admin verification');
-    return <Navigate to="/auth" replace />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100">
+        <Card className="w-full max-w-md">
+          <CardContent className="text-center p-8">
+            <div className="space-y-4">
+              <div className="text-red-600 text-6xl">🚫</div>
+              <h2 className="text-2xl font-bold text-red-800">Access Denied</h2>
+              <p className="text-red-600">
+                You do not have administrator privileges to access this area.
+              </p>
+              <p className="text-sm text-red-500">
+                If you believe this is an error, please contact your system administrator.
+              </p>
+              <div className="pt-4">
+                <button 
+                  onClick={() => window.location.href = '/auth'}
+                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                >
+                  Return to Login
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   console.log('ProtectedRoute: Access granted for user:', user.email, 'Admin status:', isAdmin);

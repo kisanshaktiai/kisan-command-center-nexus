@@ -30,11 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('checkAdminStatus: Checking admin status for:', user.email);
       
-      // Check both user metadata and admin_users table
-      const userRole = user.user_metadata?.role || user.app_metadata?.role;
-      console.log('checkAdminStatus: User role from metadata:', userRole);
-      
-      // Also check admin_users table directly
+      // Direct query to admin_users table - this is the single source of truth
       const { data: adminUser, error } = await supabase
         .from('admin_users')
         .select('role, is_active')
@@ -51,15 +47,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('checkAdminStatus: Admin user data:', adminUser);
 
       const validAdminRoles = ['super_admin', 'platform_admin', 'admin'];
-      const isAdminFromMetadata = userRole && validAdminRoles.includes(userRole);
-      const isAdminFromTable = adminUser && validAdminRoles.includes(adminUser.role);
-      
-      // User is admin if either metadata or table indicates admin status
-      const adminStatus = !!(isAdminFromMetadata || isAdminFromTable);
+      const adminStatus = !!(adminUser && validAdminRoles.includes(adminUser.role));
       
       console.log('checkAdminStatus: Final admin status:', adminStatus);
-      console.log('checkAdminStatus: From metadata:', isAdminFromMetadata);
-      console.log('checkAdminStatus: From table:', isAdminFromTable);
       
       setIsAdmin(adminStatus);
       return adminStatus;
@@ -107,11 +97,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         setUser(session?.user ?? null);
         
+        // Only check admin status after user is fully set
         if (session?.user) {
-          // Check admin status when user signs in
-          setTimeout(() => {
-            checkAdminStatus();
-          }, 0);
+          // Use a small delay to ensure user state is updated
+          setTimeout(async () => {
+            await checkAdminStatus();
+          }, 100);
         } else {
           setIsAdmin(false);
         }
@@ -127,9 +118,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        setTimeout(() => {
-          checkAdminStatus();
-        }, 0);
+        setTimeout(async () => {
+          await checkAdminStatus();
+        }, 100);
       } else {
         setIsAdmin(false);
       }
@@ -142,13 +133,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, []);
-
-  // Re-check admin status when user changes
-  useEffect(() => {
-    if (user) {
-      checkAdminStatus();
-    }
-  }, [user?.email]);
 
   const value = {
     user,

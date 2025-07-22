@@ -149,7 +149,7 @@ export const SuperAdminAuth = () => {
     setError('');
 
     try {
-      console.log('=== ENHANCED SUPER ADMIN LOGIN PROCESS STARTED ===');
+      console.log('=== SIMPLIFIED SUPER ADMIN LOGIN PROCESS ===');
       console.log('Step 1: Authenticating user:', email);
       
       // Step 1: Authenticate user with email/password
@@ -177,14 +177,9 @@ export const SuperAdminAuth = () => {
         throw new Error('Authentication failed - no user returned');
       }
 
-      console.log('Step 2: User authenticated successfully');
-      console.log('User object:', signInData.user);
-      console.log('User metadata:', signInData.user.user_metadata);
-      console.log('App metadata:', signInData.user.app_metadata);
+      console.log('Step 2: User authenticated successfully, checking admin status...');
       
-      // Step 3: Check admin_users table directly for role verification
-      console.log('Step 3: Checking admin_users table for role verification...');
-      
+      // Step 2: Verify admin status from database (single source of truth)
       const { data: adminUser, error: adminError } = await supabase
         .from('admin_users')
         .select('id, email, role, is_active, full_name')
@@ -206,57 +201,26 @@ export const SuperAdminAuth = () => {
         throw new Error('Access denied: You do not have administrator privileges');
       }
 
-      console.log('Step 4: Admin user found:', adminUser);
+      console.log('Step 3: Admin privileges verified, role:', adminUser.role);
       
-      // Check if user has valid admin role
-      const validAdminRoles = ['super_admin', 'platform_admin', 'admin'];
-      
-      if (!adminUser.role || !validAdminRoles.includes(adminUser.role)) {
-        console.error('Invalid admin role:', adminUser.role);
-        await logLoginAttempt(signInData.user.id, email, 'failed', 'Access denied - Invalid admin role');
-        await supabase.auth.signOut();
-        throw new Error('Access denied: Invalid administrator role');
-      }
-
-      console.log('Step 5: Admin privileges verified, role:', adminUser.role);
-
-      // Step 6: Update user metadata in auth.users to sync with admin_users table
-      console.log('Step 6: Syncing user metadata with admin role...');
-      
-      try {
-        const { error: updateError } = await supabase.auth.updateUser({
-          data: {
-            role: adminUser.role,
-            full_name: adminUser.full_name || 'Super Admin',
-            email_verified: true
-          }
-        });
-
-        if (updateError) {
-          console.warn('Failed to update user metadata:', updateError);
-          // Don't fail the login for this, but log it
-        } else {
-          console.log('User metadata updated successfully');
-        }
-      } catch (metadataError) {
-        console.warn('Error updating user metadata:', metadataError);
-        // Continue with login even if metadata update fails
-      }
-      
-      // Step 7: Create admin session for tracking
+      // Step 3: Create admin session for tracking
       const sessionToken = await createAdminSession(signInData.user.id);
       if (!sessionToken) {
         console.warn('Failed to create admin session, continuing without session tracking');
       }
 
-      // Step 8: Log successful login
+      // Step 4: Log successful login
       await logLoginAttempt(signInData.user.id, email, 'success');
 
       console.log('=== LOGIN SUCCESS - Redirecting to dashboard ===');
       
-      // Step 9: Navigate to super admin dashboard
+      // Step 5: Navigate to super admin dashboard
       toast.success('Login successful');
-      navigate('/super-admin');
+      
+      // Small delay to ensure auth state is updated before navigation
+      setTimeout(() => {
+        navigate('/super-admin');
+      }, 500);
       
     } catch (err: any) {
       console.error('Login error:', err);
