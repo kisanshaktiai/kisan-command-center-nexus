@@ -18,53 +18,6 @@ export const SuperAdminAuth = () => {
   const [pendingLoginEmail, setPendingLoginEmail] = useState('');
   const navigate = useNavigate();
 
-  const checkAdminUser = async (email: string) => {
-    console.log('Checking admin user for email:', email);
-    
-    // Query admin_users table to check if user exists and is active
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('id, email, role, is_active')
-      .eq('email', email)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    console.log('Admin user query result:', { adminUser, adminError });
-
-    if (adminError) {
-      console.error('Error querying admin_users:', adminError);
-      throw new Error('Database error checking admin credentials');
-    }
-
-    if (!adminUser) {
-      throw new Error('Invalid admin credentials - user not found in admin_users table');
-    }
-
-    console.log('Admin user found:', adminUser);
-    return adminUser;
-  };
-
-  const generateAndSendOTP = async (userEmail: string): Promise<void> => {
-    try {
-      // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      // For demo purposes, show the OTP in console and toast
-      console.log(`Generated OTP for ${userEmail}: ${otp}`);
-      toast.success(`OTP sent to ${userEmail}. Check console for demo OTP: ${otp}`);
-      
-      // Store OTP temporarily (in production, use proper storage)
-      localStorage.setItem(`otp_${userEmail}`, JSON.stringify({
-        otp,
-        expires: Date.now() + 10 * 60 * 1000 // 10 minutes
-      }));
-    } catch (error: any) {
-      console.error('Failed to generate OTP:', error);
-      toast.error('Failed to send OTP');
-      throw error;
-    }
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -73,30 +26,38 @@ export const SuperAdminAuth = () => {
     try {
       console.log('Starting login process for:', email);
       
-      // First check if user exists in admin_users table
-      await checkAdminUser(email);
-      
-      // Then verify password with Supabase Auth
+      // First, verify credentials with Supabase Auth
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-
-      console.log('Auth sign in result:', { signInData, signInError });
 
       if (signInError) {
         console.error('Auth sign in error:', signInError);
         throw new Error('Invalid email or password');
       }
 
-      // If we get here, credentials are valid and user is admin
-      // Generate and send OTP
-      await generateAndSendOTP(email);
+      console.log('Credentials verified, user authenticated');
+
+      // Send OTP using Supabase's built-in OTP system
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+          shouldCreateUser: false, // Don't create new users
+        }
+      });
+
+      if (otpError) {
+        console.error('Error sending OTP:', otpError);
+        throw new Error('Failed to send verification code');
+      }
+
+      // Sign out temporarily to require OTP verification
+      await supabase.auth.signOut();
+
       setPendingLoginEmail(email);
       setShowOTPVerification(true);
-      
-      // Sign out immediately to prevent bypass
-      await supabase.auth.signOut();
+      toast.success('Verification code sent to your email');
       
     } catch (err: any) {
       console.error('Login error:', err);
@@ -109,34 +70,25 @@ export const SuperAdminAuth = () => {
 
   const handleOTPVerification = async (otp: string) => {
     try {
-      // Get stored OTP
-      const storedData = localStorage.getItem(`otp_${pendingLoginEmail}`);
-      if (!storedData) {
-        throw new Error('OTP not found or expired');
-      }
-      
-      const { otp: storedOtp, expires } = JSON.parse(storedData);
-      
-      if (Date.now() > expires) {
-        localStorage.removeItem(`otp_${pendingLoginEmail}`);
-        throw new Error('OTP has expired');
-      }
-      
-      if (otp !== storedOtp) {
-        throw new Error('Invalid OTP');
-      }
-      
-      // Clean up stored OTP
-      localStorage.removeItem(`otp_${pendingLoginEmail}`);
+      console.log('Verifying OTP for email:', pendingLoginEmail);
 
-      // OTP verified successfully, now sign in properly
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      // Verify OTP using Supabase's built-in system
+      const { data, error } = await supabase.auth.verifyOtp({
         email: pendingLoginEmail,
-        password,
+        token: otp,
+        type: 'email'
       });
 
-      if (signInError) throw signInError;
+      if (error) {
+        console.error('OTP verification error:', error);
+        throw new Error('Invalid verification code');
+      }
 
+      if (!data.user) {
+        throw new Error('Verification failed');
+      }
+
+      console.log('OTP verified successfully, user logged in');
       toast.success('Login successful');
       navigate('/super-admin');
     } catch (error: any) {
@@ -147,7 +99,22 @@ export const SuperAdminAuth = () => {
   };
 
   const handleResendOTP = async (): Promise<void> => {
-    await generateAndSendOTP(pendingLoginEmail);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: pendingLoginEmail,
+        options: {
+          shouldCreateUser: false,
+        }
+      });
+
+      if (error) throw error;
+      
+      toast.success('New verification code sent');
+    } catch (error: any) {
+      console.error('Failed to resend OTP:', error);
+      toast.error('Failed to resend verification code');
+      throw error;
+    }
   };
 
   const handleBackToLogin = () => {
