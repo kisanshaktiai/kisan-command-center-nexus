@@ -24,6 +24,7 @@ export const SuperAdminAuth = () => {
     setError('');
 
     try {
+      console.log('=== SUPER ADMIN LOGIN PROCESS STARTED ===');
       console.log('Step 1: Verifying credentials for:', email);
       
       // Step 1: Verify password credentials only (don't actually sign in yet)
@@ -37,7 +38,8 @@ export const SuperAdminAuth = () => {
         throw new Error('Invalid email or password');
       }
 
-      console.log('Step 2: Credentials verified, checking admin status');
+      console.log('Step 2: Password verified successfully');
+      console.log('Step 3: Checking admin status for email:', email);
 
       // Step 2: Check if user exists in admin_users table and is super_admin
       const { data: adminUser, error: adminError } = await supabase
@@ -69,7 +71,7 @@ export const SuperAdminAuth = () => {
         throw new Error('Access denied: Insufficient privileges');
       }
 
-      console.log('Step 3: Admin verification successful, sending OTP');
+      console.log('Step 4: Admin verification successful, sending OTP for 2FA');
 
       // Step 3: Sign out temporarily and send OTP for 2FA
       await supabase.auth.signOut();
@@ -86,6 +88,7 @@ export const SuperAdminAuth = () => {
         throw new Error('Failed to send verification code');
       }
 
+      console.log('Step 5: OTP sent successfully');
       setPendingLoginEmail(email);
       setShowOTPVerification(true);
       toast.success('Verification code sent to your email');
@@ -101,6 +104,7 @@ export const SuperAdminAuth = () => {
 
   const handleOTPVerification = async (otp: string) => {
     try {
+      console.log('=== OTP VERIFICATION STARTED ===');
       console.log('Verifying OTP for email:', pendingLoginEmail);
 
       const { data, error } = await supabase.auth.verifyOtp({
