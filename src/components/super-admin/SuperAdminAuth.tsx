@@ -44,19 +44,27 @@ export const SuperAdminAuth = () => {
         .from('admin_users')
         .select('*')
         .eq('email', email)
-        .eq('is_active', true)
-        .single();
+        .eq('is_active', true);
 
-      if (adminError || !adminUser) {
-        console.error('Admin user check failed:', adminError);
-        // Sign out the user since they're not an admin
+      console.log('Admin user query result:', { adminUser, adminError });
+
+      if (adminError) {
+        console.error('Database error checking admin user:', adminError);
         await supabase.auth.signOut();
-        throw new Error('Access denied: User is not a super admin');
+        throw new Error('Database error occurred');
       }
 
-      if (adminUser.role !== 'super_admin') {
-        console.error('User is not super admin:', adminUser.role);
-        // Sign out the user since they're not a super admin
+      if (!adminUser || adminUser.length === 0) {
+        console.error('No admin user found for email:', email);
+        await supabase.auth.signOut();
+        throw new Error('Access denied: User is not registered as an admin');
+      }
+
+      const user = adminUser[0];
+      console.log('Found admin user:', user);
+
+      if (user.role !== 'super_admin') {
+        console.error('User role is not super_admin:', user.role);
         await supabase.auth.signOut();
         throw new Error('Access denied: Insufficient privileges');
       }
