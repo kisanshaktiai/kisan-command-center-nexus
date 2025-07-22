@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,8 @@ export const SuperAdminAuth = () => {
 
   const checkAdminAccess = async (userEmail: string) => {
     try {
+      console.log('Checking admin access for email:', userEmail);
+      
       // Check if admin user exists with super_admin role and is active
       const { data: adminUser, error } = await supabase
         .from('admin_users')
@@ -54,7 +57,10 @@ export const SuperAdminAuth = () => {
         return;
       }
 
+      console.log('Admin user query result:', adminUser);
+
       if (!adminUser) {
+        console.log('No super admin record found for email:', userEmail);
         setPreAuthInfo(null);
         return;
       }
@@ -148,23 +154,63 @@ export const SuperAdminAuth = () => {
     setError('');
 
     try {
-      console.log('=== FLEXIBLE SUPER ADMIN LOGIN PROCESS ===');
-      console.log('Step 1: Authenticating user:', email);
+      console.log('=== SUPER ADMIN LOGIN PROCESS ===');
+      console.log('Step 1: Starting authentication for email:', email);
       
-      // Step 1: Authenticate user with email/password
+      // Step 1: First check if user exists in admin_users table
+      console.log('Step 1.1: Checking admin_users table for email:', email);
+      const { data: adminCheck, error: adminCheckError } = await supabase
+        .from('admin_users')
+        .select('id, email, role, is_active, full_name')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (adminCheckError) {
+        console.error('Error checking admin_users table:', adminCheckError);
+        await logLoginAttempt(null, email, 'failed', 'Database error while checking admin status');
+        throw new Error('Database error occurred. Please try again.');
+      }
+
+      console.log('Admin check result:', adminCheck);
+
+      if (!adminCheck) {
+        console.error('No admin record found for email:', email);
+        await logLoginAttempt(null, email, 'failed', 'No admin record found');
+        throw new Error('This email is not registered as an administrator.');
+      }
+
+      if (adminCheck.role !== 'super_admin') {
+        console.error('User does not have super_admin role:', adminCheck.role);
+        await logLoginAttempt(null, email, 'failed', 'Insufficient privileges - not super admin');
+        throw new Error('Super admin privileges required. Current role: ' + adminCheck.role);
+      }
+
+      if (!adminCheck.is_active) {
+        console.error('Admin account is not active');
+        await logLoginAttempt(null, email, 'failed', 'Admin account is deactivated');
+        throw new Error('Administrator account is deactivated. Please contact support.');
+      }
+
+      console.log('Step 2: Admin verification passed. Attempting Supabase authentication...');
+      
+      // Step 2: Authenticate with Supabase Auth
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (signInError) {
-        console.error('Authentication failed:', signInError);
-        let errorMessage = 'Invalid credentials';
+        console.error('Supabase authentication failed:', signInError);
+        let errorMessage = 'Authentication failed';
         
         if (signInError.message.includes('Invalid login credentials')) {
           errorMessage = 'Invalid email or password';
         } else if (signInError.message.includes('Email not confirmed')) {
           errorMessage = 'Please verify your email address';
+        } else if (signInError.message.includes('Too many requests')) {
+          errorMessage = 'Too many login attempts. Please try again later.';
+        } else {
+          errorMessage = signInError.message;
         }
         
         await logLoginAttempt(null, email, 'failed', errorMessage);
@@ -176,32 +222,7 @@ export const SuperAdminAuth = () => {
         throw new Error('Authentication failed - no user returned');
       }
 
-      console.log('Step 2: User authenticated, checking admin status for email:', email);
-      
-      // Step 2: Check if the authenticated user's email exists in admin_users with super_admin role
-      const { data: adminUser, error: adminError } = await supabase
-        .from('admin_users')
-        .select('id, email, role, is_active, full_name')
-        .eq('email', email)
-        .eq('role', 'super_admin')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (adminError) {
-        console.error('Admin verification error:', adminError);
-        await logLoginAttempt(signInData.user.id, email, 'failed', 'Failed to verify admin status');
-        await supabase.auth.signOut();
-        throw new Error('Failed to verify admin status');
-      }
-
-      if (!adminUser) {
-        console.error('No super admin record found for email:', email);
-        await logLoginAttempt(signInData.user.id, email, 'failed', 'Access denied - Super admin privileges required');
-        await supabase.auth.signOut();
-        throw new Error('Access denied: Super admin privileges required for this email');
-      }
-
-      console.log('Step 3: Super admin privileges verified for:', email, 'Role:', adminUser.role);
+      console.log('Step 3: Supabase authentication successful for user:', signInData.user.id);
       
       // Step 3: Create admin session for tracking
       const sessionToken = await createAdminSession(signInData.user.id);
@@ -224,7 +245,11 @@ export const SuperAdminAuth = () => {
       console.error('Login error:', err);
       setError(err.message);
       toast.error(err.message);
-      await supabase.auth.signOut();
+      // Only sign out if we actually signed in
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.auth.signOut();
+      }
     } finally {
       setIsLoading(false);
     }

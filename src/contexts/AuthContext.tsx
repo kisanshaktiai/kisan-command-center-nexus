@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Signing out...');
       
+      // Clear local storage
       localStorage.removeItem('admin_session_token');
       localStorage.removeItem('admin_session_info');
       
@@ -92,10 +94,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          // Use setTimeout to defer admin check and avoid blocking the auth state change
           setTimeout(async () => {
-            await checkAdminStatus();
-            setIsLoading(false);
-          }, 100);
+            try {
+              await checkAdminStatus();
+            } catch (error) {
+              console.error('Error checking admin status:', error);
+              setIsAdmin(false);
+            } finally {
+              setIsLoading(false);
+            }
+          }, 0);
         } else {
           setIsAdmin(false);
           setIsLoading(false);
@@ -103,16 +112,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
+    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        // Use setTimeout to defer admin check and avoid blocking
         setTimeout(async () => {
-          await checkAdminStatus();
-          setIsLoading(false);
-        }, 100);
+          try {
+            await checkAdminStatus();
+          } catch (error) {
+            console.error('Error checking admin status:', error);
+            setIsAdmin(false);
+          } finally {
+            setIsLoading(false);
+          }
+        }, 0);
       } else {
         setIsAdmin(false);
         setIsLoading(false);
@@ -128,7 +145,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Re-run admin check when user changes
   useEffect(() => {
     if (user?.email) {
-      checkAdminStatus();
+      setTimeout(() => {
+        checkAdminStatus();
+      }, 0);
     }
   }, [user?.email]);
 
