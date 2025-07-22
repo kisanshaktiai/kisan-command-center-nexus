@@ -21,11 +21,5 @@ CREATE POLICY "Admin users can view admin_users" ON public.admin_users
     )
   );
 
--- Insert the super admin user
-INSERT INTO public.admin_users (email, full_name, role, is_active)
-VALUES ('kisanshaktiai@gmail.com', 'Amarsinh Patil', 'super_admin', true)
-ON CONFLICT (email) DO UPDATE SET
-  full_name = EXCLUDED.full_name,
-  role = EXCLUDED.role,
-  is_active = EXCLUDED.is_active,
-  updated_at = now();
+-- Note: Super admin users should be created through the application interface
+-- or by calling the promote_user_to_super_admin function with the desired email
