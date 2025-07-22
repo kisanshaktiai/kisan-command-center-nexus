@@ -41,18 +41,50 @@ export const SuperAdminAuth = () => {
 
   const checkAdminAccess = async (userEmail: string) => {
     try {
-      const { data, error } = await supabase.rpc('check_admin_access', {
-        user_email: userEmail
-      });
+      // Call the PostgreSQL function directly using SQL
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select(`
+          id,
+          email,
+          role,
+          is_active,
+          last_login:admin_login_audit!user_id(created_at, ip_address)
+        `)
+        .eq('email', userEmail)
+        .eq('is_active', true)
+        .single();
 
-      if (error) {
-        console.error('Pre-auth check failed:', error);
+      if (error || !data) {
+        setPreAuthInfo({
+          allowed: false,
+          message: 'Account not found'
+        });
         return;
       }
 
-      setPreAuthInfo(data as AdminAccessInfo);
+      // Count active sessions
+      const { count: sessionCount } = await supabase
+        .from('admin_sessions')
+        .select('*', { count: 'exact' })
+        .eq('user_id', data.id)
+        .eq('is_active', true)
+        .gt('expires_at', new Date().toISOString());
+
+      setPreAuthInfo({
+        allowed: true,
+        user_id: data.id,
+        role: data.role,
+        last_login: data.last_login?.[0]?.created_at || null,
+        last_login_ip: data.last_login?.[0]?.ip_address || null,
+        active_sessions_count: sessionCount || 0
+      });
     } catch (err) {
       console.error('Pre-auth check error:', err);
+      setPreAuthInfo({
+        allowed: false,
+        message: 'Unable to verify account access'
+      });
     }
   };
 
@@ -66,14 +98,14 @@ export const SuperAdminAuth = () => {
       const deviceFingerprint = generateDeviceFingerprint();
       const ipAddress = await getUserIP();
 
-      await supabase.rpc('log_admin_login_attempt', {
-        p_user_id: userId,
-        p_email: email,
-        p_attempt_type: attemptType,
-        p_ip_address: ipAddress,
-        p_user_agent: navigator.userAgent,
-        p_device_fingerprint: deviceFingerprint,
-        p_failure_reason: failureReason
+      await supabase.from('admin_login_audit').insert({
+        user_id: userId,
+        email: email,
+        attempt_type: attemptType,
+        ip_address: ipAddress,
+        user_agent: navigator.userAgent,
+        device_fingerprint: deviceFingerprint,
+        failure_reason: failureReason
       });
     } catch (error) {
       console.error('Failed to log login attempt:', error);
@@ -84,14 +116,24 @@ export const SuperAdminAuth = () => {
     try {
       const deviceFingerprint = generateDeviceFingerprint();
       const ipAddress = await getUserIP();
+      const sessionToken = crypto.randomUUID() + '-' + Date.now();
+      const expiresAt = new Date(
+        Date.now() + (rememberMe ? 30 * 24 * 60 * 60 * 1000 : 30 * 60 * 1000)
+      );
 
-      const { data, error } = await supabase.rpc('create_admin_session', {
-        p_user_id: userId,
-        p_device_fingerprint: deviceFingerprint,
-        p_ip_address: ipAddress,
-        p_user_agent: navigator.userAgent,
-        p_remember_me: rememberMe
-      });
+      const { data, error } = await supabase
+        .from('admin_sessions')
+        .insert({
+          user_id: userId,
+          session_token: sessionToken,
+          device_fingerprint: deviceFingerprint,
+          ip_address: ipAddress,
+          user_agent: navigator.userAgent,
+          remember_me: rememberMe,
+          expires_at: expiresAt.toISOString()
+        })
+        .select('session_token')
+        .single();
 
       if (error) {
         console.error('Failed to create admin session:', error);
@@ -99,8 +141,8 @@ export const SuperAdminAuth = () => {
       }
 
       // Store session token in localStorage for session management
-      localStorage.setItem('admin_session_token', data);
-      return data;
+      localStorage.setItem('admin_session_token', data.session_token);
+      return data.session_token;
 
     } catch (error) {
       console.error('Session creation error:', error);

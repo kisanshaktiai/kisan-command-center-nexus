@@ -8,11 +8,17 @@ export const useSessionManagement = () => {
     if (!sessionToken) return;
 
     try {
-      const { data, error } = await supabase.rpc('update_session_activity', {
-        p_session_token: sessionToken
-      });
+      const { data, error } = await supabase
+        .from('admin_sessions')
+        .update({ 
+          last_activity: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes from now
+        })
+        .eq('session_token', sessionToken)
+        .eq('is_active', true)
+        .select();
 
-      if (error || !data) {
+      if (error || !data || data.length === 0) {
         console.warn('Session may have expired');
         localStorage.removeItem('admin_session_token');
       }
@@ -23,7 +29,10 @@ export const useSessionManagement = () => {
 
   const cleanupExpiredSessions = useCallback(async () => {
     try {
-      await supabase.rpc('cleanup_expired_sessions');
+      await supabase
+        .from('admin_sessions')
+        .delete()
+        .lt('expires_at', new Date().toISOString());
     } catch (error) {
       console.error('Failed to cleanup expired sessions:', error);
     }
