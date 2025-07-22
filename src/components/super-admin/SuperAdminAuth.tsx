@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,13 +51,11 @@ export const SuperAdminAuth = () => {
 
       if (error) {
         console.error('Pre-auth check error:', error);
-        // Don't show error to user, just don't show pre-auth info
         setPreAuthInfo(null);
         return;
       }
 
       if (!adminUser) {
-        // Don't show "access denied" - just show neutral state
         setPreAuthInfo(null);
         return;
       }
@@ -65,9 +64,9 @@ export const SuperAdminAuth = () => {
         allowed: true,
         user_id: adminUser.id,
         role: adminUser.role,
-        last_login: null, // Simplified for now
-        last_login_ip: null, // Simplified for now
-        active_sessions_count: 0 // Simplified for now
+        last_login: null,
+        last_login_ip: null,
+        active_sessions_count: 0
       });
     } catch (err) {
       console.error('Pre-auth check error:', err);
@@ -85,7 +84,6 @@ export const SuperAdminAuth = () => {
       const deviceFingerprint = generateDeviceFingerprint();
       const ipAddress = await getUserIP();
 
-      // Store in localStorage for now as a simple logging mechanism
       const logEntry = {
         userId,
         email,
@@ -100,7 +98,6 @@ export const SuperAdminAuth = () => {
       const existingLogs = JSON.parse(localStorage.getItem('admin_login_logs') || '[]');
       existingLogs.push(logEntry);
       
-      // Keep only last 100 entries
       if (existingLogs.length > 100) {
         existingLogs.splice(0, existingLogs.length - 100);
       }
@@ -122,7 +119,6 @@ export const SuperAdminAuth = () => {
         Date.now() + (rememberMe ? 30 * 24 * 60 * 60 * 1000 : 30 * 60 * 1000)
       );
 
-      // Store session info in localStorage
       const sessionInfo = {
         userId,
         sessionToken,
@@ -181,55 +177,84 @@ export const SuperAdminAuth = () => {
         throw new Error('Authentication failed - no user returned');
       }
 
-      console.log('Step 2: Authentication successful, refreshing session to get latest metadata...');
+      console.log('Step 2: User authenticated successfully');
+      console.log('User object:', signInData.user);
+      console.log('User metadata:', signInData.user.user_metadata);
+      console.log('App metadata:', signInData.user.app_metadata);
       
-      // Step 2: Force session refresh to get updated user metadata from database
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      // Step 3: Check admin_users table directly for role verification
+      console.log('Step 3: Checking admin_users table for role verification...');
       
-      if (refreshError) {
-        console.error('Session refresh failed:', refreshError);
-        await logLoginAttempt(signInData.user.id, email, 'failed', 'Failed to refresh session');
-        throw new Error('Failed to refresh session');
+      const { data: adminUser, error: adminError } = await supabase
+        .from('admin_users')
+        .select('id, email, role, is_active')
+        .eq('email', email)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (adminError) {
+        console.error('Admin verification error:', adminError);
+        await logLoginAttempt(signInData.user.id, email, 'failed', 'Failed to verify admin status');
+        await supabase.auth.signOut();
+        throw new Error('Failed to verify admin status');
       }
 
-      if (!refreshData.user) {
-        await logLoginAttempt(signInData.user.id, email, 'failed', 'Session refresh failed - no user returned');
-        throw new Error('Session refresh failed - no user returned');
-      }
-
-      console.log('Step 3: Session refreshed, checking user metadata:', refreshData.user.user_metadata);
-      console.log('App metadata:', refreshData.user.app_metadata);
-      
-      // Step 3: Check if user has admin role in metadata with refreshed data
-      const userRole = refreshData.user.user_metadata?.role || refreshData.user.app_metadata?.role;
-      console.log('Extracted user role from refreshed session:', userRole);
-      
-      // Allow super_admin, platform_admin, and admin roles
-      const validAdminRoles = ['super_admin', 'platform_admin', 'admin'];
-      
-      if (!userRole || !validAdminRoles.includes(userRole)) {
-        console.error('Access denied - insufficient privileges. User role:', userRole);
-        console.log('Available keys in user_metadata:', Object.keys(refreshData.user.user_metadata || {}));
-        console.log('Available keys in app_metadata:', Object.keys(refreshData.user.app_metadata || {}));
-        
-        await logLoginAttempt(refreshData.user.id, email, 'failed', 'Access denied - Admin privileges required');
-        // Sign out the user since they don't have admin access
+      if (!adminUser) {
+        console.error('No admin user found in admin_users table for email:', email);
+        await logLoginAttempt(signInData.user.id, email, 'failed', 'Access denied - Admin privileges required');
         await supabase.auth.signOut();
         throw new Error('Access denied: You do not have administrator privileges');
       }
 
-      console.log('Step 4: Admin privileges verified, role:', userRole);
+      console.log('Step 4: Admin user found:', adminUser);
       
-      // Step 4: Create admin session for tracking
-      const sessionToken = await createAdminSession(refreshData.user.id);
+      // Check if user has valid admin role
+      const validAdminRoles = ['super_admin', 'platform_admin', 'admin'];
+      
+      if (!adminUser.role || !validAdminRoles.includes(adminUser.role)) {
+        console.error('Invalid admin role:', adminUser.role);
+        await logLoginAttempt(signInData.user.id, email, 'failed', 'Access denied - Invalid admin role');
+        await supabase.auth.signOut();
+        throw new Error('Access denied: Invalid administrator role');
+      }
+
+      console.log('Step 5: Admin privileges verified, role:', adminUser.role);
+
+      // Step 6: Update user metadata in auth.users to sync with admin_users table
+      console.log('Step 6: Syncing user metadata with admin role...');
+      
+      try {
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: {
+            role: adminUser.role,
+            full_name: adminUser.full_name || 'Super Admin',
+            email_verified: true
+          }
+        });
+
+        if (updateError) {
+          console.warn('Failed to update user metadata:', updateError);
+          // Don't fail the login for this, but log it
+        } else {
+          console.log('User metadata updated successfully');
+        }
+      } catch (metadataError) {
+        console.warn('Error updating user metadata:', metadataError);
+        // Continue with login even if metadata update fails
+      }
+      
+      // Step 7: Create admin session for tracking
+      const sessionToken = await createAdminSession(signInData.user.id);
       if (!sessionToken) {
         console.warn('Failed to create admin session, continuing without session tracking');
       }
 
-      // Step 5: Log successful login
-      await logLoginAttempt(refreshData.user.id, email, 'success');
+      // Step 8: Log successful login
+      await logLoginAttempt(signInData.user.id, email, 'success');
 
-      // Step 6: Navigate to super admin dashboard
+      console.log('=== LOGIN SUCCESS - Redirecting to dashboard ===');
+      
+      // Step 9: Navigate to super admin dashboard
       toast.success('Login successful');
       navigate('/super-admin');
       

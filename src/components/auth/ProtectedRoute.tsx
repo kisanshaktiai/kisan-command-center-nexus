@@ -37,7 +37,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (requireAdmin && !isAdmin) {
-    console.log('ProtectedRoute: Admin access required but user is not admin. User role:', user.user_metadata?.role || user.app_metadata?.role);
+    console.log('ProtectedRoute: Admin access required but user is not admin.');
+    console.log('User role from metadata:', user.user_metadata?.role || user.app_metadata?.role);
+    console.log('isAdmin from context:', isAdmin);
+    
+    // For admin routes, redirect back to auth for re-verification
+    console.log('Redirecting to auth for admin verification');
     return <Navigate to="/auth" replace />;
   }
 
