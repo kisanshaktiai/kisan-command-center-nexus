@@ -1062,89 +1062,6 @@ export type Database = {
         }
         Relationships: []
       }
-      farmer_subscriptions: {
-        Row: {
-          auto_renew: boolean
-          billing_interval: Database["public"]["Enums"]["billing_interval"]
-          created_at: string
-          end_date: string | null
-          farmer_id: string
-          id: string
-          metadata: Json | null
-          payment_method: Json | null
-          plan_id: string
-          start_date: string
-          status: string
-          tenant_id: string
-          tenant_subscription_id: string | null
-          trial_end_date: string | null
-          updated_at: string
-        }
-        Insert: {
-          auto_renew?: boolean
-          billing_interval?: Database["public"]["Enums"]["billing_interval"]
-          created_at?: string
-          end_date?: string | null
-          farmer_id: string
-          id?: string
-          metadata?: Json | null
-          payment_method?: Json | null
-          plan_id: string
-          start_date?: string
-          status?: string
-          tenant_id: string
-          tenant_subscription_id?: string | null
-          trial_end_date?: string | null
-          updated_at?: string
-        }
-        Update: {
-          auto_renew?: boolean
-          billing_interval?: Database["public"]["Enums"]["billing_interval"]
-          created_at?: string
-          end_date?: string | null
-          farmer_id?: string
-          id?: string
-          metadata?: Json | null
-          payment_method?: Json | null
-          plan_id?: string
-          start_date?: string
-          status?: string
-          tenant_id?: string
-          tenant_subscription_id?: string | null
-          trial_end_date?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "farmer_subscriptions_farmer_id_fkey"
-            columns: ["farmer_id"]
-            isOneToOne: true
-            referencedRelation: "farmers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "farmer_subscriptions_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "subscription_plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "farmer_subscriptions_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "farmer_subscriptions_tenant_subscription_id_fkey"
-            columns: ["tenant_subscription_id"]
-            isOneToOne: false
-            referencedRelation: "tenant_subscriptions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       farmers: {
         Row: {
           aadhaar_number: string | null
@@ -2072,36 +1989,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      otp_sessions: {
-        Row: {
-          created_at: string | null
-          email: string
-          expires_at: string | null
-          id: string
-          is_used: boolean | null
-          otp: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          email: string
-          expires_at?: string | null
-          id?: string
-          is_used?: boolean | null
-          otp: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          email?: string
-          expires_at?: string | null
-          id?: string
-          is_used?: boolean | null
-          otp?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       password_reset_requests: {
         Row: {
@@ -3368,7 +3255,7 @@ export type Database = {
           deleted_at: string | null
           established_date: string | null
           id: string
-          is_default: boolean | null
+          isDefault: boolean | null
           max_api_calls_per_day: number | null
           max_dealers: number | null
           max_farmers: number | null
@@ -3400,7 +3287,7 @@ export type Database = {
           deleted_at?: string | null
           established_date?: string | null
           id?: string
-          is_default?: boolean | null
+          isDefault?: boolean | null
           max_api_calls_per_day?: number | null
           max_dealers?: number | null
           max_farmers?: number | null
@@ -3432,7 +3319,7 @@ export type Database = {
           deleted_at?: string | null
           established_date?: string | null
           id?: string
-          is_default?: boolean | null
+          isDefault?: boolean | null
           max_api_calls_per_day?: number | null
           max_dealers?: number | null
           max_farmers?: number | null
@@ -5038,10 +4925,6 @@ export type Database = {
       gbtreekey8_out: {
         Args: { "": unknown }
         Returns: unknown
-      }
-      generate_otp: {
-        Args: { p_length?: number }
-        Returns: string
       }
       generate_slug_suggestions: {
         Args: { p_organization_name: string }

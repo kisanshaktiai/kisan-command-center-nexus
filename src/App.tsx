@@ -1,5 +1,4 @@
 
-import React from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,35 +11,30 @@ import Auth from "./pages/Auth";
 import AuthCallback from "./pages/auth/AuthCallback";
 import ResetPassword from "./pages/auth/ResetPassword";
 
-// Create a client
 const queryClient = new QueryClient();
 
-const App = () => {
-  return (
-    <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <AuthProvider>
-            <div className="min-h-screen bg-background font-sans antialiased">
-              <Toaster />
-              <SessionMonitor />
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/auth/callback" element={<AuthCallback />} />
-                  <Route path="/auth/reset-password" element={<ResetPassword />} />
-                  {navItems.map(({ to, page }) => (
-                    <Route key={to} path={to} element={page} />
-                  ))}
-                  <Route path="/super-admin/*" element={<SuperAdmin />} />
-                </Routes>
-              </BrowserRouter>
-            </div>
-          </AuthProvider>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </React.StrictMode>
-  );
-};
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <AuthProvider>
+        <div className="min-h-screen bg-background font-sans antialiased">
+          <Toaster />
+          <SessionMonitor />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/auth/reset-password" element={<ResetPassword />} />
+              {navItems.map(({ to, page }) => (
+                <Route key={to} path={to} element={page} />
+              ))}
+              <Route path="/super-admin/*" element={<SuperAdmin />} />
+            </Routes>
+          </BrowserRouter>
+        </div>
+      </AuthProvider>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
 export default App;

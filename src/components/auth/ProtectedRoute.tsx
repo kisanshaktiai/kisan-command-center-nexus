@@ -14,7 +14,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children, 
   requireAdmin = false 
 }) => {
-  const { user, isAdmin, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -32,43 +32,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!user) {
-    console.log('ProtectedRoute: No user found, redirecting to auth');
     return <Navigate to="/auth" replace />;
   }
 
-  if (requireAdmin && !isAdmin) {
-    console.log('ProtectedRoute: Admin access required but user is not admin.');
-    console.log('User email:', user.email);
-    console.log('isAdmin from context:', isAdmin);
-    
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100">
-        <Card className="w-full max-w-md">
-          <CardContent className="text-center p-8">
-            <div className="space-y-4">
-              <div className="text-red-600 text-6xl">🚫</div>
-              <h2 className="text-2xl font-bold text-red-800">Access Denied</h2>
-              <p className="text-red-600">
-                You do not have administrator privileges to access this area.
-              </p>
-              <p className="text-sm text-red-500">
-                If you believe this is an error, please contact your system administrator.
-              </p>
-              <div className="pt-4">
-                <button 
-                  onClick={() => window.location.href = '/auth'}
-                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                >
-                  Return to Login
-                </button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  console.log('ProtectedRoute: Access granted for user:', user.email, 'Admin status:', isAdmin);
+  // All authenticated users are now automatically admins, so no access denied
   return <>{children}</>;
 };

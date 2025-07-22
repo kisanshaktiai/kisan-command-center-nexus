@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,10 +14,8 @@ import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { SubscriptionDetailModal } from '@/components/tenant/SubscriptionDetailModal';
 
-// Local interface to avoid conflicts with imported types
-interface LocalBillingPlan {
+interface BillingPlan {
   id: string;
   name: string;
   description: string | null;
@@ -28,7 +25,7 @@ interface LocalBillingPlan {
   billing_interval: string;
   features: any[];
   usage_limits?: any;
-  limits: any; // Make this required to match the component expectation
+  limits?: any;
   is_active: boolean;
   is_custom?: boolean;
   created_at: string;
@@ -73,11 +70,9 @@ const safeGet = (obj: any, key: string, fallback: any = null) => {
 };
 
 export default function SubscriptionManagement() {
-  const [selectedPlan, setSelectedPlan] = useState<LocalBillingPlan | null>(null);
-  const [selectedSubscription, setSelectedSubscription] = useState<TenantSubscription | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [planToDelete, setPlanToDelete] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -88,7 +83,7 @@ export default function SubscriptionManagement() {
   // Fetch billing plans
   const { data: plans = [], isLoading: plansLoading, error: plansError } = useQuery({
     queryKey: ['billing-plans'],
-    queryFn: async (): Promise<LocalBillingPlan[]> => {
+    queryFn: async (): Promise<BillingPlan[]> => {
       console.log('Fetching billing plans...');
       const { data, error } = await supabase
         .from('billing_plans')
@@ -113,7 +108,7 @@ export default function SubscriptionManagement() {
         billing_interval: plan.billing_interval,
         features: convertJsonToArray(plan.features),
         usage_limits: safeGet(plan, 'usage_limits', {}),
-        limits: safeGet(plan, 'limits', {}), // Ensure limits is always defined
+        limits: plan.limits,
         is_active: plan.is_active,
         is_custom: safeGet(plan, 'is_custom', false),
         created_at: plan.created_at,
@@ -264,16 +259,6 @@ export default function SubscriptionManagement() {
     
     return matchesSearch && matchesStatus && matchesPlan;
   });
-
-  const handleSubscriptionClick = (subscription: TenantSubscription) => {
-    setSelectedSubscription(subscription);
-    // Find the related plan
-    const relatedPlan = plans.find(p => 
-      p.name.toLowerCase().includes(subscription.subscription_plan.toLowerCase())
-    );
-    setSelectedPlan(relatedPlan || null);
-    setIsDetailModalOpen(true);
-  };
 
   if (plansError || subscriptionsError) {
     return (
@@ -470,11 +455,7 @@ export default function SubscriptionManagement() {
               <CardContent>
                 <div className="space-y-4">
                   {filteredSubscriptions.map((subscription) => (
-                    <div 
-                      key={subscription.id} 
-                      className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() => handleSubscriptionClick(subscription)}
-                    >
+                    <div key={subscription.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-4">
                         <div>
                           <h4 className="font-medium">{subscription.name}</h4>
@@ -648,18 +629,6 @@ export default function SubscriptionManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Subscription Detail Modal */}
-      <SubscriptionDetailModal
-        subscription={selectedSubscription}
-        plan={selectedPlan}
-        isOpen={isDetailModalOpen}
-        onClose={() => {
-          setIsDetailModalOpen(false);
-          setSelectedSubscription(null);
-          setSelectedPlan(null);
-        }}
-      />
     </div>
   );
 }
@@ -671,7 +640,7 @@ function CreatePlanForm({
   isEditing = false 
 }: { 
   onSubmit: (data: any) => void; 
-  initialData?: LocalBillingPlan;
+  initialData?: BillingPlan;
   isEditing?: boolean;
 }) {
   const [formData, setFormData] = useState({

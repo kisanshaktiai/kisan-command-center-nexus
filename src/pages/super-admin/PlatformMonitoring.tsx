@@ -1,345 +1,286 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { Activity, AlertTriangle, CheckCircle, Database, Server, Cpu, HardDrive, Network, RefreshCw, TrendingUp, Users, Zap } from 'lucide-react';
-import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  Activity, 
+  TrendingUp, 
+  AlertTriangle, 
+  Server, 
+  Users, 
+  DollarSign,
+  Brain,
+  Settings,
+  Download
+} from 'lucide-react';
+import SystemHealthMonitor from '@/components/monitoring/SystemHealthMonitor';
+import UsageAnalytics from '@/components/monitoring/UsageAnalytics';
+import AIModelMonitoring from '@/components/monitoring/AIModelMonitoring';
+import FinancialAnalytics from '@/components/monitoring/FinancialAnalytics';
+import PredictiveInsights from '@/components/monitoring/PredictiveInsights';
+import CustomDashboard from '@/components/monitoring/CustomDashboard';
+import AlertsPanel from '@/components/monitoring/AlertsPanel';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
-interface SystemMetric {
-  id: string;
-  metric_name: string;
-  metric_value: number;
-  metric_unit: string;
-  component_name: string;
-  timestamp: string;
-  severity_level: string;
-}
+const PlatformMonitoring = () => {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
 
-interface PlatformAlert {
-  id: string;
-  alert_name: string;
-  description: string;
-  severity: string;
-  status: string;
-  component: string;
-  triggered_at: string;
-  resolved_at: string | null;
-}
+  // Real-time alerts subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('platform-alerts')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'platform_alerts'
+        },
+        (payload) => {
+          console.log('Alert update:', payload);
+          // Trigger alert notifications
+        }
+      )
+      .subscribe();
 
-export default function PlatformMonitoring() {
-  const [autoRefresh, setAutoRefresh] = useState(true);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
-  // Mock data since we can't access the new tables yet
-  const mockMetrics: SystemMetric[] = [
-    {
-      id: '1',
-      metric_name: 'CPU Usage',
-      metric_value: 45.2,
-      metric_unit: 'percent',
-      component_name: 'api_server',
-      timestamp: new Date().toISOString(),
-      severity_level: 'info',
+  // Get overall platform statistics
+  const { data: platformStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['platform-stats'],
+    queryFn: async () => {
+      const [
+        systemMetrics,
+        activeAlerts,
+        usageData,
+        financialData
+      ] = await Promise.all([
+        supabase.from('system_metrics').select('*').order('timestamp', { ascending: false }).limit(100),
+        supabase.from('platform_alerts').select('*').eq('status', 'active'),
+        supabase.from('usage_analytics').select('*').order('timestamp', { ascending: false }).limit(100),
+        supabase.from('financial_metrics').select('*').order('timestamp', { ascending: false }).limit(50)
+      ]);
+
+      return {
+        systemMetrics: systemMetrics.data || [],
+        activeAlerts: activeAlerts.data || [],
+        usageData: usageData.data || [],
+        financialData: financialData.data || []
+      };
     },
-    {
-      id: '2',
-      metric_name: 'Memory Usage',
-      metric_value: 67.8,
-      metric_unit: 'percent',
-      component_name: 'database',
-      timestamp: new Date().toISOString(),
-      severity_level: 'info',
-    },
-    {
-      id: '3',
-      metric_name: 'Disk Usage',
-      metric_value: 78.5,
-      metric_unit: 'percent',
-      component_name: 'storage',
-      timestamp: new Date().toISOString(),
-      severity_level: 'warning',
-    },
-    {
-      id: '4',
-      metric_name: 'API Response Time',
-      metric_value: 125.3,
-      metric_unit: 'ms',
-      component_name: 'api_gateway',
-      timestamp: new Date().toISOString(),
-      severity_level: 'info',
-    },
-  ];
+    refetchInterval: refreshInterval,
+  });
 
-  const mockAlerts: PlatformAlert[] = [
-    {
-      id: '1',
-      alert_name: 'High Memory Usage',
-      description: 'Database memory usage is above 80%',
-      severity: 'warning',
-      status: 'active',
-      component: 'database',
-      triggered_at: new Date().toISOString(),
-      resolved_at: null,
-    },
-    {
-      id: '2',
-      alert_name: 'Slow API Response',
-      description: 'API response time is above 200ms',
-      severity: 'critical',
-      status: 'active',
-      component: 'api_gateway',
-      triggered_at: new Date().toISOString(),
-      resolved_at: null,
-    },
-  ];
+  const renderOverview = () => (
+    <div className="space-y-6">
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">System Health</CardTitle>
+            <Server className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">98.5%</div>
+            <p className="text-xs text-muted-foreground">
+              <TrendingUp className="w-3 h-3 inline mr-1" />
+              +0.2% from last hour
+            </p>
+          </CardContent>
+        </Card>
 
-  // Transform metrics for charts
-  const getMetricsByComponent = (componentName: string) => {
-    return mockMetrics
-      .filter(m => m.component_name === componentName)
-      .map(m => ({
-        time: new Date(m.timestamp).toLocaleTimeString(),
-        value: m.metric_value,
-        unit: m.metric_unit,
-      }));
-  };
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">
+              {platformStats?.activeAlerts?.length || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {platformStats?.activeAlerts?.filter(a => a.severity === 'critical').length || 0} critical
+            </p>
+          </CardContent>
+        </Card>
 
-  const getCurrentMetrics = () => {
-    return mockMetrics;
-  };
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">1,247</div>
+            <p className="text-xs text-muted-foreground">
+              <TrendingUp className="w-3 h-3 inline mr-1" />
+              +8% from last month
+            </p>
+          </CardContent>
+        </Card>
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'critical': return 'bg-red-500 text-white';
-      case 'warning': return 'bg-yellow-500 text-white';
-      case 'info': return 'bg-blue-500 text-white';
-      default: return 'bg-gray-500 text-white';
-    }
-  };
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">$45,231</div>
+            <p className="text-xs text-muted-foreground">
+              <TrendingUp className="w-3 h-3 inline mr-1" />
+              +12% from last month
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-  const getComponentIcon = (component: string) => {
-    switch (component) {
-      case 'database': return <Database className="h-5 w-5" />;
-      case 'api_server': return <Server className="h-5 w-5" />;
-      case 'storage': return <HardDrive className="h-5 w-5" />;
-      case 'api_gateway': return <Network className="h-5 w-5" />;
-      default: return <Activity className="h-5 w-5" />;
-    }
-  };
+      {/* Active Alerts */}
+      {platformStats?.activeAlerts && platformStats.activeAlerts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Active Alerts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {platformStats.activeAlerts.slice(0, 5).map((alert) => (
+                <Alert key={alert.id}>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="flex items-center justify-between">
+                    <div>
+                      <strong>{alert.alert_name}</strong>: {alert.description}
+                    </div>
+                    <Badge variant={alert.severity === 'critical' ? 'destructive' : 'secondary'}>
+                      {alert.severity}
+                    </Badge>
+                  </AlertDescription>
+                </Alert>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-  const acknowledgeAlert = async (alertId: string) => {
-    try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      toast.success('Alert acknowledged');
-    } catch (error: any) {
-      toast.error('Failed to acknowledge alert');
-    }
-  };
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Common monitoring and management tasks</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              Export Metrics
+            </Button>
+            <Button variant="outline" size="sm">
+              <Settings className="w-4 h-4 mr-2" />
+              Configure Alerts
+            </Button>
+            <Button variant="outline" size="sm">
+              <Activity className="w-4 h-4 mr-2" />
+              System Health Check
+            </Button>
+            <Button variant="outline" size="sm">
+              <Brain className="w-4 h-4 mr-2" />
+              Model Performance
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 
-  const resolveAlert = async (alertId: string) => {
-    try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      toast.success('Alert resolved');
-    } catch (error: any) {
-      toast.error('Failed to resolve alert');
-    }
-  };
-
-  const currentMetrics = getCurrentMetrics();
-  const activeAlerts = mockAlerts.filter(alert => alert.status === 'active');
-  const cpuData = getMetricsByComponent('api_server');
-  const memoryData = getMetricsByComponent('database');
+  if (statsLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-20 bg-muted rounded"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Platform Monitoring</h1>
-          <p className="text-muted-foreground">Real-time system health and performance metrics</p>
+          <h1 className="text-3xl font-bold tracking-tight">Platform Monitoring</h1>
+          <p className="text-muted-foreground">
+            Comprehensive monitoring and analytics for platform health and performance
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={autoRefresh ? "default" : "outline"}
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'animate-spin' : ''}`} />
-            Auto Refresh {autoRefresh ? 'On' : 'Off'}
-          </Button>
-          <Button variant="outline">
-            Refresh Now
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-green-600">
+            <Activity className="w-3 h-3 mr-1" />
+            System Healthy
+          </Badge>
+          <Button variant="outline" size="sm">
+            <Settings className="w-4 h-4 mr-2" />
+            Configure
           </Button>
         </div>
       </div>
 
-      {/* System Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {currentMetrics.map((metric) => (
-          <Card key={metric.id}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{metric.metric_name}</CardTitle>
-              {getComponentIcon(metric.component_name)}
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {metric.metric_value}
-                <span className="text-sm font-normal text-muted-foreground ml-1">
-                  {metric.metric_unit}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge className={getSeverityColor(metric.severity_level)}>
-                  {metric.severity_level}
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  {metric.component_name}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Tabs defaultValue="metrics" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="metrics">System Metrics</TabsTrigger>
-          <TabsTrigger value="alerts" className="relative">
-            Platform Alerts
-            {activeAlerts.length > 0 && (
-              <Badge className="ml-2 bg-red-500 text-white px-1 py-0 text-xs">
-                {activeAlerts.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="performance">Performance Trends</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-7">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="system">System Health</TabsTrigger>
+          <TabsTrigger value="usage">Usage Analytics</TabsTrigger>
+          <TabsTrigger value="ai-models">AI Models</TabsTrigger>
+          <TabsTrigger value="financial">Financial</TabsTrigger>
+          <TabsTrigger value="insights">Insights</TabsTrigger>
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="metrics" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Cpu className="h-5 w-5" />
-                  API Server Performance
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={cpuData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  Database Memory Usage
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={memoryData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="overview" className="space-y-6">
+          {renderOverview()}
         </TabsContent>
 
-        <TabsContent value="alerts" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                Active Alerts ({activeAlerts.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {activeAlerts.map((alert) => (
-                  <div key={alert.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-4">
-                      <Badge className={getSeverityColor(alert.severity)}>
-                        {alert.severity}
-                      </Badge>
-                      <div>
-                        <h4 className="font-medium">{alert.alert_name}</h4>
-                        <p className="text-sm text-muted-foreground">{alert.description}</p>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {alert.component} • Triggered {new Date(alert.triggered_at).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => acknowledgeAlert(alert.id)}
-                      >
-                        Acknowledge
-                      </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => resolveAlert(alert.id)}
-                      >
-                        Resolve
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-
-                {activeAlerts.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
-                    <p>No active alerts. System is running smoothly!</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="system" className="space-y-6">
+          <SystemHealthMonitor refreshInterval={refreshInterval} />
         </TabsContent>
 
-        <TabsContent value="performance" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  System Performance Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={currentMetrics}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="metric_name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="metric_value" fill="#3b82f6" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="usage" className="space-y-6">
+          <UsageAnalytics refreshInterval={refreshInterval} />
+        </TabsContent>
+
+        <TabsContent value="ai-models" className="space-y-6">
+          <AIModelMonitoring refreshInterval={refreshInterval} />
+        </TabsContent>
+
+        <TabsContent value="financial" className="space-y-6">
+          <FinancialAnalytics refreshInterval={refreshInterval} />
+        </TabsContent>
+
+        <TabsContent value="insights" className="space-y-6">
+          <PredictiveInsights />
+        </TabsContent>
+
+        <TabsContent value="dashboard" className="space-y-6">
+          <CustomDashboard />
         </TabsContent>
       </Tabs>
+
+      {/* Floating Alerts Panel */}
+      <AlertsPanel />
     </div>
   );
-}
+};
+
+export default PlatformMonitoring;

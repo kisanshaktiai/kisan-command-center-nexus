@@ -1,325 +1,360 @@
 
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Building2, Plus, AlertCircle } from 'lucide-react';
 import { TenantCard } from '@/components/tenant/TenantCard';
+import { TenantForm } from '@/components/tenant/TenantForm';
 import { TenantFilters } from '@/components/tenant/TenantFilters';
-import { TenantForm, TenantFormData } from '@/components/tenant/TenantForm';
-import { TenantDetailModal } from '@/components/tenant/TenantDetailModal';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus } from 'lucide-react';
-import { toast } from 'sonner';
-import type { Tenant, TenantStatus, SubscriptionPlan, TenantType } from '@/types/tenant';
+import { TenantService } from '@/services/tenantService';
+import { Tenant, TenantFormData, TenantType, TenantStatus } from '@/types/tenant';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function TenantManagement() {
-  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [planFilter, setPlanFilter] = useState<string>('all');
-  
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  // Form state with default values
   const [formData, setFormData] = useState<TenantFormData>({
     name: '',
     slug: '',
     type: 'agri_company',
     status: 'trial',
-    subscription_plan: 'Kisan_Basic'
-  });
-  
-  const queryClient = useQueryClient();
-
-  // Fetch tenants
-  const { data: tenants, isLoading, error } = useQuery({
-    queryKey: ['tenants', searchTerm, statusFilter, planFilter],
-    queryFn: async () => {
-      let query = supabase
-        .from('tenants')
-        .select('*');
-
-      if (searchTerm) {
-        query = query.ilike('name', `%${searchTerm}%`);
-      }
-
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter as TenantStatus);
-      }
-
-      if (planFilter !== 'all') {
-        query = query.eq('subscription_plan', planFilter as SubscriptionPlan);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Tenant[];
-    },
+    subscription_plan: 'Kisan_Basic',
+    max_farmers: 1000,
+    max_dealers: 50,
+    max_products: 100,
+    max_storage_gb: 10,
+    max_api_calls_per_day: 10000,
   });
 
-  // Create tenant mutation
-  const createTenantMutation = useMutation({
-    mutationFn: async (data: TenantFormData) => {
-      const { data: result, error } = await supabase.functions.invoke('create-tenant', {
-        body: data
+  useEffect(() => {
+    fetchTenants();
+  }, []);
+
+  const fetchTenants = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('Fetching tenants...');
+      const data = await TenantService.fetchTenants();
+      console.log('Tenants fetched successfully:', data);
+      setTenants(data);
+      
+      if (data.length === 0) {
+        console.log('No tenants found in the database');
+      }
+    } catch (error: any) {
+      console.error('Error fetching tenants:', error);
+      const errorMessage = error.message || 'Failed to fetch tenants';
+      setError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateTenant = async () => {
+    if (isSubmitting) return;
+    
+    try {
+      setIsSubmitting(true);
+      console.log('Creating tenant with data:', formData);
       
-      if (error) throw error;
-      return result;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenants'] });
-      setIsFormOpen(false);
+      const result = await TenantService.createTenant(formData);
+      console.log('Create tenant result:', result);
+
+      if (result.success) {
+        console.log('Tenant created successfully');
+        setIsCreateDialogOpen(false);
+        resetForm();
+        await fetchTenants(); // Refresh the list
+        toast({
+          title: "Success",
+          description: "Tenant created successfully",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error creating tenant:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create tenant",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateTenant = async () => {
+    if (!editingTenant || isSubmitting) {
+      console.error('No tenant selected for editing');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      console.log('Updating tenant with data:', formData);
+      
+      const updatedTenant = await TenantService.updateTenant(editingTenant, formData);
+      console.log('Tenant updated successfully:', updatedTenant);
+
+      setTenants(prev => prev.map(t => t.id === editingTenant.id ? updatedTenant : t));
+      setIsEditDialogOpen(false);
+      setEditingTenant(null);
       resetForm();
-      toast.success('Tenant created successfully');
-    },
-    onError: (error) => {
-      toast.error(`Failed to create tenant: ${error.message}`);
-    },
-  });
-
-  // Update tenant mutation
-  const updateTenantMutation = useMutation({
-    mutationFn: async (data: TenantFormData) => {
-      if (!selectedTenant) throw new Error('No tenant selected');
       
-      const updateData = {
-        name: data.name,
-        slug: data.slug,
-        type: data.type as TenantType,
-        status: data.status as TenantStatus,
-        subscription_plan: data.subscription_plan as SubscriptionPlan,
-        owner_name: data.owner_name,
-        owner_email: data.owner_email,
-        owner_phone: data.owner_phone,
-        business_registration: data.business_registration,
-        business_address: data.business_address,
-        established_date: data.established_date,
-        subscription_start_date: data.subscription_start_date,
-        subscription_end_date: data.subscription_end_date,
-        trial_ends_at: data.trial_ends_at,
-        max_farmers: data.max_farmers,
-        max_dealers: data.max_dealers,
-        max_products: data.max_products,
-        max_storage_gb: data.max_storage_gb,
-        max_api_calls_per_day: data.max_api_calls_per_day,
-        subdomain: data.subdomain,
-        custom_domain: data.custom_domain,
-        metadata: data.metadata
-      };
+      toast({
+        title: "Success",
+        description: "Tenant updated successfully",
+      });
+    } catch (error: any) {
+      console.error('Error updating tenant:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update tenant",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-      const { data: result, error } = await supabase
-        .from('tenants')
-        .update(updateData)
-        .eq('id', selectedTenant.id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return result;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenants'] });
-      setIsFormOpen(false);
-      setSelectedTenant(null);
-      resetForm();
-      toast.success('Tenant updated successfully');
-    },
-    onError: (error) => {
-      toast.error(`Failed to update tenant: ${error.message}`);
-    },
-  });
+  const handleDeleteTenant = async (tenantId: string) => {
+    if (!confirm('Are you sure you want to delete this tenant? This action cannot be undone.')) {
+      return;
+    }
 
-  // Delete tenant mutation
-  const deleteTenantMutation = useMutation({
-    mutationFn: async (tenantId: string) => {
-      const { error } = await supabase
-        .from('tenants')
-        .delete()
-        .eq('id', tenantId);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenants'] });
-      setIsDeleteDialogOpen(false);
-      setSelectedTenant(null);
-      toast.success('Tenant deleted successfully');
-    },
-    onError: (error) => {
-      toast.error(`Failed to delete tenant: ${error.message}`);
-    },
-  });
+    try {
+      console.log('Deleting tenant:', tenantId);
+      await TenantService.deleteTenant(tenantId);
+      console.log('Tenant deleted successfully');
+
+      setTenants(prev => prev.filter(t => t.id !== tenantId));
+      toast({
+        title: "Success",
+        description: "Tenant deleted successfully",
+      });
+    } catch (error: any) {
+      console.error('Error deleting tenant:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete tenant",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditDialog = (tenant: Tenant) => {
+    console.log('Opening edit dialog for tenant:', tenant);
+    setEditingTenant(tenant);
+    
+    // Safely handle metadata and business_address
+    const metadata = tenant.metadata && typeof tenant.metadata === 'object' 
+      ? tenant.metadata as Record<string, any>
+      : {};
+    
+    const businessAddress = tenant.business_address && typeof tenant.business_address === 'object'
+      ? tenant.business_address as Record<string, any>
+      : tenant.business_address
+        ? { address: tenant.business_address }
+        : undefined;
+    
+    setFormData({
+      name: tenant.name || '',
+      slug: tenant.slug || '',
+      type: (tenant.type as TenantType) || 'agri_company',
+      status: (tenant.status as TenantStatus) || 'trial',
+      owner_name: tenant.owner_name || '',
+      owner_email: tenant.owner_email || '',
+      owner_phone: tenant.owner_phone || '',
+      business_registration: tenant.business_registration || '',
+      business_address: businessAddress,
+      established_date: tenant.established_date || '',
+      subscription_plan: tenant.subscription_plan || 'Kisan_Basic',
+      subscription_start_date: tenant.subscription_start_date || '',
+      subscription_end_date: tenant.subscription_end_date || '',
+      trial_ends_at: tenant.trial_ends_at || '',
+      max_farmers: tenant.max_farmers || 1000,
+      max_dealers: tenant.max_dealers || 50,
+      max_products: tenant.max_products || 100,
+      max_storage_gb: tenant.max_storage_gb || 10,
+      max_api_calls_per_day: tenant.max_api_calls_per_day || 10000,
+      subdomain: tenant.subdomain || '',
+      custom_domain: tenant.custom_domain || '',
+      metadata,
+    });
+    setIsEditDialogOpen(true);
+  };
 
   const resetForm = () => {
+    console.log('Resetting form to default values');
     setFormData({
       name: '',
       slug: '',
       type: 'agri_company',
       status: 'trial',
-      subscription_plan: 'Kisan_Basic'
+      subscription_plan: 'Kisan_Basic',
+      max_farmers: 1000,
+      max_dealers: 50,
+      max_products: 100,
+      max_storage_gb: 10,
+      max_api_calls_per_day: 10000,
     });
   };
 
-  const handleCreate = () => {
-    createTenantMutation.mutate(formData);
-  };
+  const filteredTenants = tenants.filter(tenant => {
+    const matchesSearch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         tenant.slug.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'all' || tenant.type === filterType;
+    const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
+    return matchesSearch && matchesType && matchesStatus;
+  });
 
-  const handleEdit = (tenant: Tenant) => {
-    setSelectedTenant(tenant);
-    setFormData({
-      name: tenant.name,
-      slug: tenant.slug,
-      type: tenant.type as any,
-      status: tenant.status as any,
-      subscription_plan: tenant.subscription_plan,
-      owner_name: tenant.owner_name,
-      owner_email: tenant.owner_email,
-      owner_phone: tenant.owner_phone,
-      business_registration: tenant.business_registration,
-      business_address: tenant.business_address,
-      established_date: tenant.established_date,
-      subscription_start_date: tenant.subscription_start_date,
-      subscription_end_date: tenant.subscription_end_date,
-      trial_ends_at: tenant.trial_ends_at,
-      max_farmers: tenant.max_farmers,
-      max_dealers: tenant.max_dealers,
-      max_products: tenant.max_products,
-      max_storage_gb: tenant.max_storage_gb,
-      max_api_calls_per_day: tenant.max_api_calls_per_day,
-      subdomain: tenant.subdomain,
-      custom_domain: tenant.custom_domain,
-      metadata: tenant.metadata
-    });
-    setIsFormOpen(true);
-  };
-
-  const handleUpdate = () => {
-    if (!selectedTenant) return;
-    updateTenantMutation.mutate(formData);
-  };
-
-  const handleDelete = (tenant: Tenant) => {
-    setSelectedTenant(tenant);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (!selectedTenant) return;
-    deleteTenantMutation.mutate(selectedTenant.id);
-  };
-
-  const handleView = (tenant: Tenant) => {
-    setSelectedTenant(tenant);
-    setIsDetailOpen(true);
-  };
-
-  const handleCreateNew = () => {
-    setSelectedTenant(null);
-    resetForm();
-    setIsFormOpen(true);
-  };
-
-  const filteredTenants = tenants?.filter(tenant => {
-    const searchTermLower = searchTerm.toLowerCase();
+  if (loading) {
     return (
-      tenant.name.toLowerCase().includes(searchTermLower) ||
-      tenant.slug.toLowerCase().includes(searchTermLower)
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
     );
-  }) || [];
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Tenant Management</h1>
-          <p className="text-muted-foreground">
-            Manage tenants, subscriptions, and configurations
-          </p>
+          <p className="text-muted-foreground">Manage and configure tenant organizations</p>
         </div>
-        <Button onClick={handleCreateNew}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Tenant
-        </Button>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={() => {
+              console.log('Opening create dialog');
+              resetForm();
+            }}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Tenant
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Tenant</DialogTitle>
+              <DialogDescription>
+                Set up a new tenant organization with their subscription and limits.
+              </DialogDescription>
+            </DialogHeader>
+            <TenantForm 
+              formData={formData} 
+              setFormData={setFormData} 
+              onSubmit={handleCreateTenant}
+              isEditing={false}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-2"
+              onClick={() => {
+                setError(null);
+                fetchTenants();
+              }}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Filters */}
       <TenantFilters
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-        filterType={statusFilter}
-        setFilterType={setStatusFilter}
-        filterStatus={planFilter}
-        setFilterStatus={setPlanFilter}
+        filterType={filterType}
+        setFilterType={setFilterType}
+        filterStatus={filterStatus}
+        setFilterStatus={setFilterStatus}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isLoading ? (
-          <div>Loading tenants...</div>
-        ) : error ? (
-          <div>Error: {error.message}</div>
-        ) : filteredTenants.length === 0 ? (
-          <div>No tenants found.</div>
-        ) : (
-          filteredTenants.map((tenant) => (
-            <TenantCard
-              key={tenant.id}
-              tenant={tenant}
-              onEdit={() => handleEdit(tenant)}
-              onDelete={() => handleDelete(tenant)}
-            />
-          ))
-        )}
+      {/* Tenants Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredTenants.map((tenant) => (
+          <TenantCard
+            key={tenant.id}
+            tenant={tenant}
+            onEdit={openEditDialog}
+            onDelete={handleDeleteTenant}
+          />
+        ))}
       </div>
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      {/* Empty State */}
+      {!loading && filteredTenants.length === 0 && (
+        <div className="text-center py-12">
+          <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-2 text-sm font-semibold text-muted-foreground">
+            {tenants.length === 0 ? 'No tenants found' : 'No tenants match your filters'}
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {tenants.length === 0 
+              ? 'Get started by creating your first tenant.' 
+              : 'Try adjusting your search or filters.'
+            }
+          </p>
+          {tenants.length === 0 && (
+            <Button 
+              className="mt-4" 
+              onClick={() => {
+                resetForm();
+                setIsCreateDialogOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create First Tenant
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {selectedTenant ? 'Edit Tenant' : 'Create New Tenant'}
-            </DialogTitle>
+            <DialogTitle>Edit Tenant</DialogTitle>
             <DialogDescription>
-              {selectedTenant 
-                ? 'Update tenant information and configuration.' 
-                : 'Add a new tenant to the platform.'
-              }
+              Update tenant information, subscription, and limits.
             </DialogDescription>
           </DialogHeader>
-          <TenantForm
-            formData={formData}
-            setFormData={setFormData}
-            onSubmit={selectedTenant ? handleUpdate : handleCreate}
-            isEditing={!!selectedTenant}
+          <TenantForm 
+            formData={formData} 
+            setFormData={setFormData} 
+            onSubmit={handleUpdateTenant}
+            isEditing={true}
           />
         </DialogContent>
       </Dialog>
-
-      {/* Detail Modal */}
-      <TenantDetailModal
-        isOpen={isDetailOpen}
-        onClose={() => setIsDetailOpen(false)}
-        tenant={selectedTenant}
-      />
-
-      {/* Delete Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. Are you sure you want to delete{' '}
-              {selectedTenant?.name}?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

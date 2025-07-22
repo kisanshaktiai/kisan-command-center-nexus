@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { safeGet } from '@/lib/supabase-helpers';
+import { sessionService } from '@/services/SessionService';
 
 interface TenantData {
   organizationName: string;
@@ -36,27 +38,6 @@ export const useEnhancedAuth = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<any>(null);
 
-  // Check if user has admin role based on metadata with enhanced checking
-  const checkAdminStatus = (user: User | null): boolean => {
-    if (!user) {
-      console.log('checkAdminStatus: No user provided');
-      return false;
-    }
-    
-    // Check both user_metadata and app_metadata for role
-    const userRole = user.user_metadata?.role || user.app_metadata?.role;
-    console.log('checkAdminStatus: User role found:', userRole);
-    console.log('checkAdminStatus: User metadata:', user.user_metadata);
-    console.log('checkAdminStatus: App metadata:', user.app_metadata);
-    
-    // Valid admin roles
-    const validAdminRoles = ['super_admin', 'platform_admin', 'admin'];
-    const isUserAdmin = validAdminRoles.includes(userRole);
-    console.log('checkAdminStatus: Is admin?', isUserAdmin);
-    
-    return isUserAdmin;
-  };
-
   // Enhanced sign up with tenant metadata
   const signUp = async (email: string, password: string, tenantData: TenantData) => {
     try {
@@ -70,8 +51,7 @@ export const useEnhancedAuth = () => {
             organization_type: tenantData.organizationType,
             tenant_id: tenantData.tenantId,
             full_name: tenantData.fullName,
-            phone: tenantData.phone,
-            role: 'user' // Default role for new signups
+            phone: tenantData.phone
           }
         }
       });
@@ -163,7 +143,7 @@ export const useEnhancedAuth = () => {
   const trackSession = async (deviceInfo?: any) => {
     try {
       if (!session) return;
-      console.log('Session tracking active for user:', user?.email);
+      console.log('Session tracking active');
     } catch (error) {
       console.error('Error tracking session:', error);
     }
@@ -172,19 +152,9 @@ export const useEnhancedAuth = () => {
   // Sign out with session cleanup
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      // Clear local state
-      setUser(null);
-      setSession(null);
-      setIsAdmin(false);
-      setProfile(null);
-      
-      console.log('User signed out successfully');
+      await sessionService.signOut();
     } catch (error) {
       console.error('Error signing out:', error);
-      toast.error('Error signing out');
     }
   };
 
@@ -193,69 +163,31 @@ export const useEnhancedAuth = () => {
     if (!user) return;
     
     try {
-      // Set profile from user metadata
-      setProfile({
-        full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
-        email: user.email,
-        role: user.user_metadata?.role || user.app_metadata?.role || 'user'
-      });
+      console.log('Profile refresh active');
     } catch (error) {
       console.error('Error refreshing profile:', error);
     }
   };
 
-  // Set up auth state listener with improved handling
+  // Set up auth state listener using session service
   useEffect(() => {
-    console.log('useEnhancedAuth: Setting up auth state listener');
-    
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoading(false);
-        
-        if (session?.user) {
-          const adminStatus = checkAdminStatus(session.user);
-          setIsAdmin(adminStatus);
-          console.log('User admin status:', adminStatus);
-          
-          // Set profile from user metadata
-          setProfile({
-            full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || 'User',
-            email: session.user.email,
-            role: session.user.user_metadata?.role || session.user.app_metadata?.role || 'user'
-          });
-        } else {
-          setIsAdmin(false);
-          setProfile(null);
-        }
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('useEnhancedAuth: Checking existing session:', session?.user?.email);
-      
-      setSession(session);
-      setUser(session?.user ?? null);
+    const unsubscribe = sessionService.subscribe((sessionData) => {
+      setSession(sessionData.session);
+      setUser(sessionData.user);
+      setIsAdmin(false); // Will be updated by checkAdminStatus
       setIsLoading(false);
       
-      if (session?.user) {
-        const adminStatus = checkAdminStatus(session.user);
-        setIsAdmin(adminStatus);
-        
-        setProfile({
-          full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || 'User',
-          email: session.user.email,
-          role: session.user.user_metadata?.role || session.user.app_metadata?.role || 'user'
-        });
+      if (sessionData.isAuthenticated && sessionData.user) {
+        // Check admin status
+        sessionService.isAdmin().then(setIsAdmin);
+        refreshProfile();
+        trackSession();
+      } else {
+        setProfile(null);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return unsubscribe;
   }, []);
 
   return {
