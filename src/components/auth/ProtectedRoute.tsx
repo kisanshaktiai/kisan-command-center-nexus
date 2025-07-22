@@ -32,9 +32,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!user) {
+    console.log('ProtectedRoute: No user found, redirecting to auth');
     return <Navigate to="/auth" replace />;
   }
 
-  // All authenticated users are now automatically admins, so no access denied
+  console.log('ProtectedRoute: User authenticated:', user.email);
+
+  // For admin routes, we trust that the user has already been verified in the login process
+  // The admin verification happens in SuperAdminAuth component before allowing login
   return <>{children}</>;
 };

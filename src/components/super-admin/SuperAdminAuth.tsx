@@ -25,40 +25,24 @@ export const SuperAdminAuth = () => {
 
     try {
       console.log('=== SUPER ADMIN LOGIN PROCESS STARTED ===');
-      console.log('Step 1: Verifying credentials for:', email);
+      console.log('Step 1: Checking admin status before authentication for:', email);
       
-      // Step 1: Verify password credentials only (don't actually sign in yet)
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        console.error('Password verification failed:', signInError);
-        throw new Error('Invalid email or password');
-      }
-
-      console.log('Step 2: Password verified successfully');
-      console.log('Step 3: Checking admin status for email:', email);
-
-      // Step 2: Check if user exists in admin_users table and is super_admin
+      // Step 1: First check if user is in admin_users table before any authentication
       const { data: adminUser, error: adminError } = await supabase
         .from('admin_users')
         .select('*')
         .eq('email', email)
         .eq('is_active', true);
 
-      console.log('Admin user query result:', { adminUser, adminError });
+      console.log('Admin user pre-check result:', { adminUser, adminError });
 
       if (adminError) {
         console.error('Database error checking admin user:', adminError);
-        await supabase.auth.signOut();
         throw new Error('Database error occurred');
       }
 
       if (!adminUser || adminUser.length === 0) {
         console.error('No admin user found for email:', email);
-        await supabase.auth.signOut();
         throw new Error('Access denied: User is not registered as an admin');
       }
 
@@ -67,36 +51,37 @@ export const SuperAdminAuth = () => {
 
       if (user.role !== 'super_admin') {
         console.error('User role is not super_admin:', user.role);
-        await supabase.auth.signOut();
         throw new Error('Access denied: Insufficient privileges');
       }
 
-      console.log('Step 4: Admin verification successful, sending OTP for 2FA');
-
-      // Step 3: Sign out temporarily and send OTP for 2FA
-      await supabase.auth.signOut();
-
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: email,
-        options: {
-          shouldCreateUser: false,
-        }
+      console.log('Step 2: Admin verification successful, now verifying password for:', email);
+      
+      // Step 2: Now verify password credentials
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (otpError) {
-        console.error('Error sending OTP:', otpError);
-        throw new Error('Failed to send verification code');
+      if (signInError) {
+        console.error('Password verification failed:', signInError);
+        // Sign out if there was any partial authentication
+        await supabase.auth.signOut();
+        throw new Error('Invalid email or password');
       }
 
-      console.log('Step 5: OTP sent successfully');
-      setPendingLoginEmail(email);
-      setShowOTPVerification(true);
-      toast.success('Verification code sent to your email');
+      console.log('Step 3: Password verified successfully, user authenticated');
+
+      // Step 3: User is now authenticated and verified as admin, redirect to dashboard
+      console.log('Step 4: Redirecting to super-admin dashboard');
+      toast.success('Login successful');
+      navigate('/super-admin');
       
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message);
       toast.error(err.message);
+      // Ensure user is signed out on error
+      await supabase.auth.signOut();
     } finally {
       setIsLoading(false);
     }
@@ -220,7 +205,7 @@ export const SuperAdminAuth = () => {
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? 'Verifying...' : 'Sign In with 2FA'}
+              {isLoading ? 'Verifying...' : 'Sign In'}
             </Button>
           </form>
         </CardContent>

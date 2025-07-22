@@ -16,6 +16,7 @@ export default function Auth() {
   }
 
   if (user) {
+    console.log('Auth page: User is authenticated, redirecting to super-admin');
     return <Navigate to="/super-admin" replace />;
   }
 
