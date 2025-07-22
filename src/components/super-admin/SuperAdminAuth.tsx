@@ -44,7 +44,7 @@ export const SuperAdminAuth = () => {
       // Check if admin user exists and is active
       const { data: adminUser, error } = await supabase
         .from('admin_users')
-        .select('id, email, role, is_active')
+        .select('id, email, role, is_active, full_name')
         .eq('email', userEmail)
         .eq('is_active', true)
         .maybeSingle();
@@ -187,7 +187,7 @@ export const SuperAdminAuth = () => {
       
       const { data: adminUser, error: adminError } = await supabase
         .from('admin_users')
-        .select('id, email, role, is_active')
+        .select('id, email, role, is_active, full_name')
         .eq('email', email)
         .eq('is_active', true)
         .maybeSingle();
