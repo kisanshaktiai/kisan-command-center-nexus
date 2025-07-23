@@ -9,6 +9,7 @@ export interface SessionData {
   isTokenExpired: boolean;
   timeUntilExpiry: number | null;
   timeSinceLastActivity: number;
+  profile: any;
 }
 
 type SessionSubscriber = (sessionData: SessionData) => void;
@@ -21,21 +22,72 @@ class SessionService {
     isAuthenticated: false,
     isTokenExpired: false,
     timeUntilExpiry: null,
-    timeSinceLastActivity: 0
+    timeSinceLastActivity: 0,
+    profile: null
   };
 
   constructor() {
     this.initializeSession();
+    this.setupAuthListener();
   }
 
   private async initializeSession() {
-    const { data: { session } } = await supabase.auth.getSession();
-    await this.updateSessionData(session);
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Error getting session:', error);
+        return;
+      }
+      await this.updateSessionData(session);
+    } catch (error) {
+      console.error('Error initializing session:', error);
+    }
+  }
+
+  private setupAuthListener() {
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email);
+      
+      if (event === 'SIGNED_OUT') {
+        await this.updateSessionData(null);
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        await this.updateSessionData(session);
+      }
+    });
   }
 
   private async updateSessionData(session: Session | null) {
     const isAuthenticated = !!session;
     const isTokenExpired = session ? new Date(session.expires_at! * 1000) < new Date() : false;
+    
+    let profile = null;
+    if (session?.user) {
+      try {
+        // Fetch additional user profile data if needed
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        profile = profileData || {
+          id: session.user.id,
+          email: session.user.email,
+          full_name: session.user.user_metadata?.full_name || session.user.email,
+          avatar_url: session.user.user_metadata?.avatar_url,
+          created_at: session.user.created_at
+        };
+      } catch (error) {
+        // If profiles table doesn't exist, create basic profile from user metadata
+        profile = {
+          id: session.user.id,
+          email: session.user.email,
+          full_name: session.user.user_metadata?.full_name || session.user.email,
+          avatar_url: session.user.user_metadata?.avatar_url,
+          created_at: session.user.created_at
+        };
+      }
+    }
     
     this.sessionData = {
       user: session?.user || null,
@@ -43,14 +95,21 @@ class SessionService {
       isAuthenticated,
       isTokenExpired,
       timeUntilExpiry: session ? new Date(session.expires_at! * 1000).getTime() - Date.now() : null,
-      timeSinceLastActivity: Date.now() - (session?.user?.last_sign_in_at ? new Date(session.user.last_sign_in_at).getTime() : 0)
+      timeSinceLastActivity: Date.now() - (session?.user?.last_sign_in_at ? new Date(session.user.last_sign_in_at).getTime() : 0),
+      profile
     };
 
     this.notifySubscribers();
   }
 
   private notifySubscribers() {
-    this.subscribers.forEach(subscriber => subscriber(this.sessionData));
+    this.subscribers.forEach(subscriber => {
+      try {
+        subscriber(this.sessionData);
+      } catch (error) {
+        console.error('Error notifying subscriber:', error);
+      }
+    });
   }
 
   public subscribe(subscriber: SessionSubscriber): () => void {
@@ -66,16 +125,36 @@ class SessionService {
     return this.sessionData;
   }
 
-  public isTokenExpired(): boolean {
-    return this.sessionData.isTokenExpired;
+  public async signInWithSecurity(email: string, password: string): Promise<{ data: any; error: any }> {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email: email.trim().toLowerCase(), 
+        password 
+      });
+
+      if (error) {
+        console.error('Sign in error:', error);
+        return { data: null, error };
+      }
+
+      // Session will be updated automatically via auth state change listener
+      return { data, error: null };
+    } catch (error) {
+      console.error('Sign in exception:', error);
+      return { data: null, error };
+    }
   }
 
-  public getTimeUntilExpiry(): number | null {
-    return this.sessionData.timeUntilExpiry;
-  }
-
-  public getTimeSinceLastActivity(): number {
-    return this.sessionData.timeSinceLastActivity;
+  public async signOut(): Promise<void> {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Sign out error:', error);
+      }
+      // Session will be updated automatically via auth state change listener
+    } catch (error) {
+      console.error('Sign out exception:', error);
+    }
   }
 
   public async refreshSession(): Promise<{ success: boolean; error?: string }> {
@@ -86,30 +165,10 @@ class SessionService {
         return { success: false, error: error.message };
       }
       
-      await this.updateSessionData(session);
+      // Session will be updated automatically via auth state change listener
       return { success: true };
     } catch (error) {
       return { success: false, error: 'Failed to refresh session' };
-    }
-  }
-
-  public async signOut(): Promise<void> {
-    await supabase.auth.signOut();
-    await this.updateSessionData(null);
-  }
-
-  public async signInWithSecurity(email: string, password: string): Promise<{ data: any; error: any }> {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error) {
-        return { data: null, error };
-      }
-
-      await this.updateSessionData(data.session);
-      return { data, error: null };
-    } catch (error) {
-      return { data: null, error };
     }
   }
 }

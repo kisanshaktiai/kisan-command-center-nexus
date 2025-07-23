@@ -1,13 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Shield, AlertCircle } from 'lucide-react';
-import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
+import { Loader2, Shield, AlertCircle, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { sessionService } from '@/services/SessionService';
 import { toast } from 'sonner';
 
 interface SuperAdminAuthProps {
@@ -19,28 +19,65 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
-  const { signIn } = useEnhancedAuth();
   const navigate = useNavigate();
+
+  // Clear form on mount
+  useEffect(() => {
+    setEmail('');
+    setPassword('');
+    setError('');
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
+    // Validate inputs
+    if (!email.trim()) {
+      setError('Email is required');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!password) {
+      setError('Password is required');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setError('Please enter a valid email address');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const { data, error } = await signIn(email, password);
+      const { data, error } = await sessionService.signInWithSecurity(email, password);
       
       if (error) {
-        setError(error.message || 'Login failed. Please check your credentials.');
+        let errorMessage = 'Login failed. Please check your credentials.';
+        
+        if (error.message?.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password. Please try again.';
+        } else if (error.message?.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email before signing in.';
+        } else if (error.message?.includes('Too many requests')) {
+          errorMessage = 'Too many login attempts. Please wait a moment before trying again.';
+        }
+        
+        setError(errorMessage);
         return;
       }
 
       if (data?.user) {
-        toast.success('Login successful!');
-        navigate('/super-admin');
+        toast.success(`Welcome back, ${data.user.email}!`);
+        navigate('/super-admin', { replace: true });
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -51,17 +88,19 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
       <div className="w-full max-w-md">
         <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
-          <CardHeader className="text-center space-y-2">
-            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-              <Shield className="w-6 h-6 text-primary" />
+          <CardHeader className="text-center space-y-4 pb-8">
+            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+              <Shield className="w-8 h-8 text-primary" />
             </div>
-            <CardTitle className="text-2xl font-bold">Admin Access</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Secure administration portal
-            </CardDescription>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl font-bold text-gray-900">Admin Portal</CardTitle>
+              <CardDescription className="text-gray-600">
+                Sign in to access the administration dashboard
+              </CardDescription>
+            </div>
           </CardHeader>
           
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 px-8 pb-8">
             {error && (
               <Alert variant="destructive" className="border-red-200 bg-red-50">
                 <AlertCircle className="h-4 w-4" />
@@ -71,62 +110,78 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
               </Alert>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4" autoComplete={autocomplete}>
+            <form onSubmit={handleSubmit} className="space-y-5" autoComplete={autocomplete}>
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                   Email Address
                 </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  className="h-11 bg-white border-gray-200 focus:border-primary focus:ring-primary"
-                  placeholder="admin@example.com"
-                  autoComplete="email"
-                />
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    className="h-12 pl-10 pr-4 bg-white border-gray-200 focus:border-primary focus:ring-primary text-gray-900"
+                    placeholder="Enter your email"
+                    autoComplete="email"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium">
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
                   Password
                 </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  className="h-11 bg-white border-gray-200 focus:border-primary focus:ring-primary"
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
-                />
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    className="h-12 pl-10 pr-12 bg-white border-gray-200 focus:border-primary focus:ring-primary text-gray-900"
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    disabled={isLoading}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <Button
                 type="submit"
                 disabled={isLoading || !email || !password}
-                className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium transition-colors"
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-medium transition-colors text-base"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Authenticating...
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Signing in...
                   </>
                 ) : (
                   <>
-                    <Shield className="w-4 h-4 mr-2" />
+                    <Shield className="w-5 h-5 mr-2" />
                     Sign In
                   </>
                 )}
               </Button>
             </form>
 
-            <div className="text-center text-sm text-muted-foreground">
-              <p>Admin access portal</p>
+            <div className="text-center">
+              <p className="text-xs text-gray-500">
+                Secure admin access • KisanShakti Platform
+              </p>
             </div>
           </CardContent>
         </Card>
