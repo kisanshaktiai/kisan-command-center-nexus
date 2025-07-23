@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -23,21 +22,21 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   className
 }) => {
   return (
-    <div className={cn('flex flex-col gap-4 pb-6', className)}>
+    <div className={cn('flex flex-col gap-2 p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60', className)}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
               {title}
             </h1>
             {badge && (
-              <Badge variant={badge.variant || 'default'}>
+              <Badge variant={badge.variant || 'default'} className="text-xs">
                 {badge.text}
               </Badge>
             )}
           </div>
           {description && (
-            <p className="text-muted-foreground text-lg">
+            <p className="text-sm text-muted-foreground">
               {description}
             </p>
           )}
