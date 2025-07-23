@@ -31,19 +31,19 @@ export function AppLayout({ children, breadcrumbs }: AppLayoutProps) {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
+      <div className="flex h-screen w-full bg-background overflow-hidden">
         <AppSidebar />
         
-        <SidebarInset className="flex flex-col">
-          {/* Compact Header - Reduced height from h-14 to h-12 */}
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-3">
+        <SidebarInset className="flex flex-col flex-1 min-w-0">
+          {/* Optimized Header */}
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-background px-4">
             <div className="flex items-center gap-2">
-              <SidebarTrigger className="-ml-1 h-8 w-8" />
-              <Separator orientation="vertical" className="mr-1 h-4" />
+              <SidebarTrigger className="h-8 w-8" />
+              <Separator orientation="vertical" className="h-4" />
             </div>
             
             {breadcrumbs && (
-              <Breadcrumb>
+              <Breadcrumb className="flex-1">
                 <BreadcrumbList>
                   {breadcrumbs.map((breadcrumb, index) => (
                     <React.Fragment key={index}>
@@ -65,13 +65,13 @@ export function AppLayout({ children, breadcrumbs }: AppLayoutProps) {
               </Breadcrumb>
             )}
 
-            {/* Compact Header Actions */}
-            <div className="flex items-center gap-1 ml-auto">
+            {/* Header Actions */}
+            <div className="flex items-center gap-2 ml-auto">
               <div className="relative hidden md:block">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search..."
-                  className="pl-7 w-44 h-8 bg-muted/50 border-0 focus-visible:bg-background text-sm"
+                  className="pl-9 w-48 h-8 bg-muted/50 border-0 focus-visible:bg-background text-sm"
                 />
               </div>
               
@@ -80,8 +80,8 @@ export function AppLayout({ children, breadcrumbs }: AppLayoutProps) {
                 <span className="absolute -top-1 -right-1 h-2 w-2 bg-destructive rounded-full"></span>
               </Button>
 
-              <div className="flex items-center gap-2 ml-1">
-                <Avatar className="h-7 w-7">
+              <div className="flex items-center gap-2">
+                <Avatar className="h-8 w-8">
                   <AvatarImage src={profile?.avatar_url} alt={displayName} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                     {getInitials(displayName)}
@@ -95,8 +95,8 @@ export function AppLayout({ children, breadcrumbs }: AppLayoutProps) {
             </div>
           </header>
 
-          {/* Main Content - Removed overflow-hidden to prevent overlapping */}
-          <main className="flex-1">
+          {/* Main Content Container - Single scroll area */}
+          <main className="flex-1 min-h-0 overflow-hidden">
             {children}
           </main>
         </SidebarInset>

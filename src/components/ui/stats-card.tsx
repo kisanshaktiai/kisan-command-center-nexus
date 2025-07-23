@@ -40,7 +40,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   };
 
   return (
-    <Card className={cn('shadow-sm hover:shadow-md transition-shadow duration-200', className)}>
+    <Card className={cn('border border-border/50 hover:border-border transition-colors', className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
@@ -60,10 +60,10 @@ export const StatsCard: React.FC<StatsCardProps> = ({
             </p>
           )}
           {trend && (
-            <div className="flex items-center gap-1 mt-1">
+            <div className="flex items-center gap-2 mt-1">
               <Badge
                 variant="outline"
-                className={cn('text-xs h-5', getTrendColor(trend.type))}
+                className={cn('text-xs', getTrendColor(trend.type))}
               >
                 {trend.value}
               </Badge>

@@ -1,5 +1,7 @@
+
 import * as React from "react"
 
+// Align with Tailwind's md breakpoint (768px)
 const MOBILE_BREAKPOINT = 768
 
 export function useIsMobile() {

@@ -22,15 +22,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   className
 }) => {
   return (
-    <div className={cn('flex flex-col gap-1 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60', className)}>
+    <div className={cn('flex flex-col gap-2 p-4 border-b bg-background', className)}>
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold tracking-tight text-foreground">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
               {title}
             </h1>
             {badge && (
-              <Badge variant={badge.variant || 'default'} className="text-xs h-5">
+              <Badge variant={badge.variant || 'default'} className="text-xs">
                 {badge.text}
               </Badge>
             )}
@@ -42,7 +42,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           )}
         </div>
         {actions && (
-          <div className="flex items-center gap-2 mt-1 sm:mt-0">
+          <div className="flex items-center gap-2 mt-2 sm:mt-0">
             {actions}
           </div>
         )}
