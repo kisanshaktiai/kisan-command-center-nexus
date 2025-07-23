@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Download, Send, Eye, Search } from 'lucide-react';
+import { FileText, Download, Send, Eye, Search, Calendar, DollarSign } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -13,26 +13,30 @@ import { toast } from 'sonner';
 interface Invoice {
   id: string;
   tenant_id: string;
-  subscription_id: string | null;
   invoice_number: string;
-  status: string;
-  total_amount: number;
-  amount_due: number;
+  amount: number;
   currency: string;
-  issued_at: string;
+  status: string;
   due_date: string;
-  paid_at: string | null;
+  paid_date?: string;
+  stripe_invoice_id?: string;
   line_items: any[];
   created_at: string;
-  updated_at: string;
+  metadata: any;
   tenants?: {
     name: string;
   };
-  tenant_subscriptions?: {
-    billing_plans?: {
-      name: string;
-    };
-  };
+}
+
+interface PaymentRecord {
+  id: string;
+  amount: number;
+  currency: string;
+  payment_method: string;
+  transaction_id?: string;
+  status: string;
+  processed_at?: string;
+  created_at: string;
 }
 
 export function InvoiceManagement() {
@@ -41,81 +45,40 @@ export function InvoiceManagement() {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const queryClient = useQueryClient();
 
-  // Use mock data until billing tables are available
-  const { data: invoices = [], isLoading } = useQuery({
+  const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
     queryKey: ['invoices'],
-    queryFn: async () => {
-      try {
-        // For now, return mock data since billing tables may not be available
-        const mockInvoices: Invoice[] = [
-          {
-            id: '1',
-            tenant_id: 'tenant-1',
-            subscription_id: 'sub-1',
-            invoice_number: 'INV-001',
-            status: 'pending',
-            total_amount: 50000,
-            amount_due: 50000,
-            currency: 'INR',
-            issued_at: new Date().toISOString(),
-            due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            paid_at: null,
-            line_items: [],
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            tenants: { name: 'Sample Tenant' },
-            tenant_subscriptions: { billing_plans: { name: 'Premium Plan' } }
-          },
-          {
-            id: '2',
-            tenant_id: 'tenant-2',
-            subscription_id: 'sub-2',
-            invoice_number: 'INV-002',
-            status: 'paid',
-            total_amount: 75000,
-            amount_due: 0,
-            currency: 'INR',
-            issued_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-            due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-            paid_at: new Date().toISOString(),
-            line_items: [],
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            tenants: { name: 'Another Tenant' },
-            tenant_subscriptions: { billing_plans: { name: 'Enterprise Plan' } }
-          }
-        ];
-        return mockInvoices;
-      } catch (error) {
-        console.error('Error fetching invoices:', error);
-        return [];
-      }
+    queryFn: async (): Promise<Invoice[]> => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select(`
+          *,
+          tenants(name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
     }
   });
 
-  // Generate invoice mutation
-  const generateInvoiceMutation = useMutation({
-    mutationFn: async (invoiceId: string) => {
-      // This would integrate with PDF generation service
-      console.log('Generating invoice for:', invoiceId);
-      // Mock success
-      return { success: true };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Invoice generated successfully');
-    },
-    onError: (error: any) => {
-      toast.error('Failed to generate invoice: ' + error.message);
+  const { data: paymentRecords = [] } = useQuery({
+    queryKey: ['payment-records'],
+    queryFn: async (): Promise<PaymentRecord[]> => {
+      const { data, error } = await supabase
+        .from('payment_records')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
     }
   });
 
-  // Send invoice mutation
   const sendInvoiceMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      // This would integrate with email service
+      // In a real implementation, this would trigger email sending
       console.log('Sending invoice:', invoiceId);
-      // Mock success
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
       return { success: true };
     },
     onSuccess: () => {
@@ -127,11 +90,17 @@ export function InvoiceManagement() {
     }
   });
 
-  // Mark as paid mutation
   const markAsPaidMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      console.log('Marking invoice as paid:', invoiceId);
-      // Mock success
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          status: 'paid',
+          paid_date: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', invoiceId);
+
+      if (error) throw error;
       return { success: true };
     },
     onSuccess: () => {
@@ -150,7 +119,7 @@ export function InvoiceManagement() {
     
     let matchesDate = true;
     if (dateFilter !== 'all') {
-      const invoiceDate = new Date(invoice.issued_at);
+      const invoiceDate = new Date(invoice.created_at);
       const now = new Date();
       
       switch (dateFilter) {
@@ -163,11 +132,8 @@ export function InvoiceManagement() {
           matchesDate = invoiceDate.getMonth() === lastMonth.getMonth() && 
                        invoiceDate.getFullYear() === lastMonth.getFullYear();
           break;
-        case 'this_quarter':
-          const quarter = Math.floor(now.getMonth() / 3);
-          const invoiceQuarter = Math.floor(invoiceDate.getMonth() / 3);
-          matchesDate = quarter === invoiceQuarter && 
-                       invoiceDate.getFullYear() === now.getFullYear();
+        case 'overdue':
+          matchesDate = new Date(invoice.due_date) < now && invoice.status !== 'paid';
           break;
       }
     }
@@ -178,18 +144,39 @@ export function InvoiceManagement() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'paid': return 'bg-green-500';
-      case 'pending': return 'bg-blue-500';
+      case 'sent': return 'bg-blue-500';
       case 'overdue': return 'bg-red-500';
-      case 'cancelled': return 'bg-gray-500';
+      case 'draft': return 'bg-gray-500';
+      case 'cancelled': return 'bg-gray-400';
       default: return 'bg-gray-500';
     }
   };
 
-  const isOverdue = (invoice: Invoice) => {
-    return new Date(invoice.due_date) < new Date() && invoice.status === 'pending';
+  const formatCurrency = (amount: number, currency: string = 'USD') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency
+    }).format(amount);
   };
 
-  if (isLoading) {
+  const calculateMetrics = () => {
+    const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.amount, 0);
+    const totalPaid = invoices
+      .filter(inv => inv.status === 'paid')
+      .reduce((sum, inv) => sum + inv.amount, 0);
+    const totalOverdue = invoices
+      .filter(inv => inv.status === 'overdue')
+      .reduce((sum, inv) => sum + inv.amount, 0);
+    const totalPending = invoices
+      .filter(inv => inv.status === 'sent')
+      .reduce((sum, inv) => sum + inv.amount, 0);
+
+    return { totalInvoiced, totalPaid, totalOverdue, totalPending };
+  };
+
+  const metrics = calculateMetrics();
+
+  if (invoicesLoading) {
     return <div className="text-center py-8">Loading invoices...</div>;
   }
 
@@ -199,26 +186,24 @@ export function InvoiceManagement() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Invoices</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Invoiced</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{invoices.length}</div>
-            <p className="text-xs text-muted-foreground">This month</p>
+            <div className="text-2xl font-bold">{formatCurrency(metrics.totalInvoiced)}</div>
+            <p className="text-xs text-muted-foreground">{invoices.length} total invoices</p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding Amount</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Paid Amount</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ₹{invoices.filter(i => i.status === 'pending').reduce((sum, i) => sum + i.amount_due, 0).toLocaleString()}
-            </div>
+            <div className="text-2xl font-bold">{formatCurrency(metrics.totalPaid)}</div>
             <p className="text-xs text-muted-foreground">
-              {invoices.filter(i => i.status === 'pending').length} pending invoices
+              {invoices.filter(i => i.status === 'paid').length} paid invoices
             </p>
           </CardContent>
         </Card>
@@ -226,26 +211,26 @@ export function InvoiceManagement() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Overdue Amount</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ₹{invoices.filter(i => isOverdue(i)).reduce((sum, i) => sum + i.amount_due, 0).toLocaleString()}
-            </div>
+            <div className="text-2xl font-bold text-red-600">{formatCurrency(metrics.totalOverdue)}</div>
             <p className="text-xs text-muted-foreground">
-              {invoices.filter(i => isOverdue(i)).length} overdue invoices
+              {invoices.filter(i => i.status === 'overdue').length} overdue invoices
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Collection Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">92.5%</div>
-            <p className="text-xs text-muted-foreground">+2.1% from last month</p>
+            <div className="text-2xl font-bold">{formatCurrency(metrics.totalPending)}</div>
+            <p className="text-xs text-muted-foreground">
+              {invoices.filter(i => i.status === 'sent').length} pending invoices
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -255,12 +240,8 @@ export function InvoiceManagement() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle>Invoice Management</CardTitle>
-              <CardDescription>Generate, send, and track invoices</CardDescription>
+              <CardDescription>Track and manage billing invoices</CardDescription>
             </div>
-            <Button>
-              <FileText className="w-4 h-4 mr-2" />
-              Generate Invoices
-            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -283,7 +264,8 @@ export function InvoiceManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="sent">Sent</SelectItem>
                 <SelectItem value="paid">Paid</SelectItem>
                 <SelectItem value="overdue">Overdue</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -297,7 +279,7 @@ export function InvoiceManagement() {
                 <SelectItem value="all">All Time</SelectItem>
                 <SelectItem value="this_month">This Month</SelectItem>
                 <SelectItem value="last_month">Last Month</SelectItem>
-                <SelectItem value="this_quarter">This Quarter</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -315,9 +297,13 @@ export function InvoiceManagement() {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <span>{invoice.tenants?.name || 'Unknown Tenant'}</span>
                       <span>•</span>
-                      <span>Issued: {new Date(invoice.issued_at).toLocaleDateString()}</span>
-                      <span>•</span>
                       <span>Due: {new Date(invoice.due_date).toLocaleDateString()}</span>
+                      {invoice.paid_date && (
+                        <>
+                          <span>•</span>
+                          <span>Paid: {new Date(invoice.paid_date).toLocaleDateString()}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -325,44 +311,40 @@ export function InvoiceManagement() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <div className="font-medium">
-                      {invoice.currency === 'INR' ? '₹' : '$'}{invoice.total_amount.toLocaleString()}
+                      {formatCurrency(invoice.amount, invoice.currency)}
                     </div>
-                    {invoice.amount_due > 0 && (
-                      <div className="text-sm text-red-500">
-                        Due: {invoice.currency === 'INR' ? '₹' : '$'}{invoice.amount_due.toLocaleString()}
-                      </div>
-                    )}
+                    <div className="text-sm text-muted-foreground">
+                      {invoice.currency}
+                    </div>
                   </div>
                   
                   <Badge className={getStatusColor(invoice.status)}>
-                    {isOverdue(invoice) ? 'overdue' : invoice.status}
+                    {invoice.status}
                   </Badge>
                   
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm">
                       <Eye className="w-4 h-4" />
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => generateInvoiceMutation.mutate(invoice.id)}
-                    >
+                    <Button variant="outline" size="sm">
                       <Download className="w-4 h-4" />
                     </Button>
-                    {invoice.status === 'pending' && (
+                    {invoice.status === 'draft' && (
                       <Button 
                         variant="outline" 
                         size="sm"
                         onClick={() => sendInvoiceMutation.mutate(invoice.id)}
+                        disabled={sendInvoiceMutation.isPending}
                       >
                         <Send className="w-4 h-4" />
                       </Button>
                     )}
-                    {invoice.status === 'pending' && (
+                    {invoice.status === 'sent' && (
                       <Button 
                         variant="outline" 
                         size="sm"
                         onClick={() => markAsPaidMutation.mutate(invoice.id)}
+                        disabled={markAsPaidMutation.isPending}
                       >
                         Mark Paid
                       </Button>
@@ -371,6 +353,15 @@ export function InvoiceManagement() {
                 </div>
               </div>
             ))}
+
+            {filteredInvoices.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                {invoices.length === 0 
+                  ? "No invoices found. Invoices will appear here once created."
+                  : "No invoices match your current filters."
+                }
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

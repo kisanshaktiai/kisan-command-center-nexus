@@ -1560,6 +1560,75 @@ export type Database = {
         }
         Relationships: []
       }
+      invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          due_date: string
+          id: string
+          invoice_number: string
+          line_items: Json
+          metadata: Json | null
+          paid_date: string | null
+          paypal_invoice_id: string | null
+          status: string
+          stripe_invoice_id: string | null
+          subscription_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          due_date: string
+          id?: string
+          invoice_number: string
+          line_items?: Json
+          metadata?: Json | null
+          paid_date?: string | null
+          paypal_invoice_id?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          subscription_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          due_date?: string
+          id?: string
+          invoice_number?: string
+          line_items?: Json
+          metadata?: Json | null
+          paid_date?: string | null
+          paypal_invoice_id?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          subscription_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       land_activities: {
         Row: {
           activity_date: string
@@ -2188,6 +2257,66 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      payment_records: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          gateway_response: Json | null
+          id: string
+          invoice_id: string | null
+          payment_method: string | null
+          processed_at: string | null
+          status: string
+          tenant_id: string
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          gateway_response?: Json | null
+          id?: string
+          invoice_id?: string | null
+          payment_method?: string | null
+          processed_at?: string | null
+          status?: string
+          tenant_id: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          gateway_response?: Json | null
+          id?: string
+          invoice_id?: string | null
+          payment_method?: string | null
+          processed_at?: string | null
+          status?: string
+          tenant_id?: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_records_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {
@@ -3156,6 +3285,72 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "subscription_plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_renewals: {
+        Row: {
+          amount: number
+          auto_renew: boolean
+          created_at: string
+          currency: string
+          id: string
+          notification_sent: boolean | null
+          paypal_subscription_id: string | null
+          processed_at: string | null
+          renewal_date: string
+          status: string
+          stripe_subscription_id: string | null
+          subscription_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          auto_renew?: boolean
+          created_at?: string
+          currency?: string
+          id?: string
+          notification_sent?: boolean | null
+          paypal_subscription_id?: string | null
+          processed_at?: string | null
+          renewal_date: string
+          status?: string
+          stripe_subscription_id?: string | null
+          subscription_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          auto_renew?: boolean
+          created_at?: string
+          currency?: string
+          id?: string
+          notification_sent?: boolean | null
+          paypal_subscription_id?: string | null
+          processed_at?: string | null
+          renewal_date?: string
+          status?: string
+          stripe_subscription_id?: string | null
+          subscription_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_renewals_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_renewals_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4940,6 +5135,10 @@ export type Database = {
           p_metadata?: Json
         }
         Returns: Json
+      }
+      disable_expired_tenant_features: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       disablelongtransactions: {
         Args: Record<PropertyKey, never>
