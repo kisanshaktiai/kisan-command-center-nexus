@@ -1,14 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, Loader2 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { OTPVerification } from '@/components/auth/OTPVerification';
-import { useNavigate } from 'react-router-dom';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Shield, AlertCircle, Lock } from 'lucide-react';
+import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
+import { toast } from 'sonner';
 
 interface SuperAdminAuthProps {
   autocomplete?: string;
@@ -17,154 +17,130 @@ interface SuperAdminAuthProps {
 export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "off" }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [isResending, setIsResending] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const { signIn } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [accountLocked, setAccountLocked] = useState(false);
+  
+  const { signIn } = useEnhancedAuth();
   const navigate = useNavigate();
 
-  // Reset form state when component mounts
-  useEffect(() => {
-    // Clear form data on component mount
-    return () => {
-      // Clear form state when component unmounts
-      setEmail("");
-      setPassword("");
-    };
-  }, []);
-
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginError(null);
-    setIsAuthenticating(true);
+    setIsLoading(true);
+    setError('');
+    setAccountLocked(false);
 
     try {
-      // In a real implementation, this would verify credentials and send OTP
-      // For demo purposes, we'll simulate OTP being sent
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       const { data, error } = await signIn(email, password);
       
       if (error) {
-        throw new Error(error.message);
+        if (error.message.includes('temporarily locked')) {
+          setAccountLocked(true);
+          setError(error.message);
+        } else {
+          setError(error.message || 'Login failed. Please check your credentials.');
+        }
+        return;
       }
-      
-      if (data) {
-        // In a real 2FA implementation, you would send OTP here
-        // For now, we'll simulate successful authentication
+
+      if (data?.user) {
+        toast.success('Login successful!');
         navigate('/super-admin');
-      } else {
-        setOtpSent(true);
       }
-    } catch (error) {
-      setLoginError(error instanceof Error ? error.message : 'Authentication failed');
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
     } finally {
-      setIsAuthenticating(false);
+      setIsLoading(false);
     }
-  };
-
-  const handleOtpVerifySuccess = () => {
-    navigate('/super-admin');
-  };
-
-  const handleResendOtp = async () => {
-    setIsResending(true);
-    try {
-      // In a real implementation, this would resend the OTP
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // Show success message
-    } catch (error) {
-      // Handle error
-    } finally {
-      setIsResending(false);
-    }
-  };
-
-  const handleBackToLogin = () => {
-    setOtpSent(false);
-    setLoginError(null);
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-primary/5 to-background p-4">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-primary">Platform Admin</h1>
-          <p className="mt-2 text-center text-base text-muted-foreground">
-            Sign in to manage the multi-tenant platform
-          </p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
+      <div className="w-full max-w-md">
+        <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
+          <CardHeader className="text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+              <Shield className="w-6 h-6 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-bold">Super Admin Access</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Secure platform administration portal
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent className="space-y-6">
+            {error && (
+              <Alert variant={accountLocked ? "destructive" : "default"} className="border-red-200 bg-red-50">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-red-800">
+                  {accountLocked && <Lock className="inline w-4 h-4 mr-1" />}
+                  {error}
+                </AlertDescription>
+              </Alert>
+            )}
 
-        {!otpSent ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Admin Sign In</CardTitle>
-              <CardDescription>
-                Please enter your credentials to access the admin area
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handlePasswordSubmit} className="space-y-4" autoComplete={autocomplete}>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@example.com"
-                    autoComplete="off"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                  </div>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                    required
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isAuthenticating}
-                >
-                  {isAuthenticating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Authenticating...
-                    </>
-                  ) : (
-                    "Sign In"
-                  )}
-                </Button>
-                {loginError && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Authentication Error</AlertTitle>
-                    <AlertDescription>{loginError}</AlertDescription>
-                  </Alert>
+            <form onSubmit={handleSubmit} className="space-y-4" autoComplete={autocomplete}>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">
+                  Email Address
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="h-11 bg-white border-gray-200 focus:border-primary focus:ring-primary"
+                  placeholder="admin@example.com"
+                  autoComplete="email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="h-11 bg-white border-gray-200 focus:border-primary focus:ring-primary"
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading || !email || !password}
+                className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium transition-colors"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Authenticating...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-4 h-4 mr-2" />
+                    Sign In
+                  </>
                 )}
-              </form>
-            </CardContent>
-          </Card>
-        ) : (
-          <OTPVerification
-            email={email}
-            onVerifySuccess={handleOtpVerifySuccess}
-            onResendOTP={handleResendOtp}
-            onBack={handleBackToLogin}
-            isLoading={isAuthenticating}
-          />
-        )}
+              </Button>
+            </form>
+
+            <div className="text-center text-sm text-muted-foreground">
+              <p>Secure admin access only</p>
+              <p className="text-xs mt-1">
+                Account will be locked after 5 failed attempts
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

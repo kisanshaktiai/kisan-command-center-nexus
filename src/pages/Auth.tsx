@@ -15,10 +15,6 @@ export default function Auth() {
       // Clear any stored form data in session storage
       sessionStorage.clear();
       
-      // Clear localStorage auth data to ensure fresh login
-      localStorage.removeItem('supabase.auth.token');
-      localStorage.removeItem('supabase.auth.expires_at');
-      
       // Small delay to ensure clearing is complete
       setTimeout(() => setClearingSession(false), 100);
     };

@@ -1,23 +1,68 @@
 
-import React, { createContext, useContext } from 'react';
-import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { sessionService } from '@/services/SessionService';
 
-const AuthContext = createContext<ReturnType<typeof useEnhancedAuth> | undefined>(undefined);
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  isLoading: boolean;
+  isAdmin: boolean;
+  userRole: string | null;
+  signOut: () => Promise<void>;
+  refreshSession: () => Promise<void>;
+}
 
-export const useAuth = () => {
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Subscribe to session changes
+    const unsubscribe = sessionService.subscribe((sessionData) => {
+      setUser(sessionData.user);
+      setSession(sessionData.session);
+      setIsAdmin(sessionData.isAdmin);
+      setUserRole(sessionData.userRole);
+      setIsLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const signOut = async () => {
+    await sessionService.signOut();
+  };
+
+  const refreshSession = async () => {
+    await sessionService.refreshSession();
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      session,
+      isLoading,
+      isAdmin,
+      userRole,
+      signOut,
+      refreshSession
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
-
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const auth = useEnhancedAuth();
-
-  return (
-    <AuthContext.Provider value={auth}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+}

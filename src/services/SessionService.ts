@@ -1,241 +1,169 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Session, User } from '@supabase/supabase-js';
+import { User, Session } from '@supabase/supabase-js';
 
 export interface SessionData {
   user: User | null;
   session: Session | null;
   isAuthenticated: boolean;
-  tokenExpiresAt: number | null;
-  lastActivityAt: number; // Track last activity timestamp
+  isTokenExpired: boolean;
+  timeUntilExpiry: number | null;
+  timeSinceLastActivity: number;
+  isAdmin: boolean;
+  userRole: string | null;
 }
 
+type SessionSubscriber = (sessionData: SessionData) => void;
+
 class SessionService {
-  private static instance: SessionService;
+  private subscribers: SessionSubscriber[] = [];
   private sessionData: SessionData = {
     user: null,
     session: null,
     isAuthenticated: false,
-    tokenExpiresAt: null,
-    lastActivityAt: Date.now() // Initialize with current time
+    isTokenExpired: false,
+    timeUntilExpiry: null,
+    timeSinceLastActivity: 0,
+    isAdmin: false,
+    userRole: null
   };
-  private refreshTimer: NodeJS.Timeout | null = null;
-  private inactivityTimer: NodeJS.Timeout | null = null;
-  private listeners: ((sessionData: SessionData) => void)[] = [];
-  private readonly INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
 
-  private constructor() {
+  constructor() {
     this.initializeSession();
-    this.setupAuthListener();
-    this.setupActivityTracking();
-  }
-
-  static getInstance(): SessionService {
-    if (!SessionService.instance) {
-      SessionService.instance = new SessionService();
-    }
-    return SessionService.instance;
   }
 
   private async initializeSession() {
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Error getting session:', error);
-        return;
-      }
-      
-      this.updateSessionData(session);
-    } catch (error) {
-      console.error('Error initializing session:', error);
-    }
+    const { data: { session } } = await supabase.auth.getSession();
+    await this.updateSessionData(session);
   }
 
-  private setupAuthListener() {
-    supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event);
-      this.updateSessionData(session);
-      
-      if (event === 'TOKEN_REFRESHED') {
-        console.log('Token refreshed successfully');
-      }
-      
-      if (event === 'SIGNED_OUT') {
-        this.clearRefreshTimer();
-        this.clearInactivityTimer();
-        this.clearStoredSession();
-      }
-    });
-  }
-
-  private setupActivityTracking() {
-    // Track user activity events
-    const activityEvents = ['mousedown', 'keydown', 'touchstart', 'click'];
+  private async updateSessionData(session: Session | null) {
+    const isAuthenticated = !!session;
+    const isTokenExpired = session ? new Date(session.expires_at! * 1000) < new Date() : false;
     
-    activityEvents.forEach(eventType => {
-      window.addEventListener(eventType, this.resetInactivityTimer.bind(this));
-    });
-
-    // Initialize inactivity timer
-    this.resetInactivityTimer();
-  }
-
-  private resetInactivityTimer() {
-    // Update last activity timestamp
-    this.sessionData.lastActivityAt = Date.now();
+    let isAdmin = false;
+    let userRole: string | null = null;
     
-    // Clear existing timer
-    this.clearInactivityTimer();
-    
-    // Only set timer if user is authenticated
-    if (this.sessionData.isAuthenticated) {
-      this.inactivityTimer = setTimeout(() => {
-        console.log('User inactive for 5 minutes, signing out...');
-        this.signOut();
-      }, this.INACTIVITY_TIMEOUT);
+    if (session?.user) {
+      // Check admin status using new consolidated functions
+      const { data: adminData } = await supabase.rpc('is_platform_admin', { user_id: session.user.id });
+      isAdmin = adminData || false;
+      
+      // Get user role
+      const { data: roleData } = await supabase.rpc('get_user_role', { user_id: session.user.id });
+      userRole = roleData;
     }
-  }
 
-  private clearInactivityTimer() {
-    if (this.inactivityTimer) {
-      clearTimeout(this.inactivityTimer);
-      this.inactivityTimer = null;
-    }
-  }
-
-  private updateSessionData(session: Session | null) {
     this.sessionData = {
       user: session?.user || null,
-      session: session,
-      isAuthenticated: !!session,
-      tokenExpiresAt: session?.expires_at ? session.expires_at * 1000 : null,
-      lastActivityAt: Date.now() // Reset activity timestamp on session update
+      session,
+      isAuthenticated,
+      isTokenExpired,
+      timeUntilExpiry: session ? new Date(session.expires_at! * 1000).getTime() - Date.now() : null,
+      timeSinceLastActivity: Date.now() - (session?.user?.last_sign_in_at ? new Date(session.user.last_sign_in_at).getTime() : 0),
+      isAdmin,
+      userRole
     };
 
-    // Set up token refresh timer
-    if (session?.expires_at) {
-      this.setupTokenRefresh(session.expires_at * 1000);
-    }
-
-    // Reset inactivity timer
-    this.resetInactivityTimer();
-
-    // Notify listeners
-    this.notifyListeners();
+    this.notifySubscribers();
   }
 
-  private setupTokenRefresh(expiresAt: number) {
-    this.clearRefreshTimer();
+  private notifySubscribers() {
+    this.subscribers.forEach(subscriber => subscriber(this.sessionData));
+  }
+
+  public subscribe(subscriber: SessionSubscriber): () => void {
+    this.subscribers.push(subscriber);
+    subscriber(this.sessionData);
     
-    // Refresh token 5 minutes before expiration
-    const refreshTime = expiresAt - Date.now() - (5 * 60 * 1000);
-    
-    if (refreshTime > 0) {
-      this.refreshTimer = setTimeout(async () => {
-        try {
-          console.log('Refreshing token...');
-          const { error } = await supabase.auth.refreshSession();
-          if (error) {
-            console.error('Error refreshing token:', error);
-          }
-        } catch (error) {
-          console.error('Error in token refresh:', error);
-        }
-      }, refreshTime);
-    }
-  }
-
-  private clearRefreshTimer() {
-    if (this.refreshTimer) {
-      clearTimeout(this.refreshTimer);
-      this.refreshTimer = null;
-    }
-  }
-
-  private clearStoredSession() {
-    // Clear any stored session data in local storage
-    localStorage.removeItem('supabase.auth.token');
-    localStorage.removeItem('supabase.auth.expires_at');
-  }
-
-  private notifyListeners() {
-    this.listeners.forEach(listener => listener(this.sessionData));
-  }
-
-  // Public methods
-  getSessionData(): SessionData {
-    return { ...this.sessionData };
-  }
-
-  isTokenExpired(): boolean {
-    if (!this.sessionData.tokenExpiresAt) return false;
-    return Date.now() >= this.sessionData.tokenExpiresAt;
-  }
-
-  getTimeUntilExpiry(): number {
-    if (!this.sessionData.tokenExpiresAt) return 0;
-    return Math.max(0, this.sessionData.tokenExpiresAt - Date.now());
-  }
-
-  getTimeSinceLastActivity(): number {
-    return Date.now() - this.sessionData.lastActivityAt;
-  }
-
-  async refreshSession(): Promise<{ success: boolean; error?: string }> {
-    try {
-      const { error } = await supabase.auth.refreshSession();
-      if (error) {
-        return { success: false, error: error.message };
-      }
-      this.resetInactivityTimer();
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: 'Failed to refresh session' };
-    }
-  }
-
-  async signOut(): Promise<void> {
-    this.clearRefreshTimer();
-    this.clearInactivityTimer();
-    this.clearStoredSession();
-    await supabase.auth.signOut();
-  }
-
-  subscribe(listener: (sessionData: SessionData) => void): () => void {
-    this.listeners.push(listener);
-    // Return unsubscribe function
     return () => {
-      const index = this.listeners.indexOf(listener);
-      if (index > -1) {
-        this.listeners.splice(index, 1);
-      }
+      this.subscribers = this.subscribers.filter(s => s !== subscriber);
     };
   }
 
-  // Helper method to check if user has admin role
-  async isAdmin(): Promise<boolean> {
-    if (!this.sessionData.isAuthenticated || !this.sessionData.user) {
-      return false;
-    }
+  public getSessionData(): SessionData {
+    return this.sessionData;
+  }
 
+  public isTokenExpired(): boolean {
+    return this.sessionData.isTokenExpired;
+  }
+
+  public getTimeUntilExpiry(): number | null {
+    return this.sessionData.timeUntilExpiry;
+  }
+
+  public getTimeSinceLastActivity(): number {
+    return this.sessionData.timeSinceLastActivity;
+  }
+
+  public async refreshSession(): Promise<void> {
+    const { data: { session } } = await supabase.auth.refreshSession();
+    await this.updateSessionData(session);
+  }
+
+  public async signOut(): Promise<void> {
+    await supabase.auth.signOut();
+    await this.updateSessionData(null);
+  }
+
+  public async isAdmin(): Promise<boolean> {
+    if (!this.sessionData.user) return false;
+    
+    const { data } = await supabase.rpc('is_platform_admin', { user_id: this.sessionData.user.id });
+    return data || false;
+  }
+
+  public async getUserRole(): Promise<string | null> {
+    if (!this.sessionData.user) return null;
+    
+    const { data } = await supabase.rpc('get_user_role', { user_id: this.sessionData.user.id });
+    return data;
+  }
+
+  // Enhanced login security methods
+  public async checkAccountLocked(email: string): Promise<boolean> {
+    const { data } = await supabase.rpc('is_account_locked', { user_email: email });
+    return data || false;
+  }
+
+  public async incrementFailedLogin(email: string): Promise<void> {
+    await supabase.rpc('increment_failed_login', { user_email: email });
+  }
+
+  public async resetFailedLogin(email: string): Promise<void> {
+    await supabase.rpc('reset_failed_login', { user_email: email });
+  }
+
+  public async signInWithSecurity(email: string, password: string): Promise<{ data: any; error: any }> {
     try {
-      // Check if user exists in admin_users table
-      const { data, error } = await supabase
-        .from('admin_users')
-        .select('id, role, is_active')
-        .eq('id', this.sessionData.user.id)
-        .single();
-
-      if (error || !data) {
-        return false;
+      // Check if account is locked
+      const isLocked = await this.checkAccountLocked(email);
+      if (isLocked) {
+        return {
+          data: null,
+          error: { message: 'Account is temporarily locked due to multiple failed login attempts. Please try again later.' }
+        };
       }
 
-      return data.is_active && ['super_admin', 'platform_admin', 'admin'].includes(data.role);
+      // Attempt sign in
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        // Increment failed login attempts
+        await this.incrementFailedLogin(email);
+        return { data: null, error };
+      }
+
+      // Reset failed login attempts on success
+      await this.resetFailedLogin(email);
+      await this.updateSessionData(data.session);
+      
+      return { data, error: null };
     } catch (error) {
-      console.error('Error checking admin status:', error);
-      return false;
+      return { data: null, error };
     }
   }
 }
 
-export const sessionService = SessionService.getInstance();
+export const sessionService = new SessionService();

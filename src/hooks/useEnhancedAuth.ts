@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { safeGet } from '@/lib/supabase-helpers';
 import { sessionService } from '@/services/SessionService';
 
 interface TenantData {
@@ -19,6 +18,7 @@ interface EnhancedAuthContextType {
   session: Session | null;
   isLoading: boolean;
   isAdmin: boolean;
+  userRole: string | null;
   profile: any;
   signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data: any; error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ data: any; error: AuthError | null }>;
@@ -36,28 +36,8 @@ export const useEnhancedAuth = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
-
-  // Check if user is admin
-  const checkAdminStatus = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('admin_users')
-        .select('id, role, is_active')
-        .eq('id', userId)
-        .single();
-      
-      if (error) {
-        console.log('Admin check error:', error);
-        return false;
-      }
-      
-      return data && data.is_active && ['super_admin', 'platform_admin'].includes(data.role);
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      return false;
-    }
-  };
 
   // Enhanced sign up with tenant metadata
   const signUp = async (email: string, password: string, tenantData: TenantData) => {
@@ -78,28 +58,17 @@ export const useEnhancedAuth = () => {
       });
 
       if (error) throw error;
-
       return { data, error: null };
     } catch (error) {
       return { data: null, error: error as AuthError };
     }
   };
 
-  // Enhanced sign in with proper session management
+  // Enhanced sign in with security
   const signIn = async (email: string, password: string) => {
     try {
-      // Ensure any previous session is cleared
-      localStorage.removeItem('supabase.auth.token');
-      localStorage.removeItem('supabase.auth.expires_at');
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) throw error;
-
-      return { data, error: null };
+      const result = await sessionService.signInWithSecurity(email, password);
+      return result;
     } catch (error) {
       return { data: null, error: error as AuthError };
     }
@@ -177,11 +146,6 @@ export const useEnhancedAuth = () => {
   // Enhanced sign out with complete session cleanup
   const signOut = async () => {
     try {
-      // Clear local session data
-      localStorage.removeItem('supabase.auth.token');
-      localStorage.removeItem('supabase.auth.expires_at');
-      
-      // Use session service to sign out properly
       await sessionService.signOut();
     } catch (error) {
       console.error('Error signing out:', error);
@@ -199,61 +163,24 @@ export const useEnhancedAuth = () => {
     }
   };
 
-  // Set up auth state listener
+  // Set up auth state listener using consolidated session service
   useEffect(() => {
-    let mounted = true;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-
-      setSession(session);
-      setUser(session?.user ?? null);
+    const unsubscribe = sessionService.subscribe((sessionData) => {
+      setSession(sessionData.session);
+      setUser(sessionData.user);
+      setIsAdmin(sessionData.isAdmin);
+      setUserRole(sessionData.userRole);
+      setIsLoading(false);
       
-      if (session?.user) {
-        // Check admin status
-        const adminStatus = await checkAdminStatus(session.user.id);
-        if (mounted) {
-          setIsAdmin(adminStatus);
-        }
-        
-        // Track session and refresh profile
-        trackSession();
+      if (sessionData.isAuthenticated && sessionData.user) {
         refreshProfile();
+        trackSession();
       } else {
-        if (mounted) {
-          setIsAdmin(false);
-          setProfile(null);
-        }
-      }
-      
-      if (mounted) {
-        setIsLoading(false);
+        setProfile(null);
       }
     });
 
-    // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        const adminStatus = await checkAdminStatus(session.user.id);
-        if (mounted) {
-          setIsAdmin(adminStatus);
-        }
-      }
-      
-      if (mounted) {
-        setIsLoading(false);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
+    return unsubscribe;
   }, []);
 
   return {
@@ -261,6 +188,7 @@ export const useEnhancedAuth = () => {
     session,
     isLoading,
     isAdmin,
+    userRole,
     profile,
     signUp,
     signIn,
