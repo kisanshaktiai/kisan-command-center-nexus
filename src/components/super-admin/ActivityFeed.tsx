@@ -26,7 +26,7 @@ export const ActivityFeed: React.FC = () => {
       const { data: recentTenants } = await supabase
         .from('tenants')
         .select('id, name, created_at')
-        .order('created_at', { desc: true })
+        .order('created_at', { ascending: false })
         .limit(5);
       
       recentTenants?.forEach(tenant => {
@@ -43,7 +43,7 @@ export const ActivityFeed: React.FC = () => {
       const { data: recentFarmers } = await supabase
         .from('farmers')
         .select('id, created_at')
-        .order('created_at', { desc: true })
+        .order('created_at', { ascending: false })
         .limit(5);
       
       recentFarmers?.forEach(farmer => {
