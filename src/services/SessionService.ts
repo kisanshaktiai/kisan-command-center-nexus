@@ -62,31 +62,16 @@ class SessionService {
     
     let profile = null;
     if (session?.user) {
-      try {
-        // Fetch additional user profile data if needed
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        profile = profileData || {
-          id: session.user.id,
-          email: session.user.email,
-          full_name: session.user.user_metadata?.full_name || session.user.email,
-          avatar_url: session.user.user_metadata?.avatar_url,
-          created_at: session.user.created_at
-        };
-      } catch (error) {
-        // If profiles table doesn't exist, create basic profile from user metadata
-        profile = {
-          id: session.user.id,
-          email: session.user.email,
-          full_name: session.user.user_metadata?.full_name || session.user.email,
-          avatar_url: session.user.user_metadata?.avatar_url,
-          created_at: session.user.created_at
-        };
-      }
+      // Create profile from user metadata and auth data
+      profile = {
+        id: session.user.id,
+        email: session.user.email,
+        full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email,
+        avatar_url: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
+        created_at: session.user.created_at,
+        last_sign_in_at: session.user.last_sign_in_at,
+        role: session.user.user_metadata?.role || 'user'
+      };
     }
     
     this.sessionData = {
