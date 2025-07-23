@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,71 +11,24 @@ import { supabase } from '@/integrations/supabase/client';
 
 export default function BillingManagement() {
   const { data: billingMetrics, isLoading } = useQuery({
-    queryKey: ['billing-metrics'],
+    queryKey: ['tenant-subscriptions-billing'],
     queryFn: async () => {
       try {
-        // Get payment records for revenue calculation
-        const { data: payments } = await supabase
-          .from('payment_records')
-          .select('amount, status, created_at');
+        const { data, error } = await supabase.functions.invoke('tenant-subscriptions-billing', {
+          method: 'GET',
+        });
 
-        // Get invoices for invoice metrics
-        const { data: invoices } = await supabase
-          .from('invoices')
-          .select('amount, status, created_at');
+        if (error) throw error;
 
-        // Get subscription renewals
-        const { data: renewals } = await supabase
-          .from('subscription_renewals')
-          .select('amount, status, renewal_date');
-
-        // Get active subscriptions
-        const { data: subscriptions } = await supabase
-          .from('tenant_subscriptions')
-          .select('status, current_period_end')
-          .eq('status', 'active');
-
-        // Calculate metrics
-        const totalRevenue = (payments || [])
-          .filter(p => p.status === 'completed')
-          .reduce((sum, p) => sum + (p.amount || 0), 0);
-
-        const thisMonthStart = new Date();
-        thisMonthStart.setDate(1);
-        thisMonthStart.setHours(0, 0, 0, 0);
-
-        const thisMonthRevenue = (payments || [])
-          .filter(p => 
-            p.status === 'completed' && 
-            new Date(p.created_at) >= thisMonthStart
-          )
-          .reduce((sum, p) => sum + (p.amount || 0), 0);
-
-        const outstandingAmount = (invoices || [])
-          .filter(i => i.status === 'sent' || i.status === 'overdue')
-          .reduce((sum, i) => sum + (i.amount || 0), 0);
-
-        const upcomingRenewals = (renewals || [])
-          .filter(r => {
-            const renewalDate = new Date(r.renewal_date);
-            const nextWeek = new Date();
-            nextWeek.setDate(nextWeek.getDate() + 7);
-            return renewalDate <= nextWeek && r.status === 'pending';
-          }).length;
-
-        const activeSubscriptions = (subscriptions || []).length;
-
-        // Calculate MRR (simplified - would need more complex logic for different billing intervals)
-        const mrr = activeSubscriptions * 1000; // Placeholder calculation
-
+        // Transform the response to match the expected format
         return {
-          totalRevenue,
-          thisMonthRevenue,
-          outstandingAmount,
-          upcomingRenewals,
-          mrr,
-          totalSubscriptions: activeSubscriptions,
-          activeSubscriptions
+          totalRevenue: data.billing_summary?.total_revenue || 0,
+          thisMonthRevenue: data.billing_summary?.monthly_revenue || 0,
+          outstandingAmount: data.billing_summary?.outstanding_amount || 0,
+          upcomingRenewals: data.upcoming_renewals?.length || 0,
+          mrr: data.billing_summary?.monthly_revenue || 0,
+          totalSubscriptions: data.active_subscriptions?.length || 0,
+          activeSubscriptions: data.active_subscriptions?.length || 0
         };
       } catch (error) {
         console.error('Error in billing metrics query:', error);
