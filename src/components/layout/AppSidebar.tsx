@@ -11,7 +11,8 @@ import {
   Palette, 
   Activity,
   Settings,
-  LogOut
+  LogOut,
+  ChevronRight
 } from 'lucide-react';
 import {
   Sidebar,
@@ -91,38 +92,52 @@ export function AppSidebar() {
   const displayName = profile?.full_name || user?.email || 'Admin User';
 
   return (
-    <Sidebar collapsible="icon" className="border-r bg-background">
-      <SidebarHeader className="border-b px-6 py-4">
+    <Sidebar collapsible="icon" className="border-r bg-white shadow-sm">
+      <SidebarHeader className="border-b px-6 py-4 bg-gradient-to-r from-primary to-primary/90">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">KS</span>
+          <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            <span className="text-white font-bold text-lg">KS</span>
           </div>
           {state === 'expanded' && (
             <div className="flex flex-col">
-              <h2 className="font-semibold text-foreground">KisanShakti</h2>
-              <p className="text-xs text-muted-foreground">Admin Portal</p>
+              <h2 className="font-bold text-white text-lg">KisanShakti</h2>
+              <p className="text-xs text-white/80">Admin Portal</p>
             </div>
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-3 py-4">
+      <SidebarContent className="px-3 py-6">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <SidebarGroupLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
             Platform Management
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-2">
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.url}
-                    className="w-full"
+                    className="w-full group"
                   >
-                    <NavLink to={item.url} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors">
-                      <item.icon className="h-4 w-4" />
-                      {state === 'expanded' && <span>{item.title}</span>}
+                    <NavLink 
+                      to={item.url} 
+                      className={({ isActive }) => `
+                        flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200
+                        ${isActive 
+                          ? 'bg-primary text-primary-foreground shadow-md' 
+                          : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                        }
+                      `}
+                    >
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      {state === 'expanded' && (
+                        <>
+                          <span className="flex-1">{item.title}</span>
+                          <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -132,7 +147,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t px-3 py-4">
+      <SidebarFooter className="border-t px-3 py-4 bg-gray-50">
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center gap-3 px-3 py-2">
@@ -144,8 +159,8 @@ export function AppSidebar() {
               </Avatar>
               {state === 'expanded' && (
                 <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-sm font-medium truncate">{displayName}</span>
-                  <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
+                  <span className="text-sm font-medium truncate text-gray-900">{displayName}</span>
+                  <span className="text-xs text-gray-500 truncate">{user?.email}</span>
                 </div>
               )}
             </div>
@@ -156,7 +171,7 @@ export function AppSidebar() {
                 variant="ghost" 
                 size="sm" 
                 onClick={signOut}
-                className="w-full justify-start"
+                className="w-full justify-start text-gray-600 hover:text-red-600 hover:bg-red-50"
               >
                 <LogOut className="h-4 w-4" />
                 {state === 'expanded' && <span>Sign Out</span>}

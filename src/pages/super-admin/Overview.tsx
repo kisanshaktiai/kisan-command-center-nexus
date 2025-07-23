@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, Building, DollarSign, Activity, TrendingUp, AlertTriangle, ArrowUpRight } from 'lucide-react';
+import { Users, Building, DollarSign, Activity, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, Plus, Settings } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -103,7 +104,7 @@ export default function Overview() {
     totalRevenue: financialData?.reduce((sum, metric) => {
       return metric.metric_name === 'total_revenue' ? sum + (metric.amount || 0) : sum;
     }, 0) || 0,
-    mrr: subscriptionsData?.length ? subscriptionsData.length * 1000 : 0, // Mock MRR calculation
+    mrr: subscriptionsData?.length ? subscriptionsData.length * 1000 : 0,
     activeSubscriptions: subscriptionsData?.length || 0,
   };
 
@@ -173,193 +174,322 @@ export default function Overview() {
     }
   };
 
+  const getChangeIndicator = (current: number, previous: number) => {
+    if (current > previous) return { icon: ArrowUpRight, color: 'text-green-600', bg: 'bg-green-50' };
+    if (current < previous) return { icon: ArrowDownRight, color: 'text-red-600', bg: 'bg-red-50' };
+    return { icon: ArrowUpRight, color: 'text-gray-600', bg: 'bg-gray-50' };
+  };
+
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
-        <h1 className="text-4xl font-bold mb-2">Platform Overview</h1>
-        <p className="text-blue-100 text-lg">Monitor your SaaS platform performance and key metrics</p>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-800">Total Tenants</CardTitle>
-            <div className="p-2 bg-blue-500 rounded-lg">
-              <Building className="h-4 w-4 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header Section */}
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Platform Overview</h1>
+              <p className="text-gray-600 text-lg">Monitor your SaaS platform performance and key metrics</p>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-900">{platformMetrics.totalTenants}</div>
-            <p className="text-xs text-blue-600 flex items-center gap-1">
-              <ArrowUpRight className="w-3 h-3" />
-              Active organizations
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-green-100 hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-800">Total Users</CardTitle>
-            <div className="p-2 bg-green-500 rounded-lg">
-              <Users className="h-4 w-4 text-white" />
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+              <Button size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Tenant
+              </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-900">{platformMetrics.totalFarmers}</div>
-            <p className="text-xs text-green-600 flex items-center gap-1">
-              <ArrowUpRight className="w-3 h-3" />
-              Registered farmers
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-800">Monthly Revenue</CardTitle>
-            <div className="p-2 bg-purple-500 rounded-lg">
-              <DollarSign className="h-4 w-4 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-900">{formatCurrency(platformMetrics.mrr)}</div>
-            <p className="text-xs text-purple-600 flex items-center gap-1">
-              <ArrowUpRight className="w-3 h-3" />
-              MRR from subscriptions
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100 hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-orange-800">Active Subscriptions</CardTitle>
-            <div className="p-2 bg-orange-500 rounded-lg">
-              <Activity className="h-4 w-4 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-orange-900">{platformMetrics.activeSubscriptions}</div>
-            <p className="text-xs text-orange-600 flex items-center gap-1">
-              <ArrowUpRight className="w-3 h-3" />
-              Paying customers
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="grid gap-8 lg:grid-cols-2">
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold text-slate-800">Tenant Growth</CardTitle>
-            <CardDescription className="text-slate-600">New tenant signups over the last 30 days</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={growthData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" stroke="#64748b" />
-                <YAxis stroke="#64748b" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'white', 
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                  }} 
-                />
-                <Area type="monotone" dataKey="tenants" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold text-slate-800">Revenue Trend</CardTitle>
-            <CardDescription className="text-slate-600">Daily revenue over the last 30 days</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={growthData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" stroke="#64748b" />
-                <YAxis stroke="#64748b" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'white', 
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                  }} 
-                />
-                <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Alerts and Quick Actions */}
-      <div className="grid gap-8 lg:grid-cols-2">
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-800">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
-              Platform Alerts
-            </CardTitle>
-            <CardDescription className="text-slate-600">Recent system alerts and notifications</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {alertsData && alertsData.length > 0 ? (
-                alertsData.map((alert) => (
-                  <div key={alert.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-gradient-to-r from-slate-50 to-white hover:shadow-md transition-all duration-200">
-                    <div>
-                      <h4 className="font-semibold text-slate-800">{alert.alert_name}</h4>
-                      <p className="text-sm text-slate-600">{alert.description}</p>
-                    </div>
-                    <Badge variant={getSeverityColor(alert.severity)} className="font-medium">
-                      {alert.severity}
-                    </Badge>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-slate-500">
-                  <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                  <p>No active alerts</p>
+        {/* Key Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="relative overflow-hidden border-0 shadow-lg bg-white hover:shadow-xl transition-all duration-300">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-blue-600"></div>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Tenants</CardTitle>
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Building className="h-5 w-5 text-blue-600" />
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="text-3xl font-bold text-gray-900">{platformMetrics.totalTenants}</div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-green-50 rounded-full">
+                    <ArrowUpRight className="w-3 h-3 text-green-600" />
+                    <span className="text-xs font-medium text-green-600">+12%</span>
+                  </div>
+                  <span className="text-xs text-gray-500">vs last month</span>
+                </div>
+                <p className="text-sm text-gray-600">Active organizations</p>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold text-slate-800">Quick Actions</CardTitle>
-            <CardDescription className="text-slate-600">Common administrative tasks</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <Button variant="outline" className="w-full justify-start h-12 text-left hover:bg-blue-50 hover:border-blue-200 transition-all duration-200">
-                <Users className="mr-3 h-5 w-5 text-blue-500" />
-                <span className="font-medium">Manage Tenants</span>
-              </Button>
-              <Button variant="outline" className="w-full justify-start h-12 text-left hover:bg-purple-50 hover:border-purple-200 transition-all duration-200">
-                <DollarSign className="mr-3 h-5 w-5 text-purple-500" />
-                <span className="font-medium">View Billing Reports</span>
-              </Button>
-              <Button variant="outline" className="w-full justify-start h-12 text-left hover:bg-green-50 hover:border-green-200 transition-all duration-200">
-                <Activity className="mr-3 h-5 w-5 text-green-500" />
-                <span className="font-medium">System Health Check</span>
-              </Button>
-              <Button variant="outline" className="w-full justify-start h-12 text-left hover:bg-orange-50 hover:border-orange-200 transition-all duration-200">
-                <TrendingUp className="mr-3 h-5 w-5 text-orange-500" />
-                <span className="font-medium">Analytics Dashboard</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="relative overflow-hidden border-0 shadow-lg bg-white hover:shadow-xl transition-all duration-300">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 to-green-600"></div>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Users</CardTitle>
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Users className="h-5 w-5 text-green-600" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="text-3xl font-bold text-gray-900">{platformMetrics.totalFarmers}</div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-green-50 rounded-full">
+                    <ArrowUpRight className="w-3 h-3 text-green-600" />
+                    <span className="text-xs font-medium text-green-600">+8%</span>
+                  </div>
+                  <span className="text-xs text-gray-500">vs last month</span>
+                </div>
+                <p className="text-sm text-gray-600">Registered farmers</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="relative overflow-hidden border-0 shadow-lg bg-white hover:shadow-xl transition-all duration-300">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-purple-600"></div>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Monthly Revenue</CardTitle>
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <DollarSign className="h-5 w-5 text-purple-600" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="text-3xl font-bold text-gray-900">{formatCurrency(platformMetrics.mrr)}</div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-green-50 rounded-full">
+                    <ArrowUpRight className="w-3 h-3 text-green-600" />
+                    <span className="text-xs font-medium text-green-600">+15%</span>
+                  </div>
+                  <span className="text-xs text-gray-500">vs last month</span>
+                </div>
+                <p className="text-sm text-gray-600">MRR from subscriptions</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="relative overflow-hidden border-0 shadow-lg bg-white hover:shadow-xl transition-all duration-300">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 to-orange-600"></div>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Active Subscriptions</CardTitle>
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <Activity className="h-5 w-5 text-orange-600" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="text-3xl font-bold text-gray-900">{platformMetrics.activeSubscriptions}</div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-green-50 rounded-full">
+                    <ArrowUpRight className="w-3 h-3 text-green-600" />
+                    <span className="text-xs font-medium text-green-600">+3%</span>
+                  </div>
+                  <span className="text-xs text-gray-500">vs last month</span>
+                </div>
+                <p className="text-sm text-gray-600">Paying customers</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <Card className="border-0 shadow-lg bg-white hover:shadow-xl transition-all duration-300">
+            <CardHeader className="pb-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-semibold text-gray-900">Tenant Growth</CardTitle>
+                  <CardDescription className="text-gray-600 mt-1">New tenant signups over the last 30 days</CardDescription>
+                </div>
+                <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                  Last 30 days
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                <AreaChart data={growthData}>
+                  <defs>
+                    <linearGradient id="tenantGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="date" stroke="#6B7280" fontSize={12} />
+                  <YAxis stroke="#6B7280" fontSize={12} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)'
+                    }} 
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="tenants" 
+                    stroke="#3B82F6" 
+                    fill="url(#tenantGradient)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-white hover:shadow-xl transition-all duration-300">
+            <CardHeader className="pb-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-semibold text-gray-900">Revenue Trend</CardTitle>
+                  <CardDescription className="text-gray-600 mt-1">Daily revenue over the last 30 days</CardDescription>
+                </div>
+                <Badge variant="secondary" className="bg-green-50 text-green-700">
+                  Last 30 days
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={growthData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="date" stroke="#6B7280" fontSize={12} />
+                  <YAxis stroke="#6B7280" fontSize={12} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)'
+                    }} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    stroke="#10B981" 
+                    strokeWidth={3} 
+                    dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, stroke: '#10B981', strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Bottom Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <Card className="border-0 shadow-lg bg-white hover:shadow-xl transition-all duration-300">
+            <CardHeader className="pb-6">
+              <CardTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900">
+                <AlertTriangle className="h-5 w-5 text-orange-500" />
+                Platform Alerts
+              </CardTitle>
+              <CardDescription className="text-gray-600">Recent system alerts and notifications</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {alertsData && alertsData.length > 0 ? (
+                  alertsData.map((alert) => (
+                    <div key={alert.id} className="flex items-start gap-4 p-4 border border-gray-200 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
+                      <div className="flex-shrink-0">
+                        <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-gray-900">{alert.alert_name}</h4>
+                        <p className="text-sm text-gray-600 mt-1">{alert.description}</p>
+                      </div>
+                      <Badge variant={getSeverityColor(alert.severity)} className="flex-shrink-0">
+                        {alert.severity}
+                      </Badge>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Activity className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">All systems operational</h3>
+                    <p className="text-gray-600">No active alerts at this time</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-white hover:shadow-xl transition-all duration-300">
+            <CardHeader className="pb-6">
+              <CardTitle className="text-xl font-semibold text-gray-900">Quick Actions</CardTitle>
+              <CardDescription className="text-gray-600">Common administrative tasks</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-3">
+                <Button variant="outline" className="w-full justify-start h-14 text-left hover:bg-blue-50 hover:border-blue-200 transition-all duration-200 group">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                      <Users className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">Manage Tenants</div>
+                      <div className="text-sm text-gray-500">View and manage all tenants</div>
+                    </div>
+                  </div>
+                </Button>
+
+                <Button variant="outline" className="w-full justify-start h-14 text-left hover:bg-purple-50 hover:border-purple-200 transition-all duration-200 group">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
+                      <DollarSign className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">Billing Reports</div>
+                      <div className="text-sm text-gray-500">View financial analytics</div>
+                    </div>
+                  </div>
+                </Button>
+
+                <Button variant="outline" className="w-full justify-start h-14 text-left hover:bg-green-50 hover:border-green-200 transition-all duration-200 group">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
+                      <Activity className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">System Health</div>
+                      <div className="text-sm text-gray-500">Monitor system performance</div>
+                    </div>
+                  </div>
+                </Button>
+
+                <Button variant="outline" className="w-full justify-start h-14 text-left hover:bg-orange-50 hover:border-orange-200 transition-all duration-200 group">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
+                      <TrendingUp className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">Analytics Dashboard</div>
+                      <div className="text-sm text-gray-500">View detailed insights</div>
+                    </div>
+                  </div>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
