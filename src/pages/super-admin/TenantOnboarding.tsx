@@ -268,13 +268,14 @@ export default function TenantOnboarding() {
       }
 
       // Update step
+      const stepData = step.step_data && typeof step.step_data === 'object' ? step.step_data : {};
       const { data, error } = await supabase
         .from('onboarding_steps')
         .update({ 
           step_status: status as any,
           completed_at: status === 'completed' ? new Date().toISOString() : null,
           step_data: {
-            ...step.step_data,
+            ...stepData,
             last_updated: new Date().toISOString(),
             updated_by: 'super_admin'
           }
@@ -297,6 +298,10 @@ export default function TenantOnboarding() {
         
         const workflowStatus = completedSteps === 6 ? 'completed' : 'in_progress';
         
+        const workflowMetadata = step.onboarding_workflows.metadata && typeof step.onboarding_workflows.metadata === 'object' 
+          ? step.onboarding_workflows.metadata 
+          : {};
+        
         await supabase
           .from('onboarding_workflows')
           .update({ 
@@ -304,7 +309,7 @@ export default function TenantOnboarding() {
             status: workflowStatus,
             completed_at: workflowStatus === 'completed' ? new Date().toISOString() : null,
             metadata: {
-              ...step.onboarding_workflows.metadata,
+              ...workflowMetadata,
               last_step_completed: new Date().toISOString(),
               completion_percentage: Math.round((completedSteps / 6) * 100)
             }
