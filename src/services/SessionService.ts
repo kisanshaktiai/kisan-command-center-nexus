@@ -46,7 +46,7 @@ class SessionService {
     
     if (session?.user) {
       try {
-        // Direct database query instead of RPC functions
+        // Direct database query to check admin status
         const { data: adminData, error } = await supabase
           .from('admin_users')
           .select('role, is_active')
@@ -178,87 +178,28 @@ class SessionService {
     }
   }
 
-  // Enhanced login security methods
+  // Simplified login security methods - basic implementation without account locking
   public async checkAccountLocked(email: string): Promise<boolean> {
-    try {
-      const { data: adminData, error } = await supabase
-        .from('admin_users')
-        .select('account_locked_until')
-        .eq('email', email)
-        .single();
-
-      if (!error && adminData && adminData.account_locked_until) {
-        return new Date(adminData.account_locked_until) > new Date();
-      }
-      return false;
-    } catch (error) {
-      console.error('Error checking account lock status:', error);
-      return false;
-    }
+    // Since we don't have account_locked_until column, always return false
+    return false;
   }
 
   public async incrementFailedLogin(email: string): Promise<void> {
-    try {
-      const { data: adminData, error: selectError } = await supabase
-        .from('admin_users')
-        .select('failed_login_attempts')
-        .eq('email', email)
-        .single();
-
-      if (!selectError && adminData) {
-        const newAttempts = (adminData.failed_login_attempts || 0) + 1;
-        const updateData: any = {
-          failed_login_attempts: newAttempts,
-          updated_at: new Date().toISOString()
-        };
-
-        // Lock account after 5 failed attempts
-        if (newAttempts >= 5) {
-          updateData.account_locked_until = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-        }
-
-        await supabase
-          .from('admin_users')
-          .update(updateData)
-          .eq('email', email);
-      }
-    } catch (error) {
-      console.error('Error incrementing failed login:', error);
-    }
+    // Since we don't have failed_login_attempts column, this is a no-op
+    console.log('Failed login attempt for:', email);
   }
 
   public async resetFailedLogin(email: string): Promise<void> {
-    try {
-      await supabase
-        .from('admin_users')
-        .update({
-          failed_login_attempts: 0,
-          account_locked_until: null,
-          last_login_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('email', email);
-    } catch (error) {
-      console.error('Error resetting failed login:', error);
-    }
+    // Since we don't have failed_login_attempts column, this is a no-op
+    console.log('Resetting failed login for:', email);
   }
 
   public async signInWithSecurity(email: string, password: string): Promise<{ data: any; error: any }> {
     try {
-      // Check if account is locked
-      const isLocked = await this.checkAccountLocked(email);
-      if (isLocked) {
-        return {
-          data: null,
-          error: { message: 'Account is temporarily locked due to multiple failed login attempts. Please try again later.' }
-        };
-      }
-
-      // Attempt sign in
+      // Simple sign in without account locking since columns don't exist
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
-        // Increment failed login attempts
         await this.incrementFailedLogin(email);
         return { data: null, error };
       }
