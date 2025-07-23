@@ -25,22 +25,31 @@ class SessionService {
     timeSinceLastActivity: 0,
     profile: null
   };
+  private initialized = false;
 
   constructor() {
     this.initializeSession();
-    this.setupAuthListener();
   }
 
   private async initializeSession() {
+    if (this.initialized) return;
+    
     try {
+      console.log('Initializing session service...');
       const { data: { session }, error } = await supabase.auth.getSession();
+      
       if (error) {
         console.error('Error getting session:', error);
-        return;
+      } else {
+        console.log('Initial session loaded:', session?.user?.email || 'No user');
+        await this.updateSessionData(session);
       }
-      await this.updateSessionData(session);
+      
+      this.setupAuthListener();
+      this.initialized = true;
     } catch (error) {
       console.error('Error initializing session:', error);
+      this.initialized = true;
     }
   }
 
@@ -99,7 +108,11 @@ class SessionService {
 
   public subscribe(subscriber: SessionSubscriber): () => void {
     this.subscribers.push(subscriber);
-    subscriber(this.sessionData);
+    
+    // Immediately notify with current session data
+    if (this.initialized) {
+      subscriber(this.sessionData);
+    }
     
     return () => {
       this.subscribers = this.subscribers.filter(s => s !== subscriber);

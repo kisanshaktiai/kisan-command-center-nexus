@@ -38,17 +38,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     });
 
-    return unsubscribe;
+    // Cleanup function
+    return () => {
+      console.log('AuthProvider cleanup');
+      unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
     setIsLoading(true);
-    await sessionService.signOut();
-    // Loading state will be updated via session subscriber
+    try {
+      await sessionService.signOut();
+      // Loading state will be updated via session subscriber
+    } catch (error) {
+      console.error('Error signing out:', error);
+      setIsLoading(false);
+    }
   };
 
   const refreshSession = async () => {
-    await sessionService.refreshSession();
+    try {
+      await sessionService.refreshSession();
+    } catch (error) {
+      console.error('Error refreshing session:', error);
+    }
   };
 
   const value = {
