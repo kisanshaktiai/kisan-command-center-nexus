@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +37,27 @@ export const useEnhancedAuth = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+
+  // Check if user is admin
+  const checkAdminStatus = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('id, role, is_active')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.log('Admin check error:', error);
+        return false;
+      }
+      
+      return data && data.is_active && ['super_admin', 'platform_admin'].includes(data.role);
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+  };
 
   // Enhanced sign up with tenant metadata
   const signUp = async (email: string, password: string, tenantData: TenantData) => {
@@ -177,25 +199,61 @@ export const useEnhancedAuth = () => {
     }
   };
 
-  // Set up auth state listener using session service
+  // Set up auth state listener
   useEffect(() => {
-    const unsubscribe = sessionService.subscribe((sessionData) => {
-      setSession(sessionData.session);
-      setUser(sessionData.user);
-      setIsAdmin(false); // Will be updated by checkAdminStatus
-      setIsLoading(false);
+    let mounted = true;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
+      setSession(session);
+      setUser(session?.user ?? null);
       
-      if (sessionData.isAuthenticated && sessionData.user) {
+      if (session?.user) {
         // Check admin status
-        sessionService.isAdmin().then(setIsAdmin);
-        refreshProfile();
+        const adminStatus = await checkAdminStatus(session.user.id);
+        if (mounted) {
+          setIsAdmin(adminStatus);
+        }
+        
+        // Track session and refresh profile
         trackSession();
+        refreshProfile();
       } else {
-        setProfile(null);
+        if (mounted) {
+          setIsAdmin(false);
+          setProfile(null);
+        }
+      }
+      
+      if (mounted) {
+        setIsLoading(false);
       }
     });
 
-    return unsubscribe;
+    // Get initial session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
+      
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        const adminStatus = await checkAdminStatus(session.user.id);
+        if (mounted) {
+          setIsAdmin(adminStatus);
+        }
+      }
+      
+      if (mounted) {
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   return {
