@@ -174,9 +174,15 @@ export default function TenantManagement() {
       await TenantService.deleteTenant(tenantId);
       console.log('Tenant deleted successfully');
 
+      // Update the tenants list immediately
       setTenants(prev => prev.filter(t => t.id !== tenantId));
-      setIsDetailModalOpen(false);
-      setSelectedTenant(null);
+      
+      // Close detail modal if it's open for this tenant
+      if (selectedTenant?.id === tenantId) {
+        setIsDetailModalOpen(false);
+        setSelectedTenant(null);
+      }
+      
       toast({
         title: "Success",
         description: "Tenant deleted successfully",
@@ -229,10 +235,18 @@ export default function TenantManagement() {
       custom_domain: tenant.custom_domain || '',
       metadata,
     });
+    
+    // Close detail modal if it's open
+    if (isDetailModalOpen) {
+      setIsDetailModalOpen(false);
+      setSelectedTenant(null);
+    }
+    
     setIsEditDialogOpen(true);
   };
 
   const handleViewTenant = (tenant: Tenant) => {
+    console.log('Viewing tenant details:', tenant);
     setSelectedTenant(tenant);
     setIsDetailModalOpen(true);
   };

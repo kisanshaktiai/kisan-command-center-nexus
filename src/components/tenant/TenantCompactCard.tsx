@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +47,21 @@ export const TenantCompactCard: React.FC<TenantCompactCardProps> = ({
     return tenant.business_address?.city || 'Not specified';
   };
 
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit(tenant);
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(tenant.id);
+  };
+
+  const handleView = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onView(tenant);
+  };
+
   return (
     <Card 
       className="hover:shadow-lg transition-all duration-200 cursor-pointer group"
@@ -72,29 +86,25 @@ export const TenantCompactCard: React.FC<TenantCompactCardProps> = ({
               {tenant.status?.toUpperCase()}
             </Badge>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 w-6 p-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <MoreHorizontal className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={(e) => {
-                  e.stopPropagation();
-                  onView(tenant);
-                }}>
+                <DropdownMenuItem onClick={handleView}>
                   View Details
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(tenant);
-                }}>
+                <DropdownMenuItem onClick={handleEdit}>
                   Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(tenant.id);
-                  }}
+                  onClick={handleDelete}
                   className="text-destructive"
                 >
                   Delete
