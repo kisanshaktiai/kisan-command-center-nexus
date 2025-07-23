@@ -17,6 +17,26 @@ export const SuperAdminAuth: React.FC = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  const logSecurityEvent = async (eventType: string, metadata: any = {}) => {
+    try {
+      // Use direct RPC call with proper error handling
+      const { error } = await supabase.rpc('log_security_event', {
+        event_type: eventType,
+        user_id: null,
+        tenant_id: null,
+        metadata,
+        ip_address: 'client_side',
+        user_agent: navigator.userAgent
+      });
+      
+      if (error) {
+        console.warn('Failed to log security event:', error);
+      }
+    } catch (err) {
+      console.warn('Failed to log security event:', err);
+    }
+  };
+
   const validateAdminAccess = async (): Promise<void> => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -42,33 +62,20 @@ export const SuperAdminAuth: React.FC = () => {
       }
 
       // Log successful admin access
-      await supabase.rpc('log_security_event', {
-        event_type: 'admin_login_success',
-        user_id: user.id,
-        metadata: {
-          role: adminUser.role,
-          timestamp: new Date().toISOString(),
-          ip_address: 'client_side'
-        }
-      }).catch(() => {
-        // Fail silently for logging
-        console.warn('Failed to log security event');
+      await logSecurityEvent('admin_login_success', {
+        role: adminUser.role,
+        timestamp: new Date().toISOString(),
+        ip_address: 'client_side'
       });
 
     } catch (error) {
       // Log failed access attempt
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await supabase.rpc('log_security_event', {
-          event_type: 'admin_access_denied',
-          user_id: user.id,
-          metadata: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            timestamp: new Date().toISOString(),
-            ip_address: 'client_side'
-          }
-        }).catch(() => {
-          console.warn('Failed to log security event');
+        await logSecurityEvent('admin_access_denied', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString(),
+          ip_address: 'client_side'
         });
       }
       

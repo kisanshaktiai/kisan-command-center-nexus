@@ -30,7 +30,7 @@ export class SecurityService {
   // Log security events for audit trail
   async logSecurityEvent(event: SecurityEvent): Promise<void> {
     try {
-      await supabase.rpc('log_security_event', {
+      const { error } = await supabase.rpc('log_security_event', {
         event_type: event.event_type,
         user_id: event.user_id,
         tenant_id: event.tenant_id,
@@ -38,6 +38,10 @@ export class SecurityService {
         ip_address: event.ip_address || 'unknown',
         user_agent: event.user_agent || navigator.userAgent
       });
+      
+      if (error) {
+        console.error('Failed to log security event:', error);
+      }
     } catch (error) {
       console.error('Failed to log security event:', error);
     }
@@ -58,14 +62,14 @@ export class SecurityService {
       }
 
       // Check if user is super admin (bypass tenant restrictions)
-      const { data: adminUser } = await supabase
+      const { data: adminUser, error: adminError } = await supabase
         .from('admin_users')
         .select('role, is_active')
         .eq('id', currentUserId)
         .eq('is_active', true)
         .single();
 
-      if (adminUser && ['super_admin', 'platform_admin'].includes(adminUser.role)) {
+      if (!adminError && adminUser && ['super_admin', 'platform_admin'].includes(adminUser.role)) {
         return { isValid: true, tenantId };
       }
 
@@ -106,14 +110,14 @@ export class SecurityService {
       if (!user) return false;
 
       // Check admin roles first
-      const { data: adminUser } = await supabase
+      const { data: adminUser, error: adminError } = await supabase
         .from('admin_users')
         .select('role, is_active')
         .eq('id', user.id)
         .eq('is_active', true)
         .single();
 
-      if (adminUser) {
+      if (!adminError && adminUser) {
         const roleHierarchy = ['super_admin', 'platform_admin', 'admin'];
         const userRoleIndex = roleHierarchy.indexOf(adminUser.role);
         const requiredRoleIndex = roleHierarchy.indexOf(requiredRole);
@@ -122,7 +126,7 @@ export class SecurityService {
 
       // Check tenant-specific roles if tenant provided
       if (tenantId) {
-        const { data: userTenant } = await supabase
+        const { data: userTenant, error } = await supabase
           .from('user_tenants')
           .select('role, is_active')
           .eq('user_id', user.id)
@@ -130,7 +134,7 @@ export class SecurityService {
           .eq('is_active', true)
           .single();
 
-        return userTenant?.role === requiredRole;
+        return !error && userTenant?.role === requiredRole;
       }
 
       return false;
@@ -192,12 +196,13 @@ export class SecurityService {
   // Monitor for suspicious activities
   async detectSuspiciousActivity(userId: string, activity: string): Promise<void> {
     try {
-      // Simple rate limiting check
+      // Simple rate limiting check - using direct query to avoid type issues
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
       
-      const { data: recentEvents, error } = await supabase
-        .from('security_events')
-        .select('id')
+      // Use a more generic approach to avoid TypeScript issues
+      const { count, error } = await supabase
+        .from('security_events' as any)
+        .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
         .eq('event_type', activity)
         .gte('created_at', fiveMinutesAgo.toISOString());
@@ -208,13 +213,13 @@ export class SecurityService {
       }
 
       // Alert if more than 10 similar events in 5 minutes
-      if (recentEvents && recentEvents.length > 10) {
+      if (count && count > 10) {
         await this.logSecurityEvent({
           event_type: 'suspicious_activity_detected',
           user_id: userId,
           metadata: {
             activity,
-            count: recentEvents.length,
+            count: count,
             timeframe: '5_minutes'
           }
         });

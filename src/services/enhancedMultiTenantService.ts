@@ -71,31 +71,27 @@ export class EnhancedMultiTenantService {
       // Provide access to the original client for non-tenant-scoped operations
       client: supabase,
       
-      // Tenant-scoped query builder with security validation
-      from: <T extends keyof typeof supabase.from>(tableName: T) => {
-        const query = supabase.from(tableName as any);
-        
+      // Tenant-scoped query operations
+      from: (tableName: string) => {
         return {
-          ...query,
+          // Secure select with tenant validation
           select: async (columns?: string) => {
-            // Validate tenant access before query
             const validation = await securityService.validateTenantAccess(tenantId);
             if (!validation.isValid) {
               throw new Error('Tenant access denied for select operation');
             }
 
-            const selectQuery = query.select(columns);
-            // Add tenant filter for tables that have tenant_id
             try {
-              return selectQuery.eq('tenant_id', tenantId);
+              const query = supabase.from(tableName as any).select(columns);
+              return query.eq('tenant_id', tenantId);
             } catch {
               // If tenant_id doesn't exist on this table, return without filter
-              return selectQuery;
+              return supabase.from(tableName as any).select(columns);
             }
           },
           
+          // Secure insert with tenant injection
           insert: async (values: any) => {
-            // Validate tenant access before insert
             const validation = await securityService.validateTenantAccess(tenantId);
             if (!validation.isValid) {
               throw new Error('Tenant access denied for insert operation');
@@ -103,31 +99,31 @@ export class EnhancedMultiTenantService {
 
             // Add tenant_id to insert if it's an object
             if (typeof values === 'object' && !Array.isArray(values)) {
-              return query.insert({ ...values, tenant_id: tenantId });
+              return supabase.from(tableName as any).insert({ ...values, tenant_id: tenantId });
             } else if (Array.isArray(values)) {
-              return query.insert(values.map(v => ({ ...v, tenant_id: tenantId })));
+              return supabase.from(tableName as any).insert(values.map(v => ({ ...v, tenant_id: tenantId })));
             }
-            return query.insert(values);
+            return supabase.from(tableName as any).insert(values);
           },
           
+          // Secure update with tenant boundary
           update: async (values: any) => {
-            // Validate tenant access before update
             const validation = await securityService.validateTenantAccess(tenantId);
             if (!validation.isValid) {
               throw new Error('Tenant access denied for update operation');
             }
 
-            return query.update(values).eq('tenant_id', tenantId);
+            return supabase.from(tableName as any).update(values).eq('tenant_id', tenantId);
           },
           
+          // Secure delete with tenant boundary
           delete: async () => {
-            // Validate tenant access before delete
             const validation = await securityService.validateTenantAccess(tenantId);
             if (!validation.isValid) {
               throw new Error('Tenant access denied for delete operation');
             }
 
-            return query.delete().eq('tenant_id', tenantId);
+            return supabase.from(tableName as any).delete().eq('tenant_id', tenantId);
           },
         };
       },
