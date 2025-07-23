@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +15,7 @@ type SubscriptionRenewalRow = Database['public']['Tables']['subscription_renewal
 interface SubscriptionRenewal extends SubscriptionRenewalRow {
   tenants?: {
     name: string;
-  };
+  } | null;
   tenant_subscriptions?: {
     billing_plans?: {
       name: string;
