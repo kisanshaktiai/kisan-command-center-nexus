@@ -93,27 +93,27 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r bg-white shadow-sm">
-      <SidebarHeader className="border-b px-6 py-4 bg-gradient-to-r from-primary to-primary/90">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <span className="text-white font-bold text-lg">KS</span>
+      <SidebarHeader className="border-b px-4 py-3 bg-gradient-to-r from-primary to-primary/90">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            <span className="text-white font-bold text-sm">KS</span>
           </div>
           {state === 'expanded' && (
             <div className="flex flex-col">
-              <h2 className="font-bold text-white text-lg">KisanShakti</h2>
-              <p className="text-xs text-white/80">Admin Portal</p>
+              <h2 className="font-bold text-white text-base leading-none">KisanShakti</h2>
+              <p className="text-xs text-white/80 leading-none mt-0.5">Admin Portal</p>
             </div>
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-3 py-6">
+      <SidebarContent className="px-2 py-4">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
+          <SidebarGroupLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
             Platform Management
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-2">
+            <SidebarMenu className="space-y-1">
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
@@ -124,18 +124,18 @@ export function AppSidebar() {
                     <NavLink 
                       to={item.url} 
                       className={({ isActive }) => `
-                        flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200
+                        flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200
                         ${isActive 
-                          ? 'bg-primary text-primary-foreground shadow-md' 
+                          ? 'bg-primary text-primary-foreground shadow-sm' 
                           : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                         }
                       `}
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
                       {state === 'expanded' && (
                         <>
                           <span className="flex-1">{item.title}</span>
-                          <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </>
                       )}
                     </NavLink>
@@ -147,11 +147,11 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t px-3 py-4 bg-gray-50">
+      <SidebarFooter className="border-t px-2 py-3 bg-gray-50">
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex items-center gap-3 px-3 py-2">
-              <Avatar className="h-8 w-8">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <Avatar className="h-7 w-7">
                 <AvatarImage src={profile?.avatar_url} alt={displayName} />
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                   {getInitials(displayName)}
@@ -159,8 +159,8 @@ export function AppSidebar() {
               </Avatar>
               {state === 'expanded' && (
                 <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-sm font-medium truncate text-gray-900">{displayName}</span>
-                  <span className="text-xs text-gray-500 truncate">{user?.email}</span>
+                  <span className="text-sm font-medium truncate text-gray-900 leading-none">{displayName}</span>
+                  <span className="text-xs text-gray-500 truncate leading-none mt-0.5">{user?.email}</span>
                 </div>
               )}
             </div>

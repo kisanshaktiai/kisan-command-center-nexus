@@ -349,16 +349,16 @@ export default function WhiteLabelConfig() {
       />
 
       <div className="flex-1 overflow-auto">
-        <div className="space-y-4 p-4">
-          {/* Tenant Selection */}
+        <div className="space-y-3 p-3">
+          {/* Tenant Selection - Reduced padding */}
           <Card className="shadow-sm">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2">
               <CardTitle className="text-base">Select Tenant</CardTitle>
               <CardDescription className="text-sm">
                 Choose a tenant to configure white-label settings
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <select
                 className="w-full p-2 text-sm border rounded-md bg-background"
                 value={selectedTenant}
@@ -375,15 +375,15 @@ export default function WhiteLabelConfig() {
           </Card>
 
           {selectedTenant && config && (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="space-y-4">
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="space-y-3">
                 <BrandIdentityPanel config={config} updateConfig={updateConfig} />
                 <DomainConfigPanel config={config} updateConfig={updateConfig} />
                 <EmailTemplatesPanel config={config} updateConfig={updateConfig} />
                 <DomainHealthPanel config={config} />
               </div>
               
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <CSSInjectionPanel config={config} updateConfig={updateConfig} />
                 <AdvancedAppCustomizationPanel config={config} updateConfig={updateConfig} />
                 <ContentManagementPanel config={config} updateConfig={updateConfig} />

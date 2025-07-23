@@ -29,18 +29,18 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   const getTrendColor = (type: 'positive' | 'negative' | 'neutral') => {
     switch (type) {
       case 'positive':
-        return 'text-green-600 bg-green-50';
+        return 'text-green-600 bg-green-50 border-green-200';
       case 'negative':
-        return 'text-red-600 bg-red-50';
+        return 'text-red-600 bg-red-50 border-red-200';
       case 'neutral':
-        return 'text-gray-600 bg-gray-50';
+        return 'text-gray-600 bg-gray-50 border-gray-200';
       default:
-        return 'text-gray-600 bg-gray-50';
+        return 'text-gray-600 bg-gray-50 border-gray-200';
     }
   };
 
   return (
-    <Card className={cn('', className)}>
+    <Card className={cn('shadow-sm hover:shadow-md transition-shadow duration-200', className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
@@ -49,9 +49,9 @@ export const StatsCard: React.FC<StatsCardProps> = ({
           <Icon className="h-4 w-4 text-muted-foreground" />
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         <div className="flex flex-col gap-1">
-          <div className="text-2xl font-bold text-foreground">
+          <div className="text-2xl font-bold text-foreground leading-none">
             {value}
           </div>
           {description && (
@@ -60,10 +60,10 @@ export const StatsCard: React.FC<StatsCardProps> = ({
             </p>
           )}
           {trend && (
-            <div className="flex items-center gap-1 mt-2">
+            <div className="flex items-center gap-1 mt-1">
               <Badge
-                variant="secondary"
-                className={cn('text-xs', getTrendColor(trend.type))}
+                variant="outline"
+                className={cn('text-xs h-5', getTrendColor(trend.type))}
               >
                 {trend.value}
               </Badge>

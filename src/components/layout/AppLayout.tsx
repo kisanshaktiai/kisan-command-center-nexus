@@ -35,11 +35,11 @@ export function AppLayout({ children, breadcrumbs }: AppLayoutProps) {
         <AppSidebar />
         
         <SidebarInset className="flex flex-col">
-          {/* Compact Header */}
-          <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
+          {/* Compact Header - Reduced height from h-14 to h-12 */}
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-3">
             <div className="flex items-center gap-2">
-              <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="mr-2 h-4" />
+              <SidebarTrigger className="-ml-1 h-8 w-8" />
+              <Separator orientation="vertical" className="mr-1 h-4" />
             </div>
             
             {breadcrumbs && (
@@ -66,39 +66,37 @@ export function AppLayout({ children, breadcrumbs }: AppLayoutProps) {
             )}
 
             {/* Compact Header Actions */}
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-1 ml-auto">
               <div className="relative hidden md:block">
-                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search..."
-                  className="pl-8 w-48 h-8 bg-muted/50 border-0 focus-visible:bg-background"
+                  className="pl-7 w-44 h-8 bg-muted/50 border-0 focus-visible:bg-background text-sm"
                 />
               </div>
               
               <Button variant="ghost" size="sm" className="relative h-8 w-8 p-0">
                 <Bell className="h-4 w-4" />
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full text-xs text-destructive-foreground flex items-center justify-center">
-                  2
-                </span>
+                <span className="absolute -top-1 -right-1 h-2 w-2 bg-destructive rounded-full"></span>
               </Button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 ml-1">
                 <Avatar className="h-7 w-7">
                   <AvatarImage src={profile?.avatar_url} alt={displayName} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                     {getInitials(displayName)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="hidden md:block">
-                  <div className="text-sm font-medium text-foreground">{displayName}</div>
-                  <div className="text-xs text-muted-foreground">{user?.email}</div>
+                <div className="hidden lg:block">
+                  <div className="text-sm font-medium text-foreground leading-none">{displayName}</div>
+                  <div className="text-xs text-muted-foreground leading-none mt-0.5">{user?.email}</div>
                 </div>
               </div>
             </div>
           </header>
 
-          {/* Main Content */}
-          <main className="flex-1 overflow-hidden">
+          {/* Main Content - Removed overflow-hidden to prevent overlapping */}
+          <main className="flex-1">
             {children}
           </main>
         </SidebarInset>
