@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Shield, AlertCircle, Lock } from 'lucide-react';
+import { Loader2, Shield, AlertCircle } from 'lucide-react';
 import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
 import { toast } from 'sonner';
 
@@ -19,7 +19,6 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [accountLocked, setAccountLocked] = useState(false);
   
   const { signIn } = useEnhancedAuth();
   const navigate = useNavigate();
@@ -28,18 +27,12 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    setAccountLocked(false);
 
     try {
       const { data, error } = await signIn(email, password);
       
       if (error) {
-        if (error.message.includes('temporarily locked')) {
-          setAccountLocked(true);
-          setError(error.message);
-        } else {
-          setError(error.message || 'Login failed. Please check your credentials.');
-        }
+        setError(error.message || 'Login failed. Please check your credentials.');
         return;
       }
 
@@ -62,18 +55,17 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
             <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
               <Shield className="w-6 h-6 text-primary" />
             </div>
-            <CardTitle className="text-2xl font-bold">Super Admin Access</CardTitle>
+            <CardTitle className="text-2xl font-bold">Admin Access</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Secure platform administration portal
+              Secure administration portal
             </CardDescription>
           </CardHeader>
           
           <CardContent className="space-y-6">
             {error && (
-              <Alert variant={accountLocked ? "destructive" : "default"} className="border-red-200 bg-red-50">
+              <Alert variant="destructive" className="border-red-200 bg-red-50">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-red-800">
-                  {accountLocked && <Lock className="inline w-4 h-4 mr-1" />}
                   {error}
                 </AlertDescription>
               </Alert>
@@ -134,10 +126,7 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
             </form>
 
             <div className="text-center text-sm text-muted-foreground">
-              <p>Secure admin access only</p>
-              <p className="text-xs mt-1">
-                Account will be locked after 5 failed attempts
-              </p>
+              <p>Admin access portal</p>
             </div>
           </CardContent>
         </Card>

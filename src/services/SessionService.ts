@@ -9,8 +9,6 @@ export interface SessionData {
   isTokenExpired: boolean;
   timeUntilExpiry: number | null;
   timeSinceLastActivity: number;
-  isAdmin: boolean;
-  userRole: string | null;
 }
 
 type SessionSubscriber = (sessionData: SessionData) => void;
@@ -23,9 +21,7 @@ class SessionService {
     isAuthenticated: false,
     isTokenExpired: false,
     timeUntilExpiry: null,
-    timeSinceLastActivity: 0,
-    isAdmin: false,
-    userRole: null
+    timeSinceLastActivity: 0
   };
 
   constructor() {
@@ -41,47 +37,13 @@ class SessionService {
     const isAuthenticated = !!session;
     const isTokenExpired = session ? new Date(session.expires_at! * 1000) < new Date() : false;
     
-    let isAdmin = false;
-    let userRole: string | null = null;
-    
-    if (session?.user) {
-      try {
-        // Direct database query to check admin status
-        const { data: adminData, error } = await supabase
-          .from('admin_users')
-          .select('role, is_active')
-          .eq('id', session.user.id)
-          .eq('is_active', true)
-          .single();
-
-        if (!error && adminData) {
-          isAdmin = ['super_admin', 'platform_admin'].includes(adminData.role);
-          userRole = adminData.role;
-        }
-        
-        console.log('Admin check:', { 
-          userId: session.user.id, 
-          adminData,
-          error,
-          isAdmin,
-          userRole 
-        });
-      } catch (error) {
-        console.error('Error checking admin status:', error);
-        isAdmin = false;
-        userRole = null;
-      }
-    }
-
     this.sessionData = {
       user: session?.user || null,
       session,
       isAuthenticated,
       isTokenExpired,
       timeUntilExpiry: session ? new Date(session.expires_at! * 1000).getTime() - Date.now() : null,
-      timeSinceLastActivity: Date.now() - (session?.user?.last_sign_in_at ? new Date(session.user.last_sign_in_at).getTime() : 0),
-      isAdmin,
-      userRole
+      timeSinceLastActivity: Date.now() - (session?.user?.last_sign_in_at ? new Date(session.user.last_sign_in_at).getTime() : 0)
     };
 
     this.notifySubscribers();
@@ -136,78 +98,15 @@ class SessionService {
     await this.updateSessionData(null);
   }
 
-  public async isAdmin(): Promise<boolean> {
-    if (!this.sessionData.user) return false;
-    
-    try {
-      const { data: adminData, error } = await supabase
-        .from('admin_users')
-        .select('role, is_active')
-        .eq('id', this.sessionData.user.id)
-        .eq('is_active', true)
-        .single();
-
-      if (!error && adminData) {
-        return ['super_admin', 'platform_admin'].includes(adminData.role);
-      }
-      return false;
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      return false;
-    }
-  }
-
-  public async getUserRole(): Promise<string | null> {
-    if (!this.sessionData.user) return null;
-    
-    try {
-      const { data: adminData, error } = await supabase
-        .from('admin_users')
-        .select('role')
-        .eq('id', this.sessionData.user.id)
-        .eq('is_active', true)
-        .single();
-
-      if (!error && adminData) {
-        return adminData.role;
-      }
-      return null;
-    } catch (error) {
-      console.error('Error getting user role:', error);
-      return null;
-    }
-  }
-
-  // Simplified login security methods - basic implementation without account locking
-  public async checkAccountLocked(email: string): Promise<boolean> {
-    // Since we don't have account_locked_until column, always return false
-    return false;
-  }
-
-  public async incrementFailedLogin(email: string): Promise<void> {
-    // Since we don't have failed_login_attempts column, this is a no-op
-    console.log('Failed login attempt for:', email);
-  }
-
-  public async resetFailedLogin(email: string): Promise<void> {
-    // Since we don't have failed_login_attempts column, this is a no-op
-    console.log('Resetting failed login for:', email);
-  }
-
   public async signInWithSecurity(email: string, password: string): Promise<{ data: any; error: any }> {
     try {
-      // Simple sign in without account locking since columns don't exist
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
-        await this.incrementFailedLogin(email);
         return { data: null, error };
       }
 
-      // Reset failed login attempts on success
-      await this.resetFailedLogin(email);
       await this.updateSessionData(data.session);
-      
       return { data, error: null };
     } catch (error) {
       return { data: null, error };

@@ -38,7 +38,6 @@ export const useSession = () => {
     timeUntilExpiry: sessionData.timeUntilExpiry,
     timeSinceLastActivity: sessionData.timeSinceLastActivity,
     refreshSession,
-    signOut,
-    isAdmin: sessionData.isAdmin // Use the data from session service directly
+    signOut
   };
 };
