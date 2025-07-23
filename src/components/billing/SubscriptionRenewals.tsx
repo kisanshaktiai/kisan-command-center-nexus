@@ -9,26 +9,19 @@ import { Calendar, RefreshCw, AlertCircle, CheckCircle, Search, Bell } from 'luc
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Database } from '@/integrations/supabase/types';
 
-interface SubscriptionRenewal {
-  id: string;
-  tenant_id: string;
-  renewal_date: string;
-  amount: number;
-  currency: string;
-  status: string;
-  auto_renew: boolean;
-  notification_sent: boolean;
-  processed_at?: string;
-  created_at: string;
+type SubscriptionRenewalRow = Database['public']['Tables']['subscription_renewals']['Row'];
+
+interface SubscriptionRenewal extends SubscriptionRenewalRow {
   tenants?: {
     name: string;
   };
   tenant_subscriptions?: {
     billing_plans?: {
       name: string;
-    };
-  };
+    } | null;
+  } | null;
 }
 
 export function SubscriptionRenewals() {

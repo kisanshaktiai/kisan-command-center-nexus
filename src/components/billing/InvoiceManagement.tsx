@@ -9,34 +9,21 @@ import { FileText, Download, Send, Eye, Search, Calendar, DollarSign } from 'luc
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Database } from '@/integrations/supabase/types';
 
-interface Invoice {
-  id: string;
-  tenant_id: string;
-  invoice_number: string;
-  amount: number;
-  currency: string;
-  status: string;
-  due_date: string;
-  paid_date?: string;
-  stripe_invoice_id?: string;
+type InvoiceRow = Database['public']['Tables']['invoices']['Row'];
+type PaymentRecordRow = Database['public']['Tables']['payment_records']['Row'];
+
+interface Invoice extends Omit<InvoiceRow, 'line_items' | 'metadata'> {
   line_items: any[];
-  created_at: string;
   metadata: any;
   tenants?: {
     name: string;
   };
 }
 
-interface PaymentRecord {
-  id: string;
-  amount: number;
-  currency: string;
-  payment_method: string;
-  transaction_id?: string;
-  status: string;
-  processed_at?: string;
-  created_at: string;
+interface PaymentRecord extends Omit<PaymentRecordRow, 'gateway_response'> {
+  gateway_response: any;
 }
 
 export function InvoiceManagement() {
@@ -57,7 +44,13 @@ export function InvoiceManagement() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Transform the data to match our interface
+      return (data || []).map(invoice => ({
+        ...invoice,
+        line_items: Array.isArray(invoice.line_items) ? invoice.line_items : [],
+        metadata: typeof invoice.metadata === 'object' ? invoice.metadata : {}
+      }));
     }
   });
 
@@ -70,7 +63,12 @@ export function InvoiceManagement() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Transform the data to match our interface
+      return (data || []).map(record => ({
+        ...record,
+        gateway_response: typeof record.gateway_response === 'object' ? record.gateway_response : {}
+      }));
     }
   });
 
