@@ -23,14 +23,22 @@ export const useSession = () => {
     return unsubscribe;
   }, []);
 
+  const refreshSession = async () => {
+    return await sessionService.refreshSession();
+  };
+
+  const signOut = async () => {
+    await sessionService.signOut();
+  };
+
   return {
     ...sessionData,
     isLoading,
     isTokenExpired: sessionService.isTokenExpired(),
     timeUntilExpiry: sessionService.getTimeUntilExpiry(),
     timeSinceLastActivity: sessionService.getTimeSinceLastActivity(),
-    refreshSession: sessionService.refreshSession,
-    signOut: sessionService.signOut,
+    refreshSession,
+    signOut,
     isAdmin: sessionService.isAdmin
   };
 };

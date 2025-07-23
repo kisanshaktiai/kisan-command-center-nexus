@@ -45,13 +45,19 @@ class SessionService {
     let userRole: string | null = null;
     
     if (session?.user) {
-      // Check admin status using new consolidated functions
-      const { data: adminData } = await supabase.rpc('is_platform_admin', { user_id: session.user.id });
-      isAdmin = adminData || false;
-      
-      // Get user role
-      const { data: roleData } = await supabase.rpc('get_user_role', { user_id: session.user.id });
-      userRole = roleData;
+      try {
+        // Check admin status using RPC calls with proper type casting
+        const { data: adminData } = await supabase.rpc('is_platform_admin' as any, { user_id: session.user.id });
+        isAdmin = Boolean(adminData);
+        
+        // Get user role
+        const { data: roleData } = await supabase.rpc('get_user_role' as any, { user_id: session.user.id });
+        userRole = roleData as string | null;
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        isAdmin = false;
+        userRole = null;
+      }
     }
 
     this.sessionData = {
@@ -97,9 +103,19 @@ class SessionService {
     return this.sessionData.timeSinceLastActivity;
   }
 
-  public async refreshSession(): Promise<void> {
-    const { data: { session } } = await supabase.auth.refreshSession();
-    await this.updateSessionData(session);
+  public async refreshSession(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { session }, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      
+      await this.updateSessionData(session);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: 'Failed to refresh session' };
+    }
   }
 
   public async signOut(): Promise<void> {
@@ -110,29 +126,52 @@ class SessionService {
   public async isAdmin(): Promise<boolean> {
     if (!this.sessionData.user) return false;
     
-    const { data } = await supabase.rpc('is_platform_admin', { user_id: this.sessionData.user.id });
-    return data || false;
+    try {
+      const { data } = await supabase.rpc('is_platform_admin' as any, { user_id: this.sessionData.user.id });
+      return Boolean(data);
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
   }
 
   public async getUserRole(): Promise<string | null> {
     if (!this.sessionData.user) return null;
     
-    const { data } = await supabase.rpc('get_user_role', { user_id: this.sessionData.user.id });
-    return data;
+    try {
+      const { data } = await supabase.rpc('get_user_role' as any, { user_id: this.sessionData.user.id });
+      return data as string | null;
+    } catch (error) {
+      console.error('Error getting user role:', error);
+      return null;
+    }
   }
 
   // Enhanced login security methods
   public async checkAccountLocked(email: string): Promise<boolean> {
-    const { data } = await supabase.rpc('is_account_locked', { user_email: email });
-    return data || false;
+    try {
+      const { data } = await supabase.rpc('is_account_locked' as any, { user_email: email });
+      return Boolean(data);
+    } catch (error) {
+      console.error('Error checking account lock status:', error);
+      return false;
+    }
   }
 
   public async incrementFailedLogin(email: string): Promise<void> {
-    await supabase.rpc('increment_failed_login', { user_email: email });
+    try {
+      await supabase.rpc('increment_failed_login' as any, { user_email: email });
+    } catch (error) {
+      console.error('Error incrementing failed login:', error);
+    }
   }
 
   public async resetFailedLogin(email: string): Promise<void> {
-    await supabase.rpc('reset_failed_login', { user_email: email });
+    try {
+      await supabase.rpc('reset_failed_login' as any, { user_email: email });
+    } catch (error) {
+      console.error('Error resetting failed login:', error);
+    }
   }
 
   public async signInWithSecurity(email: string, password: string): Promise<{ data: any; error: any }> {
