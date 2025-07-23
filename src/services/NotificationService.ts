@@ -109,8 +109,8 @@ export class NotificationService {
     try {
       const { data: expiredSubs, error } = await supabase
         .from('tenant_subscriptions')
-        .select('tenant_id, subscription_end_date')
-        .lt('subscription_end_date', new Date().toISOString())
+        .select('tenant_id, current_period_end')
+        .lt('current_period_end', new Date().toISOString())
         .eq('status', 'active');
 
       if (error) {
@@ -126,7 +126,7 @@ export class NotificationService {
             message: `Tenant subscription has expired and needs renewal`,
             severity: 'error',
             tenant_id: sub.tenant_id,
-            data: { expired_date: sub.subscription_end_date }
+            data: { expired_date: sub.current_period_end }
           });
         }
       }

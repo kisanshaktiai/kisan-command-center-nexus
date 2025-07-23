@@ -3,15 +3,23 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, Globe, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
-interface ActiveSessionsMonitorProps {
-  sessions: any[];
+interface Session {
+  id: string;
+  user_id: string;
+  tenant_id: string;
+  last_active_at: string;
 }
 
-export const ActiveSessionsMonitor: React.FC<ActiveSessionsMonitorProps> = ({ sessions }) => {
+interface ActiveSessionsMonitorProps {
+  sessions: Session[];
+}
+
+export const ActiveSessionsMonitor: React.FC<ActiveSessionsMonitorProps> = ({ sessions = [] }) => {
   // Group sessions by tenant
   const sessionsByTenant = React.useMemo(() => {
+    if (!Array.isArray(sessions)) return [];
+    
     const grouped = sessions.reduce((acc, session) => {
       const tenantId = session.tenant_id || 'unknown';
       if (!acc[tenantId]) {
@@ -19,7 +27,7 @@ export const ActiveSessionsMonitor: React.FC<ActiveSessionsMonitorProps> = ({ se
       }
       acc[tenantId].push(session);
       return acc;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, Session[]>);
 
     return Object.entries(grouped).map(([tenantId, sessions]) => ({
       tenantId,
