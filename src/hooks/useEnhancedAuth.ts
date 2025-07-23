@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { safeGet } from '@/lib/supabase-helpers';
 import { sessionService } from '@/services/SessionService';
 
 interface TenantData {
@@ -17,6 +18,7 @@ interface EnhancedAuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  isAdmin: boolean;
   profile: any;
   signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data: any; error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ data: any; error: AuthError | null }>;
@@ -33,6 +35,7 @@ export const useEnhancedAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<any>(null);
 
   // Enhanced sign up with tenant metadata
@@ -54,17 +57,24 @@ export const useEnhancedAuth = () => {
       });
 
       if (error) throw error;
+
       return { data, error: null };
     } catch (error) {
       return { data: null, error: error as AuthError };
     }
   };
 
-  // Enhanced sign in with security
+  // Enhanced sign in with proper session management
   const signIn = async (email: string, password: string) => {
     try {
-      const result = await sessionService.signInWithSecurity(email, password);
-      return result;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+
+      return { data, error: null };
     } catch (error) {
       return { data: null, error: error as AuthError };
     }
@@ -139,7 +149,7 @@ export const useEnhancedAuth = () => {
     }
   };
 
-  // Enhanced sign out with complete session cleanup
+  // Sign out with session cleanup
   const signOut = async () => {
     try {
       await sessionService.signOut();
@@ -159,14 +169,17 @@ export const useEnhancedAuth = () => {
     }
   };
 
-  // Set up auth state listener using consolidated session service
+  // Set up auth state listener using session service
   useEffect(() => {
     const unsubscribe = sessionService.subscribe((sessionData) => {
       setSession(sessionData.session);
       setUser(sessionData.user);
+      setIsAdmin(false); // Will be updated by checkAdminStatus
       setIsLoading(false);
       
       if (sessionData.isAuthenticated && sessionData.user) {
+        // Check admin status
+        sessionService.isAdmin().then(setIsAdmin);
         refreshProfile();
         trackSession();
       } else {
@@ -181,6 +194,7 @@ export const useEnhancedAuth = () => {
     user,
     session,
     isLoading,
+    isAdmin,
     profile,
     signUp,
     signIn,

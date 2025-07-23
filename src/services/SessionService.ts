@@ -1,174 +1,182 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
+import { Session, User } from '@supabase/supabase-js';
 
 export interface SessionData {
   user: User | null;
   session: Session | null;
   isAuthenticated: boolean;
-  isTokenExpired: boolean;
-  timeUntilExpiry: number | null;
-  timeSinceLastActivity: number;
-  profile: any;
+  tokenExpiresAt: number | null;
 }
 
-type SessionSubscriber = (sessionData: SessionData) => void;
-
 class SessionService {
-  private subscribers: SessionSubscriber[] = [];
+  private static instance: SessionService;
   private sessionData: SessionData = {
     user: null,
     session: null,
     isAuthenticated: false,
-    isTokenExpired: false,
-    timeUntilExpiry: null,
-    timeSinceLastActivity: 0,
-    profile: null
+    tokenExpiresAt: null
   };
-  private initialized = false;
+  private refreshTimer: NodeJS.Timeout | null = null;
+  private listeners: ((sessionData: SessionData) => void)[] = [];
 
-  constructor() {
+  private constructor() {
     this.initializeSession();
+    this.setupAuthListener();
+  }
+
+  static getInstance(): SessionService {
+    if (!SessionService.instance) {
+      SessionService.instance = new SessionService();
+    }
+    return SessionService.instance;
   }
 
   private async initializeSession() {
-    if (this.initialized) return;
-    
     try {
-      console.log('Initializing session service...');
       const { data: { session }, error } = await supabase.auth.getSession();
-      
       if (error) {
         console.error('Error getting session:', error);
-      } else {
-        console.log('Initial session loaded:', session?.user?.email || 'No user');
-        await this.updateSessionData(session);
+        return;
       }
       
-      this.setupAuthListener();
-      this.initialized = true;
+      this.updateSessionData(session);
     } catch (error) {
       console.error('Error initializing session:', error);
-      this.initialized = true;
     }
   }
 
   private setupAuthListener() {
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email);
+    supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event);
+      this.updateSessionData(session);
+      
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('Token refreshed successfully');
+      }
       
       if (event === 'SIGNED_OUT') {
-        await this.updateSessionData(null);
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        await this.updateSessionData(session);
+        this.clearRefreshTimer();
       }
     });
   }
 
-  private async updateSessionData(session: Session | null) {
-    const isAuthenticated = !!session;
-    const isTokenExpired = session ? new Date(session.expires_at! * 1000) < new Date() : false;
-    
-    let profile = null;
-    if (session?.user) {
-      // Create profile from user metadata and auth data
-      profile = {
-        id: session.user.id,
-        email: session.user.email,
-        full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email,
-        avatar_url: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
-        created_at: session.user.created_at,
-        last_sign_in_at: session.user.last_sign_in_at,
-        role: session.user.user_metadata?.role || 'user'
-      };
-    }
-    
+  private updateSessionData(session: Session | null) {
     this.sessionData = {
       user: session?.user || null,
-      session,
-      isAuthenticated,
-      isTokenExpired,
-      timeUntilExpiry: session ? new Date(session.expires_at! * 1000).getTime() - Date.now() : null,
-      timeSinceLastActivity: Date.now() - (session?.user?.last_sign_in_at ? new Date(session.user.last_sign_in_at).getTime() : 0),
-      profile
+      session: session,
+      isAuthenticated: !!session,
+      tokenExpiresAt: session?.expires_at ? session.expires_at * 1000 : null
     };
 
-    this.notifySubscribers();
+    // Set up token refresh timer
+    if (session?.expires_at) {
+      this.setupTokenRefresh(session.expires_at * 1000);
+    }
+
+    // Notify listeners
+    this.notifyListeners();
   }
 
-  private notifySubscribers() {
-    this.subscribers.forEach(subscriber => {
-      try {
-        subscriber(this.sessionData);
-      } catch (error) {
-        console.error('Error notifying subscriber:', error);
-      }
-    });
-  }
-
-  public subscribe(subscriber: SessionSubscriber): () => void {
-    this.subscribers.push(subscriber);
+  private setupTokenRefresh(expiresAt: number) {
+    this.clearRefreshTimer();
     
-    // Immediately notify with current session data
-    if (this.initialized) {
-      subscriber(this.sessionData);
-    }
+    // Refresh token 5 minutes before expiration
+    const refreshTime = expiresAt - Date.now() - (5 * 60 * 1000);
     
-    return () => {
-      this.subscribers = this.subscribers.filter(s => s !== subscriber);
-    };
-  }
-
-  public getSessionData(): SessionData {
-    return this.sessionData;
-  }
-
-  public async signInWithSecurity(email: string, password: string): Promise<{ data: any; error: any }> {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ 
-        email: email.trim().toLowerCase(), 
-        password 
-      });
-
-      if (error) {
-        console.error('Sign in error:', error);
-        return { data: null, error };
-      }
-
-      // Session will be updated automatically via auth state change listener
-      return { data, error: null };
-    } catch (error) {
-      console.error('Sign in exception:', error);
-      return { data: null, error };
+    if (refreshTime > 0) {
+      this.refreshTimer = setTimeout(async () => {
+        try {
+          console.log('Refreshing token...');
+          const { error } = await supabase.auth.refreshSession();
+          if (error) {
+            console.error('Error refreshing token:', error);
+          }
+        } catch (error) {
+          console.error('Error in token refresh:', error);
+        }
+      }, refreshTime);
     }
   }
 
-  public async signOut(): Promise<void> {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Sign out error:', error);
-      }
-      // Session will be updated automatically via auth state change listener
-    } catch (error) {
-      console.error('Sign out exception:', error);
+  private clearRefreshTimer() {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
     }
   }
 
-  public async refreshSession(): Promise<{ success: boolean; error?: string }> {
+  private notifyListeners() {
+    this.listeners.forEach(listener => listener(this.sessionData));
+  }
+
+  // Public methods
+  getSessionData(): SessionData {
+    return { ...this.sessionData };
+  }
+
+  isTokenExpired(): boolean {
+    if (!this.sessionData.tokenExpiresAt) return false;
+    return Date.now() >= this.sessionData.tokenExpiresAt;
+  }
+
+  getTimeUntilExpiry(): number {
+    if (!this.sessionData.tokenExpiresAt) return 0;
+    return Math.max(0, this.sessionData.tokenExpiresAt - Date.now());
+  }
+
+  async refreshSession(): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data: { session }, error } = await supabase.auth.refreshSession();
-      
+      const { error } = await supabase.auth.refreshSession();
       if (error) {
         return { success: false, error: error.message };
       }
-      
-      // Session will be updated automatically via auth state change listener
       return { success: true };
     } catch (error) {
       return { success: false, error: 'Failed to refresh session' };
     }
   }
+
+  async signOut(): Promise<void> {
+    this.clearRefreshTimer();
+    await supabase.auth.signOut();
+  }
+
+  subscribe(listener: (sessionData: SessionData) => void): () => void {
+    this.listeners.push(listener);
+    // Return unsubscribe function
+    return () => {
+      const index = this.listeners.indexOf(listener);
+      if (index > -1) {
+        this.listeners.splice(index, 1);
+      }
+    };
+  }
+
+  // Helper method to check if user has admin role
+  async isAdmin(): Promise<boolean> {
+    if (!this.sessionData.isAuthenticated || !this.sessionData.user) {
+      return false;
+    }
+
+    try {
+      // Check if user exists in admin_users table
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('id, role, is_active')
+        .eq('id', this.sessionData.user.id)
+        .single();
+
+      if (error || !data) {
+        return false;
+      }
+
+      return data.is_active && ['super_admin', 'platform_admin', 'admin'].includes(data.role);
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+  }
 }
 
-export const sessionService = new SessionService();
+export const sessionService = SessionService.getInstance();

@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Eye, Users, Calendar, Settings, Building2 } from 'lucide-react';
+import { Building2, Edit, Trash2, Users, Crown, Calendar, MapPin } from 'lucide-react';
 import { Tenant } from '@/types/tenant';
 import { TenantService } from '@/services/tenantService';
 
@@ -11,22 +11,12 @@ interface TenantCardProps {
   tenant: Tenant;
   onEdit: (tenant: Tenant) => void;
   onDelete: (tenantId: string) => void;
-  onView?: (tenant: Tenant) => void;
 }
 
-export const TenantCard: React.FC<TenantCardProps> = ({
-  tenant,
-  onEdit,
-  onDelete,
-  onView
-}) => {
+export const TenantCard: React.FC<TenantCardProps> = ({ tenant, onEdit, onDelete }) => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
+    return new Date(dateString).toLocaleDateString();
   };
 
   const getFeatureCount = () => {
@@ -34,121 +24,152 @@ export const TenantCard: React.FC<TenantCardProps> = ({
     return Object.values(tenant.features).filter(Boolean).length;
   };
 
-  const handleCardClick = () => {
-    if (onView) {
-      onView(tenant);
-    }
-  };
-
   return (
-    <Card className="hover:shadow-md transition-shadow duration-200 border-l-4 border-l-primary/20">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          {/* Left section - Main info */}
-          <div 
-            className="flex items-center gap-4 flex-1 cursor-pointer"
-            onClick={handleCardClick}
-          >
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Building2 className="h-5 w-5 text-primary" />
-              </div>
+    <Card className="hover:shadow-lg transition-shadow duration-200">
+      <CardHeader className="pb-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Building2 className="h-5 w-5 text-primary" />
             </div>
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-sm font-semibold text-foreground truncate">
-                  {tenant.name}
-                </h3>
-                <Badge variant={TenantService.getStatusBadgeVariant(tenant.status)} className="text-xs">
-                  {tenant.status?.toUpperCase()}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <span className="font-medium">@{tenant.slug}</span>
-                </span>
-                <span className="capitalize">{tenant.type?.replace('_', ' ')}</span>
-                {tenant.owner_name && (
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    {tenant.owner_name}
-                  </span>
-                )}
-              </div>
+            <div>
+              <CardTitle className="text-lg font-semibold truncate">
+                {tenant.name}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {tenant.slug}
+              </p>
             </div>
           </div>
+          <div className="flex flex-col gap-1">
+            <Badge variant={TenantService.getStatusBadgeVariant(tenant.status)}>
+              {tenant.status?.toUpperCase()}
+            </Badge>
+            <Badge variant={TenantService.getPlanBadgeVariant(tenant.subscription_plan)}>
+              {TenantService.getPlanDisplayName(tenant.subscription_plan)}
+            </Badge>
+          </div>
+        </div>
+      </CardHeader>
 
-          {/* Center section - Plan and metrics */}
-          <div className="flex items-center gap-6 px-4">
-            <div className="text-center">
-              <Badge variant={TenantService.getPlanBadgeVariant(tenant.subscription_plan)} className="text-xs">
-                {TenantService.getPlanDisplayName(tenant.subscription_plan)}
-              </Badge>
-              <div className="text-xs text-muted-foreground mt-1">Plan</div>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-sm font-medium text-foreground">{getFeatureCount()}</div>
-              <div className="text-xs text-muted-foreground">Features</div>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-sm font-medium text-foreground">
-                {tenant.max_farmers?.toLocaleString() || '0'}
+      <CardContent className="space-y-4">
+        {/* Basic Info */}
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="flex items-center space-x-2">
+            <Crown className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">Type:</span>
+            <span className="text-muted-foreground capitalize">{tenant.type?.replace('_', ' ')}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">Created:</span>
+            <span className="text-muted-foreground">{formatDate(tenant.created_at)}</span>
+          </div>
+        </div>
+
+        {/* Owner Info */}
+        {tenant.owner_name && (
+          <div className="space-y-2">
+            <h4 className="font-medium text-sm">Owner Information</h4>
+            <div className="grid grid-cols-1 gap-1 text-sm">
+              <div className="flex items-center space-x-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span>{tenant.owner_name}</span>
               </div>
-              <div className="text-xs text-muted-foreground">Farmers</div>
+              {tenant.owner_email && (
+                <div className="text-muted-foreground text-xs ml-6">
+                  {tenant.owner_email}
+                </div>
+              )}
             </div>
           </div>
+        )}
 
-          {/* Right section - Date and actions */}
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Calendar className="h-3 w-3" />
-                {formatDate(tenant.created_at)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">Created</div>
+        {/* Location */}
+        {tenant.business_address && (
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2 text-sm">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">Location:</span>
+              <span className="text-muted-foreground truncate">
+                {typeof tenant.business_address === 'string' 
+                  ? tenant.business_address 
+                  : tenant.business_address?.city || 'Not specified'
+                }
+              </span>
             </div>
-            
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onView) onView(tenant);
-                }}
-                className="h-8 w-8 p-0"
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(tenant);
-                }}
-                className="h-8 w-8 p-0"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(tenant.id);
-                }}
-                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+          </div>
+        )}
+
+        {/* Limits */}
+        <div className="space-y-2">
+          <h4 className="font-medium text-sm">Plan Limits</h4>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="bg-muted/50 p-2 rounded">
+              <div className="font-medium">Farmers</div>
+              <div className="text-muted-foreground">{tenant.max_farmers?.toLocaleString() || 'N/A'}</div>
+            </div>
+            <div className="bg-muted/50 p-2 rounded">
+              <div className="font-medium">Dealers</div>
+              <div className="text-muted-foreground">{tenant.max_dealers?.toLocaleString() || 'N/A'}</div>
+            </div>
+            <div className="bg-muted/50 p-2 rounded">
+              <div className="font-medium">Products</div>
+              <div className="text-muted-foreground">{tenant.max_products?.toLocaleString() || 'N/A'}</div>
+            </div>
+            <div className="bg-muted/50 p-2 rounded">
+              <div className="font-medium">Storage</div>
+              <div className="text-muted-foreground">{tenant.max_storage_gb || 'N/A'} GB</div>
             </div>
           </div>
         </div>
+
+        {/* Features */}
+        <div className="space-y-2">
+          <h4 className="font-medium text-sm">Features Enabled</h4>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              {getFeatureCount()} features enabled
+            </span>
+            {tenant.branding?.app_name && (
+              <Badge variant="outline" className="text-xs">
+                Custom Branding
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Trial Info */}
+        {tenant.status === 'trial' && tenant.trial_ends_at && (
+          <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200">
+            <div className="text-sm">
+              <span className="font-medium text-yellow-800">Trial ends:</span>
+              <span className="text-yellow-700 ml-2">{formatDate(tenant.trial_ends_at)}</span>
+            </div>
+          </div>
+        )}
       </CardContent>
+
+      <CardFooter className="flex justify-end space-x-2 pt-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onEdit(tenant)}
+          className="flex items-center space-x-1"
+        >
+          <Edit className="h-4 w-4" />
+          <span>Edit</span>
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => onDelete(tenant.id)}
+          className="flex items-center space-x-1"
+        >
+          <Trash2 className="h-4 w-4" />
+          <span>Delete</span>
+        </Button>
+      </CardFooter>
     </Card>
   );
 };

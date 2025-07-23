@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -93,7 +92,7 @@ export function SuperAdminSidebar({ isOpen, setIsOpen }: SuperAdminSidebarProps)
             </div>
             {(isOpen || window.innerWidth >= 1024) && (
               <div className={cn("transition-opacity duration-200", !isOpen && "lg:opacity-0 lg:w-0 lg:overflow-hidden")}>
-                <h2 className="font-bold text-white text-lg">Admin Panel</h2>
+                <h2 className="font-bold text-white text-lg">Super Admin</h2>
                 <p className="text-xs text-slate-300">Platform Management</p>
               </div>
             )}

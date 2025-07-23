@@ -50,26 +50,14 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
     uptime: 99.8
   };
 
-  // Process metrics for charts - ensure systemMetrics is always an array
-  const metricsArray = Array.isArray(systemMetrics) ? systemMetrics : [];
-  const chartData = metricsArray.slice(0, 24).reverse().map((metric, index) => ({
+  // Process metrics for charts
+  const chartData = systemMetrics?.slice(0, 24).reverse().map((metric, index) => ({
     time: new Date(metric.timestamp).toLocaleTimeString(),
     cpu: 40 + Math.random() * 20,
     memory: 60 + Math.random() * 20,
     network: 100 + Math.random() * 50,
     response_time: 120 + Math.random() * 40
-  }));
-
-  // If no real data, generate mock data for charts
-  const mockChartData = Array.from({ length: 24 }, (_, index) => ({
-    time: new Date(Date.now() - (23 - index) * 60000).toLocaleTimeString(),
-    cpu: 40 + Math.random() * 20,
-    memory: 60 + Math.random() * 20,
-    network: 100 + Math.random() * 50,
-    response_time: 120 + Math.random() * 40
-  }));
-
-  const finalChartData = chartData.length > 0 ? chartData : mockChartData;
+  })) || [];
 
   const services = [
     { name: 'API Gateway', status: 'healthy', uptime: 99.9, response_time: 145 },
@@ -172,7 +160,7 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={finalChartData}>
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="time" />
                 <YAxis />
@@ -191,7 +179,7 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={finalChartData}>
+              <AreaChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="time" />
                 <YAxis />
