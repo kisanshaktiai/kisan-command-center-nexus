@@ -34,11 +34,11 @@ export const useSession = () => {
   return {
     ...sessionData,
     isLoading,
-    isTokenExpired: sessionService.isTokenExpired(),
-    timeUntilExpiry: sessionService.getTimeUntilExpiry(),
-    timeSinceLastActivity: sessionService.getTimeSinceLastActivity(),
+    isTokenExpired: sessionData.isTokenExpired,
+    timeUntilExpiry: sessionData.timeUntilExpiry,
+    timeSinceLastActivity: sessionData.timeSinceLastActivity,
     refreshSession,
     signOut,
-    isAdmin: sessionService.isAdmin
+    isAdmin: sessionData.isAdmin // Use the data from session service directly
   };
 };

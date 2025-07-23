@@ -46,20 +46,23 @@ class SessionService {
     
     if (session?.user) {
       try {
-        // Check for super admin first, then platform admin
-        const { data: superAdminData } = await supabase.rpc('is_super_admin' as any, { user_id: session.user.id });
-        const { data: platformAdminData } = await supabase.rpc('is_platform_admin' as any, { user_id: session.user.id });
-        
-        isAdmin = Boolean(superAdminData || platformAdminData);
-        
-        // Get user role
-        const { data: roleData } = await supabase.rpc('get_user_role' as any, { user_id: session.user.id });
-        userRole = roleData as string | null;
+        // Direct database query instead of RPC functions
+        const { data: adminData, error } = await supabase
+          .from('admin_users')
+          .select('role, is_active')
+          .eq('id', session.user.id)
+          .eq('is_active', true)
+          .single();
+
+        if (!error && adminData) {
+          isAdmin = ['super_admin', 'platform_admin'].includes(adminData.role);
+          userRole = adminData.role;
+        }
         
         console.log('Admin check:', { 
           userId: session.user.id, 
-          superAdmin: superAdminData, 
-          platformAdmin: platformAdminData, 
+          adminData,
+          error,
           isAdmin,
           userRole 
         });
@@ -137,9 +140,17 @@ class SessionService {
     if (!this.sessionData.user) return false;
     
     try {
-      const { data: superAdminData } = await supabase.rpc('is_super_admin' as any, { user_id: this.sessionData.user.id });
-      const { data: platformAdminData } = await supabase.rpc('is_platform_admin' as any, { user_id: this.sessionData.user.id });
-      return Boolean(superAdminData || platformAdminData);
+      const { data: adminData, error } = await supabase
+        .from('admin_users')
+        .select('role, is_active')
+        .eq('id', this.sessionData.user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!error && adminData) {
+        return ['super_admin', 'platform_admin'].includes(adminData.role);
+      }
+      return false;
     } catch (error) {
       console.error('Error checking admin status:', error);
       return false;
@@ -150,8 +161,17 @@ class SessionService {
     if (!this.sessionData.user) return null;
     
     try {
-      const { data } = await supabase.rpc('get_user_role' as any, { user_id: this.sessionData.user.id });
-      return data as string | null;
+      const { data: adminData, error } = await supabase
+        .from('admin_users')
+        .select('role')
+        .eq('id', this.sessionData.user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!error && adminData) {
+        return adminData.role;
+      }
+      return null;
     } catch (error) {
       console.error('Error getting user role:', error);
       return null;
@@ -161,8 +181,16 @@ class SessionService {
   // Enhanced login security methods
   public async checkAccountLocked(email: string): Promise<boolean> {
     try {
-      const { data } = await supabase.rpc('is_account_locked' as any, { user_email: email });
-      return Boolean(data);
+      const { data: adminData, error } = await supabase
+        .from('admin_users')
+        .select('account_locked_until')
+        .eq('email', email)
+        .single();
+
+      if (!error && adminData && adminData.account_locked_until) {
+        return new Date(adminData.account_locked_until) > new Date();
+      }
+      return false;
     } catch (error) {
       console.error('Error checking account lock status:', error);
       return false;
@@ -171,7 +199,29 @@ class SessionService {
 
   public async incrementFailedLogin(email: string): Promise<void> {
     try {
-      await supabase.rpc('increment_failed_login' as any, { user_email: email });
+      const { data: adminData, error: selectError } = await supabase
+        .from('admin_users')
+        .select('failed_login_attempts')
+        .eq('email', email)
+        .single();
+
+      if (!selectError && adminData) {
+        const newAttempts = (adminData.failed_login_attempts || 0) + 1;
+        const updateData: any = {
+          failed_login_attempts: newAttempts,
+          updated_at: new Date().toISOString()
+        };
+
+        // Lock account after 5 failed attempts
+        if (newAttempts >= 5) {
+          updateData.account_locked_until = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        }
+
+        await supabase
+          .from('admin_users')
+          .update(updateData)
+          .eq('email', email);
+      }
     } catch (error) {
       console.error('Error incrementing failed login:', error);
     }
@@ -179,7 +229,15 @@ class SessionService {
 
   public async resetFailedLogin(email: string): Promise<void> {
     try {
-      await supabase.rpc('reset_failed_login' as any, { user_email: email });
+      await supabase
+        .from('admin_users')
+        .update({
+          failed_login_attempts: 0,
+          account_locked_until: null,
+          last_login_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('email', email);
     } catch (error) {
       console.error('Error resetting failed login:', error);
     }
