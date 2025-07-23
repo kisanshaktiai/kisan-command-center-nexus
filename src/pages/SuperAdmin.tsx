@@ -4,7 +4,6 @@ import { Routes, Route } from 'react-router-dom';
 import { SuperAdminHeader } from '@/components/super-admin/SuperAdminHeader';
 import { SuperAdminSidebar } from '@/components/super-admin/SuperAdminSidebar';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { useAuth } from '@/contexts/AuthContext';
 import Overview from './super-admin/Overview';
 import TenantManagement from './super-admin/TenantManagement';
 import TenantOnboarding from './super-admin/TenantOnboarding';
@@ -15,12 +14,12 @@ import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
 
 export default function SuperAdmin() {
-  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Create a default admin user object since we don't need actual user data
   const adminUser = {
-    full_name: user?.user_metadata?.full_name || 'Admin',
-    email: user?.email || 'admin@example.com',
+    full_name: 'Admin',
+    email: 'admin@example.com',
     role: 'admin',
   };
 
