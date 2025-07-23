@@ -65,8 +65,29 @@ export default function TenantOnboarding() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
+  // Check if user is admin
+  const { data: isAdmin, isLoading: adminLoading } = useQuery({
+    queryKey: ['admin-check'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('id, role, is_active')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+      
+      if (error) {
+        console.log('Admin check error:', error);
+        return false;
+      }
+      
+      return data && data.is_active && ['super_admin', 'platform_admin'].includes(data.role);
+    }
+  });
+
   // Set up real-time subscription for workflows
   useEffect(() => {
+    if (!isAdmin) return;
+
     const channel = supabase
       .channel('onboarding-workflows-realtime')
       .on('postgres_changes', 
@@ -88,7 +109,7 @@ export default function TenantOnboarding() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, isAdmin]);
 
   // Fetch onboarding workflows with enhanced query
   const { data: workflows = [], isLoading: workflowsLoading, refetch: refetchWorkflows } = useQuery({
@@ -102,9 +123,13 @@ export default function TenantOnboarding() {
         `)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching workflows:', error);
+        throw error;
+      }
       return data as OnboardingWorkflow[];
     },
+    enabled: !!isAdmin,
     refetchInterval: 30000 // Refresh every 30 seconds
   });
 
@@ -130,7 +155,7 @@ export default function TenantOnboarding() {
             JSON.parse(step.validation_errors) : []
       })) as OnboardingStep[];
     },
-    enabled: !!selectedWorkflow?.id,
+    enabled: !!selectedWorkflow?.id && !!isAdmin,
     refetchInterval: 15000 // Refresh every 15 seconds
   });
 
@@ -156,12 +181,15 @@ export default function TenantOnboarding() {
       const { data, error } = await query;
       if (error) throw error;
       return data;
-    }
+    },
+    enabled: !!isAdmin
   });
 
   // Create workflow mutation with enhanced validation
   const createWorkflowMutation = useMutation({
     mutationFn: async (tenantId: string) => {
+      console.log('Creating workflow for tenant:', tenantId);
+      
       // Validate tenant exists and is active
       const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
@@ -205,7 +233,12 @@ export default function TenantOnboarding() {
         .select()
         .single();
       
-      if (workflowError) throw workflowError;
+      if (workflowError) {
+        console.error('Workflow creation error:', workflowError);
+        throw workflowError;
+      }
+
+      console.log('Workflow created:', workflow);
 
       // Create steps with enhanced data
       const stepsData = ONBOARDING_STEPS.map(step => ({
@@ -225,7 +258,10 @@ export default function TenantOnboarding() {
         .from('onboarding_steps')
         .insert(stepsData);
       
-      if (stepsError) throw stepsError;
+      if (stepsError) {
+        console.error('Steps creation error:', stepsError);
+        throw stepsError;
+      }
       
       return workflow;
     },
@@ -237,6 +273,7 @@ export default function TenantOnboarding() {
       setIsCreateDialogOpen(false);
     },
     onError: (error: any) => {
+      console.error('Create workflow error:', error);
       toast.error('Failed to create workflow: ' + error.message);
     }
   });
@@ -371,6 +408,29 @@ export default function TenantOnboarding() {
       refetchSteps();
     }
   };
+
+  if (adminLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Verifying admin permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have permission to access this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
