@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -276,11 +275,12 @@ export default function TenantManagement() {
 
     if (viewType === 'list') {
       return (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {filteredTenants.map((tenant) => (
             <TenantCard
               key={tenant.id}
               tenant={tenant}
+              onView={handleViewTenant}
               onEdit={openEditDialog}
               onDelete={handleDeleteTenant}
             />
