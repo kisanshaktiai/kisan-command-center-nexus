@@ -1,15 +1,19 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Plus, AlertCircle } from 'lucide-react';
-import { TenantCard } from '@/components/tenant/TenantCard';
 import { TenantForm } from '@/components/tenant/TenantForm';
 import { TenantFilters } from '@/components/tenant/TenantFilters';
+import { TenantViewToggle } from '@/components/tenant/TenantViewToggle';
+import { TenantMetricsCard } from '@/components/tenant/TenantMetricsCard';
+import { TenantListView } from '@/components/tenant/TenantListView';
+import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
 import { TenantService } from '@/services/tenantService';
 import { Tenant, TenantFormData, TenantType, TenantStatus } from '@/types/tenant';
+import { TenantViewPreferences, TenantMetrics } from '@/types/tenantView';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from '@/integrations/supabase/client';
 
 export default function TenantManagement() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -19,10 +23,21 @@ export default function TenantManagement() {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tenantMetrics, setTenantMetrics] = useState<Record<string, TenantMetrics>>({});
   const { toast } = useToast();
+
+  // View preferences state
+  const [viewPreferences, setViewPreferences] = useState<TenantViewPreferences>({
+    mode: 'small-cards',
+    density: 'comfortable',
+    sortBy: 'created_at',
+    sortOrder: 'desc',
+  });
 
   // Form state with default values
   const [formData, setFormData] = useState<TenantFormData>({
@@ -42,6 +57,19 @@ export default function TenantManagement() {
     fetchTenants();
   }, []);
 
+  useEffect(() => {
+    // Load view preferences from localStorage
+    const savedPreferences = localStorage.getItem('tenant-view-preferences');
+    if (savedPreferences) {
+      setViewPreferences(JSON.parse(savedPreferences));
+    }
+  }, []);
+
+  useEffect(() => {
+    // Save view preferences to localStorage
+    localStorage.setItem('tenant-view-preferences', JSON.stringify(viewPreferences));
+  }, [viewPreferences]);
+
   const fetchTenants = async () => {
     try {
       setLoading(true);
@@ -53,6 +81,11 @@ export default function TenantManagement() {
       
       if (data.length === 0) {
         console.log('No tenants found in the database');
+      }
+
+      // Fetch metrics for tenants if in large cards or analytics view
+      if (viewPreferences.mode === 'large-cards' || viewPreferences.mode === 'analytics') {
+        fetchTenantsMetrics(data);
       }
     } catch (error: any) {
       console.error('Error fetching tenants:', error);
@@ -66,6 +99,73 @@ export default function TenantManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchTenantsMetrics = async (tenantList: Tenant[]) => {
+    const metricsPromises = tenantList.map(async (tenant) => {
+      try {
+        const response = await supabase.functions.invoke('tenant-limits-quotas', {
+          body: { tenantId: tenant.id }
+        });
+
+        if (response.data) {
+          return {
+            tenantId: tenant.id,
+            metrics: {
+              usageMetrics: {
+                farmers: { 
+                  current: response.data.usage.farmers, 
+                  limit: response.data.limits.farmers, 
+                  percentage: (response.data.usage.farmers / response.data.limits.farmers) * 100 
+                },
+                dealers: { 
+                  current: response.data.usage.dealers, 
+                  limit: response.data.limits.dealers, 
+                  percentage: (response.data.usage.dealers / response.data.limits.dealers) * 100 
+                },
+                products: { 
+                  current: response.data.usage.products, 
+                  limit: response.data.limits.products, 
+                  percentage: (response.data.usage.products / response.data.limits.products) * 100 
+                },
+                storage: { 
+                  current: response.data.usage.storage, 
+                  limit: response.data.limits.storage, 
+                  percentage: (response.data.usage.storage / response.data.limits.storage) * 100 
+                },
+                apiCalls: { 
+                  current: response.data.usage.api_calls, 
+                  limit: response.data.limits.api_calls, 
+                  percentage: (response.data.usage.api_calls / response.data.limits.api_calls) * 100 
+                },
+              },
+              growthTrends: {
+                farmers: [10, 15, 25, 30, 45, 50, 65],
+                revenue: [1000, 1200, 1500, 1800, 2100, 2400, 2700],
+                apiUsage: [100, 150, 200, 250, 300, 350, 400],
+              },
+              healthScore: Math.floor(Math.random() * 40) + 60, // Random score between 60-100
+              lastActivityDate: new Date().toISOString(),
+            }
+          };
+        }
+        return null;
+      } catch (error) {
+        console.error(`Error fetching metrics for tenant ${tenant.id}:`, error);
+        return null;
+      }
+    });
+
+    const results = await Promise.all(metricsPromises);
+    const metricsMap: Record<string, TenantMetrics> = {};
+    
+    results.forEach((result) => {
+      if (result) {
+        metricsMap[result.tenantId] = result.metrics;
+      }
+    });
+
+    setTenantMetrics(metricsMap);
   };
 
   const handleCreateTenant = async () => {
@@ -217,6 +317,11 @@ export default function TenantManagement() {
     });
   };
 
+  const handleViewDetails = (tenant: Tenant) => {
+    setDetailsTenant(tenant);
+    setIsDetailsModalOpen(true);
+  };
+
   const filteredTenants = tenants.filter(tenant => {
     const matchesSearch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          tenant.slug.toLowerCase().includes(searchTerm.toLowerCase());
@@ -224,6 +329,90 @@ export default function TenantManagement() {
     const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  // Sort tenants based on preferences
+  const sortedTenants = [...filteredTenants].sort((a, b) => {
+    const { sortBy, sortOrder } = viewPreferences;
+    let aValue = a[sortBy as keyof Tenant] as string;
+    let bValue = b[sortBy as keyof Tenant] as string;
+    
+    if (sortBy === 'created_at') {
+      aValue = new Date(aValue).getTime().toString();
+      bValue = new Date(bValue).getTime().toString();
+    }
+    
+    const comparison = aValue?.localeCompare(bValue) || 0;
+    return sortOrder === 'desc' ? -comparison : comparison;
+  });
+
+  const renderTenantView = () => {
+    switch (viewPreferences.mode) {
+      case 'small-cards':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {sortedTenants.map((tenant) => (
+              <TenantMetricsCard
+                key={tenant.id}
+                tenant={tenant}
+                metrics={tenantMetrics[tenant.id]}
+                size="small"
+                onEdit={openEditDialog}
+                onDelete={handleDeleteTenant}
+                onViewDetails={handleViewDetails}
+              />
+            ))}
+          </div>
+        );
+      
+      case 'large-cards':
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {sortedTenants.map((tenant) => (
+              <TenantMetricsCard
+                key={tenant.id}
+                tenant={tenant}
+                metrics={tenantMetrics[tenant.id]}
+                size="large"
+                onEdit={openEditDialog}
+                onDelete={handleDeleteTenant}
+                onViewDetails={handleViewDetails}
+              />
+            ))}
+          </div>
+        );
+      
+      case 'list':
+        return (
+          <TenantListView
+            tenants={sortedTenants}
+            metrics={tenantMetrics}
+            onEdit={openEditDialog}
+            onDelete={handleDeleteTenant}
+            onViewDetails={handleViewDetails}
+          />
+        );
+      
+      case 'analytics':
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {sortedTenants.map((tenant) => (
+              <TenantMetricsCard
+                key={tenant.id}
+                tenant={tenant}
+                metrics={tenantMetrics[tenant.id]}
+                size="large"
+                onEdit={openEditDialog}
+                onDelete={handleDeleteTenant}
+                onViewDetails={handleViewDetails}
+              />
+            ))}
+          </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
 
   if (loading) {
     return (
@@ -235,7 +424,7 @@ export default function TenantManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Tenant Management</h1>
           <p className="text-muted-foreground">Manage and configure tenant organizations</p>
@@ -288,27 +477,27 @@ export default function TenantManagement() {
         </Alert>
       )}
 
-      {/* Filters */}
-      <TenantFilters
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        filterType={filterType}
-        setFilterType={setFilterType}
-        filterStatus={filterStatus}
-        setFilterStatus={setFilterStatus}
-      />
-
-      {/* Tenants Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTenants.map((tenant) => (
-          <TenantCard
-            key={tenant.id}
-            tenant={tenant}
-            onEdit={openEditDialog}
-            onDelete={handleDeleteTenant}
+      {/* View Controls */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex-1">
+          <TenantFilters
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            filterType={filterType}
+            setFilterType={setFilterType}
+            filterStatus={filterStatus}
+            setFilterStatus={setFilterStatus}
           />
-        ))}
+        </div>
+        <TenantViewToggle
+          preferences={viewPreferences}
+          onPreferencesChange={setViewPreferences}
+          totalCount={filteredTenants.length}
+        />
       </div>
+
+      {/* Tenant Views */}
+      {renderTenantView()}
 
       {/* Empty State */}
       {!loading && filteredTenants.length === 0 && (
@@ -355,6 +544,14 @@ export default function TenantManagement() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Details Modal */}
+      <TenantDetailsModal
+        tenant={detailsTenant}
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        onEdit={openEditDialog}
+      />
     </div>
   );
 }
