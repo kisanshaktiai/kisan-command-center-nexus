@@ -5,11 +5,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Plus, AlertCircle } from 'lucide-react';
 import { TenantCard } from '@/components/tenant/TenantCard';
+import { TenantCompactCard } from '@/components/tenant/TenantCompactCard';
 import { TenantForm } from '@/components/tenant/TenantForm';
 import { TenantFilters } from '@/components/tenant/TenantFilters';
+import { TenantDetailModal } from '@/components/tenant/TenantDetailModal';
+import { TenantViewSwitcher, ViewType } from '@/components/tenant/TenantViewSwitcher';
+import { TenantTableView } from '@/components/tenant/TenantTableView';
 import { TenantService } from '@/services/tenantService';
 import { Tenant, TenantFormData, TenantType, TenantStatus } from '@/types/tenant';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from '@/integrations/supabase/client';
 
 export default function TenantManagement() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -19,8 +24,11 @@ export default function TenantManagement() {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [viewType, setViewType] = useState<ViewType>('grid');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -40,7 +48,30 @@ export default function TenantManagement() {
 
   useEffect(() => {
     fetchTenants();
+    setupRealtimeSubscription();
   }, []);
+
+  const setupRealtimeSubscription = () => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tenants'
+        },
+        (payload) => {
+          console.log('Real-time update:', payload);
+          fetchTenants(); // Refresh the tenant list
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
 
   const fetchTenants = async () => {
     try {
@@ -82,7 +113,7 @@ export default function TenantManagement() {
         console.log('Tenant created successfully');
         setIsCreateDialogOpen(false);
         resetForm();
-        await fetchTenants(); // Refresh the list
+        await fetchTenants();
         toast({
           title: "Success",
           description: "Tenant created successfully",
@@ -145,6 +176,8 @@ export default function TenantManagement() {
       console.log('Tenant deleted successfully');
 
       setTenants(prev => prev.filter(t => t.id !== tenantId));
+      setIsDetailModalOpen(false);
+      setSelectedTenant(null);
       toast({
         title: "Success",
         description: "Tenant deleted successfully",
@@ -163,7 +196,6 @@ export default function TenantManagement() {
     console.log('Opening edit dialog for tenant:', tenant);
     setEditingTenant(tenant);
     
-    // Safely handle metadata and business_address
     const metadata = tenant.metadata && typeof tenant.metadata === 'object' 
       ? tenant.metadata as Record<string, any>
       : {};
@@ -201,6 +233,11 @@ export default function TenantManagement() {
     setIsEditDialogOpen(true);
   };
 
+  const handleViewTenant = (tenant: Tenant) => {
+    setSelectedTenant(tenant);
+    setIsDetailModalOpen(true);
+  };
+
   const resetForm = () => {
     console.log('Resetting form to default values');
     setFormData({
@@ -224,6 +261,49 @@ export default function TenantManagement() {
     const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  const renderTenantView = () => {
+    if (viewType === 'table') {
+      return (
+        <TenantTableView
+          tenants={filteredTenants}
+          onView={handleViewTenant}
+          onEdit={openEditDialog}
+          onDelete={handleDeleteTenant}
+        />
+      );
+    }
+
+    if (viewType === 'list') {
+      return (
+        <div className="space-y-4">
+          {filteredTenants.map((tenant) => (
+            <TenantCard
+              key={tenant.id}
+              tenant={tenant}
+              onEdit={openEditDialog}
+              onDelete={handleDeleteTenant}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    // Grid view (default)
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {filteredTenants.map((tenant) => (
+          <TenantCompactCard
+            key={tenant.id}
+            tenant={tenant}
+            onView={handleViewTenant}
+            onEdit={openEditDialog}
+            onDelete={handleDeleteTenant}
+          />
+        ))}
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -267,7 +347,6 @@ export default function TenantManagement() {
         </Dialog>
       </div>
 
-      {/* Error Alert */}
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -288,29 +367,23 @@ export default function TenantManagement() {
         </Alert>
       )}
 
-      {/* Filters */}
-      <TenantFilters
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        filterType={filterType}
-        setFilterType={setFilterType}
-        filterStatus={filterStatus}
-        setFilterStatus={setFilterStatus}
-      />
-
-      {/* Tenants Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTenants.map((tenant) => (
-          <TenantCard
-            key={tenant.id}
-            tenant={tenant}
-            onEdit={openEditDialog}
-            onDelete={handleDeleteTenant}
-          />
-        ))}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+        <TenantFilters
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          filterType={filterType}
+          setFilterType={setFilterType}
+          filterStatus={filterStatus}
+          setFilterStatus={setFilterStatus}
+        />
+        <TenantViewSwitcher
+          currentView={viewType}
+          onViewChange={setViewType}
+        />
       </div>
 
-      {/* Empty State */}
+      {renderTenantView()}
+
       {!loading && filteredTenants.length === 0 && (
         <div className="text-center py-12">
           <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -338,7 +411,6 @@ export default function TenantManagement() {
         </div>
       )}
 
-      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -355,6 +427,17 @@ export default function TenantManagement() {
           />
         </DialogContent>
       </Dialog>
+
+      <TenantDetailModal
+        tenant={selectedTenant}
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedTenant(null);
+        }}
+        onEdit={openEditDialog}
+        onDelete={handleDeleteTenant}
+      />
     </div>
   );
 }
