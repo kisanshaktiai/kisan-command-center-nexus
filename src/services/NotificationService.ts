@@ -107,11 +107,16 @@ export class NotificationService {
   // Check for expired subscriptions
   async checkExpiredSubscriptions(): Promise<void> {
     try {
-      const { data: expiredSubs } = await supabase
+      const { data: expiredSubs, error } = await supabase
         .from('tenant_subscriptions')
-        .select('tenant_id, end_date')
-        .lt('end_date', new Date().toISOString())
+        .select('tenant_id, subscription_end_date')
+        .lt('subscription_end_date', new Date().toISOString())
         .eq('status', 'active');
+
+      if (error) {
+        console.error('Error checking subscriptions:', error);
+        return;
+      }
 
       if (expiredSubs && expiredSubs.length > 0) {
         for (const sub of expiredSubs) {
@@ -121,7 +126,7 @@ export class NotificationService {
             message: `Tenant subscription has expired and needs renewal`,
             severity: 'error',
             tenant_id: sub.tenant_id,
-            data: { expired_date: sub.end_date }
+            data: { expired_date: sub.subscription_end_date }
           });
         }
       }
