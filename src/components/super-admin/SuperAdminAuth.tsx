@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,12 +17,10 @@ interface SuperAdminAuthProps {
 export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "off" }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [otpError, setOtpError] = useState<string | null>(null);
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
@@ -32,7 +31,6 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
       // Clear form state when component unmounts
       setEmail("");
       setPassword("");
-      setOtp("");
     };
   }, []);
 
@@ -66,25 +64,8 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
     }
   };
 
-  const handleOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setOtpError(null);
-    setIsAuthenticating(true);
-
-    try {
-      // In a real implementation, this would verify the OTP
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (otp === '123456') {
-        navigate('/super-admin');
-      } else {
-        throw new Error('Invalid verification code');
-      }
-    } catch (error) {
-      setOtpError(error instanceof Error ? error.message : 'Verification failed');
-    } finally {
-      setIsAuthenticating(false);
-    }
+  const handleOtpVerifySuccess = () => {
+    navigate('/super-admin');
   };
 
   const handleResendOtp = async () => {
@@ -98,6 +79,11 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
     } finally {
       setIsResending(false);
     }
+  };
+
+  const handleBackToLogin = () => {
+    setOtpSent(false);
+    setLoginError(null);
   };
 
   return (
@@ -142,7 +128,7 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    autoComplete="new-password" // Prevent browser from autofilling
+                    autoComplete="new-password"
                     required
                   />
                 </div>
@@ -171,58 +157,13 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ autocomplete = "
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Two-Factor Authentication</CardTitle>
-              <CardDescription>
-                Enter the verification code sent to your email
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleOtpSubmit} className="space-y-4" autoComplete="off">
-                <div className="space-y-2">
-                  <Label htmlFor="otp">Verification Code</Label>
-                  <OTPVerification
-                    value={otp}
-                    onChange={setOtp}
-                    valueLength={6}
-                    autoFocus
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isAuthenticating || otp.length < 6}
-                >
-                  {isAuthenticating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    "Verify"
-                  )}
-                </Button>
-                {otpError && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Verification Error</AlertTitle>
-                    <AlertDescription>{otpError}</AlertDescription>
-                  </Alert>
-                )}
-                <div className="text-center text-sm">
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto"
-                    onClick={handleResendOtp}
-                    disabled={isResending}
-                  >
-                    {isResending ? 'Sending...' : 'Resend code'}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+          <OTPVerification
+            email={email}
+            onVerifySuccess={handleOtpVerifySuccess}
+            onResendOTP={handleResendOtp}
+            onBack={handleBackToLogin}
+            isLoading={isAuthenticating}
+          />
         )}
       </div>
     </div>
