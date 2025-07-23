@@ -17,8 +17,6 @@ interface EnhancedAuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
-  isAdmin: boolean;
-  userRole: string | null;
   profile: any;
   signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data: any; error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ data: any; error: AuthError | null }>;
@@ -35,8 +33,6 @@ export const useEnhancedAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
 
   // Enhanced sign up with tenant metadata
@@ -168,8 +164,6 @@ export const useEnhancedAuth = () => {
     const unsubscribe = sessionService.subscribe((sessionData) => {
       setSession(sessionData.session);
       setUser(sessionData.user);
-      setIsAdmin(sessionData.isAdmin);
-      setUserRole(sessionData.userRole);
       setIsLoading(false);
       
       if (sessionData.isAuthenticated && sessionData.user) {
@@ -187,8 +181,6 @@ export const useEnhancedAuth = () => {
     user,
     session,
     isLoading,
-    isAdmin,
-    userRole,
     profile,
     signUp,
     signIn,

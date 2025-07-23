@@ -19,13 +19,13 @@ export default function SuperAdmin() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const adminUser = {
-    full_name: user?.user_metadata?.full_name || 'Super Admin',
+    full_name: user?.user_metadata?.full_name || 'Admin',
     email: user?.email || 'admin@example.com',
-    role: 'super_admin',
+    role: 'admin',
   };
 
   return (
-    <ProtectedRoute requireAdmin={true}>
+    <ProtectedRoute>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-slate-100">
         <SuperAdminSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
         <div className="flex-1 flex flex-col">
