@@ -24,8 +24,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('AuthProvider initializing...');
+    
     // Subscribe to session changes
     const unsubscribe = sessionService.subscribe((sessionData) => {
+      console.log('Session data updated:', sessionData);
       setUser(sessionData.user);
       setSession(sessionData.session);
       setIsAdmin(sessionData.isAdmin);

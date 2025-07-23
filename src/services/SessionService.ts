@@ -46,13 +46,23 @@ class SessionService {
     
     if (session?.user) {
       try {
-        // Check admin status using RPC calls with proper type casting
-        const { data: adminData } = await supabase.rpc('is_platform_admin' as any, { user_id: session.user.id });
-        isAdmin = Boolean(adminData);
+        // Check for super admin first, then platform admin
+        const { data: superAdminData } = await supabase.rpc('is_super_admin' as any, { user_id: session.user.id });
+        const { data: platformAdminData } = await supabase.rpc('is_platform_admin' as any, { user_id: session.user.id });
+        
+        isAdmin = Boolean(superAdminData || platformAdminData);
         
         // Get user role
         const { data: roleData } = await supabase.rpc('get_user_role' as any, { user_id: session.user.id });
         userRole = roleData as string | null;
+        
+        console.log('Admin check:', { 
+          userId: session.user.id, 
+          superAdmin: superAdminData, 
+          platformAdmin: platformAdminData, 
+          isAdmin,
+          userRole 
+        });
       } catch (error) {
         console.error('Error checking admin status:', error);
         isAdmin = false;
@@ -127,8 +137,9 @@ class SessionService {
     if (!this.sessionData.user) return false;
     
     try {
-      const { data } = await supabase.rpc('is_platform_admin' as any, { user_id: this.sessionData.user.id });
-      return Boolean(data);
+      const { data: superAdminData } = await supabase.rpc('is_super_admin' as any, { user_id: this.sessionData.user.id });
+      const { data: platformAdminData } = await supabase.rpc('is_platform_admin' as any, { user_id: this.sessionData.user.id });
+      return Boolean(superAdminData || platformAdminData);
     } catch (error) {
       console.error('Error checking admin status:', error);
       return false;

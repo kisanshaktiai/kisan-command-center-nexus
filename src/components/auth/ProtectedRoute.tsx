@@ -17,6 +17,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { user, isLoading, isAdmin } = useAuth();
 
+  console.log('ProtectedRoute check:', { user: !!user, isLoading, isAdmin, requireAdmin });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
@@ -33,10 +35,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!user) {
+    console.log('No user found, redirecting to auth');
     return <Navigate to="/auth" replace />;
   }
 
   if (requireAdmin && !isAdmin) {
+    console.log('Admin required but user is not admin:', { isAdmin, user: user.email });
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
         <Card className="w-full max-w-md">
@@ -45,6 +49,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
               <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
               <h2 className="text-xl font-semibold">Access Denied</h2>
               <p className="text-muted-foreground">You don't have permission to access this page.</p>
+              <p className="text-sm text-gray-500">User: {user.email}</p>
+              <p className="text-sm text-gray-500">Admin Status: {isAdmin ? 'Yes' : 'No'}</p>
               <Button 
                 onClick={() => window.location.href = '/auth'} 
                 variant="outline"
