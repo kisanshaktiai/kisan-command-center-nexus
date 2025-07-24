@@ -10,11 +10,11 @@ interface ProtectedRouteProps {
   requireAdmin?: boolean;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  requireAdmin = false 
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  requireAdmin = false
 }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isAdmin } = useAuth();
 
   if (isLoading) {
     return (
@@ -35,6 +35,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/auth" replace />;
   }
 
-  // All authenticated users are now automatically admins, so no access denied
+  if (requireAdmin && !isAdmin) {
+    return <Navigate to="/access-denied" replace />;
+  }
+
   return <>{children}</>;
 };
