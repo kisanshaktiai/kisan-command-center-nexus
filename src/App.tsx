@@ -10,6 +10,7 @@ import SuperAdmin from "./pages/SuperAdmin";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/auth/AuthCallback";
 import ResetPassword from "./pages/auth/ResetPassword";
+import AccessDenied from "./pages/AccessDenied";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
                 <Route key={to} path={to} element={page} />
               ))}
               <Route path="/super-admin/*" element={<SuperAdmin />} />
+              <Route path="/access-denied" element={<AccessDenied />} />
             </Routes>
           </BrowserRouter>
         </div>
