@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { authService } from '@/services/AuthService';
 import { securityService } from '@/services/SecurityService';
 import { toast } from 'sonner';
@@ -140,7 +141,7 @@ export const useAdminAuth = () => {
           isLoading: false,
           error: result.error?.message || 'Authentication failed'
         }));
-        return { success: false, error: result.error };
+        return { success: false, error: result.error?.message || 'Authentication failed' };
       }
 
       setState({

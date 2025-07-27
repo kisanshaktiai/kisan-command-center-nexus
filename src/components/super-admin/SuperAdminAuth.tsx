@@ -37,7 +37,8 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
       toast.success('Successfully logged in as admin');
       navigate('/super-admin/overview');
     } else {
-      toast.error(result.error || 'Login failed');
+      const errorMessage = typeof result.error === 'string' ? result.error : result.error?.message || 'Login failed';
+      toast.error(errorMessage);
     }
   };
 
