@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { securityService } from '@/services/SecurityService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,25 +22,6 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const logSecurityEvent = async (eventType: string, metadata: any = {}) => {
-    try {
-      const { error } = await supabase.rpc('log_security_event', {
-        event_type: eventType,
-        user_id: null,
-        tenant_id: null,
-        metadata,
-        ip_address: 'client_side',
-        user_agent: navigator.userAgent
-      });
-      
-      if (error) {
-        console.warn('Failed to log security event:', error);
-      }
-    } catch (err) {
-      console.warn('Failed to log security event:', err);
-    }
-  };
-
   const validateAdminAccess = async (): Promise<void> => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -48,22 +30,27 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
         throw new Error('Authentication required');
       }
 
-      // Use the new security definer function to check admin status
-      const { data: isAdmin, error: adminError } = await supabase
-        .rpc('is_current_user_super_admin' as any);
-
-      if (adminError) {
-        console.error('Error checking admin status:', adminError);
-        throw new Error('Failed to verify admin privileges');
-      }
-
+      // Use the new security service method
+      const isAdmin = await securityService.isCurrentUserSuperAdmin();
+      
       if (!isAdmin) {
-        throw new Error('Access denied: Admin privileges required');
+        throw new Error('Access denied: Super admin privileges required');
       }
 
       // Log successful admin access
-      await logSecurityEvent('admin_login_success', {
-        timestamp: new Date().toISOString(),
+      await securityService.logSecurityEvent({
+        event_type: 'admin_login_success',
+        user_id: user.id,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          login_method: 'password'
+        }
+      });
+
+      // Track admin session
+      await securityService.trackAdminSession({
+        login_timestamp: new Date().toISOString(),
+        user_agent: navigator.userAgent,
         ip_address: 'client_side'
       });
 
@@ -71,10 +58,14 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
       // Log failed access attempt
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await logSecurityEvent('admin_access_denied', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          timestamp: new Date().toISOString(),
-          ip_address: 'client_side'
+        await securityService.logSecurityEvent({
+          event_type: 'admin_access_denied',
+          user_id: user.id,
+          metadata: {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: new Date().toISOString(),
+            attempted_email: email
+          }
         });
       }
       
@@ -110,7 +101,7 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
       // Validate admin access using the new function
       await validateAdminAccess();
 
-      toast.success('Successfully logged in as admin');
+      toast.success('Successfully logged in as super admin');
       navigate('/super-admin/overview');
 
     } catch (error) {

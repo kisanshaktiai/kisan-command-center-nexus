@@ -63,7 +63,7 @@ export class SecurityService {
 
       // Check if user is super admin using the new function
       const { data: isAdmin, error: adminError } = await supabase
-        .rpc('is_current_user_super_admin' as any);
+        .rpc('is_current_user_super_admin');
 
       if (!adminError && isAdmin) {
         return { isValid: true, tenantId };
@@ -107,7 +107,7 @@ export class SecurityService {
 
       // Check admin roles using the new security definer function
       const { data: currentRole, error: roleError } = await supabase
-        .rpc('get_current_admin_role' as any);
+        .rpc('get_current_admin_role');
 
       if (!roleError && currentRole) {
         const roleHierarchy = ['super_admin', 'platform_admin', 'admin'];
@@ -187,6 +187,54 @@ export class SecurityService {
     }
   }
 
+  // Check if current user is super admin
+  async isCurrentUserSuperAdmin(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc('is_current_user_super_admin');
+      return !error && data === true;
+    } catch (error) {
+      console.error('Error checking super admin status:', error);
+      return false;
+    }
+  }
+
+  // Check if current user is any type of admin
+  async isCurrentUserAdmin(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc('is_current_user_admin');
+      return !error && data === true;
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+  }
+
+  // Get current admin role
+  async getCurrentAdminRole(): Promise<string | null> {
+    try {
+      const { data, error } = await supabase.rpc('get_current_admin_role');
+      return !error && data ? data : null;
+    } catch (error) {
+      console.error('Error getting admin role:', error);
+      return null;
+    }
+  }
+
+  // Track admin session
+  async trackAdminSession(sessionData: Record<string, any> = {}): Promise<void> {
+    try {
+      const { error } = await supabase.rpc('track_admin_session', {
+        session_data: sessionData
+      });
+      
+      if (error) {
+        console.error('Failed to track admin session:', error);
+      }
+    } catch (error) {
+      console.error('Failed to track admin session:', error);
+    }
+  }
+
   // Monitor for suspicious activities
   async detectSuspiciousActivity(userId: string, activity: string): Promise<void> {
     try {
@@ -195,7 +243,7 @@ export class SecurityService {
       
       // Use a more generic approach to avoid TypeScript issues
       const { count, error } = await supabase
-        .from('security_events' as any)
+        .from('security_events')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
         .eq('event_type', activity)

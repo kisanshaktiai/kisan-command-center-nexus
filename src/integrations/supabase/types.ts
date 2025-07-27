@@ -5695,6 +5695,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      check_admin_permission: {
+        Args: { required_role?: string }
+        Returns: boolean
+      }
       check_slug_availability: {
         Args: { p_slug: string }
         Returns: Json
@@ -6225,6 +6229,10 @@ export type Database = {
         Args: { "": string }
         Returns: unknown
       }
+      get_current_admin_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_current_tenant_id: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -6283,6 +6291,14 @@ export type Database = {
         Returns: unknown
       }
       is_authenticated_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_current_user_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_current_user_super_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
@@ -7627,6 +7643,10 @@ export type Database = {
       text: {
         Args: { "": unknown }
         Returns: string
+      }
+      track_admin_session: {
+        Args: { session_data?: Json }
+        Returns: undefined
       }
       track_failed_login: {
         Args: {

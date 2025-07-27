@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { safeGet } from '@/lib/supabase-helpers';
 import { sessionService } from '@/services/SessionService';
+import { securityService } from '@/services/SecurityService';
 
 interface TenantData {
   organizationName: string;
@@ -19,6 +20,8 @@ interface EnhancedAuthContextType {
   session: Session | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
+  adminRole: string | null;
   profile: any;
   signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data: any; error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ data: any; error: AuthError | null }>;
@@ -36,6 +39,8 @@ export const useEnhancedAuth = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [adminRole, setAdminRole] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
 
   // Enhanced sign up with tenant metadata
@@ -73,6 +78,18 @@ export const useEnhancedAuth = () => {
       });
 
       if (error) throw error;
+
+      // Log successful login
+      if (data.user) {
+        await securityService.logSecurityEvent({
+          event_type: 'user_login',
+          user_id: data.user.id,
+          metadata: {
+            timestamp: new Date().toISOString(),
+            login_method: 'password'
+          }
+        });
+      }
 
       return { data, error: null };
     } catch (error) {
@@ -143,6 +160,12 @@ export const useEnhancedAuth = () => {
   const trackSession = async (deviceInfo?: any) => {
     try {
       if (!session) return;
+      
+      // Track admin session if user is admin
+      if (isAdmin) {
+        await securityService.trackAdminSession(deviceInfo);
+      }
+      
       console.log('Session tracking active');
     } catch (error) {
       console.error('Error tracking session:', error);
@@ -152,6 +175,16 @@ export const useEnhancedAuth = () => {
   // Sign out with session cleanup
   const signOut = async () => {
     try {
+      if (user) {
+        await securityService.logSecurityEvent({
+          event_type: 'user_logout',
+          user_id: user.id,
+          metadata: {
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+      
       await sessionService.signOut();
     } catch (error) {
       console.error('Error signing out:', error);
@@ -169,21 +202,49 @@ export const useEnhancedAuth = () => {
     }
   };
 
+  // Check admin status
+  const checkAdminStatus = async () => {
+    if (!user) {
+      setIsAdmin(false);
+      setIsSuperAdmin(false);
+      setAdminRole(null);
+      return;
+    }
+
+    try {
+      const [adminStatus, superAdminStatus, role] = await Promise.all([
+        securityService.isCurrentUserAdmin(),
+        securityService.isCurrentUserSuperAdmin(),
+        securityService.getCurrentAdminRole()
+      ]);
+
+      setIsAdmin(adminStatus);
+      setIsSuperAdmin(superAdminStatus);
+      setAdminRole(role);
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      setIsAdmin(false);
+      setIsSuperAdmin(false);
+      setAdminRole(null);
+    }
+  };
+
   // Set up auth state listener using session service
   useEffect(() => {
     const unsubscribe = sessionService.subscribe((sessionData) => {
       setSession(sessionData.session);
       setUser(sessionData.user);
-      setIsAdmin(false); // Will be updated by checkAdminStatus
       setIsLoading(false);
       
       if (sessionData.isAuthenticated && sessionData.user) {
-        // Check admin status
-        sessionService.isAdmin().then(setIsAdmin);
+        checkAdminStatus();
         refreshProfile();
         trackSession();
       } else {
         setProfile(null);
+        setIsAdmin(false);
+        setIsSuperAdmin(false);
+        setAdminRole(null);
       }
     });
 
@@ -195,6 +256,8 @@ export const useEnhancedAuth = () => {
     session,
     isLoading,
     isAdmin,
+    isSuperAdmin,
+    adminRole,
     profile,
     signUp,
     signIn,

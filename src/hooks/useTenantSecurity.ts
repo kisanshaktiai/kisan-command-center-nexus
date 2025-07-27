@@ -10,6 +10,8 @@ export interface TenantSecurityState {
   error: string | null;
   hasAccess: boolean;
   userRole?: string;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
 }
 
 export const useTenantSecurity = (tenantId?: string, requiredRole?: string) => {
@@ -18,7 +20,9 @@ export const useTenantSecurity = (tenantId?: string, requiredRole?: string) => {
     isValidated: false,
     isLoading: true,
     error: null,
-    hasAccess: false
+    hasAccess: false,
+    isAdmin: false,
+    isSuperAdmin: false
   });
 
   useEffect(() => {
@@ -28,7 +32,9 @@ export const useTenantSecurity = (tenantId?: string, requiredRole?: string) => {
           isValidated: true,
           isLoading: false,
           error: 'Authentication required',
-          hasAccess: false
+          hasAccess: false,
+          isAdmin: false,
+          isSuperAdmin: false
         });
         return;
       }
@@ -36,6 +42,13 @@ export const useTenantSecurity = (tenantId?: string, requiredRole?: string) => {
       setState(prev => ({ ...prev, isLoading: true }));
 
       try {
+        // Check admin status
+        const [isAdmin, isSuperAdmin] = await Promise.all([
+          securityService.isCurrentUserAdmin(),
+          securityService.isCurrentUserSuperAdmin()
+        ]);
+
+        // Validate API access
         const validation = await securityService.validateApiAccess(tenantId, requiredRole);
         
         setState({
@@ -43,7 +56,9 @@ export const useTenantSecurity = (tenantId?: string, requiredRole?: string) => {
           isLoading: false,
           error: validation.error || null,
           hasAccess: validation.isValid,
-          userRole: requiredRole
+          userRole: requiredRole,
+          isAdmin,
+          isSuperAdmin
         });
 
         if (!validation.isValid && validation.error) {
@@ -55,7 +70,9 @@ export const useTenantSecurity = (tenantId?: string, requiredRole?: string) => {
           isValidated: true,
           isLoading: false,
           error: errorMessage,
-          hasAccess: false
+          hasAccess: false,
+          isAdmin: false,
+          isSuperAdmin: false
         });
         toast.error(errorMessage);
       }
