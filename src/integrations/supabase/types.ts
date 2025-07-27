@@ -64,6 +64,101 @@ export type Database = {
           },
         ]
       }
+      admin_audit_logs: {
+        Row: {
+          action: string
+          admin_id: string | null
+          created_at: string | null
+          details: Json | null
+          id: string
+          ip_address: unknown | null
+          target_admin_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          admin_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          target_admin_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          target_admin_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_logs_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_audit_logs_target_admin_id_fkey"
+            columns: ["target_admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          metadata: Json | null
+          priority: string | null
+          read_at: string | null
+          recipient_id: string | null
+          title: string
+          type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          metadata?: Json | null
+          priority?: string | null
+          read_at?: string | null
+          recipient_id?: string | null
+          title: string
+          type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          metadata?: Json | null
+          priority?: string | null
+          read_at?: string | null
+          recipient_id?: string | null
+          title?: string
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_users: {
         Row: {
           created_at: string | null
@@ -1142,6 +1237,7 @@ export type Database = {
           ssl_status: string | null
           tenant_id: string | null
           updated_at: string | null
+          version: number | null
         }
         Insert: {
           created_at?: string | null
@@ -1153,6 +1249,7 @@ export type Database = {
           ssl_status?: string | null
           tenant_id?: string | null
           updated_at?: string | null
+          version?: number | null
         }
         Update: {
           created_at?: string | null
@@ -1164,6 +1261,7 @@ export type Database = {
           ssl_status?: string | null
           tenant_id?: string | null
           updated_at?: string | null
+          version?: number | null
         }
         Relationships: [
           {
@@ -3819,6 +3917,7 @@ export type Database = {
           tenant_id: string | null
           text_color: string | null
           updated_at: string | null
+          version: number | null
         }
         Insert: {
           accent_color?: string | null
@@ -3841,6 +3940,7 @@ export type Database = {
           tenant_id?: string | null
           text_color?: string | null
           updated_at?: string | null
+          version?: number | null
         }
         Update: {
           accent_color?: string | null
@@ -3863,6 +3963,7 @@ export type Database = {
           tenant_id?: string | null
           text_color?: string | null
           updated_at?: string | null
+          version?: number | null
         }
         Relationships: [
           {
@@ -3873,6 +3974,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tenant_detection_events: {
+        Row: {
+          created_at: string
+          detection_method: string | null
+          domain: string
+          error_details: Json | null
+          event_type: string
+          fallback_reason: string | null
+          id: string
+          ip_address: unknown | null
+          metadata: Json | null
+          session_id: string | null
+          tenant_id: string | null
+          timestamp: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          detection_method?: string | null
+          domain: string
+          error_details?: Json | null
+          event_type: string
+          fallback_reason?: string | null
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          session_id?: string | null
+          tenant_id?: string | null
+          timestamp?: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          detection_method?: string | null
+          domain?: string
+          error_details?: Json | null
+          event_type?: string
+          fallback_reason?: string | null
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          session_id?: string | null
+          tenant_id?: string | null
+          timestamp?: string
+          user_agent?: string | null
+        }
+        Relationships: []
       }
       tenant_features: {
         Row: {
@@ -4082,6 +4231,8 @@ export type Database = {
       }
       tenants: {
         Row: {
+          branding_updated_at: string | null
+          branding_version: number | null
           business_address: Json | null
           business_registration: string | null
           created_at: string | null
@@ -4114,6 +4265,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          branding_updated_at?: string | null
+          branding_version?: number | null
           business_address?: Json | null
           business_registration?: string | null
           created_at?: string | null
@@ -4146,6 +4299,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          branding_updated_at?: string | null
+          branding_version?: number | null
           business_address?: Json | null
           business_registration?: string | null
           created_at?: string | null
@@ -6147,6 +6302,16 @@ export type Database = {
         Args: { "": unknown }
         Returns: Json
       }
+      log_admin_action: {
+        Args: {
+          p_action: string
+          p_target_admin_id?: string
+          p_details?: Json
+          p_ip_address?: unknown
+          p_user_agent?: string
+        }
+        Returns: string
+      }
       log_security_event: {
         Args: {
           event_type: string
@@ -6155,6 +6320,21 @@ export type Database = {
           metadata?: Json
           ip_address?: string
           user_agent?: string
+        }
+        Returns: string
+      }
+      log_tenant_detection_event: {
+        Args: {
+          p_event_type: string
+          p_domain: string
+          p_tenant_id?: string
+          p_fallback_reason?: string
+          p_detection_method?: string
+          p_user_agent?: string
+          p_ip_address?: unknown
+          p_metadata?: Json
+          p_error_details?: Json
+          p_session_id?: string
         }
         Returns: string
       }
@@ -6350,6 +6530,17 @@ export type Database = {
       }
       postgis_wagyu_version: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      send_admin_notification: {
+        Args: {
+          p_recipient_id: string
+          p_title: string
+          p_message: string
+          p_type?: string
+          p_priority?: string
+          p_metadata?: Json
+        }
         Returns: string
       }
       set_limit: {

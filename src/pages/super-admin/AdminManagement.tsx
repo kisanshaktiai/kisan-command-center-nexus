@@ -1,11 +1,7 @@
 
 import React from 'react';
-import { AdminUserManagement } from '@/components/admin/AdminUserManagement';
+import { EnhancedAdminUserManagement } from '@/components/admin/EnhancedAdminUserManagement';
 
 export default function AdminManagement() {
-  return (
-    <div className="container mx-auto py-6">
-      <AdminUserManagement />
-    </div>
-  );
+  return <EnhancedAdminUserManagement />;
 }
