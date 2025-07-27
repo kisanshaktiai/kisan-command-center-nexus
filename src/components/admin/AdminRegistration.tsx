@@ -9,11 +9,17 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { PasswordStrength, validatePassword } from '@/components/ui/password-strength';
-import { Loader2, Shield, Eye, EyeOff, UserPlus, AlertTriangle } from 'lucide-react';
+import { Loader2, Shield, Eye, EyeOff, UserPlus, AlertTriangle, Clock, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AdminRegistrationProps {
   onToggleMode: () => void;
+}
+
+interface RateLimitInfo {
+  isRateLimited: boolean;
+  retryAfter: number;
+  message: string;
 }
 
 export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMode }) => {
@@ -26,7 +32,12 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [retryCount, setRetryCount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo>({
+    isRateLimited: false,
+    retryAfter: 0,
+    message: ''
+  });
   const navigate = useNavigate();
   const { signUp } = useAuth();
 
@@ -51,12 +62,43 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setError('');
+    // Clear rate limit info when user starts typing
+    if (rateLimitInfo.isRateLimited) {
+      setRateLimitInfo({ isRateLimited: false, retryAfter: 0, message: '' });
+    }
+  };
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const handleRateLimitError = (retryAfter: number) => {
+    setRateLimitInfo({
+      isRateLimited: true,
+      retryAfter: retryAfter,
+      message: `Rate limit exceeded. Please wait ${retryAfter} seconds before trying again.`
+    });
+    
+    // Start countdown
+    const countdown = setInterval(() => {
+      setRateLimitInfo(prev => {
+        if (prev.retryAfter <= 1) {
+          clearInterval(countdown);
+          return { isRateLimited: false, retryAfter: 0, message: '' };
+        }
+        return {
+          ...prev,
+          retryAfter: prev.retryAfter - 1,
+          message: `Rate limit exceeded. Please wait ${prev.retryAfter - 1} seconds before trying again.`
+        };
+      });
+    }, 1000);
   };
 
   const assignAdminRole = async (userId: string, retryAttempt = 0) => {
     const maxRetries = 3;
     
     try {
+      console.log(`Attempting to assign admin role (attempt ${retryAttempt + 1}/${maxRetries + 1})`);
+      
       const response = await fetch('https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/assign-admin-role', {
         method: 'POST',
         headers: {
@@ -75,6 +117,13 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
         const errorData = await response.json();
         console.error('Role assignment error:', errorData);
         
+        // Handle rate limiting
+        if (response.status === 429) {
+          const retryAfter = parseInt(response.headers.get('retry-after') || '60');
+          handleRateLimitError(retryAfter);
+          throw new Error(`Rate limit exceeded. Please wait ${retryAfter} seconds before trying again.`);
+        }
+        
         // Handle specific error codes
         if (errorData.code === 'ALREADY_ADMIN') {
           toast.success('Admin registration successful! Role was already assigned.');
@@ -91,8 +140,9 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
         
         // Retry for transient errors
         if (retryAttempt < maxRetries && (errorData.code === 'INTERNAL_ERROR' || response.status >= 500)) {
-          console.log(`Retrying role assignment (attempt ${retryAttempt + 1}/${maxRetries})`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * (retryAttempt + 1))); // Exponential backoff
+          const backoffDelay = Math.min(1000 * Math.pow(2, retryAttempt), 10000);
+          console.log(`Retrying role assignment in ${backoffDelay}ms (attempt ${retryAttempt + 1}/${maxRetries})`);
+          await sleep(backoffDelay);
           return assignAdminRole(userId, retryAttempt + 1);
         }
         
@@ -105,17 +155,57 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
       
     } catch (error) {
       console.error('Role assignment failed:', error);
+      
+      // Don't retry rate limit errors
+      if (error.message.includes('Rate limit exceeded')) {
+        throw error;
+      }
+      
       if (retryAttempt < maxRetries) {
-        console.log(`Retrying role assignment (attempt ${retryAttempt + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * (retryAttempt + 1)));
+        const backoffDelay = Math.min(1000 * Math.pow(2, retryAttempt), 10000);
+        console.log(`Retrying role assignment in ${backoffDelay}ms (attempt ${retryAttempt + 1}/${maxRetries})`);
+        await sleep(backoffDelay);
         return assignAdminRole(userId, retryAttempt + 1);
       }
       throw error;
     }
   };
 
+  const handleAuthRateLimit = async (signUpFunction: () => Promise<any>, retryAttempt = 0) => {
+    const maxRetries = 3;
+    
+    try {
+      return await signUpFunction();
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      
+      // Handle auth rate limiting
+      if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+        if (retryAttempt < maxRetries) {
+          const backoffDelay = Math.min(2000 * Math.pow(2, retryAttempt), 30000);
+          console.log(`Auth rate limited, retrying in ${backoffDelay}ms (attempt ${retryAttempt + 1}/${maxRetries})`);
+          
+          setError(`Rate limit exceeded. Retrying in ${Math.ceil(backoffDelay / 1000)} seconds...`);
+          await sleep(backoffDelay);
+          
+          return handleAuthRateLimit(signUpFunction, retryAttempt + 1);
+        }
+        
+        handleRateLimitError(60);
+        throw new Error('Authentication rate limit exceeded. Please try again later.');
+      }
+      
+      throw error;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent multiple submissions
+    if (isSubmitting || isLoading || rateLimitInfo.isRateLimited) {
+      return;
+    }
     
     if (!formData.email || !formData.password || !formData.fullName || !formData.role) {
       setError('Please fill in all required fields');
@@ -128,19 +218,22 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
       return;
     }
 
+    setIsSubmitting(true);
     setIsLoading(true);
     setError('');
 
     try {
       console.log('Starting admin registration process...');
       
-      const { data, error } = await signUp(formData.email, formData.password, {
+      const signUpFunction = () => signUp(formData.email, formData.password, {
         organizationName: 'Admin Organization',
         organizationType: 'admin',
         fullName: formData.fullName,
         phone: '',
         tenantId: undefined
       });
+
+      const { data, error } = await handleAuthRateLimit(signUpFunction);
 
       if (error) {
         console.error('Supabase signup error:', error);
@@ -156,12 +249,15 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
           
           // Reset form on success
           setFormData({ email: '', password: '', fullName: '', role: '' });
-          setRetryCount(0);
           
         } catch (roleError) {
           console.error('Role assignment failed:', roleError);
-          toast.error(`Registration successful but role assignment failed: ${roleError.message}`);
-          setError(`Account created but role assignment failed: ${roleError.message}`);
+          
+          // Don't show error for rate limit - it's handled by the rate limit UI
+          if (!roleError.message.includes('Rate limit exceeded')) {
+            toast.error(`Registration successful but role assignment failed: ${roleError.message}`);
+            setError(`Account created but role assignment failed: ${roleError.message}`);
+          }
         }
       } else {
         throw new Error('User creation failed - no user data returned');
@@ -170,12 +266,19 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
     } catch (error) {
       console.error('Registration error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Registration failed';
-      setError(errorMessage);
-      toast.error(errorMessage);
+      
+      // Don't show error toast for rate limit - it's handled by the rate limit UI
+      if (!errorMessage.includes('Rate limit exceeded')) {
+        setError(errorMessage);
+        toast.error(errorMessage);
+      }
     } finally {
       setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
+
+  const isFormDisabled = isLoading || isSubmitting || rateLimitInfo.isRateLimited;
 
   return (
     <Card className="w-full max-w-md">
@@ -200,6 +303,16 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
             </Alert>
           )}
           
+          {rateLimitInfo.isRateLimited && (
+            <Alert>
+              <Clock className="h-4 w-4" />
+              <AlertDescription className="flex items-center gap-2">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                {rateLimitInfo.message}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="space-y-2">
             <Label htmlFor="fullName">Full Name</Label>
             <Input
@@ -208,7 +321,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
               value={formData.fullName}
               onChange={(e) => handleInputChange('fullName', e.target.value)}
               placeholder="Enter your full name"
-              disabled={isLoading}
+              disabled={isFormDisabled}
               required
             />
           </div>
@@ -221,14 +334,18 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
               value={formData.email}
               onChange={(e) => handleInputChange('email', e.target.value)}
               placeholder="admin@example.com"
-              disabled={isLoading}
+              disabled={isFormDisabled}
               required
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="role">Admin Role</Label>
-            <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value)}>
+            <Select 
+              value={formData.role} 
+              onValueChange={(value) => handleInputChange('role', value)}
+              disabled={isFormDisabled}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select admin role" />
               </SelectTrigger>
@@ -254,7 +371,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
                 value={formData.password}
                 onChange={(e) => handleInputChange('password', e.target.value)}
                 placeholder="Create a strong password"
-                disabled={isLoading}
+                disabled={isFormDisabled}
                 required
               />
               <Button
@@ -263,7 +380,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
                 size="sm"
                 className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                 onClick={() => setShowPassword(!showPassword)}
-                disabled={isLoading}
+                disabled={isFormDisabled}
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -281,12 +398,17 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
           <Button
             type="submit"
             className="w-full"
-            disabled={isLoading}
+            disabled={isFormDisabled}
           >
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Creating Admin Account...
+              </>
+            ) : rateLimitInfo.isRateLimited ? (
+              <>
+                <Clock className="mr-2 h-4 w-4" />
+                Please wait {rateLimitInfo.retryAfter}s
               </>
             ) : (
               'Create Admin Account'
@@ -299,6 +421,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
               variant="link"
               onClick={onToggleMode}
               className="text-sm"
+              disabled={isFormDisabled}
             >
               Already have an account? Sign in
             </Button>

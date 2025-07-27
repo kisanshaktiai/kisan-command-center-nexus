@@ -18,7 +18,7 @@ enable_signup = true
 enable_anonymous_sign_ins = false
 enable_email_confirmations = false
 enable_phone_confirmations = false
-enable_email_autoconfirm = false
+enable_email_autoconfirm = true
 enable_phone_autoconfirm = false
 
 [auth.email]
