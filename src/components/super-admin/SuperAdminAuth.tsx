@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
@@ -37,7 +36,7 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
       toast.success('Successfully logged in as admin');
       navigate('/super-admin/overview');
     } else {
-      const errorMessage = typeof result.error === 'string' ? result.error : result.error?.message || 'Login failed';
+      const errorMessage = result.error || 'Login failed';
       toast.error(errorMessage);
     }
   };
