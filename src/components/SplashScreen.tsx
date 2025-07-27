@@ -68,8 +68,8 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   }
 
   const logoUrl = currentTenant?.branding?.logo_url;
-  const companyName = currentTenant?.branding?.company_name || currentTenant?.name;
-  const tagline = currentTenant?.branding?.tagline;
+  const companyName = currentTenant?.branding?.app_name || currentTenant?.name;
+  const tagline = currentTenant?.branding?.app_tagline;
   const primaryColor = currentTenant?.branding?.primary_color;
 
   return (

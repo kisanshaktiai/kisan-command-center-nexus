@@ -54,7 +54,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const transformedTenants = allTenants?.map(tenant => ({
             ...tenant,
             subscription_plan: tenant.subscription_plan as SubscriptionPlan,
-            settings: tenant.settings || {}
+            metadata: (tenant.metadata as Record<string, any>) || {}
           })) || [];
 
           return transformedTenants;
@@ -71,7 +71,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 type,
                 subscription_plan,
                 status,
-                settings,
                 created_at,
                 updated_at,
                 owner_name,
@@ -105,7 +104,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const transformedTenants = userTenants?.map(ut => ({
             ...ut.tenants,
             subscription_plan: ut.tenants.subscription_plan as SubscriptionPlan,
-            settings: ut.tenants.settings || {}
+            metadata: (ut.tenants.metadata as Record<string, any>) || {}
           })).filter(Boolean) || [];
 
           return transformedTenants;
