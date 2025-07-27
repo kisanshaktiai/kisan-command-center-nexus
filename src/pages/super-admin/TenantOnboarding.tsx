@@ -1,28 +1,104 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { useRealtimeOnboarding } from '@/hooks/useRealtimeOnboarding';
-import { OnboardingAnalytics } from '@/components/onboarding/OnboardingAnalytics';
-import { IntelligentWorkflowCreator } from '@/components/onboarding/IntelligentWorkflowCreator';
-import { RealTimeWorkflowCard } from '@/components/onboarding/RealTimeWorkflowCard';
-import { SmartStepManager } from '@/components/onboarding/SmartStepManager';
-import { useQuery } from '@tanstack/react-query';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { CheckCircle, Clock, AlertCircle, Play, Pause, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Filter, Zap, TrendingUp, Users, Clock } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+
+interface OnboardingWorkflow {
+  id: string;
+  tenant_id: string;
+  current_step: number;
+  total_steps: number;
+  status: string;
+  started_at: string;
+  completed_at: string | null;
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  tenants?: {
+    name: string;
+    status: string;
+  };
+}
+
+interface OnboardingStep {
+  id: string;
+  workflow_id: string;
+  step_number: number;
+  step_name: string;
+  step_status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
+  step_data: Record<string, any>;
+  validation_errors: any[];
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const ONBOARDING_STEPS = [
+  { number: 1, name: 'Business Verification', description: 'Verify GST, PAN, and business documents' },
+  { number: 2, name: 'Subscription Plan', description: 'Select and configure subscription plan' },
+  { number: 3, name: 'Branding Configuration', description: 'Set up logo, colors, and brand identity' },
+  { number: 4, name: 'Feature Selection', description: 'Choose features and set limits' },
+  { number: 5, name: 'Data Import', description: 'Import existing farmer and product data' },
+  { number: 6, name: 'Team Invites', description: 'Invite team members and set roles' }
+];
 
 export default function TenantOnboarding() {
-  const [selectedWorkflow, setSelectedWorkflow] = useState<any>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  
-  const { data: onboardingData, isLoading, error } = useRealtimeOnboarding();
+  const [selectedWorkflow, setSelectedWorkflow] = useState<OnboardingWorkflow | null>(null);
+  const [selectedTenant, setSelectedTenant] = useState<string>('');
+  const queryClient = useQueryClient();
 
-  // Fetch available tenants for workflow creation
+  // Fetch onboarding workflows
+  const { data: workflows = [], isLoading: workflowsLoading } = useQuery({
+    queryKey: ['onboarding-workflows'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('onboarding_workflows')
+        .select(`
+          *,
+          tenants(name, status)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as OnboardingWorkflow[];
+    }
+  });
+
+  // Fetch onboarding steps
+  const { data: steps = [], isLoading: stepsLoading } = useQuery({
+    queryKey: ['onboarding-steps', selectedWorkflow?.id],
+    queryFn: async () => {
+      if (!selectedWorkflow?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('onboarding_steps')
+        .select('*')
+        .eq('workflow_id', selectedWorkflow.id)
+        .order('step_number');
+      
+      if (error) throw error;
+      
+      // Transform validation_errors from Json to any[]
+      return data.map(step => ({
+        ...step,
+        validation_errors: Array.isArray(step.validation_errors) ? 
+          step.validation_errors : 
+          typeof step.validation_errors === 'string' ? 
+            JSON.parse(step.validation_errors) : []
+      })) as OnboardingStep[];
+    },
+    enabled: !!selectedWorkflow?.id
+  });
+
+  // Fetch tenants without workflows
   const { data: availableTenants = [] } = useQuery({
     queryKey: ['available-tenants'],
     queryFn: async () => {
@@ -34,7 +110,7 @@ export default function TenantOnboarding() {
       
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, name, subscription_plan')
+        .select('id, name')
         .not('id', 'in', existingTenantIds.length > 0 ? `(${existingTenantIds.join(',')})` : '()')
         .eq('status', 'active');
       
@@ -43,147 +119,194 @@ export default function TenantOnboarding() {
     }
   });
 
-  const filteredWorkflows = onboardingData.workflows.filter(workflow => {
-    const matchesSearch = workflow.tenants?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
-    const matchesStatus = statusFilter === 'all' || workflow.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  // Create onboarding workflow mutation
+  const createWorkflowMutation = useMutation({
+    mutationFn: async (tenantId: string) => {
+      // Create workflow
+      const { data: workflow, error: workflowError } = await supabase
+        .from('onboarding_workflows')
+        .insert([{
+          tenant_id: tenantId,
+          current_step: 1,
+          total_steps: 6,
+          status: 'in_progress',
+          metadata: {}
+        }])
+        .select()
+        .single();
+      
+      if (workflowError) throw workflowError;
+
+      // Create steps
+      const stepsData = ONBOARDING_STEPS.map(step => ({
+        workflow_id: workflow.id,
+        step_number: step.number,
+        step_name: step.name,
+        step_status: step.number === 1 ? 'in_progress' as const : 'pending' as const,
+        step_data: {},
+        validation_errors: []
+      }));
+
+      const { error: stepsError } = await supabase
+        .from('onboarding_steps')
+        .insert(stepsData);
+      
+      if (stepsError) throw stepsError;
+      
+      return workflow;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['onboarding-workflows'] });
+      queryClient.invalidateQueries({ queryKey: ['available-tenants'] });
+      toast.success('Onboarding workflow created successfully');
+      setSelectedTenant('');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to create workflow: ' + error.message);
+    }
   });
 
-  const handleWorkflowSelect = (workflow: any) => {
-    setSelectedWorkflow(workflow);
+  // Update step status mutation
+  const updateStepMutation = useMutation({
+    mutationFn: async ({ stepId, status }: { stepId: string; status: string }) => {
+      const { data, error } = await supabase
+        .from('onboarding_steps')
+        .update({ 
+          step_status: status as any,
+          completed_at: status === 'completed' ? new Date().toISOString() : null
+        })
+        .eq('id', stepId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['onboarding-steps'] });
+      toast.success('Step updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to update step: ' + error.message);
+    }
+  });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-500';
+      case 'in_progress': return 'bg-blue-500';
+      case 'failed': return 'bg-red-500';
+      case 'skipped': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
+    }
   };
 
-  const handleWorkflowCreated = () => {
-    // Trigger refetch - the real-time subscription will handle the update
-    console.log('Workflow created - real-time update will refresh data');
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="w-4 h-4" />;
+      case 'in_progress': return <Clock className="w-4 h-4" />;
+      case 'failed': return <AlertCircle className="w-4 h-4" />;
+      default: return <Clock className="w-4 h-4" />;
+    }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading onboarding data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="text-red-500 mb-4">⚠️</div>
-          <p className="text-red-600">Error loading onboarding data: {error}</p>
-        </div>
-      </div>
-    );
-  }
+  const calculateProgress = (workflow: OnboardingWorkflow) => {
+    return Math.round((workflow.current_step / workflow.total_steps) * 100);
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Intelligent Tenant Onboarding
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            AI-powered, real-time tenant onboarding workflows with smart automation
-          </p>
+          <h1 className="text-3xl font-bold">Tenant Onboarding</h1>
+          <p className="text-muted-foreground">Manage tenant onboarding workflows and progress</p>
         </div>
-        <div className="flex gap-3">
-          <IntelligentWorkflowCreator 
-            availableTenants={availableTenants}
-            onWorkflowCreated={handleWorkflowCreated}
-          />
-          <Button variant="outline" className="bg-gradient-to-r from-green-50 to-blue-50">
-            <TrendingUp className="w-4 h-4 mr-2" />
-            Analytics
-          </Button>
-        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>
+              <Play className="w-4 h-4 mr-2" />
+              Start Onboarding
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Start New Onboarding</DialogTitle>
+              <DialogDescription>Select a tenant to begin the onboarding process</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Select Tenant</label>
+                <select
+                  className="w-full mt-1 p-2 border rounded-md"
+                  value={selectedTenant}
+                  onChange={(e) => setSelectedTenant(e.target.value)}
+                >
+                  <option value="">Choose a tenant...</option>
+                  {availableTenants.map((tenant) => (
+                    <option key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button
+                onClick={() => selectedTenant && createWorkflowMutation.mutate(selectedTenant)}
+                disabled={!selectedTenant || createWorkflowMutation.isPending}
+                className="w-full"
+              >
+                {createWorkflowMutation.isPending ? 'Creating...' : 'Start Onboarding'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Real-time Analytics */}
-      <OnboardingAnalytics analytics={onboardingData.analytics} />
-
-      {/* Main Content */}
-      <Tabs defaultValue="workflows" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="workflows" className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Active Workflows
-          </TabsTrigger>
-          <TabsTrigger value="completed" className="flex items-center gap-2">
-            <Clock className="w-4 h-4" />
-            Completed
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" />
-            Analytics
-          </TabsTrigger>
-          <TabsTrigger value="automation" className="flex items-center gap-2">
-            <Zap className="w-4 h-4" />
-            Automation
-          </TabsTrigger>
+      <Tabs defaultValue="active" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="active">Active Workflows</TabsTrigger>
+          <TabsTrigger value="completed">Completed</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="workflows" className="space-y-4">
-          {/* Search and Filter */}
-          <div className="flex gap-4 items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search workflows..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border rounded-md bg-background"
-            >
-              <option value="all">All Status</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-              <option value="paused">Paused</option>
-            </select>
-          </div>
-
-          {/* Workflows Grid */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredWorkflows.map((workflow) => (
-              <RealTimeWorkflowCard
-                key={workflow.id}
-                workflow={workflow}
-                onSelect={handleWorkflowSelect}
-                isSelected={selectedWorkflow?.id === workflow.id}
-              />
-            ))}
-          </div>
-
-          {filteredWorkflows.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-muted-foreground mb-4">
-                <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p>No workflows found matching your criteria</p>
-              </div>
-              <Button variant="outline" onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('all');
-              }}>
-                Clear Filters
-              </Button>
+        <TabsContent value="active" className="space-y-4">
+          {workflowsLoading ? (
+            <div className="text-center py-8">Loading workflows...</div>
+          ) : (
+            <div className="grid gap-4">
+              {workflows.filter(w => w.status !== 'completed').map((workflow) => (
+                <Card key={workflow.id} className="cursor-pointer hover:shadow-md transition-shadow" 
+                      onClick={() => setSelectedWorkflow(workflow)}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle>{workflow.tenants?.name || 'Unknown Tenant'}</CardTitle>
+                        <CardDescription>
+                          Started {new Date(workflow.started_at).toLocaleDateString()}
+                        </CardDescription>
+                      </div>
+                      <Badge className={getStatusColor(workflow.status)}>
+                        {workflow.status}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Progress</span>
+                        <span>{workflow.current_step}/{workflow.total_steps} steps</span>
+                      </div>
+                      <Progress value={calculateProgress(workflow)} className="h-2" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </TabsContent>
 
         <TabsContent value="completed" className="space-y-4">
           <div className="grid gap-4">
-            {onboardingData.workflows.filter(w => w.status === 'completed').map((workflow) => (
+            {workflows.filter(w => w.status === 'completed').map((workflow) => (
               <Card key={workflow.id}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
@@ -207,118 +330,94 @@ export default function TenantOnboarding() {
           </div>
         </TabsContent>
 
-        <TabsContent value="analytics" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <Card>
               <CardHeader>
-                <CardTitle>Success Rate Trends</CardTitle>
+                <CardTitle>Active Workflows</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  Charts and trends will be displayed here
+                <div className="text-3xl font-bold">{workflows.filter(w => w.status !== 'completed').length}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Completed This Month</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {workflows.filter(w => 
+                    w.status === 'completed' && 
+                    w.completed_at && 
+                    new Date(w.completed_at).getMonth() === new Date().getMonth()
+                  ).length}
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Completion Time Analysis</CardTitle>
+                <CardTitle>Average Duration</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  Time analysis charts will be displayed here
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="automation" className="space-y-4">
-          <div className="grid gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-yellow-500" />
-                  Automation Rules
-                </CardTitle>
-                <CardDescription>
-                  Configure intelligent automation for onboarding workflows
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50">
-                    <h4 className="font-medium mb-2">Auto-progression Rules</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically move to next step when conditions are met
-                    </p>
-                  </div>
-                  <div className="p-4 border rounded-lg bg-gradient-to-r from-green-50 to-blue-50">
-                    <h4 className="font-medium mb-2">Smart Notifications</h4>
-                    <p className="text-sm text-muted-foreground">
-                      AI-powered notifications based on progress and delays
-                    </p>
-                  </div>
-                  <div className="p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-pink-50">
-                    <h4 className="font-medium mb-2">Predictive Analytics</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Predict completion times and identify potential bottlenecks
-                    </p>
-                  </div>
-                </div>
+                <div className="text-3xl font-bold">5.2 days</div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
       </Tabs>
 
-      {/* Workflow Details Modal */}
+      {/* Workflow Details Dialog */}
       {selectedWorkflow && (
         <Dialog open={!!selectedWorkflow} onOpenChange={() => setSelectedWorkflow(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-blue-500" />
-                {selectedWorkflow.tenants?.name || 'Unknown Tenant'} - Smart Onboarding
-              </DialogTitle>
-              <DialogDescription>
-                Intelligent workflow management with real-time progress tracking
-              </DialogDescription>
+              <DialogTitle>{selectedWorkflow.tenants?.name || 'Unknown Tenant'} - Onboarding Progress</DialogTitle>
+              <DialogDescription>Track and manage onboarding steps</DialogDescription>
             </DialogHeader>
-            
-            <div className="space-y-6">
-              {/* Workflow Overview */}
-              <div className="grid grid-cols-3 gap-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {selectedWorkflow.current_step}/{selectedWorkflow.total_steps}
+            <div className="space-y-4">
+              {stepsLoading ? (
+                <div className="text-center py-4">Loading steps...</div>
+              ) : (
+                <div className="space-y-3">
+                  {steps.map((step) => (
+                    <div key={step.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-1 rounded-full ${getStatusColor(step.step_status)} text-white`}>
+                          {getStatusIcon(step.step_status)}
+                        </div>
+                        <div>
+                          <h4 className="font-medium">{step.step_name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {ONBOARDING_STEPS.find(s => s.number === step.step_number)?.description}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={getStatusColor(step.step_status)}>
+                          {step.step_status}
+                        </Badge>
+                        {step.step_status === 'in_progress' && (
+                          <Button
+                            size="sm"
+                            onClick={() => updateStepMutation.mutate({ stepId: step.id, status: 'completed' })}
+                          >
+                            Complete
+                          </Button>
+                        )}
+                        {step.step_status === 'pending' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateStepMutation.mutate({ stepId: step.id, status: 'in_progress' })}
+                          >
+                            Start
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">Steps Progress</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-green-600">
-                      {Math.round((selectedWorkflow.current_step / selectedWorkflow.total_steps) * 100)}%
-                    </div>
-                    <div className="text-sm text-muted-foreground">Complete</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-purple-600 capitalize">
-                      {selectedWorkflow.status}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Status</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Smart Step Manager */}
-              <SmartStepManager
-                steps={onboardingData.steps[selectedWorkflow.id] || []}
-                onStepUpdate={handleWorkflowCreated}
-              />
+                  ))}
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>
