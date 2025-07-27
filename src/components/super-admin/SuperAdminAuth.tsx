@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Shield, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAdminManagement } from '@/hooks/useAdminManagement';
 
 export const SuperAdminAuth: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -16,10 +17,10 @@ export const SuperAdminAuth: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { ensureTenantAccess } = useAdminManagement();
 
   const logSecurityEvent = async (eventType: string, metadata: any = {}) => {
     try {
-      // Use direct RPC call with proper error handling
       const { error } = await supabase.rpc('log_security_event', {
         event_type: eventType,
         user_id: null,
@@ -54,16 +55,34 @@ export const SuperAdminAuth: React.FC = () => {
         .single();
 
       if (adminError || !adminUser) {
-        throw new Error('Access denied: Admin privileges required');
-      }
+        // If user is not in admin_users but is the super admin email, create entry
+        if (user.email === 'kisanshaktiai@gmail.com') {
+          const { error: insertError } = await supabase
+            .from('admin_users')
+            .insert({
+              id: user.id,
+              email: user.email,
+              full_name: user.user_metadata?.full_name || 'Super Admin',
+              role: 'super_admin',
+              is_active: true
+            });
 
-      if (!['super_admin', 'platform_admin'].includes(adminUser.role)) {
+          if (insertError) {
+            throw new Error('Failed to create admin entry');
+          }
+        } else {
+          throw new Error('Access denied: Admin privileges required');
+        }
+      } else if (!['super_admin', 'platform_admin'].includes(adminUser.role)) {
         throw new Error('Access denied: Insufficient privileges');
       }
 
+      // Ensure tenant access for operations
+      await ensureTenantAccess();
+
       // Log successful admin access
       await logSecurityEvent('admin_login_success', {
-        role: adminUser.role,
+        role: adminUser?.role || 'super_admin',
         timestamp: new Date().toISOString(),
         ip_address: 'client_side'
       });

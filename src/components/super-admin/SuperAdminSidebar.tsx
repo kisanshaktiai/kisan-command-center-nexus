@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -12,7 +13,8 @@ import {
   Activity,
   Settings,
   ChevronDown,
-  LogOut
+  LogOut,
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -26,6 +28,12 @@ const navigationItems = [
       { title: 'Tenant Management', href: '/super-admin/tenants', icon: Users },
       { title: 'Tenant Onboarding', href: '/super-admin/onboarding', icon: UserPlus },
       { title: 'Platform Monitoring', href: '/super-admin/monitoring', icon: Activity },
+    ]
+  },
+  {
+    title: 'User Management',
+    items: [
+      { title: 'Admin Users', href: '/super-admin/admin-users', icon: Shield },
     ]
   },
   {

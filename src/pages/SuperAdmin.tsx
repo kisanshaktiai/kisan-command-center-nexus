@@ -13,6 +13,7 @@ import BillingManagement from './super-admin/BillingManagement';
 import FeatureFlags from './super-admin/FeatureFlags';
 import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
+import AdminManagement from './super-admin/AdminManagement';
 
 export default function SuperAdmin() {
   const { user } = useAuth();
@@ -44,6 +45,7 @@ export default function SuperAdmin() {
               <Route path="/features" element={<FeatureFlags />} />
               <Route path="/white-label" element={<WhiteLabelConfig />} />
               <Route path="/monitoring" element={<PlatformMonitoring />} />
+              <Route path="/admin-users" element={<AdminManagement />} />
             </Routes>
           </main>
         </div>
