@@ -1,40 +1,31 @@
 
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { AdminAuthWrapper } from './AdminAuthWrapper';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  requiredRole?: 'admin' | 'platform_admin' | 'super_admin';
+  allowedRoles?: string[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
-  requireAdmin = false 
+  requireAdmin = false,
+  requiredRole,
+  allowedRoles = []
 }) => {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
+  if (requireAdmin || requiredRole || allowedRoles.length > 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
-        <Card className="w-full max-w-md">
-          <CardContent className="flex items-center justify-center p-8">
-            <div className="text-center space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-              <p className="text-muted-foreground">Verifying authentication...</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <AdminAuthWrapper 
+        requiredRole={requiredRole}
+        allowedRoles={allowedRoles}
+      >
+        {children}
+      </AdminAuthWrapper>
     );
   }
 
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  // All authenticated users are now automatically admins, so no access denied
   return <>{children}</>;
 };

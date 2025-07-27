@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { securityService } from '@/services/SecurityService';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,99 +17,27 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const navigate = useNavigate();
-
-  const validateAdminAccess = async (): Promise<void> => {
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
-        throw new Error('Authentication required');
-      }
-
-      // Use the new security service method
-      const isAdmin = await securityService.isCurrentUserSuperAdmin();
-      
-      if (!isAdmin) {
-        throw new Error('Access denied: Super admin privileges required');
-      }
-
-      // Log successful admin access
-      await securityService.logSecurityEvent({
-        event_type: 'admin_login_success',
-        user_id: user.id,
-        metadata: {
-          timestamp: new Date().toISOString(),
-          login_method: 'password'
-        }
-      });
-
-      // Track admin session
-      await securityService.trackAdminSession({
-        login_timestamp: new Date().toISOString(),
-        user_agent: navigator.userAgent,
-        ip_address: 'client_side'
-      });
-
-    } catch (error) {
-      // Log failed access attempt
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await securityService.logSecurityEvent({
-          event_type: 'admin_access_denied',
-          user_id: user.id,
-          metadata: {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            timestamp: new Date().toISOString(),
-            attempted_email: email
-          }
-        });
-      }
-      
-      throw error;
-    }
-  };
+  
+  const { signIn, isLoading, error, clearError } = useAdminAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!email || !password) {
-      setError('Please enter both email and password');
+      toast.error('Please enter both email and password');
       return;
     }
 
-    setIsLoading(true);
-    setError('');
-
-    try {
-      // Attempt authentication
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password
-      });
-
-      if (authError) {
-        throw authError;
-      }
-
-      if (!authData.user) {
-        throw new Error('Authentication failed');
-      }
-
-      // Validate admin access using the new function
-      await validateAdminAccess();
-
-      toast.success('Successfully logged in as super admin');
+    clearError();
+    
+    const result = await signIn(email, password);
+    
+    if (result.success) {
+      toast.success('Successfully logged in as admin');
       navigate('/super-admin/overview');
-
-    } catch (error) {
-      console.error('Login error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Login failed';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsLoading(false);
+    } else {
+      toast.error(result.error || 'Login failed');
     }
   };
 

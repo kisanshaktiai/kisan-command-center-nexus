@@ -2,10 +2,9 @@
 import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { safeGet } from '@/lib/supabase-helpers';
-import { sessionService } from '@/services/SessionService';
+import { authService } from '@/services/AuthService';
 import { securityService } from '@/services/SecurityService';
+import { toast } from 'sonner';
 
 interface TenantData {
   organizationName: string;
@@ -34,7 +33,7 @@ interface EnhancedAuthContextType {
   refreshProfile: () => Promise<void>;
 }
 
-export const useEnhancedAuth = () => {
+export const useEnhancedAuth = (): EnhancedAuthContextType => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,36 +61,17 @@ export const useEnhancedAuth = () => {
       });
 
       if (error) throw error;
-
       return { data, error: null };
     } catch (error) {
       return { data: null, error: error as AuthError };
     }
   };
 
-  // Enhanced sign in with proper session management
+  // Enhanced sign in using auth service
   const signIn = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) throw error;
-
-      // Log successful login
-      if (data.user) {
-        await securityService.logSecurityEvent({
-          event_type: 'user_login',
-          user_id: data.user.id,
-          metadata: {
-            timestamp: new Date().toISOString(),
-            login_method: 'password'
-          }
-        });
-      }
-
-      return { data, error: null };
+      const result = await authService.authenticateUser(email, password);
+      return { data: result, error: result.error };
     } catch (error) {
       return { data: null, error: error as AuthError };
     }
@@ -120,7 +100,6 @@ export const useEnhancedAuth = () => {
       const { data, error } = await supabase.auth.updateUser({
         email: newEmail
       });
-
       return { data, error };
     } catch (error) {
       return { data: null, error: error as AuthError };
@@ -133,7 +112,6 @@ export const useEnhancedAuth = () => {
       const { data, error } = await supabase.auth.updateUser({
         password: newPassword
       });
-
       return { data, error };
     } catch (error) {
       return { data: null, error: error as AuthError };
@@ -161,7 +139,6 @@ export const useEnhancedAuth = () => {
     try {
       if (!session) return;
       
-      // Track admin session if user is admin
       if (isAdmin) {
         await securityService.trackAdminSession(deviceInfo);
       }
@@ -172,20 +149,10 @@ export const useEnhancedAuth = () => {
     }
   };
 
-  // Sign out with session cleanup
+  // Sign out using auth service
   const signOut = async () => {
     try {
-      if (user) {
-        await securityService.logSecurityEvent({
-          event_type: 'user_logout',
-          user_id: user.id,
-          metadata: {
-            timestamp: new Date().toISOString()
-          }
-        });
-      }
-      
-      await sessionService.signOut();
+      await authService.logout();
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -229,26 +196,60 @@ export const useEnhancedAuth = () => {
     }
   };
 
-  // Set up auth state listener using session service
+  // Set up auth state listener
   useEffect(() => {
-    const unsubscribe = sessionService.subscribe((sessionData) => {
-      setSession(sessionData.session);
-      setUser(sessionData.user);
-      setIsLoading(false);
-      
-      if (sessionData.isAuthenticated && sessionData.user) {
-        checkAdminStatus();
-        refreshProfile();
-        trackSession();
-      } else {
-        setProfile(null);
-        setIsAdmin(false);
-        setIsSuperAdmin(false);
-        setAdminRole(null);
-      }
-    });
+    let mounted = true;
 
-    return unsubscribe;
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setIsLoading(false);
+          
+          if (session?.user) {
+            checkAdminStatus();
+            refreshProfile();
+            trackSession();
+          }
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+        
+        if (session?.user) {
+          checkAdminStatus();
+          refreshProfile();
+          trackSession();
+        } else {
+          setProfile(null);
+          setIsAdmin(false);
+          setIsSuperAdmin(false);
+          setAdminRole(null);
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   return {
