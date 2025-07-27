@@ -8,6 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle, Clock, AlertCircle, Play, Pause, RotateCcw, MessageSquare, FileText, Zap, Brain } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Database } from '@/integrations/supabase/types';
+
+type OnboardingStepStatus = Database['public']['Enums']['onboarding_step_status'];
 
 interface SmartStepManagerProps {
   steps: Array<{
@@ -15,7 +18,7 @@ interface SmartStepManagerProps {
     workflow_id: string;
     step_number: number;
     step_name: string;
-    step_status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
+    step_status: OnboardingStepStatus;
     step_data: Record<string, any>;
     validation_errors: any[];
     completed_at: string | null;
@@ -30,7 +33,7 @@ export const SmartStepManager: React.FC<SmartStepManagerProps> = ({
   const [updatingSteps, setUpdatingSteps] = useState<Set<string>>(new Set());
   const [notes, setNotes] = useState<Record<string, string>>({});
 
-  const updateStepStatus = async (stepId: string, status: string) => {
+  const updateStepStatus = async (stepId: string, status: OnboardingStepStatus) => {
     setUpdatingSteps(prev => new Set(prev).add(stepId));
     
     try {
@@ -62,7 +65,7 @@ export const SmartStepManager: React.FC<SmartStepManagerProps> = ({
     }
   };
 
-  const getStepIcon = (status: string) => {
+  const getStepIcon = (status: OnboardingStepStatus) => {
     switch (status) {
       case 'completed': return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'in_progress': return <Clock className="w-4 h-4 text-blue-500" />;
@@ -238,15 +241,6 @@ export const SmartStepManager: React.FC<SmartStepManagerProps> = ({
                     >
                       <CheckCircle className="w-3 h-3 mr-1" />
                       Complete
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => updateStepStatus(step.id, 'paused')}
-                      disabled={isUpdating}
-                    >
-                      <Pause className="w-3 h-3 mr-1" />
-                      Pause
                     </Button>
                   </>
                 )}

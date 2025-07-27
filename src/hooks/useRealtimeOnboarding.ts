@@ -2,6 +2,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Database } from '@/integrations/supabase/types';
+
+type OnboardingStepStatus = Database['public']['Enums']['onboarding_step_status'];
 
 interface OnboardingWorkflow {
   id: string;
@@ -24,7 +27,7 @@ interface OnboardingStep {
   workflow_id: string;
   step_number: number;
   step_name: string;
-  step_status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
+  step_status: OnboardingStepStatus;
   step_data: Record<string, any>;
   validation_errors: any[];
   completed_at: string | null;
@@ -44,6 +47,47 @@ interface RealtimeOnboardingData {
     successRate: number;
   };
 }
+
+// Helper function to safely parse JSON
+const safeJsonParse = (jsonData: any, fallback: any = {}) => {
+  if (typeof jsonData === 'string') {
+    try {
+      return JSON.parse(jsonData);
+    } catch {
+      return fallback;
+    }
+  }
+  return jsonData || fallback;
+};
+
+// Helper function to transform database row to OnboardingWorkflow
+const transformWorkflow = (dbRow: any): OnboardingWorkflow => ({
+  id: dbRow.id,
+  tenant_id: dbRow.tenant_id,
+  current_step: dbRow.current_step,
+  total_steps: dbRow.total_steps,
+  status: dbRow.status,
+  started_at: dbRow.started_at,
+  completed_at: dbRow.completed_at,
+  metadata: safeJsonParse(dbRow.metadata, {}),
+  tenants: dbRow.tenants
+});
+
+// Helper function to transform database row to OnboardingStep
+const transformStep = (dbRow: any): OnboardingStep => ({
+  id: dbRow.id,
+  workflow_id: dbRow.workflow_id,
+  step_number: dbRow.step_number,
+  step_name: dbRow.step_name,
+  step_status: dbRow.step_status as OnboardingStepStatus,
+  step_data: safeJsonParse(dbRow.step_data, {}),
+  validation_errors: Array.isArray(dbRow.validation_errors) ? 
+    dbRow.validation_errors : 
+    safeJsonParse(dbRow.validation_errors, []),
+  completed_at: dbRow.completed_at,
+  estimated_time: dbRow.estimated_time,
+  actual_time: dbRow.actual_time
+});
 
 export const useRealtimeOnboarding = () => {
   const [data, setData] = useState<RealtimeOnboardingData>({
@@ -77,10 +121,13 @@ export const useRealtimeOnboarding = () => {
 
         if (workflowsError) throw workflowsError;
 
+        // Transform workflows
+        const transformedWorkflows = (workflowsData || []).map(transformWorkflow);
+
         // Fetch steps for each workflow
         const stepsData: Record<string, OnboardingStep[]> = {};
         
-        for (const workflow of workflowsData || []) {
+        for (const workflow of transformedWorkflows) {
           const { data: steps, error: stepsError } = await supabase
             .from('onboarding_steps')
             .select('*')
@@ -89,20 +136,14 @@ export const useRealtimeOnboarding = () => {
 
           if (stepsError) throw stepsError;
 
-          stepsData[workflow.id] = steps?.map(step => ({
-            ...step,
-            validation_errors: Array.isArray(step.validation_errors) ? 
-              step.validation_errors : 
-              typeof step.validation_errors === 'string' ? 
-                JSON.parse(step.validation_errors) : []
-          })) || [];
+          stepsData[workflow.id] = (steps || []).map(transformStep);
         }
 
         // Calculate analytics
-        const analytics = calculateAnalytics(workflowsData || []);
+        const analytics = calculateAnalytics(transformedWorkflows);
 
         setData({
-          workflows: workflowsData || [],
+          workflows: transformedWorkflows,
           steps: stepsData,
           notifications: [],
           analytics
@@ -131,18 +172,21 @@ export const useRealtimeOnboarding = () => {
         
         setData(prev => {
           if (payload.eventType === 'INSERT') {
-            toast.success(`New onboarding workflow started for ${payload.new.tenant_id}`);
+            const newWorkflow = transformWorkflow(payload.new);
+            toast.success(`New onboarding workflow started for ${newWorkflow.tenant_id}`);
+            const updatedWorkflows = [newWorkflow, ...prev.workflows];
             return {
               ...prev,
-              workflows: [payload.new, ...prev.workflows],
-              analytics: calculateAnalytics([payload.new, ...prev.workflows])
+              workflows: updatedWorkflows,
+              analytics: calculateAnalytics(updatedWorkflows)
             };
           } else if (payload.eventType === 'UPDATE') {
+            const updatedWorkflow = transformWorkflow(payload.new);
             const updatedWorkflows = prev.workflows.map(w => 
-              w.id === payload.new.id ? { ...w, ...payload.new } : w
+              w.id === updatedWorkflow.id ? updatedWorkflow : w
             );
             
-            if (payload.new.status === 'completed') {
+            if (updatedWorkflow.status === 'completed') {
               toast.success(`Onboarding completed for tenant!`);
             }
             
@@ -177,22 +221,24 @@ export const useRealtimeOnboarding = () => {
           const workflowId = payload.new?.workflow_id || payload.old?.workflow_id;
           
           if (payload.eventType === 'INSERT') {
+            const newStep = transformStep(payload.new);
             return {
               ...prev,
               steps: {
                 ...prev.steps,
-                [workflowId]: [...(prev.steps[workflowId] || []), payload.new]
+                [workflowId]: [...(prev.steps[workflowId] || []), newStep]
               }
             };
           } else if (payload.eventType === 'UPDATE') {
+            const updatedStep = transformStep(payload.new);
             const updatedSteps = (prev.steps[workflowId] || []).map(step =>
-              step.id === payload.new.id ? { ...step, ...payload.new } : step
+              step.id === updatedStep.id ? updatedStep : step
             );
             
-            if (payload.new.step_status === 'completed') {
-              toast.success(`Step "${payload.new.step_name}" completed!`);
-            } else if (payload.new.step_status === 'failed') {
-              toast.error(`Step "${payload.new.step_name}" failed`);
+            if (updatedStep.step_status === 'completed') {
+              toast.success(`Step "${updatedStep.step_name}" completed!`);
+            } else if (updatedStep.step_status === 'failed') {
+              toast.error(`Step "${updatedStep.step_name}" failed`);
             }
             
             return {
