@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { PasswordStrength, validatePassword } from '@/components/ui/password-strength';
-import { Loader2, Shield, Eye, EyeOff, UserPlus } from 'lucide-react';
+import { Loader2, Shield, Eye, EyeOff, UserPlus, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AdminRegistrationProps {
@@ -26,6 +26,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
   const navigate = useNavigate();
   const { signUp } = useAuth();
 
@@ -52,6 +53,67 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
     setError('');
   };
 
+  const assignAdminRole = async (userId: string, retryAttempt = 0) => {
+    const maxRetries = 3;
+    
+    try {
+      const response = await fetch('https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/assign-admin-role', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFma2xra3p4ZW1zYmVuaXl1Z2l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjcxNjUsImV4cCI6MjA2ODAwMzE2NX0.dUnGp7wbwYom1FPbn_4EGf3PWjgmr8mXwL2w2SdYOh4'
+        },
+        body: JSON.stringify({
+          userId: userId,
+          email: formData.email,
+          fullName: formData.fullName,
+          role: formData.role
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Role assignment error:', errorData);
+        
+        // Handle specific error codes
+        if (errorData.code === 'ALREADY_ADMIN') {
+          toast.success('Admin registration successful! Role was already assigned.');
+          return true;
+        }
+        
+        if (errorData.code === 'INVALID_ROLE') {
+          throw new Error('Invalid role selected. Please try again.');
+        }
+        
+        if (errorData.code === 'MISSING_FIELDS') {
+          throw new Error('Missing required information. Please check your form.');
+        }
+        
+        // Retry for transient errors
+        if (retryAttempt < maxRetries && (errorData.code === 'INTERNAL_ERROR' || response.status >= 500)) {
+          console.log(`Retrying role assignment (attempt ${retryAttempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * (retryAttempt + 1))); // Exponential backoff
+          return assignAdminRole(userId, retryAttempt + 1);
+        }
+        
+        throw new Error(errorData.error || 'Failed to assign admin role');
+      }
+
+      const result = await response.json();
+      console.log('Role assignment successful:', result);
+      return true;
+      
+    } catch (error) {
+      console.error('Role assignment failed:', error);
+      if (retryAttempt < maxRetries) {
+        console.log(`Retrying role assignment (attempt ${retryAttempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryAttempt + 1)));
+        return assignAdminRole(userId, retryAttempt + 1);
+      }
+      throw error;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -70,6 +132,8 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
     setError('');
 
     try {
+      console.log('Starting admin registration process...');
+      
       const { data, error } = await signUp(formData.email, formData.password, {
         organizationName: 'Admin Organization',
         organizationType: 'admin',
@@ -79,36 +143,29 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
       });
 
       if (error) {
+        console.error('Supabase signup error:', error);
         throw error;
       }
 
       if (data.user) {
-        // Call edge function to assign admin role
-        const response = await fetch('https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/assign-admin-role', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${data.session?.access_token}`
-          },
-          body: JSON.stringify({
-            userId: data.user.id,
-            email: formData.email,
-            fullName: formData.fullName,
-            role: formData.role
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Role assignment error:', errorData);
-          toast.error('Registration successful but role assignment failed. Please contact support.');
-        } else {
+        console.log('User created successfully, assigning admin role...');
+        
+        try {
+          await assignAdminRole(data.user.id);
           toast.success('Admin registration successful! Please check your email for verification.');
+          
+          // Reset form on success
+          setFormData({ email: '', password: '', fullName: '', role: '' });
+          setRetryCount(0);
+          
+        } catch (roleError) {
+          console.error('Role assignment failed:', roleError);
+          toast.error(`Registration successful but role assignment failed: ${roleError.message}`);
+          setError(`Account created but role assignment failed: ${roleError.message}`);
         }
+      } else {
+        throw new Error('User creation failed - no user data returned');
       }
-
-      // Reset form
-      setFormData({ email: '', password: '', fullName: '', role: '' });
       
     } catch (error) {
       console.error('Registration error:', error);
@@ -138,6 +195,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
