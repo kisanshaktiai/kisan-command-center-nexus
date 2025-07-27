@@ -23,7 +23,6 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
 
   const logSecurityEvent = async (eventType: string, metadata: any = {}) => {
     try {
-      // Use direct RPC call with proper error handling
       const { error } = await supabase.rpc('log_security_event', {
         event_type: eventType,
         user_id: null,
@@ -49,25 +48,21 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
         throw new Error('Authentication required');
       }
 
-      // Check if user is in admin_users table with proper role
-      const { data: adminUser, error: adminError } = await supabase
-        .from('admin_users')
-        .select('role, is_active')
-        .eq('id', user.id)
-        .eq('is_active', true)
-        .single();
+      // Use the new security definer function to check admin status
+      const { data: isAdmin, error: adminError } = await supabase
+        .rpc('is_current_user_super_admin');
 
-      if (adminError || !adminUser) {
-        throw new Error('Access denied: Admin privileges required');
+      if (adminError) {
+        console.error('Error checking admin status:', adminError);
+        throw new Error('Failed to verify admin privileges');
       }
 
-      if (!['super_admin', 'platform_admin'].includes(adminUser.role)) {
-        throw new Error('Access denied: Insufficient privileges');
+      if (!isAdmin) {
+        throw new Error('Access denied: Admin privileges required');
       }
 
       // Log successful admin access
       await logSecurityEvent('admin_login_success', {
-        role: adminUser.role,
         timestamp: new Date().toISOString(),
         ip_address: 'client_side'
       });
@@ -112,7 +107,7 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
         throw new Error('Authentication failed');
       }
 
-      // Validate admin access
+      // Validate admin access using the new function
       await validateAdminAccess();
 
       toast.success('Successfully logged in as admin');

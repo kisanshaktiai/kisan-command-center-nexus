@@ -61,15 +61,11 @@ export class SecurityService {
         return { isValid: false, error: 'Authentication required' };
       }
 
-      // Check if user is super admin (bypass tenant restrictions)
-      const { data: adminUser, error: adminError } = await supabase
-        .from('admin_users')
-        .select('role, is_active')
-        .eq('id', currentUserId)
-        .eq('is_active', true)
-        .single();
+      // Check if user is super admin using the new function
+      const { data: isAdmin, error: adminError } = await supabase
+        .rpc('is_current_user_super_admin');
 
-      if (!adminError && adminUser && ['super_admin', 'platform_admin'].includes(adminUser.role)) {
+      if (!adminError && isAdmin) {
         return { isValid: true, tenantId };
       }
 
@@ -103,25 +99,23 @@ export class SecurityService {
     }
   }
 
-  // Check if user has specific role
+  // Check if user has specific role using new functions
   async validateUserRole(requiredRole: string, tenantId?: string): Promise<boolean> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
-      // Check admin roles first
-      const { data: adminUser, error: adminError } = await supabase
-        .from('admin_users')
-        .select('role, is_active')
-        .eq('id', user.id)
-        .eq('is_active', true)
-        .single();
+      // Check admin roles using the new security definer function
+      const { data: currentRole, error: roleError } = await supabase
+        .rpc('get_current_admin_role');
 
-      if (!adminError && adminUser) {
+      if (!roleError && currentRole) {
         const roleHierarchy = ['super_admin', 'platform_admin', 'admin'];
-        const userRoleIndex = roleHierarchy.indexOf(adminUser.role);
+        const userRoleIndex = roleHierarchy.indexOf(currentRole);
         const requiredRoleIndex = roleHierarchy.indexOf(requiredRole);
-        return userRoleIndex <= requiredRoleIndex;
+        if (userRoleIndex !== -1 && requiredRoleIndex !== -1) {
+          return userRoleIndex <= requiredRoleIndex;
+        }
       }
 
       // Check tenant-specific roles if tenant provided

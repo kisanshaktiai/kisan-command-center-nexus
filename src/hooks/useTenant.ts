@@ -38,31 +38,64 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     queryKey: ['user-tenants'],
     queryFn: async () => {
       try {
-        const userResponse = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
         
-        if (!userResponse.data.user) {
-          throw new Error('User not authenticated');
+        if (!user) {
+          console.log('No authenticated user found');
+          return [];
         }
 
-        // Since user_tenants and tenants tables might not be properly typed,
-        // we'll use a simplified approach
-        console.log('Tenant fetching simplified for type safety');
-        
-        // Return mock data structure for now with new plan types
-        const mockTenants = [{
-          id: 'default-tenant',
-          name: 'Default Tenant',
-          slug: 'default',
-          type: 'basic',
-          subscription_plan: 'starter' as 'starter' | 'growth' | 'enterprise' | 'custom',
-          status: 'active',
-          settings: {},
-          created_at: new Date().toISOString()
-        }];
-        
-        return mockTenants;
+        // Check if user is an admin first
+        const { data: isAdmin, error: adminError } = await supabase
+          .rpc('is_current_user_super_admin');
+
+        if (adminError) {
+          console.error('Error checking admin status:', adminError);
+          throw new Error('Failed to verify user permissions');
+        }
+
+        if (isAdmin) {
+          // Super admins can access all tenants
+          const { data: allTenants, error: tenantsError } = await supabase
+            .from('tenants')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (tenantsError) {
+            console.error('Error fetching tenants for admin:', tenantsError);
+            throw tenantsError;
+          }
+
+          return allTenants || [];
+        } else {
+          // Regular users can only access their assigned tenants
+          const { data: userTenants, error: userTenantsError } = await supabase
+            .from('user_tenants')
+            .select(`
+              tenant_id,
+              tenants (
+                id,
+                name,
+                slug,
+                type,
+                subscription_plan,
+                status,
+                settings,
+                created_at
+              )
+            `)
+            .eq('user_id', user.id)
+            .eq('is_active', true);
+
+          if (userTenantsError) {
+            console.error('Error fetching user tenants:', userTenantsError);
+            throw userTenantsError;
+          }
+
+          return userTenants?.map(ut => ut.tenants).filter(Boolean) || [];
+        }
       } catch (error) {
-        console.error('Error fetching tenants:', error);
+        console.error('Error in tenant query:', error);
         throw error;
       }
     },
