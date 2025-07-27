@@ -364,6 +364,69 @@ export type Database = {
           },
         ]
       }
+      collaborative_notes: {
+        Row: {
+          assigned_to: string | null
+          attachments: Json | null
+          completed_at: string | null
+          content: string
+          created_at: string | null
+          created_by: string
+          due_date: string | null
+          field_id: string | null
+          id: string
+          is_completed: boolean | null
+          last_edited_by: string | null
+          location: Json | null
+          note_type: string
+          organization_id: string
+          priority: string | null
+          tags: Json | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          attachments?: Json | null
+          completed_at?: string | null
+          content: string
+          created_at?: string | null
+          created_by: string
+          due_date?: string | null
+          field_id?: string | null
+          id?: string
+          is_completed?: boolean | null
+          last_edited_by?: string | null
+          location?: Json | null
+          note_type?: string
+          organization_id: string
+          priority?: string | null
+          tags?: Json | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          attachments?: Json | null
+          completed_at?: string | null
+          content?: string
+          created_at?: string | null
+          created_by?: string
+          due_date?: string | null
+          field_id?: string | null
+          id?: string
+          is_completed?: boolean | null
+          last_edited_by?: string | null
+          location?: Json | null
+          note_type?: string
+          organization_id?: string
+          priority?: string | null
+          tags?: Json | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       crop_health_assessments: {
         Row: {
           alert_level: string | null
@@ -541,6 +604,42 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           widgets?: Json
+        }
+        Relationships: []
+      }
+      dashboard_updates: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          data: Json
+          entity_id: string
+          entity_type: string
+          expires_at: string | null
+          id: string
+          organization_id: string
+          update_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          data: Json
+          entity_id: string
+          entity_type: string
+          expires_at?: string | null
+          id?: string
+          organization_id: string
+          update_type: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          data?: Json
+          entity_id?: string
+          entity_type?: string
+          expires_at?: string | null
+          id?: string
+          organization_id?: string
+          update_type?: string
         }
         Relationships: []
       }
@@ -1800,6 +1899,39 @@ export type Database = {
         }
         Relationships: []
       }
+      market_price_subscriptions: {
+        Row: {
+          commodities: Json
+          created_at: string | null
+          id: string
+          notification_enabled: boolean | null
+          organization_id: string
+          price_threshold: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          commodities?: Json
+          created_at?: string | null
+          id?: string
+          notification_enabled?: boolean | null
+          organization_id: string
+          price_threshold?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          commodities?: Json
+          created_at?: string | null
+          id?: string
+          notification_enabled?: boolean | null
+          organization_id?: string
+          price_threshold?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       market_prices: {
         Row: {
           created_at: string
@@ -2011,6 +2143,42 @@ export type Database = {
         }
         Relationships: []
       }
+      message_channels: {
+        Row: {
+          channel_type: string
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          is_private: boolean | null
+          name: string
+          organization_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          channel_type?: string
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          is_private?: boolean | null
+          name: string
+          organization_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          channel_type?: string
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_private?: boolean | null
+          name?: string
+          organization_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ndvi_data: {
         Row: {
           cloud_cover: number | null
@@ -2191,6 +2359,90 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      organization_members: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          joined_at: string | null
+          organization_id: string
+          permissions: Json | null
+          role: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          joined_at?: string | null
+          organization_id: string
+          permissions?: Json | null
+          role?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          joined_at?: string | null
+          organization_id?: string
+          permissions?: Json | null
+          role?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      organization_weather_alerts: {
+        Row: {
+          acknowledged_by: Json | null
+          affected_areas: Json
+          alert_type: string
+          created_at: string | null
+          description: string
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          recommendations: Json | null
+          severity: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          acknowledged_by?: Json | null
+          affected_areas: Json
+          alert_type: string
+          created_at?: string | null
+          description: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          recommendations?: Json | null
+          severity: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          acknowledged_by?: Json | null
+          affected_areas?: Json
+          alert_type?: string
+          created_at?: string | null
+          description?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          recommendations?: Json | null
+          severity?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       otp_sessions: {
         Row: {
@@ -3358,6 +3610,48 @@ export type Database = {
           },
         ]
       }
+      sync_queue: {
+        Row: {
+          created_at: string | null
+          data: Json
+          entity_id: string
+          entity_type: string
+          id: string
+          operation_type: string
+          organization_id: string
+          retry_count: number | null
+          sync_status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: Json
+          entity_id: string
+          entity_type: string
+          id?: string
+          operation_type: string
+          organization_id: string
+          retry_count?: number | null
+          sync_status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          operation_type?: string
+          organization_id?: string
+          retry_count?: number | null
+          sync_status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       system_metrics: {
         Row: {
           created_at: string | null
@@ -3455,6 +3749,54 @@ export type Database = {
           },
         ]
       }
+      team_messages: {
+        Row: {
+          channel_id: string
+          content: string
+          created_at: string | null
+          edited_at: string | null
+          id: string
+          is_edited: boolean | null
+          is_pinned: boolean | null
+          message_type: string
+          metadata: Json | null
+          organization_id: string
+          reply_to_id: string | null
+          sender_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          channel_id: string
+          content: string
+          created_at?: string | null
+          edited_at?: string | null
+          id?: string
+          is_edited?: boolean | null
+          is_pinned?: boolean | null
+          message_type?: string
+          metadata?: Json | null
+          organization_id: string
+          reply_to_id?: string | null
+          sender_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          channel_id?: string
+          content?: string
+          created_at?: string | null
+          edited_at?: string | null
+          id?: string
+          is_edited?: boolean | null
+          is_pinned?: boolean | null
+          message_type?: string
+          metadata?: Json | null
+          organization_id?: string
+          reply_to_id?: string | null
+          sender_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       tenant_branding: {
         Row: {
           accent_color: string | null
@@ -3550,6 +3892,7 @@ export type Database = {
           marketplace: boolean | null
           payment_gateway: boolean | null
           predictive_analytics: boolean | null
+          promo_enabled: boolean | null
           satellite_imagery: boolean | null
           soil_testing: boolean | null
           tenant_id: string | null
@@ -3576,6 +3919,7 @@ export type Database = {
           marketplace?: boolean | null
           payment_gateway?: boolean | null
           predictive_analytics?: boolean | null
+          promo_enabled?: boolean | null
           satellite_imagery?: boolean | null
           soil_testing?: boolean | null
           tenant_id?: string | null
@@ -3602,6 +3946,7 @@ export type Database = {
           marketplace?: boolean | null
           payment_gateway?: boolean | null
           predictive_analytics?: boolean | null
+          promo_enabled?: boolean | null
           satellite_imagery?: boolean | null
           soil_testing?: boolean | null
           tenant_id?: string | null
@@ -3620,6 +3965,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tenant_promos: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration: number
+          end_date: string
+          id: string
+          is_active: boolean
+          language: string | null
+          metadata: Json | null
+          promo_type: string
+          promo_url: string
+          start_date: string
+          tenant_id: string
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration?: number
+          end_date: string
+          id?: string
+          is_active?: boolean
+          language?: string | null
+          metadata?: Json | null
+          promo_type: string
+          promo_url: string
+          start_date: string
+          tenant_id: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration?: number
+          end_date?: string
+          id?: string
+          is_active?: boolean
+          language?: string | null
+          metadata?: Json | null
+          promo_type?: string
+          promo_url?: string
+          start_date?: string
+          tenant_id?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       tenant_subscriptions: {
         Row: {
@@ -3836,6 +4232,42 @@ export type Database = {
           },
         ]
       }
+      user_presence: {
+        Row: {
+          created_at: string | null
+          current_location: Json | null
+          id: string
+          last_seen: string | null
+          metadata: Json | null
+          organization_id: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_location?: Json | null
+          id?: string
+          last_seen?: string | null
+          metadata?: Json | null
+          organization_id: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          current_location?: Json | null
+          id?: string
+          last_seen?: string | null
+          metadata?: Json | null
+          organization_id?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profiles: {
         Row: {
           aadhaar_number: string | null
@@ -3851,6 +4283,7 @@ export type Database = {
           device_tokens: Json | null
           display_name: string | null
           district: string | null
+          email: string | null
           email_verified_at: string | null
           expertise_areas: string[] | null
           farmer_id: string | null
@@ -3896,6 +4329,7 @@ export type Database = {
           device_tokens?: Json | null
           display_name?: string | null
           district?: string | null
+          email?: string | null
           email_verified_at?: string | null
           expertise_areas?: string[] | null
           farmer_id?: string | null
@@ -3941,6 +4375,7 @@ export type Database = {
           device_tokens?: Json | null
           display_name?: string | null
           district?: string | null
+          email?: string | null
           email_verified_at?: string | null
           expertise_areas?: string[] | null
           farmer_id?: string | null
@@ -5097,6 +5532,10 @@ export type Database = {
         Args: { land_uuid: string }
         Returns: number
       }
+      calculate_onboarding_progress: {
+        Args: { workflow_id: string }
+        Returns: number
+      }
       can_self_insert: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -5108,6 +5547,10 @@ export type Database = {
       cleanup_expired_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      cleanup_old_dashboard_updates: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       create_tenant_with_validation: {
         Args: {
@@ -5634,6 +6077,10 @@ export type Database = {
       get_jwt_farmer_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_onboarding_template: {
+        Args: { tenant_type: string; subscription_plan: string }
+        Returns: Json
       }
       get_proj4_from_srid: {
         Args: { "": number }
@@ -7009,6 +7456,14 @@ export type Database = {
       unlockrows: {
         Args: { "": string }
         Returns: number
+      }
+      update_user_presence: {
+        Args: {
+          p_organization_id: string
+          p_status?: string
+          p_location?: Json
+        }
+        Returns: undefined
       }
       updategeometrysrid: {
         Args: {
