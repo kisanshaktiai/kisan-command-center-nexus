@@ -84,10 +84,11 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
 
       if (data.user) {
         // Call edge function to assign admin role
-        const { error: roleError } = await fetch('/api/assign-admin-role', {
+        const response = await fetch('https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/assign-admin-role', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${data.session?.access_token}`
           },
           body: JSON.stringify({
             userId: data.user.id,
@@ -97,8 +98,9 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onToggleMo
           })
         });
 
-        if (roleError) {
-          console.error('Role assignment error:', roleError);
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Role assignment error:', errorData);
           toast.error('Registration successful but role assignment failed. Please contact support.');
         } else {
           toast.success('Admin registration successful! Please check your email for verification.');
