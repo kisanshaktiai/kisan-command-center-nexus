@@ -171,7 +171,7 @@ export const useRealtimeOnboarding = () => {
         console.log('Workflow change:', payload);
         
         setData(prev => {
-          if (payload.eventType === 'INSERT') {
+          if (payload.eventType === 'INSERT' && payload.new) {
             const newWorkflow = transformWorkflow(payload.new);
             toast.success(`New onboarding workflow started for ${newWorkflow.tenant_id}`);
             const updatedWorkflows = [newWorkflow, ...prev.workflows];
@@ -180,7 +180,7 @@ export const useRealtimeOnboarding = () => {
               workflows: updatedWorkflows,
               analytics: calculateAnalytics(updatedWorkflows)
             };
-          } else if (payload.eventType === 'UPDATE') {
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
             const updatedWorkflow = transformWorkflow(payload.new);
             const updatedWorkflows = prev.workflows.map(w => 
               w.id === updatedWorkflow.id ? updatedWorkflow : w
@@ -195,7 +195,7 @@ export const useRealtimeOnboarding = () => {
               workflows: updatedWorkflows,
               analytics: calculateAnalytics(updatedWorkflows)
             };
-          } else if (payload.eventType === 'DELETE') {
+          } else if (payload.eventType === 'DELETE' && payload.old) {
             const filteredWorkflows = prev.workflows.filter(w => w.id !== payload.old.id);
             return {
               ...prev,
@@ -218,9 +218,15 @@ export const useRealtimeOnboarding = () => {
         console.log('Step change:', payload);
         
         setData(prev => {
+          // Safely get workflow_id from payload
           const workflowId = payload.new?.workflow_id || payload.old?.workflow_id;
           
-          if (payload.eventType === 'INSERT') {
+          if (!workflowId) {
+            console.warn('No workflow_id found in payload:', payload);
+            return prev;
+          }
+          
+          if (payload.eventType === 'INSERT' && payload.new) {
             const newStep = transformStep(payload.new);
             return {
               ...prev,
@@ -229,7 +235,7 @@ export const useRealtimeOnboarding = () => {
                 [workflowId]: [...(prev.steps[workflowId] || []), newStep]
               }
             };
-          } else if (payload.eventType === 'UPDATE') {
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
             const updatedStep = transformStep(payload.new);
             const updatedSteps = (prev.steps[workflowId] || []).map(step =>
               step.id === updatedStep.id ? updatedStep : step
@@ -248,7 +254,7 @@ export const useRealtimeOnboarding = () => {
                 [workflowId]: updatedSteps
               }
             };
-          } else if (payload.eventType === 'DELETE') {
+          } else if (payload.eventType === 'DELETE' && payload.old) {
             const filteredSteps = (prev.steps[workflowId] || []).filter(step => 
               step.id !== payload.old.id
             );
