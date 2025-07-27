@@ -218,8 +218,14 @@ export const useRealtimeOnboarding = () => {
         console.log('Step change:', payload);
         
         setData(prev => {
-          // Safely get workflow_id from payload
-          const workflowId = payload.new?.workflow_id || payload.old?.workflow_id;
+          // Safely get workflow_id from payload with proper type checking
+          let workflowId: string | null = null;
+          
+          if (payload.new && typeof payload.new === 'object' && 'workflow_id' in payload.new) {
+            workflowId = payload.new.workflow_id as string;
+          } else if (payload.old && typeof payload.old === 'object' && 'workflow_id' in payload.old) {
+            workflowId = payload.old.workflow_id as string;
+          }
           
           if (!workflowId) {
             console.warn('No workflow_id found in payload:', payload);
