@@ -3,23 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { isTenant } from '@/lib/supabase-helpers';
-
-interface Tenant {
-  id: string;
-  name: string;
-  slug: string;
-  type: string;
-  subscription_plan: 'starter' | 'growth' | 'enterprise' | 'custom';
-  status: string;
-  settings: Record<string, any>;
-  created_at: string;
-  branding?: {
-    logo_url?: string;
-    company_name?: string;
-    tagline?: string;
-    primary_color?: string;
-  };
-}
+import { Tenant, SubscriptionPlan } from '@/types/tenant';
 
 interface TenantContextType {
   currentTenant: Tenant | null;
@@ -45,9 +29,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return [];
         }
 
-        // Check if user is an admin first
+        // Check if user is an admin first using the new RPC function
         const { data: isAdmin, error: adminError } = await supabase
-          .rpc('is_current_user_super_admin');
+          .rpc('is_current_user_super_admin' as any);
 
         if (adminError) {
           console.error('Error checking admin status:', adminError);
@@ -66,7 +50,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw tenantsError;
           }
 
-          return allTenants || [];
+          // Transform the data to match our Tenant interface
+          const transformedTenants = allTenants?.map(tenant => ({
+            ...tenant,
+            subscription_plan: tenant.subscription_plan as SubscriptionPlan,
+            settings: tenant.settings || {}
+          })) || [];
+
+          return transformedTenants;
         } else {
           // Regular users can only access their assigned tenants
           const { data: userTenants, error: userTenantsError } = await supabase
@@ -81,7 +72,25 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 subscription_plan,
                 status,
                 settings,
-                created_at
+                created_at,
+                updated_at,
+                owner_name,
+                owner_email,
+                owner_phone,
+                business_registration,
+                business_address,
+                established_date,
+                subscription_start_date,
+                subscription_end_date,
+                trial_ends_at,
+                max_farmers,
+                max_dealers,
+                max_products,
+                max_storage_gb,
+                max_api_calls_per_day,
+                subdomain,
+                custom_domain,
+                metadata
               )
             `)
             .eq('user_id', user.id)
@@ -92,7 +101,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw userTenantsError;
           }
 
-          return userTenants?.map(ut => ut.tenants).filter(Boolean) || [];
+          // Transform the data to match our Tenant interface
+          const transformedTenants = userTenants?.map(ut => ({
+            ...ut.tenants,
+            subscription_plan: ut.tenants.subscription_plan as SubscriptionPlan,
+            settings: ut.tenants.settings || {}
+          })).filter(Boolean) || [];
+
+          return transformedTenants;
         }
       } catch (error) {
         console.error('Error in tenant query:', error);

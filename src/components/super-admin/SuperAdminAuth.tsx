@@ -50,7 +50,7 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
 
       // Use the new security definer function to check admin status
       const { data: isAdmin, error: adminError } = await supabase
-        .rpc('is_current_user_super_admin');
+        .rpc('is_current_user_super_admin' as any);
 
       if (adminError) {
         console.error('Error checking admin status:', adminError);

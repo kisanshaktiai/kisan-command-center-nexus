@@ -63,7 +63,7 @@ export class SecurityService {
 
       // Check if user is super admin using the new function
       const { data: isAdmin, error: adminError } = await supabase
-        .rpc('is_current_user_super_admin');
+        .rpc('is_current_user_super_admin' as any);
 
       if (!adminError && isAdmin) {
         return { isValid: true, tenantId };
@@ -107,11 +107,11 @@ export class SecurityService {
 
       // Check admin roles using the new security definer function
       const { data: currentRole, error: roleError } = await supabase
-        .rpc('get_current_admin_role');
+        .rpc('get_current_admin_role' as any);
 
       if (!roleError && currentRole) {
         const roleHierarchy = ['super_admin', 'platform_admin', 'admin'];
-        const userRoleIndex = roleHierarchy.indexOf(currentRole);
+        const userRoleIndex = roleHierarchy.indexOf(currentRole as string);
         const requiredRoleIndex = roleHierarchy.indexOf(requiredRole);
         if (userRoleIndex !== -1 && requiredRoleIndex !== -1) {
           return userRoleIndex <= requiredRoleIndex;
