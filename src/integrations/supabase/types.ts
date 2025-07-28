@@ -14,6 +14,107 @@ export type Database = {
   }
   public: {
     Tables: {
+      activation_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          last_used_at: string | null
+          max_uses: number | null
+          metadata: Json | null
+          tenant_id: string
+          used_count: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          max_uses?: number | null
+          metadata?: Json | null
+          tenant_id: string
+          used_count?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          max_uses?: number | null
+          metadata?: Json | null
+          tenant_id?: string
+          used_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activation_codes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activation_logs: {
+        Row: {
+          activation_code_id: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          success: boolean | null
+          tenant_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          activation_code_id: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          success?: boolean | null
+          tenant_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          activation_code_id?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          success?: boolean | null
+          tenant_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activation_logs_activation_code_id_fkey"
+            columns: ["activation_code_id"]
+            isOneToOne: false
+            referencedRelation: "activation_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activation_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       active_sessions: {
         Row: {
           client_info: Json | null
@@ -1888,6 +1989,7 @@ export type Database = {
           area_acres: number
           area_guntas: number | null
           boundary: unknown | null
+          boundary_method: string | null
           boundary_polygon_old: Json | null
           center_point_old: Json | null
           created_at: string
@@ -1897,6 +1999,8 @@ export type Database = {
           elevation_meters: number | null
           expected_harvest_date: string | null
           farmer_id: string
+          gps_accuracy_meters: number | null
+          gps_recorded_at: string | null
           id: string
           irrigation_source: string | null
           is_active: boolean | null
@@ -1904,6 +2008,7 @@ export type Database = {
           land_type: string | null
           last_soil_test_date: string | null
           last_sowing_date: string | null
+          location_context: Json | null
           name: string
           nitrogen_kg_per_ha: number | null
           organic_carbon_percent: number | null
@@ -1925,6 +2030,7 @@ export type Database = {
           area_acres: number
           area_guntas?: number | null
           boundary?: unknown | null
+          boundary_method?: string | null
           boundary_polygon_old?: Json | null
           center_point_old?: Json | null
           created_at?: string
@@ -1934,6 +2040,8 @@ export type Database = {
           elevation_meters?: number | null
           expected_harvest_date?: string | null
           farmer_id: string
+          gps_accuracy_meters?: number | null
+          gps_recorded_at?: string | null
           id?: string
           irrigation_source?: string | null
           is_active?: boolean | null
@@ -1941,6 +2049,7 @@ export type Database = {
           land_type?: string | null
           last_soil_test_date?: string | null
           last_sowing_date?: string | null
+          location_context?: Json | null
           name: string
           nitrogen_kg_per_ha?: number | null
           organic_carbon_percent?: number | null
@@ -1962,6 +2071,7 @@ export type Database = {
           area_acres?: number
           area_guntas?: number | null
           boundary?: unknown | null
+          boundary_method?: string | null
           boundary_polygon_old?: Json | null
           center_point_old?: Json | null
           created_at?: string
@@ -1971,6 +2081,8 @@ export type Database = {
           elevation_meters?: number | null
           expected_harvest_date?: string | null
           farmer_id?: string
+          gps_accuracy_meters?: number | null
+          gps_recorded_at?: string | null
           id?: string
           irrigation_source?: string | null
           is_active?: boolean | null
@@ -1978,6 +2090,7 @@ export type Database = {
           land_type?: string | null
           last_soil_test_date?: string | null
           last_sowing_date?: string | null
+          location_context?: Json | null
           name?: string
           nitrogen_kg_per_ha?: number | null
           organic_carbon_percent?: number | null
@@ -6241,6 +6354,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_location_context: {
+        Args: { lat: number; lng: number }
+        Returns: Json
+      }
       get_onboarding_template: {
         Args: { tenant_type: string; subscription_plan: string }
         Returns: Json
@@ -7689,6 +7806,16 @@ export type Database = {
       user_has_tenant_access: {
         Args: { tenant_uuid: string }
         Returns: boolean
+      }
+      verify_admin_user_setup: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          user_id: string
+          email: string
+          is_verified: boolean
+          admin_role: string
+          issues: string[]
+        }[]
       }
     }
     Enums: {
