@@ -165,7 +165,7 @@ const handler = async (req: Request): Promise<Response> => {
     const htmlContent = generateAuthEmail(email_action_type, token, user.email);
 
     const { data: emailResponse, error: emailError } = await resend.emails.send({
-      from: 'KisanShakti AI <noreply@kisanshaktiai.in>',
+      from: 'KisanShakti AI <admin@kisanshaktiai.in>',
       to: [user.email],
       subject,
       html: htmlContent,

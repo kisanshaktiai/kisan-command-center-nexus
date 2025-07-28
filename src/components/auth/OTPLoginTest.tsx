@@ -26,7 +26,7 @@ export const OTPLoginTest = () => {
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          shouldCreateUser: false,
           data: {
             timestamp: new Date().toISOString()
           }
