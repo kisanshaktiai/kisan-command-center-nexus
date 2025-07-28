@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Users, BarChart3, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
-import { OTPLoginTest } from "@/components/auth/OTPLoginTest";
 
 const Index = () => {
   return (
@@ -17,20 +16,12 @@ const Index = () => {
           <p className="text-xl text-gray-600 mb-8">
             Comprehensive platform management and administration
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mb-12">
-            <Link to="/auth">
-              <Button size="lg">
-                <Shield className="w-5 h-5 mr-2" />
-                Admin Login
-              </Button>
-            </Link>
-          </div>
-          
-          {/* OTP Test Section */}
-          <div className="max-w-md mx-auto mb-16">
-            <h2 className="text-2xl font-bold text-center mb-4">Test Email OTP</h2>
-            <OTPLoginTest />
-          </div>
+          <Link to="/auth">
+            <Button size="lg" className="mx-2">
+              <Shield className="w-5 h-5 mr-2" />
+              Admin Login
+            </Button>
+          </Link>
         </div>
 
         {/* Features Grid */}
