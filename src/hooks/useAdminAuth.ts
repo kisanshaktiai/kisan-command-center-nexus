@@ -144,6 +144,7 @@ export const useAdminAuth = () => {
         return { success: false, error: result.error?.message || 'Authentication failed' };
       }
 
+      // Successful admin authentication
       setState({
         user: result.user,
         session: result.session,

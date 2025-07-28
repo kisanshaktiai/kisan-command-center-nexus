@@ -23,7 +23,7 @@ interface EnhancedAuthContextType {
   adminRole: string | null;
   profile: any;
   signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data: any; error: AuthError | null }>;
-  signIn: (email: string, password: string) => Promise<{ data: any; error: AuthError | null }>;
+  signIn: (email: string, password: string, isAdminLogin?: boolean) => Promise<{ data: any; error: AuthError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string, tenantId?: string) => Promise<{ data: any; error: AuthError | null }>;
   updateEmail: (newEmail: string) => Promise<{ data: any; error: AuthError | null }>;
@@ -67,10 +67,21 @@ export const useEnhancedAuth = (): EnhancedAuthContextType => {
     }
   };
 
-  // Enhanced sign in using auth service
-  const signIn = async (email: string, password: string) => {
+  // Enhanced sign in using auth service - now supports both user and admin authentication
+  const signIn = async (email: string, password: string, isAdminLogin = false) => {
     try {
-      const result = await authService.authenticateUser(email, password);
+      const result = isAdminLogin 
+        ? await authService.authenticateAdmin(email, password)
+        : await authService.authenticateUser(email, password);
+      
+      // Update admin state immediately for admin login
+      if (isAdminLogin && !result.error) {
+        const adminResult = result as any; // Cast to access admin properties
+        setIsAdmin(adminResult.isAdmin || false);
+        setIsSuperAdmin(adminResult.isSuperAdmin || false);
+        setAdminRole(adminResult.adminRole || null);
+      }
+      
       return { data: result, error: result.error };
     } catch (error) {
       return { data: null, error: error as AuthError };

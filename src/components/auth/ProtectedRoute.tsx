@@ -19,7 +19,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (requireAdmin || requiredRole || allowedRoles.length > 0) {
     return (
       <AdminAuthWrapper 
-        requiredRole={requiredRole}
+        requiredRole={requiredRole || (requireAdmin ? 'admin' : undefined)}
         allowedRoles={allowedRoles}
       >
         {children}
