@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Overview from './super-admin/Overview';
 import TenantManagement from './super-admin/TenantManagement';
 import TenantOnboarding from './super-admin/TenantOnboarding';
+import AdminUserManagement from './super-admin/AdminUserManagement';
 import SubscriptionManagement from './super-admin/SubscriptionManagement';
 import BillingManagement from './super-admin/BillingManagement';
 import FeatureFlags from './super-admin/FeatureFlags';
@@ -39,6 +40,7 @@ export default function SuperAdmin() {
               <Route path="/" element={<Overview />} />
               <Route path="/tenants" element={<TenantManagement />} />
               <Route path="/onboarding" element={<TenantOnboarding />} />
+              <Route path="/admin-users" element={<AdminUserManagement />} />
               <Route path="/subscriptions" element={<SubscriptionManagement />} />
               <Route path="/billing" element={<BillingManagement />} />
               <Route path="/features" element={<FeatureFlags />} />

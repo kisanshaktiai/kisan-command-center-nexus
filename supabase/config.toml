@@ -128,6 +128,12 @@ major_version = 15
 [functions.assign-admin-role]
 verify_jwt = false
 
+[functions.send-admin-invite]
+verify_jwt = false
+
+[functions.verify-admin-invite]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323

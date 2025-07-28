@@ -12,7 +12,8 @@ import {
   Activity,
   Settings,
   ChevronDown,
-  LogOut
+  LogOut,
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -25,6 +26,7 @@ const navigationItems = [
       { title: 'Overview', href: '/super-admin', icon: Home },
       { title: 'Tenant Management', href: '/super-admin/tenants', icon: Users },
       { title: 'Tenant Onboarding', href: '/super-admin/onboarding', icon: UserPlus },
+      { title: 'Admin Users', href: '/super-admin/admin-users', icon: Shield },
       { title: 'Platform Monitoring', href: '/super-admin/monitoring', icon: Activity },
     ]
   },

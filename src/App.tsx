@@ -10,6 +10,7 @@ import SuperAdmin from "./pages/SuperAdmin";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/auth/AuthCallback";
 import ResetPassword from "./pages/auth/ResetPassword";
+import AdminRegister from "./pages/AdminRegister";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/auth/reset-password" element={<ResetPassword />} />
+              <Route path="/register" element={<AdminRegister />} />
               {navItems.map(({ to, page }) => (
                 <Route key={to} path={to} element={page} />
               ))}

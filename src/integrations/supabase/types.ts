@@ -213,6 +213,94 @@ export type Database = {
           },
         ]
       }
+      admin_invite_analytics: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          invite_id: string
+          ip_address: unknown | null
+          metadata: Json | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          invite_id: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          invite_id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_invite_analytics_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "admin_invites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invite_token: string
+          invited_by: string
+          metadata: Json | null
+          role: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invite_token: string
+          invited_by: string
+          metadata?: Json | null
+          role: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invite_token?: string
+          invited_by?: string
+          metadata?: Json | null
+          role?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_invites_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_notifications: {
         Row: {
           created_at: string | null
@@ -5886,6 +5974,10 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
+      expire_old_invites: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       gbt_bit_compress: {
         Args: { "": unknown }
         Returns: unknown
@@ -6109,6 +6201,10 @@ export type Database = {
       gbtreekey8_out: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      generate_invite_token: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       generate_otp: {
         Args: { p_length?: number }
@@ -7806,6 +7902,16 @@ export type Database = {
       user_has_tenant_access: {
         Args: { tenant_uuid: string }
         Returns: boolean
+      }
+      validate_invite_token: {
+        Args: { token: string }
+        Returns: {
+          invite_id: string
+          email: string
+          role: string
+          is_valid: boolean
+          expires_at: string
+        }[]
       }
       verify_admin_user_setup: {
         Args: Record<PropertyKey, never>
