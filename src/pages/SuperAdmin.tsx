@@ -17,9 +17,30 @@ import { useAuth } from '@/contexts/AuthContext';
 const SuperAdmin: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
 
-  // Create mock admin user data from auth user
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <div>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show authentication form if user is not logged in
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
+        <SuperAdminAuth />
+      </div>
+    );
+  }
+
+  // Create admin user data from auth user
   const adminUser = {
     id: user?.id || '',
     email: user?.email || '',
@@ -53,24 +74,22 @@ const SuperAdmin: React.FC = () => {
   };
 
   return (
-    <SuperAdminAuth>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
-        <SuperAdminHeader 
-          setSidebarOpen={setSidebarOpen}
-          adminUser={adminUser}
-          sidebarOpen={sidebarOpen}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
+      <SuperAdminHeader 
+        setSidebarOpen={setSidebarOpen}
+        adminUser={adminUser}
+        sidebarOpen={sidebarOpen}
+      />
+      <div className="flex">
+        <SuperAdminSidebar 
+          isOpen={sidebarOpen}
+          setIsOpen={setSidebarOpen}
         />
-        <div className="flex">
-          <SuperAdminSidebar 
-            isOpen={sidebarOpen}
-            setIsOpen={setSidebarOpen}
-          />
-          <main className="flex-1 p-6">
-            {renderActiveTab()}
-          </main>
-        </div>
+        <main className="flex-1 p-6">
+          {renderActiveTab()}
+        </main>
       </div>
-    </SuperAdminAuth>
+    </div>
   );
 };
 
