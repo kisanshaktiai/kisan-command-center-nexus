@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { authenticationService } from '@/services/AuthenticationService';
 import { AuthState, TenantData, UserProfile } from '@/types/auth';
 import { toast } from 'sonner';
 
-// Simplified auth hook - just a React wrapper around AuthenticationService
+// Simplified auth hook with optimized event handling
 interface UnifiedAuthContextType {
   user: User | null;
   session: Session | null;
@@ -28,6 +28,18 @@ interface UnifiedAuthContextType {
   clearError: () => void;
 }
 
+// Admin status cache to prevent repeated database calls
+interface AdminStatusCache {
+  userId: string;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  adminRole: string | null;
+  timestamp: number;
+}
+
+let adminStatusCache: AdminStatusCache | null = null;
+const ADMIN_CACHE_DURATION = 30000; // 30 seconds
+
 export const useEnhancedAuth = (): UnifiedAuthContextType => {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -40,100 +52,99 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Refs for optimization
+  const debounceTimeoutRef = useRef<NodeJS.Timeout>();
+  const lastAuthEventRef = useRef<string>('');
+  const mountedRef = useRef(true);
 
-  // Initialize auth state from service - removed initialized flag that was blocking re-initialization
-  useEffect(() => {
-    let mounted = true;
+  // Get cached admin status or fetch new
+  const getAdminStatus = useCallback(async (userId: string) => {
+    const now = Date.now();
+    
+    // Return cached result if valid and for same user
+    if (adminStatusCache && 
+        adminStatusCache.userId === userId && 
+        (now - adminStatusCache.timestamp) < ADMIN_CACHE_DURATION) {
+      console.log('Enhanced Auth: Using cached admin status');
+      return {
+        isAdmin: adminStatusCache.isAdmin,
+        isSuperAdmin: adminStatusCache.isSuperAdmin,
+        adminRole: adminStatusCache.adminRole
+      };
+    }
 
-    const initializeAuth = async () => {
+    try {
+      const currentAuthState = await authenticationService.getCurrentAuthState();
+      
+      // Cache the result
+      adminStatusCache = {
+        userId,
+        isAdmin: currentAuthState.isAdmin,
+        isSuperAdmin: currentAuthState.isSuperAdmin,
+        adminRole: currentAuthState.adminRole,
+        timestamp: now
+      };
+
+      return {
+        isAdmin: currentAuthState.isAdmin,
+        isSuperAdmin: currentAuthState.isSuperAdmin,
+        adminRole: currentAuthState.adminRole
+      };
+    } catch (error) {
+      console.error('Enhanced Auth: Error getting admin status:', error);
+      return { isAdmin: false, isSuperAdmin: false, adminRole: null };
+    }
+  }, []);
+
+  // Smart loading state management
+  const setLoadingState = useCallback((loading: boolean, reason?: string) => {
+    if (!mountedRef.current) return;
+    
+    console.log(`Enhanced Auth: Setting loading to ${loading}`, reason ? `- ${reason}` : '');
+    setIsLoading(loading);
+  }, []);
+
+  // Debounced auth state update
+  const updateAuthState = useCallback(async (session: Session | null, skipLoading = false) => {
+    if (!mountedRef.current) return;
+
+    // Clear existing debounce
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // Don't show loading for quick session updates or when specifically skipped
+    if (!skipLoading) {
+      setLoadingState(true, 'auth state update');
+    }
+
+    debounceTimeoutRef.current = setTimeout(async () => {
+      if (!mountedRef.current) return;
+
       try {
-        console.log('Enhanced Auth: Starting initialization...');
-        setIsLoading(true);
-        
-        // Get current session immediately without waiting for auth state change
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Enhanced Auth: Session error:', error);
-          setError('Failed to get session');
-          if (mounted) {
-            setIsLoading(false);
+        if (session?.user) {
+          console.log('Enhanced Auth: Processing authenticated user');
+          
+          // Get admin status (cached or fresh)
+          const adminStatus = await getAdminStatus(session.user.id);
+          
+          const newAuthState: AuthState = {
+            user: session.user,
+            session,
+            isAuthenticated: true,
+            isAdmin: adminStatus.isAdmin,
+            isSuperAdmin: adminStatus.isSuperAdmin,
+            adminRole: adminStatus.adminRole,
+            profile: null // Will be fetched separately if needed
+          };
+
+          if (mountedRef.current) {
+            setAuthState(newAuthState);
           }
-          return;
-        }
-        
-        console.log('Enhanced Auth: Session retrieved:', session?.user?.id || 'No session');
-        
-        if (session?.user && mounted) {
-          console.log('Enhanced Auth: User authenticated, getting auth state...');
-          try {
-            const currentAuthState = await authenticationService.getCurrentAuthState();
-            console.log('Enhanced Auth: Auth state retrieved:', {
-              user: currentAuthState.user?.id,
-              isAdmin: currentAuthState.isAdmin,
-              isSuperAdmin: currentAuthState.isSuperAdmin
-            });
-            setAuthState(currentAuthState);
-          } catch (authError) {
-            console.error('Enhanced Auth: Error getting auth state:', authError);
-            // Fallback to basic session data if auth service fails
-            setAuthState({
-              user: session.user,
-              session,
-              isAuthenticated: true,
-              isAdmin: false,
-              isSuperAdmin: false,
-              adminRole: null,
-              profile: null
-            });
-          }
-        } else if (mounted) {
-          console.log('Enhanced Auth: No authenticated user found');
-          setAuthState({
-            user: null,
-            session: null,
-            isAuthenticated: false,
-            isAdmin: false,
-            isSuperAdmin: false,
-            adminRole: null,
-            profile: null
-          });
-        }
-        
-        if (mounted) {
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error('Enhanced Auth: Initialization error:', error);
-        if (mounted) {
-          setError('Authentication initialization failed');
-          setIsLoading(false);
-        }
-      }
-    };
-
-    // Initialize immediately
-    initializeAuth();
-
-    // Set up auth state listener for future changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-        
-        console.log('Enhanced Auth: Auth state change:', event, session?.user?.id);
-
-        // Avoid setting loading state for token refresh events
-        if (event !== 'TOKEN_REFRESHED') {
-          setIsLoading(true);
-        }
-
-        try {
-          if (session?.user) {
-            console.log('Enhanced Auth: Getting auth state for user after state change...');
-            const currentAuthState = await authenticationService.getCurrentAuthState();
-            setAuthState(currentAuthState);
-          } else {
-            console.log('Enhanced Auth: No user in session, clearing auth state...');
+        } else {
+          console.log('Enhanced Auth: No authenticated user');
+          if (mountedRef.current) {
             setAuthState({
               user: null,
               session: null,
@@ -144,39 +155,128 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
               profile: null
             });
           }
-        } catch (error) {
-          console.error('Enhanced Auth: Auth state change error:', error);
-          // Fallback to basic session handling
-          if (session?.user) {
-            setAuthState({
-              user: session.user,
-              session,
-              isAuthenticated: true,
-              isAdmin: false,
-              isSuperAdmin: false,
-              adminRole: null,
-              profile: null
-            });
-          }
-        } finally {
-          if (mounted) {
-            setIsLoading(false);
-          }
+        }
+      } catch (error) {
+        console.error('Enhanced Auth: Error updating auth state:', error);
+        // Fallback to basic session data
+        if (session?.user && mountedRef.current) {
+          setAuthState({
+            user: session.user,
+            session,
+            isAuthenticated: true,
+            isAdmin: false,
+            isSuperAdmin: false,
+            adminRole: null,
+            profile: null
+          });
+        }
+      } finally {
+        if (mountedRef.current) {
+          setLoadingState(false, 'auth state update complete');
         }
       }
-    );
+    }, 100); // 100ms debounce
+  }, [getAdminStatus, setLoadingState]);
+
+  // Page visibility handler for quick session restoration
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && authState.user) {
+        console.log('Enhanced Auth: Page became visible, validating session...');
+        
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session && session.user.id === authState.user.id) {
+            // Session is still valid, update without loading screen
+            await updateAuthState(session, true);
+          }
+        } catch (error) {
+          console.error('Enhanced Auth: Error checking session on visibility change:', error);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [authState.user, updateAuthState]);
+
+  // Initialize auth state with session recovery
+  useEffect(() => {
+    let subscription: any;
+    
+    const initializeAuth = async () => {
+      try {
+        console.log('Enhanced Auth: Starting initialization...');
+        
+        // Check for existing session first
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Enhanced Auth: Session error:', error);
+          setError('Failed to get session');
+          setLoadingState(false, 'session error');
+          return;
+        }
+        
+        console.log('Enhanced Auth: Session retrieved:', session?.user?.id || 'No session');
+        
+        // Process initial session
+        await updateAuthState(session);
+        
+        // Set up auth state listener for future changes
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            if (!mountedRef.current) return;
+            
+            // Avoid duplicate processing
+            const eventKey = `${event}-${session?.user?.id || 'none'}`;
+            if (lastAuthEventRef.current === eventKey) {
+              console.log('Enhanced Auth: Skipping duplicate event:', eventKey);
+              return;
+            }
+            lastAuthEventRef.current = eventKey;
+            
+            console.log('Enhanced Auth: Auth state change:', event, session?.user?.id);
+
+            // Skip loading for token refresh events
+            const shouldSkipLoading = event === 'TOKEN_REFRESHED';
+            
+            if (event === 'SIGNED_OUT') {
+              // Clear admin cache on sign out
+              adminStatusCache = null;
+            }
+            
+            await updateAuthState(session, shouldSkipLoading);
+          }
+        );
+
+        subscription = authSubscription;
+
+      } catch (error) {
+        console.error('Enhanced Auth: Initialization error:', error);
+        if (mountedRef.current) {
+          setError('Authentication initialization failed');
+          setLoadingState(false, 'initialization error');
+        }
+      }
+    };
+
+    initializeAuth();
 
     return () => {
-      mounted = false;
-      subscription.unsubscribe();
+      mountedRef.current = false;
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
-  }, []); // No dependencies to allow re-initialization when needed
+  }, [updateAuthState, setLoadingState]);
 
-  // Wrapper functions around AuthenticationService
   const signUp = async (email: string, password: string, tenantData: TenantData) => {
     try {
       setError(null);
-      // TODO: Implement user registration in AuthenticationService
       throw new Error('User registration not yet implemented');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Registration failed';
@@ -206,12 +306,11 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
   };
 
   const adminLogin = async (email: string, password: string) => {
-    setIsLoading(true);
+    setLoadingState(true, 'admin login');
     setError(null);
     
     try {
       const result = await authenticationService.signInAdmin(email, password);
-      setIsLoading(false);
       
       if (result.success) {
         return { success: true, error: null };
@@ -222,14 +321,17 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
       setError(errorMessage);
-      setIsLoading(false);
       return { success: false, error: errorMessage };
+    } finally {
+      setLoadingState(false, 'admin login complete');
     }
   };
 
   const signOut = async () => {
-    setIsLoading(true);
+    setLoadingState(true, 'sign out');
     try {
+      // Clear admin cache
+      adminStatusCache = null;
       const result = await authenticationService.signOut();
       if (!result.success) {
         console.error('Sign out failed:', result.error);
@@ -240,7 +342,6 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     }
   };
 
-  // Other auth methods (simplified)
   const resetPassword = async (email: string, tenantId?: string) => {
     try {
       const redirectUrl = tenantId 

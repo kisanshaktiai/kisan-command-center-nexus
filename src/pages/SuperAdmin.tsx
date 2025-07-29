@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
 import { SuperAdminHeader } from '@/components/super-admin/SuperAdminHeader';
@@ -15,11 +14,15 @@ import FeatureFlags from '@/pages/super-admin/FeatureFlags';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 
 const SuperAdmin: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { user, isLoading, isAdmin } = useAuth();
+
+  // Add session timeout handling
+  useSessionTimeout();
 
   console.log('SuperAdmin: Render state:', {
     user: user?.id,
@@ -27,13 +30,16 @@ const SuperAdmin: React.FC = () => {
     isAdmin
   });
 
-  // Show loading state while checking authentication
+  // Show loading state with timeout protection
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
           <div>Loading admin dashboard...</div>
+          <div className="text-xs text-muted-foreground mt-2">
+            If this takes too long, the page will refresh automatically
+          </div>
         </div>
       </div>
     );

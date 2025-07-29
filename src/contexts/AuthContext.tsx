@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext } from 'react';
 import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
 
@@ -26,8 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isSuperAdmin: auth.isSuperAdmin
     });
 
-    // Always render children - individual components handle their own loading/auth states
-    // This prevents blocking the entire app when authentication is initializing
+    // Always render children with enhanced error recovery
     return (
       <AuthContext.Provider value={auth}>
         {children}
@@ -40,6 +38,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         <div className="text-center text-red-600">
           <div>Authentication Error</div>
           <div className="text-sm mt-2">Please refresh the page</div>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Refresh Page
+          </button>
         </div>
       </div>
     );
