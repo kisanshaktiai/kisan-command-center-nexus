@@ -4765,7 +4765,7 @@ export type Database = {
           is_profile_complete: boolean | null
           last_active_at: string | null
           metadata: Json | null
-          mobile_number: string
+          mobile_number: string | null
           notification_preferences: Json | null
           password_changed_at: string | null
           phone_verified: boolean | null
@@ -4811,7 +4811,7 @@ export type Database = {
           is_profile_complete?: boolean | null
           last_active_at?: string | null
           metadata?: Json | null
-          mobile_number: string
+          mobile_number?: string | null
           notification_preferences?: Json | null
           password_changed_at?: string | null
           phone_verified?: boolean | null
@@ -4857,7 +4857,7 @@ export type Database = {
           is_profile_complete?: boolean | null
           last_active_at?: string | null
           metadata?: Json | null
-          mobile_number?: string
+          mobile_number?: string | null
           notification_preferences?: Json | null
           password_changed_at?: string | null
           phone_verified?: boolean | null
