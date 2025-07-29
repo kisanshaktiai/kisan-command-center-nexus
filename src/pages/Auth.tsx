@@ -8,7 +8,7 @@ import { unifiedAuthService } from '@/services/UnifiedAuthService';
 import { Loader2 } from 'lucide-react';
 
 export default function Auth() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isAdmin } = useAuth();
   const [needsBootstrap, setNeedsBootstrap] = useState<boolean | null>(null);
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
 
@@ -54,8 +54,8 @@ export default function Auth() {
     return <BootstrapSetup />;
   }
 
-  // Only redirect authenticated users to super-admin AFTER bootstrap is completed
-  if (user) {
+  // Only redirect authenticated ADMIN users to super-admin AFTER bootstrap is completed
+  if (user && isAdmin) {
     return <Navigate to="/super-admin" replace />;
   }
 
