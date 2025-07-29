@@ -2,12 +2,11 @@
 import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { unifiedAuthService, type TenantData } from '@/services/UnifiedAuthService';
+import { unifiedAuthService } from '@/services/UnifiedAuthService';
+import { AuthState, TenantData } from '@/types/auth';
 import { toast } from 'sonner';
 
-// TenantData is now imported from AuthenticationService
-
-// Unified auth context type that handles both regular and admin authentication
+// Simplified auth hook - just a React wrapper around UnifiedAuthService
 interface UnifiedAuthContextType {
   user: User | null;
   session: Session | null;
@@ -31,243 +30,19 @@ interface UnifiedAuthContextType {
 }
 
 export const useEnhancedAuth = (): UnifiedAuthContextType => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    session: null,
+    isAuthenticated: false,
+    isAdmin: false,
+    isSuperAdmin: false,
+    adminRole: null,
+    profile: null
+  });
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [adminRole, setAdminRole] = useState<string | null>(null);
-  const [profile, setProfile] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Enhanced sign up with tenant metadata - now uses service layer
-  const signUp = async (email: string, password: string, tenantData: TenantData) => {
-    try {
-      setError(null);
-      // TODO: Implement user registration in UnifiedAuthService
-      throw new Error('User registration not yet implemented');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Registration failed';
-      setError(errorMessage);
-      return { data: null, error: error as AuthError };
-    }
-  };
-
-  // Enhanced sign in - now uses service layer
-  const signIn = async (email: string, password: string, isAdminLogin = false) => {
-    setError(null);
-    try {
-      const result = isAdminLogin 
-        ? await unifiedAuthService.signInAdmin(email, password)
-        : await unifiedAuthService.signInUser(email, password);
-      
-      if (result.success && result.data) {
-        // Update state with result
-        setUser(result.data.user);
-        setSession(result.data.session);
-        setIsAdmin(result.data.isAdmin);
-        setIsSuperAdmin(result.data.isSuperAdmin);
-        setAdminRole(result.data.adminRole);
-        // Profile will be fetched separately
-        
-        return { data: result.data, error: null };
-      } else {
-        setError(result.error || 'Authentication failed');
-        return { data: null, error: new Error(result.error || 'Authentication failed') as AuthError };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
-      setError(errorMessage);
-      return { data: null, error: error as AuthError };
-    }
-  };
-
-  // Dedicated admin login method using service layer
-  const adminLogin = async (email: string, password: string) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const result = await unifiedAuthService.signInAdmin(email, password);
-      
-      if (result.success && result.data) {
-        // The auth state change listener will handle updating the state
-        return { success: true, error: null };
-      } else {
-        setError(result.error || 'Authentication failed');
-        setIsLoading(false);
-        return { success: false, error: result.error || 'Authentication failed' };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
-      setError(errorMessage);
-      setIsLoading(false);
-      return { success: false, error: errorMessage };
-    }
-  };
-
-  // Enhanced password reset
-  const resetPassword = async (email: string, tenantId?: string) => {
-    try {
-      const redirectUrl = tenantId 
-        ? `${window.location.origin}/auth/reset-password?tenant=${tenantId}`
-        : `${window.location.origin}/auth/reset-password`;
-      
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl
-      });
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error: error as AuthError };
-    }
-  };
-
-  // Update email with verification
-  const updateEmail = async (newEmail: string) => {
-    try {
-      const { data, error } = await supabase.auth.updateUser({
-        email: newEmail
-      });
-      return { data, error };
-    } catch (error) {
-      return { data: null, error: error as AuthError };
-    }
-  };
-
-  // Update password
-  const updatePassword = async (newPassword: string) => {
-    try {
-      const { data, error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-      return { data, error };
-    } catch (error) {
-      return { data: null, error: error as AuthError };
-    }
-  };
-
-  // Resend email verification
-  const resendEmailVerification = async () => {
-    try {
-      if (!user) throw new Error('No user logged in');
-      
-      const { data, error } = await supabase.auth.resend({
-        type: 'signup',
-        email: user.email!
-      });
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error: error as AuthError };
-    }
-  };
-
-  // Track user session
-  const trackSession = async (deviceInfo?: any) => {
-    try {
-      if (!session) return;
-      
-      // Session tracking will be handled by the unified service
-      
-      console.log('Session tracking active');
-    } catch (error) {
-      console.error('Error tracking session:', error);
-    }
-  };
-
-  // Sign out using service layer
-  const signOut = async () => {
-    setIsLoading(true);
-    try {
-      const result = await unifiedAuthService.signOut();
-      if (!result.success) {
-        console.error('Sign out failed:', result.error);
-      }
-    } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error('Error during logout');
-    }
-  };
-
-  // Clear error messages
-  const clearError = () => {
-    setError(null);
-  };
-
-  // Refresh user profile
-  const refreshProfile = async () => {
-    if (!user) return;
-    
-    try {
-      // Fetch user profile data
-      const { data: profileData } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
-      if (profileData) {
-        setProfile(profileData);
-      }
-      
-      console.log('Profile refresh completed');
-    } catch (error) {
-      console.error('Error refreshing profile:', error);
-    }
-  };
-
-  // Check admin status using unified service with retry logic
-  const checkAdminStatus = async (retryCount = 0) => {
-    if (!user) {
-      setIsAdmin(false);
-      setIsSuperAdmin(false);
-      setAdminRole(null);
-      setError(null);
-      return;
-    }
-
-    try {
-      console.log('Checking admin status for user:', user.id, 'Retry:', retryCount);
-      
-      // Use the unified auth service for consistent admin status checking
-      const authState = await unifiedAuthService.getCurrentAuthState();
-      
-      if (authState.user?.id === user.id) {
-        setIsAdmin(authState.isAdmin);
-        setIsSuperAdmin(authState.isSuperAdmin);
-        setAdminRole(authState.adminRole);
-        setError(null);
-        
-        console.log('Admin status verified via service:', {
-          isAdmin: authState.isAdmin,
-          isSuperAdmin: authState.isSuperAdmin,
-          adminRole: authState.adminRole
-        });
-      } else if (retryCount < 3) {
-        // Retry after a short delay if auth state doesn't match
-        console.log('Auth state mismatch, retrying...');
-        setTimeout(() => checkAdminStatus(retryCount + 1), 1000);
-      } else {
-        console.log('Max retries reached, user is not an admin:', user.id);
-        setIsAdmin(false);
-        setIsSuperAdmin(false);
-        setAdminRole(null);
-        setError(null);
-      }
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      if (retryCount < 3) {
-        setTimeout(() => checkAdminStatus(retryCount + 1), 1000);
-      } else {
-        setIsAdmin(false);
-        setIsSuperAdmin(false);
-        setAdminRole(null);
-      }
-    }
-  };
-
-  // Set up auth state listener
+  // Initialize auth state from service
   useEffect(() => {
     let mounted = true;
 
@@ -283,23 +58,24 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
         
         if (mounted) {
           console.log('Enhanced Auth: Session found:', session?.user?.id || 'No session');
-          setSession(session);
-          setUser(session?.user ?? null);
-          setIsLoading(false);
           
           if (session?.user) {
-            console.log('Enhanced Auth: User authenticated, checking admin status...');
-            // Add delay to ensure database is updated after email verification
-            setTimeout(() => {
-              if (mounted) {
-                checkAdminStatus();
-                refreshProfile();
-                trackSession();
-              }
-            }, 500);
+            console.log('Enhanced Auth: User authenticated, getting auth state...');
+            const currentAuthState = await unifiedAuthService.getCurrentAuthState();
+            setAuthState(currentAuthState);
           } else {
             console.log('Enhanced Auth: No authenticated user found');
+            setAuthState({
+              user: null,
+              session: null,
+              isAuthenticated: false,
+              isAdmin: false,
+              isSuperAdmin: false,
+              adminRole: null,
+              profile: null
+            });
           }
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Enhanced Auth: Initialization error:', error);
@@ -318,27 +94,21 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
         
         console.log('Auth state change:', event, session?.user?.id);
 
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoading(false);
-        
         if (session?.user) {
-          // Add delay for email verification events to ensure database consistency
-          const delay = event === 'SIGNED_IN' ? 1000 : 500;
-          setTimeout(() => {
-            if (mounted) {
-              checkAdminStatus();
-              refreshProfile();
-              trackSession();
-            }
-          }, delay);
+          const currentAuthState = await unifiedAuthService.getCurrentAuthState();
+          setAuthState(currentAuthState);
         } else {
-          setProfile(null);
-          setIsAdmin(false);
-          setIsSuperAdmin(false);
-          setAdminRole(null);
-          setError(null);
+          setAuthState({
+            user: null,
+            session: null,
+            isAuthenticated: false,
+            isAdmin: false,
+            isSuperAdmin: false,
+            adminRole: null,
+            profile: null
+          });
         }
+        setIsLoading(false);
       }
     );
 
@@ -348,14 +118,161 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     };
   }, []);
 
+  // Wrapper functions around UnifiedAuthService
+  const signUp = async (email: string, password: string, tenantData: TenantData) => {
+    try {
+      setError(null);
+      // TODO: Implement user registration in UnifiedAuthService
+      throw new Error('User registration not yet implemented');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+      setError(errorMessage);
+      return { data: null, error: error as AuthError };
+    }
+  };
+
+  const signIn = async (email: string, password: string, isAdminLogin = false) => {
+    setError(null);
+    try {
+      const result = isAdminLogin 
+        ? await unifiedAuthService.signInAdmin(email, password)
+        : await unifiedAuthService.signInUser(email, password);
+      
+      if (result.success && result.data) {
+        return { data: result.data, error: null };
+      } else {
+        setError(result.error || 'Authentication failed');
+        return { data: null, error: new Error(result.error || 'Authentication failed') as AuthError };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+      setError(errorMessage);
+      return { data: null, error: error as AuthError };
+    }
+  };
+
+  const adminLogin = async (email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await unifiedAuthService.signInAdmin(email, password);
+      setIsLoading(false);
+      
+      if (result.success) {
+        return { success: true, error: null };
+      } else {
+        setError(result.error || 'Authentication failed');
+        return { success: false, error: result.error || 'Authentication failed' };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+      setError(errorMessage);
+      setIsLoading(false);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const signOut = async () => {
+    setIsLoading(true);
+    try {
+      const result = await unifiedAuthService.signOut();
+      if (!result.success) {
+        console.error('Sign out failed:', result.error);
+      }
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast.error('Error during logout');
+    }
+  };
+
+  // Other auth methods (simplified)
+  const resetPassword = async (email: string, tenantId?: string) => {
+    try {
+      const redirectUrl = tenantId 
+        ? `${window.location.origin}/auth/reset-password?tenant=${tenantId}`
+        : `${window.location.origin}/auth/reset-password`;
+      
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl
+      });
+      return { data, error };
+    } catch (error) {
+      return { data: null, error: error as AuthError };
+    }
+  };
+
+  const updateEmail = async (newEmail: string) => {
+    try {
+      const { data, error } = await supabase.auth.updateUser({ email: newEmail });
+      return { data, error };
+    } catch (error) {
+      return { data: null, error: error as AuthError };
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+      return { data, error };
+    } catch (error) {
+      return { data: null, error: error as AuthError };
+    }
+  };
+
+  const resendEmailVerification = async () => {
+    try {
+      if (!authState.user) throw new Error('No user logged in');
+      
+      const { data, error } = await supabase.auth.resend({
+        type: 'signup',
+        email: authState.user.email!
+      });
+      return { data, error };
+    } catch (error) {
+      return { data: null, error: error as AuthError };
+    }
+  };
+
+  const trackSession = async (deviceInfo?: any) => {
+    try {
+      if (!authState.session) return;
+      console.log('Session tracking active');
+    } catch (error) {
+      console.error('Error tracking session:', error);
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (!authState.user) return;
+    
+    try {
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', authState.user.id)
+        .single();
+      
+      if (profileData) {
+        setAuthState(prev => ({ ...prev, profile: profileData }));
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+    }
+  };
+
+  const clearError = () => {
+    setError(null);
+  };
+
   return {
-    user,
-    session,
+    user: authState.user,
+    session: authState.session,
     isLoading,
-    isAdmin,
-    isSuperAdmin,
-    adminRole,
-    profile,
+    isAdmin: authState.isAdmin,
+    isSuperAdmin: authState.isSuperAdmin,
+    adminRole: authState.adminRole,
+    profile: authState.profile,
     error,
     signUp,
     signIn,

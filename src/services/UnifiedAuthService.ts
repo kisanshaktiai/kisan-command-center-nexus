@@ -1,38 +1,23 @@
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { AuthState, UserProfile, TenantData } from '@/types/auth';
+import { BaseService, ServiceResult } from './BaseService';
 
-export interface AuthState {
-  user: User | null;
-  session: Session | null;
-  isAuthenticated: boolean;
-  isAdmin: boolean;
-  isSuperAdmin: boolean;
-  adminRole: string | null;
-}
-
-export interface AuthResult<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
-export interface TenantData {
-  organizationName: string;
-  organizationType: string;
-  tenantId?: string;
-  fullName: string;
-  phone: string;
-}
+// Removed duplicate interfaces - using consolidated ones from types/auth.ts
 
 /**
  * Unified Authentication Service
  * Single source of truth for all authentication operations
  */
-export class UnifiedAuthService {
+export class UnifiedAuthService extends BaseService {
   private static instance: UnifiedAuthService;
   private sessionValidationInterval: NodeJS.Timeout | null = null;
   private readonly SESSION_CHECK_INTERVAL = 30000; // 30 seconds
+
+  private constructor() {
+    super();
+  }
 
   public static getInstance(): UnifiedAuthService {
     if (!UnifiedAuthService.instance) {
@@ -55,11 +40,25 @@ export class UnifiedAuthService {
           isAuthenticated: false,
           isAdmin: false,
           isSuperAdmin: false,
-          adminRole: null
+          adminRole: null,
+          profile: null
         };
       }
 
       const { isAdmin, isSuperAdmin, adminRole } = await this.checkAdminStatus(session.user.id);
+
+      // Fetch user profile
+      let profile: UserProfile | null = null;
+      try {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        profile = profileData;
+      } catch (profileError) {
+        console.log('No profile found for user:', session.user.id);
+      }
 
       return {
         user: session.user,
@@ -67,7 +66,8 @@ export class UnifiedAuthService {
         isAuthenticated: true,
         isAdmin,
         isSuperAdmin,
-        adminRole
+        adminRole,
+        profile
       };
     } catch (error) {
       console.error('Error getting auth state:', error);
@@ -77,7 +77,8 @@ export class UnifiedAuthService {
         isAuthenticated: false,
         isAdmin: false,
         isSuperAdmin: false,
-        adminRole: null
+        adminRole: null,
+        profile: null
       };
     }
   }
@@ -85,7 +86,7 @@ export class UnifiedAuthService {
   /**
    * Admin Sign In
    */
-  async signInAdmin(email: string, password: string): Promise<AuthResult<AuthState>> {
+  async signInAdmin(email: string, password: string): Promise<ServiceResult<AuthState>> {
     try {
       if (!email?.trim() || !password) {
         return { success: false, error: 'Email and password are required' };
@@ -123,21 +124,22 @@ export class UnifiedAuthService {
         isAuthenticated: true,
         isAdmin,
         isSuperAdmin,
-        adminRole
+        adminRole,
+        profile: null // Profile will be fetched separately if needed
       };
 
-      return { success: true, data: authState };
+      return this.createResult(true, authState);
 
     } catch (error) {
       console.error('Admin sign in error:', error);
-      return { success: false, error: 'Authentication failed. Please try again.' };
+      return this.createResult(false, undefined, 'Authentication failed. Please try again.');
     }
   }
 
   /**
    * User Sign In
    */
-  async signInUser(email: string, password: string): Promise<AuthResult<AuthState>> {
+  async signInUser(email: string, password: string): Promise<ServiceResult<AuthState>> {
     try {
       if (!email?.trim() || !password) {
         return { success: false, error: 'Email and password are required' };
@@ -165,21 +167,22 @@ export class UnifiedAuthService {
         isAuthenticated: true,
         isAdmin: false,
         isSuperAdmin: false,
-        adminRole: null
+        adminRole: null,
+        profile: null // Profile will be fetched separately if needed
       };
 
-      return { success: true, data: authState };
+      return this.createResult(true, authState);
 
     } catch (error) {
       console.error('User sign in error:', error);
-      return { success: false, error: 'Authentication failed. Please try again.' };
+      return this.createResult(false, undefined, 'Authentication failed. Please try again.');
     }
   }
 
   /**
    * Bootstrap Super Admin
    */
-  async bootstrapSuperAdmin(email: string, password: string, fullName: string): Promise<AuthResult<AuthState>> {
+  async bootstrapSuperAdmin(email: string, password: string, fullName: string): Promise<ServiceResult<AuthState>> {
     try {
       if (!email?.trim() || !password || !fullName?.trim()) {
         return { success: false, error: 'All fields are required' };
@@ -270,21 +273,22 @@ export class UnifiedAuthService {
         isAuthenticated: true,
         isAdmin: true,
         isSuperAdmin: true,
-        adminRole: 'super_admin'
+        adminRole: 'super_admin',
+        profile: null // Profile will be created after bootstrap
       };
 
-      return { success: true, data: authState };
+      return this.createResult(true, authState);
 
     } catch (error) {
       console.error('Bootstrap error:', error);
-      return { success: false, error: 'System initialization failed' };
+      return this.createResult(false, undefined, 'System initialization failed');
     }
   }
 
   /**
    * Sign Out
    */
-  async signOut(): Promise<AuthResult<void>> {
+  async signOut(): Promise<ServiceResult<void>> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -295,11 +299,11 @@ export class UnifiedAuthService {
       this.stopSessionValidation();
       await supabase.auth.signOut();
       
-      return { success: true };
+      return this.createResult(true);
 
     } catch (error) {
       console.error('Sign out error:', error);
-      return { success: false, error: 'Sign out failed' };
+      return this.createResult(false, undefined, 'Sign out failed');
     }
   }
 

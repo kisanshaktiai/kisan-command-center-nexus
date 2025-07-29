@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
-import { unifiedAuthService, type AuthResult, type AuthState, type TenantData } from '@/services/UnifiedAuthService';
+import { unifiedAuthService } from '@/services/UnifiedAuthService';
+import { AuthState, TenantData } from '@/types/auth';
+import { ServiceResult } from '@/services/BaseService';
 
 /**
  * Hook for Authentication Service Operations
@@ -14,10 +16,10 @@ export const useAuthenticationService = () => {
   }, []);
 
   const handleAuthOperation = useCallback(async <T>(
-    operation: () => Promise<AuthResult<T>>,
+    operation: () => Promise<ServiceResult<T>>,
     onSuccess?: (data: T) => void,
     onError?: (error: string) => void
-  ): Promise<AuthResult<T>> => {
+  ): Promise<ServiceResult<T>> => {
     setIsLoading(true);
     setError(null);
 

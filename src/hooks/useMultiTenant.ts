@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useContext, createContext, ReactNode, useCallback } from 'react';
-import { MultiTenantService } from '@/services/multiTenantService';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import * as React from 'react';
 
 export interface TenantContext {
@@ -115,6 +115,151 @@ export const MultiTenantProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
   
+  // Consolidated tenant detection logic
+  const detectTenant = async (hostname: string): Promise<TenantContext | null> => {
+    try {
+      console.log('MultiTenant: Detecting tenant from hostname:', hostname);
+
+      // Check if it's a custom domain first
+      const { data, error } = await supabase
+        .from('tenants')
+        .select(`
+          id,
+          name,
+          slug,
+          subdomain,
+          custom_domain,
+          subscription_plan,
+          max_farmers,
+          max_dealers,
+          max_products,
+          max_storage_gb,
+          max_api_calls_per_day,
+          tenant_branding (
+            primary_color,
+            secondary_color,
+            accent_color,
+            app_name,
+            logo_url
+          ),
+          tenant_features (
+            ai_chat,
+            weather_forecast,
+            marketplace,
+            community_forum,
+            satellite_imagery,
+            soil_testing,
+            drone_monitoring,
+            iot_integration,
+            ecommerce,
+            payment_gateway,
+            inventory_management,
+            logistics_tracking,
+            basic_analytics,
+            advanced_analytics,
+            predictive_analytics,
+            custom_reports,
+            api_access,
+            webhook_support,
+            third_party_integrations,
+            white_label_mobile_app
+          )
+        `)
+        .or(`custom_domain.eq.${hostname},subdomain.eq.${hostname.split('.')[0]}`)
+        .eq('status', 'active')
+        .single();
+
+      if (error || !data) {
+        console.warn('MultiTenant: Tenant not found for hostname:', hostname);
+        return null;
+      }
+
+      // Transform the data into TenantContext
+      const tenantContext: TenantContext = {
+        tenant_id: data.id,
+        subdomain: data.subdomain,
+        custom_domain: data.custom_domain,
+        branding: {
+          primary_color: data.tenant_branding?.[0]?.primary_color || '#10B981',
+          secondary_color: data.tenant_branding?.[0]?.secondary_color || '#065F46',
+          accent_color: data.tenant_branding?.[0]?.accent_color || '#F59E0B',
+          app_name: data.tenant_branding?.[0]?.app_name || data.name,
+          logo_url: data.tenant_branding?.[0]?.logo_url,
+        },
+        features: {
+          ai_chat: data.tenant_features?.[0]?.ai_chat || false,
+          weather_forecast: data.tenant_features?.[0]?.weather_forecast || false,
+          marketplace: data.tenant_features?.[0]?.marketplace || false,
+          community_forum: data.tenant_features?.[0]?.community_forum || false,
+          satellite_imagery: data.tenant_features?.[0]?.satellite_imagery || false,
+          soil_testing: data.tenant_features?.[0]?.soil_testing || false,
+          drone_monitoring: data.tenant_features?.[0]?.drone_monitoring || false,
+          iot_integration: data.tenant_features?.[0]?.iot_integration || false,
+          ecommerce: data.tenant_features?.[0]?.ecommerce || false,
+          payment_gateway: data.tenant_features?.[0]?.payment_gateway || false,
+          inventory_management: data.tenant_features?.[0]?.inventory_management || false,
+          logistics_tracking: data.tenant_features?.[0]?.logistics_tracking || false,
+          basic_analytics: data.tenant_features?.[0]?.basic_analytics || false,
+          advanced_analytics: data.tenant_features?.[0]?.advanced_analytics || false,
+          predictive_analytics: data.tenant_features?.[0]?.predictive_analytics || false,
+          custom_reports: data.tenant_features?.[0]?.custom_reports || false,
+          api_access: data.tenant_features?.[0]?.api_access || false,
+          webhook_support: data.tenant_features?.[0]?.webhook_support || false,
+          third_party_integrations: data.tenant_features?.[0]?.third_party_integrations || false,
+          white_label_mobile_app: data.tenant_features?.[0]?.white_label_mobile_app || false,
+        },
+        limits: {
+          farmers: data.max_farmers || 1000,
+          dealers: data.max_dealers || 50,
+          products: data.max_products || 100,
+          storage: data.max_storage_gb || 10,
+          api_calls: data.max_api_calls_per_day || 10000,
+        },
+      };
+
+      console.log('MultiTenant: Tenant detected successfully:', tenantContext);
+      return tenantContext;
+    } catch (error) {
+      console.error('MultiTenant: Error detecting tenant:', error);
+      return null;
+    }
+  };
+
+  // Apply tenant branding to DOM
+  const applyTenantBranding = (tenant: TenantContext): void => {
+    try {
+      const root = document.documentElement;
+      
+      // Apply CSS custom properties for theming
+      if (tenant.branding?.primary_color) {
+        root.style.setProperty('--tenant-primary', tenant.branding.primary_color);
+      }
+      if (tenant.branding?.secondary_color) {
+        root.style.setProperty('--tenant-secondary', tenant.branding.secondary_color);
+      }
+      if (tenant.branding?.accent_color) {
+        root.style.setProperty('--tenant-accent', tenant.branding.accent_color);
+      }
+
+      // Update document title
+      if (tenant.branding?.app_name) {
+        document.title = tenant.branding.app_name;
+      }
+
+      // Update favicon if logo_url exists
+      if (tenant.branding?.logo_url) {
+        const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
+        if (favicon) {
+          favicon.href = tenant.branding.logo_url;
+        }
+      }
+
+      console.log('MultiTenant: Tenant branding applied successfully');
+    } catch (error) {
+      console.error('MultiTenant: Error applying tenant branding:', error);
+    }
+  };
+
   // Initialize tenant with caching
   const initializeTenant = async () => {
     try {
@@ -130,16 +275,26 @@ export const MultiTenantProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
+      const hostname = window.location.hostname;
+      
+      // Skip tenant detection for localhost or main domain
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('lovable.app')) {
+        console.log('MultiTenant: Skipping tenant detection for development/main domain');
+        setIsLoading(false);
+        return;
+      }
+      
       // Check cache first
-      const cacheKey = window.location.hostname;
+      const cacheKey = hostname;
       const cached = tenantCache.get(cacheKey);
       
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
         setTenant(cached.data);
+        applyTenantBranding(cached.data);
         setIsLoading(false);
         
         // Refresh in background
-        MultiTenantService.initializeTenantFromURL().then(data => {
+        detectTenant(hostname).then(data => {
           if (data) {
             tenantCache.set(cacheKey, { data, timestamp: Date.now() });
           }
@@ -149,7 +304,7 @@ export const MultiTenantProvider = ({ children }: { children: ReactNode }) => {
       }
       
       // Fetch fresh data
-      const detectedTenant = await MultiTenantService.initializeTenantFromURL();
+      const detectedTenant = await detectTenant(hostname);
       
       if (!detectedTenant) {
         setError('No tenant configuration found');
@@ -160,6 +315,7 @@ export const MultiTenantProvider = ({ children }: { children: ReactNode }) => {
       tenantCache.set(cacheKey, { data: detectedTenant, timestamp: Date.now() });
       
       setTenant(detectedTenant);
+      applyTenantBranding(detectedTenant);
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initialize tenant');

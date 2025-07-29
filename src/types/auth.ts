@@ -1,25 +1,10 @@
-export interface AuthUser {
-  id: string;
-  email: string | undefined;
-  phone?: string;
-  email_confirmed_at?: string;
-  phone_confirmed_at?: string;
-  created_at: string;
-  updated_at: string;
-}
+import { User, Session } from '@supabase/supabase-js';
 
-export interface AuthSession {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  expires_at?: number;
-  token_type: string;
-  user: AuthUser;
-}
-
+// Consolidated AuthState interface - single source of truth
 export interface AuthState {
-  user: AuthUser | null;
-  session: AuthSession | null;
+  user: User | null;
+  session: Session | null;
+  isAuthenticated: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
   adminRole: string | null;
@@ -37,12 +22,11 @@ export interface UserProfile {
 }
 
 export interface TenantData {
-  name: string;
-  slug: string;
-  type: string;
-  owner_name?: string;
-  owner_email?: string;
-  owner_phone?: string;
+  organizationName: string;
+  organizationType: string;
+  tenantId?: string;
+  fullName: string;
+  phone: string;
 }
 
 export interface AuthResult<T = unknown> {
