@@ -319,17 +319,22 @@ export class AuthenticationService extends BaseService {
         .eq('config_key', 'bootstrap_completed')
         .maybeSingle();
       
-      if (!configError && configData?.config_value === 'true') {
-        console.log('AuthenticationService: Bootstrap flag found - completed');
-        return true;
+      if (!configError && configData) {
+        // Handle both string 'true' and boolean true
+        const isCompleted = configData.config_value === 'true' || configData.config_value === true;
+        if (isCompleted) {
+          console.log('AuthenticationService: Bootstrap flag found - completed');
+          return true;
+        }
       }
       
-      // If flag missing but admin users exist, consider bootstrap complete
-      console.log('AuthenticationService: Bootstrap flag not found, checking admin users...');
+      // If flag missing or false, check if super admin users exist
+      console.log('AuthenticationService: Bootstrap flag not found or false, checking super admin users...');
       const { data: adminUsers, error: adminError } = await supabase
         .from('admin_users')
         .select('id')
         .eq('is_active', true)
+        .eq('role', 'super_admin')
         .limit(1);
       
       if (adminError) {
@@ -337,12 +342,12 @@ export class AuthenticationService extends BaseService {
         return false;
       }
       
-      const hasAdmins = adminUsers && adminUsers.length > 0;
-      console.log('AuthenticationService: Active admin users found:', hasAdmins);
+      const hasSuperAdmins = adminUsers && adminUsers.length > 0;
+      console.log('AuthenticationService: Active super admin users found:', hasSuperAdmins);
       
-      // If admins exist but flag is missing, auto-fix the inconsistency
-      if (hasAdmins) {
-        console.log('AuthenticationService: Auto-fixing missing bootstrap flag...');
+      // If super admins exist but flag is missing/false, auto-fix the inconsistency
+      if (hasSuperAdmins) {
+        console.log('AuthenticationService: Auto-fixing missing/incorrect bootstrap flag...');
         await supabase
           .from('system_config')
           .upsert({ 
@@ -350,6 +355,7 @@ export class AuthenticationService extends BaseService {
             config_value: 'true',
             updated_at: new Date().toISOString()
           });
+        console.log('AuthenticationService: Bootstrap completed (super admin users exist)');
         return true;
       }
       
