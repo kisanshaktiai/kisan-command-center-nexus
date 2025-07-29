@@ -8,6 +8,9 @@ interface RealtimeData {
   activeSessions: any[];
   apiUsage: any[];
   notifications: any[];
+  systemMetrics: any[];
+  resourceMetrics: any[];
+  financialMetrics: any[];
 }
 
 export const useRealtimeSubscriptions = () => {
@@ -15,25 +18,42 @@ export const useRealtimeSubscriptions = () => {
     tenants: [],
     activeSessions: [],
     apiUsage: [],
-    notifications: []
+    notifications: [],
+    systemMetrics: [],
+    resourceMetrics: [],
+    financialMetrics: []
   });
 
   useEffect(() => {
     // Initial data fetch
     const fetchInitialData = async () => {
       try {
-        const [tenantsRes, sessionsRes, apiRes, notificationsRes] = await Promise.all([
+        const [
+          tenantsRes, 
+          sessionsRes, 
+          apiRes, 
+          notificationsRes,
+          systemMetricsRes,
+          resourceMetricsRes,
+          financialMetricsRes
+        ] = await Promise.all([
           supabase.from('tenants').select('*').order('created_at', { ascending: false }),
           supabase.from('active_sessions').select('*').eq('is_active', true),
           supabase.from('api_logs').select('*').gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
-          supabase.from('platform_notifications').select('*').eq('is_read', false).order('created_at', { ascending: false })
+          supabase.from('platform_notifications').select('*').eq('is_read', false).order('created_at', { ascending: false }),
+          supabase.from('system_health_metrics').select('*').order('timestamp', { ascending: false }).limit(100),
+          supabase.from('resource_utilization').select('*').order('timestamp', { ascending: false }).limit(100),
+          supabase.from('financial_analytics').select('*').order('timestamp', { ascending: false }).limit(30)
         ]);
 
         setData({
           tenants: tenantsRes.data || [],
           activeSessions: sessionsRes.data || [],
           apiUsage: apiRes.data || [],
-          notifications: notificationsRes.data || []
+          notifications: notificationsRes.data || [],
+          systemMetrics: systemMetricsRes.data || [],
+          resourceMetrics: resourceMetricsRes.data || [],
+          financialMetrics: financialMetricsRes.data || []
         });
       } catch (error) {
         console.error('Error fetching initial data:', error);
@@ -138,11 +158,62 @@ export const useRealtimeSubscriptions = () => {
       })
       .subscribe();
 
+    // Real-time subscriptions for monitoring metrics
+    const systemMetricsChannel = supabase
+      .channel('system-metrics-changes')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'system_health_metrics'
+      }, (payload) => {
+        setData(prev => ({ 
+          ...prev, 
+          systemMetrics: [payload.new, ...prev.systemMetrics.slice(0, 99)] 
+        }));
+        
+        // Alert on critical health issues
+        if (payload.new.status === 'critical') {
+          toast.error(`System health critical: ${payload.new.health_score}%`);
+        }
+      })
+      .subscribe();
+
+    const resourceMetricsChannel = supabase
+      .channel('resource-metrics-changes')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'resource_utilization'
+      }, (payload) => {
+        setData(prev => ({ 
+          ...prev, 
+          resourceMetrics: [payload.new, ...prev.resourceMetrics.slice(0, 99)] 
+        }));
+      })
+      .subscribe();
+
+    const financialMetricsChannel = supabase
+      .channel('financial-metrics-changes')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'financial_analytics'
+      }, (payload) => {
+        setData(prev => ({ 
+          ...prev, 
+          financialMetrics: [payload.new, ...prev.financialMetrics.slice(0, 29)] 
+        }));
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(tenantChannel);
       supabase.removeChannel(sessionsChannel);
       supabase.removeChannel(apiLogsChannel);
       supabase.removeChannel(notificationsChannel);
+      supabase.removeChannel(systemMetricsChannel);
+      supabase.removeChannel(resourceMetricsChannel);
+      supabase.removeChannel(financialMetricsChannel);
     };
   }, []);
 

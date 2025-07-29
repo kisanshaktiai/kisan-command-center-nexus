@@ -20,10 +20,16 @@ import { ActiveSessionsMonitor } from '@/components/super-admin/ActiveSessionsMo
 import { NotificationCenter } from '@/components/super-admin/NotificationCenter';
 import { useSuperAdminMetrics } from '@/hooks/useSuperAdminMetrics';
 import { useRealtimeSubscriptions } from '@/hooks/useRealtimeSubscriptions';
+import { MetricsCollectionService } from '@/services/metricsCollectionService';
 
 const Overview = () => {
   const { metrics, isLoading, getMetricChange } = useSuperAdminMetrics();
   const realtimeData = useRealtimeSubscriptions();
+  
+  // Get latest metrics from real-time data
+  const latestSystemMetric = realtimeData.systemMetrics[0];
+  const latestResourceMetric = realtimeData.resourceMetrics[0];
+  const latestFinancialMetric = realtimeData.financialMetrics[0];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 p-6 space-y-8">
@@ -75,8 +81,8 @@ const Overview = () => {
         
         <MetricCard
           title="System Health"
-          value={`${metrics?.systemHealth || 0}%`}
-          change={getMetricChange(metrics?.systemHealth || 0, 'systemHealth')}
+          value={`${latestSystemMetric?.health_score || metrics?.systemHealth || 0}%`}
+          change={getMetricChange(latestSystemMetric?.health_score || metrics?.systemHealth || 0, 'systemHealth')}
           icon={Shield}
           gradient="from-emerald-500/10 to-emerald-600/20"
           iconColor="bg-gradient-to-r from-emerald-500 to-emerald-600"
@@ -85,8 +91,8 @@ const Overview = () => {
         
         <MetricCard
           title="Revenue (Monthly)"
-          value={`$${(metrics?.monthlyRevenue || 0).toLocaleString()}`}
-          change={getMetricChange(metrics?.monthlyRevenue || 0, 'monthlyRevenue')}
+          value={`$${(latestFinancialMetric?.monthly_recurring_revenue || metrics?.monthlyRevenue || 0).toLocaleString()}`}
+          change={getMetricChange(latestFinancialMetric?.monthly_recurring_revenue || metrics?.monthlyRevenue || 0, 'monthlyRevenue')}
           icon={DollarSign}
           gradient="from-amber-500/10 to-amber-600/20"
           iconColor="bg-gradient-to-r from-amber-500 to-amber-600"
@@ -143,7 +149,7 @@ const Overview = () => {
           <div className="grid grid-cols-2 gap-4">
             <MetricCard
               title="Storage Used"
-              value={`${metrics?.storageUsed || 0}%`}
+              value={`${latestResourceMetric?.storage_utilization_percent || metrics?.storageUsed || 0}%`}
               icon={Database}
               gradient="from-orange-500/10 to-orange-600/20"
               iconColor="bg-gradient-to-r from-orange-500 to-orange-600"
@@ -152,7 +158,7 @@ const Overview = () => {
             
             <MetricCard
               title="Active Subscriptions"
-              value={metrics?.activeSubscriptions || 0}
+              value={latestFinancialMetric?.active_subscriptions || metrics?.activeSubscriptions || 0}
               icon={CreditCard}
               gradient="from-indigo-500/10 to-indigo-600/20"
               iconColor="bg-gradient-to-r from-indigo-500 to-indigo-600"
