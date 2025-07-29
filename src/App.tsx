@@ -14,6 +14,7 @@ import AdminRegister from "./pages/AdminRegister";
 import OnboardPartner from "./pages/OnboardPartner";
 import { AdminInviteRegistration } from "@/components/auth/AdminInviteRegistration";
 import { TenantBrandingProvider } from "@/components/auth/TenantBrandingProvider";
+import Register from "./pages/Register";
 
 const queryClient = new QueryClient();
 
@@ -30,7 +31,8 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/auth/reset-password" element={<ResetPassword />} />
-                <Route path="/register" element={<AdminRegister />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/admin-register" element={<AdminRegister />} />
                 <Route path="/onboard/:token" element={<OnboardPartner />} />
                 <Route path="/invite/:token" element={<AdminInviteRegistration />} />
                 {navItems.map(({ to, page }) => (
