@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { unifiedAuthService } from '@/services/UnifiedAuthService';
-import { AuthState, TenantData } from '@/types/auth';
+import { AuthState, TenantData, UserProfile } from '@/types/auth';
 import { toast } from 'sonner';
 
 // Simplified auth hook - just a React wrapper around UnifiedAuthService
@@ -14,17 +14,17 @@ interface UnifiedAuthContextType {
   isAdmin: boolean;
   isSuperAdmin: boolean;
   adminRole: string | null;
-  profile: any;
+  profile: UserProfile | null;
   error: string | null;
-  signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data: any; error: AuthError | null }>;
-  signIn: (email: string, password: string, isAdminLogin?: boolean) => Promise<{ data: any; error: AuthError | null }>;
+  signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data: AuthState | null; error: AuthError | null }>;
+  signIn: (email: string, password: string, isAdminLogin?: boolean) => Promise<{ data: AuthState | null; error: AuthError | null }>;
   adminLogin: (email: string, password: string) => Promise<{ success: boolean; error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string, tenantId?: string) => Promise<{ data: any; error: AuthError | null }>;
   updateEmail: (newEmail: string) => Promise<{ data: any; error: AuthError | null }>;
   updatePassword: (newPassword: string) => Promise<{ data: any; error: AuthError | null }>;
   resendEmailVerification: () => Promise<{ data: any; error: AuthError | null }>;
-  trackSession: (deviceInfo?: any) => Promise<void>;
+  trackSession: (deviceInfo?: Record<string, unknown>) => Promise<void>;
   refreshProfile: () => Promise<void>;
   clearError: () => void;
 }
@@ -234,7 +234,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     }
   };
 
-  const trackSession = async (deviceInfo?: any) => {
+  const trackSession = async (deviceInfo?: Record<string, unknown>) => {
     try {
       if (!authState.session) return;
       console.log('Session tracking active');

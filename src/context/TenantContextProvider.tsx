@@ -1,12 +1,13 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useTenantRouter } from '@/hooks/useTenantRouter';
+import { Tenant, TenantBranding, TenantFeatures } from '@/types/tenant';
 import { apiGateway } from '@/services/apiGateway';
 
 interface TenantContextValue {
-  tenant: any | null;
-  branding: any | null;
-  features: any | null;
+  tenant: Tenant | null;
+  branding: TenantBranding | null;
+  features: TenantFeatures | null;
   isLoading: boolean;
   error: string | null;
   tenantId: string | null;
@@ -18,9 +19,9 @@ const TenantContext = createContext<TenantContextValue | undefined>(undefined);
 
 export const TenantContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { domainMapping, tenantId, portalType, isLoading: routerLoading } = useTenantRouter();
-  const [tenant, setTenant] = useState<any | null>(null);
-  const [branding, setBranding] = useState<any | null>(null);
-  const [features, setFeatures] = useState<any | null>(null);
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [branding, setBranding] = useState<TenantBranding | null>(null);
+  const [features, setFeatures] = useState<TenantFeatures | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +37,7 @@ export const TenantContextProvider: React.FC<{ children: React.ReactNode }> = ({
       // Load tenant details
       const tenantResponse = await apiGateway.getTenantDetails(tenantId);
       if (tenantResponse.success) {
-        setTenant(tenantResponse.data);
+        setTenant(tenantResponse.data as any);
         // Handle features differently since tenant_features might not exist
         const tenantFeatures = tenantResponse.data?.features || {};
         setFeatures(tenantFeatures);
@@ -60,7 +61,7 @@ export const TenantContextProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const applyBranding = (brandingData: any) => {
+  const applyBranding = (brandingData: TenantBranding | null) => {
     if (typeof document === 'undefined') return;
     
     const root = document.documentElement;
