@@ -180,7 +180,7 @@ export class UnifiedAuthService extends BaseService {
   }
 
   /**
-   * Bootstrap Super Admin
+   * Bootstrap Super Admin - Uses edge function with service role
    */
   async bootstrapSuperAdmin(email: string, password: string, fullName: string): Promise<ServiceResult<AuthState>> {
     try {
@@ -188,13 +188,16 @@ export class UnifiedAuthService extends BaseService {
         return { success: false, error: 'All fields are required' };
       }
 
+      console.log('Bootstrap: Starting super admin creation process');
+
       // Check if bootstrap is already completed
       const isCompleted = await this.isBootstrapCompleted();
       if (isCompleted) {
+        console.log('Bootstrap: System already initialized');
         return { success: false, error: 'System is already initialized' };
       }
 
-      // Create registration entry
+      // Create registration entry first
       const { data: regData, error: regError } = await supabase
         .from('admin_registrations')
         .insert({
@@ -208,79 +211,68 @@ export class UnifiedAuthService extends BaseService {
         .single();
 
       if (regError) {
-        console.error('Registration creation error:', regError);
-        return { success: false, error: 'Failed to create registration' };
+        console.error('Bootstrap: Registration creation error:', regError);
+        return { success: false, error: 'Failed to create registration record' };
       }
 
-      // Sign up the user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          data: {
-            full_name: fullName.trim(),
-            registration_token: regData.registration_token
-          }
+      console.log('Bootstrap: Registration created, calling edge function');
+
+      // Call the edge function to create super admin with service role
+      const { data: edgeResponse, error: edgeError } = await supabase.functions.invoke('create-super-admin', {
+        body: {
+          email: email.trim(),
+          password,
+          fullName: fullName.trim()
         }
       });
 
+      if (edgeError) {
+        console.error('Bootstrap: Edge function error:', edgeError);
+        return { success: false, error: 'Failed to create super admin account' };
+      }
+
+      if (!edgeResponse || edgeResponse.error) {
+        console.error('Bootstrap: Edge function returned error:', edgeResponse?.error);
+        return { success: false, error: edgeResponse?.error || 'Failed to create super admin account' };
+      }
+
+      console.log('Bootstrap: Super admin created via edge function');
+
+      // Now sign in the newly created user
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password
+      });
+
       if (authError) {
-        return { success: false, error: this.formatAuthError(authError) };
+        console.error('Bootstrap: Sign in error:', authError);
+        return { success: false, error: 'Account created but sign in failed. Please try logging in manually.' };
       }
 
-      if (!authData.user) {
-        return { success: false, error: 'User creation failed' };
+      if (!authData.user || !authData.session) {
+        return { success: false, error: 'Sign in failed after account creation' };
       }
 
-      // Create admin user record
-      const { error: adminError } = await supabase
-        .from('admin_users')
-        .insert({
-          id: authData.user.id,
-          email: email.trim(),
-          full_name: fullName.trim(),
-          role: 'super_admin',
-          is_active: true
-        });
+      console.log('Bootstrap: Sign in successful');
 
-      if (adminError) {
-        console.error('Admin user creation error:', adminError);
-        return { success: false, error: 'Failed to create admin user' };
-      }
-
-      // Mark registration as completed
-      await supabase
-        .from('admin_registrations')
-        .update({ 
-          status: 'completed', 
-          completed_at: new Date().toISOString() 
-        })
-        .eq('id', regData.id);
-
-      // Mark bootstrap as completed
-      await supabase
-        .from('system_config')
-        .upsert({ 
-          config_key: 'bootstrap_completed',
-          config_value: 'true',
-          updated_at: new Date().toISOString()
-        });
+      // Get admin status
+      const adminStatus = await this.checkUserAdminStatus(authData.user.id);
 
       const authState: AuthState = {
         user: authData.user,
         session: authData.session,
         isAuthenticated: true,
-        isAdmin: true,
-        isSuperAdmin: true,
-        adminRole: 'super_admin',
-        profile: null // Profile will be created after bootstrap
+        isAdmin: adminStatus.isAdmin,
+        isSuperAdmin: adminStatus.isSuperAdmin,
+        adminRole: adminStatus.adminRole,
+        profile: null
       };
 
+      console.log('Bootstrap: Process completed successfully');
       return this.createResult(true, authState);
 
     } catch (error) {
-      console.error('Bootstrap error:', error);
+      console.error('Bootstrap: Unexpected error:', error);
       return this.createResult(false, undefined, 'System initialization failed');
     }
   }

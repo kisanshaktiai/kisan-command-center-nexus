@@ -54,12 +54,16 @@ export const BootstrapSetup: React.FC = () => {
       formData.email,
       formData.password,
       formData.fullName,
-      () => {
+      (authState) => {
         toast.success('Super Admin account created successfully!');
-        navigate('/super-admin');
+        console.log('Bootstrap completed, navigating to super-admin');
+        setTimeout(() => {
+          window.location.href = '/super-admin';
+        }, 500);
       },
       (error) => {
-        toast.error(error);
+        console.error('Bootstrap error:', error);
+        toast.error(error || 'Failed to create admin account');
       }
     );
   };
