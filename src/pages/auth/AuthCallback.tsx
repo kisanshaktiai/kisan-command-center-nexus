@@ -102,8 +102,18 @@ export default function AuthCallback() {
               }
             }
             
-            // Regular signup confirmation
+            // Regular signup confirmation - force auth state refresh
             console.log('Email verification completed for user:', data.session.user.id);
+            
+            // Force refresh the session to ensure the latest auth state
+            setTimeout(async () => {
+              try {
+                await supabase.auth.refreshSession();
+                console.log('Session refreshed after email verification');
+              } catch (error) {
+                console.error('Error refreshing session:', error);
+              }
+            }, 500);
           }
 
           setStatus('success');
@@ -115,7 +125,8 @@ export default function AuthCallback() {
             ? `/super-admin?tenant=${tenant}` 
             : '/super-admin';
           
-          setTimeout(() => navigate(redirectUrl), 2000);
+          // Longer delay to allow auth state to update properly
+          setTimeout(() => navigate(redirectUrl), 3000);
         } else {
           setStatus('error');
           setMessage('No valid session found');

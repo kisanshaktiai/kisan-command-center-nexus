@@ -335,14 +335,26 @@ export class UnifiedAuthService {
     adminRole: string | null;
   }> {
     try {
-      const { data: adminData } = await supabase
+      console.log('UnifiedAuthService: Checking admin status for user:', userId);
+      
+      const { data: adminData, error } = await supabase
         .from('admin_users')
         .select('role, is_active')
         .eq('id', userId)
         .eq('is_active', true)
         .single();
 
+      if (error) {
+        console.log('UnifiedAuthService: No admin record found or error:', error.message);
+        return {
+          isAdmin: false,
+          isSuperAdmin: false,
+          adminRole: null
+        };
+      }
+
       if (adminData) {
+        console.log('UnifiedAuthService: Admin data found:', adminData);
         return {
           isAdmin: true,
           isSuperAdmin: adminData.role === 'super_admin',
@@ -356,13 +368,24 @@ export class UnifiedAuthService {
         adminRole: null
       };
     } catch (error) {
-      console.error('Error checking admin status:', error);
+      console.error('UnifiedAuthService: Error checking admin status:', error);
       return {
         isAdmin: false,
         isSuperAdmin: false,
         adminRole: null
       };
     }
+  }
+
+  /**
+   * Public method to check admin status (for external use)
+   */
+  async checkUserAdminStatus(userId: string): Promise<{
+    isAdmin: boolean;
+    isSuperAdmin: boolean;
+    adminRole: string | null;
+  }> {
+    return this.checkAdminStatus(userId);
   }
 
   /**

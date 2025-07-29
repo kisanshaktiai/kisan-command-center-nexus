@@ -217,8 +217,8 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     }
   };
 
-  // Check admin status using service layer
-  const checkAdminStatus = async () => {
+  // Check admin status using unified service with retry logic
+  const checkAdminStatus = async (retryCount = 0) => {
     if (!user) {
       setIsAdmin(false);
       setIsSuperAdmin(false);
@@ -228,27 +228,28 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     }
 
     try {
-      // Direct database query to check admin status
-      const { data: adminData } = await supabase
-        .from('admin_users')
-        .select('role, is_active')
-        .eq('id', user.id)
-        .eq('is_active', true)
-        .single();
-
-      if (adminData) {
-        const isAdminUser = true;
-        const isSuperAdminUser = adminData.role === 'super_admin';
-        const userRole = adminData.role;
-
-        setIsAdmin(isAdminUser);
-        setIsSuperAdmin(isSuperAdminUser);
-        setAdminRole(userRole);
+      console.log('Checking admin status for user:', user.id, 'Retry:', retryCount);
+      
+      // Use the unified auth service for consistent admin status checking
+      const authState = await unifiedAuthService.getCurrentAuthState();
+      
+      if (authState.user?.id === user.id) {
+        setIsAdmin(authState.isAdmin);
+        setIsSuperAdmin(authState.isSuperAdmin);
+        setAdminRole(authState.adminRole);
         setError(null);
         
-        console.log('Admin status verified:', { isAdminUser, isSuperAdminUser, userRole });
+        console.log('Admin status verified via service:', {
+          isAdmin: authState.isAdmin,
+          isSuperAdmin: authState.isSuperAdmin,
+          adminRole: authState.adminRole
+        });
+      } else if (retryCount < 3) {
+        // Retry after a short delay if auth state doesn't match
+        console.log('Auth state mismatch, retrying...');
+        setTimeout(() => checkAdminStatus(retryCount + 1), 1000);
       } else {
-        console.log('User is not an admin:', user.id);
+        console.log('Max retries reached, user is not an admin:', user.id);
         setIsAdmin(false);
         setIsSuperAdmin(false);
         setAdminRole(null);
@@ -256,9 +257,13 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
       }
     } catch (error) {
       console.error('Error checking admin status:', error);
-      setIsAdmin(false);
-      setIsSuperAdmin(false);
-      setAdminRole(null);
+      if (retryCount < 3) {
+        setTimeout(() => checkAdminStatus(retryCount + 1), 1000);
+      } else {
+        setIsAdmin(false);
+        setIsSuperAdmin(false);
+        setAdminRole(null);
+      }
     }
   };
 
@@ -276,9 +281,14 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
           setIsLoading(false);
           
           if (session?.user) {
-            checkAdminStatus();
-            refreshProfile();
-            trackSession();
+            // Add delay to ensure database is updated after email verification
+            setTimeout(() => {
+              if (mounted) {
+                checkAdminStatus();
+                refreshProfile();
+                trackSession();
+              }
+            }, 500);
           }
         }
       } catch (error) {
@@ -294,15 +304,23 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
+        
+        console.log('Auth state change:', event, session?.user?.id);
 
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
         
         if (session?.user) {
-          checkAdminStatus();
-          refreshProfile();
-          trackSession();
+          // Add delay for email verification events to ensure database consistency
+          const delay = event === 'SIGNED_IN' ? 1000 : 500;
+          setTimeout(() => {
+            if (mounted) {
+              checkAdminStatus();
+              refreshProfile();
+              trackSession();
+            }
+          }, delay);
         } else {
           setProfile(null);
           setIsAdmin(false);
