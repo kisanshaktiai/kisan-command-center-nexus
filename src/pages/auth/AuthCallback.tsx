@@ -25,16 +25,85 @@ export default function AuthCallback() {
         }
 
         if (data.session) {
-          // Update email verification status if this was an email confirmation
           const type = searchParams.get('type');
+          
+          // Handle bootstrap user email confirmation
           if (type === 'signup' && data.session.user) {
-            try {
-              // Simplified profile update without new columns
-              console.log('Email verification completed for user:', data.session.user.id);
-            } catch (updateError) {
-              console.warn('Error updating verification status:', updateError);
-              // Don't fail the auth process for this
+            const registrationToken = data.session.user.user_metadata?.registration_token;
+            
+            if (registrationToken) {
+              try {
+                // Check if this is a bootstrap registration
+                const { data: regData } = await supabase
+                  .from('admin_registrations')
+                  .select('*')
+                  .eq('registration_token', registrationToken)
+                  .eq('registration_type', 'bootstrap')
+                  .single();
+
+                if (regData) {
+                  console.log('Completing bootstrap setup for user:', data.session.user.id);
+                  
+                  // Check if admin user already exists
+                  const { data: existingAdmin } = await supabase
+                    .from('admin_users')
+                    .select('id')
+                    .eq('id', data.session.user.id)
+                    .single();
+
+                  if (!existingAdmin) {
+                    // Create admin user record
+                    const { error: adminError } = await supabase
+                      .from('admin_users')
+                      .insert({
+                        id: data.session.user.id,
+                        email: regData.email,
+                        full_name: regData.full_name,
+                        role: regData.role,
+                        is_active: true
+                      });
+
+                    if (adminError) {
+                      console.error('Error creating admin user:', adminError);
+                      throw new Error('Failed to complete bootstrap setup');
+                    }
+                  }
+
+                  // Mark registration as completed
+                  await supabase
+                    .from('admin_registrations')
+                    .update({ 
+                      status: 'completed', 
+                      completed_at: new Date().toISOString() 
+                    })
+                    .eq('id', regData.id);
+
+                  // Mark bootstrap as completed
+                  await supabase
+                    .from('system_config')
+                    .upsert({ 
+                      config_key: 'bootstrap_completed',
+                      config_value: 'true',
+                      updated_at: new Date().toISOString()
+                    });
+
+                  setStatus('success');
+                  setMessage('Bootstrap setup completed! Redirecting to login...');
+                  
+                  // Redirect to auth page for login
+                  setTimeout(() => navigate('/auth'), 2000);
+                  return;
+                }
+              } catch (bootstrapError) {
+                console.error('Bootstrap completion error:', bootstrapError);
+                setStatus('error');
+                setMessage('Failed to complete system setup. Please contact support.');
+                return;
+              }
             }
+            
+            // Regular signup confirmation
+            console.log('Email verification completed for user:', data.session.user.id);
           }
 
           setStatus('success');
