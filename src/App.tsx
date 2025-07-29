@@ -13,32 +13,35 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import AdminRegister from "./pages/AdminRegister";
 import OnboardPartner from "./pages/OnboardPartner";
 import { AdminInviteRegistration } from "@/components/auth/AdminInviteRegistration";
+import { TenantBrandingProvider } from "@/components/auth/TenantBrandingProvider";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <AuthProvider>
-        <div className="min-h-screen bg-background font-sans antialiased">
-          <Toaster />
-          <SessionMonitor />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/auth/reset-password" element={<ResetPassword />} />
-              <Route path="/register" element={<AdminRegister />} />
-              <Route path="/onboard/:token" element={<OnboardPartner />} />
-              <Route path="/invite/:token" element={<AdminInviteRegistration />} />
-              {navItems.map(({ to, page }) => (
-                <Route key={to} path={to} element={page} />
-              ))}
-              <Route path="/super-admin/*" element={<SuperAdmin />} />
-            </Routes>
-          </BrowserRouter>
-        </div>
-      </AuthProvider>
+      <TenantBrandingProvider>
+        <AuthProvider>
+          <div className="min-h-screen bg-background font-sans antialiased">
+            <Toaster />
+            <SessionMonitor />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/auth/reset-password" element={<ResetPassword />} />
+                <Route path="/register" element={<AdminRegister />} />
+                <Route path="/onboard/:token" element={<OnboardPartner />} />
+                <Route path="/invite/:token" element={<AdminInviteRegistration />} />
+                {navItems.map(({ to, page }) => (
+                  <Route key={to} path={to} element={page} />
+                ))}
+                <Route path="/super-admin/*" element={<SuperAdmin />} />
+              </Routes>
+            </BrowserRouter>
+          </div>
+        </AuthProvider>
+      </TenantBrandingProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
