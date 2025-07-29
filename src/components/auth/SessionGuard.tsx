@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { unifiedAuthService } from '@/services/UnifiedAuthService';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,10 +14,12 @@ interface SessionGuardProps {
   showWarningAt?: number; // Minutes before expiry to show warning
 }
 
-export const SessionGuard: React.FC<SessionGuardProps> = ({ 
+// Create a wrapper component that safely checks for auth context
+const SessionGuardWithAuth: React.FC<SessionGuardProps> = ({ 
   children, 
   showWarningAt = 10 
 }) => {
+
   const { user, session } = useAuth();
   const [showExpiryWarning, setShowExpiryWarning] = useState(false);
   const [timeUntilExpiry, setTimeUntilExpiry] = useState(0);
@@ -144,4 +146,15 @@ export const SessionGuard: React.FC<SessionGuardProps> = ({
       {children}
     </>
   );
+};
+
+// Main export with error boundary
+export const SessionGuard: React.FC<SessionGuardProps> = (props) => {
+  try {
+    return <SessionGuardWithAuth {...props} />;
+  } catch (error) {
+    console.error('SessionGuard error boundary caught:', error);
+    // Fallback rendering without session guard
+    return <>{props.children}</>;
+  }
 };
