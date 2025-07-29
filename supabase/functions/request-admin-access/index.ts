@@ -280,6 +280,7 @@ const handler = async (req: Request): Promise<Response> => {
         });
 
         console.log('Notification email sent successfully');
+        }
       } catch (emailError) {
         console.error('Failed to send notification email:', emailError);
         // Don't fail the request if email fails
