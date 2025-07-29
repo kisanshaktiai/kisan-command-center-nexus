@@ -4,6 +4,7 @@ import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { authenticationService, type TenantData } from '@/services/AuthenticationService';
 import { securityService } from '@/services/SecurityService';
+import { sessionService } from '@/services/SessionService';
 import { toast } from 'sonner';
 
 // TenantData is now imported from AuthenticationService
@@ -209,7 +210,18 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     if (!user) return;
     
     try {
-      console.log('Profile refresh active');
+      // Fetch user profile data
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileData) {
+        setProfile(profileData);
+      }
+      
+      console.log('Profile refresh completed');
     } catch (error) {
       console.error('Error refreshing profile:', error);
     }

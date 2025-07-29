@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { PasswordStrength, validatePassword } from '@/components/ui/password-strength';
 import { Loader2, UserPlus, Eye, EyeOff, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { unifiedAuthService } from '@/services/UnifiedAuthService';
+import { authenticationService } from '@/services/AuthenticationService';
 
 interface InviteDetails {
   valid: boolean;
@@ -45,7 +45,7 @@ export const AdminInviteRegistration: React.FC = () => {
   const validateToken = async () => {
     try {
       setIsLoading(true);
-      const result = await unifiedAuthService.validateInviteToken(token!);
+      const result = await authenticationService.validateInviteToken(token!);
       
       if (result.valid && result.data) {
         setInviteDetails({
@@ -97,7 +97,7 @@ export const AdminInviteRegistration: React.FC = () => {
     setError('');
 
     try {
-      const result = await unifiedAuthService.registerViaInvite(token!, formData.password);
+      const result = await authenticationService.registerViaInvite(token!, formData.password);
 
       if (result.success) {
         toast.success('Registration completed successfully!');
