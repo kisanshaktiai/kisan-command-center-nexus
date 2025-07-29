@@ -42,37 +42,36 @@ const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      const { data: inviteData, error } = await supabase
-        .rpc('validate_invite_token', { token });
+      const { data: invite, error } = await supabase
+        .from('invites')
+        .select('*')
+        .eq('token', token)
+        .single();
 
-      if (error) {
-        throw new Error(`Failed to validate invite: ${error.message}`);
-      }
-
-      if (!inviteData || inviteData.length === 0) {
+      if (error || !invite) {
         return new Response(JSON.stringify({
           valid: false,
-          error: 'Invalid or expired invite token'
+          error: 'Invalid invite token'
         }), {
           status: 404,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
 
-      const invite = inviteData[0];
-
-      // Log analytics event
-      await supabase
-        .from('admin_invite_analytics')
-        .insert({
-          invite_id: invite.invite_id,
-          event_type: 'opened',
-          ip_address: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-          user_agent: req.headers.get('user-agent')
+      const isValid = invite.used_at === null && new Date(invite.expires_at) > new Date();
+      
+      if (!isValid) {
+        return new Response(JSON.stringify({
+          valid: false,
+          error: invite.used_at ? 'Invite has already been used' : 'Invite has expired'
+        }), {
+          status: 410,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
+      }
 
       return new Response(JSON.stringify({
-        valid: invite.is_valid,
+        valid: isValid,
         email: invite.email,
         role: invite.role,
         expiresAt: invite.expires_at
@@ -96,22 +95,26 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       // Validate invite token first
-      const { data: inviteData, error: validateError } = await supabase
-        .rpc('validate_invite_token', { token });
+      const { data: invite, error: validateError } = await supabase
+        .from('invites')
+        .select('*')
+        .eq('token', token)
+        .single();
 
-      if (validateError || !inviteData || inviteData.length === 0) {
+      if (validateError || !invite) {
         return new Response(JSON.stringify({
-          error: 'Invalid or expired invite token'
+          error: 'Invalid invite token'
         }), {
           status: 404,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
 
-      const invite = inviteData[0];
-      if (!invite.is_valid) {
+      const isValid = invite.used_at === null && new Date(invite.expires_at) > new Date();
+      
+      if (!isValid) {
         return new Response(JSON.stringify({
-          error: 'Invite token has expired or is no longer valid'
+          error: invite.used_at ? 'Invite has already been used' : 'Invite has expired'
         }), {
           status: 410,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -151,31 +154,17 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error(`Failed to create admin user: ${adminError.message}`);
       }
 
-      // Update invite status
+      // Mark invite as used
       const { error: updateError } = await supabase
-        .from('admin_invites')
+        .from('invites')
         .update({
-          status: 'accepted',
-          accepted_at: new Date().toISOString()
+          used_at: new Date().toISOString()
         })
-        .eq('invite_token', token);
+        .eq('token', token);
 
       if (updateError) {
         console.error('Failed to update invite status:', updateError);
       }
-
-      // Log analytics event
-      await supabase
-        .from('admin_invite_analytics')
-        .insert({
-          invite_id: invite.invite_id,
-          event_type: 'accepted',
-          ip_address: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-          user_agent: req.headers.get('user-agent'),
-          metadata: {
-            user_id: userData.user.id
-          }
-        });
 
       return new Response(JSON.stringify({
         success: true,
