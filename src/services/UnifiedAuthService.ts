@@ -41,7 +41,7 @@ export class UnifiedAuthService {
         .from('system_config')
         .select('config_value')
         .eq('config_key', 'bootstrap_completed')
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       return data?.config_value === 'true' || false;
