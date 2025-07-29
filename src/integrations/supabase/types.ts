@@ -1827,6 +1827,104 @@ export type Database = {
           },
         ]
       }
+      feature_flags: {
+        Row: {
+          conditions: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          expires_at: string | null
+          flag_name: string
+          id: string
+          is_enabled: boolean
+          metadata: Json | null
+          rollout_percentage: number
+          target_tenants: string[] | null
+          target_users: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          conditions?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          flag_name: string
+          id?: string
+          is_enabled?: boolean
+          metadata?: Json | null
+          rollout_percentage?: number
+          target_tenants?: string[] | null
+          target_users?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          conditions?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          flag_name?: string
+          id?: string
+          is_enabled?: boolean
+          metadata?: Json | null
+          rollout_percentage?: number
+          target_tenants?: string[] | null
+          target_users?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      financial_analytics: {
+        Row: {
+          amount: number
+          breakdown: Json | null
+          created_at: string
+          currency: string
+          id: string
+          metric_type: string
+          period_end: string
+          period_start: string
+          period_type: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          breakdown?: Json | null
+          created_at?: string
+          currency?: string
+          id?: string
+          metric_type: string
+          period_end: string
+          period_start: string
+          period_type: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          breakdown?: Json | null
+          created_at?: string
+          currency?: string
+          id?: string
+          metric_type?: string
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_analytics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_metrics: {
         Row: {
           amount: number
@@ -3594,6 +3692,56 @@ export type Database = {
           },
         ]
       }
+      resource_utilization: {
+        Row: {
+          created_at: string
+          current_usage: number
+          id: string
+          max_limit: number | null
+          metadata: Json | null
+          period_end: string
+          period_start: string
+          resource_type: string
+          tenant_id: string | null
+          updated_at: string
+          usage_percentage: number | null
+        }
+        Insert: {
+          created_at?: string
+          current_usage?: number
+          id?: string
+          max_limit?: number | null
+          metadata?: Json | null
+          period_end: string
+          period_start: string
+          resource_type: string
+          tenant_id?: string | null
+          updated_at?: string
+          usage_percentage?: number | null
+        }
+        Update: {
+          created_at?: string
+          current_usage?: number
+          id?: string
+          max_limit?: number | null
+          metadata?: Json | null
+          period_end?: string
+          period_start?: string
+          resource_type?: string
+          tenant_id?: string | null
+          updated_at?: string
+          usage_percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_utilization_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       satellite_alerts: {
         Row: {
           affected_area_percentage: number | null
@@ -4105,6 +4253,50 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      system_health_metrics: {
+        Row: {
+          created_at: string
+          id: string
+          labels: Json | null
+          metric_name: string
+          metric_type: string
+          tenant_id: string | null
+          timestamp: string
+          unit: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          labels?: Json | null
+          metric_name: string
+          metric_type: string
+          tenant_id?: string | null
+          timestamp?: string
+          unit?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          labels?: Json | null
+          metric_name?: string
+          metric_type?: string
+          tenant_id?: string | null
+          timestamp?: string
+          unit?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_health_metrics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_metrics: {
         Row: {
