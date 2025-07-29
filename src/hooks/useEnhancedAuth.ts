@@ -2,11 +2,11 @@
 import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { unifiedAuthService } from '@/services/UnifiedAuthService';
+import { authenticationService } from '@/services/AuthenticationService';
 import { AuthState, TenantData, UserProfile } from '@/types/auth';
 import { toast } from 'sonner';
 
-// Simplified auth hook - just a React wrapper around UnifiedAuthService
+// Simplified auth hook - just a React wrapper around AuthenticationService
 interface UnifiedAuthContextType {
   user: User | null;
   session: Session | null;
@@ -61,7 +61,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
           
           if (session?.user) {
             console.log('Enhanced Auth: User authenticated, getting auth state...');
-            const currentAuthState = await unifiedAuthService.getCurrentAuthState();
+            const currentAuthState = await authenticationService.getCurrentAuthState();
             setAuthState(currentAuthState);
           } else {
             console.log('Enhanced Auth: No authenticated user found');
@@ -95,7 +95,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
         console.log('Auth state change:', event, session?.user?.id);
 
         if (session?.user) {
-          const currentAuthState = await unifiedAuthService.getCurrentAuthState();
+          const currentAuthState = await authenticationService.getCurrentAuthState();
           setAuthState(currentAuthState);
         } else {
           setAuthState({
@@ -118,11 +118,11 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     };
   }, []);
 
-  // Wrapper functions around UnifiedAuthService
+  // Wrapper functions around AuthenticationService
   const signUp = async (email: string, password: string, tenantData: TenantData) => {
     try {
       setError(null);
-      // TODO: Implement user registration in UnifiedAuthService
+      // TODO: Implement user registration in AuthenticationService
       throw new Error('User registration not yet implemented');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Registration failed';
@@ -135,8 +135,8 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     setError(null);
     try {
       const result = isAdminLogin 
-        ? await unifiedAuthService.signInAdmin(email, password)
-        : await unifiedAuthService.signInUser(email, password);
+        ? await authenticationService.signInAdmin(email, password)
+        : await authenticationService.signInUser(email, password);
       
       if (result.success && result.data) {
         return { data: result.data, error: null };
@@ -156,7 +156,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     setError(null);
     
     try {
-      const result = await unifiedAuthService.signInAdmin(email, password);
+      const result = await authenticationService.signInAdmin(email, password);
       setIsLoading(false);
       
       if (result.success) {
@@ -176,7 +176,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
   const signOut = async () => {
     setIsLoading(true);
     try {
-      const result = await unifiedAuthService.signOut();
+      const result = await authenticationService.signOut();
       if (!result.success) {
         console.error('Sign out failed:', result.error);
       }

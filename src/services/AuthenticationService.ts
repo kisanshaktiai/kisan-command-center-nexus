@@ -4,14 +4,13 @@ import { toast } from 'sonner';
 import { AuthState, UserProfile, TenantData } from '@/types/auth';
 import { BaseService, ServiceResult } from './BaseService';
 
-// Removed duplicate interfaces - using consolidated ones from types/auth.ts
-
 /**
- * Unified Authentication Service
+ * Authentication Service
  * Single source of truth for all authentication operations
+ * Replaces UnifiedAuthService with improved security and consistency
  */
-export class UnifiedAuthService extends BaseService {
-  private static instance: UnifiedAuthService;
+export class AuthenticationService extends BaseService {
+  private static instance: AuthenticationService;
   private sessionValidationInterval: NodeJS.Timeout | null = null;
   private readonly SESSION_CHECK_INTERVAL = 30000; // 30 seconds
 
@@ -19,11 +18,11 @@ export class UnifiedAuthService extends BaseService {
     super();
   }
 
-  public static getInstance(): UnifiedAuthService {
-    if (!UnifiedAuthService.instance) {
-      UnifiedAuthService.instance = new UnifiedAuthService();
+  public static getInstance(): AuthenticationService {
+    if (!AuthenticationService.instance) {
+      AuthenticationService.instance = new AuthenticationService();
     }
-    return UnifiedAuthService.instance;
+    return AuthenticationService.instance;
   }
 
   /**
@@ -84,7 +83,7 @@ export class UnifiedAuthService extends BaseService {
   }
 
   /**
-   * Admin Sign In
+   * Admin Sign In - Enhanced with security logging
    */
   async signInAdmin(email: string, password: string): Promise<ServiceResult<AuthState>> {
     try {
@@ -278,7 +277,7 @@ export class UnifiedAuthService extends BaseService {
   }
 
   /**
-   * Sign Out
+   * Sign Out with proper cleanup
    */
   async signOut(): Promise<ServiceResult<void>> {
     try {
@@ -300,11 +299,11 @@ export class UnifiedAuthService extends BaseService {
   }
 
   /**
-   * Check if bootstrap is completed
+   * Check if bootstrap is completed with enhanced logic
    */
   async isBootstrapCompleted(): Promise<boolean> {
     try {
-      console.log('UnifiedAuthService: Checking bootstrap status...');
+      console.log('AuthenticationService: Checking bootstrap status...');
       
       // First check system config flag
       const { data: configData, error: configError } = await supabase
@@ -314,12 +313,12 @@ export class UnifiedAuthService extends BaseService {
         .maybeSingle();
       
       if (!configError && configData?.config_value === 'true') {
-        console.log('UnifiedAuthService: Bootstrap flag found - completed');
+        console.log('AuthenticationService: Bootstrap flag found - completed');
         return true;
       }
       
       // If flag missing but admin users exist, consider bootstrap complete
-      console.log('UnifiedAuthService: Bootstrap flag not found, checking admin users...');
+      console.log('AuthenticationService: Bootstrap flag not found, checking admin users...');
       const { data: adminUsers, error: adminError } = await supabase
         .from('admin_users')
         .select('id')
@@ -332,11 +331,11 @@ export class UnifiedAuthService extends BaseService {
       }
       
       const hasAdmins = adminUsers && adminUsers.length > 0;
-      console.log('UnifiedAuthService: Active admin users found:', hasAdmins);
+      console.log('AuthenticationService: Active admin users found:', hasAdmins);
       
       // If admins exist but flag is missing, auto-fix the inconsistency
       if (hasAdmins) {
-        console.log('UnifiedAuthService: Auto-fixing missing bootstrap flag...');
+        console.log('AuthenticationService: Auto-fixing missing bootstrap flag...');
         await supabase
           .from('system_config')
           .upsert({ 
@@ -347,13 +346,127 @@ export class UnifiedAuthService extends BaseService {
         return true;
       }
       
-      console.log('UnifiedAuthService: Bootstrap not completed');
+      console.log('AuthenticationService: Bootstrap not completed');
       return false;
     } catch (error) {
       console.error('Error checking bootstrap status:', error);
       return false;
     }
   }
+
+  /**
+   * Public method to check admin status (for external use)
+   */
+  async checkUserAdminStatus(userId: string): Promise<{
+    isAdmin: boolean;
+    isSuperAdmin: boolean;
+    adminRole: string | null;
+  }> {
+    return this.checkAdminStatus(userId);
+  }
+
+  /**
+   * Reset password functionality
+   */
+  async resetPassword(email: string, tenantId?: string): Promise<ServiceResult<void>> {
+    try {
+      if (!email?.trim()) {
+        return { success: false, error: 'Email is required' };
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/auth/reset-password`
+      });
+
+      if (error) {
+        await this.logSecurityEvent('password_reset_failed', undefined, { email, reason: error.message });
+        return { success: false, error: this.formatAuthError(error) };
+      }
+
+      await this.logSecurityEvent('password_reset_requested', undefined, { email });
+      return this.createResult(true);
+
+    } catch (error) {
+      console.error('Password reset error:', error);
+      return this.createResult(false, undefined, 'Password reset failed. Please try again.');
+    }
+  }
+
+  /**
+   * Update email
+   */
+  async updateEmail(newEmail: string): Promise<ServiceResult<void>> {
+    try {
+      if (!newEmail?.trim()) {
+        return { success: false, error: 'Email is required' };
+      }
+
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+
+      if (error) {
+        return { success: false, error: this.formatAuthError(error) };
+      }
+
+      return this.createResult(true);
+
+    } catch (error) {
+      console.error('Email update error:', error);
+      return this.createResult(false, undefined, 'Email update failed. Please try again.');
+    }
+  }
+
+  /**
+   * Update password
+   */
+  async updatePassword(newPassword: string): Promise<ServiceResult<void>> {
+    try {
+      if (!newPassword) {
+        return { success: false, error: 'Password is required' };
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+      if (error) {
+        return { success: false, error: this.formatAuthError(error) };
+      }
+
+      return this.createResult(true);
+
+    } catch (error) {
+      console.error('Password update error:', error);
+      return this.createResult(false, undefined, 'Password update failed. Please try again.');
+    }
+  }
+
+  /**
+   * Resend email verification
+   */
+  async resendEmailVerification(): Promise<ServiceResult<void>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user?.email) {
+        return { success: false, error: 'No user email found' };
+      }
+
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email
+      });
+
+      if (error) {
+        return { success: false, error: this.formatAuthError(error) };
+      }
+
+      return this.createResult(true);
+
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      return this.createResult(false, undefined, 'Failed to resend verification email');
+    }
+  }
+
+  // Private methods
 
   /**
    * Check admin status for a user
@@ -364,7 +477,7 @@ export class UnifiedAuthService extends BaseService {
     adminRole: string | null;
   }> {
     try {
-      console.log('UnifiedAuthService: Checking admin status for user:', userId);
+      console.log('AuthenticationService: Checking admin status for user:', userId);
       
       const { data: adminData, error } = await supabase
         .from('admin_users')
@@ -374,7 +487,7 @@ export class UnifiedAuthService extends BaseService {
         .single();
 
       if (error) {
-        console.log('UnifiedAuthService: No admin record found or error:', error.message);
+        console.log('AuthenticationService: No admin record found or error:', error.message);
         return {
           isAdmin: false,
           isSuperAdmin: false,
@@ -383,7 +496,7 @@ export class UnifiedAuthService extends BaseService {
       }
 
       if (adminData) {
-        console.log('UnifiedAuthService: Admin data found:', adminData);
+        console.log('AuthenticationService: Admin data found:', adminData);
         return {
           isAdmin: true,
           isSuperAdmin: adminData.role === 'super_admin',
@@ -397,24 +510,13 @@ export class UnifiedAuthService extends BaseService {
         adminRole: null
       };
     } catch (error) {
-      console.error('UnifiedAuthService: Error checking admin status:', error);
+      console.error('AuthenticationService: Error checking admin status:', error);
       return {
         isAdmin: false,
         isSuperAdmin: false,
         adminRole: null
       };
     }
-  }
-
-  /**
-   * Public method to check admin status (for external use)
-   */
-  async checkUserAdminStatus(userId: string): Promise<{
-    isAdmin: boolean;
-    isSuperAdmin: boolean;
-    adminRole: string | null;
-  }> {
-    return this.checkAdminStatus(userId);
   }
 
   /**
@@ -512,4 +614,4 @@ export class UnifiedAuthService extends BaseService {
   }
 }
 
-export const unifiedAuthService = UnifiedAuthService.getInstance();
+export const authenticationService = AuthenticationService.getInstance();

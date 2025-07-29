@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { unifiedAuthService } from '@/services/UnifiedAuthService';
+import { authenticationService } from '@/services/AuthenticationService';
 import { AuthState, TenantData } from '@/types/auth';
 import { ServiceResult } from '@/services/BaseService';
 
@@ -53,7 +53,7 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => unifiedAuthService.signInUser(email, password),
+      () => authenticationService.signInUser(email, password),
       onSuccess,
       onError
     );
@@ -66,7 +66,7 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => unifiedAuthService.signInAdmin(email, password),
+      () => authenticationService.signInAdmin(email, password),
       onSuccess,
       onError
     );
@@ -97,7 +97,7 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => unifiedAuthService.bootstrapSuperAdmin(email, password, fullName),
+      () => authenticationService.bootstrapSuperAdmin(email, password, fullName),
       onSuccess,
       onError
     );
@@ -110,7 +110,7 @@ export const useAuthenticationService = () => {
   ) => {
     return handleAuthOperation(
       async () => {
-        const authState = await unifiedAuthService.getCurrentAuthState();
+        const authState = await authenticationService.getCurrentAuthState();
         return {
           success: true,
           data: {
@@ -130,7 +130,7 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => unifiedAuthService.signOut(),
+      () => authenticationService.signOut(),
       onSuccess,
       onError
     );

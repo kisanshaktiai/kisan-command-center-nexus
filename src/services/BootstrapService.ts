@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { BaseService, ServiceResult } from './BaseService';
-import { unifiedAuthService } from './UnifiedAuthService';
+import { authenticationService } from './AuthenticationService';
 
 interface BootstrapData {
   email: string;
@@ -40,7 +40,7 @@ export class BootstrapService extends BaseService {
       console.log('BootstrapService: Checking bootstrap status...');
 
       // Check system config for bootstrap completion
-      const isCompleted = await unifiedAuthService.isBootstrapCompleted();
+      const isCompleted = await authenticationService.isBootstrapCompleted();
 
       // Check if any admin users exist
       const { data: adminUsers, error: adminError } = await supabase
@@ -87,8 +87,8 @@ export class BootstrapService extends BaseService {
         throw new Error('System is already initialized');
       }
 
-      // Use UnifiedAuthService to bootstrap super admin
-      const result = await unifiedAuthService.bootstrapSuperAdmin(
+      // Use AuthenticationService to bootstrap super admin
+      const result = await authenticationService.bootstrapSuperAdmin(
         bootstrapData.email.trim(),
         bootstrapData.password,
         bootstrapData.fullName.trim()

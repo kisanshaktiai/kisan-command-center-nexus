@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { PasswordStrength, validatePassword } from '@/components/ui/password-strength';
 import { Loader2, UserPlus, Eye, EyeOff, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { unifiedAuthService } from '@/services/UnifiedAuthService';
+import { authenticationService } from '@/services/AuthenticationService';
 
 interface InviteDetails {
   valid: boolean;
@@ -45,7 +45,7 @@ export const AdminInviteRegistration: React.FC = () => {
   const validateToken = async () => {
     try {
       setIsLoading(true);
-      // TODO: Implement invite token validation in UnifiedAuthService
+      // TODO: Implement invite token validation in AuthenticationService
       setError('Invite validation not yet implemented');
       setInviteDetails({ valid: false });
     } catch (error) {
@@ -85,7 +85,7 @@ export const AdminInviteRegistration: React.FC = () => {
     setError('');
 
     try {
-      // TODO: Implement invite registration in UnifiedAuthService
+      // TODO: Implement invite registration in AuthenticationService
       throw new Error('Invite registration not yet implemented');
       
     } catch (error) {

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useContext } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { unifiedAuthService } from '@/services/UnifiedAuthService';
+import { authenticationService } from '@/services/AuthenticationService';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -69,14 +69,14 @@ const SessionGuardWithAuth: React.FC<SessionGuardProps> = ({
       if (error) {
         toast.error('Failed to refresh session: ' + error.message);
         // Force logout if refresh fails
-        await unifiedAuthService.signOut();
+        await authenticationService.signOut();
       } else {
         toast.success('Session refreshed successfully');
         setShowExpiryWarning(false);
       }
     } catch (error) {
       toast.error('Session refresh failed');
-      await unifiedAuthService.signOut();
+      await authenticationService.signOut();
     } finally {
       setIsRefreshing(false);
     }
@@ -87,7 +87,7 @@ const SessionGuardWithAuth: React.FC<SessionGuardProps> = ({
   };
 
   const handleLogout = async () => {
-    await unifiedAuthService.signOut();
+    await authenticationService.signOut();
   };
 
   if (!user) {
