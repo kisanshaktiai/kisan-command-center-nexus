@@ -348,6 +348,54 @@ export type Database = {
           },
         ]
       }
+      admin_registrations: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          email: string
+          expires_at: string | null
+          full_name: string
+          id: string
+          invited_by: string | null
+          metadata: Json | null
+          registration_token: string | null
+          registration_type: string
+          role: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          email: string
+          expires_at?: string | null
+          full_name: string
+          id?: string
+          invited_by?: string | null
+          metadata?: Json | null
+          registration_token?: string | null
+          registration_type?: string
+          role?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string | null
+          full_name?: string
+          id?: string
+          invited_by?: string | null
+          metadata?: Json | null
+          registration_token?: string | null
+          registration_type?: string
+          role?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       admin_users: {
         Row: {
           created_at: string | null
@@ -3984,6 +4032,33 @@ export type Database = {
           sync_status?: string | null
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      system_config: {
+        Row: {
+          config_key: string
+          config_value: Json
+          created_at: string | null
+          description: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          config_key: string
+          config_value: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          config_key?: string
+          config_value?: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
