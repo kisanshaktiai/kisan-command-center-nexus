@@ -1,61 +1,59 @@
 
 import React, { useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
 import { SuperAdminHeader } from '@/components/super-admin/SuperAdminHeader';
 import { SuperAdminSidebar } from '@/components/super-admin/SuperAdminSidebar';
-import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { useAuth } from '@/contexts/AuthContext';
-import Overview from './super-admin/Overview';
-import TenantManagement from './super-admin/TenantManagement';
-import TenantOnboarding from './super-admin/TenantOnboarding';
-import AdminUserManagement from './super-admin/AdminUserManagement';
-import SubscriptionManagement from './super-admin/SubscriptionManagement';
-import BillingManagement from './super-admin/BillingManagement';
-import FeatureFlags from './super-admin/FeatureFlags';
-import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
-import PlatformMonitoring from './super-admin/PlatformMonitoring';
+import OptimizedOverview from '@/pages/super-admin/OptimizedOverview';
+import TenantManagement from '@/pages/super-admin/TenantManagement';
+import TenantOnboarding from '@/pages/super-admin/TenantOnboarding';
+import PlatformMonitoring from '@/pages/super-admin/PlatformMonitoring';
+import BillingManagement from '@/pages/super-admin/BillingManagement';
+import SubscriptionManagement from '@/pages/super-admin/SubscriptionManagement';
+import AdminUserManagement from '@/pages/super-admin/AdminUserManagement';
+import WhiteLabelConfig from '@/pages/super-admin/WhiteLabelConfig';
+import FeatureFlags from '@/pages/super-admin/FeatureFlags';
 
-export default function SuperAdmin() {
-  return (
-    <ProtectedRoute requireAdmin={true}>
-      <SuperAdminContent />
-    </ProtectedRoute>
-  );
-}
+const SuperAdmin: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('overview');
 
-function SuperAdminContent() {
-  const { user } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const adminUser = {
-    full_name: user?.user_metadata?.full_name || 'Super Admin',
-    email: user?.email || 'admin@example.com',
-    role: 'super_admin',
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'overview':
+        return <OptimizedOverview />;
+      case 'tenants':
+        return <TenantManagement />;
+      case 'onboarding':
+        return <TenantOnboarding />;
+      case 'monitoring':
+        return <PlatformMonitoring />;
+      case 'billing':
+        return <BillingManagement />;
+      case 'subscriptions':
+        return <SubscriptionManagement />;
+      case 'admins':
+        return <AdminUserManagement />;
+      case 'white-label':
+        return <WhiteLabelConfig />;
+      case 'features':
+        return <FeatureFlags />;
+      default:
+        return <OptimizedOverview />;
+    }
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-slate-100">
-      <SuperAdminSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      <div className="flex-1 flex flex-col">
-        <SuperAdminHeader 
-          setSidebarOpen={setSidebarOpen} 
-          adminUser={adminUser} 
-          sidebarOpen={sidebarOpen}
-        />
-        <main className="flex-1 p-6 overflow-auto">
-          <Routes>
-            <Route path="/" element={<Overview />} />
-            <Route path="/tenants" element={<TenantManagement />} />
-            <Route path="/onboarding" element={<TenantOnboarding />} />
-            <Route path="/admin-users" element={<AdminUserManagement />} />
-            <Route path="/subscriptions" element={<SubscriptionManagement />} />
-            <Route path="/billing" element={<BillingManagement />} />
-            <Route path="/features" element={<FeatureFlags />} />
-            <Route path="/white-label" element={<WhiteLabelConfig />} />
-            <Route path="/monitoring" element={<PlatformMonitoring />} />
-          </Routes>
-        </main>
+    <SuperAdminAuth>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
+        <SuperAdminHeader />
+        <div className="flex">
+          <SuperAdminSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          <main className="flex-1 p-6">
+            {renderActiveTab()}
+          </main>
+        </div>
       </div>
-    </div>
+    </SuperAdminAuth>
   );
-}
+};
+
+export default SuperAdmin;
