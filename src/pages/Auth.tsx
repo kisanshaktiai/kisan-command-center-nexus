@@ -48,16 +48,18 @@ export default function Auth() {
     );
   }
 
-  if (user) {
-    return <Navigate to="/super-admin" replace />;
-  }
-
+  // CRITICAL FIX: Check bootstrap status BEFORE checking user authentication
   // Show bootstrap setup if system needs initialization
   if (needsBootstrap) {
     return <BootstrapSetup />;
   }
 
-  // Show normal admin auth
+  // Only redirect authenticated users to super-admin AFTER bootstrap is completed
+  if (user) {
+    return <Navigate to="/super-admin" replace />;
+  }
+
+  // Show normal admin auth for non-authenticated users when bootstrap is complete
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
       <SuperAdminAuth />
