@@ -28,7 +28,20 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Using shared types from types/admin.ts
+// Define AdminInvite interface locally
+interface AdminInvite {
+  id: string;
+  email: string;
+  role: string;
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
+  invite_token: string;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+  invited_by: string;
+  accepted_at?: string;
+  metadata?: Record<string, any>;
+}
 
 interface InviteAnalytics {
   invite_id: string;

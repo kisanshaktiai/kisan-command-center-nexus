@@ -313,21 +313,50 @@ export class UnifiedAuthService extends BaseService {
   async isBootstrapCompleted(): Promise<boolean> {
     try {
       console.log('UnifiedAuthService: Checking bootstrap status...');
-      const { data, error } = await supabase
+      
+      // First check system config flag
+      const { data: configData, error: configError } = await supabase
         .from('system_config')
         .select('config_value')
         .eq('config_key', 'bootstrap_completed')
         .maybeSingle();
       
-      if (error) {
-        console.error('Error checking bootstrap status:', error);
+      if (!configError && configData?.config_value === 'true') {
+        console.log('UnifiedAuthService: Bootstrap flag found - completed');
+        return true;
+      }
+      
+      // If flag missing but admin users exist, consider bootstrap complete
+      console.log('UnifiedAuthService: Bootstrap flag not found, checking admin users...');
+      const { data: adminUsers, error: adminError } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('is_active', true)
+        .limit(1);
+      
+      if (adminError) {
+        console.error('Error checking admin users:', adminError);
         return false;
       }
       
-      console.log('UnifiedAuthService: Bootstrap data:', data);
-      const isCompleted = data?.config_value === 'true';
-      console.log('UnifiedAuthService: Bootstrap completed:', isCompleted);
-      return isCompleted;
+      const hasAdmins = adminUsers && adminUsers.length > 0;
+      console.log('UnifiedAuthService: Active admin users found:', hasAdmins);
+      
+      // If admins exist but flag is missing, auto-fix the inconsistency
+      if (hasAdmins) {
+        console.log('UnifiedAuthService: Auto-fixing missing bootstrap flag...');
+        await supabase
+          .from('system_config')
+          .upsert({ 
+            config_key: 'bootstrap_completed',
+            config_value: 'true',
+            updated_at: new Date().toISOString()
+          });
+        return true;
+      }
+      
+      console.log('UnifiedAuthService: Bootstrap not completed');
+      return false;
     } catch (error) {
       console.error('Error checking bootstrap status:', error);
       return false;
