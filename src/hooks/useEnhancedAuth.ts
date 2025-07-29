@@ -4,6 +4,7 @@ import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { authService } from '@/services/AuthService';
 import { securityService } from '@/services/SecurityService';
+import { unifiedAuthService } from '@/services/UnifiedAuthService';
 import { toast } from 'sonner';
 
 interface TenantData {
@@ -14,7 +15,8 @@ interface TenantData {
   phone: string;
 }
 
-interface EnhancedAuthContextType {
+// Unified auth context type that handles both regular and admin authentication
+interface UnifiedAuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
@@ -22,8 +24,10 @@ interface EnhancedAuthContextType {
   isSuperAdmin: boolean;
   adminRole: string | null;
   profile: any;
+  error: string | null;
   signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data: any; error: AuthError | null }>;
   signIn: (email: string, password: string, isAdminLogin?: boolean) => Promise<{ data: any; error: AuthError | null }>;
+  adminLogin: (email: string, password: string) => Promise<{ success: boolean; error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string, tenantId?: string) => Promise<{ data: any; error: AuthError | null }>;
   updateEmail: (newEmail: string) => Promise<{ data: any; error: AuthError | null }>;
@@ -31,9 +35,10 @@ interface EnhancedAuthContextType {
   resendEmailVerification: () => Promise<{ data: any; error: AuthError | null }>;
   trackSession: (deviceInfo?: any) => Promise<void>;
   refreshProfile: () => Promise<void>;
+  clearError: () => void;
 }
 
-export const useEnhancedAuth = (): EnhancedAuthContextType => {
+export const useEnhancedAuth = (): UnifiedAuthContextType => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +46,7 @@ export const useEnhancedAuth = (): EnhancedAuthContextType => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [adminRole, setAdminRole] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Enhanced sign up with tenant metadata
   const signUp = async (email: string, password: string, tenantData: TenantData) => {
@@ -69,6 +75,7 @@ export const useEnhancedAuth = (): EnhancedAuthContextType => {
 
   // Enhanced sign in using auth service - now supports both user and admin authentication
   const signIn = async (email: string, password: string, isAdminLogin = false) => {
+    setError(null);
     try {
       const result = isAdminLogin 
         ? await authService.authenticateAdmin(email, password)
@@ -84,7 +91,33 @@ export const useEnhancedAuth = (): EnhancedAuthContextType => {
       
       return { data: result, error: result.error };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+      setError(errorMessage);
       return { data: null, error: error as AuthError };
+    }
+  };
+
+  // Dedicated admin login method using UnifiedAuthService
+  const adminLogin = async (email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await unifiedAuthService.adminLogin(email, password);
+      
+      if (result.error) {
+        setError(result.error?.message || 'Authentication failed');
+        setIsLoading(false);
+        return { success: false, error: result.error?.message || 'Authentication failed' };
+      }
+
+      // The auth state change listener will handle updating the state
+      return { success: true, error: null };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+      setError(errorMessage);
+      setIsLoading(false);
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -162,11 +195,19 @@ export const useEnhancedAuth = (): EnhancedAuthContextType => {
 
   // Sign out using auth service
   const signOut = async () => {
+    setIsLoading(true);
     try {
       await authService.logout();
+      toast.success('Successfully logged out');
     } catch (error) {
       console.error('Error signing out:', error);
+      toast.error('Error during logout');
     }
+  };
+
+  // Clear error messages
+  const clearError = () => {
+    setError(null);
   };
 
   // Refresh user profile
@@ -186,6 +227,7 @@ export const useEnhancedAuth = (): EnhancedAuthContextType => {
       setIsAdmin(false);
       setIsSuperAdmin(false);
       setAdminRole(null);
+      setError(null);
       return;
     }
 
@@ -201,6 +243,8 @@ export const useEnhancedAuth = (): EnhancedAuthContextType => {
       setAdminRole(role);
     } catch (error) {
       console.error('Error checking admin status:', error);
+      const errorMessage = 'Failed to verify admin status';
+      setError(errorMessage);
       setIsAdmin(false);
       setIsSuperAdmin(false);
       setAdminRole(null);
@@ -253,6 +297,7 @@ export const useEnhancedAuth = (): EnhancedAuthContextType => {
           setIsAdmin(false);
           setIsSuperAdmin(false);
           setAdminRole(null);
+          setError(null);
         }
       }
     );
@@ -271,14 +316,17 @@ export const useEnhancedAuth = (): EnhancedAuthContextType => {
     isSuperAdmin,
     adminRole,
     profile,
+    error,
     signUp,
     signIn,
+    adminLogin,
     signOut,
     resetPassword,
     updateEmail,
     updatePassword,
     resendEmailVerification,
     trackSession,
-    refreshProfile
+    refreshProfile,
+    clearError
   };
 };

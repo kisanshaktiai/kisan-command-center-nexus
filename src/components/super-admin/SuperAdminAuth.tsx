@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Shield, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { unifiedAuthService } from '@/services/UnifiedAuthService';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SuperAdminAuthProps {
   onToggleMode?: () => void;
@@ -16,9 +16,8 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { adminLogin, isLoading, error, clearError } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,24 +27,20 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
       return;
     }
 
-    setIsLoading(true);
-    setError('');
+    clearError();
     
     try {
-      const result = await unifiedAuthService.adminLogin(email, password);
+      const result = await adminLogin(email, password);
       
       if (result.success) {
         toast.success('Successfully logged in as admin');
         navigate('/super-admin');
       } else {
-        throw new Error(result.error?.message || 'Login failed');
+        toast.error(result.error || 'Login failed');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
-      setError(errorMessage);
       toast.error(errorMessage);
-    } finally {
-      setIsLoading(false);
     }
   };
 
