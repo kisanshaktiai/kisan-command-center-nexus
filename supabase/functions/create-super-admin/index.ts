@@ -80,7 +80,36 @@ serve(async (req) => {
       )
     }
 
-    console.log('Super admin created successfully')
+    // Update the admin registration to completed
+    const { error: updateRegistrationError } = await supabaseAdmin
+      .from('admin_registrations')
+      .update({ 
+        status: 'completed',
+        completed_at: new Date().toISOString()
+      })
+      .eq('email', email)
+      .eq('registration_type', 'bootstrap')
+
+    if (updateRegistrationError) {
+      console.error('Error updating admin registration:', updateRegistrationError)
+      // Don't fail the whole process for this
+    }
+
+    // Set bootstrap as completed
+    const { error: bootstrapError } = await supabaseAdmin
+      .from('system_config')
+      .upsert({
+        config_key: 'bootstrap_completed',
+        config_value: 'true',
+        description: 'Indicates if system bootstrap has been completed'
+      })
+
+    if (bootstrapError) {
+      console.error('Error setting bootstrap completed:', bootstrapError)
+      // Don't fail the whole process for this
+    }
+
+    console.log('Super admin created successfully and bootstrap completed')
 
     return new Response(
       JSON.stringify({ 
