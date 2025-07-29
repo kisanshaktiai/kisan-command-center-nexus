@@ -2,18 +2,11 @@
 import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { authService } from '@/services/AuthService';
+import { authenticationService, type TenantData } from '@/services/AuthenticationService';
 import { securityService } from '@/services/SecurityService';
-import { unifiedAuthService } from '@/services/UnifiedAuthService';
 import { toast } from 'sonner';
 
-interface TenantData {
-  organizationName: string;
-  organizationType: string;
-  tenantId?: string;
-  fullName: string;
-  phone: string;
-}
+// TenantData is now imported from AuthenticationService
 
 // Unified auth context type that handles both regular and admin authentication
 interface UnifiedAuthContextType {
@@ -48,48 +41,47 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
   const [profile, setProfile] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Enhanced sign up with tenant metadata
+  // Enhanced sign up with tenant metadata - now uses service layer
   const signUp = async (email: string, password: string, tenantData: TenantData) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback${tenantData.tenantId ? `?tenant=${tenantData.tenantId}` : ''}`,
-          data: {
-            organization_name: tenantData.organizationName,
-            organization_type: tenantData.organizationType,
-            tenant_id: tenantData.tenantId,
-            full_name: tenantData.fullName,
-            phone: tenantData.phone
-          }
-        }
-      });
-
-      if (error) throw error;
-      return { data, error: null };
+      setError(null);
+      const result = await authenticationService.registerUser(email, password, tenantData);
+      
+      if (result.success && result.data) {
+        return { data: result.data, error: null };
+      } else {
+        setError(result.error || 'Registration failed');
+        return { data: null, error: new Error(result.error || 'Registration failed') as AuthError };
+      }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+      setError(errorMessage);
       return { data: null, error: error as AuthError };
     }
   };
 
-  // Enhanced sign in using auth service - now supports both user and admin authentication
+  // Enhanced sign in - now uses service layer
   const signIn = async (email: string, password: string, isAdminLogin = false) => {
     setError(null);
     try {
       const result = isAdminLogin 
-        ? await authService.authenticateAdmin(email, password)
-        : await authService.authenticateUser(email, password);
+        ? await authenticationService.signInAdmin(email, password)
+        : await authenticationService.signInUser(email, password);
       
-      // Update admin state immediately for admin login
-      if (isAdminLogin && !result.error) {
-        const adminResult = result as any; // Cast to access admin properties
-        setIsAdmin(adminResult.isAdmin || false);
-        setIsSuperAdmin(adminResult.isSuperAdmin || false);
-        setAdminRole(adminResult.adminRole || null);
+      if (result.success && result.data) {
+        // Update state with result
+        setUser(result.data.user);
+        setSession(result.data.session);
+        setIsAdmin(result.data.isAdmin);
+        setIsSuperAdmin(result.data.isSuperAdmin);
+        setAdminRole(result.data.adminRole);
+        setProfile(result.data.profile);
+        
+        return { data: result.data, error: null };
+      } else {
+        setError(result.error || 'Authentication failed');
+        return { data: null, error: new Error(result.error || 'Authentication failed') as AuthError };
       }
-      
-      return { data: result, error: result.error };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
       setError(errorMessage);
@@ -97,22 +89,22 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     }
   };
 
-  // Dedicated admin login method using UnifiedAuthService
+  // Dedicated admin login method using service layer
   const adminLogin = async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const result = await unifiedAuthService.adminLogin(email, password);
+      const result = await authenticationService.signInAdmin(email, password);
       
-      if (result.error) {
-        setError(result.error?.message || 'Authentication failed');
+      if (result.success && result.data) {
+        // The auth state change listener will handle updating the state
+        return { success: true, error: null };
+      } else {
+        setError(result.error || 'Authentication failed');
         setIsLoading(false);
-        return { success: false, error: result.error?.message || 'Authentication failed' };
+        return { success: false, error: result.error || 'Authentication failed' };
       }
-
-      // The auth state change listener will handle updating the state
-      return { success: true, error: null };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
       setError(errorMessage);
@@ -193,12 +185,14 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     }
   };
 
-  // Sign out using auth service
+  // Sign out using service layer
   const signOut = async () => {
     setIsLoading(true);
     try {
-      await authService.logout();
-      toast.success('Successfully logged out');
+      const result = await authenticationService.signOut();
+      if (!result.success) {
+        console.error('Sign out failed:', result.error);
+      }
     } catch (error) {
       console.error('Error signing out:', error);
       toast.error('Error during logout');
@@ -221,7 +215,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     }
   };
 
-  // Check admin status
+  // Check admin status using service layer
   const checkAdminStatus = async () => {
     if (!user) {
       setIsAdmin(false);
@@ -232,15 +226,18 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     }
 
     try {
-      const [adminStatus, superAdminStatus, role] = await Promise.all([
-        securityService.isCurrentUserAdmin(),
-        securityService.isCurrentUserSuperAdmin(),
-        securityService.getCurrentAdminRole()
-      ]);
-
-      setIsAdmin(adminStatus);
-      setIsSuperAdmin(superAdminStatus);
-      setAdminRole(role);
+      const result = await authenticationService.checkAdminStatus(user.id);
+      
+      if (result.success && result.data) {
+        setIsAdmin(result.data.isAdmin);
+        setIsSuperAdmin(result.data.isSuperAdmin);
+        setAdminRole(result.data.adminRole);
+      } else {
+        setError(result.error || 'Failed to verify admin status');
+        setIsAdmin(false);
+        setIsSuperAdmin(false);
+        setAdminRole(null);
+      }
     } catch (error) {
       console.error('Error checking admin status:', error);
       const errorMessage = 'Failed to verify admin status';
