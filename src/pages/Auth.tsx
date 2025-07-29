@@ -11,12 +11,14 @@ export default function Auth() {
   const { user, isLoading, isAdmin } = useAuth();
   const [needsBootstrap, setNeedsBootstrap] = useState<boolean | null>(null);
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   console.log('Auth.tsx: Render state:', { 
     user: user?.id, 
     isLoading, 
     needsBootstrap, 
-    checkingBootstrap 
+    checkingBootstrap,
+    bootstrapError
   });
 
   useEffect(() => {
@@ -26,40 +28,51 @@ export default function Auth() {
   const checkBootstrapStatus = async () => {
     try {
       console.log('Auth.tsx: Checking bootstrap status...');
+      setBootstrapError(null);
+      
       const isCompleted = await authenticationService.isBootstrapCompleted();
       console.log('Auth.tsx: Bootstrap completed:', isCompleted);
+      
       setNeedsBootstrap(!isCompleted);
     } catch (error) {
       console.error('Error checking bootstrap status:', error);
+      setBootstrapError('Failed to check system status');
       setNeedsBootstrap(false); // Default to normal auth if can't determine
     } finally {
       setCheckingBootstrap(false);
     }
   };
 
-  if (isLoading || checkingBootstrap) {
+  // Show loading state only while checking bootstrap or initial auth loading
+  if (checkingBootstrap || (isLoading && needsBootstrap === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin mb-4" />
           <div>Loading...</div>
+          {bootstrapError && (
+            <div className="text-red-600 text-sm mt-2">{bootstrapError}</div>
+          )}
         </div>
       </div>
     );
   }
 
-  // CRITICAL FIX: Check bootstrap status BEFORE checking user authentication
+  // CRITICAL: Check bootstrap status BEFORE checking user authentication
   // Show bootstrap setup if system needs initialization
   if (needsBootstrap) {
+    console.log('Auth.tsx: Showing bootstrap setup');
     return <BootstrapSetup />;
   }
 
   // Only redirect authenticated ADMIN users to super-admin AFTER bootstrap is completed
   if (user && isAdmin) {
+    console.log('Auth.tsx: Redirecting admin user to super-admin');
     return <Navigate to="/super-admin" replace />;
   }
 
   // Show normal admin auth for non-authenticated users when bootstrap is complete
+  console.log('Auth.tsx: Showing super admin auth form');
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
       <SuperAdminAuth />

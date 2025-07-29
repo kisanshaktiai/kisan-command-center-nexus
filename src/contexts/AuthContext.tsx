@@ -25,18 +25,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAdmin: auth.isAdmin
     });
 
-    if (auth.isLoading) {
-      console.log('AuthProvider: Still loading, showing loading state');
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-            <div>Loading...</div>
-          </div>
-        </div>
-      );
-    }
-
+    // Always render children - let individual routes handle their own loading/auth states
+    // This prevents the global loading screen from blocking all routes
     return (
       <AuthContext.Provider value={auth}>
         {children}

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,12 +40,15 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
   // Initialize auth state from service
   useEffect(() => {
     let mounted = true;
 
     const initializeAuth = async () => {
+      if (initialized) return; // Prevent multiple initializations
+      
       try {
         console.log('Enhanced Auth: Initializing authentication...');
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -76,39 +78,54 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
             });
           }
           setIsLoading(false);
+          setInitialized(true);
         }
       } catch (error) {
         console.error('Enhanced Auth: Initialization error:', error);
         if (mounted) {
           setError('Authentication initialization failed');
           setIsLoading(false);
+          setInitialized(true);
         }
       }
     };
 
     initializeAuth();
 
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
         
         console.log('Auth state change:', event, session?.user?.id);
 
-        if (session?.user) {
-          const currentAuthState = await authenticationService.getCurrentAuthState();
-          setAuthState(currentAuthState);
-        } else {
-          setAuthState({
-            user: null,
-            session: null,
-            isAuthenticated: false,
-            isAdmin: false,
-            isSuperAdmin: false,
-            adminRole: null,
-            profile: null
-          });
+        // Avoid setting loading state for token refresh events
+        if (event !== 'TOKEN_REFRESHED') {
+          setIsLoading(true);
         }
-        setIsLoading(false);
+
+        try {
+          if (session?.user) {
+            const currentAuthState = await authenticationService.getCurrentAuthState();
+            setAuthState(currentAuthState);
+          } else {
+            setAuthState({
+              user: null,
+              session: null,
+              isAuthenticated: false,
+              isAdmin: false,
+              isSuperAdmin: false,
+              adminRole: null,
+              profile: null
+            });
+          }
+        } catch (error) {
+          console.error('Enhanced Auth: Auth state change error:', error);
+        } finally {
+          if (mounted) {
+            setIsLoading(false);
+          }
+        }
       }
     );
 
@@ -116,7 +133,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [initialized]);
 
   // Wrapper functions around AuthenticationService
   const signUp = async (email: string, password: string, tenantData: TenantData) => {

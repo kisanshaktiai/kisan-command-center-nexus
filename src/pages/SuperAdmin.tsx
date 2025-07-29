@@ -13,13 +13,20 @@ import AdminUserManagement from '@/pages/super-admin/AdminUserManagement';
 import WhiteLabelConfig from '@/pages/super-admin/WhiteLabelConfig';
 import FeatureFlags from '@/pages/super-admin/FeatureFlags';
 import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 const SuperAdmin: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isAdmin } = useAuth();
 
-  // Show loading state while checking authentication
+  console.log('SuperAdmin: Render state:', {
+    user: user?.id,
+    isLoading,
+    isAdmin
+  });
+
+  // Show loading state only briefly while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
@@ -31,13 +38,16 @@ const SuperAdmin: React.FC = () => {
     );
   }
 
-  // Show authentication form if user is not logged in
+  // Redirect non-authenticated users to auth page
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
-        <SuperAdminAuth />
-      </div>
-    );
+    console.log('SuperAdmin: No user, redirecting to auth');
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Redirect non-admin users to auth page
+  if (!isAdmin) {
+    console.log('SuperAdmin: User is not admin, redirecting to auth');
+    return <Navigate to="/auth" replace />;
   }
 
   // Create admin user data from auth user
@@ -84,6 +94,8 @@ const SuperAdmin: React.FC = () => {
         <SuperAdminSidebar 
           isOpen={sidebarOpen}
           setIsOpen={setSidebarOpen}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
         />
         <main className="flex-1 p-6">
           {renderActiveTab()}
