@@ -1946,6 +1946,42 @@ export type Database = {
         }
         Relationships: []
       }
+      invites: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string
+          expires_at: string
+          id: string
+          metadata: Json | null
+          role: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           amount: number
@@ -6515,6 +6551,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_invite_valid: {
+        Args: { invite_token: string }
+        Returns: boolean
+      }
       is_super_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -6569,6 +6609,10 @@ export type Database = {
       }
       longtransactionsenabled: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      mark_invite_used: {
+        Args: { invite_token: string }
         Returns: boolean
       }
       path: {
