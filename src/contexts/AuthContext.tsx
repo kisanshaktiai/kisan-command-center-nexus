@@ -15,18 +15,43 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const auth = useEnhancedAuth();
+  try {
+    const auth = useEnhancedAuth();
 
-  // Add debugging to see when provider is rendering
-  console.log('AuthProvider rendering with auth state:', {
-    user: auth.user?.id,
-    isLoading: auth.isLoading,
-    isAdmin: auth.isAdmin
-  });
+    // Add debugging to see when provider is rendering
+    console.log('AuthProvider rendering with auth state:', {
+      user: auth.user?.id,
+      isLoading: auth.isLoading,
+      isAdmin: auth.isAdmin
+    });
 
-  return (
-    <AuthContext.Provider value={auth}>
-      {children}
-    </AuthContext.Provider>
-  );
+    // Don't render children until auth is initialized (not loading)
+    if (auth.isLoading) {
+      console.log('AuthProvider: Still loading, showing loading state');
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <div>Loading...</div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <AuthContext.Provider value={auth}>
+        {children}
+      </AuthContext.Provider>
+    );
+  } catch (error) {
+    console.error('AuthProvider error:', error);
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center text-red-600">
+          <div>Authentication Error</div>
+          <div className="text-sm mt-2">Please refresh the page</div>
+        </div>
+      </div>
+    );
+  }
 };

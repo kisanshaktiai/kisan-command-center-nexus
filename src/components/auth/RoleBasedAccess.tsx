@@ -13,7 +13,8 @@ interface RoleBasedAccessProps {
   requireAuth?: boolean;
 }
 
-export const RoleBasedAccess: React.FC<RoleBasedAccessProps> = ({
+// Internal component that actually uses the auth context
+const RoleBasedAccessWithAuth: React.FC<RoleBasedAccessProps> = ({
   children,
   requiredRole,
   allowedRoles = [],
@@ -100,4 +101,28 @@ export const RoleBasedAccess: React.FC<RoleBasedAccessProps> = ({
   }
 
   return <>{children}</>;
+};
+
+// Main export with error boundary
+export const RoleBasedAccess: React.FC<RoleBasedAccessProps> = (props) => {
+  try {
+    return <RoleBasedAccessWithAuth {...props} />;
+  } catch (error) {
+    console.error('RoleBasedAccess error boundary caught:', error);
+    
+    // If auth context is not available, show fallback or deny access for safety
+    if (props.requireAuth) {
+      return props.fallback || (
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="text-red-600 mb-2">Authentication Error</div>
+            <div className="text-sm text-muted-foreground">Please refresh the page</div>
+          </div>
+        </div>
+      );
+    }
+    
+    // For non-auth required routes, render children
+    return <>{props.children}</>;
+  }
 };
