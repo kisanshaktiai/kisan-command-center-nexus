@@ -50,7 +50,7 @@ export function WebhookManagement() {
   const queryClient = useQueryClient();
   const { currentTenant } = useTenant();
 
-  // Fetch webhooks
+  // Fetch webhooks from database
   const { data: webhooks = [], isLoading } = useQuery({
     queryKey: ['webhooks', currentTenant?.id],
     queryFn: async (): Promise<WebhookConfig[]> => {
@@ -58,27 +58,37 @@ export function WebhookManagement() {
         throw new Error('No tenant context available');
       }
 
-      // Mock data for webhook configs since the table was just created
-      const mockConfigs = [
-        {
-          id: '1',
-          name: 'Payment Notifications',
-          url: 'https://api.example.com/webhooks/payments',
-          method: 'POST' as const,
-          headers: { 'Content-Type': 'application/json' },
-          events: ['payment.completed', 'payment.failed'],
-          is_active: true,
-          secret_key: 'secret_123',
-          retry_count: 3,
-          timeout_seconds: 30,
-          tenant_id: currentTenant.id,
-          created_at: '2024-01-15T10:00:00Z',
-          last_triggered_at: '2024-01-15T12:00:00Z',
-          success_count: 45,
-          failure_count: 2
-        }
-      ];
-      return mockConfigs;
+      const { data, error } = await supabase
+        .from('webhooks')
+        .select('*')
+        .eq('tenant_id', currentTenant.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching webhooks:', error);
+        throw error;
+      }
+
+      // Transform database response to match WebhookConfig interface
+      return (data || []).map(webhook => ({
+        id: webhook.id,
+        name: webhook.name,
+        url: webhook.url,
+        method: 'POST' as const, // Default method since not in DB schema
+        headers: typeof webhook.custom_headers === 'object' && webhook.custom_headers !== null
+          ? webhook.custom_headers as Record<string, string>
+          : { 'Content-Type': 'application/json' },
+        events: webhook.events || [],
+        is_active: webhook.is_active,
+        secret_key: webhook.secret_key,
+        retry_count: webhook.retry_attempts,
+        timeout_seconds: webhook.timeout_seconds,
+        tenant_id: webhook.tenant_id,
+        created_at: webhook.created_at,
+        last_triggered_at: webhook.last_triggered_at,
+        success_count: webhook.success_count,
+        failure_count: webhook.failure_count
+      }));
     },
     enabled: !!currentTenant?.id,
   });
@@ -90,16 +100,30 @@ export function WebhookManagement() {
         throw new Error('No tenant context available');
       }
 
-      // Mock webhook creation since this is a demo
-      console.log('Creating webhook config:', webhookData);
-      return { 
-        id: 'webhook_' + Date.now(),
-        ...webhookData,
-        tenant_id: currentTenant.id,
-        created_at: new Date().toISOString(),
-        success_count: 0,
-        failure_count: 0
-      };
+      const { data, error } = await supabase
+        .from('webhooks')
+        .insert({
+          name: webhookData.name!,
+          url: webhookData.url!,
+          events: webhookData.events || [],
+          is_active: webhookData.is_active ?? true,
+          secret_key: webhookData.secret_key || '',
+          retry_attempts: webhookData.retry_count || 3,
+          timeout_seconds: webhookData.timeout_seconds || 30,
+          tenant_id: currentTenant.id,
+          custom_headers: webhookData.headers || { 'Content-Type': 'application/json' },
+          success_count: 0,
+          failure_count: 0
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating webhook:', error);
+        throw error;
+      }
+
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['webhooks'] });
@@ -121,13 +145,30 @@ export function WebhookManagement() {
   // Update webhook mutation
   const updateWebhookMutation = useMutation({
     mutationFn: async ({ id, ...updateData }: Partial<WebhookConfig> & { id: string }) => {
-      // Mock webhook update since this is a demo
-      console.log('Updating webhook config:', id, updateData);
-      return {
-        id,
-        ...updateData,
-        updated_at: new Date().toISOString()
-      };
+      const { data, error } = await supabase
+        .from('webhooks')
+        .update({
+          ...(updateData.name && { name: updateData.name }),
+          ...(updateData.url && { url: updateData.url }),
+          ...(updateData.events && { events: updateData.events }),
+          ...(updateData.is_active !== undefined && { is_active: updateData.is_active }),
+          ...(updateData.secret_key && { secret_key: updateData.secret_key }),
+          ...(updateData.retry_count && { retry_attempts: updateData.retry_count }),
+          ...(updateData.timeout_seconds && { timeout_seconds: updateData.timeout_seconds }),
+          ...(updateData.headers && { custom_headers: updateData.headers }),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('tenant_id', currentTenant?.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating webhook:', error);
+        throw error;
+      }
+
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['webhooks'] });
@@ -148,8 +189,17 @@ export function WebhookManagement() {
   // Delete webhook mutation
   const deleteWebhookMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Mock webhook deletion since this is a demo
-      console.log('Deleting webhook config:', id);
+      const { error } = await supabase
+        .from('webhooks')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', currentTenant?.id);
+
+      if (error) {
+        console.error('Error deleting webhook:', error);
+        throw error;
+      }
+
       return { success: true };
     },
     onSuccess: () => {

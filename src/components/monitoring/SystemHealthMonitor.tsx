@@ -23,32 +23,57 @@ interface SystemHealthMonitorProps {
 
 const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterval }) => {
   const { data: systemMetrics, isLoading } = useQuery({
-    queryKey: ['system-metrics'],
+    queryKey: ['system-health-metrics'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('system_metrics')
+        .from('system_health_metrics')
         .select('*')
         .eq('metric_type', 'system')
         .order('timestamp', { ascending: false })
         .limit(100);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching system health metrics:', error);
+        throw error;
+      }
       return data || [];
     },
     refetchInterval: refreshInterval,
   });
 
-  // Mock real-time metrics for demonstration
-  const currentMetrics = {
-    cpu_usage: 45.2,
-    memory_usage: 68.1,
-    disk_usage: 34.7,
-    network_in: 125.3,
-    network_out: 89.7,
-    response_time: 142,
-    error_rate: 0.12,
-    uptime: 99.8
-  };
+  // Calculate current metrics from real data
+  const currentMetrics = React.useMemo(() => {
+    if (!systemMetrics || systemMetrics.length === 0) {
+      // Default/fallback values if no data
+      return {
+        cpu_usage: 0,
+        memory_usage: 0,
+        disk_usage: 0,
+        network_in: 0,
+        network_out: 0,
+        response_time: 0,
+        error_rate: 0,
+        uptime: 100
+      };
+    }
+
+    // Get latest metrics by type
+    const getLatestMetric = (name: string) => {
+      const metric = systemMetrics.find(m => m.metric_name === name);
+      return metric ? Number(metric.value) : 0;
+    };
+
+    return {
+      cpu_usage: getLatestMetric('cpu_usage'),
+      memory_usage: getLatestMetric('memory_usage'),
+      disk_usage: getLatestMetric('disk_usage'),
+      network_in: getLatestMetric('network_in'),
+      network_out: getLatestMetric('network_out'),
+      response_time: getLatestMetric('response_time'),
+      error_rate: getLatestMetric('error_rate'),
+      uptime: getLatestMetric('uptime') || 100
+    };
+  }, [systemMetrics]);
 
   // Process metrics for charts
   const chartData = systemMetrics?.slice(0, 24).reverse().map((metric, index) => ({

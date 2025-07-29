@@ -51,19 +51,29 @@ const ResourceUtilization: React.FC<ResourceUtilizationProps> = ({ refreshInterv
       const hoursBack = timeRange === '24h' ? 24 : timeRange === '7d' ? 168 : 720;
       const startTime = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
 
-      // Mock data since this table doesn't exist yet
-      const mockData = [{
-        id: '1',
-        name: 'Sample Equipment',
-        type: 'tractor',
-        utilization_percentage: 85,
-        status: 'active' as const,
-        last_used: new Date().toISOString(),
-        efficiency_score: 92,
-        tenant_id: 'tenant-1'
-      }];
+      // Fetch real resource utilization data
+      const { data, error } = await supabase
+        .from('resource_utilization')
+        .select('*')
+        .gte('period_start', startTime)
+        .order('period_start', { ascending: false });
 
-      return mockData;
+      if (error) {
+        console.error('Error fetching resource utilization:', error);
+        throw error;
+      }
+
+      // Transform data to match expected format
+      return (data || []).map(item => ({
+        id: item.id,
+        name: `${item.resource_type} Resource`,
+        type: item.resource_type,
+        utilization_percentage: Number(item.usage_percentage) || 0,
+        status: 'active' as const,
+        last_used: item.updated_at,
+        efficiency_score: Math.min(100, Number(item.usage_percentage) + 10), // Simple calculation
+        tenant_id: item.tenant_id || 'system'
+      }));
     },
     refetchInterval: refreshInterval,
     retry: 3,
@@ -77,16 +87,17 @@ const ResourceUtilization: React.FC<ResourceUtilizationProps> = ({ refreshInterv
       const hoursBack = timeRange === '24h' ? 24 : timeRange === '7d' ? 168 : 720;
       const startTime = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
 
-      // Mock data since this table doesn't exist yet
+      // For now, generate mock wastage data based on resource utilization
+      // In a real system, this would query a separate wastage_records table
       const mockWastageData = [{
         id: '1',
         resource_type: 'water',
-        quantity_wasted: 100,
+        quantity_wasted: Math.random() * 200,
         unit: 'liters',
-        cost_impact: 50.0,
-        cause: 'Leakage',
+        cost_impact: Math.random() * 100,
+        cause: 'System inefficiency',
         date: new Date().toISOString(),
-        tenant_id: 'tenant-1'
+        tenant_id: 'system'
       }];
 
       return mockWastageData;

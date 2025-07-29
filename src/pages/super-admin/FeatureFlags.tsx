@@ -19,41 +19,40 @@ const FeatureFlags = () => {
   const [newFlagOpen, setNewFlagOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // Mock feature flags data since we can't query super_admin schema directly yet
+  // Fetch feature flags from database
   const { data: featureFlags, isLoading } = useQuery({
     queryKey: ['super-admin-feature-flags'],
     queryFn: async () => {
-      // This would normally query super_admin.feature_flags
-      // For now, return mock data
-      return [
-        {
-          id: '1',
-          flag_name: 'ai_recommendations_v2',
-          description: 'Enhanced AI crop recommendations with weather integration',
-          is_enabled: true,
-          rollout_percentage: 75,
-          target_tenants: ['tenant1', 'tenant2'],
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          flag_name: 'marketplace_beta',
-          description: 'Beta version of the farmer marketplace',
-          is_enabled: false,
-          rollout_percentage: 25,
-          target_tenants: [],
-          created_at: new Date(Date.now() - 86400000).toISOString()
-        }
-      ];
+      const { data, error } = await supabase
+        .from('feature_flags')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching feature flags:', error);
+        throw error;
+      }
+
+      return data || [];
     },
   });
 
-  // Mock toggle feature flag
+  // Toggle feature flag mutation
   const toggleFlagMutation = useMutation({
     mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      // This would normally update super_admin.feature_flags
-      console.log(`Toggling flag ${id} to ${enabled}`);
-      return true;
+      const { data, error } = await supabase
+        .from('feature_flags')
+        .update({ is_enabled: enabled, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error toggling feature flag:', error);
+        throw error;
+      }
+
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['super-admin-feature-flags'] });
@@ -64,12 +63,29 @@ const FeatureFlags = () => {
     },
   });
 
-  // Mock create new feature flag
+  // Create feature flag mutation
   const createFlagMutation = useMutation({
     mutationFn: async (flagData: any) => {
-      // This would normally insert into super_admin.feature_flags
-      console.log('Creating flag:', flagData);
-      return { id: Date.now().toString(), ...flagData };
+      const { data, error } = await supabase
+        .from('feature_flags')
+        .insert({
+          flag_name: flagData.flag_name,
+          description: flagData.description,
+          is_enabled: flagData.is_enabled || false,
+          rollout_percentage: flagData.rollout_percentage || 0,
+          target_tenants: flagData.target_tenants || [],
+          conditions: flagData.conditions || {},
+          metadata: flagData.metadata || {}
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating feature flag:', error);
+        throw error;
+      }
+
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['super-admin-feature-flags'] });
