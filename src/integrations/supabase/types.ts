@@ -6015,6 +6015,10 @@ export type Database = {
         Args: { p_slug: string }
         Returns: Json
       }
+      cleanup_bootstrap_state: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       cleanup_expired_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -6026,6 +6030,10 @@ export type Database = {
       complete_bootstrap: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      complete_bootstrap_for_user: {
+        Args: { user_id: string; user_email: string; user_name: string }
+        Returns: boolean
       }
       create_tenant_with_validation: {
         Args: {
