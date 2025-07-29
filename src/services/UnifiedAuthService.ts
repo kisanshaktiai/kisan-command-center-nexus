@@ -68,21 +68,43 @@ export class UnifiedAuthService {
         };
       }
 
-      // Create registration entry
-      const { data: regData, error: regError } = await supabase
+      // Check if there's already a pending registration
+      const { data: existingReg } = await supabase
         .from('admin_registrations')
-        .insert({
-          email: data.email,
-          full_name: data.fullName,
-          role: 'super_admin',
-          registration_type: 'bootstrap',
-          invited_by: null
-        })
-        .select()
+        .select('*')
+        .eq('email', data.email)
+        .eq('status', 'pending')
+        .eq('registration_type', 'bootstrap')
         .single();
 
-      if (regError || !regData) {
-        throw new Error('Failed to create registration');
+      let regData;
+      if (existingReg) {
+        console.log('Using existing registration for bootstrap');
+        regData = existingReg;
+      } else {
+        // Create new registration entry
+        const { data: newRegData, error: regError } = await supabase
+          .from('admin_registrations')
+          .insert({
+            email: data.email,
+            full_name: data.fullName,
+            role: 'super_admin',
+            registration_type: 'bootstrap',
+            invited_by: null
+          })
+          .select()
+          .single();
+
+        if (regError) {
+          console.error('Registration creation error:', regError);
+          throw new Error(`Failed to create registration: ${regError.message}`);
+        }
+
+        if (!newRegData) {
+          throw new Error('Failed to create registration: No data returned');
+        }
+
+        regData = newRegData;
       }
 
       // Sign up the user
