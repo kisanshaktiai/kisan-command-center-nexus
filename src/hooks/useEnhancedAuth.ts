@@ -238,22 +238,34 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     }
 
     try {
-      const result = await authenticationService.checkAdminStatus(user.id);
-      
-      if (result.success && result.data) {
-        setIsAdmin(result.data.isAdmin);
-        setIsSuperAdmin(result.data.isSuperAdmin);
-        setAdminRole(result.data.adminRole);
+      // Direct database query to check admin status
+      const { data: adminData } = await supabase
+        .from('admin_users')
+        .select('role, is_active')
+        .eq('id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (adminData) {
+        const isAdminUser = true;
+        const isSuperAdminUser = adminData.role === 'super_admin';
+        const userRole = adminData.role;
+
+        setIsAdmin(isAdminUser);
+        setIsSuperAdmin(isSuperAdminUser);
+        setAdminRole(userRole);
+        setError(null);
+        
+        console.log('Admin status verified:', { isAdminUser, isSuperAdminUser, userRole });
       } else {
-        setError(result.error || 'Failed to verify admin status');
+        console.log('User is not an admin:', user.id);
         setIsAdmin(false);
         setIsSuperAdmin(false);
         setAdminRole(null);
+        setError(null);
       }
     } catch (error) {
       console.error('Error checking admin status:', error);
-      const errorMessage = 'Failed to verify admin status';
-      setError(errorMessage);
       setIsAdmin(false);
       setIsSuperAdmin(false);
       setAdminRole(null);
