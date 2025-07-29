@@ -218,7 +218,7 @@ export const AdminInviteManager = () => {
   };
 
   const copyInviteLink = (token: string) => {
-    const inviteUrl = `${window.location.origin}/onboard/${token}`;
+    const inviteUrl = `${window.location.origin}/register?invite=${token}`;
     navigator.clipboard.writeText(inviteUrl);
     toast.success('Invite link copied to clipboard');
   };

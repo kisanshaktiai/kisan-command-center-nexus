@@ -348,6 +348,50 @@ export type Database = {
           },
         ]
       }
+      admin_registration_tokens: {
+        Row: {
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          invite_id: string | null
+          metadata: Json | null
+          role: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          invite_id?: string | null
+          metadata?: Json | null
+          role: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invite_id?: string | null
+          metadata?: Json | null
+          role?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_registration_tokens_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "admin_invites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_registrations: {
         Row: {
           completed_at: string | null
@@ -8041,6 +8085,16 @@ export type Database = {
       user_has_tenant_access: {
         Args: { tenant_uuid: string }
         Returns: boolean
+      }
+      validate_admin_registration_token: {
+        Args: { p_token: string }
+        Returns: {
+          valid: boolean
+          email: string
+          role: string
+          invite_id: string
+          expires_at: string
+        }[]
       }
       validate_invite_token: {
         Args: { token: string }

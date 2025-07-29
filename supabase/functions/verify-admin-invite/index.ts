@@ -43,9 +43,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       const { data: invite, error } = await supabase
-        .from('invites')
+        .from('admin_invites')
         .select('*')
-        .eq('token', token)
+        .eq('invite_token', token)
         .single();
 
       if (error || !invite) {
@@ -58,7 +58,7 @@ const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      const isValid = invite.used_at === null && new Date(invite.expires_at) > new Date();
+      const isValid = invite.status === 'pending' && new Date(invite.expires_at) > new Date();
       
       if (!isValid) {
         return new Response(JSON.stringify({
@@ -74,7 +74,8 @@ const handler = async (req: Request): Promise<Response> => {
         valid: isValid,
         email: invite.email,
         role: invite.role,
-        expiresAt: invite.expires_at
+        expiresAt: invite.expires_at,
+        metadata: invite.metadata || {}
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -96,9 +97,9 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Validate invite token first
       const { data: invite, error: validateError } = await supabase
-        .from('invites')
+        .from('admin_invites')
         .select('*')
-        .eq('token', token)
+        .eq('invite_token', token)
         .single();
 
       if (validateError || !invite) {
@@ -110,11 +111,11 @@ const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      const isValid = invite.used_at === null && new Date(invite.expires_at) > new Date();
+      const isValid = invite.status === 'pending' && new Date(invite.expires_at) > new Date();
       
       if (!isValid) {
         return new Response(JSON.stringify({
-          error: invite.used_at ? 'Invite has already been used' : 'Invite has expired'
+          error: invite.status === 'accepted' ? 'Invite has already been used' : 'Invite has expired'
         }), {
           status: 410,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -154,13 +155,15 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error(`Failed to create admin user: ${adminError.message}`);
       }
 
-      // Mark invite as used
+      // Mark invite as accepted
       const { error: updateError } = await supabase
-        .from('invites')
+        .from('admin_invites')
         .update({
-          used_at: new Date().toISOString()
+          status: 'accepted',
+          accepted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
-        .eq('token', token);
+        .eq('invite_token', token);
 
       if (updateError) {
         console.error('Failed to update invite status:', updateError);

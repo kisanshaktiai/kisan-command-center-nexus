@@ -9,18 +9,25 @@ import { PasswordStrength, validatePassword } from '@/components/ui/password-str
 import { Loader2, Shield, Eye, EyeOff, UserPlus, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantBranding } from '@/components/auth/TenantBrandingProvider';
 
 interface InviteData {
   valid: boolean;
   email: string;
   role: string;
   expiresAt: string;
+  metadata?: {
+    organizationName?: string;
+    primaryColor?: string;
+    appLogo?: string;
+  };
 }
 
 const AdminRegister = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const token = searchParams.get('token');
+  const token = searchParams.get('invite');
+  const { setBranding } = useTenantBranding();
 
   const [inviteData, setInviteData] = useState<InviteData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,8 +52,7 @@ const AdminRegister = () => {
 
       try {
         const response = await supabase.functions.invoke('verify-admin-invite', {
-          method: 'GET',
-          body: new URLSearchParams({ token })
+          body: { token }
         });
 
         if (response.error) {
@@ -59,6 +65,15 @@ const AdminRegister = () => {
           setError(data.error || 'Invalid or expired invitation');
         } else {
           setInviteData(data);
+          
+          // Apply tenant branding if available
+          if (data.metadata) {
+            setBranding({
+              primaryColor: data.metadata.primaryColor || '#2563eb',
+              organizationName: data.metadata.organizationName || 'KisanShaktiAI',
+              logoUrl: data.metadata.appLogo
+            });
+          }
         }
       } catch (err: any) {
         console.error('Error verifying invite:', err);
@@ -186,12 +201,18 @@ const AdminRegister = () => {
             <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
               <AlertTriangle className="w-6 h-6 text-red-600" />
             </div>
-            <CardTitle className="text-xl text-red-800">Invalid Invitation</CardTitle>
+            <CardTitle className="text-xl text-red-800">Access Denied</CardTitle>
             <CardDescription className="text-red-600">
-              {error || 'This invitation link is invalid or has expired.'}
+              {error || 'Registration is invite-only. You need a valid invitation link to create an admin account.'}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <Alert variant="destructive">
+              <Shield className="h-4 w-4" />
+              <AlertDescription>
+                This platform uses secure invite-only registration to protect against unauthorized access.
+              </AlertDescription>
+            </Alert>
             <Button 
               onClick={() => navigate('/auth')} 
               className="w-full"
@@ -209,6 +230,15 @@ const AdminRegister = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-4 text-center">
+          {inviteData.metadata?.appLogo && (
+            <div className="mx-auto">
+              <img 
+                src={inviteData.metadata.appLogo} 
+                alt={inviteData.metadata.organizationName || 'Organization'} 
+                className="h-12 w-auto mx-auto mb-4"
+              />
+            </div>
+          )}
           <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
             <CheckCircle className="w-6 h-6 text-green-600" />
           </div>
@@ -217,7 +247,7 @@ const AdminRegister = () => {
               Complete Your Admin Registration
             </CardTitle>
             <CardDescription className="text-gray-600 mt-2">
-              You've been invited as a <strong>{formatRole(inviteData.role)}</strong>
+              Join <strong>{inviteData.metadata?.organizationName || 'KisanShaktiAI'}</strong> as a <strong>{formatRole(inviteData.role)}</strong>
             </CardDescription>
           </div>
         </CardHeader>

@@ -82,10 +82,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Check if user already has a pending invite
     const { data: existingInvite } = await supabase
-      .from('invites')
-      .select('id, used_at')
+      .from('admin_invites')
+      .select('id, status')
       .eq('email', email)
-      .is('used_at', null)
+      .eq('status', 'pending')
       .gte('expires_at', new Date().toISOString())
       .single();
 
@@ -100,12 +100,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Create invite record
     const { data: invite, error: inviteError } = await supabase
-      .from('invites')
+      .from('admin_invites')
       .insert({
         email,
         role,
-        token: inviteToken,
-        created_by: invitedBy,
+        invite_token: inviteToken,
+        invited_by: invitedBy,
+        status: 'pending',
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
         metadata: {
           organizationName,
           appLogo,
@@ -120,7 +122,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Create invite link
-    const inviteUrl = `${Deno.env.get('SITE_URL') || 'https://app.kisanshaktiai.in'}/onboard/${inviteToken}`;
+    const inviteUrl = `${Deno.env.get('SITE_URL') || 'https://app.kisanshaktiai.in'}/register?invite=${inviteToken}`;
 
     // Create branded email template
     const emailTemplate = `
@@ -217,7 +219,7 @@ const handler = async (req: Request): Promise<Response> => {
     if (emailResult.error) {
       // Delete the invite if email fails
       await supabase
-        .from('invites')
+        .from('admin_invites')
         .delete()
         .eq('id', invite.id);
       
