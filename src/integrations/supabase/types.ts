@@ -6023,6 +6023,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      complete_bootstrap: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       create_tenant_with_validation: {
         Args: {
           p_name: string
@@ -6615,6 +6619,10 @@ export type Database = {
         Returns: unknown
       }
       is_authenticated_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_bootstrap_completed: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }

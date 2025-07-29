@@ -12,6 +12,7 @@ import AuthCallback from "./pages/auth/AuthCallback";
 import ResetPassword from "./pages/auth/ResetPassword";
 import AdminRegister from "./pages/AdminRegister";
 import OnboardPartner from "./pages/OnboardPartner";
+import { AdminInviteRegistration } from "@/components/auth/AdminInviteRegistration";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/auth/reset-password" element={<ResetPassword />} />
               <Route path="/register" element={<AdminRegister />} />
               <Route path="/onboard/:token" element={<OnboardPartner />} />
+              <Route path="/invite/:token" element={<AdminInviteRegistration />} />
               {navItems.map(({ to, page }) => (
                 <Route key={to} path={to} element={page} />
               ))}

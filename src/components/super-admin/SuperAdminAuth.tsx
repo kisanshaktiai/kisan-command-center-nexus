@@ -1,24 +1,24 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Shield, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { unifiedAuthService } from '@/services/UnifiedAuthService';
 
 interface SuperAdminAuthProps {
-  onToggleMode: () => void;
+  onToggleMode?: () => void;
 }
 
 export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
-  
-  const { signIn, isLoading, error, clearError } = useAdminAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,16 +28,24 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
       return;
     }
 
-    clearError();
+    setIsLoading(true);
+    setError('');
     
-    const result = await signIn(email, password);
-    
-    if (result.success) {
-      toast.success('Successfully logged in as admin');
-      navigate('/super-admin');
-    } else {
-      const errorMessage = result.error || 'Login failed';
+    try {
+      const result = await unifiedAuthService.adminLogin(email, password);
+      
+      if (result.success) {
+        toast.success('Successfully logged in as admin');
+        navigate('/super-admin');
+      } else {
+        throw new Error(result.error?.message || 'Login failed');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      setError(errorMessage);
       toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -124,16 +132,18 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
             )}
           </Button>
 
-          <div className="text-center">
-            <Button
-              type="button"
-              variant="link"
-              onClick={onToggleMode}
-              className="text-sm"
-            >
-              Need to create an admin account? Register here
-            </Button>
-          </div>
+          {onToggleMode && (
+            <div className="text-center">
+              <Button
+                type="button"
+                variant="link"
+                onClick={onToggleMode}
+                className="text-sm"
+              >
+                Need to create an admin account? Register here
+              </Button>
+            </div>
+          )}
         </form>
       </CardContent>
     </Card>
