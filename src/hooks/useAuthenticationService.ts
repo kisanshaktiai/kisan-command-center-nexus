@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { authenticationService, type AuthResult, type AuthState, type TenantData } from '@/services/AuthenticationService';
+import { unifiedAuthService, type AuthResult, type AuthState, type TenantData } from '@/services/UnifiedAuthService';
 
 /**
  * Hook for Authentication Service Operations
@@ -51,7 +51,7 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => authenticationService.signInUser(email, password),
+      () => unifiedAuthService.signInUser(email, password),
       onSuccess,
       onError
     );
@@ -64,7 +64,7 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => authenticationService.signInAdmin(email, password),
+      () => unifiedAuthService.signInAdmin(email, password),
       onSuccess,
       onError
     );
@@ -78,7 +78,10 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => authenticationService.registerUser(email, password, tenantData),
+      () => {
+        // TODO: Implement user registration in UnifiedAuthService
+        throw new Error('User registration not yet implemented');
+      },
       onSuccess,
       onError
     );
@@ -92,7 +95,7 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => authenticationService.bootstrapSuperAdmin(email, password, fullName),
+      () => unifiedAuthService.bootstrapSuperAdmin(email, password, fullName),
       onSuccess,
       onError
     );
@@ -104,7 +107,17 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => authenticationService.checkAdminStatus(userId),
+      async () => {
+        const authState = await unifiedAuthService.getCurrentAuthState();
+        return {
+          success: true,
+          data: {
+            isAdmin: authState.isAdmin,
+            isSuperAdmin: authState.isSuperAdmin,
+            adminRole: authState.adminRole
+          }
+        };
+      },
       onSuccess,
       onError
     );
@@ -115,7 +128,7 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => authenticationService.signOut(),
+      () => unifiedAuthService.signOut(),
       onSuccess,
       onError
     );
@@ -128,7 +141,10 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => authenticationService.resetPassword(email, tenantId),
+      () => {
+        // TODO: Implement password reset in UnifiedAuthService
+        throw new Error('Password reset not yet implemented');
+      },
       onSuccess,
       onError
     );

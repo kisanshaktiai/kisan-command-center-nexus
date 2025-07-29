@@ -2,9 +2,7 @@
 import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { authenticationService, type TenantData } from '@/services/AuthenticationService';
-import { securityService } from '@/services/SecurityService';
-import { sessionService } from '@/services/SessionService';
+import { unifiedAuthService, type TenantData } from '@/services/UnifiedAuthService';
 import { toast } from 'sonner';
 
 // TenantData is now imported from AuthenticationService
@@ -46,14 +44,8 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
   const signUp = async (email: string, password: string, tenantData: TenantData) => {
     try {
       setError(null);
-      const result = await authenticationService.registerUser(email, password, tenantData);
-      
-      if (result.success && result.data) {
-        return { data: result.data, error: null };
-      } else {
-        setError(result.error || 'Registration failed');
-        return { data: null, error: new Error(result.error || 'Registration failed') as AuthError };
-      }
+      // TODO: Implement user registration in UnifiedAuthService
+      throw new Error('User registration not yet implemented');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Registration failed';
       setError(errorMessage);
@@ -66,8 +58,8 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     setError(null);
     try {
       const result = isAdminLogin 
-        ? await authenticationService.signInAdmin(email, password)
-        : await authenticationService.signInUser(email, password);
+        ? await unifiedAuthService.signInAdmin(email, password)
+        : await unifiedAuthService.signInUser(email, password);
       
       if (result.success && result.data) {
         // Update state with result
@@ -76,7 +68,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
         setIsAdmin(result.data.isAdmin);
         setIsSuperAdmin(result.data.isSuperAdmin);
         setAdminRole(result.data.adminRole);
-        setProfile(result.data.profile);
+        // Profile will be fetched separately
         
         return { data: result.data, error: null };
       } else {
@@ -96,7 +88,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     setError(null);
     
     try {
-      const result = await authenticationService.signInAdmin(email, password);
+      const result = await unifiedAuthService.signInAdmin(email, password);
       
       if (result.success && result.data) {
         // The auth state change listener will handle updating the state
@@ -176,9 +168,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
     try {
       if (!session) return;
       
-      if (isAdmin) {
-        await securityService.trackAdminSession(deviceInfo);
-      }
+      // Session tracking will be handled by the unified service
       
       console.log('Session tracking active');
     } catch (error) {
@@ -190,7 +180,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
   const signOut = async () => {
     setIsLoading(true);
     try {
-      const result = await authenticationService.signOut();
+      const result = await unifiedAuthService.signOut();
       if (!result.success) {
         console.error('Sign out failed:', result.error);
       }

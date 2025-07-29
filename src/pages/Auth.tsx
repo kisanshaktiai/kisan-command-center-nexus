@@ -4,7 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
 import { BootstrapSetup } from '@/components/auth/BootstrapSetup';
-import { authenticationService } from '@/services/AuthenticationService';
+import { unifiedAuthService } from '@/services/UnifiedAuthService';
 import { Loader2 } from 'lucide-react';
 
 export default function Auth() {
@@ -18,7 +18,7 @@ export default function Auth() {
 
   const checkBootstrapStatus = async () => {
     try {
-      const isCompleted = await authenticationService.isBootstrapCompleted();
+      const isCompleted = await unifiedAuthService.isBootstrapCompleted();
       setNeedsBootstrap(!isCompleted);
     } catch (error) {
       console.error('Error checking bootstrap status:', error);

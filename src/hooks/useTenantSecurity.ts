@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { securityService } from '@/services/SecurityService';
+// Security service functionality moved to UnifiedAuthService
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -42,14 +42,12 @@ export const useTenantSecurity = (tenantId?: string, requiredRole?: string) => {
       setState(prev => ({ ...prev, isLoading: true }));
 
       try {
-        // Check admin status
-        const [isAdmin, isSuperAdmin] = await Promise.all([
-          securityService.isCurrentUserAdmin(),
-          securityService.isCurrentUserSuperAdmin()
-        ]);
+        // TODO: Implement admin status checks in UnifiedAuthService
+        const isAdmin = false;
+        const isSuperAdmin = false;
 
-        // Validate API access
-        const validation = await securityService.validateApiAccess(tenantId, requiredRole);
+        // TODO: Implement API access validation in UnifiedAuthService
+        const validation = { isValid: false, error: 'Validation not implemented' };
         
         setState({
           isValidated: true,

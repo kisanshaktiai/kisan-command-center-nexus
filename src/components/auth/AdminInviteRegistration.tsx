@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { PasswordStrength, validatePassword } from '@/components/ui/password-strength';
 import { Loader2, UserPlus, Eye, EyeOff, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { authenticationService } from '@/services/AuthenticationService';
+import { unifiedAuthService } from '@/services/UnifiedAuthService';
 
 interface InviteDetails {
   valid: boolean;
@@ -45,21 +45,9 @@ export const AdminInviteRegistration: React.FC = () => {
   const validateToken = async () => {
     try {
       setIsLoading(true);
-      const result = await authenticationService.validateInviteToken(token!);
-      
-      if (result.valid && result.data) {
-        setInviteDetails({
-          valid: true,
-          email: result.data.email,
-          fullName: result.data.full_name,
-          role: result.data.role,
-          registrationType: result.data.registration_type,
-          expiresAt: result.data.expires_at
-        });
-      } else {
-        setInviteDetails({ valid: false });
-        setError(result.error || 'Invalid or expired invitation');
-      }
+      // TODO: Implement invite token validation in UnifiedAuthService
+      setError('Invite validation not yet implemented');
+      setInviteDetails({ valid: false });
     } catch (error) {
       console.error('Token validation error:', error);
       setInviteDetails({ valid: false });
@@ -97,14 +85,8 @@ export const AdminInviteRegistration: React.FC = () => {
     setError('');
 
     try {
-      const result = await authenticationService.registerViaInvite(token!, formData.password);
-
-      if (result.success) {
-        toast.success('Registration completed successfully!');
-        navigate('/super-admin');
-      } else {
-        throw new Error(result.error?.message || 'Registration failed');
-      }
+      // TODO: Implement invite registration in UnifiedAuthService
+      throw new Error('Invite registration not yet implemented');
       
     } catch (error) {
       console.error('Registration error:', error);

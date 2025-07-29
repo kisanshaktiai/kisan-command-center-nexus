@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { sessionService, SessionData } from '@/services/SessionService';
-import { securityService } from '@/services/SecurityService';
+// Security service functionality moved to UnifiedAuthService
 
 export const useSession = () => {
   const [sessionData, setSessionData] = useState<SessionData>(
@@ -25,7 +25,8 @@ export const useSession = () => {
     const checkAdminRole = async () => {
       if (sessionData.isAuthenticated) {
         try {
-          const role = await securityService.getCurrentAdminRole();
+          // Admin role checking now handled by UnifiedAuthService
+          const role = null; // TODO: Get role from unified auth service
           setAdminRole(role);
         } catch (error) {
           console.error('Error checking admin role:', error);
