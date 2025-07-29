@@ -308,6 +308,7 @@ export class UnifiedAuthService {
    */
   async isBootstrapCompleted(): Promise<boolean> {
     try {
+      console.log('UnifiedAuthService: Checking bootstrap status...');
       const { data, error } = await supabase
         .from('system_config')
         .select('config_value')
@@ -319,7 +320,10 @@ export class UnifiedAuthService {
         return false;
       }
       
-      return data?.config_value === 'true';
+      console.log('UnifiedAuthService: Bootstrap data:', data);
+      const isCompleted = data?.config_value === 'true';
+      console.log('UnifiedAuthService: Bootstrap completed:', isCompleted);
+      return isCompleted;
     } catch (error) {
       console.error('Error checking bootstrap status:', error);
       return false;

@@ -273,14 +273,22 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
 
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Enhanced Auth: Initializing authentication...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Enhanced Auth: Session error:', error);
+          setError('Failed to get session');
+        }
         
         if (mounted) {
+          console.log('Enhanced Auth: Session found:', session?.user?.id || 'No session');
           setSession(session);
           setUser(session?.user ?? null);
           setIsLoading(false);
           
           if (session?.user) {
+            console.log('Enhanced Auth: User authenticated, checking admin status...');
             // Add delay to ensure database is updated after email verification
             setTimeout(() => {
               if (mounted) {
@@ -289,11 +297,14 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
                 trackSession();
               }
             }, 500);
+          } else {
+            console.log('Enhanced Auth: No authenticated user found');
           }
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        console.error('Enhanced Auth: Initialization error:', error);
         if (mounted) {
+          setError('Authentication initialization failed');
           setIsLoading(false);
         }
       }

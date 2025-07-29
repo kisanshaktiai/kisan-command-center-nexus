@@ -12,13 +12,22 @@ export default function Auth() {
   const [needsBootstrap, setNeedsBootstrap] = useState<boolean | null>(null);
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
 
+  console.log('Auth.tsx: Render state:', { 
+    user: user?.id, 
+    isLoading, 
+    needsBootstrap, 
+    checkingBootstrap 
+  });
+
   useEffect(() => {
     checkBootstrapStatus();
   }, []);
 
   const checkBootstrapStatus = async () => {
     try {
+      console.log('Auth.tsx: Checking bootstrap status...');
       const isCompleted = await unifiedAuthService.isBootstrapCompleted();
+      console.log('Auth.tsx: Bootstrap completed:', isCompleted);
       setNeedsBootstrap(!isCompleted);
     } catch (error) {
       console.error('Error checking bootstrap status:', error);
