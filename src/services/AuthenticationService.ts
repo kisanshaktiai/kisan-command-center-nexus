@@ -179,7 +179,7 @@ export class AuthenticationService extends BaseService {
   }
 
   /**
-   * Bootstrap Super Admin - Uses edge function with service role
+   * Bootstrap Super Admin - Uses edge function with service role and enhanced security
    */
   async bootstrapSuperAdmin(email: string, password: string, fullName: string): Promise<ServiceResult<AuthState>> {
     try {
@@ -216,12 +216,19 @@ export class AuthenticationService extends BaseService {
 
       console.log('Bootstrap: Registration created, calling edge function');
 
+      // Generate CSRF token for enhanced security
+      const csrfToken = crypto.randomUUID() + '-' + Date.now();
+
       // Call the edge function to create super admin with service role
       const { data: edgeResponse, error: edgeError } = await supabase.functions.invoke('create-super-admin', {
         body: {
           email: email.trim(),
           password,
-          fullName: fullName.trim()
+          fullName: fullName.trim(),
+          csrfToken
+        },
+        headers: {
+          'x-bootstrap-token': csrfToken
         }
       });
 

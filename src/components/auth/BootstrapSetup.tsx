@@ -32,9 +32,49 @@ export const BootstrapSetup: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Client-side validation
+    // Enhanced client-side validation to match server requirements
     if (!formData.email || !formData.password || !formData.fullName || !formData.confirmPassword) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    if (formData.email.length > 254) {
+      toast.error('Email address is too long');
+      return;
+    }
+
+    // Full name validation
+    const trimmedName = formData.fullName.trim();
+    if (trimmedName.length < 2) {
+      toast.error('Full name must be at least 2 characters');
+      return;
+    }
+
+    if (trimmedName.length > 100) {
+      toast.error('Full name is too long');
+      return;
+    }
+
+    if (!/^[a-zA-Z\s\-']+$/.test(trimmedName)) {
+      toast.error('Full name contains invalid characters');
+      return;
+    }
+
+    // Password validation - enhanced requirements
+    if (formData.password.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      toast.error('Password must contain at least one uppercase letter, one lowercase letter, and one number');
       return;
     }
 
@@ -49,11 +89,11 @@ export const BootstrapSetup: React.FC = () => {
       return;
     }
 
-    // Call service layer
+    // Call service layer with sanitized inputs
     await bootstrapSuperAdmin(
-      formData.email,
+      formData.email.trim().toLowerCase(),
       formData.password,
-      formData.fullName,
+      trimmedName,
       (authState) => {
         toast.success('Super Admin account created successfully!');
         console.log('Bootstrap completed, navigating to super-admin');
@@ -63,7 +103,22 @@ export const BootstrapSetup: React.FC = () => {
       },
       (error) => {
         console.error('Bootstrap error:', error);
-        toast.error(error || 'Failed to create admin account');
+        // Enhanced error handling for different error types
+        if (error.includes('rate limit') || error.includes('Too many')) {
+          toast.error('Too many attempts. Please wait before trying again.');
+        } else if (error.includes('already initialized') || error.includes('already exists')) {
+          toast.error('System is already initialized. Please use the login form.');
+          setTimeout(() => {
+            window.location.href = '/auth';
+          }, 2000);
+        } else if (error.includes('Invalid') && error.includes('token')) {
+          toast.error('Security validation failed. Please refresh and try again.');
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        } else {
+          toast.error(error || 'Failed to create admin account');
+        }
       }
     );
   };
