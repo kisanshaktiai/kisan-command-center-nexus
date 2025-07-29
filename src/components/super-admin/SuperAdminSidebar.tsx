@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -23,25 +24,25 @@ const navigationItems = [
   {
     title: 'Platform Management',
     items: [
-      { title: 'Overview', href: '/super-admin', icon: Home },
-      { title: 'Tenant Management', href: '/super-admin/tenants', icon: Users },
-      { title: 'Tenant Onboarding', href: '/super-admin/onboarding', icon: UserPlus },
-      { title: 'Admin Users', href: '/super-admin/admin-users', icon: Shield },
-      { title: 'Platform Monitoring', href: '/super-admin/monitoring', icon: Activity },
+      { title: 'Overview', tab: 'overview', icon: Home },
+      { title: 'Tenant Management', tab: 'tenants', icon: Users },
+      { title: 'Tenant Onboarding', tab: 'onboarding', icon: UserPlus },
+      { title: 'Admin Users', tab: 'admins', icon: Shield },
+      { title: 'Platform Monitoring', tab: 'monitoring', icon: Activity },
     ]
   },
   {
     title: 'Billing & Revenue',
     items: [
-      { title: 'Subscription Management', href: '/super-admin/subscriptions', icon: CreditCard },
-      { title: 'Billing & Payments', href: '/super-admin/billing', icon: DollarSign },
+      { title: 'Subscription Management', tab: 'subscriptions', icon: CreditCard },
+      { title: 'Billing & Payments', tab: 'billing', icon: DollarSign },
     ]
   },
   {
     title: 'Configuration',
     items: [
-      { title: 'Feature Flags', href: '/super-admin/features', icon: Flag },
-      { title: 'White Label Config', href: '/super-admin/white-label', icon: Palette },
+      { title: 'Feature Flags', tab: 'features', icon: Flag },
+      { title: 'White Label Config', tab: 'white-label', icon: Palette },
     ]
   }
 ];
@@ -49,10 +50,11 @@ const navigationItems = [
 interface SuperAdminSidebarProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  activeTab: string;
+  onTabChange: (tab: string) => void;
 }
 
-export function SuperAdminSidebar({ isOpen, setIsOpen }: SuperAdminSidebarProps) {
-  const location = useLocation();
+export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }: SuperAdminSidebarProps) {
   const { signOut } = useAuth();
   const [openGroups, setOpenGroups] = useState<string[]>(['Platform Management']);
 
@@ -68,6 +70,11 @@ export function SuperAdminSidebar({ isOpen, setIsOpen }: SuperAdminSidebarProps)
 
   const handleSignOut = async () => {
     await signOut();
+    closeSidebar();
+  };
+
+  const handleTabClick = (tab: string) => {
+    onTabChange(tab);
     closeSidebar();
   };
 
@@ -136,13 +143,12 @@ export function SuperAdminSidebar({ isOpen, setIsOpen }: SuperAdminSidebarProps)
                 
                 <CollapsibleContent className="space-y-1 mt-2">
                   {group.items.map((item) => (
-                    <Link
+                    <button
                       key={item.title}
-                      to={item.href}
-                      onClick={closeSidebar}
+                      onClick={() => handleTabClick(item.tab)}
                       className={cn(
-                        "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group",
-                        location.pathname === item.href
+                        "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group w-full text-left",
+                        activeTab === item.tab
                           ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
                           : "text-slate-300 hover:bg-slate-700/50 hover:text-white",
                         (!isOpen && window.innerWidth >= 1024) && "lg:justify-center lg:px-3"
@@ -157,10 +163,10 @@ export function SuperAdminSidebar({ isOpen, setIsOpen }: SuperAdminSidebarProps)
                           {item.title}
                         </span>
                       )}
-                      {location.pathname === item.href && (
+                      {activeTab === item.tab && (
                         <div className="w-2 h-2 bg-white rounded-full ml-auto" />
                       )}
-                    </Link>
+                    </button>
                   ))}
                 </CollapsibleContent>
               </Collapsible>
