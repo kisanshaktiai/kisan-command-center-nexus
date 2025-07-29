@@ -16,6 +16,14 @@ import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
 
 export default function SuperAdmin() {
+  return (
+    <ProtectedRoute requireAdmin={true}>
+      <SuperAdminContent />
+    </ProtectedRoute>
+  );
+}
+
+function SuperAdminContent() {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -26,30 +34,28 @@ export default function SuperAdmin() {
   };
 
   return (
-    <ProtectedRoute requireAdmin={true}>
-      <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-slate-100">
-        <SuperAdminSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-        <div className="flex-1 flex flex-col">
-          <SuperAdminHeader 
-            setSidebarOpen={setSidebarOpen} 
-            adminUser={adminUser} 
-            sidebarOpen={sidebarOpen}
-          />
-          <main className="flex-1 p-6 overflow-auto">
-            <Routes>
-              <Route path="/" element={<Overview />} />
-              <Route path="/tenants" element={<TenantManagement />} />
-              <Route path="/onboarding" element={<TenantOnboarding />} />
-              <Route path="/admin-users" element={<AdminUserManagement />} />
-              <Route path="/subscriptions" element={<SubscriptionManagement />} />
-              <Route path="/billing" element={<BillingManagement />} />
-              <Route path="/features" element={<FeatureFlags />} />
-              <Route path="/white-label" element={<WhiteLabelConfig />} />
-              <Route path="/monitoring" element={<PlatformMonitoring />} />
-            </Routes>
-          </main>
-        </div>
+    <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-slate-100">
+      <SuperAdminSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+      <div className="flex-1 flex flex-col">
+        <SuperAdminHeader 
+          setSidebarOpen={setSidebarOpen} 
+          adminUser={adminUser} 
+          sidebarOpen={sidebarOpen}
+        />
+        <main className="flex-1 p-6 overflow-auto">
+          <Routes>
+            <Route path="/" element={<Overview />} />
+            <Route path="/tenants" element={<TenantManagement />} />
+            <Route path="/onboarding" element={<TenantOnboarding />} />
+            <Route path="/admin-users" element={<AdminUserManagement />} />
+            <Route path="/subscriptions" element={<SubscriptionManagement />} />
+            <Route path="/billing" element={<BillingManagement />} />
+            <Route path="/features" element={<FeatureFlags />} />
+            <Route path="/white-label" element={<WhiteLabelConfig />} />
+            <Route path="/monitoring" element={<PlatformMonitoring />} />
+          </Routes>
+        </main>
       </div>
-    </ProtectedRoute>
+    </div>
   );
 }
