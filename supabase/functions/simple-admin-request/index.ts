@@ -79,7 +79,7 @@ const handler = async (req: Request): Promise<Response> => {
       try {
         const resend = new Resend(resendApiKey);
         // Get admin emails from database instead of hardcoding
-        const { data: adminUsers } = await supabaseClient
+        const { data: adminUsers } = await supabase
           .from('admin_users')
           .select('email')
           .eq('role', 'super_admin')
@@ -92,15 +92,16 @@ const handler = async (req: Request): Promise<Response> => {
             from: "Platform Admin <noreply@platform.com>",
             to: adminEmails,
             subject: "New Admin Access Request",
-          html: `
-            <h2>New Admin Access Request</h2>
-            <p><strong>Name:</strong> ${fullName}</p>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Requested at:</strong> ${new Date().toLocaleString()}</p>
-            <p>Please log in to the admin dashboard to approve or reject this request.</p>
-          `,
-        });
-        console.log('Notification email sent successfully');
+            html: `
+              <h2>New Admin Access Request</h2>
+              <p><strong>Name:</strong> ${fullName}</p>
+              <p><strong>Email:</strong> ${email}</p>
+              <p><strong>Requested at:</strong> ${new Date().toLocaleString()}</p>
+              <p>Please log in to the admin dashboard to approve or reject this request.</p>
+            `,
+          });
+          console.log('Notification email sent successfully');
+        }
       } catch (emailError) {
         console.error('Failed to send notification email:', emailError);
       }
