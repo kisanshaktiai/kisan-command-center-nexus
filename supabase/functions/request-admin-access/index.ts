@@ -250,9 +250,19 @@ const handler = async (req: Request): Promise<Response> => {
         const approvalUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/approve-admin-request?token=${pendingRequest.request_token}&action=approve`;
         const rejectUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/approve-admin-request?token=${pendingRequest.request_token}&action=reject`;
 
-        await resend.emails.send({
-          from: "KisanShaktiAI <admin@kisanshakti.in>",
-          to: ["admin@kisanshakti.in"],
+        // Get admin emails from database
+        const { data: adminUsers } = await supabaseClient
+          .from('admin_users')
+          .select('email')
+          .eq('role', 'super_admin')
+          .eq('is_active', true);
+        
+        const adminEmails = adminUsers?.map(user => user.email) || [];
+        
+        if (adminEmails.length > 0) {
+          await resend.emails.send({
+            from: "Platform Admin <noreply@platform.com>",
+            to: adminEmails,
           subject: "New Admin Access Request",
           html: `
             <h2>New Admin Access Request</h2>

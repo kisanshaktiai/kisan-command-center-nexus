@@ -78,10 +78,20 @@ const handler = async (req: Request): Promise<Response> => {
     if (resendApiKey) {
       try {
         const resend = new Resend(resendApiKey);
-        await resend.emails.send({
-          from: "KisanShaktiAI <admin@kisanshakti.in>",
-          to: ["kisanshaktiai@gmail.com"],
-          subject: "New Admin Access Request",
+        // Get admin emails from database instead of hardcoding
+        const { data: adminUsers } = await supabaseClient
+          .from('admin_users')
+          .select('email')
+          .eq('role', 'super_admin')
+          .eq('is_active', true);
+        
+        const adminEmails = adminUsers?.map(user => user.email) || [];
+        
+        if (adminEmails.length > 0) {
+          await resend.emails.send({
+            from: "Platform Admin <noreply@platform.com>",
+            to: adminEmails,
+            subject: "New Admin Access Request",
           html: `
             <h2>New Admin Access Request</h2>
             <p><strong>Name:</strong> ${fullName}</p>

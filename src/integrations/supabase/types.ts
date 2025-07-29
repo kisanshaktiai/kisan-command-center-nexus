@@ -6003,6 +6003,10 @@ export type Database = {
         Args: { workflow_id: string }
         Returns: number
       }
+      can_create_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       can_self_insert: {
         Args: Record<PropertyKey, never>
         Returns: boolean

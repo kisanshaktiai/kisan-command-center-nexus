@@ -100,7 +100,7 @@ export const AdminInviteManager = () => {
           email: inviteData.email,
           role: inviteData.role,
           invitedBy: user?.id,
-          organizationName: 'KisanShaktiAI',
+          organizationName: 'Platform Admin',
           primaryColor: '#2563eb'
         })
       });
@@ -137,7 +137,7 @@ export const AdminInviteManager = () => {
           email: invite.email,
           role: invite.role,
           invitedBy: user?.id,
-          organizationName: 'KisanShaktiAI',
+          organizationName: 'Platform Admin',
           primaryColor: '#2563eb'
         })
       });

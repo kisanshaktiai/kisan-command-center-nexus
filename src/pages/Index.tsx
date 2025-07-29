@@ -11,7 +11,7 @@ const Index = () => {
         {/* Header */}
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            KisanShaktiAI Super Admin
+            Platform Super Admin
           </h1>
           <p className="text-xl text-gray-600 mb-8">
             Comprehensive platform management and administration
