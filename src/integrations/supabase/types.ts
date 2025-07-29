@@ -6267,6 +6267,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      cleanup_old_metrics: {
+        Args: { table_name: string; keep_count?: number }
+        Returns: number
+      }
       complete_bootstrap: {
         Args: Record<PropertyKey, never>
         Returns: undefined
