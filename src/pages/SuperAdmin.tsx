@@ -12,9 +12,20 @@ import SubscriptionManagement from '@/pages/super-admin/SubscriptionManagement';
 import AdminUserManagement from '@/pages/super-admin/AdminUserManagement';
 import WhiteLabelConfig from '@/pages/super-admin/WhiteLabelConfig';
 import FeatureFlags from '@/pages/super-admin/FeatureFlags';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SuperAdmin: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { user } = useAuth();
+
+  // Create mock admin user data from auth user
+  const adminUser = {
+    id: user?.id || '',
+    email: user?.email || '',
+    full_name: user?.user_metadata?.full_name || 'Super Admin',
+    role: 'super_admin'
+  };
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -44,9 +55,16 @@ const SuperAdmin: React.FC = () => {
   return (
     <SuperAdminAuth>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
-        <SuperAdminHeader />
+        <SuperAdminHeader 
+          setSidebarOpen={setSidebarOpen}
+          adminUser={adminUser}
+          sidebarOpen={sidebarOpen}
+        />
         <div className="flex">
-          <SuperAdminSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          <SuperAdminSidebar 
+            isOpen={sidebarOpen}
+            setIsOpen={setSidebarOpen}
+          />
           <main className="flex-1 p-6">
             {renderActiveTab()}
           </main>

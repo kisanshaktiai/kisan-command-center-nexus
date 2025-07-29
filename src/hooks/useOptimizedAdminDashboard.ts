@@ -98,10 +98,10 @@ export const useOptimizedAdminDashboard = () => {
           .order('created_at', { ascending: false })
           .limit(20),
 
-        // Latest system metrics - last 10 only
+        // Latest system metrics - last 10 only, without status column
         supabase
           .from('system_health_metrics')
-          .select('id, metric_name, value, timestamp, status')
+          .select('id, metric_name, value, timestamp')
           .order('timestamp', { ascending: false })
           .limit(10)
       ]);
