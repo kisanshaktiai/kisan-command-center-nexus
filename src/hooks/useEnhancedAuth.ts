@@ -40,64 +40,87 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
 
-  // Initialize auth state from service
+  // Initialize auth state from service - removed initialized flag that was blocking re-initialization
   useEffect(() => {
     let mounted = true;
 
     const initializeAuth = async () => {
-      if (initialized) return; // Prevent multiple initializations
-      
       try {
-        console.log('Enhanced Auth: Initializing authentication...');
+        console.log('Enhanced Auth: Starting initialization...');
+        setIsLoading(true);
+        
+        // Get current session immediately without waiting for auth state change
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Enhanced Auth: Session error:', error);
           setError('Failed to get session');
+          if (mounted) {
+            setIsLoading(false);
+          }
+          return;
         }
         
-        if (mounted) {
-          console.log('Enhanced Auth: Session found:', session?.user?.id || 'No session');
-          
-          if (session?.user) {
-            console.log('Enhanced Auth: User authenticated, getting auth state...');
+        console.log('Enhanced Auth: Session retrieved:', session?.user?.id || 'No session');
+        
+        if (session?.user && mounted) {
+          console.log('Enhanced Auth: User authenticated, getting auth state...');
+          try {
             const currentAuthState = await authenticationService.getCurrentAuthState();
+            console.log('Enhanced Auth: Auth state retrieved:', {
+              user: currentAuthState.user?.id,
+              isAdmin: currentAuthState.isAdmin,
+              isSuperAdmin: currentAuthState.isSuperAdmin
+            });
             setAuthState(currentAuthState);
-          } else {
-            console.log('Enhanced Auth: No authenticated user found');
+          } catch (authError) {
+            console.error('Enhanced Auth: Error getting auth state:', authError);
+            // Fallback to basic session data if auth service fails
             setAuthState({
-              user: null,
-              session: null,
-              isAuthenticated: false,
+              user: session.user,
+              session,
+              isAuthenticated: true,
               isAdmin: false,
               isSuperAdmin: false,
               adminRole: null,
               profile: null
             });
           }
+        } else if (mounted) {
+          console.log('Enhanced Auth: No authenticated user found');
+          setAuthState({
+            user: null,
+            session: null,
+            isAuthenticated: false,
+            isAdmin: false,
+            isSuperAdmin: false,
+            adminRole: null,
+            profile: null
+          });
+        }
+        
+        if (mounted) {
           setIsLoading(false);
-          setInitialized(true);
         }
       } catch (error) {
         console.error('Enhanced Auth: Initialization error:', error);
         if (mounted) {
           setError('Authentication initialization failed');
           setIsLoading(false);
-          setInitialized(true);
         }
       }
     };
 
+    // Initialize immediately
     initializeAuth();
 
-    // Set up auth state listener
+    // Set up auth state listener for future changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
         
-        console.log('Auth state change:', event, session?.user?.id);
+        console.log('Enhanced Auth: Auth state change:', event, session?.user?.id);
 
         // Avoid setting loading state for token refresh events
         if (event !== 'TOKEN_REFRESHED') {
@@ -106,9 +129,11 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
 
         try {
           if (session?.user) {
+            console.log('Enhanced Auth: Getting auth state for user after state change...');
             const currentAuthState = await authenticationService.getCurrentAuthState();
             setAuthState(currentAuthState);
           } else {
+            console.log('Enhanced Auth: No user in session, clearing auth state...');
             setAuthState({
               user: null,
               session: null,
@@ -121,6 +146,18 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
           }
         } catch (error) {
           console.error('Enhanced Auth: Auth state change error:', error);
+          // Fallback to basic session handling
+          if (session?.user) {
+            setAuthState({
+              user: session.user,
+              session,
+              isAuthenticated: true,
+              isAdmin: false,
+              isSuperAdmin: false,
+              adminRole: null,
+              profile: null
+            });
+          }
         } finally {
           if (mounted) {
             setIsLoading(false);
@@ -133,7 +170,7 @@ export const useEnhancedAuth = (): UnifiedAuthContextType => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [initialized]);
+  }, []); // No dependencies to allow re-initialization when needed
 
   // Wrapper functions around AuthenticationService
   const signUp = async (email: string, password: string, tenantData: TenantData) => {

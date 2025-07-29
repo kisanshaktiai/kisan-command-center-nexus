@@ -22,11 +22,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('AuthProvider rendering with auth state:', {
       user: auth.user?.id,
       isLoading: auth.isLoading,
-      isAdmin: auth.isAdmin
+      isAdmin: auth.isAdmin,
+      isSuperAdmin: auth.isSuperAdmin
     });
 
-    // Always render children - let individual routes handle their own loading/auth states
-    // This prevents the global loading screen from blocking all routes
+    // Always render children - individual components handle their own loading/auth states
+    // This prevents blocking the entire app when authentication is initializing
     return (
       <AuthContext.Provider value={auth}>
         {children}
