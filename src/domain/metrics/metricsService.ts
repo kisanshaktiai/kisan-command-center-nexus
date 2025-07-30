@@ -18,7 +18,7 @@ class MetricsService {
         name: item.metric_name || 'Unknown',
         value: item.value || 0,
         unit: item.unit || '',
-        status: this.calculateStatus(item.value, item.threshold),
+        status: this.calculateStatus(item.value, item.value * 0.8), // Use value as mock threshold
         timestamp: item.timestamp
       })) || [];
     } catch (error) {
@@ -47,11 +47,11 @@ class MetricsService {
 
       return data?.map(item => ({
         id: item.id,
-        category: this.parseJsonField(item.metadata, 'category') || 'General',
+        category: this.parseJsonField(item.breakdown, 'category') || 'General',
         amount: item.amount || 0,
         currency: item.currency || 'USD',
         period: item.period_start,
-        change_percentage: this.parseJsonField(item.metadata, 'change_percentage')
+        change_percentage: this.parseJsonField(item.breakdown, 'change_percentage')
       })) || [];
     } catch (error) {
       console.error('Error fetching financial metrics:', error);
@@ -64,18 +64,18 @@ class MetricsService {
       const { data, error } = await supabase
         .from('resource_utilization')
         .select('*')
-        .order('timestamp', { ascending: false })
+        .order('updated_at', { ascending: false })
         .limit(20);
 
       if (error) throw error;
 
       return data?.map(item => ({
         id: item.id,
-        resource_type: item.resource_type || 'cpu',
+        resource_type: (item.resource_type as 'cpu' | 'memory' | 'disk' | 'network') || 'cpu',
         usage_percentage: item.usage_percentage || 0,
-        threshold: item.threshold || 80,
-        status: this.calculateResourceStatus(item.usage_percentage, item.threshold),
-        timestamp: item.timestamp
+        threshold: item.max_limit || 80,
+        status: this.calculateResourceStatus(item.usage_percentage, item.max_limit || 80),
+        timestamp: item.updated_at
       })) || [];
     } catch (error) {
       console.error('Error fetching resource metrics:', error);

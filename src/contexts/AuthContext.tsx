@@ -38,8 +38,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initAuth = async () => {
       try {
         const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
-        const currentState = await unifiedAuthService.getCurrentAuthState();
-        authStore.setAuthState(currentState);
+        // Use the initialize method that exists
+        await unifiedAuthService.initialize();
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
