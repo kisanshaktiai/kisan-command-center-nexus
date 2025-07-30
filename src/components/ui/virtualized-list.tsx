@@ -5,6 +5,7 @@ import { FixedSizeList as List } from 'react-window';
 interface VirtualizedListProps<T> {
   items: T[];
   height: number;
+  width?: number | string;
   itemHeight: number;
   itemComponent: React.ComponentType<{ index: number; style: any; data: T[] }>;
   className?: string;
@@ -13,6 +14,7 @@ interface VirtualizedListProps<T> {
 export const VirtualizedList = React.memo(<T,>({
   items,
   height,
+  width = '100%',
   itemHeight,
   itemComponent: ItemComponent,
   className = ''
@@ -31,6 +33,7 @@ export const VirtualizedList = React.memo(<T,>({
     <div className={className}>
       <List
         height={height}
+        width={width}
         itemCount={items.length}
         itemSize={itemHeight}
         itemData={memoizedItems}

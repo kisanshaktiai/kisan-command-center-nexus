@@ -54,17 +54,44 @@ class TenantService {
 
   async createTenant(tenantData: CreateTenantDTO): Promise<TenantDTO> {
     try {
+      console.log('Domain Service: Creating tenant with data:', tenantData);
+      
+      // Validate required fields
+      if (!tenantData.name?.trim()) {
+        throw new Error('Organization name is required');
+      }
+      
+      if (!tenantData.slug?.trim()) {
+        throw new Error('Slug is required');
+      }
+
+      // Check slug availability first
+      const { data: existingTenant } = await supabase
+        .from('tenants')
+        .select('id')
+        .eq('slug', tenantData.slug)
+        .single();
+
+      if (existingTenant) {
+        throw new Error('A tenant with this slug already exists');
+      }
+
       // Map the CreateTenantDTO to the database insert type
       const insertData: TenantInsert = {
         name: tenantData.name,
         slug: tenantData.slug,
-        type: tenantData.type as any, // Type assertion needed for enum conversion
+        type: tenantData.type as any,
         subscription_plan: tenantData.subscription_plan as any,
         owner_email: tenantData.owner_email,
         owner_name: tenantData.owner_name,
         metadata: tenantData.metadata || {},
-        status: 'trial'
+        status: 'trial',
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
+
+      console.log('Domain Service: Inserting data:', insertData);
 
       const { data, error } = await supabase
         .from('tenants')
@@ -72,11 +99,15 @@ class TenantService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Domain Service: Database error:', error);
+        throw error;
+      }
 
+      console.log('Domain Service: Tenant created successfully:', data);
       return this.mapToTenantDTO(data);
     } catch (error) {
-      console.error('Error creating tenant:', error);
+      console.error('Domain Service: Error creating tenant:', error);
       throw error;
     }
   }
@@ -88,7 +119,8 @@ class TenantService {
         ...(updates.name && { name: updates.name }),
         ...(updates.status && { status: updates.status as any }),
         ...(updates.subscription_plan && { subscription_plan: updates.subscription_plan as any }),
-        ...(updates.metadata && { metadata: updates.metadata })
+        ...(updates.metadata && { metadata: updates.metadata }),
+        updated_at: new Date().toISOString()
       };
 
       const { data, error } = await supabase

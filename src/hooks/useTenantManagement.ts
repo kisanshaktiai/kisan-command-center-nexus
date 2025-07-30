@@ -1,17 +1,22 @@
+
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { TenantService } from '@/services/tenantService';
+import { useTenants, useCreateTenant, useUpdateTenant } from '@/data/hooks/useTenants';
 import { Tenant, TenantFormData } from '@/types/tenant';
 import { TenantViewPreferences, TenantMetrics } from '@/types/tenantView';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useTenantManagement = () => {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [tenantMetrics, setTenantMetrics] = useState<Record<string, TenantMetrics>>({});
   const { toast } = useToast();
+
+  // Use React Query hooks
+  const { data: tenants = [], isLoading: loading, error: queryError } = useTenants();
+  const createTenantMutation = useCreateTenant();
+  const updateTenantMutation = useUpdateTenant();
+
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // View preferences state
   const [viewPreferences, setViewPreferences] = useState<TenantViewPreferences>({
@@ -36,8 +41,12 @@ export const useTenantManagement = () => {
   });
 
   useEffect(() => {
-    fetchTenants();
-  }, []);
+    if (queryError) {
+      setError(queryError.message || 'Failed to fetch tenants');
+    } else {
+      setError(null);
+    }
+  }, [queryError]);
 
   useEffect(() => {
     // Load view preferences from localStorage
@@ -51,37 +60,6 @@ export const useTenantManagement = () => {
     // Save view preferences to localStorage
     localStorage.setItem('tenant-view-preferences', JSON.stringify(viewPreferences));
   }, [viewPreferences]);
-
-  const fetchTenants = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      console.log('Fetching tenants...');
-      const data = await TenantService.fetchTenants();
-      console.log('Tenants fetched successfully:', data);
-      setTenants(data);
-      
-      if (data.length === 0) {
-        console.log('No tenants found in the database');
-      }
-
-      // Fetch metrics for tenants if in large cards or analytics view
-      if (viewPreferences.mode === 'large-cards' || viewPreferences.mode === 'analytics') {
-        fetchTenantsMetrics(data);
-      }
-    } catch (error: any) {
-      console.error('Error fetching tenants:', error);
-      const errorMessage = error.message || 'Failed to fetch tenants';
-      setError(errorMessage);
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchTenantsMetrics = async (tenantList: Tenant[]) => {
     const metricsPromises = tenantList.map(async (tenant) => {
@@ -151,26 +129,26 @@ export const useTenantManagement = () => {
   };
 
   const handleCreateTenant = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting) return false;
     
     try {
       setIsSubmitting(true);
-      console.log('Creating tenant with data:', formData);
+      console.log('Creating tenant with form data:', formData);
       
-      const result = await TenantService.createTenant(formData);
-      console.log('Create tenant result:', result);
+      // Map form data to CreateTenantDTO
+      const createData = {
+        name: formData.name,
+        slug: formData.slug,
+        type: formData.type,
+        subscription_plan: formData.subscription_plan,
+        owner_email: formData.owner_email || '',
+        owner_name: formData.owner_name || '',
+        metadata: formData.metadata || {}
+      };
 
-      if (result.success) {
-        console.log('Tenant created successfully');
-        resetForm();
-        await fetchTenants();
-        toast({
-          title: "Success",
-          description: "Tenant created successfully",
-        });
-        return true;
-      }
-      return false;
+      await createTenantMutation.mutateAsync(createData);
+      resetForm();
+      return true;
     } catch (error: any) {
       console.error('Error creating tenant:', error);
       toast({
@@ -194,16 +172,19 @@ export const useTenantManagement = () => {
       setIsSubmitting(true);
       console.log('Updating tenant with data:', formData);
       
-      const updatedTenant = await TenantService.updateTenant(editingTenant, formData);
-      console.log('Tenant updated successfully:', updatedTenant);
+      // Map form data to UpdateTenantDTO
+      const updateData = {
+        name: formData.name,
+        status: formData.status,
+        subscription_plan: formData.subscription_plan,
+        metadata: formData.metadata
+      };
 
-      setTenants(prev => prev.map(t => t.id === editingTenant.id ? updatedTenant : t));
-      resetForm();
-      
-      toast({
-        title: "Success",
-        description: "Tenant updated successfully",
+      await updateTenantMutation.mutateAsync({ 
+        id: editingTenant.id, 
+        data: updateData 
       });
+      resetForm();
       return true;
     } catch (error: any) {
       console.error('Error updating tenant:', error);
@@ -225,10 +206,12 @@ export const useTenantManagement = () => {
 
     try {
       console.log('Deleting tenant:', tenantId);
-      await TenantService.deleteTenant(tenantId);
-      console.log('Tenant deleted successfully');
-
-      setTenants(prev => prev.filter(t => t.id !== tenantId));
+      // For now, we'll implement soft delete by updating status
+      await updateTenantMutation.mutateAsync({
+        id: tenantId,
+        data: { status: 'cancelled' }
+      });
+      
       toast({
         title: "Success",
         description: "Tenant deleted successfully",
@@ -262,7 +245,6 @@ export const useTenantManagement = () => {
   const populateFormForEdit = (tenant: Tenant) => {
     console.log('Populating form for edit:', tenant);
     
-    // Safely handle metadata and business_address
     const metadata = tenant.metadata && typeof tenant.metadata === 'object' 
       ? tenant.metadata as Record<string, any>
       : {};
@@ -299,10 +281,15 @@ export const useTenantManagement = () => {
     });
   };
 
+  const fetchTenants = async () => {
+    // This is handled by React Query automatically
+    console.log('Fetch tenants called - handled by React Query');
+  };
+
   return {
     // State
     tenants,
-    loading,
+    loading: loading || isSubmitting,
     error,
     isSubmitting,
     tenantMetrics,
