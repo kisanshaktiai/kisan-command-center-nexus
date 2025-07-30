@@ -13,7 +13,13 @@ export interface TenantFormData {
   owner_email?: string;
   owner_phone?: string;
   business_registration?: string;
-  business_address?: any;
+  business_address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    postal_code?: string;
+    country?: string;
+  };
   established_date?: string;
   subscription_plan: SubscriptionPlan;
   subscription_start_date?: string;

@@ -6252,7 +6252,7 @@ export type Database = {
         Returns: boolean
       }
       check_slug_availability: {
-        Args: { p_slug: string }
+        Args: { p_slug: string } | { p_slug: string; p_tenant_id?: string }
         Returns: Json
       }
       cleanup_bootstrap_state: {

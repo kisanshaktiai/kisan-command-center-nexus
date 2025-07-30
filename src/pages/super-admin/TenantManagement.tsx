@@ -285,6 +285,7 @@ export default function TenantManagement() {
             setFormData={setFormData} 
             onSubmit={handleUpdateTenant}
             isEditing={true}
+            currentTenant={editingTenant}
           />
         </DialogContent>
       </Dialog>
