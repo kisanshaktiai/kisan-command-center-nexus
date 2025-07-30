@@ -1,156 +1,39 @@
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { realDataService } from '@/lib/services/realDataService';
 
-// Platform Alerts Queries
-export const usePlatformAlerts = (filter: string = 'all') => {
+// Platform alerts query
+export const usePlatformAlerts = () => {
   return useQuery({
-    queryKey: ['platform-alerts', filter],
-    queryFn: async () => {
-      let query = supabase
-        .from('platform_alerts')
-        .select('*')
-        .order('triggered_at', { ascending: false });
-
-      if (filter !== 'all') {
-        if (filter === 'unresolved') {
-          query = query.in('status', ['active', 'acknowledged']);
-        } else {
-          // Ensure filter is one of the valid status values
-          const validStatuses = ['active', 'acknowledged', 'resolved'];
-          if (validStatuses.includes(filter)) {
-            query = query.eq('status', filter);
-          }
-        }
-      }
-
-      const { data, error } = await query.limit(50);
-      if (error) throw error;
-      return data || [];
-    },
-    refetchInterval: 10000,
+    queryKey: ['platform-alerts'],
+    queryFn: realDataService.fetchAlerts,
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
 };
 
-// System Health Metrics Queries
-export const useSystemHealthMetrics = (refreshInterval: number = 30000) => {
+// System health query
+export const useSystemHealth = () => {
   return useQuery({
-    queryKey: ['system-health-metrics'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('system_health_metrics')
-        .select('*')
-        .eq('metric_type', 'system')
-        .order('timestamp', { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-      return data || [];
-    },
-    refetchInterval: refreshInterval,
+    queryKey: ['system-health'],
+    queryFn: realDataService.fetchSystemHealth,
+    refetchInterval: 10000, // Refetch every 10 seconds
   });
 };
 
-// Financial Analytics Queries
-export const useFinancialAnalytics = (timeRange: string = '30d') => {
+// Financial metrics query
+export const useFinancialMetrics = () => {
   return useQuery({
-    queryKey: ['financial-analytics', timeRange],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('financial_analytics')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-      return data || [];
-    },
-    refetchInterval: 60000, // 1 minute
+    queryKey: ['financial-metrics'],
+    queryFn: realDataService.fetchFinancialMetrics,
+    refetchInterval: 60000, // Refetch every minute
   });
 };
 
-// Resource Utilization Queries
-export const useResourceUtilization = (refreshInterval: number = 30000) => {
+// SIM detection query
+export const useSIMDetection = () => {
   return useQuery({
-    queryKey: ['resource-utilization'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('resource_utilization')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-      return data || [];
-    },
-    refetchInterval: refreshInterval,
-  });
-};
-
-// Admin Notifications Queries
-export const useAdminNotifications = () => {
-  return useQuery({
-    queryKey: ['admin-notifications'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('admin_notifications')
-        .select('*')
-        .eq('recipient_id', (await supabase.auth.getUser()).data.user?.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      return data || [];
-    },
-    refetchInterval: 30000,
-  });
-};
-
-// Mutations for alerts
-export const useAcknowledgeAlert = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (alertId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const { error } = await supabase
-        .from('platform_alerts')
-        .update({
-          status: 'acknowledged',
-          acknowledged_at: new Date().toISOString(),
-          acknowledged_by: user?.id
-        })
-        .eq('id', alertId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-alerts'] });
-    },
-  });
-};
-
-export const useResolveAlert = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (alertId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const { error } = await supabase
-        .from('platform_alerts')
-        .update({
-          status: 'resolved',
-          resolved_at: new Date().toISOString(),
-          resolved_by: user?.id
-        })
-        .eq('id', alertId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-alerts'] });
-    },
+    queryKey: ['sim-detection'],
+    queryFn: realDataService.fetchSIMDetectionData,
+    refetchInterval: 5000, // Refetch every 5 seconds for real-time feel
   });
 };

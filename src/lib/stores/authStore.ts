@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, Session } from '@supabase/supabase-js';
@@ -15,6 +16,7 @@ interface AuthStore extends AuthState {
   setError: (error: string | null) => void;
   clearError: () => void;
   reset: () => void;
+  signOut: () => Promise<void>;
 }
 
 const initialState: AuthState = {
@@ -65,6 +67,11 @@ export const useAuthStore = create<AuthStore>()(
         isLoading: false,
         error: null,
       }),
+
+      signOut: async () => {
+        const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
+        await unifiedAuthService.signOut();
+      },
     }),
     {
       name: 'auth-store',
