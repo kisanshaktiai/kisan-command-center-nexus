@@ -17,14 +17,14 @@ export const RefactoredOverviewMetrics: React.FC = () => {
   const systemHealth = metrics?.systemHealth || 0;
   const monthlyRevenue = metrics?.monthlyRevenue || 0;
 
-  // Format values using domain formatters
-  const formattedRevenue = MetricsFormatters.formatCurrency(monthlyRevenue);
+  // Format values using domain formatters with new currency system
+  const formattedRevenue = MetricsFormatters.formatCurrency(monthlyRevenue, { compact: true });
   const formattedHealth = MetricsFormatters.formatPercentage(systemHealth);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
       <PureMetricCard
-        title="Total Tenants"
+        title="Total Tenant Count"
         value={totalTenants}
         change={getMetricChange(totalTenants, 'totalTenants')}
         icon={Building}
@@ -44,7 +44,7 @@ export const RefactoredOverviewMetrics: React.FC = () => {
       
       <PureMetricCard
         title="API Calls (24h)"
-        value={MetricsFormatters.formatNumber(apiCalls)}
+        value={MetricsFormatters.formatCompactNumber(apiCalls)}
         icon={Activity}
         gradient="from-purple-500/10 to-purple-600/20"
         iconColor="bg-gradient-to-r from-purple-500 to-purple-600"

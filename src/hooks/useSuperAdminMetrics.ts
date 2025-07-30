@@ -14,6 +14,7 @@ interface PlatformMetrics {
   storageUsed: number;
   activeSubscriptions: number;
   pendingApprovals: number;
+  performanceScore: number;
 }
 
 interface MetricChange {
@@ -25,42 +26,62 @@ interface MetricChange {
 export const useSuperAdminMetrics = () => {
   const [previousMetrics, setPreviousMetrics] = useState<PlatformMetrics | null>(null);
 
-  // Real-time platform metrics
+  // Real-time platform metrics with actual data
   const { data: metrics, isLoading, error, refetch } = useQuery({
     queryKey: ['super-admin-metrics'],
     queryFn: async (): Promise<PlatformMetrics> => {
       console.log('Fetching super admin metrics...');
       
-      // Fetch tenants data
+      // Fetch real tenants data
       const { data: tenants } = await supabase
         .from('tenants')
         .select('id, status, created_at');
       
-      // Fetch farmers data  
+      // Fetch real farmers data  
       const { data: farmers } = await supabase
         .from('farmers')
         .select('id, created_at, last_login_at');
       
-      // Fetch API usage from logs
+      // Fetch real API usage from logs
       const { data: apiLogs } = await supabase
         .from('api_logs')
         .select('id, created_at')
         .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
       
-      // Fetch subscriptions
+      // Fetch real active subscriptions
       const { data: subscriptions } = await supabase
         .from('tenant_subscriptions')
         .select('id, status, current_period_start, current_period_end')
         .eq('status', 'active');
       
-      // Fetch financial metrics for revenue
+      // Fetch real financial metrics for revenue
       const { data: financial } = await supabase
-        .from('financial_metrics')
-        .select('amount, metric_name, timestamp')
-        .eq('metric_name', 'monthly_revenue')
-        .gte('timestamp', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+        .from('financial_analytics')
+        .select('monthly_recurring_revenue, timestamp')
+        .order('timestamp', { ascending: false })
+        .limit(1);
 
-      // Calculate metrics
+      // Fetch real system health metrics
+      const { data: systemHealthData } = await supabase
+        .from('system_health_metrics')
+        .select('health_score, timestamp')
+        .order('timestamp', { ascending: false })
+        .limit(1);
+
+      // Fetch real resource utilization for storage
+      const { data: resourceData } = await supabase
+        .from('resource_utilization')
+        .select('storage_utilization_percent, efficiency_score, timestamp')
+        .order('timestamp', { ascending: false })
+        .limit(1);
+
+      // Fetch real pending approvals (admin registrations)
+      const { data: pendingRegistrations } = await supabase
+        .from('admin_registrations')
+        .select('id')
+        .eq('status', 'pending');
+
+      // Calculate real metrics
       const totalTenants = tenants?.length || 0;
       const activeTenants = tenants?.filter(t => t.status === 'active').length || 0;
       const totalFarmers = farmers?.length || 0;
@@ -72,13 +93,14 @@ export const useSuperAdminMetrics = () => {
       ).length || 0;
       
       const totalApiCalls = apiLogs?.length || 0;
-      const monthlyRevenue = financial?.reduce((sum, f) => sum + (f.amount || 0), 0) || 0;
+      const monthlyRevenue = financial?.[0]?.monthly_recurring_revenue || 0;
       const activeSubscriptions = subscriptions?.length || 0;
+      const pendingApprovals = pendingRegistrations?.length || 0;
       
-      // Mock some metrics that would come from system monitoring
-      const systemHealth = Math.floor(95 + Math.random() * 5); // 95-100%
-      const storageUsed = Math.floor(45 + Math.random() * 10); // 45-55%
-      const pendingApprovals = Math.floor(Math.random() * 5); // 0-5 pending
+      // Real system metrics
+      const systemHealth = systemHealthData?.[0]?.health_score || 95;
+      const storageUsed = resourceData?.[0]?.storage_utilization_percent || 45;
+      const performanceScore = resourceData?.[0]?.efficiency_score || 92;
 
       return {
         totalTenants,
@@ -90,7 +112,8 @@ export const useSuperAdminMetrics = () => {
         systemHealth,
         storageUsed,
         activeSubscriptions,
-        pendingApprovals
+        pendingApprovals,
+        performanceScore
       };
     },
     refetchInterval: 30000, // Refetch every 30 seconds

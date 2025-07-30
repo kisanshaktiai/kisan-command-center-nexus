@@ -1,12 +1,19 @@
 
+import { formatCurrency, formatCompactCurrency, formatNumber } from '@/lib/currency';
+
 export class MetricsFormatters {
-  static formatCurrency(amount: number, currency = 'USD'): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(amount);
+  static formatCurrency(amount: number, options?: {
+    currency?: string;
+    compact?: boolean;
+    showSymbol?: boolean;
+  }): string {
+    const { compact = false, ...formatOptions } = options || {};
+    
+    if (compact) {
+      return formatCompactCurrency(amount, formatOptions);
+    }
+    
+    return formatCurrency(amount, formatOptions);
   }
 
   static formatPercentage(value: number, decimals = 1): string {
@@ -14,8 +21,15 @@ export class MetricsFormatters {
   }
 
   static formatNumber(value: number, unit?: string): string {
-    if (value >= 1000000) {
-      return `${(value / 1000000).toFixed(1)}M${unit ? ` ${unit}` : ''}`;
+    const formattedValue = formatNumber(value);
+    return unit ? `${formattedValue} ${unit}` : formattedValue;
+  }
+
+  static formatCompactNumber(value: number, unit?: string): string {
+    if (value >= 10000000) {
+      return `${(value / 10000000).toFixed(1)}Cr${unit ? ` ${unit}` : ''}`;
+    } else if (value >= 100000) {
+      return `${(value / 100000).toFixed(1)}L${unit ? ` ${unit}` : ''}`;
     } else if (value >= 1000) {
       return `${(value / 1000).toFixed(1)}K${unit ? ` ${unit}` : ''}`;
     }

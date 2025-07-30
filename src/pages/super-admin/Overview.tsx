@@ -20,7 +20,7 @@ import { ActiveSessionsMonitor } from '@/components/super-admin/ActiveSessionsMo
 import { NotificationCenter } from '@/components/super-admin/NotificationCenter';
 import { useSuperAdminMetrics } from '@/hooks/useSuperAdminMetrics';
 import { useRealtimeSubscriptions } from '@/hooks/useRealtimeSubscriptions';
-import { MetricsCollectionService } from '@/services/metricsCollectionService';
+import { formatCurrency, formatCompactCurrency } from '@/lib/currency';
 
 const Overview = () => {
   const { metrics, isLoading, getMetricChange } = useSuperAdminMetrics();
@@ -52,9 +52,9 @@ const Overview = () => {
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <MetricCard
-          title="Total Tenants"
-          value={realtimeData.tenants.length}
-          change={getMetricChange(realtimeData.tenants.length, 'totalTenants')}
+          title="Total Tenant Count"
+          value={metrics?.totalTenants || realtimeData.tenants.length}
+          change={getMetricChange(metrics?.totalTenants || realtimeData.tenants.length, 'totalTenants')}
           icon={Building}
           gradient="from-blue-500/10 to-blue-600/20"
           iconColor="bg-gradient-to-r from-blue-500 to-blue-600"
@@ -72,7 +72,7 @@ const Overview = () => {
         
         <MetricCard
           title="API Calls (24h)"
-          value={realtimeData.apiUsage.length}
+          value={metrics?.totalApiCalls || realtimeData.apiUsage.length}
           icon={Activity}
           gradient="from-purple-500/10 to-purple-600/20"
           iconColor="bg-gradient-to-r from-purple-500 to-purple-600"
@@ -91,7 +91,7 @@ const Overview = () => {
         
         <MetricCard
           title="Revenue (Monthly)"
-          value={`$${(latestFinancialMetric?.monthly_recurring_revenue || metrics?.monthlyRevenue || 0).toLocaleString()}`}
+          value={formatCompactCurrency(latestFinancialMetric?.monthly_recurring_revenue || metrics?.monthlyRevenue || 0)}
           change={getMetricChange(latestFinancialMetric?.monthly_recurring_revenue || metrics?.monthlyRevenue || 0, 'monthlyRevenue')}
           icon={DollarSign}
           gradient="from-amber-500/10 to-amber-600/20"
@@ -129,7 +129,6 @@ const Overview = () => {
           <NotificationCenter 
             notifications={realtimeData.notifications}
             onNotificationRead={(id) => {
-              // Handle notification read in real-time data
               console.log('Notification read:', id);
             }}
           />
@@ -178,7 +177,7 @@ const Overview = () => {
             
             <MetricCard
               title="Performance Score"
-              value={`${Math.floor(95 + Math.random() * 5)}%`}
+              value={`${metrics?.performanceScore || 0}%`}
               icon={Zap}
               gradient="from-cyan-500/10 to-cyan-600/20"
               iconColor="bg-gradient-to-r from-cyan-500 to-cyan-600"
