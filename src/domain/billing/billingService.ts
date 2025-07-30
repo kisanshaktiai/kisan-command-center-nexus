@@ -1,4 +1,5 @@
 
+
 import { supabase } from '@/integrations/supabase/client';
 
 interface Subscription {
@@ -48,7 +49,7 @@ class BillingService {
   async getInvoices(tenantId?: string): Promise<Invoice[]> {
     try {
       let query = supabase
-        .from('tenant_billing')
+        .from('invoices')
         .select('*');
 
       if (tenantId) {
@@ -104,3 +105,4 @@ class BillingService {
 }
 
 export const billingService = new BillingService();
+

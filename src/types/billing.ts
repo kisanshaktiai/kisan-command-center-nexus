@@ -1,3 +1,4 @@
+
 // Consolidated billing-related types
 export type SubscriptionPlan = 'starter' | 'growth' | 'enterprise' | 'custom';
 export type PaymentStatus = 'current' | 'overdue' | 'failed' | 'pending';

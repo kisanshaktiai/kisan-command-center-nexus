@@ -1,4 +1,5 @@
 
+
 import { supabase } from '@/integrations/supabase/client';
 import { TenantDTO, CreateTenantDTO, UpdateTenantDTO } from '@/data/types/tenant';
 
@@ -105,3 +106,4 @@ class TenantService {
 }
 
 export const tenantService = new TenantService();
+

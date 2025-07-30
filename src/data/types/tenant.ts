@@ -1,4 +1,5 @@
 
+
 export interface TenantDTO {
   id: string;
   name: string;
@@ -26,3 +27,4 @@ export interface UpdateTenantDTO {
   subscription_plan?: string;
   metadata?: Record<string, any>;
 }
+
