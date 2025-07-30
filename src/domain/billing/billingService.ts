@@ -22,7 +22,14 @@ class BillingService {
     try {
       let query = supabase
         .from('tenant_subscriptions')
-        .select('*');
+        .select(`
+          *,
+          billing_plans (
+            name,
+            base_price,
+            currency
+          )
+        `);
 
       if (tenantId) {
         query = query.eq('tenant_id', tenantId);
@@ -34,15 +41,15 @@ class BillingService {
       if (error) throw error;
 
       // Map database records to our Subscription interface
-      return (data || []).map((sub: TenantSubscription): Subscription => ({
+      return (data || []).map((sub: any): Subscription => ({
         id: sub.id,
         tenant_id: sub.tenant_id,
-        plan_name: sub.plan_name || 'Unknown',
+        plan_name: sub.billing_plans?.name || sub.plan_name || 'Unknown Plan',
         status: sub.status,
         current_period_start: sub.current_period_start,
         current_period_end: sub.current_period_end,
-        amount: sub.amount || 0,
-        currency: sub.currency || 'USD'
+        amount: sub.billing_plans?.base_price || sub.amount || 0,
+        currency: sub.billing_plans?.currency || sub.currency || 'USD'
       }));
     } catch (error) {
       console.error('Error fetching subscriptions:', error);
