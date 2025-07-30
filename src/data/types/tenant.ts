@@ -1,10 +1,13 @@
+
+import { SubscriptionPlan, TenantType, TenantStatus } from '@/types/tenant';
+
 export interface TenantDTO {
   id: string;
   name: string;
   slug: string;
-  type: string;
-  status: string;
-  subscription_plan: string;
+  type: TenantType;
+  status: TenantStatus;
+  subscription_plan: SubscriptionPlan;
   created_at: string;
   updated_at: string;
   owner_email?: string;
@@ -14,8 +17,8 @@ export interface TenantDTO {
 export interface CreateTenantDTO {
   name: string;
   slug: string;
-  type: string;
-  subscription_plan: string;
+  type: TenantType;
+  subscription_plan: SubscriptionPlan;
   owner_email: string;
   owner_name: string;
   metadata?: Record<string, any>;
@@ -23,7 +26,7 @@ export interface CreateTenantDTO {
 
 export interface UpdateTenantDTO {
   name?: string;
-  status?: string;
-  subscription_plan?: string;
+  status?: TenantStatus;
+  subscription_plan?: SubscriptionPlan;
   metadata?: Record<string, any>;
 }

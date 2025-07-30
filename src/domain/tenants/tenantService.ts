@@ -80,8 +80,8 @@ class TenantService {
       const insertData: TenantInsert = {
         name: tenantData.name,
         slug: tenantData.slug,
-        type: tenantData.type as any,
-        subscription_plan: tenantData.subscription_plan as any,
+        type: tenantData.type,
+        subscription_plan: tenantData.subscription_plan,
         owner_email: tenantData.owner_email,
         owner_name: tenantData.owner_name,
         metadata: tenantData.metadata || {},
@@ -116,8 +116,8 @@ class TenantService {
       // Map the UpdateTenantDTO to the database update type
       const updateData: TenantUpdate = {
         ...(updates.name && { name: updates.name }),
-        ...(updates.status && { status: updates.status as any }),
-        ...(updates.subscription_plan && { subscription_plan: updates.subscription_plan as any }),
+        ...(updates.status && { status: updates.status }),
+        ...(updates.subscription_plan && { subscription_plan: updates.subscription_plan }),
         ...(updates.metadata && { metadata: updates.metadata }),
         updated_at: new Date().toISOString()
       };
@@ -143,13 +143,13 @@ class TenantService {
       id: data.id,
       name: data.name,
       slug: data.slug,
-      type: data.type || 'agri_company',
-      status: data.status,
-      subscription_plan: data.subscription_plan,
+      type: data.type as any || 'agri_company',
+      status: data.status as any,
+      subscription_plan: data.subscription_plan as any,
       created_at: data.created_at,
       updated_at: data.updated_at,
-      owner_email: data.owner_email,
-      owner_name: data.owner_name
+      owner_email: data.owner_email || undefined,
+      owner_name: data.owner_name || undefined
     };
   }
 }
