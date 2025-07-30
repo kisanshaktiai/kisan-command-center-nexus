@@ -1,15 +1,30 @@
 
 import React, { createContext, useContext, useEffect } from 'react';
 import { useAuthStore } from '@/lib/stores/authStore';
-import { unifiedAuthService } from '@/lib/services/unifiedAuthService';
+import { AuthState } from '@/types/auth';
 
-// Create context that provides the auth store
-const AuthContext = createContext<ReturnType<typeof useAuthStore> | undefined>(undefined);
+const AuthContext = createContext<AuthState & {
+  signOut: () => Promise<void>;
+  signUp: (email: string, password: string, tenantData: any) => Promise<{ data?: any; error?: any }>;
+  isLoading: boolean;
+  error: string | null;
+}>({
+  user: null,
+  session: null,
+  isAuthenticated: false,
+  isAdmin: false,
+  isSuperAdmin: false,
+  adminRole: null,
+  profile: null,
+  signOut: async () => {},
+  signUp: async () => ({ error: new Error('Not implemented') }),
+  isLoading: false,
+  error: null,
+});
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    console.error('useAuth called outside AuthProvider context');
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
@@ -19,38 +34,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const authStore = useAuthStore();
 
   useEffect(() => {
-    // Initialize the unified auth service
-    unifiedAuthService.initialize();
+    // Initialize auth state on mount
+    const initAuth = async () => {
+      try {
+        const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
+        const currentState = await unifiedAuthService.getCurrentAuthState();
+        authStore.setAuthState(currentState);
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        authStore.setLoading(false);
+      }
+    };
+
+    initAuth();
   }, []);
 
-  // Enhanced error recovery
-  if (authStore.error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center text-red-600 max-w-md">
-          <div className="text-lg font-semibold mb-2">Authentication Error</div>
-          <div className="text-sm mb-4">{authStore.error}</div>
-          <div className="space-x-2">
-            <button 
-              onClick={() => authStore.clearError()} 
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-            >
-              Retry
-            </button>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              Refresh Page
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <AuthContext.Provider value={authStore}>
+    <AuthContext.Provider value={{
+      user: authStore.user,
+      session: authStore.session,
+      isAuthenticated: authStore.isAuthenticated,
+      isAdmin: authStore.isAdmin,
+      isSuperAdmin: authStore.isSuperAdmin,
+      adminRole: authStore.adminRole,
+      profile: authStore.profile,
+      signOut: authStore.signOut,
+      signUp: authStore.signUp,
+      isLoading: authStore.isLoading,
+      error: authStore.error,
+    }}>
       {children}
     </AuthContext.Provider>
   );
