@@ -28,17 +28,19 @@ export const FinancialReporting: React.FC = () => {
     );
   }
 
-  // Process data for charts
-  const revenueData = metrics
+  // Ensure metrics is an array and process data for charts
+  const metricsArray = Array.isArray(metrics) ? metrics : [];
+  
+  const revenueData = metricsArray
     .filter(metric => metric.metric_type === 'revenue')
     .map(metric => ({
       date: new Date(metric.period_start).toLocaleDateString(),
       amount: metric.amount,
-      period: metric.period_type,
+      period_type: metric.period_type,
     }))
     .slice(-12); // Last 12 periods
 
-  const costData = metrics
+  const costData = metricsArray
     .filter(metric => metric.metric_type === 'cost')
     .map(metric => ({
       date: new Date(metric.period_start).toLocaleDateString(),
@@ -47,7 +49,7 @@ export const FinancialReporting: React.FC = () => {
     }))
     .slice(-12);
 
-  const subscriptionData = metrics
+  const subscriptionData = metricsArray
     .filter(metric => metric.metric_type === 'subscription')
     .map(metric => ({
       date: new Date(metric.period_start).toLocaleDateString(),

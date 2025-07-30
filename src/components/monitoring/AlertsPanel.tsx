@@ -1,219 +1,226 @@
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  AlertTriangle, 
-  Bell, 
-  CheckCircle, 
-  Clock, 
-  Filter,
-  Eye
-} from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle, CheckCircle, Clock, RefreshCw, Bell } from 'lucide-react';
 import { usePlatformAlerts, useAcknowledgeAlert, useResolveAlert } from '@/lib/api/queries';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
-type AlertStatus = 'active' | 'acknowledged' | 'resolved';
+const ALERT_SEVERITY_COLORS = {
+  critical: 'bg-red-500 text-white',
+  high: 'bg-orange-500 text-white',
+  medium: 'bg-yellow-500 text-black',
+  low: 'bg-blue-500 text-white',
+  info: 'bg-gray-500 text-white'
+};
 
-const AlertsPanel = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [filter, setFilter] = useState<string>('all');
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  // Use real data queries
-  const { data: alerts = [], isLoading } = usePlatformAlerts(filter);
+export const AlertsPanel: React.FC = () => {
+  const { data: alerts, isLoading, error, refetch } = usePlatformAlerts();
   const acknowledgeAlert = useAcknowledgeAlert();
   const resolveAlert = useResolveAlert();
+  const [filter, setFilter] = useState<'all' | 'active' | 'acknowledged' | 'resolved'>('all');
 
-  // Update unread count
-  useEffect(() => {
-    if (alerts) {
-      const unresolved = alerts.filter(alert => alert.status === 'active').length;
-      setUnreadCount(unresolved);
-    }
-  }, [alerts]);
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'critical': return 'destructive';
-      case 'high': return 'destructive';
-      case 'medium': return 'secondary';
-      case 'low': return 'outline';
-      default: return 'outline';
+  const handleAcknowledge = async (alertId: string) => {
+    try {
+      await acknowledgeAlert.mutateAsync(alertId);
+      toast.success('Alert acknowledged');
+    } catch (error) {
+      toast.error('Failed to acknowledge alert');
     }
   };
 
-  const getStatusIcon = (status: AlertStatus) => {
-    switch (status) {
-      case 'active': return <AlertTriangle className="h-4 w-4 text-red-500" />;
-      case 'acknowledged': return <Eye className="h-4 w-4 text-yellow-500" />;
-      case 'resolved': return <CheckCircle className="h-4 w-4 text-green-500" />;
-      default: return <Clock className="h-4 w-4 text-gray-500" />;
+  const handleResolve = async (alertId: string) => {
+    try {
+      await resolveAlert.mutateAsync(alertId);
+      toast.success('Alert resolved');
+    } catch (error) {
+      toast.error('Failed to resolve alert');
     }
   };
 
-  const getStatusColor = (status: AlertStatus) => {
-    switch (status) {
-      case 'active': return 'destructive';
-      case 'acknowledged': return 'secondary';
-      case 'resolved': return 'default';
-      default: return 'outline';
-    }
+  if (isLoading) {
+    return (
+      <Card className="border-0 shadow-lg bg-gradient-to-br from-white/90 to-slate-50/90 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-800">
+            <Bell className="h-5 w-5 text-red-500" />
+            Platform Alerts
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center p-8">
+            <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-600">Loading alerts...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-0 shadow-lg bg-gradient-to-br from-white/90 to-slate-50/90 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-800">
+            <Bell className="h-5 w-5 text-red-500" />
+            Platform Alerts
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Error loading alerts: {error.message}
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Ensure alerts is an array and filter them
+  const alertsArray = Array.isArray(alerts) ? alerts : [];
+  const filteredAlerts = alertsArray.filter(alert => {
+    if (filter === 'all') return true;
+    return alert.status === filter;
+  });
+
+  const getAlertIcon = (status: string, severity: string) => {
+    if (status === 'resolved') return <CheckCircle className="h-4 w-4 text-green-500" />;
+    if (status === 'acknowledged') return <Clock className="h-4 w-4 text-blue-500" />;
+    return <AlertTriangle className={cn("h-4 w-4", severity === 'critical' ? 'text-red-500' : 'text-orange-500')} />;
   };
 
-  const formatTimeAgo = (timestamp: string) => {
-    const now = new Date();
-    const time = new Date(timestamp);
-    const diffMs = now.getTime() - time.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
+  const getSeverityBadge = (severity: string) => {
+    const colorClass = ALERT_SEVERITY_COLORS[severity as keyof typeof ALERT_SEVERITY_COLORS] || ALERT_SEVERITY_COLORS.info;
+    return (
+      <Badge className={colorClass}>
+        {severity.toUpperCase()}
+      </Badge>
+    );
   };
 
   return (
-    <>
-      {/* Floating Alert Button */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild>
-            <Button size="lg" className="relative shadow-lg">
-              <Bell className="w-5 h-5 mr-2" />
-              Alerts
-              {unreadCount > 0 && (
-                <Badge className="absolute -top-2 -right-2 px-2 py-1 text-xs bg-red-500">
-                  {unreadCount}
-                </Badge>
-              )}
+    <Card className="border-0 shadow-lg bg-gradient-to-br from-white/90 to-slate-50/90 backdrop-blur-sm">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-800">
+            <Bell className="h-5 w-5 text-red-500" />
+            Platform Alerts
+            <Badge variant="outline" className="ml-2">
+              {filteredAlerts.length || 0}
+            </Badge>
+          </CardTitle>
+          
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border">
+              {['all', 'active', 'acknowledged', 'resolved'].map((status) => (
+                <Button
+                  key={status}
+                  variant={filter === status ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setFilter(status as typeof filter)}
+                  className="rounded-none first:rounded-l-lg last:rounded-r-lg"
+                >
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </Button>
+              ))}
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+              Refresh
             </Button>
-          </SheetTrigger>
-          <SheetContent className="w-[400px] sm:w-[540px]">
-            <SheetHeader>
-              <SheetTitle className="flex items-center justify-between">
+          </div>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        {filteredAlerts.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            {filter === 'all' ? 'No alerts found' : `No ${filter} alerts`}
+          </div>
+        ) : (
+          filteredAlerts.map((alert) => (
+            <div
+              key={alert.id}
+              className="p-4 rounded-lg border border-gray-200 bg-white/50 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  {getAlertIcon(alert.status, alert.severity)}
+                  <div>
+                    <h4 className="font-semibold text-slate-800">{alert.title}</h4>
+                    <p className="text-sm text-gray-600 mt-1">{alert.description}</p>
+                  </div>
+                </div>
+                
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5" />
-                  Platform Alerts
+                  {getSeverityBadge(alert.severity)}
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      alert.status === 'active' && 'border-red-200 text-red-700',
+                      alert.status === 'acknowledged' && 'border-blue-200 text-blue-700',
+                      alert.status === 'resolved' && 'border-green-200 text-green-700'
+                    )}
+                  >
+                    {alert.status}
+                  </Badge>
                 </div>
-                <Badge variant="outline">
-                  {alerts.filter(a => a.status === 'active').length} active
-                </Badge>
-              </SheetTitle>
-              <SheetDescription>
-                Monitor and manage platform alerts and notifications
-              </SheetDescription>
-            </SheetHeader>
-
-            {/* Filter Controls */}
-            <div className="flex items-center gap-2 my-4">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={filter} onValueChange={setFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter alerts" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Alerts</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="acknowledged">Acknowledged</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="unresolved">Unresolved</SelectItem>
-                </SelectContent>
-              </Select>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-gray-500">
+                  Created: {new Date(alert.created_at).toLocaleString()}
+                  {alert.tenant_id && (
+                    <span className="ml-3">Tenant: {alert.tenant_id}</span>
+                  )}
+                </div>
+                
+                {alert.status === 'active' && (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAcknowledge(alert.id)}
+                      disabled={acknowledgeAlert.isPending}
+                    >
+                      {acknowledgeAlert.isPending ? 'Acknowledging...' : 'Acknowledge'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleResolve(alert.id)}
+                      disabled={resolveAlert.isPending}
+                    >
+                      {resolveAlert.isPending ? 'Resolving...' : 'Resolve'}
+                    </Button>
+                  </div>
+                )}
+                
+                {alert.status === 'acknowledged' && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleResolve(alert.id)}
+                    disabled={resolveAlert.isPending}
+                  >
+                    {resolveAlert.isPending ? 'Resolving...' : 'Resolve'}
+                  </Button>
+                )}
+              </div>
             </div>
-
-            {/* Alerts List */}
-            <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-              {isLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((i) => (
-                    <Card key={i} className="animate-pulse">
-                      <CardContent className="p-4">
-                        <div className="h-16 bg-muted rounded"></div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : alerts.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CheckCircle className="w-8 h-8 mx-auto mb-2" />
-                  <p>No alerts found</p>
-                </div>
-              ) : (
-                alerts.map((alert) => (
-                  <Card key={alert.id} className={`${alert.status === 'active' ? 'border-red-200' : ''}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(alert.status as AlertStatus)}
-                          <h4 className="font-medium text-sm">{alert.alert_name}</h4>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Badge variant={getSeverityColor(alert.severity) as any} className="text-xs">
-                            {alert.severity}
-                          </Badge>
-                          <Badge variant={getStatusColor(alert.status as AlertStatus) as any} className="text-xs">
-                            {alert.status}
-                          </Badge>
-                        </div>
-                      </div>
-                      
-                      <p className="text-sm text-muted-foreground mb-3">
-                        {alert.description}
-                      </p>
-
-                      {alert.current_value && alert.threshold_value && (
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
-                          <span>Current: {alert.current_value}</span>
-                          <span>Threshold: {alert.threshold_value}</span>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
-                          <Clock className="w-3 h-3 inline mr-1" />
-                          {formatTimeAgo(alert.triggered_at)}
-                        </span>
-                        
-                        <div className="flex items-center gap-1">
-                          {alert.status === 'active' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => acknowledgeAlert.mutate(alert.id)}
-                              disabled={acknowledgeAlert.isPending}
-                            >
-                              <Eye className="w-3 h-3 mr-1" />
-                              Ack
-                            </Button>
-                          )}
-                          {(alert.status === 'active' || alert.status === 'acknowledged') && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => resolveAlert.mutate(alert.id)}
-                              disabled={resolveAlert.isPending}
-                            >
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Resolve
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
-    </>
+          ))
+        )}
+      </CardContent>
+    </Card>
   );
 };
-
-export default AlertsPanel;

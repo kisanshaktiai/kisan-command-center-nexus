@@ -22,10 +22,111 @@ export class RealDataService {
     return RealDataService.instance;
   }
 
-  // Get real SIM information - simplified implementation without non-existent table
+  // Fetch platform alerts from database
+  async fetchAlerts() {
+    try {
+      const { data, error } = await supabase
+        .from('platform_alerts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+      return [];
+    }
+  }
+
+  // Fetch system health metrics
+  async fetchSystemHealth() {
+    try {
+      const { data, error } = await supabase
+        .from('system_metrics')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching system health:', error);
+      return [];
+    }
+  }
+
+  // Fetch financial metrics
+  async fetchFinancialMetrics() {
+    try {
+      const { data, error } = await supabase
+        .from('financial_metrics')
+        .select('*')
+        .order('period_start', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching financial metrics:', error);
+      return [];
+    }
+  }
+
+  // Fetch SIM detection data
+  async fetchSIMDetectionData() {
+    try {
+      const simInfo = await this.detectSIMInfo();
+      return {
+        detected: !!simInfo,
+        info: simInfo,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error fetching SIM detection data:', error);
+      return {
+        detected: false,
+        info: null,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  // Acknowledge alert
+  async acknowledgeAlert(alertId: string) {
+    try {
+      const { error } = await supabase
+        .from('platform_alerts')
+        .update({ status: 'acknowledged' })
+        .eq('id', alertId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Error acknowledging alert:', error);
+      throw error;
+    }
+  }
+
+  // Resolve alert
+  async resolveAlert(alertId: string) {
+    try {
+      const { error } = await supabase
+        .from('platform_alerts')
+        .update({ status: 'resolved' })
+        .eq('id', alertId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Error resolving alert:', error);
+      throw error;
+    }
+  }
+
+  // Get real SIM information - simplified implementation
   async detectSIMInfo(): Promise<SIMInfo | null> {
     try {
-      // Since user_device_capabilities table doesn't exist, we'll use a fallback approach
       const location = await this.detectUserLocation();
       
       return {

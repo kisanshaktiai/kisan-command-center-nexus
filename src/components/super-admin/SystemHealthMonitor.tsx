@@ -13,6 +13,7 @@ import {
   CheckCircle,
   AlertTriangle
 } from 'lucide-react';
+import { useSystemHealth, useResourceUtilization } from '@/lib/api/queries';
 import { cn } from '@/lib/utils';
 
 interface SystemMetric {
@@ -25,44 +26,79 @@ interface SystemMetric {
 }
 
 export const SystemHealthMonitor: React.FC = () => {
-  // Mock system metrics - in production these would come from monitoring services
+  const { data: healthData, isLoading: healthLoading } = useSystemHealth();
+  const { data: resourceData, isLoading: resourceLoading } = useResourceUtilization();
+
+  const isLoading = healthLoading || resourceLoading;
+
+  if (isLoading) {
+    return (
+      <Card className="border-0 shadow-lg bg-gradient-to-br from-white/90 to-slate-50/90 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-800">
+            <Activity className="h-5 w-5 text-blue-500" />
+            System Health
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center">Loading system health data...</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Process real data to create metrics
+  const healthArray = Array.isArray(healthData) ? healthData : [];
+  const resourceArray = Array.isArray(resourceData) ? resourceData : [];
+
+  // Create metrics from real data or use fallback values
+  const getMetricValue = (metricName: string, fallback: number) => {
+    const metric = healthArray.find(m => m.metric_name === metricName);
+    return metric ? metric.value : fallback;
+  };
+
+  const getResourceValue = (resourceType: string, fallback: number) => {
+    const resource = resourceArray.find(r => r.resource_type === resourceType);
+    return resource ? resource.usage_percentage : fallback;
+  };
+
   const metrics: SystemMetric[] = [
     {
       name: 'API Response Time',
-      value: 145,
-      status: 'healthy',
+      value: getMetricValue('api_response_time', 145),
+      status: getMetricValue('api_response_time', 145) < 200 ? 'healthy' : 'warning',
       unit: 'ms',
       icon: Wifi,
       description: 'Average API response time'
     },
     {
       name: 'Database Performance',
-      value: 98,
-      status: 'healthy',
+      value: getMetricValue('database_performance', 98),
+      status: getMetricValue('database_performance', 98) > 95 ? 'healthy' : 'warning',
       unit: '%',
       icon: Database,
       description: 'Database query performance'
     },
     {
       name: 'Server CPU Usage',
-      value: 67,
-      status: 'warning',
+      value: getResourceValue('cpu', 67),
+      status: getResourceValue('cpu', 67) < 80 ? 'healthy' : 'warning',
       unit: '%',
       icon: Cpu,
       description: 'Current CPU utilization'
     },
     {
       name: 'Storage Usage',
-      value: 82,
-      status: 'warning',
+      value: getResourceValue('storage', 82),
+      status: getResourceValue('storage', 82) < 85 ? 'healthy' : 'warning',
       unit: '%',
       icon: HardDrive,
       description: 'Total storage utilization'
     },
     {
       name: 'System Uptime',
-      value: 99.9,
-      status: 'healthy',
+      value: getMetricValue('system_uptime', 99.9),
+      status: getMetricValue('system_uptime', 99.9) > 99 ? 'healthy' : 'critical',
       unit: '%',
       icon: Server,
       description: 'System availability uptime'
@@ -82,14 +118,6 @@ export const SystemHealthMonitor: React.FC = () => {
       case 'healthy': return CheckCircle;
       case 'warning': return AlertTriangle;
       case 'critical': return AlertTriangle;
-    }
-  };
-
-  const getProgressColor = (status: SystemMetric['status']) => {
-    switch (status) {
-      case 'healthy': return 'bg-green-500';
-      case 'warning': return 'bg-orange-500';
-      case 'critical': return 'bg-red-500';
     }
   };
 
@@ -155,7 +183,6 @@ export const SystemHealthMonitor: React.FC = () => {
                     <Progress 
                       value={metric.value} 
                       className="h-2"
-                      // Custom progress bar color based on status
                     />
                   </div>
                 )}
