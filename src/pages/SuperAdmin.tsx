@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
 import { SuperAdminHeader } from '@/components/super-admin/SuperAdminHeader';
 import { SuperAdminSidebar } from '@/components/super-admin/SuperAdminSidebar';
-import OptimizedOverview from '@/pages/super-admin/OptimizedOverview';
+import Overview from '@/pages/super-admin/Overview';
 import TenantManagement from '@/pages/super-admin/TenantManagement';
 import TenantOnboarding from '@/pages/super-admin/TenantOnboarding';
 import PlatformMonitoring from '@/pages/super-admin/PlatformMonitoring';
@@ -68,7 +69,7 @@ const SuperAdmin: React.FC = () => {
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'overview':
-        return <OptimizedOverview />;
+        return <Overview />;
       case 'tenants':
         return <TenantManagement />;
       case 'onboarding':
@@ -86,7 +87,7 @@ const SuperAdmin: React.FC = () => {
       case 'features':
         return <FeatureFlags />;
       default:
-        return <OptimizedOverview />;
+        return <Overview />;
     }
   };
 
