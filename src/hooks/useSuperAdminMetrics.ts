@@ -26,11 +26,11 @@ interface MetricChange {
 export const useSuperAdminMetrics = () => {
   const [previousMetrics, setPreviousMetrics] = useState<PlatformMetrics | null>(null);
 
-  // Real-time platform metrics with actual data
+  // Real-time platform metrics with actual data - reduced cache time for live updates
   const { data: metrics, isLoading, error, refetch } = useQuery({
     queryKey: ['super-admin-metrics'],
     queryFn: async (): Promise<PlatformMetrics> => {
-      console.log('Fetching super admin metrics...');
+      console.log('Fetching super admin metrics (live)...');
       
       // Fetch real tenants data
       const { data: tenants } = await supabase
@@ -158,8 +158,10 @@ export const useSuperAdminMetrics = () => {
         performanceScore
       };
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 25000,
+    refetchInterval: 10000, // Reduced from 30 seconds to 10 seconds for more live updates
+    staleTime: 5000, // Reduced from 25 seconds to 5 seconds
+    refetchOnWindowFocus: true, // Refetch when user comes back to window
+    refetchOnMount: true, // Always refetch on mount
   });
 
   // Calculate changes from previous metrics
