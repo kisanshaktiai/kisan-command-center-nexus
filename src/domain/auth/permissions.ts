@@ -1,87 +1,79 @@
 
-export class PermissionsManager {
-  static readonly ROLES = {
-    SUPER_ADMIN: 'super_admin',
-    PLATFORM_ADMIN: 'platform_admin',
-    ADMIN: 'admin',
-    TENANT_OWNER: 'tenant_owner',
-    TENANT_ADMIN: 'tenant_admin',
-    USER: 'user'
-  } as const;
+export type Role = 'super_admin' | 'tenant_admin' | 'tenant_user' | 'farmer';
+export type Permission = 'read' | 'write' | 'delete' | 'admin';
+export type Resource = 'tenants' | 'users' | 'billing' | 'metrics' | 'settings';
 
-  static readonly PERMISSIONS = {
-    CREATE_TENANT: 'create_tenant',
-    MANAGE_BILLING: 'manage_billing',
-    VIEW_SYSTEM_METRICS: 'view_system_metrics',
-    MANAGE_USERS: 'manage_users',
-    VIEW_AUDIT_LOGS: 'view_audit_logs',
-    CONFIGURE_FEATURES: 'configure_features',
-    ACCESS_API: 'access_api'
-  } as const;
-
-  private static rolePermissions = {
-    [this.ROLES.SUPER_ADMIN]: [
-      this.PERMISSIONS.CREATE_TENANT,
-      this.PERMISSIONS.MANAGE_BILLING,
-      this.PERMISSIONS.VIEW_SYSTEM_METRICS,
-      this.PERMISSIONS.MANAGE_USERS,
-      this.PERMISSIONS.VIEW_AUDIT_LOGS,
-      this.PERMISSIONS.CONFIGURE_FEATURES,
-      this.PERMISSIONS.ACCESS_API
-    ],
-    [this.ROLES.PLATFORM_ADMIN]: [
-      this.PERMISSIONS.CREATE_TENANT,
-      this.PERMISSIONS.MANAGE_BILLING,
-      this.PERMISSIONS.VIEW_SYSTEM_METRICS,
-      this.PERMISSIONS.MANAGE_USERS,
-      this.PERMISSIONS.CONFIGURE_FEATURES
-    ],
-    [this.ROLES.ADMIN]: [
-      this.PERMISSIONS.VIEW_SYSTEM_METRICS,
-      this.PERMISSIONS.MANAGE_USERS
-    ],
-    [this.ROLES.TENANT_OWNER]: [
-      this.PERMISSIONS.MANAGE_BILLING,
-      this.PERMISSIONS.MANAGE_USERS,
-      this.PERMISSIONS.CONFIGURE_FEATURES,
-      this.PERMISSIONS.ACCESS_API
-    ],
-    [this.ROLES.TENANT_ADMIN]: [
-      this.PERMISSIONS.MANAGE_USERS,
-      this.PERMISSIONS.ACCESS_API
-    ],
-    [this.ROLES.USER]: [
-      this.PERMISSIONS.ACCESS_API
-    ]
+interface RolePermissions {
+  [key: string]: {
+    [resource in Resource]?: Permission[];
   };
+}
 
-  static hasPermission(userRole: string, permission: string): boolean {
-    const permissions = this.rolePermissions[userRole as keyof typeof this.rolePermissions];
-    return permissions?.includes(permission) || false;
+export const rolePermissions: RolePermissions = {
+  super_admin: {
+    tenants: ['read', 'write', 'delete', 'admin'],
+    users: ['read', 'write', 'delete', 'admin'],
+    billing: ['read', 'write', 'delete', 'admin'],
+    metrics: ['read', 'write', 'admin'],
+    settings: ['read', 'write', 'admin']
+  },
+  tenant_admin: {
+    tenants: ['read', 'write'],
+    users: ['read', 'write', 'delete'],
+    billing: ['read'],
+    metrics: ['read'],
+    settings: ['read', 'write']
+  },
+  tenant_user: {
+    tenants: ['read'],
+    users: ['read'],
+    billing: ['read'],
+    metrics: ['read'],
+    settings: ['read']
+  },
+  farmer: {
+    tenants: [],
+    users: ['read'],
+    billing: ['read'],
+    metrics: ['read'],
+    settings: ['read']
+  }
+};
+
+export class PermissionService {
+  static hasPermission(
+    userRole: Role,
+    resource: Resource,
+    permission: Permission
+  ): boolean {
+    const rolePerms = rolePermissions[userRole];
+    if (!rolePerms || !rolePerms[resource]) return false;
+    
+    return rolePerms[resource]!.includes(permission);
   }
 
-  static getRolePermissions(role: string): string[] {
-    return this.rolePermissions[role as keyof typeof this.rolePermissions] || [];
+  static canAccessResource(userRole: Role, resource: Resource): boolean {
+    return this.hasPermission(userRole, resource, 'read');
   }
 
-  static canAccessResource(userRole: string, resource: string, action: string): boolean {
-    const permission = `${action}_${resource}`;
-    return this.hasPermission(userRole, permission);
+  static canModifyResource(userRole: Role, resource: Resource): boolean {
+    return this.hasPermission(userRole, resource, 'write');
   }
 
-  static isHigherRole(currentRole: string, targetRole: string): boolean {
-    const roleHierarchy = [
-      this.ROLES.USER,
-      this.ROLES.TENANT_ADMIN,
-      this.ROLES.TENANT_OWNER,
-      this.ROLES.ADMIN,
-      this.ROLES.PLATFORM_ADMIN,
-      this.ROLES.SUPER_ADMIN
-    ];
+  static canDeleteResource(userRole: Role, resource: Resource): boolean {
+    return this.hasPermission(userRole, resource, 'delete');
+  }
 
-    const currentIndex = roleHierarchy.indexOf(currentRole as any);
-    const targetIndex = roleHierarchy.indexOf(targetRole as any);
+  static canAdministerResource(userRole: Role, resource: Resource): boolean {
+    return this.hasPermission(userRole, resource, 'admin');
+  }
 
-    return currentIndex > targetIndex;
+  static getAccessibleResources(userRole: Role): Resource[] {
+    const rolePerms = rolePermissions[userRole];
+    if (!rolePerms) return [];
+    
+    return Object.keys(rolePerms).filter(resource => 
+      rolePerms[resource as Resource]!.length > 0
+    ) as Resource[];
   }
 }

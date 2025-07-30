@@ -1,126 +1,90 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { SystemMetric, FinancialMetric, ResourceMetric, TenantMetric } from '@/data/types/metrics';
+import { SystemMetric, FinancialMetric, ResourceMetric } from '@/data/types/metrics';
 
-class MetricsService {
+export class MetricsService {
   async getSystemMetrics(): Promise<SystemMetric[]> {
-    try {
-      const { data, error } = await supabase
-        .from('system_health_metrics')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(10);
+    const { data, error } = await supabase
+      .from('system_health_metrics')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(100);
 
-      if (error) throw error;
-
-      return data?.map(item => ({
-        id: item.id,
-        name: item.metric_name || 'Unknown',
-        value: item.value || 0,
-        unit: item.unit || '',
-        status: this.calculateStatus(item.value, item.value * 0.8), // Use value as mock threshold
-        timestamp: item.timestamp
-      })) || [];
-    } catch (error) {
-      console.error('Error fetching system metrics:', error);
-      return [];
-    }
+    if (error) throw error;
+    return data || [];
   }
 
   async getFinancialMetrics(dateRange?: { from: Date; to: Date }): Promise<FinancialMetric[]> {
-    try {
-      let query = supabase
-        .from('financial_analytics')
-        .select('*');
+    let query = supabase
+      .from('financial_analytics')
+      .select('*')
+      .order('timestamp', { ascending: false });
 
-      if (dateRange) {
-        query = query
-          .gte('period_start', dateRange.from.toISOString())
-          .lte('period_end', dateRange.to.toISOString());
-      }
-
-      const { data, error } = await query
-        .order('period_start', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-
-      return data?.map(item => ({
-        id: item.id,
-        category: this.parseJsonField(item.breakdown, 'category') || 'General',
-        amount: item.amount || 0,
-        currency: item.currency || 'USD',
-        period: item.period_start,
-        change_percentage: this.parseJsonField(item.breakdown, 'change_percentage')
-      })) || [];
-    } catch (error) {
-      console.error('Error fetching financial metrics:', error);
-      return [];
+    if (dateRange) {
+      query = query
+        .gte('timestamp', dateRange.from.toISOString())
+        .lte('timestamp', dateRange.to.toISOString());
     }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   }
 
   async getResourceMetrics(): Promise<ResourceMetric[]> {
-    try {
-      const { data, error } = await supabase
-        .from('resource_utilization')
-        .select('*')
-        .order('updated_at', { ascending: false })
-        .limit(20);
+    const { data, error } = await supabase
+      .from('resource_utilization')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(100);
 
-      if (error) throw error;
-
-      return data?.map(item => ({
-        id: item.id,
-        resource_type: (item.resource_type as 'cpu' | 'memory' | 'disk' | 'network') || 'cpu',
-        usage_percentage: item.usage_percentage || 0,
-        threshold: item.max_limit || 80,
-        status: this.calculateResourceStatus(item.usage_percentage, item.max_limit || 80),
-        timestamp: item.updated_at
-      })) || [];
-    } catch (error) {
-      console.error('Error fetching resource metrics:', error);
-      return [];
-    }
+    if (error) throw error;
+    return data || [];
   }
 
-  async getTenantMetrics(tenantId: string): Promise<TenantMetric[]> {
-    try {
-      // This would typically query tenant-specific metrics
-      // For now, return empty array as the table structure may vary
-      return [];
-    } catch (error) {
-      console.error('Error fetching tenant metrics:', error);
-      return [];
-    }
+  async getTenantMetrics(tenantId: string) {
+    const { data, error } = await supabase
+      .from('tenant_metrics')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('timestamp', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+    return data || [];
   }
 
-  private calculateStatus(value: number, threshold?: number): 'healthy' | 'warning' | 'critical' {
-    if (!threshold) return 'healthy';
-    
-    if (value >= threshold * 0.9) return 'critical';
-    if (value >= threshold * 0.7) return 'warning';
-    return 'healthy';
+  // New methods for mutations
+  async updateSystemMetric(id: string, data: Partial<SystemMetric>): Promise<SystemMetric> {
+    const { data: result, error } = await supabase
+      .from('system_health_metrics')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return result;
   }
 
-  private calculateResourceStatus(usage: number, threshold: number): 'normal' | 'warning' | 'critical' {
-    if (usage >= threshold) return 'critical';
-    if (usage >= threshold * 0.8) return 'warning';
-    return 'normal';
+  async createFinancialRecord(data: Omit<FinancialMetric, 'id' | 'created_at'>): Promise<FinancialMetric> {
+    const { data: result, error } = await supabase
+      .from('financial_analytics')
+      .insert(data)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return result;
   }
 
-  private parseJsonField(jsonData: any, field: string): any {
-    try {
-      if (typeof jsonData === 'string') {
-        const parsed = JSON.parse(jsonData);
-        return parsed[field];
-      }
-      if (typeof jsonData === 'object' && jsonData !== null) {
-        return jsonData[field];
-      }
-      return undefined;
-    } catch {
-      return undefined;
-    }
+  async updateResourceThreshold(resourceType: string, threshold: number): Promise<void> {
+    const { error } = await supabase
+      .from('resource_utilization')
+      .update({ threshold })
+      .eq('resource_type', resourceType);
+
+    if (error) throw error;
   }
 }
 
