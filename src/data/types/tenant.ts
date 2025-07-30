@@ -1,10 +1,9 @@
 
-
 export interface TenantDTO {
   id: string;
   name: string;
   slug: string;
-  status: 'active' | 'inactive' | 'trial' | 'suspended';
+  status: string;
   subscription_plan: string;
   created_at: string;
   updated_at: string;
@@ -15,6 +14,7 @@ export interface TenantDTO {
 export interface CreateTenantDTO {
   name: string;
   slug: string;
+  type: string;
   subscription_plan: string;
   owner_email: string;
   owner_name: string;
@@ -27,4 +27,3 @@ export interface UpdateTenantDTO {
   subscription_plan?: string;
   metadata?: Record<string, any>;
 }
-

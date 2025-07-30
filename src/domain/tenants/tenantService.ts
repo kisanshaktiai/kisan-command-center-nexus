@@ -1,7 +1,12 @@
 
-
 import { supabase } from '@/integrations/supabase/client';
 import { TenantDTO, CreateTenantDTO, UpdateTenantDTO } from '@/data/types/tenant';
+import type { Database } from '@/integrations/supabase/types';
+
+// Use the actual database types
+type DatabaseTenant = Database['public']['Tables']['tenants']['Row'];
+type TenantInsert = Database['public']['Tables']['tenants']['Insert'];
+type TenantUpdate = Database['public']['Tables']['tenants']['Update'];
 
 class TenantService {
   async getTenants(filters?: any): Promise<TenantDTO[]> {
@@ -49,17 +54,21 @@ class TenantService {
 
   async createTenant(tenantData: CreateTenantDTO): Promise<TenantDTO> {
     try {
+      // Map the CreateTenantDTO to the database insert type
+      const insertData: TenantInsert = {
+        name: tenantData.name,
+        slug: tenantData.slug,
+        type: tenantData.type as any, // Type assertion needed for enum conversion
+        subscription_plan: tenantData.subscription_plan as any,
+        owner_email: tenantData.owner_email,
+        owner_name: tenantData.owner_name,
+        metadata: tenantData.metadata || {},
+        status: 'trial'
+      };
+
       const { data, error } = await supabase
         .from('tenants')
-        .insert([{
-          name: tenantData.name,
-          slug: tenantData.slug,
-          subscription_plan: tenantData.subscription_plan,
-          owner_email: tenantData.owner_email,
-          owner_name: tenantData.owner_name,
-          metadata: tenantData.metadata || {},
-          status: 'trial'
-        }])
+        .insert(insertData)
         .select()
         .single();
 
@@ -74,9 +83,17 @@ class TenantService {
 
   async updateTenant(tenantId: string, updates: UpdateTenantDTO): Promise<TenantDTO> {
     try {
+      // Map the UpdateTenantDTO to the database update type
+      const updateData: TenantUpdate = {
+        ...(updates.name && { name: updates.name }),
+        ...(updates.status && { status: updates.status as any }),
+        ...(updates.subscription_plan && { subscription_plan: updates.subscription_plan as any }),
+        ...(updates.metadata && { metadata: updates.metadata })
+      };
+
       const { data, error } = await supabase
         .from('tenants')
-        .update(updates)
+        .update(updateData)
         .eq('id', tenantId)
         .select()
         .single();
@@ -90,7 +107,7 @@ class TenantService {
     }
   }
 
-  private mapToTenantDTO(data: any): TenantDTO {
+  private mapToTenantDTO(data: DatabaseTenant): TenantDTO {
     return {
       id: data.id,
       name: data.name,
@@ -106,4 +123,3 @@ class TenantService {
 }
 
 export const tenantService = new TenantService();
-

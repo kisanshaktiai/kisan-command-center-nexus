@@ -1,6 +1,10 @@
 
-
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+
+// Use the actual database types
+type TenantSubscription = Database['public']['Tables']['tenant_subscriptions']['Row'];
+type Invoice = Database['public']['Tables']['invoices']['Row'];
 
 interface Subscription {
   id: string;
@@ -11,16 +15,6 @@ interface Subscription {
   current_period_end: string;
   amount: number;
   currency: string;
-}
-
-interface Invoice {
-  id: string;
-  tenant_id: string;
-  amount: number;
-  currency: string;
-  status: string;
-  created_at: string;
-  due_date: string;
 }
 
 class BillingService {
@@ -39,7 +33,17 @@ class BillingService {
 
       if (error) throw error;
 
-      return data || [];
+      // Map database records to our Subscription interface
+      return (data || []).map((sub: TenantSubscription): Subscription => ({
+        id: sub.id,
+        tenant_id: sub.tenant_id,
+        plan_name: sub.plan_name || 'Unknown',
+        status: sub.status,
+        current_period_start: sub.current_period_start,
+        current_period_end: sub.current_period_end,
+        amount: sub.amount || 0,
+        currency: sub.currency || 'USD'
+      }));
     } catch (error) {
       console.error('Error fetching subscriptions:', error);
       return [];
@@ -68,11 +72,11 @@ class BillingService {
     }
   }
 
-  async createSubscription(subscriptionData: Partial<Subscription>): Promise<Subscription> {
+  async createSubscription(subscriptionData: Database['public']['Tables']['tenant_subscriptions']['Insert']): Promise<TenantSubscription> {
     try {
       const { data, error } = await supabase
         .from('tenant_subscriptions')
-        .insert([subscriptionData])
+        .insert(subscriptionData)
         .select()
         .single();
 
@@ -85,7 +89,7 @@ class BillingService {
     }
   }
 
-  async updateSubscription(id: string, updates: Partial<Subscription>): Promise<Subscription> {
+  async updateSubscription(id: string, updates: Database['public']['Tables']['tenant_subscriptions']['Update']): Promise<TenantSubscription> {
     try {
       const { data, error } = await supabase
         .from('tenant_subscriptions')
@@ -105,4 +109,3 @@ class BillingService {
 }
 
 export const billingService = new BillingService();
-
