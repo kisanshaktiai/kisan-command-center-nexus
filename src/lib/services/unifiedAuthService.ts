@@ -1,213 +1,136 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
-import { AuthState, TenantData } from '@/types/auth';
 import { useAuthStore } from '@/lib/stores/authStore';
+import { AuthState, TenantData } from '@/types/auth';
+import { ServiceResult } from '@/services/BaseService';
 
 class UnifiedAuthService {
-  private static instance: UnifiedAuthService;
-  private adminStatusCache: { [userId: string]: { isAdmin: boolean; isSuperAdmin: boolean; adminRole: string | null; timestamp: number } } = {};
-  private readonly ADMIN_CACHE_DURATION = 30000; // 30 seconds
+  private initialized = false;
 
-  public static getInstance(): UnifiedAuthService {
-    if (!UnifiedAuthService.instance) {
-      UnifiedAuthService.instance = new UnifiedAuthService();
-    }
-    return UnifiedAuthService.instance;
-  }
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
 
-  // Initialize auth state listener
-  initialize() {
-    const { setSession, setAuthState, setLoading, setError } = useAuthStore.getState();
-
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Unified Auth: Auth state change:', event);
-      
+    const { setLoading, setUser, setSession, setAuthState, setError } = useAuthStore.getState();
+    
+    try {
       setLoading(true);
-      
-      try {
-        if (session?.user) {
-          const adminStatus = await this.getAdminStatus(session.user.id);
-          
-          setAuthState({
-            user: session.user,
-            session,
-            isAuthenticated: true,
-            isAdmin: adminStatus.isAdmin,
-            isSuperAdmin: adminStatus.isSuperAdmin,
-            adminRole: adminStatus.adminRole,
-          });
-        } else {
-          setAuthState({
-            user: null,
-            session: null,
-            isAuthenticated: false,
-            isAdmin: false,
-            isSuperAdmin: false,
-            adminRole: null,
-            profile: null,
-          });
-        }
-      } catch (error) {
-        console.error('Error updating auth state:', error);
-        setError(error instanceof Error ? error.message : 'Authentication error');
-      } finally {
-        setLoading(false);
-      }
-    });
+      setError(null);
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+      // Get initial session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        setError('Failed to retrieve session');
+        return;
+      }
+
       if (session) {
         setSession(session);
-      } else {
-        setLoading(false);
+        await this.loadUserProfile(session.user.id);
       }
-    });
+
+      // Set up auth state listener
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id);
+        
+        if (event === 'SIGNED_IN' && session) {
+          setSession(session);
+          await this.loadUserProfile(session.user.id);
+        } else if (event === 'SIGNED_OUT') {
+          setSession(null);
+          useAuthStore.getState().reset();
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          setSession(session);
+        }
+      });
+
+      this.initialized = true;
+    } catch (error) {
+      console.error('Failed to initialize auth service:', error);
+      setError('Authentication initialization failed');
+    } finally {
+      setLoading(false);
+    }
   }
 
-  // Get admin status with caching
-  private async getAdminStatus(userId: string): Promise<{ isAdmin: boolean; isSuperAdmin: boolean; adminRole: string | null }> {
-    const now = Date.now();
-    const cached = this.adminStatusCache[userId];
-    
-    // Return cached result if valid
-    if (cached && (now - cached.timestamp) < this.ADMIN_CACHE_DURATION) {
-      return {
-        isAdmin: cached.isAdmin,
-        isSuperAdmin: cached.isSuperAdmin,
-        adminRole: cached.adminRole
-      };
-    }
-
+  private async loadUserProfile(userId: string): Promise<void> {
     try {
-      const { data: adminData, error } = await supabase
+      // Check if user is an admin
+      const { data: adminData } = await supabase
         .from('admin_users')
         .select('role, is_active')
         .eq('id', userId)
-        .eq('is_active', true)
         .single();
 
-      let result = {
-        isAdmin: false,
-        isSuperAdmin: false,
-        adminRole: null as string | null
-      };
-
-      if (!error && adminData) {
-        result = {
+      const { setAuthState } = useAuthStore.getState();
+      
+      if (adminData?.is_active) {
+        setAuthState({
           isAdmin: true,
           isSuperAdmin: adminData.role === 'super_admin',
           adminRole: adminData.role
-        };
+        });
+      } else {
+        setAuthState({
+          isAdmin: false,
+          isSuperAdmin: false,
+          adminRole: null
+        });
       }
-
-      // Cache the result
-      this.adminStatusCache[userId] = {
-        ...result,
-        timestamp: now
-      };
-
-      return result;
     } catch (error) {
-      console.error('Error checking admin status:', error);
-      return {
-        isAdmin: false,
-        isSuperAdmin: false,
-        adminRole: null
-      };
+      console.error('Failed to load user profile:', error);
     }
   }
 
-  // Sign in methods
-  async signInUser(email: string, password: string): Promise<{ success: boolean; error?: string }> {
-    const { setError } = useAuthStore.getState();
-    
+  async signOut(): Promise<ServiceResult<void>> {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      
-      if (error) {
-        setError(error.message);
-        return { success: false, error: error.message };
-      }
-      
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      useAuthStore.getState().reset();
       return { success: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Sign in failed';
-      setError(message);
-      return { success: false, error: message };
-    }
-  }
-
-  async signInAdmin(email: string, password: string): Promise<{ success: boolean; error?: string }> {
-    const result = await this.signInUser(email, password);
-    
-    if (result.success) {
-      // Additional admin verification will happen in auth state change
-      const { user } = useAuthStore.getState();
-      if (user) {
-        const adminStatus = await this.getAdminStatus(user.id);
-        if (!adminStatus.isAdmin) {
-          await this.signOut();
-          return { success: false, error: 'Admin access required' };
-        }
-      }
-    }
-    
-    return result;
-  }
-
-  // Sign out
-  async signOut(): Promise<void> {
-    const { reset } = useAuthStore.getState();
-    
-    try {
-      await supabase.auth.signOut();
-      this.adminStatusCache = {}; // Clear cache
-      reset();
-    } catch (error) {
       console.error('Sign out error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Sign out failed'
+      };
     }
   }
 
-  // Bootstrap super admin
-  async bootstrapSuperAdmin(email: string, password: string, fullName: string): Promise<{ success: boolean; error?: string }> {
+  async signUp(email: string, password: string, tenantData: TenantData): Promise<ServiceResult<{ user: any; session: any }>> {
     try {
-      // Check if bootstrap is already completed
-      const { data: configData } = await supabase
-        .from('system_config')
-        .select('config_value')
-        .eq('config_key', 'bootstrap_completed')
-        .single();
-
-      if (configData?.config_value === 'true') {
-        return { success: false, error: 'System is already initialized' };
-      }
-
-      // Call edge function for bootstrap
-      const { data, error } = await supabase.functions.invoke('create-super-admin', {
-        body: { email, password, fullName }
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: tenantData.fullName,
+            organization_name: tenantData.organizationName,
+            organization_type: tenantData.organizationType,
+            phone: tenantData.phone
+          }
+        }
       });
 
-      if (error) {
-        return { success: false, error: error.message };
-      }
+      if (error) throw error;
 
-      if (data?.error) {
-        return { success: false, error: data.error };
-      }
-
-      // Sign in the newly created user
-      return await this.signInAdmin(email, password);
+      return {
+        success: true,
+        data: {
+          user: data.user,
+          session: data.session
+        }
+      };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Bootstrap failed' };
+      console.error('Sign up error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Sign up failed'
+      };
     }
-  }
-
-  // Clear admin cache (useful for testing)
-  clearAdminCache(): void {
-    this.adminStatusCache = {};
   }
 }
 
-export const unifiedAuthService = UnifiedAuthService.getInstance();
+export const unifiedAuthService = new UnifiedAuthService();

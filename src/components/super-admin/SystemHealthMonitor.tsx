@@ -43,17 +43,6 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({
     );
   }
 
-  // Process the data to match expected structure
-  const resourceData = [
-    {
-      time: new Date().toLocaleTimeString(),
-      cpu: data.resources?.cpu || 0,
-      memory: data.resources?.memory || 0,
-      network: data.resources?.cpu * 0.8 || 0, // Derived network usage
-      response_time: data.services?.[0]?.response_time || 0
-    }
-  ];
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'healthy': return 'text-green-600';
@@ -153,4 +142,7 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({
   );
 };
 
+// Named export
+export { SystemHealthMonitor };
+// Default export
 export default SystemHealthMonitor;

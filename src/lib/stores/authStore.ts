@@ -17,7 +17,7 @@ interface AuthStore extends AuthState {
   clearError: () => void;
   reset: () => void;
   signOut: () => Promise<void>;
-  signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data?: any; error?: any }>;
 }
 
 const initialState: AuthState = {
@@ -75,9 +75,26 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       signUp: async (email: string, password: string, tenantData: TenantData) => {
-        // TODO: Implement user registration via unified auth service
-        set({ error: 'User registration not yet implemented' });
-        return { success: false, error: 'User registration not yet implemented' };
+        try {
+          set({ isLoading: true, error: null });
+          
+          const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
+          const result = await unifiedAuthService.signUp(email, password, tenantData);
+          
+          if (result.success && result.data) {
+            return { data: result.data };
+          } else {
+            const error = new Error(result.error || 'Registration failed');
+            set({ error: result.error || 'Registration failed' });
+            return { error };
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+          set({ error: errorMessage });
+          return { error: new Error(errorMessage) };
+        } finally {
+          set({ isLoading: false });
+        }
       },
     }),
     {
