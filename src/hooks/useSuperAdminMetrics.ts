@@ -54,24 +54,25 @@ export const useSuperAdminMetrics = () => {
         .select('id, status, current_period_start, current_period_end')
         .eq('status', 'active');
       
-      // Fetch real financial metrics for revenue
+      // Fetch real financial metrics - using amount column that exists
       const { data: financial } = await supabase
         .from('financial_analytics')
-        .select('monthly_recurring_revenue, timestamp')
-        .order('timestamp', { ascending: false })
-        .limit(1);
+        .select('amount, metric_type, period_start, period_end')
+        .eq('metric_type', 'revenue')
+        .order('period_start', { ascending: false })
+        .limit(10);
 
-      // Fetch real system health metrics
+      // Fetch real system health metrics - using existing columns
       const { data: systemHealthData } = await supabase
         .from('system_health_metrics')
-        .select('health_score, timestamp')
+        .select('cpu_usage_percent, memory_usage_percent, error_rate_percent, timestamp')
         .order('timestamp', { ascending: false })
         .limit(1);
 
-      // Fetch real resource utilization for storage
+      // Fetch real resource utilization - using existing columns
       const { data: resourceData } = await supabase
         .from('resource_utilization')
-        .select('storage_utilization_percent, efficiency_score, timestamp')
+        .select('storage_used_gb, storage_total_gb, active_users, timestamp')
         .order('timestamp', { ascending: false })
         .limit(1);
 
@@ -93,14 +94,32 @@ export const useSuperAdminMetrics = () => {
       ).length || 0;
       
       const totalApiCalls = apiLogs?.length || 0;
-      const monthlyRevenue = financial?.[0]?.monthly_recurring_revenue || 0;
+      
+      // Calculate monthly revenue from financial data
+      const monthlyRevenue = financial?.reduce((sum, record) => sum + (record.amount || 0), 0) || 0;
+      
       const activeSubscriptions = subscriptions?.length || 0;
       const pendingApprovals = pendingRegistrations?.length || 0;
       
-      // Real system metrics
-      const systemHealth = systemHealthData?.[0]?.health_score || 95;
-      const storageUsed = resourceData?.[0]?.storage_utilization_percent || 45;
-      const performanceScore = resourceData?.[0]?.efficiency_score || 92;
+      // Calculate system health from actual metrics (0-100 scale)
+      const systemHealthMetric = systemHealthData?.[0];
+      let systemHealth = 95; // default
+      if (systemHealthMetric) {
+        const cpuHealth = Math.max(0, 100 - (systemHealthMetric.cpu_usage_percent || 0));
+        const memoryHealth = Math.max(0, 100 - (systemHealthMetric.memory_usage_percent || 0));
+        const errorHealth = Math.max(0, 100 - ((systemHealthMetric.error_rate_percent || 0) * 10));
+        systemHealth = Math.round((cpuHealth + memoryHealth + errorHealth) / 3);
+      }
+      
+      // Calculate storage utilization percentage
+      const resourceMetric = resourceData?.[0];
+      let storageUsed = 45; // default percentage
+      if (resourceMetric && resourceMetric.storage_total_gb && resourceMetric.storage_total_gb > 0) {
+        storageUsed = Math.round((resourceMetric.storage_used_gb / resourceMetric.storage_total_gb) * 100);
+      }
+      
+      // Calculate performance score from system metrics
+      const performanceScore = Math.round((systemHealth + (100 - storageUsed)) / 2);
 
       return {
         totalTenants,
