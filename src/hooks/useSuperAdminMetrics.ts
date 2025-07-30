@@ -65,15 +65,15 @@ export const useSuperAdminMetrics = () => {
       // Fetch real system health metrics - using existing columns
       const { data: systemHealthData } = await supabase
         .from('system_health_metrics')
-        .select('health_score, status, timestamp')
-        .order('timestamp', { ascending: false })
+        .select('cpu_usage_percent, memory_usage_percent, error_rate_percent, created_at')
+        .order('created_at', { ascending: false })
         .limit(1);
 
       // Fetch real resource utilization - using existing columns
       const { data: resourceData } = await supabase
         .from('resource_utilization')
-        .select('current_usage, max_limit, usage_percentage, timestamp')
-        .order('timestamp', { ascending: false })
+        .select('current_usage, max_limit, created_at')
+        .order('created_at', { ascending: false })
         .limit(1);
 
       // Fetch real pending approvals (admin registrations)
@@ -104,15 +104,18 @@ export const useSuperAdminMetrics = () => {
       // Calculate system health from actual metrics (0-100 scale)
       const systemHealthMetric = systemHealthData?.[0];
       let systemHealth = 95; // default
-      if (systemHealthMetric && systemHealthMetric.health_score !== null) {
-        systemHealth = systemHealthMetric.health_score;
+      if (systemHealthMetric) {
+        const cpuHealth = Math.max(0, 100 - (systemHealthMetric.cpu_usage_percent || 0));
+        const memoryHealth = Math.max(0, 100 - (systemHealthMetric.memory_usage_percent || 0));
+        const errorHealth = Math.max(0, 100 - ((systemHealthMetric.error_rate_percent || 0) * 10));
+        systemHealth = Math.round((cpuHealth + memoryHealth + errorHealth) / 3);
       }
       
       // Calculate storage utilization percentage from resource metrics
       const resourceMetric = resourceData?.[0];
       let storageUsed = 45; // default percentage
-      if (resourceMetric && resourceMetric.usage_percentage !== null) {
-        storageUsed = resourceMetric.usage_percentage;
+      if (resourceMetric && resourceMetric.max_limit && resourceMetric.max_limit > 0) {
+        storageUsed = Math.round((resourceMetric.current_usage / resourceMetric.max_limit) * 100);
       }
       
       // Calculate performance score from system metrics
