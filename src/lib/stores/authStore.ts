@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, Session } from '@supabase/supabase-js';
-import { AuthState, UserProfile } from '@/types/auth';
+import { AuthState, UserProfile, TenantData } from '@/types/auth';
 
 interface AuthStore extends AuthState {
   isLoading: boolean;
@@ -17,6 +17,7 @@ interface AuthStore extends AuthState {
   clearError: () => void;
   reset: () => void;
   signOut: () => Promise<void>;
+  signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ success: boolean; error?: string }>;
 }
 
 const initialState: AuthState = {
@@ -71,6 +72,12 @@ export const useAuthStore = create<AuthStore>()(
       signOut: async () => {
         const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
         await unifiedAuthService.signOut();
+      },
+
+      signUp: async (email: string, password: string, tenantData: TenantData) => {
+        // TODO: Implement user registration via unified auth service
+        set({ error: 'User registration not yet implemented' });
+        return { success: false, error: 'User registration not yet implemented' };
       },
     }),
     {

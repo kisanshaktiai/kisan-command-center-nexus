@@ -32,25 +32,25 @@ export const FinancialReporting: React.FC = () => {
   const metricsArray = Array.isArray(metrics) ? metrics : [];
   
   const revenueData = metricsArray
-    .filter(metric => metric.metric_type === 'revenue')
+    .filter(metric => metric.metric_name === 'revenue' || metric.category === 'revenue')
     .map(metric => ({
       date: new Date(metric.period_start).toLocaleDateString(),
       amount: metric.amount,
-      period_type: metric.period_type,
+      period: metric.period_start,
     }))
     .slice(-12); // Last 12 periods
 
   const costData = metricsArray
-    .filter(metric => metric.metric_type === 'cost')
+    .filter(metric => metric.metric_name === 'cost' || metric.category === 'cost')
     .map(metric => ({
       date: new Date(metric.period_start).toLocaleDateString(),
       amount: metric.amount,
-      category: metric.breakdown ? 'operational' : 'infrastructure',
+      category: metric.metadata?.category || 'operational',
     }))
     .slice(-12);
 
   const subscriptionData = metricsArray
-    .filter(metric => metric.metric_type === 'subscription')
+    .filter(metric => metric.metric_name === 'subscription' || metric.category === 'subscription')
     .map(metric => ({
       date: new Date(metric.period_start).toLocaleDateString(),
       active_count: metric.amount,

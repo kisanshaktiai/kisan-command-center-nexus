@@ -12,15 +12,15 @@ import {
   Clock
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { useSystemHealthMetrics, useResourceUtilization } from '@/lib/api/queries';
+import { useSystemHealth } from '@/lib/api/queries';
 
 interface SystemHealthMonitorProps {
   refreshInterval: number;
 }
 
 const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterval }) => {
-  const { data: systemMetrics, isLoading: metricsLoading } = useSystemHealthMetrics(refreshInterval);
-  const { data: resourceData, isLoading: resourceLoading } = useResourceUtilization(refreshInterval);
+  const { data: systemMetrics, isLoading: metricsLoading } = useSystemHealth();
+  const { data: resourceData, isLoading: resourceLoading } = useSystemHealth();
 
   const isLoading = metricsLoading || resourceLoading;
 
@@ -62,11 +62,11 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
     if (!resourceData || resourceData.length === 0) return [];
     
     return resourceData.slice(0, 24).reverse().map((resource) => ({
-      time: new Date(resource.created_at).toLocaleTimeString(),
-      cpu: resource.resource_type === 'cpu' ? Number(resource.usage_percentage || 0) : 0,
-      memory: resource.resource_type === 'memory' ? Number(resource.usage_percentage || 0) : 0,
-      network: resource.resource_type === 'network' ? Number(resource.usage_percentage || 0) : 0,
-      response_time: resource.metadata ? Number((resource.metadata as any).response_time || 0) : 0
+      time: new Date(resource.timestamp).toLocaleTimeString(),
+      cpu: resource.metric_name === 'cpu_usage' ? Number(resource.value || 0) : 0,
+      memory: resource.metric_name === 'memory_usage' ? Number(resource.value || 0) : 0,
+      network: resource.metric_name === 'network_usage' ? Number(resource.value || 0) : 0,
+      response_time: resource.labels ? Number((resource.labels as any).response_time || 0) : 0
     }));
   }, [resourceData]);
 

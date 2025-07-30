@@ -1,59 +1,47 @@
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, CheckCircle, Clock, RefreshCw, Bell } from 'lucide-react';
+import { 
+  AlertTriangle, 
+  CheckCircle, 
+  Clock, 
+  RefreshCw,
+  AlertCircle,
+  Loader2
+} from 'lucide-react';
 import { usePlatformAlerts, useAcknowledgeAlert, useResolveAlert } from '@/lib/api/queries';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-
-const ALERT_SEVERITY_COLORS = {
-  critical: 'bg-red-500 text-white',
-  high: 'bg-orange-500 text-white',
-  medium: 'bg-yellow-500 text-black',
-  low: 'bg-blue-500 text-white',
-  info: 'bg-gray-500 text-white'
-};
 
 export const AlertsPanel: React.FC = () => {
   const { data: alerts, isLoading, error, refetch } = usePlatformAlerts();
   const acknowledgeAlert = useAcknowledgeAlert();
   const resolveAlert = useResolveAlert();
-  const [filter, setFilter] = useState<'all' | 'active' | 'acknowledged' | 'resolved'>('all');
 
   const handleAcknowledge = async (alertId: string) => {
     try {
       await acknowledgeAlert.mutateAsync(alertId);
-      toast.success('Alert acknowledged');
     } catch (error) {
-      toast.error('Failed to acknowledge alert');
+      console.error('Error acknowledging alert:', error);
     }
   };
 
   const handleResolve = async (alertId: string) => {
     try {
       await resolveAlert.mutateAsync(alertId);
-      toast.success('Alert resolved');
     } catch (error) {
-      toast.error('Failed to resolve alert');
+      console.error('Error resolving alert:', error);
     }
   };
 
   if (isLoading) {
     return (
-      <Card className="border-0 shadow-lg bg-gradient-to-br from-white/90 to-slate-50/90 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-800">
-            <Bell className="h-5 w-5 text-red-500" />
-            Platform Alerts
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center p-8">
-            <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
-            <span className="ml-2 text-gray-600">Loading alerts...</span>
+      <Card>
+        <CardContent className="flex items-center justify-center p-8">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="text-muted-foreground">Loading alerts...</p>
           </div>
         </CardContent>
       </Card>
@@ -62,18 +50,12 @@ export const AlertsPanel: React.FC = () => {
 
   if (error) {
     return (
-      <Card className="border-0 shadow-lg bg-gradient-to-br from-white/90 to-slate-50/90 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-800">
-            <Bell className="h-5 w-5 text-red-500" />
-            Platform Alerts
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <Card>
+        <CardContent className="p-6">
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Error loading alerts: {error.message}
+              Failed to load alerts: {error.message}
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -81,146 +63,184 @@ export const AlertsPanel: React.FC = () => {
     );
   }
 
-  // Ensure alerts is an array and filter them
   const alertsArray = Array.isArray(alerts) ? alerts : [];
-  const filteredAlerts = alertsArray.filter(alert => {
-    if (filter === 'all') return true;
-    return alert.status === filter;
-  });
+  const activeAlerts = alertsArray.filter(alert => alert.status === 'active');
+  const acknowledgedAlerts = alertsArray.filter(alert => alert.status === 'acknowledged');
 
-  const getAlertIcon = (status: string, severity: string) => {
-    if (status === 'resolved') return <CheckCircle className="h-4 w-4 text-green-500" />;
-    if (status === 'acknowledged') return <Clock className="h-4 w-4 text-blue-500" />;
-    return <AlertTriangle className={cn("h-4 w-4", severity === 'critical' ? 'text-red-500' : 'text-orange-500')} />;
+  const getAlertIcon = (severity: string) => {
+    switch (severity) {
+      case 'critical':
+        return <AlertTriangle className="h-4 w-4 text-red-500" />;
+      case 'high':
+        return <AlertCircle className="h-4 w-4 text-orange-500" />;
+      case 'medium':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      default:
+        return <AlertCircle className="h-4 w-4 text-blue-500" />;
+    }
   };
 
-  const getSeverityBadge = (severity: string) => {
-    const colorClass = ALERT_SEVERITY_COLORS[severity as keyof typeof ALERT_SEVERITY_COLORS] || ALERT_SEVERITY_COLORS.info;
-    return (
-      <Badge className={colorClass}>
-        {severity.toUpperCase()}
-      </Badge>
-    );
+  const getAlertBadgeVariant = (severity: string) => {
+    switch (severity) {
+      case 'critical':
+        return 'destructive';
+      case 'high':
+        return 'secondary';
+      case 'medium':
+        return 'outline';
+      default:
+        return 'default';
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes}m ago`;
+    } else if (diffInMinutes < 1440) {
+      return `${Math.floor(diffInMinutes / 60)}h ago`;
+    } else {
+      return `${Math.floor(diffInMinutes / 1440)}d ago`;
+    }
   };
 
   return (
-    <Card className="border-0 shadow-lg bg-gradient-to-br from-white/90 to-slate-50/90 backdrop-blur-sm">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-800">
-            <Bell className="h-5 w-5 text-red-500" />
-            Platform Alerts
-            <Badge variant="outline" className="ml-2">
-              {filteredAlerts.length || 0}
-            </Badge>
-          </CardTitle>
-          
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border">
-              {['all', 'active', 'acknowledged', 'resolved'].map((status) => (
-                <Button
-                  key={status}
-                  variant={filter === status ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setFilter(status as typeof filter)}
-                  className="rounded-none first:rounded-l-lg last:rounded-r-lg"
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {activeAlerts.length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Requiring immediate attention
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Acknowledged</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">
+              {acknowledgedAlerts.length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Being investigated
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Alerts</CardTitle>
+            <RefreshCw className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {alertsArray.length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Last 24 hours
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Alerts List */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Platform Alerts</CardTitle>
+            <CardDescription>
+              Real-time system alerts and notifications
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isLoading}
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Refresh
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {alertsArray.length === 0 ? (
+            <div className="text-center py-8">
+              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-green-600">All Clear!</h3>
+              <p className="text-muted-foreground">No active alerts at this time.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {alertsArray.map((alert) => (
+                <div
+                  key={alert.id}
+                  className="flex items-center justify-between p-4 border rounded-lg"
                 >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </Button>
+                  <div className="flex items-start gap-3 flex-1">
+                    {getAlertIcon(alert.severity)}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-medium">
+                          {alert.alert_name}
+                        </h4>
+                        <Badge variant={getAlertBadgeVariant(alert.severity) as any}>
+                          {alert.severity}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {alert.description}
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Metric: {alert.metric_name}</span>
+                        <span>Value: {alert.current_value}</span>
+                        <span>{formatTimeAgo(alert.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {alert.status === 'active' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleAcknowledge(alert.id)}
+                        disabled={acknowledgeAlert.isPending}
+                      >
+                        Acknowledge
+                      </Button>
+                    )}
+                    {(alert.status === 'active' || alert.status === 'acknowledged') && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => handleResolve(alert.id)}
+                        disabled={resolveAlert.isPending}
+                      >
+                        Resolve
+                      </Button>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              disabled={isLoading}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-              Refresh
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {filteredAlerts.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            {filter === 'all' ? 'No alerts found' : `No ${filter} alerts`}
-          </div>
-        ) : (
-          filteredAlerts.map((alert) => (
-            <div
-              key={alert.id}
-              className="p-4 rounded-lg border border-gray-200 bg-white/50 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  {getAlertIcon(alert.status, alert.severity)}
-                  <div>
-                    <h4 className="font-semibold text-slate-800">{alert.title}</h4>
-                    <p className="text-sm text-gray-600 mt-1">{alert.description}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {getSeverityBadge(alert.severity)}
-                  <Badge 
-                    variant="outline" 
-                    className={cn(
-                      alert.status === 'active' && 'border-red-200 text-red-700',
-                      alert.status === 'acknowledged' && 'border-blue-200 text-blue-700',
-                      alert.status === 'resolved' && 'border-green-200 text-green-700'
-                    )}
-                  >
-                    {alert.status}
-                  </Badge>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500">
-                  Created: {new Date(alert.created_at).toLocaleString()}
-                  {alert.tenant_id && (
-                    <span className="ml-3">Tenant: {alert.tenant_id}</span>
-                  )}
-                </div>
-                
-                {alert.status === 'active' && (
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleAcknowledge(alert.id)}
-                      disabled={acknowledgeAlert.isPending}
-                    >
-                      {acknowledgeAlert.isPending ? 'Acknowledging...' : 'Acknowledge'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleResolve(alert.id)}
-                      disabled={resolveAlert.isPending}
-                    >
-                      {resolveAlert.isPending ? 'Resolving...' : 'Resolve'}
-                    </Button>
-                  </div>
-                )}
-                
-                {alert.status === 'acknowledged' && (
-                  <Button
-                    size="sm"
-                    onClick={() => handleResolve(alert.id)}
-                    disabled={resolveAlert.isPending}
-                  >
-                    {resolveAlert.isPending ? 'Resolving...' : 'Resolve'}
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </CardContent>
-    </Card>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
+
+export default AlertsPanel;
