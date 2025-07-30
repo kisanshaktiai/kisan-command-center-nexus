@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { navItems } from './nav-items';
 import SuperAdmin from './pages/SuperAdmin';
 import Auth from './pages/Auth';
@@ -9,12 +10,14 @@ import AdminRegister from './pages/AdminRegister';
 import OnboardPartner from './pages/OnboardPartner';
 import { AdminInviteRegistration } from '@/components/auth/AdminInviteRegistration';
 import Register from './pages/Register';
+import NotFound from './pages/NotFound';
 import AppProviders from './components/providers/AppProviders';
 
 const App = () => (
   <AppProviders>
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<Navigate to="/auth" replace />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
@@ -26,6 +29,7 @@ const App = () => (
           <Route key={to} path={to} element={page} />
         ))}
         <Route path="/super-admin/*" element={<SuperAdmin />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   </AppProviders>

@@ -6,9 +6,16 @@ import { ServiceResult } from '@/services/BaseService';
 
 class UnifiedAuthService {
   private initialized = false;
+  private initializing = false;
 
   async initialize(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized || this.initializing) {
+      console.log('UnifiedAuth: Skipping initialization - already initialized or in progress');
+      return;
+    }
+
+    console.log('UnifiedAuth: Starting initialization...');
+    this.initializing = true;
 
     const { setLoading, setUser, setSession, setAuthState, setError } = useAuthStore.getState();
     
@@ -16,62 +23,110 @@ class UnifiedAuthService {
       setLoading(true);
       setError(null);
 
-      // Get initial session
+      // Add timeout to prevent hanging
+      const timeoutId = setTimeout(() => {
+        console.error('UnifiedAuth: Initialization timeout after 10 seconds');
+        setError('Authentication initialization timeout');
+        setLoading(false);
+        this.initializing = false;
+      }, 10000);
+
+      // Get initial session with error handling
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
+      clearTimeout(timeoutId);
+
       if (sessionError) {
-        console.error('Session error:', sessionError);
+        console.error('UnifiedAuth: Session error:', sessionError);
         setError('Failed to retrieve session');
+        setLoading(false);
+        this.initializing = false;
         return;
       }
+
+      console.log('UnifiedAuth: Session retrieved:', session ? `User: ${session.user.id}` : 'No session');
 
       if (session) {
         setSession(session);
         await this.loadUserProfile(session.user.id);
+      } else {
+        // Reset auth state when no session
+        useAuthStore.getState().reset();
       }
 
-      // Set up auth state listener
+      // Set up auth state listener with debouncing
+      let authStateTimeout: NodeJS.Timeout;
       supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id);
+        console.log('UnifiedAuth: Auth state change:', event, session?.user?.id || 'no user');
         
-        if (event === 'SIGNED_IN' && session) {
-          setSession(session);
-          await this.loadUserProfile(session.user.id);
-        } else if (event === 'SIGNED_OUT') {
-          setSession(null);
-          useAuthStore.getState().reset();
-        } else if (event === 'TOKEN_REFRESHED' && session) {
-          setSession(session);
-        }
+        // Debounce rapid auth state changes
+        clearTimeout(authStateTimeout);
+        authStateTimeout = setTimeout(async () => {
+          try {
+            if (event === 'SIGNED_IN' && session) {
+              setSession(session);
+              await this.loadUserProfile(session.user.id);
+            } else if (event === 'SIGNED_OUT') {
+              console.log('UnifiedAuth: User signed out, resetting state');
+              setSession(null);
+              useAuthStore.getState().reset();
+            } else if (event === 'TOKEN_REFRESHED' && session) {
+              console.log('UnifiedAuth: Token refreshed');
+              setSession(session);
+            }
+          } catch (error) {
+            console.error('UnifiedAuth: Error handling auth state change:', error);
+            setError('Authentication state update failed');
+          }
+        }, 100); // 100ms debounce
       });
 
       this.initialized = true;
+      console.log('UnifiedAuth: Initialization completed successfully');
     } catch (error) {
-      console.error('Failed to initialize auth service:', error);
+      console.error('UnifiedAuth: Failed to initialize:', error);
       setError('Authentication initialization failed');
     } finally {
       setLoading(false);
+      this.initializing = false;
     }
   }
 
   private async loadUserProfile(userId: string): Promise<void> {
     try {
-      // Check if user is an admin
-      const { data: adminData } = await supabase
+      console.log('UnifiedAuth: Loading user profile for:', userId);
+      
+      // Check if user is an admin with timeout
+      const adminQueryTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Admin query timeout')), 5000);
+      });
+
+      const adminQuery = supabase
         .from('admin_users')
         .select('role, is_active')
         .eq('id', userId)
         .single();
 
+      const { data: adminData, error: adminError } = await Promise.race([
+        adminQuery,
+        adminQueryTimeout
+      ]) as any;
+
+      if (adminError && adminError.code !== 'PGRST116') {
+        console.warn('UnifiedAuth: Error checking admin status:', adminError);
+      }
+
       const { setAuthState } = useAuthStore.getState();
       
       if (adminData?.is_active) {
+        console.log('UnifiedAuth: User is active admin with role:', adminData.role);
         setAuthState({
           isAdmin: true,
           isSuperAdmin: adminData.role === 'super_admin',
           adminRole: adminData.role
         });
       } else {
+        console.log('UnifiedAuth: User is not an admin');
         setAuthState({
           isAdmin: false,
           isSuperAdmin: false,
@@ -79,19 +134,28 @@ class UnifiedAuthService {
         });
       }
     } catch (error) {
-      console.error('Failed to load user profile:', error);
+      console.error('UnifiedAuth: Failed to load user profile:', error);
+      // Set default non-admin state on profile load failure
+      const { setAuthState } = useAuthStore.getState();
+      setAuthState({
+        isAdmin: false,
+        isSuperAdmin: false,
+        adminRole: null
+      });
     }
   }
 
   async signOut(): Promise<ServiceResult<void>> {
     try {
+      console.log('UnifiedAuth: Signing out user');
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
       useAuthStore.getState().reset();
+      this.initialized = false; // Allow re-initialization after signout
       return { success: true };
     } catch (error) {
-      console.error('Sign out error:', error);
+      console.error('UnifiedAuth: Sign out error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Sign out failed'
@@ -124,12 +188,19 @@ class UnifiedAuthService {
         }
       };
     } catch (error) {
-      console.error('Sign up error:', error);
+      console.error('UnifiedAuth: Sign up error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Sign up failed'
       };
     }
+  }
+
+  // Add method to reset initialization state for debugging
+  reset(): void {
+    console.log('UnifiedAuth: Resetting initialization state');
+    this.initialized = false;
+    this.initializing = false;
   }
 }
 
