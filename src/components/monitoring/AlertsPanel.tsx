@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -9,14 +9,11 @@ import {
   AlertTriangle, 
   Bell, 
   CheckCircle, 
-  XCircle, 
   Clock, 
   Filter,
-  X,
   Eye
 } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { usePlatformAlerts, useAcknowledgeAlert, useResolveAlert } from '@/lib/api/queries';
 
 type AlertStatus = 'active' | 'acknowledged' | 'resolved';
 
@@ -24,31 +21,11 @@ const AlertsPanel = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<string>('all');
   const [unreadCount, setUnreadCount] = useState(0);
-  const queryClient = useQueryClient();
 
-  // Fetch alerts
-  const { data: alerts, isLoading } = useQuery({
-    queryKey: ['platform-alerts', filter],
-    queryFn: async () => {
-      let query = supabase
-        .from('platform_alerts')
-        .select('*')
-        .order('triggered_at', { ascending: false });
-
-      if (filter !== 'all') {
-        if (filter === 'unresolved') {
-          query = query.in('status', ['active', 'acknowledged']);
-        } else {
-          query = query.eq('status', filter as AlertStatus);
-        }
-      }
-
-      const { data, error } = await query.limit(50);
-      if (error) throw error;
-      return data || [];
-    },
-    refetchInterval: 10000, // Refetch every 10 seconds
-  });
+  // Use real data queries
+  const { data: alerts = [], isLoading } = usePlatformAlerts(filter);
+  const acknowledgeAlert = useAcknowledgeAlert();
+  const resolveAlert = useResolveAlert();
 
   // Update unread count
   useEffect(() => {
@@ -57,100 +34,6 @@ const AlertsPanel = () => {
       setUnreadCount(unresolved);
     }
   }, [alerts]);
-
-  // Acknowledge alert mutation
-  const acknowledgeAlert = useMutation({
-    mutationFn: async (alertId: string) => {
-      const { error } = await supabase
-        .from('platform_alerts')
-        .update({
-          status: 'acknowledged' as AlertStatus,
-          acknowledged_at: new Date().toISOString(),
-          acknowledged_by: 'current-user-id' // Should use actual user ID
-        })
-        .eq('id', alertId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-alerts'] });
-    },
-  });
-
-  // Resolve alert mutation
-  const resolveAlert = useMutation({
-    mutationFn: async (alertId: string) => {
-      const { error } = await supabase
-        .from('platform_alerts')
-        .update({
-          status: 'resolved' as AlertStatus,
-          resolved_at: new Date().toISOString(),
-          resolved_by: 'current-user-id' // Should use actual user ID
-        })
-        .eq('id', alertId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-alerts'] });
-    },
-  });
-
-  // Mock alerts for demonstration
-  const mockAlerts = [
-    {
-      id: '1',
-      alert_name: 'High CPU Usage',
-      description: 'Database server CPU usage exceeded 90% for 5 minutes',
-      severity: 'critical' as const,
-      status: 'active' as AlertStatus,
-      metric_name: 'cpu_usage',
-      current_value: 94.2,
-      threshold_value: 90,
-      triggered_at: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
-      tenant_id: null
-    },
-    {
-      id: '2',
-      alert_name: 'API Response Time Alert',
-      description: 'Average API response time exceeds acceptable threshold',
-      severity: 'high' as const,
-      status: 'acknowledged' as AlertStatus,
-      metric_name: 'response_time',
-      current_value: 2.8,
-      threshold_value: 2.0,
-      triggered_at: new Date(Date.now() - 1800000).toISOString(), // 30 minutes ago
-      acknowledged_at: new Date(Date.now() - 900000).toISOString(), // 15 minutes ago
-      tenant_id: null
-    },
-    {
-      id: '3',
-      alert_name: 'Storage Usage Warning',
-      description: 'Database storage usage approaching limit',
-      severity: 'medium' as const,
-      status: 'active' as AlertStatus,
-      metric_name: 'storage_usage',
-      current_value: 82.5,
-      threshold_value: 80,
-      triggered_at: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      tenant_id: null
-    },
-    {
-      id: '4',
-      alert_name: 'Payment Processing Error',
-      description: 'Multiple payment processing failures detected',
-      severity: 'high' as const,
-      status: 'resolved' as AlertStatus,
-      metric_name: 'payment_errors',
-      current_value: 5,
-      threshold_value: 3,
-      triggered_at: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
-      resolved_at: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      tenant_id: null
-    }
-  ];
-
-  const alertsToShow = alerts?.length > 0 ? alerts : mockAlerts;
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -218,7 +101,7 @@ const AlertsPanel = () => {
                   Platform Alerts
                 </div>
                 <Badge variant="outline">
-                  {alertsToShow.filter(a => a.status === 'active').length} active
+                  {alerts.filter(a => a.status === 'active').length} active
                 </Badge>
               </SheetTitle>
               <SheetDescription>
@@ -255,25 +138,25 @@ const AlertsPanel = () => {
                     </Card>
                   ))}
                 </div>
-              ) : alertsToShow.length === 0 ? (
+              ) : alerts.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <CheckCircle className="w-8 h-8 mx-auto mb-2" />
                   <p>No alerts found</p>
                 </div>
               ) : (
-                alertsToShow.map((alert) => (
+                alerts.map((alert) => (
                   <Card key={alert.id} className={`${alert.status === 'active' ? 'border-red-200' : ''}`}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          {getStatusIcon(alert.status)}
+                          {getStatusIcon(alert.status as AlertStatus)}
                           <h4 className="font-medium text-sm">{alert.alert_name}</h4>
                         </div>
                         <div className="flex items-center gap-1">
                           <Badge variant={getSeverityColor(alert.severity)} className="text-xs">
                             {alert.severity}
                           </Badge>
-                          <Badge variant={getStatusColor(alert.status)} className="text-xs">
+                          <Badge variant={getStatusColor(alert.status as AlertStatus)} className="text-xs">
                             {alert.status}
                           </Badge>
                         </div>

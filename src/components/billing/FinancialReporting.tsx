@@ -1,312 +1,331 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { DollarSign, TrendingUp, FileText, Download } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  DollarSign, 
+  CreditCard,
+  Users,
+  Calendar,
+  Download,
+  FileText
+} from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend
+} from 'recharts';
+import { useFinancialAnalytics } from '@/lib/api/queries';
 
-interface FinancialData {
-  payments: any[];
-  invoices: any[];
-  subscriptions: any[];
-}
+const FinancialReporting = () => {
+  const [timeRange, setTimeRange] = useState('30d');
+  const [reportType, setReportType] = useState('revenue');
+  
+  const { data: financialData = [], isLoading } = useFinancialAnalytics(timeRange);
 
-export function FinancialReporting() {
-  const [dateRange, setDateRange] = useState<any>(null);
-  const [reportType, setReportType] = useState<string>('revenue');
-
-  // Use mock data until billing tables are available
-  const { data: financialData, isLoading } = useQuery({
-    queryKey: ['financial-data', dateRange],
-    queryFn: async (): Promise<FinancialData> => {
-      try {
-        // For now, return mock data since billing tables may not be available
-        return {
-          payments: [
-            { id: '1', amount: 50000, status: 'completed', created_at: new Date().toISOString() },
-            { id: '2', amount: 75000, status: 'completed', created_at: new Date().toISOString() },
-          ],
-          invoices: [
-            { id: '1', amount_due: 25000, status: 'pending', created_at: new Date().toISOString() },
-            { id: '2', amount_due: 0, status: 'paid', created_at: new Date().toISOString() },
-          ],
-          subscriptions: [
-            { id: '1', created_at: new Date().toISOString(), billing_plans: { base_price: 10000, billing_interval: 'monthly' } },
-          ]
-        };
-      } catch (error) {
-        console.error('Error fetching financial data:', error);
-        return {
-          payments: [],
-          invoices: [],
-          subscriptions: []
-        };
-      }
+  // Process real financial data
+  const processedData = React.useMemo(() => {
+    if (!financialData || financialData.length === 0) {
+      return {
+        revenue: [],
+        expenses: [],
+        subscriptions: [],
+        summary: {
+          totalRevenue: 0,
+          totalExpenses: 0,
+          netProfit: 0,
+          growthRate: 0,
+          activeSubscriptions: 0,
+          churnRate: 0
+        }
+      };
     }
-  });
 
-  // Calculate financial metrics with safe property access
-  const calculateMetrics = () => {
-    if (!financialData) return { totalRevenue: 0, pendingAmount: 0, completedPayments: 0, overdueInvoices: 0 };
+    // Group data by date and metric type
+    const revenueData = financialData
+      .filter(item => item.metric_type === 'revenue')
+      .map(item => ({
+        date: new Date(item.date).toLocaleDateString(),
+        value: Number(item.amount),
+        period: item.period
+      }));
 
-    const totalRevenue = financialData.payments
-      .filter(payment => payment?.status === 'completed')
-      .reduce((sum, payment) => sum + (Number(payment?.amount) || 0), 0);
+    const expenseData = financialData
+      .filter(item => item.metric_type === 'expenses')
+      .map(item => ({
+        date: new Date(item.date).toLocaleDateString(),
+        value: Number(item.amount),
+        category: item.category
+      }));
 
-    const pendingAmount = financialData.invoices
-      .filter(invoice => invoice?.status === 'pending')
-      .reduce((sum, invoice) => sum + (Number(invoice?.amount_due) || 0), 0);
+    const subscriptionData = financialData
+      .filter(item => item.metric_type === 'subscriptions')
+      .map(item => ({
+        date: new Date(item.date).toLocaleDateString(),
+        active: Number(item.active_count),
+        new: Number(item.new_count),
+        churned: Number(item.churned_count)
+      }));
 
-    const completedPayments = financialData.payments.filter(payment => payment?.status === 'completed').length;
-    const overdueInvoices = financialData.invoices.filter(invoice => invoice?.status === 'overdue').length;
-
-    return { totalRevenue, pendingAmount, completedPayments, overdueInvoices };
-  };
-
-  // Generate MRR data with proper error handling
-  const generateMRRData = () => {
-    if (!financialData?.subscriptions) return [];
-
-    const mrrByMonth: { [key: string]: number } = {};
+    // Calculate summary metrics
+    const totalRevenue = revenueData.reduce((sum, item) => sum + item.value, 0);
+    const totalExpenses = expenseData.reduce((sum, item) => sum + item.value, 0);
+    const netProfit = totalRevenue - totalExpenses;
+    const growthRate = revenueData.length > 1 ? 
+      ((revenueData[revenueData.length - 1].value - revenueData[0].value) / revenueData[0].value) * 100 : 0;
     
-    financialData.subscriptions.forEach(sub => {
-      if (!sub?.billing_plans) return;
-      
-      const date = new Date(sub.created_at);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      let monthlyPrice = Number(sub.billing_plans.base_price) || 0;
-      if (sub.billing_plans.billing_interval === 'quarterly') {
-        monthlyPrice = monthlyPrice / 3;
-      } else if (sub.billing_plans.billing_interval === 'annually') {
-        monthlyPrice = monthlyPrice / 12;
+    const latestSubscriptions = subscriptionData[subscriptionData.length - 1];
+    const activeSubscriptions = latestSubscriptions?.active || 0;
+    const churnRate = latestSubscriptions ? 
+      (latestSubscriptions.churned / (latestSubscriptions.active + latestSubscriptions.churned)) * 100 : 0;
+
+    return {
+      revenue: revenueData,
+      expenses: expenseData,
+      subscriptions: subscriptionData,
+      summary: {
+        totalRevenue,
+        totalExpenses,
+        netProfit,
+        growthRate,
+        activeSubscriptions,
+        churnRate
       }
-      
-      mrrByMonth[monthKey] = (mrrByMonth[monthKey] || 0) + monthlyPrice;
-    });
+    };
+  }, [financialData]);
 
-    return Object.entries(mrrByMonth)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, revenue]) => ({
-        month: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        revenue: Math.round(revenue)
-      }));
-  };
-
-  // Generate revenue trends with safe property access
-  const generateRevenueTrends = () => {
-    if (!financialData?.payments) return [];
-
-    const revenueByMonth: { [key: string]: number } = {};
+  const exportReport = () => {
+    // Create CSV export functionality
+    const csvData = financialData.map(row => ({
+      Date: row.date,
+      Type: row.metric_type,
+      Amount: row.amount,
+      Category: row.category,
+      Period: row.period
+    }));
     
-    financialData.payments.forEach(payment => {
-      if (payment?.status !== 'completed') return;
-      
-      const date = new Date(payment.created_at || Date.now());
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      revenueByMonth[monthKey] = (revenueByMonth[monthKey] || 0) + (Number(payment?.amount) || 0);
-    });
-
-    return Object.entries(revenueByMonth)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, amount]) => ({
-        month: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        amount: Math.round(amount)
-      }));
+    const csv = [
+      Object.keys(csvData[0]).join(','),
+      ...csvData.map(row => Object.values(row).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `financial-report-${timeRange}.csv`;
+    a.click();
   };
-
-  const metrics = calculateMetrics();
-  const mrrData = generateMRRData();
-  const revenueData = generateRevenueTrends();
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="text-center py-8">Loading financial data...</div>
+      <div className="space-y-6">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="animate-pulse">
+            <CardContent className="p-6">
+              <div className="h-64 bg-muted rounded"></div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Financial Reporting</h1>
-          <p className="text-muted-foreground">Comprehensive financial analytics and reporting</p>
-        </div>
-        <div className="flex gap-2">
-          <Select value={reportType} onValueChange={setReportType}>
+      {/* Controls */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex gap-4">
+          <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Select report type" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="revenue">Revenue Report</SelectItem>
-              <SelectItem value="subscriptions">Subscription Report</SelectItem>
-              <SelectItem value="invoices">Invoice Report</SelectItem>
-              <SelectItem value="payments">Payment Report</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
+              <SelectItem value="1y">Last year</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
+          
+          <Select value={reportType} onValueChange={setReportType}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="revenue">Revenue Analysis</SelectItem>
+              <SelectItem value="expenses">Expense Breakdown</SelectItem>
+              <SelectItem value="subscriptions">Subscription Metrics</SelectItem>
+              <SelectItem value="overview">Financial Overview</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+
+        <Button onClick={exportReport} className="flex items-center gap-2">
+          <Download className="w-4 h-4" />
+          Export Report
+        </Button>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{metrics.totalRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">From completed payments</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{metrics.pendingAmount.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">From pending invoices</p>
+            <div className="text-2xl font-bold">${processedData.summary.totalRevenue.toLocaleString()}</div>
+            <div className="flex items-center text-xs text-muted-foreground">
+              {processedData.summary.growthRate >= 0 ? (
+                <TrendingUp className="w-3 h-3 mr-1 text-green-500" />
+              ) : (
+                <TrendingDown className="w-3 h-3 mr-1 text-red-500" />
+              )}
+              {Math.abs(processedData.summary.growthRate).toFixed(1)}% from last period
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Payments</CardTitle>
+            <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.completedPayments}</div>
-            <p className="text-xs text-muted-foreground">Successful transactions</p>
+            <div className="text-2xl font-bold">${processedData.summary.netProfit.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground">
+              Margin: {((processedData.summary.netProfit / processedData.summary.totalRevenue) * 100).toFixed(1)}%
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue Invoices</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.overdueInvoices}</div>
-            <p className="text-xs text-muted-foreground">Requires attention</p>
+            <div className="text-2xl font-bold">{processedData.summary.activeSubscriptions.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground">
+              Churn rate: {processedData.summary.churnRate.toFixed(1)}%
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${processedData.summary.totalExpenses.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground">
+              Operating costs
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="revenue" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="revenue">Revenue Analytics</TabsTrigger>
-          <TabsTrigger value="mrr">MRR Tracking</TabsTrigger>
-          <TabsTrigger value="breakdown">Revenue Breakdown</TabsTrigger>
-        </TabsList>
+      {/* Main Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            {reportType === 'revenue' && 'Revenue Trends'}
+            {reportType === 'expenses' && 'Expense Analysis'}
+            {reportType === 'subscriptions' && 'Subscription Metrics'}
+            {reportType === 'overview' && 'Financial Overview'}
+          </CardTitle>
+          <CardDescription>
+            {reportType === 'revenue' && 'Track revenue performance over time'}
+            {reportType === 'expenses' && 'Monitor expense categories and trends'}
+            {reportType === 'subscriptions' && 'Analyze subscription growth and churn'}
+            {reportType === 'overview' && 'Complete financial performance summary'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={400}>
+            {reportType === 'revenue' && (
+              <AreaChart data={processedData.revenue}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
+                <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
+              </AreaChart>
+            )}
+            
+            {reportType === 'expenses' && (
+              <BarChart data={processedData.expenses}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Expenses']} />
+                <Bar dataKey="value" fill="hsl(var(--secondary))" />
+              </BarChart>
+            )}
+            
+            {reportType === 'subscriptions' && (
+              <LineChart data={processedData.subscriptions}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="active" stroke="hsl(var(--primary))" name="Active" />
+                <Line type="monotone" dataKey="new" stroke="hsl(var(--secondary))" name="New" />
+                <Line type="monotone" dataKey="churned" stroke="hsl(var(--destructive))" name="Churned" />
+              </LineChart>
+            )}
+            
+            {reportType === 'overview' && (
+              <AreaChart data={processedData.revenue.map((rev, idx) => ({
+                ...rev,
+                expenses: processedData.expenses[idx]?.value || 0,
+                profit: rev.value - (processedData.expenses[idx]?.value || 0)
+              }))}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, '']} />
+                <Area type="monotone" dataKey="value" stackId="1" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" name="Revenue" />
+                <Area type="monotone" dataKey="expenses" stackId="2" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive))" name="Expenses" />
+              </AreaChart>
+            )}
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="revenue" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue Trends</CardTitle>
-              <CardDescription>Monthly revenue from payments</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={revenueData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`₹${Number(value).toLocaleString()}`, 'Revenue']} />
-                  <Bar dataKey="amount" fill="hsl(var(--primary))" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="mrr" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Recurring Revenue (MRR)</CardTitle>
-              <CardDescription>Subscription-based recurring revenue tracking</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={mrrData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`₹${Number(value).toLocaleString()}`, 'MRR']} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="breakdown" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Status Distribution</CardTitle>
-                <CardDescription>Breakdown of payment statuses</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Completed</span>
-                    <span className="font-medium">{financialData?.payments.filter(p => p?.status === 'completed').length || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Pending</span>
-                    <span className="font-medium">{financialData?.payments.filter(p => p?.status === 'pending').length || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Failed</span>
-                    <span className="font-medium">{financialData?.payments.filter(p => p?.status === 'failed').length || 0}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Invoice Status Distribution</CardTitle>
-                <CardDescription>Breakdown of invoice statuses</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Paid</span>
-                    <span className="font-medium">{financialData?.invoices.filter(i => i?.status === 'paid').length || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Pending</span>
-                    <span className="font-medium">{financialData?.invoices.filter(i => i?.status === 'pending').length || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Overdue</span>
-                    <span className="font-medium">{financialData?.invoices.filter(i => i?.status === 'overdue').length || 0}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* Additional Insights */}
+      {financialData.length === 0 && (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Financial Data Available</h3>
+            <p className="text-muted-foreground">
+              Financial data will appear here once transactions and subscriptions are processed.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
-}
+};
+
+export default FinancialReporting;
