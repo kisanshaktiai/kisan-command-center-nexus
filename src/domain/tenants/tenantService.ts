@@ -86,7 +86,6 @@ class TenantService {
         owner_name: tenantData.owner_name,
         metadata: tenantData.metadata || {},
         status: 'trial',
-        is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -144,6 +143,7 @@ class TenantService {
       id: data.id,
       name: data.name,
       slug: data.slug,
+      type: data.type || 'agri_company',
       status: data.status,
       subscription_plan: data.subscription_plan,
       created_at: data.created_at,

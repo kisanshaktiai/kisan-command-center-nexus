@@ -1,8 +1,8 @@
-
 export interface TenantDTO {
   id: string;
   name: string;
   slug: string;
+  type: string;
   status: string;
   subscription_plan: string;
   created_at: string;

@@ -12,11 +12,15 @@ export class MetricsService {
 
     if (error) throw error;
     
-    // Map database fields to interface with computed fields
+    // Map database fields to interface with computed fields and proper type casting
     return (data || []).map(item => ({
       ...item,
       name: item.metric_name,
-      status: this.computeHealthStatus(item.value, item.metric_type)
+      status: this.computeHealthStatus(item.value, item.metric_type),
+      labels: (item.labels as Record<string, any>) || {},
+      tenant_id: item.tenant_id || '',
+      unit: item.unit || '',
+      timestamp: item.timestamp || item.created_at
     }));
   }
 
@@ -35,11 +39,13 @@ export class MetricsService {
     const { data, error } = await query;
     if (error) throw error;
     
-    // Map database fields to interface with computed fields
+    // Map database fields to interface with computed fields and proper type casting
     return (data || []).map(item => ({
       ...item,
       category: this.categorizeFiancialMetric(item.metric_type),
-      period: `${item.period_start} to ${item.period_end}`
+      period: `${item.period_start} to ${item.period_end}`,
+      breakdown: (item.breakdown as Record<string, any>) || {},
+      tenant_id: item.tenant_id || ''
     }));
   }
 
@@ -52,13 +58,42 @@ export class MetricsService {
 
     if (error) throw error;
     
-    // Map database fields to interface with computed fields
+    // Map database fields to interface with computed fields and proper type casting
     return (data || []).map(item => ({
       ...item,
-      threshold: item.max_limit * 0.8, // 80% threshold
-      status: this.computeResourceStatus(item.usage_percentage),
-      timestamp: item.created_at
+      threshold: (item.max_limit || 0) * 0.8, // 80% threshold
+      status: this.computeResourceStatus(item.usage_percentage || 0),
+      timestamp: item.created_at,
+      metadata: (item.metadata as Record<string, any>) || {},
+      tenant_id: item.tenant_id || '',
+      max_limit: item.max_limit || 0,
+      usage_percentage: item.usage_percentage || 0
     }));
+  }
+
+  async getTenantMetrics(tenantId: string): Promise<any> {
+    // Get tenant-specific metrics from multiple tables
+    const [systemMetrics, financialMetrics, resourceMetrics] = await Promise.all([
+      this.getSystemMetrics(),
+      this.getFinancialMetrics(),
+      this.getResourceMetrics()
+    ]);
+
+    // Filter metrics for the specific tenant
+    const tenantSystemMetrics = systemMetrics.filter(m => m.tenant_id === tenantId);
+    const tenantFinancialMetrics = financialMetrics.filter(m => m.tenant_id === tenantId);
+    const tenantResourceMetrics = resourceMetrics.filter(m => m.tenant_id === tenantId);
+
+    return {
+      system: tenantSystemMetrics,
+      financial: tenantFinancialMetrics,
+      resources: tenantResourceMetrics,
+      summary: {
+        totalMetrics: tenantSystemMetrics.length + tenantFinancialMetrics.length + tenantResourceMetrics.length,
+        healthScore: this.calculateTenantHealthScore(tenantSystemMetrics, tenantResourceMetrics),
+        lastUpdated: new Date().toISOString()
+      }
+    };
   }
 
   async updateSystemMetric(id: string, data: Partial<Omit<SystemMetric, 'id' | 'name' | 'status'>>): Promise<SystemMetric> {
@@ -74,7 +109,10 @@ export class MetricsService {
     return {
       ...result,
       name: result.metric_name,
-      status: this.computeHealthStatus(result.value, result.metric_type)
+      status: this.computeHealthStatus(result.value, result.metric_type),
+      labels: (result.labels as Record<string, any>) || {},
+      tenant_id: result.tenant_id || '',
+      unit: result.unit || ''
     };
   }
 
@@ -90,7 +128,9 @@ export class MetricsService {
     return {
       ...result,
       category: this.categorizeFiancialMetric(result.metric_type),
-      period: `${result.period_start} to ${result.period_end}`
+      period: `${result.period_start} to ${result.period_end}`,
+      breakdown: (result.breakdown as Record<string, any>) || {},
+      tenant_id: result.tenant_id || ''
     };
   }
 
@@ -127,6 +167,15 @@ export class MetricsService {
       subscription: 'Subscriptions'
     };
     return categories[metricType] || 'Other';
+  }
+
+  private calculateTenantHealthScore(systemMetrics: SystemMetric[], resourceMetrics: ResourceMetric[]): number {
+    const healthySystem = systemMetrics.filter(m => m.status === 'healthy').length;
+    const normalResources = resourceMetrics.filter(r => r.status === 'normal').length;
+    const total = systemMetrics.length + resourceMetrics.length;
+    
+    if (total === 0) return 100;
+    return Math.round(((healthySystem + normalResources) / total) * 100);
   }
 }
 
