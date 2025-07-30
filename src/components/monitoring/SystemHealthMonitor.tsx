@@ -39,7 +39,7 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
       };
     }
 
-    // Get latest metrics by type
+    // Get latest metrics by name using actual schema
     const getLatestMetric = (name: string) => {
       const metric = systemMetrics.find(m => m.metric_name === name);
       return metric ? Number(metric.value) : 0;
@@ -57,16 +57,16 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
     };
   }, [systemMetrics]);
 
-  // Process real metrics data for charts
+  // Process real metrics data for charts using actual schema
   const chartData = React.useMemo(() => {
     if (!resourceData || resourceData.length === 0) return [];
     
     return resourceData.slice(0, 24).reverse().map((resource) => ({
-      time: new Date(resource.timestamp).toLocaleTimeString(),
-      cpu: Number(resource.cpu_usage || 0),
-      memory: Number(resource.memory_usage || 0),
-      network: Number(resource.network_usage || 0),
-      response_time: Number(resource.avg_response_time || 0)
+      time: new Date(resource.created_at).toLocaleTimeString(),
+      cpu: resource.resource_type === 'cpu' ? Number(resource.usage_percentage || 0) : 0,
+      memory: resource.resource_type === 'memory' ? Number(resource.usage_percentage || 0) : 0,
+      network: resource.resource_type === 'network' ? Number(resource.usage_percentage || 0) : 0,
+      response_time: resource.metadata ? Number((resource.metadata as any).response_time || 0) : 0
     }));
   }, [resourceData]);
 
@@ -83,16 +83,16 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
       ];
     }
 
-    // Extract service data from real metrics
+    // Extract service data from real metrics using actual schema
     const serviceMap = new Map();
     systemMetrics.forEach(metric => {
-      const serviceName = metric.metadata?.service_name || 'Unknown Service';
+      const serviceName = metric.labels ? (metric.labels as any).service_name || 'Unknown Service' : 'Unknown Service';
       if (!serviceMap.has(serviceName)) {
         serviceMap.set(serviceName, {
           name: serviceName,
           status: Number(metric.value) > 90 ? 'healthy' : Number(metric.value) > 70 ? 'warning' : 'critical',
           uptime: Number(metric.value) || 0,
-          response_time: Number(metric.metadata?.response_time) || 0
+          response_time: metric.labels ? Number((metric.labels as any).response_time) || 0 : 0
         });
       }
     });
@@ -245,7 +245,7 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
                     </p>
                   </div>
                 </div>
-                <Badge variant={getStatusBadge(service.status)}>
+                <Badge variant={getStatusBadge(service.status) as any}>
                   {service.status}
                 </Badge>
               </div>

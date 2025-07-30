@@ -39,7 +39,7 @@ const FinancialReporting = () => {
   
   const { data: financialData = [], isLoading } = useFinancialAnalytics(timeRange);
 
-  // Process real financial data
+  // Process real financial data based on actual schema
   const processedData = React.useMemo(() => {
     if (!financialData || financialData.length === 0) {
       return {
@@ -57,30 +57,30 @@ const FinancialReporting = () => {
       };
     }
 
-    // Group data by date and metric type
+    // Group data by metric type using actual schema fields
     const revenueData = financialData
       .filter(item => item.metric_type === 'revenue')
       .map(item => ({
-        date: new Date(item.date).toLocaleDateString(),
+        date: new Date(item.period_start).toLocaleDateString(),
         value: Number(item.amount),
-        period: item.period
+        period: item.period_type
       }));
 
     const expenseData = financialData
       .filter(item => item.metric_type === 'expenses')
       .map(item => ({
-        date: new Date(item.date).toLocaleDateString(),
+        date: new Date(item.period_start).toLocaleDateString(),
         value: Number(item.amount),
-        category: item.category
+        category: item.breakdown ? (item.breakdown as any).category || 'Other' : 'Other'
       }));
 
     const subscriptionData = financialData
       .filter(item => item.metric_type === 'subscriptions')
       .map(item => ({
-        date: new Date(item.date).toLocaleDateString(),
-        active: Number(item.active_count),
-        new: Number(item.new_count),
-        churned: Number(item.churned_count)
+        date: new Date(item.period_start).toLocaleDateString(),
+        active: item.breakdown ? Number((item.breakdown as any).active_count || 0) : 0,
+        new: item.breakdown ? Number((item.breakdown as any).new_count || 0) : 0,
+        churned: item.breakdown ? Number((item.breakdown as any).churned_count || 0) : 0
       }));
 
     // Calculate summary metrics
@@ -113,15 +113,15 @@ const FinancialReporting = () => {
   const exportReport = () => {
     // Create CSV export functionality
     const csvData = financialData.map(row => ({
-      Date: row.date,
+      Date: row.period_start,
       Type: row.metric_type,
       Amount: row.amount,
-      Category: row.category,
-      Period: row.period
+      Category: row.breakdown ? (row.breakdown as any).category || 'N/A' : 'N/A',
+      Period: row.period_type
     }));
     
     const csv = [
-      Object.keys(csvData[0]).join(','),
+      Object.keys(csvData[0] || {}).join(','),
       ...csvData.map(row => Object.values(row).join(','))
     ].join('\n');
     
@@ -267,7 +267,7 @@ const FinancialReporting = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
-                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
+                <Tooltip formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Revenue']} />
                 <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
               </AreaChart>
             )}
@@ -277,7 +277,7 @@ const FinancialReporting = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
-                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Expenses']} />
+                <Tooltip formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Expenses']} />
                 <Bar dataKey="value" fill="hsl(var(--secondary))" />
               </BarChart>
             )}
@@ -303,7 +303,7 @@ const FinancialReporting = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
-                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, '']} />
+                <Tooltip formatter={(value) => [`$${Number(value).toLocaleString()}`, '']} />
                 <Area type="monotone" dataKey="value" stackId="1" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" name="Revenue" />
                 <Area type="monotone" dataKey="expenses" stackId="2" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive))" name="Expenses" />
               </AreaChart>

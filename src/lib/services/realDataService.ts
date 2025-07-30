@@ -22,27 +22,20 @@ export class RealDataService {
     return RealDataService.instance;
   }
 
-  // Get real SIM information from device capabilities table
+  // Get real SIM information - simplified implementation without non-existent table
   async detectSIMInfo(): Promise<SIMInfo | null> {
     try {
-      // Try to get SIM info from user's device capabilities if stored
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data, error } = await supabase
-        .from('user_device_capabilities')
-        .select('sim_info')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error || !data?.sim_info) {
-        // Fall back to browser detection or return basic info
-        return this.detectBrowserSIMInfo();
-      }
-
-      return data.sim_info as SIMInfo;
+      // Since user_device_capabilities table doesn't exist, we'll use a fallback approach
+      const location = await this.detectUserLocation();
+      
+      return {
+        carrierName: 'Unknown',
+        countryCode: location.countryCode || 'Unknown',
+        isoCountryCode: location.countryCode || 'Unknown',
+        callsAllowed: true,
+        voiceRoamingAllowed: false,
+        dataRoamingAllowed: true,
+      };
     } catch (error) {
       console.error('Error detecting SIM info:', error);
       return this.detectBrowserSIMInfo();

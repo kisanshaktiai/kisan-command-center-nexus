@@ -16,7 +16,11 @@ export const usePlatformAlerts = (filter: string = 'all') => {
         if (filter === 'unresolved') {
           query = query.in('status', ['active', 'acknowledged']);
         } else {
-          query = query.eq('status', filter);
+          // Ensure filter is one of the valid status values
+          const validStatuses = ['active', 'acknowledged', 'resolved'];
+          if (validStatuses.includes(filter)) {
+            query = query.eq('status', filter);
+          }
         }
       }
 
@@ -55,7 +59,7 @@ export const useFinancialAnalytics = (timeRange: string = '30d') => {
       const { data, error } = await supabase
         .from('financial_analytics')
         .select('*')
-        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;
@@ -73,7 +77,7 @@ export const useResourceUtilization = (refreshInterval: number = 30000) => {
       const { data, error } = await supabase
         .from('resource_utilization')
         .select('*')
-        .order('timestamp', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;

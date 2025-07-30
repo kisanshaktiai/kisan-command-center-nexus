@@ -153,10 +153,10 @@ const AlertsPanel = () => {
                           <h4 className="font-medium text-sm">{alert.alert_name}</h4>
                         </div>
                         <div className="flex items-center gap-1">
-                          <Badge variant={getSeverityColor(alert.severity)} className="text-xs">
+                          <Badge variant={getSeverityColor(alert.severity) as any} className="text-xs">
                             {alert.severity}
                           </Badge>
-                          <Badge variant={getStatusColor(alert.status as AlertStatus)} className="text-xs">
+                          <Badge variant={getStatusColor(alert.status as AlertStatus) as any} className="text-xs">
                             {alert.status}
                           </Badge>
                         </div>
