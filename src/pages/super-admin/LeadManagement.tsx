@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { LeadManagement } from '@/components/leads/LeadManagement';
+import { EnhancedLeadManagement } from '@/components/leads/EnhancedLeadManagement';
 
 export default function LeadManagementPage() {
-  return <LeadManagement />;
+  return <EnhancedLeadManagement />;
 }
