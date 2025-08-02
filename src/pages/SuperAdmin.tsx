@@ -7,9 +7,13 @@ import { SuperAdminSidebar } from '@/components/super-admin/SuperAdminSidebar';
 import Overview from './super-admin/Overview';
 import TenantManagement from './super-admin/TenantManagement';
 import LeadManagement from './super-admin/LeadManagement';
+import TenantOnboarding from './super-admin/TenantOnboarding';
 import AdminUserManagement from './super-admin/AdminUserManagement';
 import BillingManagement from './super-admin/BillingManagement';
+import SubscriptionManagement from './super-admin/SubscriptionManagement';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
+import FeatureFlags from './super-admin/FeatureFlags';
+import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -81,9 +85,13 @@ const SuperAdmin = () => {
             <Route path="/overview" element={<Overview />} />
             <Route path="/tenant-management" element={<TenantManagement />} />
             <Route path="/lead-management" element={<LeadManagement />} />
+            <Route path="/tenant-onboarding" element={<TenantOnboarding />} />
             <Route path="/admin-user-management" element={<AdminUserManagement />} />
             <Route path="/billing-management" element={<BillingManagement />} />
+            <Route path="/subscription-management" element={<SubscriptionManagement />} />
             <Route path="/platform-monitoring" element={<PlatformMonitoring />} />
+            <Route path="/feature-flags" element={<FeatureFlags />} />
+            <Route path="/white-label-config" element={<WhiteLabelConfig />} />
           </Routes>
         </main>
       </div>

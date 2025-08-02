@@ -29,6 +29,7 @@ const navigationItems = [
       { title: 'Overview', tab: 'overview', route: '/super-admin/overview', icon: Home },
       { title: 'Tenant Management', tab: 'tenant-management', route: '/super-admin/tenant-management', icon: Users },
       { title: 'Lead Management', tab: 'lead-management', route: '/super-admin/lead-management', icon: Briefcase },
+      { title: 'Tenant Onboarding', tab: 'tenant-onboarding', route: '/super-admin/tenant-onboarding', icon: UserPlus },
       { title: 'Admin Users', tab: 'admin-user-management', route: '/super-admin/admin-user-management', icon: Shield },
       { title: 'Platform Monitoring', tab: 'platform-monitoring', route: '/super-admin/platform-monitoring', icon: Activity },
     ]
@@ -36,7 +37,15 @@ const navigationItems = [
   {
     title: 'Billing & Revenue',
     items: [
+      { title: 'Subscription Management', tab: 'subscription-management', route: '/super-admin/subscription-management', icon: DollarSign },
       { title: 'Billing Management', tab: 'billing-management', route: '/super-admin/billing-management', icon: CreditCard },
+    ]
+  },
+  {
+    title: 'Configuration',
+    items: [
+      { title: 'Feature Flags', tab: 'feature-flags', route: '/super-admin/feature-flags', icon: Flag },
+      { title: 'White Label Config', tab: 'white-label-config', route: '/super-admin/white-label-config', icon: Palette },
     ]
   }
 ];
