@@ -119,7 +119,7 @@ export const LeadActivityTimeline: React.FC<LeadActivityTimelineProps> = ({
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
                     {new Date(activity.created_at).toLocaleString()}
-                    {activity.created_by_user && (
+                    {activity.created_by_user?.full_name && (
                       <span className="ml-2">
                         by {activity.created_by_user.full_name}
                       </span>

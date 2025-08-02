@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -292,9 +291,6 @@ export const LeadManagement: React.FC = () => {
                   key={lead.id}
                   lead={lead}
                   onReassign={handleReassign}
-                  onUpdateStatus={(leadId, status) => {
-                    console.log('Update status:', leadId, status);
-                  }}
                   onConvert={handleConvert}
                   isSelected={selectedLeads.includes(lead.id)}
                   onSelect={() => toggleLeadSelection(lead.id)}

@@ -1,18 +1,33 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
+
+// Define valid status transitions locally since RPC function isn't available
+const getValidNextStatuses = (currentStatus: Lead['status']): string[] => {
+  switch (currentStatus) {
+    case 'new':
+      return ['assigned', 'contacted'];
+    case 'assigned':
+      return ['contacted', 'new'];
+    case 'contacted':
+      return ['qualified', 'rejected', 'assigned'];
+    case 'qualified':
+      return ['converted', 'rejected', 'contacted'];
+    case 'converted':
+      return [];
+    case 'rejected':
+      return ['new', 'assigned', 'contacted'];
+    default:
+      return [];
+  }
+};
 
 export const useValidNextStatuses = (currentStatus: Lead['status']) => {
   return useQuery({
     queryKey: ['valid-next-statuses', currentStatus],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_valid_next_statuses', {
-        current_status: currentStatus
-      });
-
-      if (error) throw error;
-      return data as string[];
+      // Return the valid statuses directly
+      return getValidNextStatuses(currentStatus);
     },
     enabled: !!currentStatus,
   });

@@ -56,6 +56,11 @@ export interface LeadActivity {
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
+  // Add user information for activities
+  created_by_user?: {
+    full_name: string;
+    email: string;
+  } | null;
 }
 
 export interface LeadCommunicationLog {
