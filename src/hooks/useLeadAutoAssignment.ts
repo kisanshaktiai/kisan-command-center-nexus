@@ -3,6 +3,16 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from './useNotifications';
 
+interface TestAssignmentResult {
+  test_lead_id: string;
+  assigned_to: string | null;
+  assigned_at: string | null;
+  status: string;
+  super_admin_count: number;
+  active_rules_count: number;
+  assignment_successful: boolean;
+}
+
 export const useLeadAutoAssignment = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { showSuccess, showError } = useNotifications();
@@ -20,17 +30,19 @@ export const useLeadAutoAssignment = () => {
 
       console.log('Auto-assignment test result:', data);
       
-      if (data?.assignment_successful) {
+      const result = data as TestAssignmentResult;
+      
+      if (result?.assignment_successful) {
         showSuccess('Auto-assignment test successful', {
-          description: `Lead would be assigned to a super admin. Found ${data.super_admin_count} super admin(s) and ${data.active_rules_count} active rule(s).`
+          description: `Lead would be assigned to a super admin. Found ${result.super_admin_count} super admin(s) and ${result.active_rules_count} active rule(s).`
         });
       } else {
         showError('Auto-assignment test failed', {
-          description: `No assignment occurred. Super admins available: ${data?.super_admin_count || 0}, Active rules: ${data?.active_rules_count || 0}`
+          description: `No assignment occurred. Super admins available: ${result?.super_admin_count || 0}, Active rules: ${result?.active_rules_count || 0}`
         });
       }
 
-      return data;
+      return result;
     } catch (error) {
       console.error('Unexpected error during auto-assignment test:', error);
       showError('Unexpected error during test');
