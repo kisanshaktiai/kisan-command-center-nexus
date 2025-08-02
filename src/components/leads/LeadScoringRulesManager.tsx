@@ -30,9 +30,15 @@ export const LeadScoringRulesManager: React.FC = () => {
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<LeadScoringRule | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    rule_name: string;
+    rule_type: 'demographic' | 'behavioral' | 'engagement' | 'company';
+    score_value: number;
+    is_active: boolean;
+    conditions: Record<string, any>;
+  }>({
     rule_name: '',
-    rule_type: 'demographic' as const,
+    rule_type: 'demographic',
     score_value: 10,
     is_active: true,
     conditions: {},
