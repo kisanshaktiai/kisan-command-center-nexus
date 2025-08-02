@@ -1,12 +1,13 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { useEffect } from 'react';
 import type { Lead, LeadAssignmentRule } from '@/types/leads';
+import { useNotifications } from './useNotifications';
 
 export const useLeads = () => {
   const queryClient = useQueryClient();
+  const { showSuccess, showInfo, showError } = useNotifications();
 
   // Set up real-time subscription
   useEffect(() => {
@@ -25,25 +26,25 @@ export const useLeads = () => {
           // Invalidate and refetch leads data
           queryClient.invalidateQueries({ queryKey: ['leads'] });
           
-          // Show toast notifications for different events
+          // Show notifications for different events
           switch (payload.eventType) {
             case 'INSERT':
-              toast.success('New lead added!', {
-                description: `Lead: ${payload.new.contact_name}`,
+              showSuccess('New lead added!', {
+                description: `Lead: ${payload.new.contact_name}`
               });
               break;
             case 'UPDATE':
               const oldStatus = payload.old?.status;
               const newStatus = payload.new?.status;
               if (oldStatus !== newStatus) {
-                toast.info('Lead status updated', {
-                  description: `${payload.new.contact_name}: ${oldStatus} → ${newStatus}`,
+                showInfo('Lead status updated', {
+                  description: `${payload.new.contact_name}: ${oldStatus} → ${newStatus}`
                 });
               }
               break;
             case 'DELETE':
-              toast.error('Lead removed', {
-                description: `Lead: ${payload.old.contact_name}`,
+              showError('Lead removed', {
+                description: `Lead: ${payload.old.contact_name}`
               });
               break;
           }
@@ -54,7 +55,7 @@ export const useLeads = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, showSuccess, showInfo, showError]);
 
   return useQuery({
     queryKey: ['leads'],
@@ -114,6 +115,7 @@ export const useLeadAssignmentRules = () => {
 
 export const useCreateAssignmentRule = () => {
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useNotifications();
 
   return useMutation({
     mutationFn: async (rule: Omit<LeadAssignmentRule, 'id' | 'created_at' | 'updated_at'>) => {
@@ -128,16 +130,17 @@ export const useCreateAssignmentRule = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-assignment-rules'] });
-      toast.success('Assignment rule created successfully');
+      showSuccess('Assignment rule created successfully');
     },
     onError: (error: any) => {
-      toast.error(`Failed to create assignment rule: ${error.message}`);
+      showError(`Failed to create assignment rule: ${error.message}`);
     },
   });
 };
 
 export const useReassignLead = () => {
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useNotifications();
 
   return useMutation({
     mutationFn: async ({ leadId, newAdminId, reason }: { 
@@ -156,16 +159,17 @@ export const useReassignLead = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
-      toast.success('Lead reassigned successfully');
+      showSuccess('Lead reassigned successfully');
     },
     onError: (error: any) => {
-      toast.error(`Failed to reassign lead: ${error.message}`);
+      showError(`Failed to reassign lead: ${error.message}`);
     },
   });
 };
 
 export const useUpdateLeadStatus = () => {
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useNotifications();
 
   return useMutation({
     mutationFn: async ({ leadId, status, notes }: { 
@@ -206,16 +210,17 @@ export const useUpdateLeadStatus = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
-      toast.success('Lead status updated successfully');
+      showSuccess('Lead status updated successfully');
     },
     onError: (error: any) => {
-      toast.error(`Failed to update lead status: ${error.message}`);
+      showError(`Failed to update lead status: ${error.message}`);
     },
   });
 };
 
 export const useConvertLeadToTenant = () => {
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useNotifications();
 
   return useMutation({
     mutationFn: async ({ 
@@ -249,13 +254,13 @@ export const useConvertLeadToTenant = () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
       if (data?.success) {
-        toast.success('Lead converted to tenant successfully');
+        showSuccess('Lead converted to tenant successfully');
       } else {
-        toast.error(data?.error || 'Failed to convert lead');
+        showError(data?.error || 'Failed to convert lead');
       }
     },
     onError: (error: any) => {
-      toast.error(`Failed to convert lead: ${error.message}`);
+      showError(`Failed to convert lead: ${error.message}`);
     },
   });
 };

@@ -1,7 +1,9 @@
+
 import { useState, useCallback } from 'react';
 import { authenticationService } from '@/services/AuthenticationService';
 import { AuthState, TenantData } from '@/types/auth';
 import { ServiceResult } from '@/services/BaseService';
+import { useNotifications } from './useNotifications';
 
 /**
  * Hook for Authentication Service Operations
@@ -10,6 +12,7 @@ import { ServiceResult } from '@/services/BaseService';
 export const useAuthenticationService = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showSuccess, showError } = useNotifications();
 
   const clearError = useCallback(() => {
     setError(null);
@@ -18,7 +21,8 @@ export const useAuthenticationService = () => {
   const handleAuthOperation = useCallback(async <T>(
     operation: () => Promise<ServiceResult<T>>,
     onSuccess?: (data: T) => void,
-    onError?: (error: string) => void
+    onError?: (error: string) => void,
+    showNotifications: { success?: string; error?: boolean } = { error: true }
   ): Promise<ServiceResult<T>> => {
     setIsLoading(true);
     setError(null);
@@ -27,9 +31,15 @@ export const useAuthenticationService = () => {
       const result = await operation();
       
       if (result.success && result.data) {
+        if (showNotifications.success) {
+          showSuccess(showNotifications.success);
+        }
         onSuccess?.(result.data);
       } else if (!result.success && result.error) {
         setError(result.error);
+        if (showNotifications.error) {
+          showError(result.error);
+        }
         onError?.(result.error);
       }
 
@@ -37,13 +47,16 @@ export const useAuthenticationService = () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       setError(errorMessage);
+      if (showNotifications.error) {
+        showError(errorMessage);
+      }
       onError?.(errorMessage);
       
       return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [showSuccess, showError]);
 
   // Authentication operations
   const signInUser = useCallback(async (
@@ -55,7 +68,8 @@ export const useAuthenticationService = () => {
     return handleAuthOperation(
       () => authenticationService.signInUser(email, password),
       onSuccess,
-      onError
+      onError,
+      { success: 'Successfully signed in!' }
     );
   }, [handleAuthOperation]);
 
@@ -68,7 +82,8 @@ export const useAuthenticationService = () => {
     return handleAuthOperation(
       () => authenticationService.signInAdmin(email, password),
       onSuccess,
-      onError
+      onError,
+      { success: 'Welcome back, admin!' }
     );
   }, [handleAuthOperation]);
 
@@ -85,7 +100,8 @@ export const useAuthenticationService = () => {
         throw new Error('User registration not yet implemented');
       },
       onSuccess,
-      onError
+      onError,
+      { success: 'Registration successful!' }
     );
   }, [handleAuthOperation]);
 
@@ -99,7 +115,8 @@ export const useAuthenticationService = () => {
     return handleAuthOperation(
       () => authenticationService.bootstrapSuperAdmin(email, password, fullName),
       onSuccess,
-      onError
+      onError,
+      { success: 'System initialized successfully!' }
     );
   }, [handleAuthOperation]);
 
@@ -121,7 +138,8 @@ export const useAuthenticationService = () => {
         };
       },
       onSuccess,
-      onError
+      onError,
+      { error: false } // Don't show error notifications for status checks
     );
   }, [handleAuthOperation]);
 
@@ -132,7 +150,8 @@ export const useAuthenticationService = () => {
     return handleAuthOperation(
       () => authenticationService.signOut(),
       onSuccess,
-      onError
+      onError,
+      { success: 'Successfully signed out' }
     );
   }, [handleAuthOperation]);
 
@@ -143,12 +162,10 @@ export const useAuthenticationService = () => {
     onError?: (error: string) => void
   ) => {
     return handleAuthOperation(
-      () => {
-        // TODO: Implement password reset in UnifiedAuthService
-        throw new Error('Password reset not yet implemented');
-      },
+      () => authenticationService.resetPassword(email, tenantId),
       onSuccess,
-      onError
+      onError,
+      { success: 'Password reset email sent!' }
     );
   }, [handleAuthOperation]);
 
