@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { navItems } from './nav-items';
 import SuperAdmin from './pages/SuperAdmin';
 import Auth from './pages/Auth';
 import AuthCallback from './pages/auth/AuthCallback';
@@ -25,9 +24,6 @@ const App = () => (
         <Route path="/admin-register" element={<AdminRegister />} />
         <Route path="/onboard/:token" element={<OnboardPartner />} />
         <Route path="/invite/:token" element={<AdminInviteRegistration />} />
-        {navItems.map(({ to, page }) => (
-          <Route key={to} path={to} element={page} />
-        ))}
         <Route path="/super-admin/*" element={<SuperAdmin />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

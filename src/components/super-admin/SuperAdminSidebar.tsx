@@ -14,7 +14,8 @@ import {
   Settings,
   ChevronDown,
   LogOut,
-  Shield
+  Shield,
+  Briefcase
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -24,25 +25,17 @@ const navigationItems = [
   {
     title: 'Platform Management',
     items: [
-      { title: 'Overview', tab: 'overview', icon: Home },
-      { title: 'Tenant Management', tab: 'tenants', icon: Users },
-      { title: 'Tenant Onboarding', tab: 'onboarding', icon: UserPlus },
-      { title: 'Admin Users', tab: 'admins', icon: Shield },
-      { title: 'Platform Monitoring', tab: 'monitoring', icon: Activity },
+      { title: 'Overview', tab: 'overview', route: '/super-admin/overview', icon: Home },
+      { title: 'Tenant Management', tab: 'tenant-management', route: '/super-admin/tenant-management', icon: Users },
+      { title: 'Lead Management', tab: 'lead-management', route: '/super-admin/lead-management', icon: Briefcase },
+      { title: 'Admin Users', tab: 'admin-user-management', route: '/super-admin/admin-user-management', icon: Shield },
+      { title: 'Platform Monitoring', tab: 'platform-monitoring', route: '/super-admin/platform-monitoring', icon: Activity },
     ]
   },
   {
     title: 'Billing & Revenue',
     items: [
-      { title: 'Subscription Management', tab: 'subscriptions', icon: CreditCard },
-      { title: 'Billing & Payments', tab: 'billing', icon: DollarSign },
-    ]
-  },
-  {
-    title: 'Configuration',
-    items: [
-      { title: 'Feature Flags', tab: 'features', icon: Flag },
-      { title: 'White Label Config', tab: 'white-label', icon: Palette },
+      { title: 'Billing Management', tab: 'billing-management', route: '/super-admin/billing-management', icon: CreditCard },
     ]
   }
 ];
@@ -57,6 +50,7 @@ interface SuperAdminSidebarProps {
 export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }: SuperAdminSidebarProps) {
   const { signOut } = useAuth();
   const [openGroups, setOpenGroups] = useState<string[]>(['Platform Management']);
+  const location = useLocation();
 
   const toggleGroup = (groupTitle: string) => {
     setOpenGroups(prev => 
@@ -142,32 +136,36 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
                 </CollapsibleTrigger>
                 
                 <CollapsibleContent className="space-y-1 mt-2">
-                  {group.items.map((item) => (
-                    <button
-                      key={item.title}
-                      onClick={() => handleTabClick(item.tab)}
-                      className={cn(
-                        "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group w-full text-left",
-                        activeTab === item.tab
-                          ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
-                          : "text-slate-300 hover:bg-slate-700/50 hover:text-white",
-                        (!isOpen && window.innerWidth >= 1024) && "lg:justify-center lg:px-3"
-                      )}
-                    >
-                      <item.icon className="w-5 h-5 flex-shrink-0" />
-                      {(isOpen || window.innerWidth < 1024) && (
-                        <span className={cn(
-                          "transition-opacity duration-200",
-                          (!isOpen && window.innerWidth >= 1024) && "lg:opacity-0 lg:w-0 lg:overflow-hidden"
-                        )}>
-                          {item.title}
-                        </span>
-                      )}
-                      {activeTab === item.tab && (
-                        <div className="w-2 h-2 bg-white rounded-full ml-auto" />
-                      )}
-                    </button>
-                  ))}
+                  {group.items.map((item) => {
+                    const isActive = location.pathname === item.route;
+                    return (
+                      <Link
+                        key={item.title}
+                        to={item.route}
+                        onClick={() => handleTabClick(item.tab)}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group w-full text-left",
+                          isActive
+                            ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                            : "text-slate-300 hover:bg-slate-700/50 hover:text-white",
+                          (!isOpen && window.innerWidth >= 1024) && "lg:justify-center lg:px-3"
+                        )}
+                      >
+                        <item.icon className="w-5 h-5 flex-shrink-0" />
+                        {(isOpen || window.innerWidth < 1024) && (
+                          <span className={cn(
+                            "transition-opacity duration-200",
+                            (!isOpen && window.innerWidth >= 1024) && "lg:opacity-0 lg:w-0 lg:overflow-hidden"
+                          )}>
+                            {item.title}
+                          </span>
+                        )}
+                        {isActive && (
+                          <div className="w-2 h-2 bg-white rounded-full ml-auto" />
+                        )}
+                      </Link>
+                    );
+                  })}
                 </CollapsibleContent>
               </Collapsible>
             </div>

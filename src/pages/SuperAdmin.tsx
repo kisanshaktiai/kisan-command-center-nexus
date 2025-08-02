@@ -40,7 +40,11 @@ const SuperAdmin = () => {
 
   // Show loading state
   if (isLoading || isAdminLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div>Loading...</div>
+      </div>
+    );
   }
 
   // Show auth form if not authenticated or no admin user
