@@ -165,8 +165,12 @@ class LeadServiceClass extends BaseService {
 
       if (error) throw error;
 
-      // Extract tenant ID from the result
-      const tenantId = rpcResult?.tenant_id;
+      // Extract tenant ID from the result - handle the Json type properly
+      let tenantId: string | null = null;
+      
+      if (rpcResult && typeof rpcResult === 'object' && 'tenant_id' in rpcResult) {
+        tenantId = String(rpcResult.tenant_id);
+      }
       
       if (!tenantId) {
         throw new Error('Failed to get tenant ID from conversion result');
@@ -190,7 +194,7 @@ class LeadServiceClass extends BaseService {
       }
 
       return {
-        ...rpcResult,
+        tenant_id: tenantId,
         emailSent: !emailError,
         tempPassword: tempPassword // Include for admin reference
       };
