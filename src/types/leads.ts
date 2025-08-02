@@ -1,4 +1,3 @@
-
 // Lead management types
 export interface Lead {
   id: string;
@@ -37,6 +36,11 @@ export interface Lead {
   contract_sent?: boolean;
   last_activity?: string;
   created_by?: string;
+  // Add assigned admin information
+  assigned_admin?: {
+    full_name: string;
+    email: string;
+  } | null;
 }
 
 export interface LeadActivity {
