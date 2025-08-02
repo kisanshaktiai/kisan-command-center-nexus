@@ -137,68 +137,34 @@ export const useUpdateLeadStatus = () => {
       status: Lead['status']; 
       notes?: string; 
     }) => {
-      console.log('Updating lead status:', { leadId, status, notes });
+      console.log('Starting lead status update:', { leadId, status, notes });
       
       const loadingToast = showLoading(`Updating lead status to ${status}...`);
       
       try {
-        // Direct Supabase call with detailed error handling
-        const updatePayload: any = {
-          status,
-          updated_at: new Date().toISOString()
-        };
-
-        if (notes) {
-          updatePayload.notes = notes;
-        }
-
-        if (status === 'contacted') {
-          updatePayload.last_contact_at = new Date().toISOString();
-        }
-
-        console.log('Update payload:', updatePayload);
-
-        const { data, error } = await supabase
-          .from('leads')
-          .update(updatePayload)
-          .eq('id', leadId)
-          .select()
-          .single();
+        // Use the LeadService instead of direct Supabase call to avoid recursion
+        const result = await LeadService.updateLead(leadId, { 
+          status, 
+          notes,
+          ...(status === 'contacted' && { last_contact_at: new Date().toISOString() })
+        });
 
         dismiss(loadingToast);
 
-        if (error) {
-          console.error('Supabase error details:', {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code
-          });
-          
-          // Show specific error message based on error type
-          let errorMessage = error.message;
-          
-          if (error.code === '42501') {
-            errorMessage = 'Permission denied. You may not have sufficient privileges to update this lead.';
-          } else if (error.code === '23514') {
-            errorMessage = `Invalid status value "${status}". Please select a valid status.`;
-          } else if (error.code === '23502') {
-            errorMessage = 'Missing required field. Please ensure all required data is provided.';
-          }
-          
-          throw new Error(errorMessage);
+        if (!result.success) {
+          throw new Error(result.error || 'Update failed');
         }
 
-        if (!data) {
+        if (!result.data) {
           throw new Error('No data returned from update operation');
         }
 
-        console.log('Lead status update successful:', data);
+        console.log('Lead status update successful:', result.data);
         showSuccess(`Lead status updated to ${status}`, {
           description: 'The lead has been successfully updated.',
         });
 
-        return data;
+        return result.data;
       } catch (error) {
         dismiss(loadingToast);
         
@@ -224,7 +190,7 @@ export const useUpdateLeadStatus = () => {
     },
     onError: (error, variables) => {
       console.error('Lead status mutation error:', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         leadId: variables.leadId,
         status: variables.status,
         timestamp: new Date().toISOString()
