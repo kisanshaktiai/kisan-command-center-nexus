@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,69 +41,76 @@ export const LeadManagement: React.FC = () => {
   const leadProcessor = useLeadProcessor();
   const { data: funnelData } = useConversionFunnel();
 
-  // Real-time lead count updates
-  const [realTimeStats, setRealTimeStats] = useState({
-    total: 0,
-    new: 0,
-    qualified: 0,
-    converted: 0,
-  });
-
-  useEffect(() => {
-    if (leads) {
-      setRealTimeStats({
-        total: leads.length,
-        new: leads.filter(l => l.status === 'new').length,
-        qualified: leads.filter(l => l.status === 'qualified').length,
-        converted: leads.filter(l => l.status === 'converted').length,
-      });
+  // Memoized stats calculation to prevent unnecessary re-renders
+  const realTimeStats = React.useMemo(() => {
+    if (!leads?.length) {
+      return {
+        total: 0,
+        new: 0,
+        qualified: 0,
+        converted: 0,
+      };
     }
+
+    return {
+      total: leads.length,
+      new: leads.filter(l => l.status === 'new').length,
+      qualified: leads.filter(l => l.status === 'qualified').length,
+      converted: leads.filter(l => l.status === 'converted').length,
+    };
   }, [leads]);
 
   // Filter leads based on search term and status
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.contact_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (lead.organization_name?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredLeads = React.useMemo(() => {
+    if (!leads?.length) return [];
     
-    const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+    return leads.filter(lead => {
+      const matchesSearch = lead.contact_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (lead.organization_name?.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [leads, searchTerm, statusFilter]);
 
-  const handleReassign = (leadId: string) => {
+  const handleReassign = useCallback((leadId: string) => {
     setSelectedLeadId(leadId);
     setAssignmentDialogOpen(true);
-  };
+  }, []);
 
-  const handleConvert = (leadId: string) => {
+  const handleConvert = useCallback((leadId: string) => {
     setSelectedLeadId(leadId);
     setConvertDialogOpen(true);
-  };
+  }, []);
 
-  const handleBulkAutoAssign = () => {
+  const handleBulkAutoAssign = useCallback(() => {
     selectedLeads.forEach(leadId => {
       leadProcessor.mutate({ action: 'auto_assign', leadId });
     });
     setSelectedLeads([]);
-  };
+  }, [selectedLeads, leadProcessor]);
 
-  const handleBulkScoreCalculation = () => {
+  const handleBulkScoreCalculation = useCallback(() => {
     selectedLeads.forEach(leadId => {
       leadProcessor.mutate({ action: 'calculate_score', leadId });
     });
     setSelectedLeads([]);
-  };
+  }, [selectedLeads, leadProcessor]);
 
-  const toggleLeadSelection = (leadId: string) => {
+  const toggleLeadSelection = useCallback((leadId: string) => {
     setSelectedLeads(prev => 
       prev.includes(leadId) 
         ? prev.filter(id => id !== leadId)
         : [...prev, leadId]
     );
-  };
+  }, []);
 
-  const selectedLead = leads.find(l => l.id === selectedLeadId);
+  const selectedLead = React.useMemo(() => 
+    leads.find(l => l.id === selectedLeadId), 
+    [leads, selectedLeadId]
+  );
 
   if (error) {
     return (

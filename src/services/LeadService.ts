@@ -1,4 +1,3 @@
-
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
@@ -42,7 +41,6 @@ interface ConvertToTenantData {
 class LeadServiceClass extends BaseService {
   private static instanceStorage: { instance?: LeadServiceClass } = {};
 
-  // Make constructor public to fix the createInstance issue
   constructor() {
     super();
   }
@@ -56,16 +54,37 @@ class LeadServiceClass extends BaseService {
 
   async getLeads(): Promise<ServiceResult<Lead[]>> {
     return this.executeOperation(async () => {
-      const { data, error } = await supabase
+      // First get the leads
+      const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
-        .select(`
-          *,
-          assigned_admin:admin_users(full_name, email)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data as Lead[];
+      if (leadsError) throw leadsError;
+
+      // Then get admin users data separately if needed
+      const leadsWithAdmins = await Promise.all(
+        leadsData.map(async (lead) => {
+          if (lead.assigned_to) {
+            const { data: adminData } = await supabase
+              .from('admin_users')
+              .select('full_name, email')
+              .eq('id', lead.assigned_to)
+              .single();
+            
+            return {
+              ...lead,
+              assigned_admin: adminData
+            };
+          }
+          return {
+            ...lead,
+            assigned_admin: null
+          };
+        })
+      );
+
+      return leadsWithAdmins as Lead[];
     }, 'getLeads');
   }
 
@@ -78,7 +97,7 @@ class LeadServiceClass extends BaseService {
           email: leadData.email,
           phone: leadData.phone,
           organization_name: leadData.organization_name,
-          organization_type: 'company', // Add required field with default value
+          organization_type: 'company',
           source: leadData.source,
           priority: leadData.priority || 'medium',
           notes: leadData.notes,
@@ -100,7 +119,6 @@ class LeadServiceClass extends BaseService {
         updated_at: new Date().toISOString()
       };
 
-      // Set specific timestamps based on status
       if (updateData.status === 'contacted') {
         updatePayload.last_contact_at = new Date().toISOString();
       }
