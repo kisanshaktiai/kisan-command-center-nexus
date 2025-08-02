@@ -1,4 +1,3 @@
-
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
@@ -58,7 +57,7 @@ class LeadServiceClass extends BaseService {
     return this.executeOperation(async () => {
       console.log('Fetching leads from database...');
       
-      // Use consistent field selection to match TypeScript types
+      // Use only fields that exist in the database
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select(`
@@ -82,13 +81,6 @@ class LeadServiceClass extends BaseService {
           created_at,
           updated_at,
           notes,
-          budget_range,
-          company_size,
-          decision_timeline,
-          current_solution,
-          pain_points,
-          lead_temperature,
-          preferred_contact_method,
           lead_score,
           marketing_qualified,
           sales_qualified,
@@ -105,7 +97,12 @@ class LeadServiceClass extends BaseService {
         throw leadsError;
       }
 
-      console.log('Leads fetched successfully:', leadsData?.length || 0);
+      if (!leadsData) {
+        console.log('No leads data returned');
+        return [];
+      }
+
+      console.log('Leads fetched successfully:', leadsData.length);
 
       // Get admin users data for assigned leads
       const leadsWithAdmins = await Promise.all(
@@ -119,7 +116,7 @@ class LeadServiceClass extends BaseService {
             
             return {
               ...lead,
-              assigned_admin: adminData
+              assigned_admin: adminData || null
             };
           }
           return {
