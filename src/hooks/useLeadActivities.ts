@@ -46,7 +46,19 @@ export const useLeadActivities = (leadId: string) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as LeadActivity[];
+      
+      // Transform the data to match our LeadActivity type
+      const activities = data?.map((activity) => ({
+        ...activity,
+        created_by_user: activity.created_by_user && !Array.isArray(activity.created_by_user) 
+          ? {
+              full_name: activity.created_by_user.full_name || '',
+              email: activity.created_by_user.email || ''
+            }
+          : null
+      })) || [];
+
+      return activities as LeadActivity[];
     },
     enabled: !!leadId,
   });
