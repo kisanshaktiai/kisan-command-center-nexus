@@ -1,4 +1,3 @@
-
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
@@ -129,7 +128,7 @@ class LeadServiceClass extends BaseService {
 
   async updateLead(leadId: string, updateData: UpdateLeadData): Promise<ServiceResult<Lead>> {
     return this.executeOperation(async () => {
-      console.log('Updating lead:', { leadId, updateData });
+      console.log('LeadService: Updating lead:', { leadId, updateData });
       
       const updatePayload: any = {
         ...updateData,
@@ -147,7 +146,7 @@ class LeadServiceClass extends BaseService {
         }
       });
 
-      console.log('Update payload prepared:', updatePayload);
+      console.log('LeadService: Update payload prepared:', updatePayload);
 
       const { data, error } = await supabase
         .from('leads')
@@ -157,11 +156,23 @@ class LeadServiceClass extends BaseService {
         .single();
 
       if (error) {
-        console.error('Error updating lead:', error);
+        console.error('LeadService: Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          leadId,
+          updatePayload
+        });
         throw error;
       }
+
+      if (!data) {
+        console.error('LeadService: No data returned from update');
+        throw new Error('No data returned from update operation');
+      }
       
-      console.log('Lead updated successfully:', data);
+      console.log('LeadService: Lead updated successfully:', data);
       return data as Lead;
     }, 'updateLead');
   }
