@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
 import { SuperAdminHeader } from '@/components/super-admin/SuperAdminHeader';
@@ -10,15 +10,51 @@ import LeadManagement from './super-admin/LeadManagement';
 import AdminUserManagement from './super-admin/AdminUserManagement';
 import BillingManagement from './super-admin/BillingManagement';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 const SuperAdmin = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Get current admin user data
+  const { data: adminUser } = useQuery({
+    queryKey: ['current-admin-user'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+
+      const { data: adminData, error } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('email', user.email)
+        .single();
+
+      if (error) throw error;
+      return adminData;
+    },
+  });
+
+  if (!adminUser) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <SuperAdminAuth>
       <div className="min-h-screen bg-gray-50">
-        <SuperAdminHeader />
+        <SuperAdminHeader 
+          setSidebarOpen={setSidebarOpen}
+          adminUser={adminUser}
+          sidebarOpen={sidebarOpen}
+        />
         
         <div className="flex">
-          <SuperAdminSidebar />
+          <SuperAdminSidebar 
+            isOpen={sidebarOpen}
+            setIsOpen={setSidebarOpen}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
           
           <main className="flex-1 p-8 ml-64">
             <Routes>

@@ -152,7 +152,7 @@ export const useConvertLeadToTenant = () => {
       });
 
       if (error) throw error;
-      return data;
+      return data as { success: boolean; error?: string; tenant_id?: string; invitation_token?: string; message?: string };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
