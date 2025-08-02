@@ -3,11 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
 import type { Lead, LeadAssignmentRule } from '@/types/leads';
-import { useNotifications } from './useNotifications';
+import { LeadService } from '@/services/LeadService';
+import { useLeadService } from './useLeadService';
 
 export const useLeads = () => {
   const queryClient = useQueryClient();
-  const { showSuccess, showInfo, showError } = useNotifications();
 
   // Set up real-time subscription
   useEffect(() => {
@@ -22,32 +22,7 @@ export const useLeads = () => {
         },
         (payload) => {
           console.log('Real-time leads update:', payload);
-          
-          // Invalidate and refetch leads data
           queryClient.invalidateQueries({ queryKey: ['leads'] });
-          
-          // Show notifications for different events
-          switch (payload.eventType) {
-            case 'INSERT':
-              showSuccess('New lead added!', {
-                description: `Lead: ${payload.new.contact_name}`
-              });
-              break;
-            case 'UPDATE':
-              const oldStatus = payload.old?.status;
-              const newStatus = payload.new?.status;
-              if (oldStatus !== newStatus) {
-                showInfo('Lead status updated', {
-                  description: `${payload.new.contact_name}: ${oldStatus} → ${newStatus}`
-                });
-              }
-              break;
-            case 'DELETE':
-              showError('Lead removed', {
-                description: `Lead: ${payload.old.contact_name}`
-              });
-              break;
-          }
         }
       )
       .subscribe();
@@ -55,21 +30,16 @@ export const useLeads = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient, showSuccess, showInfo, showError]);
+  }, [queryClient]);
 
   return useQuery({
     queryKey: ['leads'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('leads')
-        .select(`
-          *,
-          assigned_admin:admin_users(full_name, email)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as Lead[];
+      const result = await LeadService.getLeads();
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data || [];
     },
   });
 };
@@ -115,7 +85,6 @@ export const useLeadAssignmentRules = () => {
 
 export const useCreateAssignmentRule = () => {
   const queryClient = useQueryClient();
-  const { showSuccess, showError } = useNotifications();
 
   return useMutation({
     mutationFn: async (rule: Omit<LeadAssignmentRule, 'id' | 'created_at' | 'updated_at'>) => {
@@ -130,17 +99,13 @@ export const useCreateAssignmentRule = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-assignment-rules'] });
-      showSuccess('Assignment rule created successfully');
-    },
-    onError: (error: any) => {
-      showError(`Failed to create assignment rule: ${error.message}`);
     },
   });
 };
 
 export const useReassignLead = () => {
   const queryClient = useQueryClient();
-  const { showSuccess, showError } = useNotifications();
+  const { assignLead } = useLeadService();
 
   return useMutation({
     mutationFn: async ({ leadId, newAdminId, reason }: { 
@@ -148,28 +113,17 @@ export const useReassignLead = () => {
       newAdminId: string; 
       reason?: string; 
     }) => {
-      const { data, error } = await supabase.rpc('reassign_lead', {
-        p_lead_id: leadId,
-        p_new_admin_id: newAdminId,
-        p_reason: reason,
-      });
-
-      if (error) throw error;
-      return data;
+      return await assignLead({ leadId, adminId: newAdminId, reason });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
-      showSuccess('Lead reassigned successfully');
-    },
-    onError: (error: any) => {
-      showError(`Failed to reassign lead: ${error.message}`);
     },
   });
 };
 
 export const useUpdateLeadStatus = () => {
   const queryClient = useQueryClient();
-  const { showSuccess, showError } = useNotifications();
+  const { updateLead } = useLeadService();
 
   return useMutation({
     mutationFn: async ({ leadId, status, notes }: { 
@@ -188,20 +142,13 @@ export const useUpdateLeadStatus = () => {
       );
 
       try {
-        const { data, error } = await supabase
-          .from('leads')
-          .update({ 
-            status, 
-            notes,
-            last_contact_at: status === 'contacted' ? new Date().toISOString() : undefined,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', leadId)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
+        const result = await updateLead(leadId, { status, notes });
+        if (!result) {
+          // Revert optimistic update on error
+          queryClient.setQueryData(['leads'], previousLeads);
+          throw new Error('Failed to update lead status');
+        }
+        return result;
       } catch (error) {
         // Revert optimistic update on error
         queryClient.setQueryData(['leads'], previousLeads);
@@ -210,17 +157,13 @@ export const useUpdateLeadStatus = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
-      showSuccess('Lead status updated successfully');
-    },
-    onError: (error: any) => {
-      showError(`Failed to update lead status: ${error.message}`);
     },
   });
 };
 
 export const useConvertLeadToTenant = () => {
   const queryClient = useQueryClient();
-  const { showSuccess, showError } = useNotifications();
+  const { convertToTenant } = useLeadService();
 
   return useMutation({
     mutationFn: async ({ 
@@ -238,29 +181,24 @@ export const useConvertLeadToTenant = () => {
       adminEmail?: string;
       adminName?: string;
     }) => {
-      const { data, error } = await supabase.rpc('convert_lead_to_tenant', {
-        p_lead_id: leadId,
-        p_tenant_name: tenantName,
-        p_tenant_slug: tenantSlug,
-        p_subscription_plan: subscriptionPlan,
-        p_admin_email: adminEmail,
-        p_admin_name: adminName,
+      const result = await convertToTenant({
+        leadId,
+        tenantName,
+        tenantSlug,
+        subscriptionPlan,
+        adminEmail,
+        adminName,
       });
 
-      if (error) throw error;
-      return data as { success: boolean; error?: string; tenant_id?: string; invitation_token?: string; message?: string };
+      if (!result) {
+        throw new Error('Failed to convert lead to tenant');
+      }
+
+      return result;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
-      if (data?.success) {
-        showSuccess('Lead converted to tenant successfully');
-      } else {
-        showError(data?.error || 'Failed to convert lead');
-      }
-    },
-    onError: (error: any) => {
-      showError(`Failed to convert lead: ${error.message}`);
     },
   });
 };

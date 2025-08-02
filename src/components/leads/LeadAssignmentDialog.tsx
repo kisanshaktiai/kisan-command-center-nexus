@@ -17,8 +17,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useReassignLead } from '@/hooks/useLeadManagement';
+import { LeadService } from '@/services/LeadService';
 
 interface LeadAssignmentDialogProps {
   open: boolean;
@@ -39,13 +39,11 @@ export const LeadAssignmentDialog: React.FC<LeadAssignmentDialogProps> = ({
   const { data: adminUsers } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('admin_users')
-        .select('id, full_name, email')
-        .eq('is_active', true);
-
-      if (error) throw error;
-      return data;
+      const result = await LeadService.getAdminUsers();
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data || [];
     },
   });
 
