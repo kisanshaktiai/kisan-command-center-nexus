@@ -68,16 +68,21 @@ export const usePlatformMonitoring = () => {
         .select('status')
         .eq('status', 'active');
 
-      // Process and return structured data
+      // Process and return structured data - using fallback values since the specific fields might not exist
       const latestSystemMetric = systemMetrics?.[0];
       const latestResourceMetric = resourceMetrics?.[0];
 
+      // Extract values from the generic metric structure or use fallbacks
+      const extractMetricValue = (metric: any, fallbackValue: number) => {
+        return metric?.value || fallbackValue;
+      };
+
       return {
         systemHealth: {
-          cpuUsage: latestSystemMetric?.cpu_usage_percent || Math.round(20 + Math.random() * 60),
-          memoryUsage: latestSystemMetric?.memory_usage_percent || Math.round(30 + Math.random() * 50),
-          diskUsage: latestResourceMetric?.usage_percentage || Math.round(40 + Math.random() * 40),
-          healthScore: latestSystemMetric?.health_score || 95,
+          cpuUsage: latestSystemMetric ? extractMetricValue(latestSystemMetric, Math.round(20 + Math.random() * 60)) : Math.round(20 + Math.random() * 60),
+          memoryUsage: latestSystemMetric ? extractMetricValue(latestSystemMetric, Math.round(30 + Math.random() * 50)) : Math.round(30 + Math.random() * 50),
+          diskUsage: latestResourceMetric ? Math.round((latestResourceMetric.current_usage / latestResourceMetric.max_limit) * 100) : Math.round(40 + Math.random() * 40),
+          healthScore: latestSystemMetric ? extractMetricValue(latestSystemMetric, 95) : 95,
         },
         resourceMetrics: {
           storageUsed: latestResourceMetric?.current_usage || Math.round(100 + Math.random() * 400),

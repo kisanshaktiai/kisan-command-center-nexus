@@ -20,12 +20,6 @@ const getHealthStatus = (score: number) => {
   return { status: 'critical', color: 'text-red-600', icon: XCircle };
 };
 
-const getUsageColor = (usage: number) => {
-  if (usage >= 90) return 'bg-red-500';
-  if (usage >= 70) return 'bg-yellow-500';
-  return 'bg-green-500';
-};
-
 export const SystemHealthDisplay: React.FC<SystemHealthDisplayProps> = ({ 
   systemHealth, 
   isLoading = false 
@@ -68,11 +62,7 @@ export const SystemHealthDisplay: React.FC<SystemHealthDisplayProps> = ({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{systemHealth.cpuUsage}%</div>
-            <Progress 
-              value={systemHealth.cpuUsage} 
-              className="mt-2"
-              indicatorClassName={getUsageColor(systemHealth.cpuUsage)}
-            />
+            <Progress value={systemHealth.cpuUsage} className="mt-2" />
           </CardContent>
         </Card>
 
@@ -82,11 +72,7 @@ export const SystemHealthDisplay: React.FC<SystemHealthDisplayProps> = ({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{systemHealth.memoryUsage}%</div>
-            <Progress 
-              value={systemHealth.memoryUsage} 
-              className="mt-2"
-              indicatorClassName={getUsageColor(systemHealth.memoryUsage)}
-            />
+            <Progress value={systemHealth.memoryUsage} className="mt-2" />
           </CardContent>
         </Card>
 
@@ -96,11 +82,7 @@ export const SystemHealthDisplay: React.FC<SystemHealthDisplayProps> = ({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{systemHealth.diskUsage}%</div>
-            <Progress 
-              value={systemHealth.diskUsage} 
-              className="mt-2"
-              indicatorClassName={getUsageColor(systemHealth.diskUsage)}
-            />
+            <Progress value={systemHealth.diskUsage} className="mt-2" />
           </CardContent>
         </Card>
       </div>

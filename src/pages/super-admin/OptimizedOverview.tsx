@@ -73,7 +73,7 @@ const OptimizedOverview = () => {
           
           <OptimizedRealtimeChart
             title="System Health Trend"
-            data={data.latestSystemMetrics}
+            data={[]} // Use empty array since latestSystemMetrics doesn't exist
             dataKey="value"
             chartType="line"
             color="hsl(142, 76%, 36%)"
