@@ -30,7 +30,7 @@ export const useLeadAutoAssignment = () => {
 
       console.log('Auto-assignment test result:', data);
       
-      const result = data as TestAssignmentResult;
+      const result = data as unknown as TestAssignmentResult;
       
       if (result?.assignment_successful) {
         showSuccess('Auto-assignment test successful', {
