@@ -104,7 +104,21 @@ export const LeadCard: React.FC<LeadCardProps> = ({
     }
   };
 
-  const canConvert = ['new', 'contacted', 'qualified'].includes(lead.status);
+  // Only qualified leads can be converted to tenants
+  const canConvert = lead.status === 'qualified';
+
+  const getConversionTooltip = () => {
+    if (lead.status === 'converted') {
+      return 'This lead has already been converted to a tenant';
+    }
+    if (lead.status === 'rejected') {
+      return 'Rejected leads cannot be converted';
+    }
+    if (lead.status !== 'qualified') {
+      return 'Lead must be qualified before conversion to tenant';
+    }
+    return 'Convert this qualified lead to a tenant';
+  };
 
   return (
     <Card className={`relative transition-all duration-200 hover:shadow-md ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
@@ -146,9 +160,25 @@ export const LeadCard: React.FC<LeadCardProps> = ({
               {canConvert && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onConvert(lead.id)}>
+                  <DropdownMenuItem 
+                    onClick={() => onConvert(lead.id)}
+                    title={getConversionTooltip()}
+                  >
                     <ArrowRight className="h-4 w-4 mr-2" />
                     Convert to Tenant
+                  </DropdownMenuItem>
+                </>
+              )}
+              {!canConvert && lead.status !== 'converted' && lead.status !== 'rejected' && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    disabled
+                    title={getConversionTooltip()}
+                  >
+                    <ArrowRight className="h-4 w-4 mr-2" />
+                    Convert to Tenant
+                    <span className="ml-2 text-xs text-gray-400">(Qualify first)</span>
                   </DropdownMenuItem>
                 </>
               )}
@@ -203,6 +233,18 @@ export const LeadCard: React.FC<LeadCardProps> = ({
           <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 p-2 rounded">
             <AlertCircle className="h-3 w-3 animate-spin" />
             <span>Updating status...</span>
+          </div>
+        )}
+
+        {/* Show qualification guidance for non-qualified leads */}
+        {!canConvert && lead.status !== 'converted' && lead.status !== 'rejected' && (
+          <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded">
+            <AlertCircle className="h-3 w-3" />
+            <span>
+              {lead.status === 'new' && 'Assign and contact this lead to begin qualification process'}
+              {lead.status === 'assigned' && 'Contact this lead to begin qualification process'}
+              {lead.status === 'contacted' && 'Complete qualification to enable tenant conversion'}
+            </span>
           </div>
         )}
       </CardContent>
