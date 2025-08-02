@@ -1,3 +1,4 @@
+
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
@@ -77,6 +78,7 @@ class LeadServiceClass extends BaseService {
           email: leadData.email,
           phone: leadData.phone,
           organization_name: leadData.organization_name,
+          organization_type: 'company', // Add required field with default value
           source: leadData.source,
           priority: leadData.priority || 'medium',
           notes: leadData.notes,

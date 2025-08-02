@@ -31,7 +31,7 @@ export const LeadManagement: React.FC = () => {
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = lead.contact_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase()));
+                         (lead.organization_name?.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
     

@@ -1,3 +1,4 @@
+
 // Lead management types
 export interface Lead {
   id: string;
@@ -5,6 +6,7 @@ export interface Lead {
   email: string;
   phone?: string;
   organization_name?: string; // Changed from company_name to match database
+  organization_type?: string; // Add required database field
   assigned_to?: string;
   assigned_at?: string;
   status: 'new' | 'assigned' | 'contacted' | 'qualified' | 'converted' | 'rejected';

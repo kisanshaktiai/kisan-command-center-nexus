@@ -41,9 +41,9 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
 
   React.useEffect(() => {
     if (lead && open) {
-      setTenantName(lead.company_name || '');
+      setTenantName(lead.organization_name || '');
       setTenantSlug(
-        (lead.company_name || lead.contact_name)
+        (lead.organization_name || lead.contact_name)
           .toLowerCase()
           .replace(/[^a-z0-9\s-]/g, '')
           .replace(/\s+/g, '-')

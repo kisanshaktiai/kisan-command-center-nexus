@@ -130,10 +130,10 @@ export const LeadCard: React.FC<LeadCardProps> = ({
           </div>
         )}
         
-        {lead.company_name && (
+        {lead.organization_name && (
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Building className="h-4 w-4 text-gray-400" />
-            <span>{lead.company_name}</span>
+            <span>{lead.organization_name}</span>
           </div>
         )}
 
