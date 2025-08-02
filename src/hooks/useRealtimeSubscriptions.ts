@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -41,9 +40,9 @@ export const useRealtimeSubscriptions = () => {
           supabase.from('active_sessions').select('*').eq('is_active', true),
           supabase.from('api_logs').select('*').gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
           supabase.from('platform_notifications').select('*').eq('is_read', false).order('created_at', { ascending: false }),
-          supabase.from('system_health_metrics').select('*').order('timestamp', { ascending: false }).limit(100),
-          supabase.from('resource_utilization').select('*').order('timestamp', { ascending: false }).limit(100),
-          supabase.from('financial_analytics').select('*').order('timestamp', { ascending: false }).limit(30)
+          supabase.from('system_health_metrics').select('*').order('created_at', { ascending: false }).limit(100),
+          supabase.from('resource_utilization').select('*').order('created_at', { ascending: false }).limit(100),
+          supabase.from('financial_analytics').select('*').order('created_at', { ascending: false }).limit(30)
         ]);
 
         setData({
