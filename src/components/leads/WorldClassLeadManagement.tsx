@@ -24,7 +24,8 @@ import {
   Clock,
   Award
 } from 'lucide-react';
-import { useEnhancedLeads, useLeadAnalytics } from '@/hooks/useEnhancedLeadManagement';
+import { useLeads } from '@/hooks/useLeadManagement';
+import { useLeadAnalytics } from '@/hooks/useEnhancedLeadManagement';
 import { EnhancedLeadKanban } from './EnhancedLeadKanban';
 import { LeadAnalyticsDashboard } from './LeadAnalyticsDashboard';
 import { CreateLeadDialog } from './CreateLeadDialog';
@@ -33,7 +34,7 @@ import { LeadSettingsDialog } from './LeadSettingsDialog';
 import type { Lead } from '@/types/leads';
 
 export const WorldClassLeadManagement: React.FC = () => {
-  const { data: leads = [], isLoading, error } = useEnhancedLeads();
+  const { data: leads = [], isLoading, error } = useLeads();
   const { data: analytics } = useLeadAnalytics();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Lead['status'] | 'all'>('all');

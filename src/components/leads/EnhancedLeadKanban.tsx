@@ -24,7 +24,7 @@ import {
   Clock,
   AlertTriangle
 } from 'lucide-react';
-import { useOptimisticStatusUpdate } from '@/hooks/useEnhancedLeadManagement';
+import { useUpdateLeadStatus } from '@/hooks/useLeadManagement';
 import { EnhancedLeadCard } from './EnhancedLeadCard';
 import { StatusTransitionDialog } from './StatusTransitionDialog';
 import type { Lead } from '@/types/leads';
@@ -99,7 +99,7 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
     newStatus?: Lead['status'];
   }>({ open: false });
   
-  const updateStatus = useOptimisticStatusUpdate();
+  const updateStatus = useUpdateLeadStatus();
 
   // Group leads by status
   const leadsByStatus = statusColumns.reduce((acc, column) => {
@@ -194,7 +194,7 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
             const IconComponent = column.icon;
             
             return (
-              <Card key={column.id} className={`${column.color} border-2`}>
+              <Card key={column.id} className={`${column.color} border-2 min-h-[600px]`}>
                 <CardHeader className={`${column.headerColor} text-white pb-3 rounded-t-lg`}>
                   <CardTitle className="text-sm flex items-center gap-2">
                     <IconComponent className="h-4 w-4" />
@@ -211,7 +211,7 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
                     <CardContent 
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className={`p-3 min-h-[200px] transition-colors ${
+                      className={`p-3 min-h-[500px] transition-colors ${
                         snapshot.isDraggingOver ? 'bg-white/50' : ''
                       }`}
                     >
