@@ -8657,6 +8657,10 @@ export type Database = {
         Args: { "": unknown }
         Returns: number
       }
+      test_lead_auto_assignment: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       text: {
         Args: { "": unknown }
         Returns: string
