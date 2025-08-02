@@ -151,11 +151,11 @@ export const LeadCard: React.FC<LeadCardProps> = ({
           </div>
         )}
 
-        {lead.assigned_admin && (
+        {lead.assigned_to && (
           <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
             <span className="text-gray-600">Assigned to:</span>
             <span className="font-medium text-gray-900">
-              {lead.assigned_admin.full_name || lead.assigned_admin.email}
+              Admin {lead.assigned_to.slice(0, 8)}...
             </span>
           </div>
         )}
