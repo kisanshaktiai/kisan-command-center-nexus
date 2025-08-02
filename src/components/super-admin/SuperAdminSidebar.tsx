@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 
 const navigationItems = [
@@ -159,45 +160,49 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
           </div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {navigationItems.map((group) => (
-            <div key={group.title}>
-              {isOpen ? (
-                <Collapsible
-                  open={openGroups.includes(group.title)}
-                  onOpenChange={() => toggleGroup(group.title)}
-                >
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-between p-3 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
+        {/* Navigation with ScrollArea */}
+        <div className="flex-1 flex flex-col">
+          <ScrollArea className="flex-1 px-4 py-2">
+            <div className="space-y-2">
+              {navigationItems.map((group) => (
+                <div key={group.title}>
+                  {isOpen ? (
+                    <Collapsible
+                      open={openGroups.includes(group.title)}
+                      onOpenChange={() => toggleGroup(group.title)}
                     >
-                      <span className="text-xs font-semibold uppercase tracking-wider">
-                        {group.title}
-                      </span>
-                      <ChevronDown className={cn(
-                        "w-4 h-4 transition-transform duration-200",
-                        openGroups.includes(group.title) && "transform rotate-180"
-                      )} />
-                    </Button>
-                  </CollapsibleTrigger>
-                  
-                  <CollapsibleContent className="space-y-1 mt-2">
-                    {group.items.map((item) => (
-                      <NavItem key={item.title} item={item} />
-                    ))}
-                  </CollapsibleContent>
-                </Collapsible>
-              ) : (
-                <div className="space-y-1">
-                  {group.items.map((item) => (
-                    <NavItem key={item.title} item={item} />
-                  ))}
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-between p-3 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
+                        >
+                          <span className="text-xs font-semibold uppercase tracking-wider">
+                            {group.title}
+                          </span>
+                          <ChevronDown className={cn(
+                            "w-4 h-4 transition-transform duration-200",
+                            openGroups.includes(group.title) && "transform rotate-180"
+                          )} />
+                        </Button>
+                      </CollapsibleTrigger>
+                      
+                      <CollapsibleContent className="space-y-1 mt-2">
+                        {group.items.map((item) => (
+                          <NavItem key={item.title} item={item} />
+                        ))}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ) : (
+                    <div className="space-y-1">
+                      {group.items.map((item) => (
+                        <NavItem key={item.title} item={item} />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
+          </ScrollArea>
         </div>
 
         {/* Footer - Sign Out */}
