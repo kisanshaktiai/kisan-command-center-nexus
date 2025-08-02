@@ -146,6 +146,15 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
     }
   };
 
+  const handleStatusUpdate = async (leadId: string, status: Lead['status'], notes?: string): Promise<void> => {
+    try {
+      await updateStatus.mutateAsync({ leadId, status, notes });
+    } catch (error) {
+      console.error('Status update failed:', error);
+      throw error;
+    }
+  };
+
   const toggleLeadSelection = (leadId: string) => {
     const isSelected = selectedLeads.includes(leadId);
     if (isSelected) {
@@ -230,9 +239,7 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
                                   isSelected={selectedLeads.includes(lead.id)}
                                   onSelect={() => toggleLeadSelection(lead.id)}
                                   isDragging={snapshot.isDragging}
-                                  onStatusUpdate={(leadId, status, notes) => 
-                                    updateStatus.mutateAsync({ leadId, status, notes })
-                                  }
+                                  onStatusUpdate={handleStatusUpdate}
                                 />
                               </div>
                             )}
