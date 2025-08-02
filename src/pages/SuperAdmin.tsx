@@ -12,13 +12,15 @@ import BillingManagement from './super-admin/BillingManagement';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SuperAdmin = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const { user, isLoading } = useAuth();
 
   // Get current admin user data
-  const { data: adminUser } = useQuery({
+  const { data: adminUser, isLoading: isAdminLoading } = useQuery({
     queryKey: ['current-admin-user'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -33,43 +35,53 @@ const SuperAdmin = () => {
       if (error) throw error;
       return adminData;
     },
+    enabled: !!user, // Only run query if user exists
   });
 
-  if (!adminUser) {
+  // Show loading state
+  if (isLoading || isAdminLoading) {
     return <div>Loading...</div>;
   }
 
+  // Show auth form if not authenticated or no admin user
+  if (!user || !adminUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
+        <SuperAdminAuth />
+      </div>
+    );
+  }
+
+  // Show admin dashboard when authenticated
   return (
-    <SuperAdminAuth>
-      <div className="min-h-screen bg-gray-50">
-        <SuperAdminHeader 
-          setSidebarOpen={setSidebarOpen}
-          adminUser={adminUser}
-          sidebarOpen={sidebarOpen}
+    <div className="min-h-screen bg-gray-50">
+      <SuperAdminHeader 
+        setSidebarOpen={setSidebarOpen}
+        adminUser={adminUser}
+        sidebarOpen={sidebarOpen}
+      />
+      
+      <div className="flex">
+        <SuperAdminSidebar 
+          isOpen={sidebarOpen}
+          setIsOpen={setSidebarOpen}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
         />
         
-        <div className="flex">
-          <SuperAdminSidebar 
-            isOpen={sidebarOpen}
-            setIsOpen={setSidebarOpen}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
-          
-          <main className="flex-1 p-8 ml-64">
-            <Routes>
-              <Route path="/" element={<Navigate to="/super-admin/overview" replace />} />
-              <Route path="/overview" element={<Overview />} />
-              <Route path="/tenant-management" element={<TenantManagement />} />
-              <Route path="/lead-management" element={<LeadManagement />} />
-              <Route path="/admin-user-management" element={<AdminUserManagement />} />
-              <Route path="/billing-management" element={<BillingManagement />} />
-              <Route path="/platform-monitoring" element={<PlatformMonitoring />} />
-            </Routes>
-          </main>
-        </div>
+        <main className="flex-1 p-8 ml-64">
+          <Routes>
+            <Route path="/" element={<Navigate to="/super-admin/overview" replace />} />
+            <Route path="/overview" element={<Overview />} />
+            <Route path="/tenant-management" element={<TenantManagement />} />
+            <Route path="/lead-management" element={<LeadManagement />} />
+            <Route path="/admin-user-management" element={<AdminUserManagement />} />
+            <Route path="/billing-management" element={<BillingManagement />} />
+            <Route path="/platform-monitoring" element={<PlatformMonitoring />} />
+          </Routes>
+        </main>
       </div>
-    </SuperAdminAuth>
+    </div>
   );
 };
 
