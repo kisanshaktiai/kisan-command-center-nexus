@@ -238,17 +238,17 @@ export const EnhancedLeadCard: React.FC<EnhancedLeadCardProps> = ({
                 </div>
               )}
 
-              {lead.budget_range && (
+              {lead.source && (
                 <div>
-                  <span className="font-medium text-gray-600">Budget:</span>
-                  <span className="ml-1">{lead.budget_range}</span>
+                  <span className="font-medium text-gray-600">Source:</span>
+                  <span className="ml-1">{lead.source}</span>
                 </div>
               )}
 
-              {lead.company_size && (
+              {lead.organization_type && (
                 <div>
-                  <span className="font-medium text-gray-600">Company Size:</span>
-                  <span className="ml-1">{lead.company_size}</span>
+                  <span className="font-medium text-gray-600">Organization Type:</span>
+                  <span className="ml-1">{lead.organization_type}</span>
                 </div>
               )}
             </div>
