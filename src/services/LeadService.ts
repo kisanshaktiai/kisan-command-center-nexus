@@ -150,7 +150,11 @@ class LeadServiceClass extends BaseService {
 
   async convertToTenant(convertData: ConvertToTenantData): Promise<ServiceResult<any>> {
     return this.executeOperation(async () => {
-      const { data, error } = await supabase.rpc('convert_lead_to_tenant', {
+      // Generate a temporary password
+      const tempPassword = this.generateTempPassword();
+      
+      // Call the existing RPC function to create tenant
+      const { data: rpcResult, error } = await supabase.rpc('convert_lead_to_tenant', {
         p_lead_id: convertData.leadId,
         p_tenant_name: convertData.tenantName,
         p_tenant_slug: convertData.tenantSlug,
@@ -160,8 +164,58 @@ class LeadServiceClass extends BaseService {
       });
 
       if (error) throw error;
-      return data;
+
+      // Extract tenant ID from the result
+      const tenantId = rpcResult?.tenant_id;
+      
+      if (!tenantId) {
+        throw new Error('Failed to get tenant ID from conversion result');
+      }
+
+      // Send conversion email with account details
+      const { data: emailResult, error: emailError } = await supabase.functions.invoke('tenant-conversion-email', {
+        body: {
+          leadId: convertData.leadId,
+          tenantId: tenantId,
+          adminEmail: convertData.adminEmail || '',
+          adminName: convertData.adminName || '',
+          tenantName: convertData.tenantName,
+          tempPassword: tempPassword
+        }
+      });
+
+      if (emailError) {
+        console.error('Email sending failed:', emailError);
+        // Don't throw error here - tenant was created successfully
+      }
+
+      return {
+        ...rpcResult,
+        emailSent: !emailError,
+        tempPassword: tempPassword // Include for admin reference
+      };
     }, 'convertToTenant');
+  }
+
+  private generateTempPassword(): string {
+    // Generate a secure temporary password
+    const length = 12;
+    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let password = '';
+    
+    // Ensure at least one of each type
+    password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)]; // uppercase
+    password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]; // lowercase
+    password += '0123456789'[Math.floor(Math.random() * 10)]; // number
+    password += '!@#$%^&*'[Math.floor(Math.random() * 8)]; // special
+    
+    // Fill the rest
+    for (let i = 4; i < length; i++) {
+      password += charset[Math.floor(Math.random() * charset.length)];
+    }
+    
+    // Shuffle the password
+    return password.split('').sort(() => Math.random() - 0.5).join('');
   }
 
   async getAdminUsers(): Promise<ServiceResult<any[]>> {

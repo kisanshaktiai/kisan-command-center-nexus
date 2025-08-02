@@ -16,8 +16,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useConvertLeadToTenant } from '@/hooks/useLeadManagement';
 import { subscriptionPlanOptions } from '@/types/tenant';
+import { CheckCircle, Copy, Eye, EyeOff } from 'lucide-react';
 import type { Lead } from '@/types/leads';
 
 interface ConvertLeadDialogProps {
@@ -36,6 +38,8 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   const [subscriptionPlan, setSubscriptionPlan] = useState('Kisan_Basic');
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
+  const [conversionResult, setConversionResult] = useState<any>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const convertMutation = useConvertLeadToTenant();
 
@@ -50,6 +54,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       );
       setAdminName(lead.contact_name);
       setAdminEmail(lead.email);
+      setConversionResult(null);
     }
   }, [lead, open]);
 
@@ -64,20 +69,115 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       adminName: adminName.trim() || undefined,
       adminEmail: adminEmail.trim() || undefined,
     }, {
-      onSuccess: () => {
-        onClose();
-        // Reset form
-        setTenantName('');
-        setTenantSlug('');
-        setSubscriptionPlan('Kisan_Basic');
-        setAdminName('');
-        setAdminEmail('');
+      onSuccess: (result) => {
+        setConversionResult(result);
       },
     });
   };
 
+  const handleClose = () => {
+    onClose();
+    // Reset form after a delay to allow dialog animation
+    setTimeout(() => {
+      setTenantName('');
+      setTenantSlug('');
+      setSubscriptionPlan('Kisan_Basic');
+      setAdminName('');
+      setAdminEmail('');
+      setConversionResult(null);
+      setShowPassword(false);
+    }, 300);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  // Show success result if conversion completed
+  if (conversionResult) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Conversion Successful!
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Alert>
+              <AlertDescription>
+                The lead has been successfully converted to a tenant. An email with login credentials has been sent to the admin.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-medium">Tenant Name</Label>
+                <p className="text-sm text-gray-600">{tenantName}</p>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Admin Email</Label>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-600">{adminEmail}</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(adminEmail)}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+
+              {conversionResult.tempPassword && (
+                <div>
+                  <Label className="text-sm font-medium">Temporary Password</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      value={conversionResult.tempPassword}
+                      readOnly
+                      className="font-mono text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(conversionResult.tempPassword)}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This password was emailed to the admin and should be changed on first login.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={handleClose}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Show conversion form
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Convert Lead to Tenant</DialogTitle>
@@ -142,7 +242,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <Button
