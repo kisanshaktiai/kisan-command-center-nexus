@@ -2424,6 +2424,59 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_activities: {
+        Row: {
+          activity_type: string
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          lead_id: string | null
+          metadata: Json | null
+          outcome: string | null
+          scheduled_at: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          activity_type: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          outcome?: string | null
+          scheduled_at?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          activity_type?: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          outcome?: string | null
+          scheduled_at?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_assignment_rules: {
         Row: {
           admin_pool: string[]
@@ -2519,6 +2572,130 @@ export type Database = {
           },
         ]
       }
+      lead_communication_logs: {
+        Row: {
+          communication_type: string
+          content: string | null
+          created_at: string | null
+          created_by: string | null
+          direction: string
+          id: string
+          lead_id: string | null
+          metadata: Json | null
+          opened_at: string | null
+          replied_at: string | null
+          sent_at: string | null
+          status: string | null
+          subject: string | null
+        }
+        Insert: {
+          communication_type: string
+          content?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          direction: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          opened_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+        }
+        Update: {
+          communication_type?: string
+          content?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          direction?: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          opened_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_communication_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_scoring_rules: {
+        Row: {
+          conditions: Json
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          rule_name: string
+          rule_type: string
+          score_value: number
+          updated_at: string | null
+        }
+        Insert: {
+          conditions: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          rule_name: string
+          rule_type: string
+          score_value: number
+          updated_at?: string | null
+        }
+        Update: {
+          conditions?: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          rule_name?: string
+          rule_type?: string
+          score_value?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      lead_tags: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          lead_id: string | null
+          tag_color: string | null
+          tag_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          tag_color?: string | null
+          tag_name: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          tag_color?: string | null
+          tag_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tags_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           assigned_at: string | null
@@ -2526,18 +2703,24 @@ export type Database = {
           budget_range: string | null
           company_size: string | null
           contact_name: string
+          contract_sent: boolean | null
           converted_at: string | null
           converted_tenant_id: string | null
           created_at: string | null
           created_by: string | null
           current_solution: string | null
+          demo_scheduled: boolean | null
           email: string
           expected_farmers: number | null
           follow_up_date: string | null
           how_did_you_hear: string | null
           id: string
+          last_activity: string | null
           last_contact_at: string | null
+          lead_score: number | null
           lead_source: string | null
+          lead_temperature: string | null
+          marketing_qualified: boolean | null
           metadata: Json | null
           next_follow_up_at: string | null
           notes: string | null
@@ -2545,9 +2728,11 @@ export type Database = {
           organization_type: string
           phone: string
           priority: string | null
+          proposal_sent: boolean | null
           qualification_score: number | null
           rejection_reason: string | null
           requirements: string | null
+          sales_qualified: boolean | null
           source: string | null
           status: string
           timeline: string | null
@@ -2559,18 +2744,24 @@ export type Database = {
           budget_range?: string | null
           company_size?: string | null
           contact_name: string
+          contract_sent?: boolean | null
           converted_at?: string | null
           converted_tenant_id?: string | null
           created_at?: string | null
           created_by?: string | null
           current_solution?: string | null
+          demo_scheduled?: boolean | null
           email: string
           expected_farmers?: number | null
           follow_up_date?: string | null
           how_did_you_hear?: string | null
           id?: string
+          last_activity?: string | null
           last_contact_at?: string | null
+          lead_score?: number | null
           lead_source?: string | null
+          lead_temperature?: string | null
+          marketing_qualified?: boolean | null
           metadata?: Json | null
           next_follow_up_at?: string | null
           notes?: string | null
@@ -2578,9 +2769,11 @@ export type Database = {
           organization_type: string
           phone: string
           priority?: string | null
+          proposal_sent?: boolean | null
           qualification_score?: number | null
           rejection_reason?: string | null
           requirements?: string | null
+          sales_qualified?: boolean | null
           source?: string | null
           status?: string
           timeline?: string | null
@@ -2592,18 +2785,24 @@ export type Database = {
           budget_range?: string | null
           company_size?: string | null
           contact_name?: string
+          contract_sent?: boolean | null
           converted_at?: string | null
           converted_tenant_id?: string | null
           created_at?: string | null
           created_by?: string | null
           current_solution?: string | null
+          demo_scheduled?: boolean | null
           email?: string
           expected_farmers?: number | null
           follow_up_date?: string | null
           how_did_you_hear?: string | null
           id?: string
+          last_activity?: string | null
           last_contact_at?: string | null
+          lead_score?: number | null
           lead_source?: string | null
+          lead_temperature?: string | null
+          marketing_qualified?: boolean | null
           metadata?: Json | null
           next_follow_up_at?: string | null
           notes?: string | null
@@ -2611,9 +2810,11 @@ export type Database = {
           organization_type?: string
           phone?: string
           priority?: string | null
+          proposal_sent?: boolean | null
           qualification_score?: number | null
           rejection_reason?: string | null
           requirements?: string | null
+          sales_qualified?: boolean | null
           source?: string | null
           status?: string
           timeline?: string | null
@@ -6438,6 +6639,10 @@ export type Database = {
       }
       calculate_land_health_score: {
         Args: { land_uuid: string }
+        Returns: number
+      }
+      calculate_lead_score: {
+        Args: { lead_id: string }
         Returns: number
       }
       calculate_onboarding_progress: {

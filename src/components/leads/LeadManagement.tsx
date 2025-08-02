@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,21 +11,54 @@ import {
   Users, 
   TrendingUp, 
   CheckCircle, 
-  AlertCircle 
+  AlertCircle,
+  BarChart3,
+  Activity,
+  RefreshCw
 } from 'lucide-react';
 import { useLeads } from '@/hooks/useLeadManagement';
+import { useLeadProcessor } from '@/hooks/useLeadProcessor';
+import { useConversionFunnel } from '@/hooks/useLeadAnalytics';
 import { LeadCard } from './LeadCard';
 import { LeadAssignmentDialog } from './LeadAssignmentDialog';
 import { ConvertLeadDialog } from './ConvertLeadDialog';
+import { LeadAnalyticsDashboard } from './LeadAnalyticsDashboard';
+import { CreateLeadDialog } from './CreateLeadDialog';
+import { BulkLeadActions } from './BulkLeadActions';
 import type { Lead } from '@/types/leads';
 
 export const LeadManagement: React.FC = () => {
-  const { data: leads = [], isLoading } = useLeads();
+  const { data: leads = [], isLoading, error } = useLeads();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Lead['status'] | 'all'>('all');
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [createLeadDialogOpen, setCreateLeadDialogOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string>();
+
+  const leadProcessor = useLeadProcessor();
+  const { data: funnelData } = useConversionFunnel();
+
+  // Real-time lead count updates
+  const [realTimeStats, setRealTimeStats] = useState({
+    total: 0,
+    new: 0,
+    qualified: 0,
+    converted: 0,
+  });
+
+  useEffect(() => {
+    if (leads) {
+      setRealTimeStats({
+        total: leads.length,
+        new: leads.filter(l => l.status === 'new').length,
+        qualified: leads.filter(l => l.status === 'qualified').length,
+        converted: leads.filter(l => l.status === 'converted').length,
+      });
+    }
+  }, [leads]);
 
   // Filter leads based on search term and status
   const filteredLeads = leads.filter(lead => {
@@ -38,14 +71,6 @@ export const LeadManagement: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // Calculate statistics
-  const stats = {
-    total: leads.length,
-    new: leads.filter(l => l.status === 'new').length,
-    qualified: leads.filter(l => l.status === 'qualified').length,
-    converted: leads.filter(l => l.status === 'converted').length,
-  };
-
   const handleReassign = (leadId: string) => {
     setSelectedLeadId(leadId);
     setAssignmentDialogOpen(true);
@@ -56,7 +81,48 @@ export const LeadManagement: React.FC = () => {
     setConvertDialogOpen(true);
   };
 
+  const handleBulkAutoAssign = () => {
+    selectedLeads.forEach(leadId => {
+      leadProcessor.mutate({ action: 'auto_assign', leadId });
+    });
+    setSelectedLeads([]);
+  };
+
+  const handleBulkScoreCalculation = () => {
+    selectedLeads.forEach(leadId => {
+      leadProcessor.mutate({ action: 'calculate_score', leadId });
+    });
+    setSelectedLeads([]);
+  };
+
+  const toggleLeadSelection = (leadId: string) => {
+    setSelectedLeads(prev => 
+      prev.includes(leadId) 
+        ? prev.filter(id => id !== leadId)
+        : [...prev, leadId]
+    );
+  };
+
   const selectedLead = leads.find(l => l.id === selectedLeadId);
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600">Failed to load leads</p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="mt-4"
+            variant="outline"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -83,67 +149,101 @@ export const LeadManagement: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Lead Management</h1>
           <p className="text-gray-600 mt-1">Manage and track leads through the conversion pipeline</p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Lead
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setAnalyticsOpen(true)}>
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Analytics
+          </Button>
+          <Button onClick={() => setCreateLeadDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Lead
+          </Button>
+        </div>
       </div>
 
-      {/* Statistics Cards */}
+      {/* Real-time Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center">
               <Users className="h-8 w-8 text-blue-500" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Leads</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-2xl font-bold text-gray-900">{realTimeStats.total}</p>
               </div>
+            </div>
+            <div className="absolute top-2 right-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center">
               <AlertCircle className="h-8 w-8 text-orange-500" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">New Leads</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.new}</p>
+                <p className="text-2xl font-bold text-gray-900">{realTimeStats.new}</p>
               </div>
+            </div>
+            <div className="absolute top-2 right-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center">
               <TrendingUp className="h-8 w-8 text-green-500" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Qualified</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.qualified}</p>
+                <p className="text-2xl font-bold text-gray-900">{realTimeStats.qualified}</p>
               </div>
+            </div>
+            <div className="absolute top-2 right-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center">
               <CheckCircle className="h-8 w-8 text-emerald-500" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Converted</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.converted}</p>
+                <p className="text-2xl font-bold text-gray-900">{realTimeStats.converted}</p>
               </div>
+            </div>
+            <div className="absolute top-2 right-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Bulk Actions */}
+      {selectedLeads.length > 0 && (
+        <BulkLeadActions
+          selectedCount={selectedLeads.length}
+          onAutoAssign={handleBulkAutoAssign}
+          onCalculateScore={handleBulkScoreCalculation}
+          onClearSelection={() => setSelectedLeads([])}
+        />
+      )}
+
+      {/* Filters and Search */}
       <Card>
         <CardHeader>
-          <CardTitle>Leads</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Leads
+            <Badge variant="secondary" className="ml-auto">
+              {filteredLeads.length} of {leads.length}
+            </Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -158,13 +258,13 @@ export const LeadManagement: React.FC = () => {
                 />
               </div>
             </div>
-            <div className="flex gap-2">
-              {['all', 'new', 'assigned', 'contacted', 'qualified', 'converted', 'rejected'].map((status) => (
+            <div className="flex gap-2 flex-wrap">
+              {(['all', 'new', 'assigned', 'contacted', 'qualified', 'converted', 'rejected'] as const).map((status) => (
                 <Button
                   key={status}
                   variant={statusFilter === status ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setStatusFilter(status as Lead['status'] | 'all')}
+                  onClick={() => setStatusFilter(status)}
                 >
                   {status.charAt(0).toUpperCase() + status.slice(1)}
                 </Button>
@@ -186,10 +286,11 @@ export const LeadManagement: React.FC = () => {
                   lead={lead}
                   onReassign={handleReassign}
                   onUpdateStatus={(leadId, status) => {
-                    // This will be handled by the useUpdateLeadStatus hook
                     console.log('Update status:', leadId, status);
                   }}
                   onConvert={handleConvert}
+                  isSelected={selectedLeads.includes(lead.id)}
+                  onSelect={() => toggleLeadSelection(lead.id)}
                 />
               ))}
             </div>
@@ -215,6 +316,16 @@ export const LeadManagement: React.FC = () => {
           setSelectedLeadId(undefined);
         }}
         lead={selectedLead}
+      />
+
+      <CreateLeadDialog
+        open={createLeadDialogOpen}
+        onClose={() => setCreateLeadDialogOpen(false)}
+      />
+
+      <LeadAnalyticsDashboard
+        open={analyticsOpen}
+        onClose={() => setAnalyticsOpen(false)}
       />
     </div>
   );

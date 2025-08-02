@@ -27,7 +27,7 @@ export interface Lead {
   decision_timeline?: string;
   current_solution?: string;
   pain_points?: string;
-  lead_temperature?: string;
+  lead_temperature?: 'hot' | 'warm' | 'cold';
   preferred_contact_method?: string;
   lead_score?: number;
   marketing_qualified?: boolean;
@@ -37,6 +37,57 @@ export interface Lead {
   contract_sent?: boolean;
   last_activity?: string;
   created_by?: string;
+}
+
+export interface LeadActivity {
+  id: string;
+  lead_id: string;
+  activity_type: 'call' | 'email' | 'meeting' | 'note' | 'task' | 'status_change';
+  title: string;
+  description?: string;
+  outcome?: string;
+  scheduled_at?: string;
+  completed_at?: string;
+  created_by?: string;
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeadCommunicationLog {
+  id: string;
+  lead_id: string;
+  communication_type: 'email' | 'call' | 'sms' | 'meeting' | 'linkedin';
+  direction: 'inbound' | 'outbound';
+  subject?: string;
+  content?: string;
+  status: string;
+  sent_at: string;
+  opened_at?: string;
+  replied_at?: string;
+  created_by?: string;
+  metadata: Record<string, any>;
+  created_at: string;
+}
+
+export interface LeadTag {
+  id: string;
+  lead_id: string;
+  tag_name: string;
+  tag_color: string;
+  created_by?: string;
+  created_at: string;
+}
+
+export interface LeadScoringRule {
+  id: string;
+  rule_name: string;
+  rule_type: 'demographic' | 'behavioral' | 'engagement' | 'company';
+  conditions: Record<string, any>;
+  score_value: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface LeadAssignmentRule {
