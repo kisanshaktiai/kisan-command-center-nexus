@@ -18,40 +18,32 @@ import {
   Target
 } from 'lucide-react';
 import { LeadTagManager } from './LeadTagManager';
-import { useUpdateLeadStatus, useReassignLead, useConvertLeadToTenant } from '@/hooks/useLeadManagement';
-import { LeadStatusSelect } from './LeadStatusSelect';
+import { EnhancedLeadStatusSelect } from './EnhancedLeadStatusSelect';
+import { LeadWorkflowGuide } from './LeadWorkflowGuide';
+import { LeadActivityTimeline } from './LeadActivityTimeline';
+import { useUpdateLeadStatus } from '@/hooks/useLeadManagement';
 import type { Lead } from '@/types/leads';
 
 interface LeadCardProps {
   lead: Lead;
   onReassign: (leadId: string) => void;
-  onUpdateStatus: (leadId: string, status: Lead['status']) => void;
   onConvert: (leadId: string) => void;
   isSelected?: boolean;
   onSelect?: () => void;
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
 }
 
 export const LeadCard: React.FC<LeadCardProps> = ({
   lead,
   onReassign,
-  onUpdateStatus,
   onConvert,
   isSelected = false,
   onSelect,
+  expanded = false,
+  onToggleExpanded,
 }) => {
   const updateStatus = useUpdateLeadStatus();
-
-  const getStatusColor = (status: Lead['status']) => {
-    switch (status) {
-      case 'new': return 'bg-blue-500';
-      case 'assigned': return 'bg-yellow-500';
-      case 'contacted': return 'bg-orange-500';
-      case 'qualified': return 'bg-green-500';
-      case 'converted': return 'bg-emerald-500';
-      case 'rejected': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
 
   const getPriorityColor = (priority: Lead['priority']) => {
     switch (priority) {
@@ -64,34 +56,17 @@ export const LeadCard: React.FC<LeadCardProps> = ({
   };
 
   const canConvert = lead.status === 'qualified';
-  
-  const getConversionMessage = () => {
-    switch (lead.status) {
-      case 'new':
-        return 'Assign and contact this lead to begin qualification process';
-      case 'assigned':
-        return 'Contact this lead to begin qualification process';
-      case 'contacted':
-        return 'Complete qualification to enable tenant conversion';
-      case 'converted':
-        return 'Lead has been converted to tenant';
-      case 'rejected':
-        return 'Lead was rejected and cannot be converted';
-      default:
-        return 'Complete the qualification process first';
-    }
-  };
 
-  const handleStatusUpdate = async (newStatus: Lead['status']) => {
+  const handleStatusUpdate = async (leadId: string, newStatus: Lead['status'], notes?: string) => {
     try {
       await updateStatus.mutateAsync({ 
-        leadId: lead.id, 
+        leadId, 
         status: newStatus,
-        notes: `Status updated to ${newStatus}` 
+        notes: notes || `Status updated to ${newStatus}` 
       });
-      onUpdateStatus(lead.id, newStatus);
     } catch (error) {
       console.error('Failed to update lead status:', error);
+      throw error;
     }
   };
 
@@ -112,11 +87,6 @@ export const LeadCard: React.FC<LeadCardProps> = ({
                 {lead.contact_name}
               </CardTitle>
               <div className="flex items-center gap-2 mt-1">
-                <Badge 
-                  className={`text-white ${getStatusColor(lead.status)}`}
-                >
-                  {lead.status}
-                </Badge>
                 <Badge 
                   variant="outline" 
                   className={getPriorityColor(lead.priority)}
@@ -208,8 +178,8 @@ export const LeadCard: React.FC<LeadCardProps> = ({
         {/* Actions */}
         <div className="flex flex-wrap gap-2 pt-2 border-t">
           {/* Status Update */}
-          <LeadStatusSelect
-            currentStatus={lead.status}
+          <EnhancedLeadStatusSelect
+            lead={lead}
             onStatusChange={handleStatusUpdate}
             disabled={updateStatus.isPending}
           />
@@ -226,7 +196,7 @@ export const LeadCard: React.FC<LeadCardProps> = ({
           </Button>
 
           {/* Conversion */}
-          {canConvert ? (
+          {canConvert && (
             <Button
               variant="default"
               size="sm"
@@ -236,24 +206,28 @@ export const LeadCard: React.FC<LeadCardProps> = ({
               <ArrowRight className="h-4 w-4 mr-1" />
               Convert to Tenant
             </Button>
-          ) : (
+          )}
+
+          {/* Expand/Collapse */}
+          {onToggleExpanded && (
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              disabled
-              title={getConversionMessage()}
-              className="text-gray-400"
+              onClick={onToggleExpanded}
+              className="ml-auto"
             >
-              <ArrowRight className="h-4 w-4 mr-1" />
-              Convert {lead.status !== 'qualified' && '(Qualify first)'}
+              {expanded ? 'Show Less' : 'Show More'}
             </Button>
           )}
         </div>
 
-        {/* Status-based guidance */}
-        {!canConvert && lead.status !== 'converted' && lead.status !== 'rejected' && (
-          <div className="text-xs text-gray-500 bg-yellow-50 p-2 rounded border border-yellow-200">
-            <strong>Next step:</strong> {getConversionMessage()}
+        {/* Expanded Content */}
+        {expanded && (
+          <div className="space-y-4 pt-4 border-t">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <LeadWorkflowGuide lead={lead} />
+              <LeadActivityTimeline leadId={lead.id} />
+            </div>
           </div>
         )}
       </CardContent>
