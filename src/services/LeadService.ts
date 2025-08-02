@@ -1,4 +1,3 @@
-
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
@@ -7,7 +6,7 @@ interface CreateLeadData {
   contact_name: string;
   email: string;
   phone?: string;
-  company_name?: string;
+  organization_name?: string;
   source?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   notes?: string;
@@ -17,7 +16,7 @@ interface UpdateLeadData {
   contact_name?: string;
   email?: string;
   phone?: string;
-  company_name?: string;
+  organization_name?: string;
   status?: Lead['status'];
   priority?: Lead['priority'];
   notes?: string;
@@ -42,8 +41,16 @@ interface ConvertToTenantData {
 class LeadServiceClass extends BaseService {
   private static instanceStorage: { instance?: LeadServiceClass } = {};
 
+  // Make constructor public to fix the createInstance issue
+  constructor() {
+    super();
+  }
+
   static getInstance(): LeadServiceClass {
-    return this.createInstance(LeadServiceClass, this.instanceStorage);
+    if (!this.instanceStorage.instance) {
+      this.instanceStorage.instance = new LeadServiceClass();
+    }
+    return this.instanceStorage.instance;
   }
 
   async getLeads(): Promise<ServiceResult<Lead[]>> {
@@ -69,7 +76,7 @@ class LeadServiceClass extends BaseService {
           contact_name: leadData.contact_name,
           email: leadData.email,
           phone: leadData.phone,
-          company_name: leadData.company_name,
+          organization_name: leadData.organization_name,
           source: leadData.source,
           priority: leadData.priority || 'medium',
           notes: leadData.notes,

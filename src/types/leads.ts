@@ -1,11 +1,10 @@
-
 // Lead management types
 export interface Lead {
   id: string;
   contact_name: string;
   email: string;
   phone?: string;
-  company_name?: string;
+  organization_name?: string; // Changed from company_name to match database
   assigned_to?: string;
   assigned_at?: string;
   status: 'new' | 'assigned' | 'contacted' | 'qualified' | 'converted' | 'rejected';
@@ -20,6 +19,22 @@ export interface Lead {
   created_at: string;
   updated_at: string;
   notes?: string;
+  // Add fields that exist in database but were missing
+  budget_range?: string;
+  company_size?: string;
+  decision_timeline?: string;
+  current_solution?: string;
+  pain_points?: string;
+  lead_temperature?: string;
+  preferred_contact_method?: string;
+  lead_score?: number;
+  marketing_qualified?: boolean;
+  sales_qualified?: boolean;
+  demo_scheduled?: boolean;
+  proposal_sent?: boolean;
+  contract_sent?: boolean;
+  last_activity?: string;
+  created_by?: string;
 }
 
 export interface LeadAssignmentRule {

@@ -8,7 +8,7 @@ interface CreateLeadData {
   contact_name: string;
   email: string;
   phone?: string;
-  company_name?: string;
+  organization_name?: string; // Changed from company_name
   source?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   notes?: string;
@@ -18,7 +18,7 @@ interface UpdateLeadData {
   contact_name?: string;
   email?: string;
   phone?: string;
-  company_name?: string;
+  organization_name?: string; // Changed from company_name
   status?: Lead['status'];
   priority?: Lead['priority'];
   notes?: string;
