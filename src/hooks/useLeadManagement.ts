@@ -1,10 +1,10 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
 import type { Lead, LeadAssignmentRule } from '@/types/leads';
 import { LeadService } from '@/services/LeadService';
 import { useLeadService } from './useLeadService';
+import { useNotifications } from './useNotifications';
 
 export const useLeads = () => {
   const queryClient = useQueryClient();
@@ -128,7 +128,7 @@ export const useReassignLead = () => {
 
 export const useUpdateLeadStatus = () => {
   const queryClient = useQueryClient();
-  const { updateLead } = useLeadService();
+  const { showSuccess, showError, showLoading, dismiss } = useNotifications();
 
   return useMutation({
     mutationFn: async ({ leadId, status, notes }: { 
@@ -136,26 +136,52 @@ export const useUpdateLeadStatus = () => {
       status: Lead['status']; 
       notes?: string; 
     }) => {
-      console.log('Updating lead status:', { leadId, status, notes });
+      console.log('Updating lead status with enhanced error handling:', { leadId, status, notes });
+      
+      const loadingToast = showLoading(`Updating lead status to ${status}...`);
       
       try {
-        const result = await updateLead(leadId, { status, notes });
-        if (!result) {
-          throw new Error('Failed to update lead status - no result returned');
+        // Use the LeadService directly with proper error handling
+        const result = await LeadService.updateLead(leadId, { 
+          status, 
+          notes: notes || `Status updated to ${status}` 
+        });
+        
+        dismiss(loadingToast);
+        
+        if (!result.success || !result.data) {
+          const errorMessage = result.error || 'Update failed - no result returned';
+          console.error('Lead status update failed:', errorMessage);
+          throw new Error(errorMessage);
         }
-        console.log('Lead status update successful:', result);
-        return result;
+        
+        console.log('Lead status update successful:', result.data);
+        showSuccess(`Lead status updated to ${status}`, {
+          description: 'The lead has been successfully updated.',
+        });
+        
+        return result.data;
       } catch (error) {
-        console.error('Lead status update error:', error);
+        dismiss(loadingToast);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        console.error('Failed to update lead status:', errorMessage);
+        
+        showError('Failed to update lead status', {
+          description: errorMessage.includes('no result returned') 
+            ? 'The update operation completed but returned no data. Please refresh and try again.'
+            : 'Please check the lead data and try again. If the problem persists, contact support.',
+        });
+        
         throw error;
       }
     },
     onSuccess: (data, variables) => {
-      console.log('Lead status updated successfully:', variables.status);
+      console.log('Lead status mutation successful:', variables.status);
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['lead-analytics'] });
     },
     onError: (error, variables) => {
-      console.error('Failed to update lead status:', {
+      console.error('Lead status mutation failed:', {
         error: error.message,
         leadId: variables.leadId,
         status: variables.status
