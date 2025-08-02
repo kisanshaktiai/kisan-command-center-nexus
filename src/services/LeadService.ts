@@ -1,3 +1,4 @@
+
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
@@ -54,13 +55,20 @@ class LeadServiceClass extends BaseService {
 
   async getLeads(): Promise<ServiceResult<Lead[]>> {
     return this.executeOperation(async () => {
+      console.log('Fetching leads from database...');
+      
       // First get the leads
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (leadsError) throw leadsError;
+      if (leadsError) {
+        console.error('Error fetching leads:', leadsError);
+        throw leadsError;
+      }
+
+      console.log('Leads fetched successfully:', leadsData?.length || 0);
 
       // Then get admin users data separately if needed
       const leadsWithAdmins = await Promise.all(
@@ -90,6 +98,8 @@ class LeadServiceClass extends BaseService {
 
   async createLead(leadData: CreateLeadData): Promise<ServiceResult<Lead>> {
     return this.executeOperation(async () => {
+      console.log('Creating lead:', leadData);
+      
       const { data, error } = await supabase
         .from('leads')
         .insert({
@@ -107,13 +117,20 @@ class LeadServiceClass extends BaseService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating lead:', error);
+        throw error;
+      }
+      
+      console.log('Lead created successfully:', data);
       return data as Lead;
     }, 'createLead');
   }
 
   async updateLead(leadId: string, updateData: UpdateLeadData): Promise<ServiceResult<Lead>> {
     return this.executeOperation(async () => {
+      console.log('Updating lead:', { leadId, updateData });
+      
       const updatePayload: any = {
         ...updateData,
         updated_at: new Date().toISOString()
@@ -123,6 +140,15 @@ class LeadServiceClass extends BaseService {
         updatePayload.last_contact_at = new Date().toISOString();
       }
 
+      // Remove undefined values to prevent database errors
+      Object.keys(updatePayload).forEach(key => {
+        if (updatePayload[key] === undefined) {
+          delete updatePayload[key];
+        }
+      });
+
+      console.log('Update payload prepared:', updatePayload);
+
       const { data, error } = await supabase
         .from('leads')
         .update(updatePayload)
@@ -130,30 +156,44 @@ class LeadServiceClass extends BaseService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating lead:', error);
+        throw error;
+      }
+      
+      console.log('Lead updated successfully:', data);
       return data as Lead;
     }, 'updateLead');
   }
 
   async assignLead(assignData: AssignLeadData): Promise<ServiceResult<boolean>> {
     return this.executeOperation(async () => {
+      console.log('Assigning lead:', assignData);
+      
       const { error } = await supabase.rpc('reassign_lead', {
         p_lead_id: assignData.leadId,
         p_new_admin_id: assignData.adminId,
         p_reason: assignData.reason,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error assigning lead:', error);
+        throw error;
+      }
+      
+      console.log('Lead assigned successfully');
       return true;
     }, 'assignLead');
   }
 
   async convertToTenant(convertData: ConvertToTenantData): Promise<ServiceResult<any>> {
     return this.executeOperation(async () => {
+      console.log('Converting lead to tenant:', convertData);
+      
       // Generate a temporary password
       const tempPassword = this.generateTempPassword();
       
-      // Call the existing RPC function to create tenant
+      // Call the updated RPC function to create tenant
       const { data: rpcResult, error } = await supabase.rpc('convert_lead_to_tenant', {
         p_lead_id: convertData.leadId,
         p_tenant_name: convertData.tenantName,
@@ -163,9 +203,14 @@ class LeadServiceClass extends BaseService {
         p_admin_name: convertData.adminName,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error converting lead to tenant:', error);
+        throw error;
+      }
 
-      // Extract tenant ID from the result - handle the Json type properly
+      console.log('RPC conversion result:', rpcResult);
+
+      // Extract tenant ID from the result
       let tenantId: string | null = null;
       
       if (rpcResult && typeof rpcResult === 'object' && 'tenant_id' in rpcResult) {
@@ -173,6 +218,7 @@ class LeadServiceClass extends BaseService {
       }
       
       if (!tenantId) {
+        console.error('No tenant ID returned from conversion');
         throw new Error('Failed to get tenant ID from conversion result');
       }
 
@@ -191,6 +237,8 @@ class LeadServiceClass extends BaseService {
       if (emailError) {
         console.error('Email sending failed:', emailError);
         // Don't throw error here - tenant was created successfully
+      } else {
+        console.log('Conversion email sent successfully');
       }
 
       return {
@@ -224,12 +272,19 @@ class LeadServiceClass extends BaseService {
 
   async getAdminUsers(): Promise<ServiceResult<any[]>> {
     return this.executeOperation(async () => {
+      console.log('Fetching admin users...');
+      
       const { data, error } = await supabase
         .from('admin_users')
         .select('id, full_name, email')
         .eq('is_active', true);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching admin users:', error);
+        throw error;
+      }
+      
+      console.log('Admin users fetched:', data?.length || 0);
       return data;
     }, 'getAdminUsers');
   }

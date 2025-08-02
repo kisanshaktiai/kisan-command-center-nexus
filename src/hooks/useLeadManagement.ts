@@ -41,6 +41,8 @@ export const useLeads = () => {
       }
       return result.data || [];
     },
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 };
 
@@ -118,6 +120,9 @@ export const useReassignLead = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
     },
+    onError: (error) => {
+      console.error('Lead reassignment failed:', error);
+    },
   });
 };
 
@@ -131,32 +136,30 @@ export const useUpdateLeadStatus = () => {
       status: Lead['status']; 
       notes?: string; 
     }) => {
-      // Optimistic update
-      const previousLeads = queryClient.getQueryData(['leads']);
-      queryClient.setQueryData(['leads'], (old: Lead[] = []) =>
-        old.map(lead => 
-          lead.id === leadId 
-            ? { ...lead, status, notes, updated_at: new Date().toISOString() }
-            : lead
-        )
-      );
-
+      console.log('Updating lead status:', { leadId, status, notes });
+      
       try {
         const result = await updateLead(leadId, { status, notes });
         if (!result) {
-          // Revert optimistic update on error
-          queryClient.setQueryData(['leads'], previousLeads);
-          throw new Error('Failed to update lead status');
+          throw new Error('Failed to update lead status - no result returned');
         }
+        console.log('Lead status update successful:', result);
         return result;
       } catch (error) {
-        // Revert optimistic update on error
-        queryClient.setQueryData(['leads'], previousLeads);
+        console.error('Lead status update error:', error);
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      console.log('Lead status updated successfully:', variables.status);
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+    },
+    onError: (error, variables) => {
+      console.error('Failed to update lead status:', {
+        error: error.message,
+        leadId: variables.leadId,
+        status: variables.status
+      });
     },
   });
 };
@@ -181,6 +184,13 @@ export const useConvertLeadToTenant = () => {
       adminEmail?: string;
       adminName?: string;
     }) => {
+      console.log('Converting lead to tenant:', {
+        leadId,
+        tenantName,
+        tenantSlug,
+        subscriptionPlan
+      });
+
       const result = await convertToTenant({
         leadId,
         tenantName,
@@ -191,14 +201,23 @@ export const useConvertLeadToTenant = () => {
       });
 
       if (!result) {
-        throw new Error('Failed to convert lead to tenant');
+        throw new Error('Failed to convert lead to tenant - no result returned');
       }
 
+      console.log('Lead conversion successful:', result);
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      console.log('Lead converted to tenant successfully:', variables.tenantName);
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
+    },
+    onError: (error, variables) => {
+      console.error('Failed to convert lead to tenant:', {
+        error: error.message,
+        leadId: variables.leadId,
+        tenantName: variables.tenantName
+      });
     },
   });
 };
