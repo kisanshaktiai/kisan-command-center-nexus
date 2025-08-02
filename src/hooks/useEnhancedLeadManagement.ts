@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
-import type { Lead, LeadAssignmentRule } from '@/types/leads';
+import type { Lead } from '@/types/leads';
 import { LeadService } from '@/services/LeadService';
 import { useLeadService } from './useLeadService';
 import { useNotifications } from './useNotifications';
@@ -217,6 +217,7 @@ export const useLeadAnalytics = () => {
   return useQuery({
     queryKey: ['lead-analytics'],
     queryFn: async () => {
+      // Use consistent field selection matching the updated service
       const { data: leads, error } = await supabase
         .from('leads')
         .select('status, created_at, converted_at, qualification_score, priority, source');

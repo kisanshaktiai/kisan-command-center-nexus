@@ -142,7 +142,7 @@ export const useUpdateLeadStatus = () => {
       const loadingToast = showLoading(`Updating lead status to ${status}...`);
       
       try {
-        // Use the LeadService instead of direct Supabase call to avoid recursion
+        // Use the LeadService with proper error handling
         const result = await LeadService.updateLead(leadId, { 
           status, 
           notes,

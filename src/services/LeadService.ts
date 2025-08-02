@@ -1,3 +1,4 @@
+
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
@@ -21,6 +22,7 @@ interface UpdateLeadData {
   priority?: Lead['priority'];
   notes?: string;
   qualification_score?: number;
+  last_contact_at?: string;
 }
 
 interface AssignLeadData {
@@ -56,10 +58,46 @@ class LeadServiceClass extends BaseService {
     return this.executeOperation(async () => {
       console.log('Fetching leads from database...');
       
-      // First get the leads
+      // Use consistent field selection to match TypeScript types
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
-        .select('*')
+        .select(`
+          id,
+          contact_name,
+          email,
+          phone,
+          organization_name,
+          organization_type,
+          assigned_to,
+          assigned_at,
+          status,
+          priority,
+          source,
+          qualification_score,
+          converted_tenant_id,
+          converted_at,
+          rejection_reason,
+          last_contact_at,
+          next_follow_up_at,
+          created_at,
+          updated_at,
+          notes,
+          budget_range,
+          company_size,
+          decision_timeline,
+          current_solution,
+          pain_points,
+          lead_temperature,
+          preferred_contact_method,
+          lead_score,
+          marketing_qualified,
+          sales_qualified,
+          demo_scheduled,
+          proposal_sent,
+          contract_sent,
+          last_activity,
+          created_by
+        `)
         .order('created_at', { ascending: false });
 
       if (leadsError) {
@@ -69,7 +107,7 @@ class LeadServiceClass extends BaseService {
 
       console.log('Leads fetched successfully:', leadsData?.length || 0);
 
-      // Then get admin users data separately if needed
+      // Get admin users data for assigned leads
       const leadsWithAdmins = await Promise.all(
         leadsData.map(async (lead) => {
           if (lead.assigned_to) {
@@ -112,6 +150,7 @@ class LeadServiceClass extends BaseService {
           notes: leadData.notes,
           status: 'new',
           qualification_score: 0,
+          lead_score: 0,
         })
         .select()
         .single();
@@ -134,10 +173,6 @@ class LeadServiceClass extends BaseService {
         ...updateData,
         updated_at: new Date().toISOString()
       };
-
-      if (updateData.status === 'contacted') {
-        updatePayload.last_contact_at = new Date().toISOString();
-      }
 
       // Remove undefined values to prevent database errors
       Object.keys(updatePayload).forEach(key => {
