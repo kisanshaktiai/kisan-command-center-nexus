@@ -35,7 +35,7 @@ const SuperAdmin = () => {
       if (error) throw error;
       return adminData;
     },
-    enabled: !!user, // Only run query if user exists
+    enabled: !!user,
   });
 
   // Show loading state
@@ -58,22 +58,24 @@ const SuperAdmin = () => {
 
   // Show admin dashboard when authenticated
   return (
-    <div className="min-h-screen bg-gray-50">
-      <SuperAdminHeader 
-        setSidebarOpen={setSidebarOpen}
-        adminUser={adminUser}
-        sidebarOpen={sidebarOpen}
+    <div className="min-h-screen bg-gray-50 flex">
+      <SuperAdminSidebar 
+        isOpen={sidebarOpen}
+        setIsOpen={setSidebarOpen}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
       />
       
-      <div className="flex">
-        <SuperAdminSidebar 
-          isOpen={sidebarOpen}
-          setIsOpen={setSidebarOpen}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
+      <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${
+        sidebarOpen ? 'lg:ml-72' : 'lg:ml-16'
+      }`}>
+        <SuperAdminHeader 
+          setSidebarOpen={setSidebarOpen}
+          adminUser={adminUser}
+          sidebarOpen={sidebarOpen}
         />
         
-        <main className="flex-1 p-8 ml-64">
+        <main className="flex-1 p-8">
           <Routes>
             <Route path="/" element={<Navigate to="/super-admin/overview" replace />} />
             <Route path="/overview" element={<Overview />} />

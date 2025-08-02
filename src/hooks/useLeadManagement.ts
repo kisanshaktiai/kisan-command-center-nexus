@@ -2,9 +2,60 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useEffect } from 'react';
 import type { Lead, LeadAssignmentRule } from '@/types/leads';
 
 export const useLeads = () => {
+  const queryClient = useQueryClient();
+
+  // Set up real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('leads-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leads',
+        },
+        (payload) => {
+          console.log('Real-time leads update:', payload);
+          
+          // Invalidate and refetch leads data
+          queryClient.invalidateQueries({ queryKey: ['leads'] });
+          
+          // Show toast notifications for different events
+          switch (payload.eventType) {
+            case 'INSERT':
+              toast.success('New lead added!', {
+                description: `Lead: ${payload.new.contact_name}`,
+              });
+              break;
+            case 'UPDATE':
+              const oldStatus = payload.old?.status;
+              const newStatus = payload.new?.status;
+              if (oldStatus !== newStatus) {
+                toast.info('Lead status updated', {
+                  description: `${payload.new.contact_name}: ${oldStatus} → ${newStatus}`,
+                });
+              }
+              break;
+            case 'DELETE':
+              toast.error('Lead removed', {
+                description: `Lead: ${payload.old.contact_name}`,
+              });
+              break;
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['leads'],
     queryFn: async () => {
@@ -23,6 +74,30 @@ export const useLeads = () => {
 };
 
 export const useLeadAssignmentRules = () => {
+  const queryClient = useQueryClient();
+
+  // Set up real-time subscription for assignment rules
+  useEffect(() => {
+    const channel = supabase
+      .channel('lead-assignment-rules-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'lead_assignment_rules',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['lead-assignment-rules'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['lead-assignment-rules'],
     queryFn: async () => {
@@ -98,20 +173,36 @@ export const useUpdateLeadStatus = () => {
       status: Lead['status']; 
       notes?: string; 
     }) => {
-      const { data, error } = await supabase
-        .from('leads')
-        .update({ 
-          status, 
-          notes,
-          last_contact_at: status === 'contacted' ? new Date().toISOString() : undefined,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', leadId)
-        .select()
-        .single();
+      // Optimistic update
+      const previousLeads = queryClient.getQueryData(['leads']);
+      queryClient.setQueryData(['leads'], (old: Lead[] = []) =>
+        old.map(lead => 
+          lead.id === leadId 
+            ? { ...lead, status, notes, updated_at: new Date().toISOString() }
+            : lead
+        )
+      );
 
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('leads')
+          .update({ 
+            status, 
+            notes,
+            last_contact_at: status === 'contacted' ? new Date().toISOString() : undefined,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', leadId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        // Revert optimistic update on error
+        queryClient.setQueryData(['leads'], previousLeads);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
