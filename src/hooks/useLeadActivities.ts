@@ -48,15 +48,22 @@ export const useLeadActivities = (leadId: string) => {
       if (error) throw error;
       
       // Transform the data to match our LeadActivity type
-      const activities = data?.map((activity) => ({
-        ...activity,
-        created_by_user: activity.created_by_user && !Array.isArray(activity.created_by_user) 
-          ? {
-              full_name: activity.created_by_user.full_name || '',
-              email: activity.created_by_user.email || ''
-            }
-          : null
-      })) || [];
+      const activities = data?.map((activity) => {
+        // Type guard to check if created_by_user is a valid user object
+        const hasValidUser = activity.created_by_user && 
+          typeof activity.created_by_user === 'object' && 
+          !Array.isArray(activity.created_by_user) &&
+          'full_name' in activity.created_by_user &&
+          'email' in activity.created_by_user;
+
+        return {
+          ...activity,
+          created_by_user: hasValidUser ? {
+            full_name: (activity.created_by_user as any).full_name || '',
+            email: (activity.created_by_user as any).email || ''
+          } : null
+        };
+      }) || [];
 
       return activities as LeadActivity[];
     },
