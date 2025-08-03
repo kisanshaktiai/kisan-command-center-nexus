@@ -309,13 +309,20 @@ class LeadServiceClass extends BaseService {
       // Handle the RPC result properly
       const result = rpcResult as any;
 
-      if (!result || result.success === false) {
+      if (!result || (typeof result === 'object' && result.success === false)) {
         console.error('Conversion failed:', result);
-        throw new Error(result?.error || 'Conversion failed');
+        const errorMessage = typeof result === 'object' && result.error ? result.error : 'Conversion failed';
+        throw new Error(errorMessage);
       }
 
       // Extract tenant ID from the result
-      const tenantId = result.tenant_id;
+      let tenantId: string | null = null;
+      let invitationToken: string | null = null;
+
+      if (typeof result === 'object') {
+        tenantId = result.tenant_id || null;
+        invitationToken = result.invitation_token || null;
+      }
       
       if (!tenantId) {
         console.error('No tenant ID returned from conversion');
@@ -328,7 +335,7 @@ class LeadServiceClass extends BaseService {
           body: {
             leadId: convertData.leadId,
             tenantId: tenantId,
-            invitationToken: result.invitation_token
+            invitationToken: invitationToken
           }
         });
 
@@ -345,7 +352,7 @@ class LeadServiceClass extends BaseService {
 
       return {
         tenant_id: tenantId,
-        invitation_token: result.invitation_token,
+        invitation_token: invitationToken,
         emailSent: true // We'll assume success for now
       };
     }, 'convertToTenant');
