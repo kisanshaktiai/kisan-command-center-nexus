@@ -161,7 +161,7 @@ class LeadServiceClass extends BaseService {
             assignedAdmin = adminData || null;
           }
           
-          // Map database fields to new interface
+          // Map database fields to new interface with proper type casting
           return {
             ...lead,
             // Map old field names to new ones
@@ -170,6 +170,9 @@ class LeadServiceClass extends BaseService {
             owner_email: lead.email || '',
             owner_phone: lead.phone,
             type: lead.organization_type,
+            // Ensure status is properly typed
+            status: (lead.status as Lead['status']) || 'new',
+            priority: (lead.priority as Lead['priority']) || 'medium',
             assigned_admin: assignedAdmin
           } as Lead;
         })
@@ -222,7 +225,7 @@ class LeadServiceClass extends BaseService {
       
       console.log('Lead created successfully:', data);
       
-      // Map the returned data to new interface
+      // Map the returned data to new interface with proper type casting
       const mappedLead: Lead = {
         ...data,
         name: data.organization_name || '',
@@ -230,6 +233,8 @@ class LeadServiceClass extends BaseService {
         owner_email: data.email || '',
         owner_phone: data.phone,
         type: data.organization_type,
+        status: (data.status as Lead['status']) || 'new',
+        priority: (data.priority as Lead['priority']) || 'medium',
         assigned_admin: null
       };
       
@@ -302,7 +307,7 @@ class LeadServiceClass extends BaseService {
       
       console.log('LeadService: Lead updated successfully:', data);
       
-      // Map the returned data to new interface
+      // Map the returned data to new interface with proper type casting
       const mappedLead: Lead = {
         ...data,
         name: data.organization_name || '',
@@ -310,6 +315,8 @@ class LeadServiceClass extends BaseService {
         owner_email: data.email || '',
         owner_phone: data.phone,
         type: data.organization_type,
+        status: (data.status as Lead['status']) || 'new',
+        priority: (data.priority as Lead['priority']) || 'medium',
         assigned_admin: null
       };
       
@@ -358,7 +365,7 @@ class LeadServiceClass extends BaseService {
 
       console.log('RPC conversion result:', rpcResult);
 
-      // Handle the RPC result properly
+      // Handle the RPC result properly with type checking
       const result = rpcResult as any;
 
       if (!result || (typeof result === 'object' && result.success === false)) {
@@ -367,13 +374,13 @@ class LeadServiceClass extends BaseService {
         throw new Error(errorMessage);
       }
 
-      // Extract tenant ID from the result
+      // Extract tenant ID from the result with proper type checking
       let tenantId: string | null = null;
       let invitationToken: string | null = null;
 
-      if (typeof result === 'object') {
-        tenantId = result.tenant_id || null;
-        invitationToken = result.invitation_token || null;
+      if (typeof result === 'object' && result !== null) {
+        tenantId = (result as any).tenant_id || null;
+        invitationToken = (result as any).invitation_token || null;
       }
       
       if (!tenantId) {

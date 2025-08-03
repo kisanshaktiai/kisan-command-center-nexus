@@ -19,19 +19,24 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useReassignLead } from '@/hooks/useLeadManagement';
 import { LeadService } from '@/services/LeadService';
+import type { Lead } from '@/types/leads';
 
 interface LeadAssignmentDialogProps {
   open: boolean;
   onClose: () => void;
-  leadId?: string;
-  leadName?: string;
+  lead?: Lead | null;
+  adminUsers?: any[];
+  onAssign?: (adminId: string, reason?: string) => Promise<void>;
+  isLoading?: boolean;
 }
 
 export const LeadAssignmentDialog: React.FC<LeadAssignmentDialogProps> = ({
   open,
   onClose,
-  leadId,
-  leadName,
+  lead,
+  adminUsers: propAdminUsers,
+  onAssign: propOnAssign,
+  isLoading: propIsLoading,
 }) => {
   const [selectedAdmin, setSelectedAdmin] = useState('');
   const [reason, setReason] = useState('');
@@ -45,31 +50,41 @@ export const LeadAssignmentDialog: React.FC<LeadAssignmentDialogProps> = ({
       }
       return result.data || [];
     },
+    enabled: !propAdminUsers,
   });
 
   const reassignMutation = useReassignLead();
 
-  const handleSubmit = () => {
-    if (!leadId || !selectedAdmin) return;
-
-    reassignMutation.mutate({
-      leadId,
-      newAdminId: selectedAdmin,
-      reason: reason.trim() || undefined,
-    }, {
-      onSuccess: () => {
-        onClose();
-        setSelectedAdmin('');
-        setReason('');
-      },
+  const finalAdminUsers = propAdminUsers || adminUsers || [];
+  const finalOnAssign = propOnAssign || ((adminId: string, reason?: string) => {
+    if (!lead?.id) return Promise.resolve();
+    
+    return reassignMutation.mutateAsync({
+      leadId: lead.id,
+      newAdminId: adminId,
+      reason: reason?.trim() || undefined,
     });
+  });
+  const finalIsLoading = propIsLoading ?? reassignMutation.isPending;
+
+  const handleSubmit = async () => {
+    if (!selectedAdmin) return;
+
+    try {
+      await finalOnAssign(selectedAdmin, reason.trim() || undefined);
+      onClose();
+      setSelectedAdmin('');
+      setReason('');
+    } catch (error) {
+      console.error('Assignment failed:', error);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reassign Lead: {leadName}</DialogTitle>
+          <DialogTitle>Reassign Lead: {lead?.owner_name}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -80,7 +95,7 @@ export const LeadAssignmentDialog: React.FC<LeadAssignmentDialogProps> = ({
                 <SelectValue placeholder="Select an admin" />
               </SelectTrigger>
               <SelectContent>
-                {adminUsers?.map((admin) => (
+                {finalAdminUsers.map((admin) => (
                   <SelectItem key={admin.id} value={admin.id}>
                     {admin.full_name || admin.email}
                   </SelectItem>
@@ -106,9 +121,9 @@ export const LeadAssignmentDialog: React.FC<LeadAssignmentDialogProps> = ({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!selectedAdmin || reassignMutation.isPending}
+              disabled={!selectedAdmin || finalIsLoading}
             >
-              {reassignMutation.isPending ? 'Assigning...' : 'Reassign Lead'}
+              {finalIsLoading ? 'Assigning...' : 'Reassign Lead'}
             </Button>
           </div>
         </div>
