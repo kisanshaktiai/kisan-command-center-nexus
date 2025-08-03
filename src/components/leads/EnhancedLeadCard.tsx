@@ -93,9 +93,9 @@ export const EnhancedLeadCard: React.FC<EnhancedLeadCardProps> = ({
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-sm flex items-center gap-1 truncate">
                   <User className="h-3 w-3 flex-shrink-0" />
-                  {lead.contact_name}
+                  {lead.owner_name}
                 </h3>
-                <p className="text-xs text-gray-600 truncate">{lead.email}</p>
+                <p className="text-xs text-gray-600 truncate">{lead.owner_email}</p>
               </div>
             </div>
             
@@ -121,17 +121,17 @@ export const EnhancedLeadCard: React.FC<EnhancedLeadCardProps> = ({
 
         <CardContent className="pt-0 space-y-2">
           {/* Contact Information */}
-          {lead.phone && (
+          {lead.owner_phone && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <Phone className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{lead.phone}</span>
+              <span className="truncate">{lead.owner_phone}</span>
             </div>
           )}
           
-          {lead.organization_name && (
+          {lead.name && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <Building className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{lead.organization_name}</span>
+              <span className="truncate">{lead.name}</span>
             </div>
           )}
 
@@ -245,10 +245,10 @@ export const EnhancedLeadCard: React.FC<EnhancedLeadCardProps> = ({
                 </div>
               )}
 
-              {lead.organization_type && (
+              {lead.type && (
                 <div>
                   <span className="font-medium text-gray-600">Organization Type:</span>
-                  <span className="ml-1">{lead.organization_type}</span>
+                  <span className="ml-1">{lead.type}</span>
                 </div>
               )}
             </div>

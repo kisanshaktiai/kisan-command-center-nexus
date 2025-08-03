@@ -84,7 +84,7 @@ class LeadServiceClass extends BaseService {
     return this.executeOperation(async () => {
       console.log('Fetching leads from database...');
       
-      // Updated to use new tenant-aligned field names
+      // Updated query to use new tenant-aligned field names
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select(`
@@ -149,7 +149,7 @@ class LeadServiceClass extends BaseService {
 
       // Get admin users data for assigned leads
       const leadsWithAdmins = await Promise.all(
-        leadsData.map(async (lead) => {
+        leadsData.map(async (lead: any) => {
           if (lead.assigned_to) {
             const { data: adminData } = await supabase
               .from('admin_users')
@@ -306,13 +306,16 @@ class LeadServiceClass extends BaseService {
 
       console.log('RPC conversion result:', rpcResult);
 
-      if (!rpcResult || !rpcResult.success) {
-        console.error('Conversion failed:', rpcResult);
-        throw new Error(rpcResult?.error || 'Conversion failed');
+      // Handle the RPC result properly
+      const result = rpcResult as any;
+
+      if (!result || result.success === false) {
+        console.error('Conversion failed:', result);
+        throw new Error(result?.error || 'Conversion failed');
       }
 
       // Extract tenant ID from the result
-      const tenantId = rpcResult.tenant_id;
+      const tenantId = result.tenant_id;
       
       if (!tenantId) {
         console.error('No tenant ID returned from conversion');
@@ -325,7 +328,7 @@ class LeadServiceClass extends BaseService {
           body: {
             leadId: convertData.leadId,
             tenantId: tenantId,
-            invitationToken: rpcResult.invitation_token
+            invitationToken: result.invitation_token
           }
         });
 
@@ -342,7 +345,7 @@ class LeadServiceClass extends BaseService {
 
       return {
         tenant_id: tenantId,
-        invitation_token: rpcResult.invitation_token,
+        invitation_token: result.invitation_token,
         emailSent: true // We'll assume success for now
       };
     }, 'convertToTenant');

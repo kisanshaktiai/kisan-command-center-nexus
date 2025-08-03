@@ -84,7 +84,7 @@ export const LeadCard: React.FC<LeadCardProps> = ({
             <div>
               <CardTitle className="text-lg flex items-center gap-2">
                 <User className="h-5 w-5" />
-                {lead.contact_name}
+                {lead.owner_name}
               </CardTitle>
               <div className="flex items-center gap-2 mt-1">
                 <Badge 
@@ -113,22 +113,22 @@ export const LeadCard: React.FC<LeadCardProps> = ({
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm">
             <Mail className="h-4 w-4 text-gray-500" />
-            <a href={`mailto:${lead.email}`} className="text-blue-600 hover:underline">
-              {lead.email}
+            <a href={`mailto:${lead.owner_email}`} className="text-blue-600 hover:underline">
+              {lead.owner_email}
             </a>
           </div>
-          {lead.phone && (
+          {lead.owner_phone && (
             <div className="flex items-center gap-2 text-sm">
               <Phone className="h-4 w-4 text-gray-500" />
-              <a href={`tel:${lead.phone}`} className="text-blue-600 hover:underline">
-                {lead.phone}
+              <a href={`tel:${lead.owner_phone}`} className="text-blue-600 hover:underline">
+                {lead.owner_phone}
               </a>
             </div>
           )}
-          {lead.organization_name && (
+          {lead.name && (
             <div className="flex items-center gap-2 text-sm">
               <Building className="h-4 w-4 text-gray-500" />
-              <span>{lead.organization_name}</span>
+              <span>{lead.name}</span>
             </div>
           )}
         </div>
