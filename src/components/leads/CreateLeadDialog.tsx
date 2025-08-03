@@ -30,10 +30,10 @@ export const CreateLeadDialog: React.FC<CreateLeadDialogProps> = ({
   onClose,
 }) => {
   const [formData, setFormData] = useState({
-    name: '', // was organization_name
-    owner_name: '', // was contact_name
-    owner_email: '', // was email
-    owner_phone: '', // was phone
+    contact_name: '',
+    email: '',
+    phone: '',
+    organization_name: '',
     source: '',
     priority: 'medium' as Lead['priority'],
     notes: '',
@@ -48,10 +48,10 @@ export const CreateLeadDialog: React.FC<CreateLeadDialogProps> = ({
     if (result) {
       onClose();
       setFormData({
-        name: '',
-        owner_name: '',
-        owner_email: '',
-        owner_phone: '',
+        contact_name: '',
+        email: '',
+        phone: '',
+        organization_name: '',
         source: '',
         priority: 'medium',
         notes: '',
@@ -68,41 +68,41 @@ export const CreateLeadDialog: React.FC<CreateLeadDialogProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="owner_name">Contact Name *</Label>
+            <Label htmlFor="contact_name">Contact Name *</Label>
             <Input
-              id="owner_name"
-              value={formData.owner_name}
-              onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
+              id="contact_name"
+              value={formData.contact_name}
+              onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
               required
             />
           </div>
 
           <div>
-            <Label htmlFor="owner_email">Email *</Label>
+            <Label htmlFor="email">Email *</Label>
             <Input
-              id="owner_email"
+              id="email"
               type="email"
-              value={formData.owner_email}
-              onChange={(e) => setFormData({ ...formData, owner_email: e.target.value })}
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
             />
           </div>
 
           <div>
-            <Label htmlFor="owner_phone">Phone</Label>
+            <Label htmlFor="phone">Phone</Label>
             <Input
-              id="owner_phone"
-              value={formData.owner_phone}
-              onChange={(e) => setFormData({ ...formData, owner_phone: e.target.value })}
+              id="phone"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             />
           </div>
 
           <div>
-            <Label htmlFor="name">Organization</Label>
+            <Label htmlFor="organization_name">Organization</Label>
             <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              id="organization_name"
+              value={formData.organization_name}
+              onChange={(e) => setFormData({ ...formData, organization_name: e.target.value })}
             />
           </div>
 

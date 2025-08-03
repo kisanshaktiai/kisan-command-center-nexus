@@ -45,16 +45,15 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
 
   React.useEffect(() => {
     if (lead && open) {
-      // Use new tenant-aligned field names
-      setTenantName(lead.name || '');
+      setTenantName(lead.organization_name || '');
       setTenantSlug(
-        (lead.name || lead.owner_name)
+        (lead.organization_name || lead.contact_name)
           .toLowerCase()
           .replace(/[^a-z0-9\s-]/g, '')
           .replace(/\s+/g, '-')
       );
-      setAdminName(lead.owner_name);
-      setAdminEmail(lead.owner_email);
+      setAdminName(lead.contact_name);
+      setAdminEmail(lead.email);
       setConversionResult(null);
     }
   }, [lead, open]);

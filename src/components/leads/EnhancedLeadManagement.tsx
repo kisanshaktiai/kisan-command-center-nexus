@@ -1,23 +1,11 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Settings } from 'lucide-react';
 import { LeadManagement } from './LeadManagement';
 import { AdvancedLeadManagementDashboard } from './AdvancedLeadManagementDashboard';
-import type { Lead } from '@/types/leads';
 
-interface EnhancedLeadManagementProps {
-  leads?: Lead[];
-  selectedLeads?: string[];
-  onSelectionChange?: (leads: string[]) => void;
-}
-
-export const EnhancedLeadManagement: React.FC<EnhancedLeadManagementProps> = ({
-  leads,
-  selectedLeads,
-  onSelectionChange,
-}) => {
+export const EnhancedLeadManagement: React.FC = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string>();
   const [selectedLeadName, setSelectedLeadName] = useState<string>();

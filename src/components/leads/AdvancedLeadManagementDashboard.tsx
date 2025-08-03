@@ -18,6 +18,7 @@ export const AdvancedLeadManagementDashboard: React.FC<AdvancedLeadManagementDas
   selectedLeadName
 }) => {
   const [activeTab, setActiveTab] = useState('auto-assignment');
+  const [analyticsDialogOpen, setAnalyticsDialogOpen] = useState(false);
 
   return (
     <div className="w-full max-w-7xl mx-auto p-6">
@@ -53,7 +54,10 @@ export const AdvancedLeadManagementDashboard: React.FC<AdvancedLeadManagementDas
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-6">
-          <LeadAnalyticsDashboard detailed />
+          <LeadAnalyticsDashboard 
+            open={analyticsDialogOpen} 
+            onClose={() => setAnalyticsDialogOpen(false)} 
+          />
         </TabsContent>
 
         <TabsContent value="tags" className="mt-6">
