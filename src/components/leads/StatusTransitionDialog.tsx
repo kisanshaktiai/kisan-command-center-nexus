@@ -94,8 +94,8 @@ export const StatusTransitionDialog: React.FC<StatusTransitionDialogProps> = ({
           </div>
 
           <div className="text-center">
-            <p className="font-medium">{lead.contact_name}</p>
-            <p className="text-sm text-gray-500">{lead.email}</p>
+            <p className="font-medium">{lead.owner_name}</p>
+            <p className="text-sm text-gray-500">{lead.owner_email}</p>
           </div>
 
           <div className="p-3 bg-blue-50 rounded-lg">

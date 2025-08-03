@@ -84,16 +84,16 @@ class LeadServiceClass extends BaseService {
     return this.executeOperation(async () => {
       console.log('Fetching leads from database...');
       
-      // Updated query to use new tenant-aligned field names
+      // Query using the actual database column names, but map to new interface
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select(`
           id,
-          name,
-          owner_name,
-          owner_email,
-          owner_phone,
-          type,
+          organization_name,
+          contact_name,
+          email,
+          phone,
+          organization_type,
           business_registration,
           business_address,
           established_date,
@@ -150,6 +150,7 @@ class LeadServiceClass extends BaseService {
       // Get admin users data for assigned leads
       const leadsWithAdmins = await Promise.all(
         leadsData.map(async (lead: any) => {
+          let assignedAdmin = null;
           if (lead.assigned_to) {
             const { data: adminData } = await supabase
               .from('admin_users')
@@ -157,19 +158,24 @@ class LeadServiceClass extends BaseService {
               .eq('id', lead.assigned_to)
               .single();
             
-            return {
-              ...lead,
-              assigned_admin: adminData || null
-            };
+            assignedAdmin = adminData || null;
           }
+          
+          // Map database fields to new interface
           return {
             ...lead,
-            assigned_admin: null
-          };
+            // Map old field names to new ones
+            name: lead.organization_name || '',
+            owner_name: lead.contact_name || '',
+            owner_email: lead.email || '',
+            owner_phone: lead.phone,
+            type: lead.organization_type,
+            assigned_admin: assignedAdmin
+          } as Lead;
         })
       );
 
-      return leadsWithAdmins as Lead[];
+      return leadsWithAdmins;
     }, 'getLeads');
   }
 
@@ -177,15 +183,16 @@ class LeadServiceClass extends BaseService {
     return this.executeOperation(async () => {
       console.log('Creating lead:', leadData);
       
+      // Map new field names to database column names
       const { data, error } = await supabase
         .from('leads')
         .insert({
-          // Use new tenant-aligned field names
-          name: leadData.name,
-          owner_name: leadData.owner_name,
-          owner_email: leadData.owner_email,
-          owner_phone: leadData.owner_phone,
-          type: leadData.type || 'agri_company',
+          // Map new field names to database columns
+          organization_name: leadData.name,
+          contact_name: leadData.owner_name,
+          email: leadData.owner_email,
+          phone: leadData.owner_phone,
+          organization_type: leadData.type || 'agri_company',
           
           // Additional tenant fields
           business_registration: leadData.business_registration,
@@ -214,7 +221,19 @@ class LeadServiceClass extends BaseService {
       }
       
       console.log('Lead created successfully:', data);
-      return data as Lead;
+      
+      // Map the returned data to new interface
+      const mappedLead: Lead = {
+        ...data,
+        name: data.organization_name || '',
+        owner_name: data.contact_name || '',
+        owner_email: data.email || '',
+        owner_phone: data.phone,
+        type: data.organization_type,
+        assigned_admin: null
+      };
+      
+      return mappedLead;
     }, 'createLead');
   }
 
@@ -222,23 +241,44 @@ class LeadServiceClass extends BaseService {
     return this.executeOperation(async () => {
       console.log('LeadService: Updating lead:', { leadId, updateData });
       
-      const updatePayload: any = {
-        ...updateData,
+      // Map new field names to database column names for update
+      const dbUpdateData: any = {
         updated_at: new Date().toISOString()
       };
 
+      // Map the interface fields to database columns
+      if (updateData.name !== undefined) dbUpdateData.organization_name = updateData.name;
+      if (updateData.owner_name !== undefined) dbUpdateData.contact_name = updateData.owner_name;
+      if (updateData.owner_email !== undefined) dbUpdateData.email = updateData.owner_email;
+      if (updateData.owner_phone !== undefined) dbUpdateData.phone = updateData.owner_phone;
+      if (updateData.type !== undefined) dbUpdateData.organization_type = updateData.type;
+
+      // Direct field mappings
+      if (updateData.business_registration !== undefined) dbUpdateData.business_registration = updateData.business_registration;
+      if (updateData.business_address !== undefined) dbUpdateData.business_address = updateData.business_address;
+      if (updateData.established_date !== undefined) dbUpdateData.established_date = updateData.established_date;
+      if (updateData.slug !== undefined) dbUpdateData.slug = updateData.slug;
+      if (updateData.subscription_plan !== undefined) dbUpdateData.subscription_plan = updateData.subscription_plan;
+      if (updateData.subdomain !== undefined) dbUpdateData.subdomain = updateData.subdomain;
+      if (updateData.custom_domain !== undefined) dbUpdateData.custom_domain = updateData.custom_domain;
+      if (updateData.status !== undefined) dbUpdateData.status = updateData.status;
+      if (updateData.priority !== undefined) dbUpdateData.priority = updateData.priority;
+      if (updateData.notes !== undefined) dbUpdateData.notes = updateData.notes;
+      if (updateData.qualification_score !== undefined) dbUpdateData.qualification_score = updateData.qualification_score;
+      if (updateData.last_contact_at !== undefined) dbUpdateData.last_contact_at = updateData.last_contact_at;
+
       // Remove undefined values to prevent database errors
-      Object.keys(updatePayload).forEach(key => {
-        if (updatePayload[key] === undefined) {
-          delete updatePayload[key];
+      Object.keys(dbUpdateData).forEach(key => {
+        if (dbUpdateData[key] === undefined) {
+          delete dbUpdateData[key];
         }
       });
 
-      console.log('LeadService: Update payload prepared:', updatePayload);
+      console.log('LeadService: Update payload prepared:', dbUpdateData);
 
       const { data, error } = await supabase
         .from('leads')
-        .update(updatePayload)
+        .update(dbUpdateData)
         .eq('id', leadId)
         .select()
         .single();
@@ -250,7 +290,7 @@ class LeadServiceClass extends BaseService {
           hint: error.hint,
           code: error.code,
           leadId,
-          updatePayload
+          dbUpdateData
         });
         throw error;
       }
@@ -261,7 +301,19 @@ class LeadServiceClass extends BaseService {
       }
       
       console.log('LeadService: Lead updated successfully:', data);
-      return data as Lead;
+      
+      // Map the returned data to new interface
+      const mappedLead: Lead = {
+        ...data,
+        name: data.organization_name || '',
+        owner_name: data.contact_name || '',
+        owner_email: data.email || '',
+        owner_phone: data.phone,
+        type: data.organization_type,
+        assigned_admin: null
+      };
+      
+      return mappedLead;
     }, 'updateLead');
   }
 
