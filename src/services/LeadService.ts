@@ -173,6 +173,8 @@ class LeadServiceClass extends BaseService {
             // Ensure status is properly typed
             status: (lead.status as Lead['status']) || 'new',
             priority: (lead.priority as Lead['priority']) || 'medium',
+            // Cast metadata properly
+            metadata: (lead.metadata as Record<string, any>) || {},
             assigned_admin: assignedAdmin
           } as Lead;
         })
@@ -235,6 +237,7 @@ class LeadServiceClass extends BaseService {
         type: data.organization_type,
         status: (data.status as Lead['status']) || 'new',
         priority: (data.priority as Lead['priority']) || 'medium',
+        metadata: (data.metadata as Record<string, any>) || {},
         assigned_admin: null
       };
       
@@ -317,6 +320,7 @@ class LeadServiceClass extends BaseService {
         type: data.organization_type,
         status: (data.status as Lead['status']) || 'new',
         priority: (data.priority as Lead['priority']) || 'medium',
+        metadata: (data.metadata as Record<string, any>) || {},
         assigned_admin: null
       };
       
