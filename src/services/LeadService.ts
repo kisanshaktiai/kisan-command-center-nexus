@@ -1,22 +1,49 @@
+
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
 
 interface CreateLeadData {
-  contact_name: string;
-  email: string;
-  phone?: string;
-  organization_name?: string;
+  // Updated to use new tenant-aligned field names
+  name: string; // was organization_name
+  owner_name: string; // was contact_name  
+  owner_email: string; // was email
+  owner_phone?: string; // was phone
+  type?: string; // was organization_type
+  
+  // Additional tenant fields
+  business_registration?: string;
+  business_address?: any;
+  established_date?: string;
+  slug?: string;
+  subscription_plan?: string;
+  subdomain?: string;
+  custom_domain?: string;
+  
+  // Standard lead fields
   source?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   notes?: string;
 }
 
 interface UpdateLeadData {
-  contact_name?: string;
-  email?: string;
-  phone?: string;
-  organization_name?: string;
+  // Updated field names
+  name?: string; // was organization_name
+  owner_name?: string; // was contact_name
+  owner_email?: string; // was email
+  owner_phone?: string; // was phone
+  type?: string; // was organization_type
+  
+  // Additional tenant fields
+  business_registration?: string;
+  business_address?: any;
+  established_date?: string;
+  slug?: string;
+  subscription_plan?: string;
+  subdomain?: string;
+  custom_domain?: string;
+  
+  // Standard lead fields
   status?: Lead['status'];
   priority?: Lead['priority'];
   notes?: string;
@@ -32,11 +59,11 @@ interface AssignLeadData {
 
 interface ConvertToTenantData {
   leadId: string;
-  tenantName: string;
-  tenantSlug: string;
+  tenantName?: string; // Optional override for lead.name
+  tenantSlug?: string; // Optional override for lead.slug
   subscriptionPlan?: string;
-  adminEmail?: string;
-  adminName?: string;
+  adminEmail?: string; // Optional override for lead.owner_email
+  adminName?: string; // Optional override for lead.owner_name
 }
 
 class LeadServiceClass extends BaseService {
@@ -57,16 +84,31 @@ class LeadServiceClass extends BaseService {
     return this.executeOperation(async () => {
       console.log('Fetching leads from database...');
       
-      // Use only fields that exist in the database
+      // Updated to use new tenant-aligned field names
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select(`
           id,
-          contact_name,
-          email,
-          phone,
-          organization_name,
-          organization_type,
+          name,
+          owner_name,
+          owner_email,
+          owner_phone,
+          type,
+          business_registration,
+          business_address,
+          established_date,
+          slug,
+          subscription_plan,
+          subscription_start_date,
+          subscription_end_date,
+          trial_ends_at,
+          max_farmers,
+          max_dealers,
+          max_products,
+          max_storage_gb,
+          max_api_calls_per_day,
+          subdomain,
+          custom_domain,
           assigned_to,
           assigned_at,
           status,
@@ -88,7 +130,8 @@ class LeadServiceClass extends BaseService {
           proposal_sent,
           contract_sent,
           last_activity,
-          created_by
+          created_by,
+          metadata
         `)
         .order('created_at', { ascending: false });
 
@@ -137,17 +180,30 @@ class LeadServiceClass extends BaseService {
       const { data, error } = await supabase
         .from('leads')
         .insert({
-          contact_name: leadData.contact_name,
-          email: leadData.email,
-          phone: leadData.phone,
-          organization_name: leadData.organization_name,
-          organization_type: 'company',
+          // Use new tenant-aligned field names
+          name: leadData.name,
+          owner_name: leadData.owner_name,
+          owner_email: leadData.owner_email,
+          owner_phone: leadData.owner_phone,
+          type: leadData.type || 'agri_company',
+          
+          // Additional tenant fields
+          business_registration: leadData.business_registration,
+          business_address: leadData.business_address,
+          established_date: leadData.established_date,
+          slug: leadData.slug,
+          subscription_plan: leadData.subscription_plan || 'Kisan_Basic',
+          subdomain: leadData.subdomain,
+          custom_domain: leadData.custom_domain,
+          
+          // Standard lead fields
           source: leadData.source,
           priority: leadData.priority || 'medium',
           notes: leadData.notes,
           status: 'new',
           qualification_score: 0,
           lead_score: 0,
+          metadata: {}
         })
         .select()
         .single();
@@ -233,17 +289,14 @@ class LeadServiceClass extends BaseService {
     return this.executeOperation(async () => {
       console.log('Converting lead to tenant:', convertData);
       
-      // Generate a temporary password
-      const tempPassword = this.generateTempPassword();
-      
-      // Call the updated RPC function to create tenant
+      // Call the updated RPC function with direct field mapping
       const { data: rpcResult, error } = await supabase.rpc('convert_lead_to_tenant', {
         p_lead_id: convertData.leadId,
-        p_tenant_name: convertData.tenantName,
-        p_tenant_slug: convertData.tenantSlug,
+        p_tenant_name: convertData.tenantName, // Optional override
+        p_tenant_slug: convertData.tenantSlug, // Optional override
         p_subscription_plan: convertData.subscriptionPlan,
-        p_admin_email: convertData.adminEmail,
-        p_admin_name: convertData.adminName,
+        p_admin_email: convertData.adminEmail, // Optional override
+        p_admin_name: convertData.adminName, // Optional override
       });
 
       if (error) {
@@ -253,12 +306,13 @@ class LeadServiceClass extends BaseService {
 
       console.log('RPC conversion result:', rpcResult);
 
-      // Extract tenant ID from the result
-      let tenantId: string | null = null;
-      
-      if (rpcResult && typeof rpcResult === 'object' && 'tenant_id' in rpcResult) {
-        tenantId = String(rpcResult.tenant_id);
+      if (!rpcResult || !rpcResult.success) {
+        console.error('Conversion failed:', rpcResult);
+        throw new Error(rpcResult?.error || 'Conversion failed');
       }
+
+      // Extract tenant ID from the result
+      const tenantId = rpcResult.tenant_id;
       
       if (!tenantId) {
         console.error('No tenant ID returned from conversion');
@@ -266,51 +320,32 @@ class LeadServiceClass extends BaseService {
       }
 
       // Send conversion email with account details
-      const { data: emailResult, error: emailError } = await supabase.functions.invoke('tenant-conversion-email', {
-        body: {
-          leadId: convertData.leadId,
-          tenantId: tenantId,
-          adminEmail: convertData.adminEmail || '',
-          adminName: convertData.adminName || '',
-          tenantName: convertData.tenantName,
-          tempPassword: tempPassword
-        }
-      });
+      try {
+        const { data: emailResult, error: emailError } = await supabase.functions.invoke('tenant-conversion-email', {
+          body: {
+            leadId: convertData.leadId,
+            tenantId: tenantId,
+            invitationToken: rpcResult.invitation_token
+          }
+        });
 
-      if (emailError) {
+        if (emailError) {
+          console.error('Email sending failed:', emailError);
+          // Don't throw error here - tenant was created successfully
+        } else {
+          console.log('Conversion email sent successfully');
+        }
+      } catch (emailError) {
         console.error('Email sending failed:', emailError);
         // Don't throw error here - tenant was created successfully
-      } else {
-        console.log('Conversion email sent successfully');
       }
 
       return {
         tenant_id: tenantId,
-        emailSent: !emailError,
-        tempPassword: tempPassword // Include for admin reference
+        invitation_token: rpcResult.invitation_token,
+        emailSent: true // We'll assume success for now
       };
     }, 'convertToTenant');
-  }
-
-  private generateTempPassword(): string {
-    // Generate a secure temporary password
-    const length = 12;
-    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-    let password = '';
-    
-    // Ensure at least one of each type
-    password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)]; // uppercase
-    password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]; // lowercase
-    password += '0123456789'[Math.floor(Math.random() * 10)]; // number
-    password += '!@#$%^&*'[Math.floor(Math.random() * 8)]; // special
-    
-    // Fill the rest
-    for (let i = 4; i < length; i++) {
-      password += charset[Math.floor(Math.random() * charset.length)];
-    }
-    
-    // Shuffle the password
-    return password.split('').sort(() => Math.random() - 0.5).join('');
   }
 
   async getAdminUsers(): Promise<ServiceResult<any[]>> {

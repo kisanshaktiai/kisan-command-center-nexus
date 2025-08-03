@@ -5,20 +5,46 @@ import { useNotifications } from './useNotifications';
 import type { Lead } from '@/types/leads';
 
 interface CreateLeadData {
-  contact_name: string;
-  email: string;
-  phone?: string;
-  organization_name?: string; // Changed from company_name
+  // Updated to use new tenant-aligned field names
+  name: string; // was organization_name
+  owner_name: string; // was contact_name  
+  owner_email: string; // was email
+  owner_phone?: string; // was phone
+  type?: string; // was organization_type
+  
+  // Additional tenant fields that can be collected during lead creation
+  business_registration?: string;
+  business_address?: any;
+  established_date?: string;
+  slug?: string;
+  subscription_plan?: string;
+  subdomain?: string;
+  custom_domain?: string;
+  
+  // Standard lead fields
   source?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   notes?: string;
 }
 
 interface UpdateLeadData {
-  contact_name?: string;
-  email?: string;
-  phone?: string;
-  organization_name?: string; // Changed from company_name
+  // Updated field names
+  name?: string; // was organization_name
+  owner_name?: string; // was contact_name
+  owner_email?: string; // was email
+  owner_phone?: string; // was phone
+  type?: string; // was organization_type
+  
+  // Additional tenant fields
+  business_registration?: string;
+  business_address?: any;
+  established_date?: string;
+  slug?: string;
+  subscription_plan?: string;
+  subdomain?: string;
+  custom_domain?: string;
+  
+  // Standard lead fields
   status?: Lead['status'];
   priority?: Lead['priority'];
   notes?: string;
@@ -33,11 +59,11 @@ interface AssignLeadData {
 
 interface ConvertToTenantData {
   leadId: string;
-  tenantName: string;
-  tenantSlug: string;
+  tenantName?: string; // Optional override for lead.name
+  tenantSlug?: string; // Optional override for lead.slug
   subscriptionPlan?: string;
-  adminEmail?: string;
-  adminName?: string;
+  adminEmail?: string; // Optional override for lead.owner_email
+  adminName?: string; // Optional override for lead.owner_name
 }
 
 export const useLeadService = () => {

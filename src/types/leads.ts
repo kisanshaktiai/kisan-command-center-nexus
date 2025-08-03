@@ -1,11 +1,31 @@
-// Lead management types
+// Lead management types - Updated for tenant alignment
 export interface Lead {
   id: string;
-  contact_name: string;
-  email: string;
-  phone?: string;
-  organization_name?: string;
-  organization_type?: string;
+  // New tenant-aligned fields (direct mapping)
+  name: string; // was organization_name
+  owner_name: string; // was contact_name
+  owner_email: string; // was email
+  owner_phone?: string; // was phone
+  type?: string; // was organization_type, now uses tenant_type enum
+  
+  // Additional tenant fields now available in leads
+  business_registration?: string;
+  business_address?: any;
+  established_date?: string;
+  slug?: string;
+  subscription_plan?: string;
+  subscription_start_date?: string;
+  subscription_end_date?: string;
+  trial_ends_at?: string;
+  max_farmers?: number;
+  max_dealers?: number;
+  max_products?: number;
+  max_storage_gb?: number;
+  max_api_calls_per_day?: number;
+  subdomain?: string;
+  custom_domain?: string;
+  
+  // Existing lead-specific fields
   assigned_to?: string;
   assigned_at?: string;
   status: 'new' | 'assigned' | 'contacted' | 'qualified' | 'converted' | 'rejected';
@@ -20,6 +40,8 @@ export interface Lead {
   created_at: string;
   updated_at: string;
   notes?: string;
+  metadata?: Record<string, any>;
+  
   // Core database fields that exist
   lead_score?: number;
   marketing_qualified?: boolean;
@@ -29,6 +51,7 @@ export interface Lead {
   contract_sent?: boolean;
   last_activity?: string;
   created_by?: string;
+  
   // Add assigned admin information
   assigned_admin?: {
     full_name: string;
