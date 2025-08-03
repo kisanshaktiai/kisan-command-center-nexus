@@ -35,8 +35,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     const { context, onError } = this.props;
 
-    // Log error with context
-    errorHandlingService.processError(error, {
+    // Log error with context - service now returns structured result instead of showing toasts
+    const errorResult = errorHandlingService.processError(error, {
       component: context?.component || 'ErrorBoundary',
       action: 'componentDidCatch',
       metadata: {
@@ -46,8 +46,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         errorBoundary: true
       }
     }, {
-      showToast: context?.level !== 'critical', // Don't show toast for critical errors
-      logToServer: true
+      logToServer: true,
+      fallbackMessage: 'A component error occurred'
     });
 
     // Store error info in state
@@ -62,6 +62,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       console.error('Error:', error);
       console.error('Error Info:', errorInfo);
       console.error('Context:', context);
+      console.error('Error Result:', errorResult);
       console.groupEnd();
     }
   }

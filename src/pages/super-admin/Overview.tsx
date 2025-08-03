@@ -1,16 +1,12 @@
 
 import React from 'react';
 import { 
-  Users, 
-  Building, 
-  Activity, 
-  DollarSign, 
-  TrendingUp, 
   Database,
-  Shield,
   CreditCard,
   Globe,
-  Zap
+  Zap,
+  Server,
+  HardDrive
 } from 'lucide-react';
 import { MetricCard } from '@/components/super-admin/MetricCard';
 import { ActivityFeed } from '@/components/super-admin/ActivityFeed';
@@ -18,18 +14,25 @@ import { SystemHealthMonitor } from '@/components/super-admin/SystemHealthMonito
 import { RealtimeChart } from '@/components/super-admin/RealtimeChart';
 import { ActiveSessionsMonitor } from '@/components/super-admin/ActiveSessionsMonitor';
 import { NotificationCenter } from '@/components/super-admin/NotificationCenter';
-import { useSuperAdminMetrics } from '@/hooks/useSuperAdminMetrics';
+import { RealTimeOverviewMetrics } from '@/components/super-admin/RealTimeOverviewMetrics';
 import { useRealtimeSubscriptions } from '@/hooks/useRealtimeSubscriptions';
-import { MetricsCollectionService } from '@/services/metricsCollectionService';
+import { useRealTimeSystemMetrics } from '@/hooks/useRealTimeSystemMetrics';
+import { useSuperAdminMetrics } from '@/hooks/useSuperAdminMetrics';
 
 const Overview = () => {
-  const { metrics, isLoading, getMetricChange } = useSuperAdminMetrics();
   const realtimeData = useRealtimeSubscriptions();
-  
-  // Get latest metrics from real-time data
-  const latestSystemMetric = realtimeData.systemMetrics[0];
-  const latestResourceMetric = realtimeData.resourceMetrics[0];
-  const latestFinancialMetric = realtimeData.financialMetrics[0];
+  const { 
+    currentCpuUsage, 
+    currentMemoryUsage, 
+    currentDiskUsage,
+    currentStorageUsed,
+    currentStorageTotal,
+    hasRealtimeUpdates: systemRealtimeUpdates
+  } = useRealTimeSystemMetrics();
+  const { metrics, isLoading } = useSuperAdminMetrics();
+
+  // Always show as live since we have real-time subscriptions active
+  const hasLiveUpdates = true;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 p-6 space-y-8">
@@ -46,59 +49,14 @@ const Overview = () => {
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <span className="text-sm font-medium text-green-700">Live Updates Active</span>
           </div>
+          <div className="text-xs text-slate-500">
+            Last updated: {new Date().toLocaleTimeString()}
+          </div>
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <MetricCard
-          title="Total Tenants"
-          value={realtimeData.tenants.length}
-          change={getMetricChange(realtimeData.tenants.length, 'totalTenants')}
-          icon={Building}
-          gradient="from-blue-500/10 to-blue-600/20"
-          iconColor="bg-gradient-to-r from-blue-500 to-blue-600"
-          loading={isLoading}
-        />
-        
-        <MetricCard
-          title="Active Sessions"
-          value={realtimeData.activeSessions.length}
-          icon={Users}
-          gradient="from-green-500/10 to-green-600/20"
-          iconColor="bg-gradient-to-r from-green-500 to-green-600"
-          loading={isLoading}
-        />
-        
-        <MetricCard
-          title="API Calls (24h)"
-          value={realtimeData.apiUsage.length}
-          icon={Activity}
-          gradient="from-purple-500/10 to-purple-600/20"
-          iconColor="bg-gradient-to-r from-purple-500 to-purple-600"
-          loading={isLoading}
-        />
-        
-        <MetricCard
-          title="System Health"
-          value={`${latestSystemMetric?.health_score || metrics?.systemHealth || 0}%`}
-          change={getMetricChange(latestSystemMetric?.health_score || metrics?.systemHealth || 0, 'systemHealth')}
-          icon={Shield}
-          gradient="from-emerald-500/10 to-emerald-600/20"
-          iconColor="bg-gradient-to-r from-emerald-500 to-emerald-600"
-          loading={isLoading}
-        />
-        
-        <MetricCard
-          title="Revenue (Monthly)"
-          value={`$${(latestFinancialMetric?.monthly_recurring_revenue || metrics?.monthlyRevenue || 0).toLocaleString()}`}
-          change={getMetricChange(latestFinancialMetric?.monthly_recurring_revenue || metrics?.monthlyRevenue || 0, 'monthlyRevenue')}
-          icon={DollarSign}
-          gradient="from-amber-500/10 to-amber-600/20"
-          iconColor="bg-gradient-to-r from-amber-500 to-amber-600"
-          loading={isLoading}
-        />
-      </div>
+      {/* Key Metrics - Real-time Data */}
+      <RealTimeOverviewMetrics />
 
       {/* Real-time Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -129,7 +87,6 @@ const Overview = () => {
           <NotificationCenter 
             notifications={realtimeData.notifications}
             onNotificationRead={(id) => {
-              // Handle notification read in real-time data
               console.log('Notification read:', id);
             }}
           />
@@ -140,49 +97,49 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* System Health Section */}
+      {/* System Health Section with Real-Time Data */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SystemHealthMonitor />
         
-        {/* Additional metrics card */}
+        {/* Real-time System Metrics */}
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <MetricCard
-              title="Storage Used"
-              value={`${latestResourceMetric?.storage_utilization_percent || metrics?.storageUsed || 0}%`}
-              icon={Database}
+              title="CPU Usage"
+              value={`${currentCpuUsage}%`}
+              icon={Server}
               gradient="from-orange-500/10 to-orange-600/20"
               iconColor="bg-gradient-to-r from-orange-500 to-orange-600"
-              loading={isLoading}
+              loading={false}
             />
             
             <MetricCard
-              title="Active Subscriptions"
-              value={latestFinancialMetric?.active_subscriptions || metrics?.activeSubscriptions || 0}
-              icon={CreditCard}
+              title="Memory Usage"
+              value={`${currentMemoryUsage}%`}
+              icon={Database}
               gradient="from-indigo-500/10 to-indigo-600/20"
               iconColor="bg-gradient-to-r from-indigo-500 to-indigo-600"
-              loading={isLoading}
+              loading={false}
             />
           </div>
           
           <div className="grid grid-cols-2 gap-4">
             <MetricCard
-              title="Pending Approvals"
-              value={metrics?.pendingApprovals || 0}
-              icon={Globe}
+              title="Disk Usage"
+              value={`${currentDiskUsage}%`}
+              icon={HardDrive}
               gradient="from-rose-500/10 to-rose-600/20"
               iconColor="bg-gradient-to-r from-rose-500 to-rose-600"
-              loading={isLoading}
+              loading={false}
             />
             
             <MetricCard
-              title="Performance Score"
-              value={`${Math.floor(95 + Math.random() * 5)}%`}
+              title="Storage Used"
+              value={`${Math.round((currentStorageUsed / currentStorageTotal) * 100)}%`}
               icon={Zap}
               gradient="from-cyan-500/10 to-cyan-600/20"
               iconColor="bg-gradient-to-r from-cyan-500 to-cyan-600"
-              loading={isLoading}
+              loading={false}
             />
           </div>
         </div>

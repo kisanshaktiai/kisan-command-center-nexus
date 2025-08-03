@@ -3,10 +3,10 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from 'lucide-react';
-import { TenantFormData } from '@/types/tenant';
+import { TenantFormData, Tenant } from '@/types/tenant';
 import { useSlugValidation } from '@/hooks/useSlugValidation';
 import { TenantFormBasic } from './TenantFormBasic';
-import { TenantFormBranding } from './TenantFormBranding';
+import { TenantFormBusiness } from './TenantFormBusiness';
 import { TenantFormLimits } from './TenantFormLimits';
 
 interface TenantFormProps {
@@ -14,17 +14,34 @@ interface TenantFormProps {
   setFormData: (data: TenantFormData) => void;
   onSubmit: () => void;
   isEditing: boolean;
+  currentTenant?: Tenant;
 }
 
-export const TenantForm: React.FC<TenantFormProps> = ({ formData, setFormData, onSubmit, isEditing }) => {
-  const { isValid: isSlugValid, isChecking: isSlugChecking, error: slugError } = useSlugValidation(formData.slug || '');
+export const TenantForm: React.FC<TenantFormProps> = ({ 
+  formData, 
+  setFormData, 
+  onSubmit, 
+  isEditing, 
+  currentTenant 
+}) => {
+  const { isValid: isSlugValid, isChecking: isSlugChecking, error: slugError } = useSlugValidation(
+    formData.slug || '', 
+    isEditing ? currentTenant?.id : undefined
+  );
 
-  const handleFieldChange = (field: keyof TenantFormData, value: string | number) => {
+  const handleFieldChange = (field: keyof TenantFormData, value: string | number | object) => {
     setFormData({ ...formData, [field]: value });
   };
 
   const isFormValid = () => {
-    return formData.name && formData.slug && isSlugValid && formData.type && formData.subscription_plan;
+    return (
+      formData.name && 
+      formData.slug && 
+      isSlugValid && 
+      formData.type && 
+      formData.subscription_plan &&
+      formData.subdomain
+    );
   };
 
   return (
@@ -32,7 +49,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({ formData, setFormData, o
       <Tabs defaultValue="basic" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="basic">Basic Info</TabsTrigger>
-          <TabsTrigger value="branding">Branding</TabsTrigger>
+          <TabsTrigger value="business">Business Details</TabsTrigger>
           <TabsTrigger value="limits">Limits & Features</TabsTrigger>
         </TabsList>
 
@@ -46,8 +63,11 @@ export const TenantForm: React.FC<TenantFormProps> = ({ formData, setFormData, o
           />
         </TabsContent>
 
-        <TabsContent value="branding" className="space-y-6">
-          <TenantFormBranding formData={formData} />
+        <TabsContent value="business" className="space-y-6">
+          <TenantFormBusiness 
+            formData={formData} 
+            onFieldChange={handleFieldChange}
+          />
         </TabsContent>
 
         <TabsContent value="limits" className="space-y-6">

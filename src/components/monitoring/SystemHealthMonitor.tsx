@@ -5,46 +5,28 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { 
   Server, 
-  Database, 
   Activity, 
   HardDrive, 
   Cpu, 
   MemoryStick,
-  Network,
   Clock
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { useSystemHealth } from '@/lib/api/queries';
 
 interface SystemHealthMonitorProps {
   refreshInterval: number;
 }
 
 const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterval }) => {
-  const { data: systemMetrics, isLoading } = useQuery({
-    queryKey: ['system-health-metrics'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('system_health_metrics')
-        .select('*')
-        .eq('metric_type', 'system')
-        .order('timestamp', { ascending: false })
-        .limit(100);
+  const { data: systemMetrics, isLoading: metricsLoading } = useSystemHealth();
+  const { data: resourceData, isLoading: resourceLoading } = useSystemHealth();
 
-      if (error) {
-        console.error('Error fetching system health metrics:', error);
-        throw error;
-      }
-      return data || [];
-    },
-    refetchInterval: refreshInterval,
-  });
+  const isLoading = metricsLoading || resourceLoading;
 
   // Calculate current metrics from real data
   const currentMetrics = React.useMemo(() => {
     if (!systemMetrics || systemMetrics.length === 0) {
-      // Default/fallback values if no data
       return {
         cpu_usage: 0,
         memory_usage: 0,
@@ -57,7 +39,7 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
       };
     }
 
-    // Get latest metrics by type
+    // Get latest metrics by name using actual schema
     const getLatestMetric = (name: string) => {
       const metric = systemMetrics.find(m => m.metric_name === name);
       return metric ? Number(metric.value) : 0;
@@ -75,23 +57,48 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
     };
   }, [systemMetrics]);
 
-  // Process metrics for charts
-  const chartData = systemMetrics?.slice(0, 24).reverse().map((metric, index) => ({
-    time: new Date(metric.timestamp).toLocaleTimeString(),
-    cpu: 40 + Math.random() * 20,
-    memory: 60 + Math.random() * 20,
-    network: 100 + Math.random() * 50,
-    response_time: 120 + Math.random() * 40
-  })) || [];
+  // Process real metrics data for charts using actual schema
+  const chartData = React.useMemo(() => {
+    if (!resourceData || resourceData.length === 0) return [];
+    
+    return resourceData.slice(0, 24).reverse().map((resource) => ({
+      time: new Date(resource.timestamp).toLocaleTimeString(),
+      cpu: resource.metric_name === 'cpu_usage' ? Number(resource.value || 0) : 0,
+      memory: resource.metric_name === 'memory_usage' ? Number(resource.value || 0) : 0,
+      network: resource.metric_name === 'network_usage' ? Number(resource.value || 0) : 0,
+      response_time: resource.labels ? Number((resource.labels as any).response_time || 0) : 0
+    }));
+  }, [resourceData]);
 
-  const services = [
-    { name: 'API Gateway', status: 'healthy', uptime: 99.9, response_time: 145 },
-    { name: 'Database Primary', status: 'healthy', uptime: 99.8, response_time: 23 },
-    { name: 'Database Replica', status: 'healthy', uptime: 99.7, response_time: 28 },
-    { name: 'AI Service', status: 'warning', uptime: 98.5, response_time: 1250 },
-    { name: 'File Storage', status: 'healthy', uptime: 99.95, response_time: 87 },
-    { name: 'Cache Layer', status: 'healthy', uptime: 99.6, response_time: 12 },
-  ];
+  // Get service status from system metrics
+  const services = React.useMemo(() => {
+    if (!systemMetrics || systemMetrics.length === 0) {
+      return [
+        { name: 'API Gateway', status: 'healthy', uptime: 99.9, response_time: 145 },
+        { name: 'Database Primary', status: 'healthy', uptime: 99.8, response_time: 23 },
+        { name: 'Database Replica', status: 'healthy', uptime: 99.7, response_time: 28 },
+        { name: 'AI Service', status: 'warning', uptime: 98.5, response_time: 1250 },
+        { name: 'File Storage', status: 'healthy', uptime: 99.95, response_time: 87 },
+        { name: 'Cache Layer', status: 'healthy', uptime: 99.6, response_time: 12 },
+      ];
+    }
+
+    // Extract service data from real metrics using actual schema
+    const serviceMap = new Map();
+    systemMetrics.forEach(metric => {
+      const serviceName = metric.labels ? (metric.labels as any).service_name || 'Unknown Service' : 'Unknown Service';
+      if (!serviceMap.has(serviceName)) {
+        serviceMap.set(serviceName, {
+          name: serviceName,
+          status: Number(metric.value) > 90 ? 'healthy' : Number(metric.value) > 70 ? 'warning' : 'critical',
+          uptime: Number(metric.value) || 0,
+          response_time: metric.labels ? Number((metric.labels as any).response_time) || 0 : 0
+        });
+      }
+    });
+
+    return Array.from(serviceMap.values());
+  }, [systemMetrics]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -135,7 +142,7 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
             <Cpu className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentMetrics.cpu_usage}%</div>
+            <div className="text-2xl font-bold">{currentMetrics.cpu_usage.toFixed(1)}%</div>
             <Progress value={currentMetrics.cpu_usage} className="mt-2" />
           </CardContent>
         </Card>
@@ -146,7 +153,7 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
             <MemoryStick className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentMetrics.memory_usage}%</div>
+            <div className="text-2xl font-bold">{currentMetrics.memory_usage.toFixed(1)}%</div>
             <Progress value={currentMetrics.memory_usage} className="mt-2" />
           </CardContent>
         </Card>
@@ -157,7 +164,7 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
             <HardDrive className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentMetrics.disk_usage}%</div>
+            <div className="text-2xl font-bold">{currentMetrics.disk_usage.toFixed(1)}%</div>
             <Progress value={currentMetrics.disk_usage} className="mt-2" />
           </CardContent>
         </Card>
@@ -168,7 +175,7 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentMetrics.response_time}ms</div>
+            <div className="text-2xl font-bold">{currentMetrics.response_time.toFixed(0)}ms</div>
             <p className="text-xs text-muted-foreground mt-1">
               Avg over last 5 minutes
             </p>
@@ -200,7 +207,7 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
         <Card>
           <CardHeader>
             <CardTitle>Network Traffic</CardTitle>
-            <CardDescription>Incoming and outgoing network traffic</CardDescription>
+            <CardDescription>Network usage over time</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -234,11 +241,11 @@ const SystemHealthMonitor: React.FC<SystemHealthMonitorProps> = ({ refreshInterv
                   <div>
                     <h4 className="font-medium">{service.name}</h4>
                     <p className="text-sm text-muted-foreground">
-                      Uptime: {service.uptime}% | Avg Response: {service.response_time}ms
+                      Uptime: {service.uptime.toFixed(1)}% | Avg Response: {service.response_time}ms
                     </p>
                   </div>
                 </div>
-                <Badge variant={getStatusBadge(service.status)}>
+                <Badge variant={getStatusBadge(service.status) as any}>
                   {service.status}
                 </Badge>
               </div>

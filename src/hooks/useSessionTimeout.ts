@@ -5,13 +5,15 @@ import { useAuth } from '@/contexts/AuthContext';
 /**
  * Hook to handle session timeout and prevent infinite loading states
  */
-export const useSessionTimeout = () => {
+export const useSessionTimeout = (timeoutMs: number = 15000) => {
   const { isLoading, user, error } = useAuth();
 
   const handleSessionTimeout = useCallback(() => {
     if (isLoading && !user && !error) {
-      console.warn('Session timeout: Auth has been loading for too long');
-      // Force reload to recover from stuck state
+      console.warn('Session timeout: Auth has been loading for too long, forcing reload');
+      // Clear any corrupted state and reload
+      localStorage.clear();
+      sessionStorage.clear();
       window.location.reload();
     }
   }, [isLoading, user, error]);
@@ -19,11 +21,25 @@ export const useSessionTimeout = () => {
   useEffect(() => {
     if (!isLoading) return;
 
-    // Set a timeout to prevent infinite loading
-    const timeoutId = setTimeout(handleSessionTimeout, 10000); // 10 seconds timeout
+    console.log('Setting session timeout for', timeoutMs, 'ms');
+    const timeoutId = setTimeout(handleSessionTimeout, timeoutMs);
 
-    return () => clearTimeout(timeoutId);
-  }, [isLoading, handleSessionTimeout]);
+    return () => {
+      console.log('Clearing session timeout');
+      clearTimeout(timeoutId);
+    };
+  }, [isLoading, handleSessionTimeout, timeoutMs]);
 
-  return { handleSessionTimeout };
+  const forceReload = useCallback(() => {
+    console.log('Forcing application reload to recover from stuck state');
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.reload();
+  }, []);
+
+  return { 
+    handleSessionTimeout, 
+    forceReload,
+    isStuckLoading: isLoading && !user && !error 
+  };
 };

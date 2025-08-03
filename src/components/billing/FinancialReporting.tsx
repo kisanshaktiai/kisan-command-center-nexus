@@ -1,312 +1,199 @@
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { DollarSign, TrendingUp, FileText, Download } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useFinancialMetrics } from '@/lib/api/queries';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { TrendingUp, DollarSign, CreditCard, Users } from 'lucide-react';
 
-interface FinancialData {
-  payments: any[];
-  invoices: any[];
-  subscriptions: any[];
-}
-
-export function FinancialReporting() {
-  const [dateRange, setDateRange] = useState<any>(null);
-  const [reportType, setReportType] = useState<string>('revenue');
-
-  // Use mock data until billing tables are available
-  const { data: financialData, isLoading } = useQuery({
-    queryKey: ['financial-data', dateRange],
-    queryFn: async (): Promise<FinancialData> => {
-      try {
-        // For now, return mock data since billing tables may not be available
-        return {
-          payments: [
-            { id: '1', amount: 50000, status: 'completed', created_at: new Date().toISOString() },
-            { id: '2', amount: 75000, status: 'completed', created_at: new Date().toISOString() },
-          ],
-          invoices: [
-            { id: '1', amount_due: 25000, status: 'pending', created_at: new Date().toISOString() },
-            { id: '2', amount_due: 0, status: 'paid', created_at: new Date().toISOString() },
-          ],
-          subscriptions: [
-            { id: '1', created_at: new Date().toISOString(), billing_plans: { base_price: 10000, billing_interval: 'monthly' } },
-          ]
-        };
-      } catch (error) {
-        console.error('Error fetching financial data:', error);
-        return {
-          payments: [],
-          invoices: [],
-          subscriptions: []
-        };
-      }
-    }
-  });
-
-  // Calculate financial metrics with safe property access
-  const calculateMetrics = () => {
-    if (!financialData) return { totalRevenue: 0, pendingAmount: 0, completedPayments: 0, overdueInvoices: 0 };
-
-    const totalRevenue = financialData.payments
-      .filter(payment => payment?.status === 'completed')
-      .reduce((sum, payment) => sum + (Number(payment?.amount) || 0), 0);
-
-    const pendingAmount = financialData.invoices
-      .filter(invoice => invoice?.status === 'pending')
-      .reduce((sum, invoice) => sum + (Number(invoice?.amount_due) || 0), 0);
-
-    const completedPayments = financialData.payments.filter(payment => payment?.status === 'completed').length;
-    const overdueInvoices = financialData.invoices.filter(invoice => invoice?.status === 'overdue').length;
-
-    return { totalRevenue, pendingAmount, completedPayments, overdueInvoices };
-  };
-
-  // Generate MRR data with proper error handling
-  const generateMRRData = () => {
-    if (!financialData?.subscriptions) return [];
-
-    const mrrByMonth: { [key: string]: number } = {};
-    
-    financialData.subscriptions.forEach(sub => {
-      if (!sub?.billing_plans) return;
-      
-      const date = new Date(sub.created_at);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      let monthlyPrice = Number(sub.billing_plans.base_price) || 0;
-      if (sub.billing_plans.billing_interval === 'quarterly') {
-        monthlyPrice = monthlyPrice / 3;
-      } else if (sub.billing_plans.billing_interval === 'annually') {
-        monthlyPrice = monthlyPrice / 12;
-      }
-      
-      mrrByMonth[monthKey] = (mrrByMonth[monthKey] || 0) + monthlyPrice;
-    });
-
-    return Object.entries(mrrByMonth)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, revenue]) => ({
-        month: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        revenue: Math.round(revenue)
-      }));
-  };
-
-  // Generate revenue trends with safe property access
-  const generateRevenueTrends = () => {
-    if (!financialData?.payments) return [];
-
-    const revenueByMonth: { [key: string]: number } = {};
-    
-    financialData.payments.forEach(payment => {
-      if (payment?.status !== 'completed') return;
-      
-      const date = new Date(payment.created_at || Date.now());
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      revenueByMonth[monthKey] = (revenueByMonth[monthKey] || 0) + (Number(payment?.amount) || 0);
-    });
-
-    return Object.entries(revenueByMonth)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, amount]) => ({
-        month: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        amount: Math.round(amount)
-      }));
-  };
-
-  const metrics = calculateMetrics();
-  const mrrData = generateMRRData();
-  const revenueData = generateRevenueTrends();
+const FinancialReporting: React.FC = () => {
+  const { data: financialData, isLoading, error } = useFinancialMetrics();
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="text-center py-8">Loading financial data...</div>
+      <div className="space-y-6">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="animate-pulse">
+            <CardContent className="p-6">
+              <div className="h-40 bg-muted rounded"></div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center text-red-600">
+            Failed to load financial data: {error.message}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Process financial data
+  const revenueData = Array.isArray(financialData) ? financialData
+    .filter(item => item.metric_name === 'revenue')
+    .sort((a, b) => new Date(a.period_start).getTime() - new Date(b.period_start).getTime())
+    .map(item => ({
+      period: new Date(item.period_start).toLocaleDateString(),
+      amount: item.amount,
+      currency: item.currency
+    })) : [];
+
+  const expenseData = Array.isArray(financialData) ? financialData
+    .filter(item => item.category === 'expense')
+    .reduce((acc, item) => {
+      const existingItem = acc.find(a => a.category === item.category);
+      if (existingItem) {
+        existingItem.amount += item.amount;
+      } else {
+        acc.push({
+          category: item.category,
+          amount: item.amount
+        });
+      }
+      return acc;
+    }, [] as Array<{ category: string; amount: number }>) : [];
+
+  const categoryBreakdown = Array.isArray(financialData) ? financialData
+    .filter(item => item.metric_name === 'subscription_revenue')
+    .reduce((acc, item) => {
+      // Safely parse metadata
+      let breakdown: any = {};
+      try {
+        if (typeof item.metadata === 'string') {
+          breakdown = JSON.parse(item.metadata);
+        } else if (typeof item.metadata === 'object' && item.metadata !== null) {
+          breakdown = item.metadata;
+        }
+      } catch (e) {
+        console.warn('Failed to parse metadata:', e);
+      }
+
+      const category = breakdown?.category || 'other';
+      const existingItem = acc.find(a => a.name === category);
+      if (existingItem) {
+        existingItem.value += item.amount;
+      } else {
+        acc.push({
+          name: category,
+          value: item.amount
+        });
+      }
+      return acc;
+    }, [] as Array<{ name: string; value: number }>) : [];
+
+  // Calculate totals
+  const totalRevenue = revenueData.reduce((sum, item) => sum + item.amount, 0);
+  const totalExpenses = expenseData.reduce((sum, item) => sum + item.amount, 0);
+  const netIncome = totalRevenue - totalExpenses;
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Financial Reporting</h1>
-          <p className="text-muted-foreground">Comprehensive financial analytics and reporting</p>
-        </div>
-        <div className="flex gap-2">
-          <Select value={reportType} onValueChange={setReportType}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Select report type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="revenue">Revenue Report</SelectItem>
-              <SelectItem value="subscriptions">Subscription Report</SelectItem>
-              <SelectItem value="invoices">Invoice Report</SelectItem>
-              <SelectItem value="payments">Payment Report</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-        </div>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{metrics.totalRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">From completed payments</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{metrics.pendingAmount.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">From pending invoices</p>
+            <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Payments</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${totalExpenses.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Net Income</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.completedPayments}</div>
-            <p className="text-xs text-muted-foreground">Successful transactions</p>
+            <div className={`text-2xl font-bold ${netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ${netIncome.toFixed(2)}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue Invoices</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.overdueInvoices}</div>
-            <p className="text-xs text-muted-foreground">Requires attention</p>
+            <div className="text-2xl font-bold">
+              {Array.isArray(financialData) ? 
+                financialData.filter(item => item.metric_name === 'active_subscriptions').length : 0
+              }
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="revenue" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="revenue">Revenue Analytics</TabsTrigger>
-          <TabsTrigger value="mrr">MRR Tracking</TabsTrigger>
-          <TabsTrigger value="breakdown">Revenue Breakdown</TabsTrigger>
-        </TabsList>
+      {/* Revenue Trend Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Revenue Trend</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={revenueData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="period" />
+              <YAxis />
+              <Tooltip formatter={(value) => [`$${value}`, 'Revenue']} />
+              <Line type="monotone" dataKey="amount" stroke="#8884d8" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="revenue" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue Trends</CardTitle>
-              <CardDescription>Monthly revenue from payments</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={revenueData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`₹${Number(value).toLocaleString()}`, 'Revenue']} />
-                  <Bar dataKey="amount" fill="hsl(var(--primary))" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="mrr" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Recurring Revenue (MRR)</CardTitle>
-              <CardDescription>Subscription-based recurring revenue tracking</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={mrrData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`₹${Number(value).toLocaleString()}`, 'MRR']} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="breakdown" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Status Distribution</CardTitle>
-                <CardDescription>Breakdown of payment statuses</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Completed</span>
-                    <span className="font-medium">{financialData?.payments.filter(p => p?.status === 'completed').length || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Pending</span>
-                    <span className="font-medium">{financialData?.payments.filter(p => p?.status === 'pending').length || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Failed</span>
-                    <span className="font-medium">{financialData?.payments.filter(p => p?.status === 'failed').length || 0}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Invoice Status Distribution</CardTitle>
-                <CardDescription>Breakdown of invoice statuses</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Paid</span>
-                    <span className="font-medium">{financialData?.invoices.filter(i => i?.status === 'paid').length || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Pending</span>
-                    <span className="font-medium">{financialData?.invoices.filter(i => i?.status === 'pending').length || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Overdue</span>
-                    <span className="font-medium">{financialData?.invoices.filter(i => i?.status === 'overdue').length || 0}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* Category Breakdown */}
+      {categoryBreakdown.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue by Category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={categoryBreakdown}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {categoryBreakdown.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => [`$${value}`, 'Amount']} />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
-}
+};
+
+export default FinancialReporting;

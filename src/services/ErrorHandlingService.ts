@@ -1,4 +1,3 @@
-import { toast } from 'sonner';
 import { BaseService } from './BaseService';
 
 export interface ErrorContext {
@@ -18,15 +17,22 @@ export interface ErrorInfo {
 }
 
 export interface ErrorHandlingOptions {
-  showToast?: boolean;
   logToConsole?: boolean;
   logToServer?: boolean;
   fallbackMessage?: string;
 }
 
+export interface ErrorResult {
+  errorInfo: ErrorInfo;
+  userMessage: string;
+  shouldShowNotification: boolean;
+  notificationType: 'error' | 'warning';
+}
+
 /**
  * Centralized Error Handling Service
  * Provides consistent error handling across the application
+ * UI-agnostic - returns structured results for UI to consume
  */
 export class ErrorHandlingService extends BaseService {
   private static instance: ErrorHandlingService;
@@ -45,15 +51,14 @@ export class ErrorHandlingService extends BaseService {
   }
 
   /**
-   * Process and handle errors with various options
+   * Process and handle errors - returns structured result for UI consumption
    */
   processError(
     error: unknown,
     context?: ErrorContext,
     options: ErrorHandlingOptions = {}
-  ): ErrorInfo {
+  ): ErrorResult {
     const {
-      showToast = true,
       logToConsole = true,
       logToServer = false,
       fallbackMessage = 'An unexpected error occurred'
@@ -70,11 +75,6 @@ export class ErrorHandlingService extends BaseService {
       console.error('ErrorHandlingService:', errorInfo);
     }
 
-    // Show user notification
-    if (showToast) {
-      this.showErrorToast(errorInfo, fallbackMessage);
-    }
-
     // Server logging (if enabled)
     if (logToServer) {
       this.logToServer(errorInfo).catch(err => 
@@ -82,7 +82,13 @@ export class ErrorHandlingService extends BaseService {
       );
     }
 
-    return errorInfo;
+    // Return structured result for UI to handle
+    return {
+      errorInfo,
+      userMessage: this.getUserFriendlyMessage(errorInfo, fallbackMessage),
+      shouldShowNotification: true,
+      notificationType: this.getNotificationType(errorInfo)
+    };
   }
 
   /**
@@ -142,21 +148,15 @@ export class ErrorHandlingService extends BaseService {
   }
 
   /**
-   * Show appropriate toast notification
+   * Determine notification type based on error severity
    */
-  private showErrorToast(errorInfo: ErrorInfo, fallbackMessage: string): void {
-    const message = this.getUserFriendlyMessage(errorInfo, fallbackMessage);
-    
-    // Determine toast type based on error severity
+  private getNotificationType(errorInfo: ErrorInfo): 'error' | 'warning' {
     if (errorInfo.status && errorInfo.status >= 500) {
-      toast.error(message, {
-        description: 'Please try again later or contact support if the problem persists.'
-      });
+      return 'error';
     } else if (errorInfo.status && errorInfo.status >= 400) {
-      toast.error(message);
-    } else {
-      toast.error(message);
+      return 'warning';
     }
+    return 'error';
   }
 
   /**
@@ -240,15 +240,7 @@ export class ErrorHandlingService extends BaseService {
   private async logToServer(errorInfo: ErrorInfo): Promise<void> {
     try {
       // In a real implementation, this would send to your logging service
-      // For now, we'll just simulate the API call
       console.log('Would log to server:', errorInfo);
-      
-      // Example implementation:
-      // await fetch('/api/errors', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(errorInfo)
-      // });
     } catch (error) {
       console.warn('Failed to log to server:', error);
     }
@@ -283,19 +275,19 @@ export class ErrorHandlingService extends BaseService {
   /**
    * Convenience methods for common error scenarios
    */
-  handleAuthError(error: unknown, action: string = 'authentication'): ErrorInfo {
+  handleAuthError(error: unknown, action: string = 'authentication'): ErrorResult {
     return this.processError(error, this.createContext('Auth', action), {
       fallbackMessage: 'Authentication failed. Please try again.'
     });
   }
 
-  handleApiError(error: unknown, endpoint: string, action: string = 'API call'): ErrorInfo {
+  handleApiError(error: unknown, endpoint: string, action: string = 'API call'): ErrorResult {
     return this.processError(error, this.createContext('API', action, { endpoint }), {
       fallbackMessage: 'Unable to complete request. Please try again.'
     });
   }
 
-  handleFormError(error: unknown, formName: string, field?: string): ErrorInfo {
+  handleFormError(error: unknown, formName: string, field?: string): ErrorResult {
     return this.processError(error, this.createContext('Form', 'validation', { formName, field }), {
       fallbackMessage: 'Please check your input and try again.'
     });

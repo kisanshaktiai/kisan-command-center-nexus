@@ -1,51 +1,107 @@
-import React, { createContext, useContext } from 'react';
-import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
 
-// Simplified AuthContext - just provides the hook result
-const AuthContext = createContext<ReturnType<typeof useEnhancedAuth> | undefined>(undefined);
+import React, { createContext, useContext, useEffect } from 'react';
+import { useAuthStore } from '@/lib/stores/authStore';
+import { AuthState } from '@/types/auth';
+import { useSessionTimeout } from '@/hooks/useSessionTimeout';
+
+const AuthContext = createContext<AuthState & {
+  signOut: () => Promise<void>;
+  signUp: (email: string, password: string, tenantData: any) => Promise<{ data?: any; error?: any }>;
+  isLoading: boolean;
+  error: string | null;
+}>({
+  user: null,
+  session: null,
+  isAuthenticated: false,
+  isAdmin: false,
+  isSuperAdmin: false,
+  adminRole: null,
+  profile: null,
+  signOut: async () => {},
+  signUp: async () => ({ error: new Error('Not implemented') }),
+  isLoading: false,
+  error: null,
+});
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    console.error('useAuth called outside AuthProvider context');
-    console.trace('Call stack:');
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  try {
-    const auth = useEnhancedAuth();
+  const authStore = useAuthStore();
+  
+  // Use session timeout to prevent infinite loading states
+  const { forceReload } = useSessionTimeout(15000); // 15 second timeout
 
-    console.log('AuthProvider rendering with auth state:', {
-      user: auth.user?.id,
-      isLoading: auth.isLoading,
-      isAdmin: auth.isAdmin,
-      isSuperAdmin: auth.isSuperAdmin
+  useEffect(() => {
+    let initPromise: Promise<void> | null = null;
+    
+    // Initialize auth state on mount
+    const initAuth = async () => {
+      try {
+        console.log('AuthProvider: Starting initialization...');
+        const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
+        
+        // Prevent multiple concurrent initializations
+        if (!initPromise) {
+          initPromise = unifiedAuthService.initialize();
+        }
+        
+        await initPromise;
+        console.log('AuthProvider: Initialization completed');
+      } catch (error) {
+        console.error('AuthProvider: Error initializing auth:', error);
+        authStore.setError('Authentication system failed to initialize');
+        
+        // If initialization fails completely, provide recovery option
+        setTimeout(() => {
+          if (authStore.isLoading && !authStore.user) {
+            console.error('AuthProvider: Initialization stuck, offering reload');
+            authStore.setError('Authentication failed to load. Please refresh the page.');
+          }
+        }, 10000);
+      } finally {
+        authStore.setLoading(false);
+      }
+    };
+
+    initAuth();
+
+    // Cleanup on unmount
+    return () => {
+      initPromise = null;
+    };
+  }, []);
+
+  // Add debugging for auth state changes
+  useEffect(() => {
+    console.log('AuthProvider: Auth state changed:', {
+      hasUser: !!authStore.user,
+      isAdmin: authStore.isAdmin,
+      isLoading: authStore.isLoading,
+      hasError: !!authStore.error
     });
+  }, [authStore.user, authStore.isAdmin, authStore.isLoading, authStore.error]);
 
-    // Always render children with enhanced error recovery
-    return (
-      <AuthContext.Provider value={auth}>
-        {children}
-      </AuthContext.Provider>
-    );
-  } catch (error) {
-    console.error('AuthProvider error:', error);
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center text-red-600">
-          <div>Authentication Error</div>
-          <div className="text-sm mt-2">Please refresh the page</div>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            Refresh Page
-          </button>
-        </div>
-      </div>
-    );
-  }
+  return (
+    <AuthContext.Provider value={{
+      user: authStore.user,
+      session: authStore.session,
+      isAuthenticated: authStore.isAuthenticated,
+      isAdmin: authStore.isAdmin,
+      isSuperAdmin: authStore.isSuperAdmin,
+      adminRole: authStore.adminRole,
+      profile: authStore.profile,
+      signOut: authStore.signOut,
+      signUp: authStore.signUp,
+      isLoading: authStore.isLoading,
+      error: authStore.error,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };

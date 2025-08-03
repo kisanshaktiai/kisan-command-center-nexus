@@ -1,335 +1,245 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   AlertTriangle, 
-  Bell, 
   CheckCircle, 
-  XCircle, 
   Clock, 
-  Filter,
-  X,
-  Eye
+  RefreshCw,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { usePlatformAlerts, useAcknowledgeAlert, useResolveAlert } from '@/lib/api/queries';
 
-type AlertStatus = 'active' | 'acknowledged' | 'resolved';
+export const AlertsPanel: React.FC = () => {
+  const { data: alerts, isLoading, error, refetch } = usePlatformAlerts();
+  const acknowledgeAlert = useAcknowledgeAlert();
+  const resolveAlert = useResolveAlert();
 
-const AlertsPanel = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [filter, setFilter] = useState<string>('all');
-  const [unreadCount, setUnreadCount] = useState(0);
-  const queryClient = useQueryClient();
-
-  // Fetch alerts
-  const { data: alerts, isLoading } = useQuery({
-    queryKey: ['platform-alerts', filter],
-    queryFn: async () => {
-      let query = supabase
-        .from('platform_alerts')
-        .select('*')
-        .order('triggered_at', { ascending: false });
-
-      if (filter !== 'all') {
-        if (filter === 'unresolved') {
-          query = query.in('status', ['active', 'acknowledged']);
-        } else {
-          query = query.eq('status', filter as AlertStatus);
-        }
-      }
-
-      const { data, error } = await query.limit(50);
-      if (error) throw error;
-      return data || [];
-    },
-    refetchInterval: 10000, // Refetch every 10 seconds
-  });
-
-  // Update unread count
-  useEffect(() => {
-    if (alerts) {
-      const unresolved = alerts.filter(alert => alert.status === 'active').length;
-      setUnreadCount(unresolved);
+  const handleAcknowledge = async (alertId: string) => {
+    try {
+      await acknowledgeAlert.mutateAsync(alertId);
+    } catch (error) {
+      console.error('Error acknowledging alert:', error);
     }
-  }, [alerts]);
+  };
 
-  // Acknowledge alert mutation
-  const acknowledgeAlert = useMutation({
-    mutationFn: async (alertId: string) => {
-      const { error } = await supabase
-        .from('platform_alerts')
-        .update({
-          status: 'acknowledged' as AlertStatus,
-          acknowledged_at: new Date().toISOString(),
-          acknowledged_by: 'current-user-id' // Should use actual user ID
-        })
-        .eq('id', alertId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-alerts'] });
-    },
-  });
-
-  // Resolve alert mutation
-  const resolveAlert = useMutation({
-    mutationFn: async (alertId: string) => {
-      const { error } = await supabase
-        .from('platform_alerts')
-        .update({
-          status: 'resolved' as AlertStatus,
-          resolved_at: new Date().toISOString(),
-          resolved_by: 'current-user-id' // Should use actual user ID
-        })
-        .eq('id', alertId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-alerts'] });
-    },
-  });
-
-  // Mock alerts for demonstration
-  const mockAlerts = [
-    {
-      id: '1',
-      alert_name: 'High CPU Usage',
-      description: 'Database server CPU usage exceeded 90% for 5 minutes',
-      severity: 'critical' as const,
-      status: 'active' as AlertStatus,
-      metric_name: 'cpu_usage',
-      current_value: 94.2,
-      threshold_value: 90,
-      triggered_at: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
-      tenant_id: null
-    },
-    {
-      id: '2',
-      alert_name: 'API Response Time Alert',
-      description: 'Average API response time exceeds acceptable threshold',
-      severity: 'high' as const,
-      status: 'acknowledged' as AlertStatus,
-      metric_name: 'response_time',
-      current_value: 2.8,
-      threshold_value: 2.0,
-      triggered_at: new Date(Date.now() - 1800000).toISOString(), // 30 minutes ago
-      acknowledged_at: new Date(Date.now() - 900000).toISOString(), // 15 minutes ago
-      tenant_id: null
-    },
-    {
-      id: '3',
-      alert_name: 'Storage Usage Warning',
-      description: 'Database storage usage approaching limit',
-      severity: 'medium' as const,
-      status: 'active' as AlertStatus,
-      metric_name: 'storage_usage',
-      current_value: 82.5,
-      threshold_value: 80,
-      triggered_at: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      tenant_id: null
-    },
-    {
-      id: '4',
-      alert_name: 'Payment Processing Error',
-      description: 'Multiple payment processing failures detected',
-      severity: 'high' as const,
-      status: 'resolved' as AlertStatus,
-      metric_name: 'payment_errors',
-      current_value: 5,
-      threshold_value: 3,
-      triggered_at: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
-      resolved_at: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      tenant_id: null
+  const handleResolve = async (alertId: string) => {
+    try {
+      await resolveAlert.mutateAsync(alertId);
+    } catch (error) {
+      console.error('Error resolving alert:', error);
     }
-  ];
+  };
 
-  const alertsToShow = alerts?.length > 0 ? alerts : mockAlerts;
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center p-8">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="text-muted-foreground">Loading alerts...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-  const getSeverityColor = (severity: string) => {
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to load alerts: {error.message}
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const alertsArray = Array.isArray(alerts) ? alerts : [];
+  const activeAlerts = alertsArray.filter(alert => alert.status === 'active');
+  const acknowledgedAlerts = alertsArray.filter(alert => alert.status === 'acknowledged');
+
+  const getAlertIcon = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'destructive';
-      case 'high': return 'destructive';
-      case 'medium': return 'secondary';
-      case 'low': return 'outline';
-      default: return 'outline';
+      case 'critical':
+        return <AlertTriangle className="h-4 w-4 text-red-500" />;
+      case 'high':
+        return <AlertCircle className="h-4 w-4 text-orange-500" />;
+      case 'medium':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      default:
+        return <AlertCircle className="h-4 w-4 text-blue-500" />;
     }
   };
 
-  const getStatusIcon = (status: AlertStatus) => {
-    switch (status) {
-      case 'active': return <AlertTriangle className="h-4 w-4 text-red-500" />;
-      case 'acknowledged': return <Eye className="h-4 w-4 text-yellow-500" />;
-      case 'resolved': return <CheckCircle className="h-4 w-4 text-green-500" />;
-      default: return <Clock className="h-4 w-4 text-gray-500" />;
+  const getAlertBadgeVariant = (severity: string) => {
+    switch (severity) {
+      case 'critical':
+        return 'destructive';
+      case 'high':
+        return 'secondary';
+      case 'medium':
+        return 'outline';
+      default:
+        return 'default';
     }
   };
 
-  const getStatusColor = (status: AlertStatus) => {
-    switch (status) {
-      case 'active': return 'destructive';
-      case 'acknowledged': return 'secondary';
-      case 'resolved': return 'default';
-      default: return 'outline';
-    }
-  };
-
-  const formatTimeAgo = (timestamp: string) => {
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
     const now = new Date();
-    const time = new Date(timestamp);
-    const diffMs = now.getTime() - time.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes}m ago`;
+    } else if (diffInMinutes < 1440) {
+      return `${Math.floor(diffInMinutes / 60)}h ago`;
+    } else {
+      return `${Math.floor(diffInMinutes / 1440)}d ago`;
+    }
   };
 
   return (
-    <>
-      {/* Floating Alert Button */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild>
-            <Button size="lg" className="relative shadow-lg">
-              <Bell className="w-5 h-5 mr-2" />
-              Alerts
-              {unreadCount > 0 && (
-                <Badge className="absolute -top-2 -right-2 px-2 py-1 text-xs bg-red-500">
-                  {unreadCount}
-                </Badge>
-              )}
-            </Button>
-          </SheetTrigger>
-          <SheetContent className="w-[400px] sm:w-[540px]">
-            <SheetHeader>
-              <SheetTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5" />
-                  Platform Alerts
-                </div>
-                <Badge variant="outline">
-                  {alertsToShow.filter(a => a.status === 'active').length} active
-                </Badge>
-              </SheetTitle>
-              <SheetDescription>
-                Monitor and manage platform alerts and notifications
-              </SheetDescription>
-            </SheetHeader>
-
-            {/* Filter Controls */}
-            <div className="flex items-center gap-2 my-4">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={filter} onValueChange={setFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter alerts" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Alerts</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="acknowledged">Acknowledged</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="unresolved">Unresolved</SelectItem>
-                </SelectContent>
-              </Select>
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {activeAlerts.length}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Requiring immediate attention
+            </p>
+          </CardContent>
+        </Card>
 
-            {/* Alerts List */}
-            <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-              {isLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((i) => (
-                    <Card key={i} className="animate-pulse">
-                      <CardContent className="p-4">
-                        <div className="h-16 bg-muted rounded"></div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : alertsToShow.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CheckCircle className="w-8 h-8 mx-auto mb-2" />
-                  <p>No alerts found</p>
-                </div>
-              ) : (
-                alertsToShow.map((alert) => (
-                  <Card key={alert.id} className={`${alert.status === 'active' ? 'border-red-200' : ''}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(alert.status)}
-                          <h4 className="font-medium text-sm">{alert.alert_name}</h4>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Badge variant={getSeverityColor(alert.severity)} className="text-xs">
-                            {alert.severity}
-                          </Badge>
-                          <Badge variant={getStatusColor(alert.status)} className="text-xs">
-                            {alert.status}
-                          </Badge>
-                        </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Acknowledged</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">
+              {acknowledgedAlerts.length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Being investigated
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Alerts</CardTitle>
+            <RefreshCw className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {alertsArray.length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Last 24 hours
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Alerts List */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Platform Alerts</CardTitle>
+            <CardDescription>
+              Real-time system alerts and notifications
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isLoading}
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Refresh
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {alertsArray.length === 0 ? (
+            <div className="text-center py-8">
+              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-green-600">All Clear!</h3>
+              <p className="text-muted-foreground">No active alerts at this time.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {alertsArray.map((alert) => (
+                <div
+                  key={alert.id}
+                  className="flex items-center justify-between p-4 border rounded-lg"
+                >
+                  <div className="flex items-start gap-3 flex-1">
+                    {getAlertIcon(alert.severity)}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-medium">
+                          {alert.alert_name}
+                        </h4>
+                        <Badge variant={getAlertBadgeVariant(alert.severity) as any}>
+                          {alert.severity}
+                        </Badge>
                       </div>
-                      
-                      <p className="text-sm text-muted-foreground mb-3">
+                      <p className="text-sm text-muted-foreground mb-2">
                         {alert.description}
                       </p>
-
-                      {alert.current_value && alert.threshold_value && (
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
-                          <span>Current: {alert.current_value}</span>
-                          <span>Threshold: {alert.threshold_value}</span>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
-                          <Clock className="w-3 h-3 inline mr-1" />
-                          {formatTimeAgo(alert.triggered_at)}
-                        </span>
-                        
-                        <div className="flex items-center gap-1">
-                          {alert.status === 'active' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => acknowledgeAlert.mutate(alert.id)}
-                              disabled={acknowledgeAlert.isPending}
-                            >
-                              <Eye className="w-3 h-3 mr-1" />
-                              Ack
-                            </Button>
-                          )}
-                          {(alert.status === 'active' || alert.status === 'acknowledged') && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => resolveAlert.mutate(alert.id)}
-                              disabled={resolveAlert.isPending}
-                            >
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Resolve
-                            </Button>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Metric: {alert.metric_name}</span>
+                        <span>Value: {alert.current_value}</span>
+                        <span>{formatTimeAgo(alert.created_at)}</span>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {alert.status === 'active' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleAcknowledge(alert.id)}
+                        disabled={acknowledgeAlert.isPending}
+                      >
+                        Acknowledge
+                      </Button>
+                    )}
+                    {(alert.status === 'active' || alert.status === 'acknowledged') && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => handleResolve(alert.id)}
+                        disabled={resolveAlert.isPending}
+                      >
+                        Resolve
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          </SheetContent>
-        </Sheet>
-      </div>
-    </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

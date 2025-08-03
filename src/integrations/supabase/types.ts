@@ -2424,6 +2424,412 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_activities: {
+        Row: {
+          activity_type: string
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          lead_id: string | null
+          metadata: Json | null
+          outcome: string | null
+          scheduled_at: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          activity_type: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          outcome?: string | null
+          scheduled_at?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          activity_type?: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          outcome?: string | null
+          scheduled_at?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_assignment_rules: {
+        Row: {
+          admin_pool: string[]
+          conditions: Json | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          priority_order: number | null
+          rule_name: string
+          rule_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          admin_pool: string[]
+          conditions?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority_order?: number | null
+          rule_name: string
+          rule_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          admin_pool?: string[]
+          conditions?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority_order?: number | null
+          rule_name?: string
+          rule_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_assignment_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_from: string | null
+          assigned_to: string
+          assignment_reason: string | null
+          assignment_type: string
+          id: string
+          lead_id: string
+          metadata: Json | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_from?: string | null
+          assigned_to: string
+          assignment_reason?: string | null
+          assignment_type: string
+          id?: string
+          lead_id: string
+          metadata?: Json | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_from?: string | null
+          assigned_to?: string
+          assignment_reason?: string | null
+          assignment_type?: string
+          id?: string
+          lead_id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_assignments_assigned_from_fkey"
+            columns: ["assigned_from"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_assignments_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_communication_logs: {
+        Row: {
+          communication_type: string
+          content: string | null
+          created_at: string | null
+          created_by: string | null
+          direction: string
+          id: string
+          lead_id: string | null
+          metadata: Json | null
+          opened_at: string | null
+          replied_at: string | null
+          sent_at: string | null
+          status: string | null
+          subject: string | null
+        }
+        Insert: {
+          communication_type: string
+          content?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          direction: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          opened_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+        }
+        Update: {
+          communication_type?: string
+          content?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          direction?: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          opened_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_communication_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_scoring_rules: {
+        Row: {
+          conditions: Json
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          rule_name: string
+          rule_type: string
+          score_value: number
+          updated_at: string | null
+        }
+        Insert: {
+          conditions: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          rule_name: string
+          rule_type: string
+          score_value: number
+          updated_at?: string | null
+        }
+        Update: {
+          conditions?: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          rule_name?: string
+          rule_type?: string
+          score_value?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      lead_tags: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          lead_id: string | null
+          tag_color: string | null
+          tag_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          tag_color?: string | null
+          tag_name: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          tag_color?: string | null
+          tag_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tags_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          assigned_at: string | null
+          assigned_to: string | null
+          budget_range: string | null
+          company_size: string | null
+          contact_name: string
+          contract_sent: boolean | null
+          converted_at: string | null
+          converted_tenant_id: string | null
+          created_at: string | null
+          created_by: string | null
+          current_solution: string | null
+          demo_scheduled: boolean | null
+          email: string
+          expected_farmers: number | null
+          follow_up_date: string | null
+          how_did_you_hear: string | null
+          id: string
+          last_activity: string | null
+          last_contact_at: string | null
+          lead_score: number | null
+          lead_source: string | null
+          lead_temperature: string | null
+          marketing_qualified: boolean | null
+          metadata: Json | null
+          next_follow_up_at: string | null
+          notes: string | null
+          organization_name: string
+          organization_type: string
+          phone: string
+          priority: string | null
+          proposal_sent: boolean | null
+          qualification_score: number | null
+          rejection_reason: string | null
+          requirements: string | null
+          sales_qualified: boolean | null
+          source: string | null
+          status: string
+          timeline: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          budget_range?: string | null
+          company_size?: string | null
+          contact_name: string
+          contract_sent?: boolean | null
+          converted_at?: string | null
+          converted_tenant_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_solution?: string | null
+          demo_scheduled?: boolean | null
+          email: string
+          expected_farmers?: number | null
+          follow_up_date?: string | null
+          how_did_you_hear?: string | null
+          id?: string
+          last_activity?: string | null
+          last_contact_at?: string | null
+          lead_score?: number | null
+          lead_source?: string | null
+          lead_temperature?: string | null
+          marketing_qualified?: boolean | null
+          metadata?: Json | null
+          next_follow_up_at?: string | null
+          notes?: string | null
+          organization_name: string
+          organization_type: string
+          phone: string
+          priority?: string | null
+          proposal_sent?: boolean | null
+          qualification_score?: number | null
+          rejection_reason?: string | null
+          requirements?: string | null
+          sales_qualified?: boolean | null
+          source?: string | null
+          status?: string
+          timeline?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          budget_range?: string | null
+          company_size?: string | null
+          contact_name?: string
+          contract_sent?: boolean | null
+          converted_at?: string | null
+          converted_tenant_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_solution?: string | null
+          demo_scheduled?: boolean | null
+          email?: string
+          expected_farmers?: number | null
+          follow_up_date?: string | null
+          how_did_you_hear?: string | null
+          id?: string
+          last_activity?: string | null
+          last_contact_at?: string | null
+          lead_score?: number | null
+          lead_source?: string | null
+          lead_temperature?: string | null
+          marketing_qualified?: boolean | null
+          metadata?: Json | null
+          next_follow_up_at?: string | null
+          notes?: string | null
+          organization_name?: string
+          organization_type?: string
+          phone?: string
+          priority?: string | null
+          proposal_sent?: boolean | null
+          qualification_score?: number | null
+          rejection_reason?: string | null
+          requirements?: string | null
+          sales_qualified?: boolean | null
+          source?: string | null
+          status?: string
+          timeline?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_converted_tenant_id_fkey"
+            columns: ["converted_tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       market_price_subscriptions: {
         Row: {
           commodities: Json
@@ -6235,6 +6641,10 @@ export type Database = {
         Args: { land_uuid: string }
         Returns: number
       }
+      calculate_lead_score: {
+        Args: { lead_id: string }
+        Returns: number
+      }
       calculate_onboarding_progress: {
         Args: { workflow_id: string }
         Returns: number
@@ -6252,7 +6662,7 @@ export type Database = {
         Returns: boolean
       }
       check_slug_availability: {
-        Args: { p_slug: string }
+        Args: { p_slug: string } | { p_slug: string; p_tenant_id?: string }
         Returns: Json
       }
       cleanup_bootstrap_state: {
@@ -6278,6 +6688,17 @@ export type Database = {
       complete_bootstrap_for_user: {
         Args: { user_id: string; user_email: string; user_name: string }
         Returns: boolean
+      }
+      convert_lead_to_tenant: {
+        Args: {
+          p_lead_id: string
+          p_tenant_name: string
+          p_tenant_slug: string
+          p_subscription_plan?: string
+          p_admin_email?: string
+          p_admin_name?: string
+        }
+        Returns: Json
       }
       create_tenant_with_validation: {
         Args: {
@@ -7139,6 +7560,10 @@ export type Database = {
       postgis_wagyu_version: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      reassign_lead: {
+        Args: { p_lead_id: string; p_new_admin_id: string; p_reason?: string }
+        Returns: boolean
       }
       send_admin_notification: {
         Args: {
@@ -8231,6 +8656,10 @@ export type Database = {
       st_zmin: {
         Args: { "": unknown }
         Returns: number
+      }
+      test_lead_auto_assignment: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       text: {
         Args: { "": unknown }

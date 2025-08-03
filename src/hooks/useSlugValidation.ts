@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-export const useSlugValidation = (slug: string) => {
+export const useSlugValidation = (slug: string, currentTenantId?: string) => {
   const [isValid, setIsValid] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +19,11 @@ export const useSlugValidation = (slug: string) => {
       setError(null);
 
       try {
-        console.log('Validating slug:', slug);
-        const { data, error } = await supabase.rpc('check_slug_availability', { p_slug: slug });
+        console.log('Validating slug:', slug, 'with tenant ID:', currentTenantId);
+        const { data, error } = await supabase.rpc('check_slug_availability', { 
+          p_slug: slug,
+          p_tenant_id: currentTenantId || null
+        });
 
         if (error) {
           console.error('Slug validation error:', error);
@@ -46,7 +49,7 @@ export const useSlugValidation = (slug: string) => {
     // Debounce the validation
     const timeoutId = setTimeout(validateSlug, 300);
     return () => clearTimeout(timeoutId);
-  }, [slug]);
+  }, [slug, currentTenantId]);
 
   return { isValid, isChecking, error };
 };

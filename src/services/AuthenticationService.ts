@@ -1,13 +1,12 @@
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { AuthState, UserProfile, TenantData } from '@/types/auth';
 import { BaseService, ServiceResult } from './BaseService';
 
 /**
  * Authentication Service
  * Single source of truth for all authentication operations
- * Replaces UnifiedAuthService with improved security and consistency
+ * UI-agnostic - returns structured results for UI to consume
  */
 export class AuthenticationService extends BaseService {
   private static instance: AuthenticationService;
@@ -576,7 +575,8 @@ export class AuthenticationService extends BaseService {
 
   private handleSessionExpiry(): void {
     this.stopSessionValidation();
-    toast.error('Your session has expired. Please log in again.');
+    // Return session expiry info instead of directly showing toast
+    // The UI layer will handle this through the session monitoring
     supabase.auth.signOut().then(() => {
       window.location.href = '/auth';
     });
