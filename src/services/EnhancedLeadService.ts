@@ -54,6 +54,14 @@ export class EnhancedLeadService extends TenantAwareService {
 
       console.log('EnhancedLeadService: Creating lead:', leadData);
 
+      // Convert custom fields to JSON format
+      const customFieldsJson = leadData.custom_fields?.map(field => ({
+        field_name: field.field_name,
+        field_type: field.field_type,
+        value: field.value,
+        label: field.label
+      })) || [];
+
       const { data, error } = await supabase
         .from('leads')
         .insert({
@@ -66,7 +74,7 @@ export class EnhancedLeadService extends TenantAwareService {
           campaign_id: leadData.campaign_id,
           priority: leadData.priority || 'medium',
           notes: leadData.notes,
-          custom_fields: leadData.custom_fields || [],
+          custom_fields: customFieldsJson,
           status: 'new',
           qualification_score: 0,
           lead_score: 0,
@@ -79,7 +87,8 @@ export class EnhancedLeadService extends TenantAwareService {
         throw error;
       }
 
-      const lead = data as Lead;
+      // Transform database response to Lead type
+      const lead = this.transformDbRowToLead(data);
 
       // Calculate AI score asynchronously
       leadScoringService.calculateLeadScore(lead).catch(console.error);
@@ -131,15 +140,25 @@ export class EnhancedLeadService extends TenantAwareService {
 
       await this.ensureTenantAccess(currentLead.tenant_id);
 
-      const updatePayload = {
+      const updatePayload: any = {
         ...updateData,
         updated_at: new Date().toISOString()
       };
 
+      // Convert custom fields to JSON format if provided
+      if (updateData.custom_fields) {
+        updatePayload.custom_fields = updateData.custom_fields.map(field => ({
+          field_name: field.field_name,
+          field_type: field.field_type,
+          value: field.value,
+          label: field.label
+        }));
+      }
+
       // Remove undefined values
       Object.keys(updatePayload).forEach(key => {
-        if (updatePayload[key as keyof typeof updatePayload] === undefined) {
-          delete updatePayload[key as keyof typeof updatePayload];
+        if (updatePayload[key] === undefined) {
+          delete updatePayload[key];
         }
       });
 
@@ -155,7 +174,7 @@ export class EnhancedLeadService extends TenantAwareService {
         throw error;
       }
 
-      const updatedLead = data as Lead;
+      const updatedLead = this.transformDbRowToLead(data);
 
       // Recalculate AI score if relevant fields changed
       if (updateData.status || updateData.priority || updateData.notes) {
@@ -277,24 +296,43 @@ export class EnhancedLeadService extends TenantAwareService {
         throw error;
       }
 
+      // Transform database rows to Lead objects
+      const transformedLeads = (leads || []).map(this.transformDbRowToLead);
+
       // Calculate analytics
       const analytics = {
-        total: leads?.length || 0,
-        byStatus: this.groupByField(leads || [], 'status'),
-        byPriority: this.groupByField(leads || [], 'priority'),
-        bySource: this.groupByField(leads || [], 'source'),
-        avgAiScore: this.calculateAverageAiScore(leads || []),
-        conversionMetrics: this.calculateConversionMetrics(leads || [])
+        total: transformedLeads.length,
+        byStatus: this.groupByField(transformedLeads, 'status'),
+        byPriority: this.groupByField(transformedLeads, 'priority'),
+        bySource: this.groupByField(transformedLeads, 'source'),
+        avgAiScore: this.calculateAverageAiScore(transformedLeads),
+        conversionMetrics: this.calculateConversionMetrics(transformedLeads)
       };
 
       endTimer(true);
-      return { leads: leads || [], analytics };
+      return { leads: transformedLeads, analytics };
 
     } catch (error) {
       endTimer(false, error instanceof Error ? error.message : 'Unknown error');
       console.error('EnhancedLeadService: Error fetching leads with analytics:', error);
       return { leads: [], analytics: {} };
     }
+  }
+
+  private transformDbRowToLead(dbRow: any): Lead {
+    // Transform custom_fields from JSON to CustomFieldValue[]
+    const customFields: CustomFieldValue[] = Array.isArray(dbRow.custom_fields) 
+      ? dbRow.custom_fields 
+      : [];
+
+    return {
+      ...dbRow,
+      custom_fields: customFields,
+      assigned_admin: dbRow.assigned_admin ? {
+        full_name: dbRow.assigned_admin.full_name,
+        email: dbRow.assigned_admin.email
+      } : null
+    } as Lead;
   }
 
   private groupByField(leads: any[], field: string): Record<string, number> {

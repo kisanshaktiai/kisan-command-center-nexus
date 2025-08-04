@@ -22,13 +22,16 @@ export interface FieldPermissions {
 }
 
 export const useLeadPermissions = () => {
-  const { currentUser, currentTenant } = useMultiTenant();
+  const multiTenantContext = useMultiTenant();
+  
+  // Access user data from the context, handling potential undefined
+  const currentUser = multiTenantContext?.user || null;
+  const tenantRole = currentUser?.role || null;
 
   const permissions = useMemo((): LeadPermissions => {
-    const userRole = currentUser?.role;
-    const isActive = currentUser?.is_active;
+    const isActive = currentUser?.is_active !== false;
 
-    if (!isActive) {
+    if (!isActive || !currentUser) {
       return {
         canCreate: false,
         canRead: false,
@@ -43,7 +46,7 @@ export const useLeadPermissions = () => {
       };
     }
 
-    switch (userRole) {
+    switch (tenantRole) {
       case 'super_admin':
       case 'platform_admin':
         return {
@@ -102,12 +105,10 @@ export const useLeadPermissions = () => {
           canManageSettings: false,
         };
     }
-  }, [currentUser?.role, currentUser?.is_active]);
+  }, [tenantRole, currentUser?.is_active]);
 
   const getFieldPermissions = useMemo(() => {
     return (fieldName: string): FieldPermissions => {
-      const userRole = currentUser?.role;
-      
       // Sensitive fields that require higher permissions
       const sensitiveFields = ['ai_score', 'ai_recommended_action', 'qualification_score', 'converted_tenant_id'];
       const isSensitive = sensitiveFields.includes(fieldName);
@@ -130,7 +131,7 @@ export const useLeadPermissions = () => {
         isRequired: ['contact_name', 'email'].includes(fieldName),
       };
     };
-  }, [currentUser?.role, permissions]);
+  }, [tenantRole, permissions]);
 
   return {
     permissions,

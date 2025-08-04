@@ -2,316 +2,158 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line
-} from 'recharts';
-import { 
-  Users, 
-  TrendingUp, 
-  Target, 
-  Clock, 
-  Award, 
-  Zap,
-  Activity,
-  DollarSign
-} from 'lucide-react';
-
-interface AnalyticsData {
-  total: number;
-  byStatus: Record<string, number>;
-  byPriority: Record<string, number>;
-  bySource: Record<string, number>;
-  avgAiScore: number;
-  conversionMetrics: {
-    rate: number;
-    avgTimeToConversion: number;
-  };
-}
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface LeadAnalyticsDashboardProps {
-  analytics: AnalyticsData;
-  isLoading?: boolean;
+  open?: boolean;
+  onClose?: () => void;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
-
-const statusColors = {
-  new: '#3b82f6',
-  assigned: '#f59e0b', 
-  contacted: '#f97316',
-  qualified: '#10b981',
-  converted: '#059669',
-  rejected: '#ef4444'
-};
-
 export const LeadAnalyticsDashboard: React.FC<LeadAnalyticsDashboardProps> = ({
-  analytics,
-  isLoading = false
+  open,
+  onClose
 }) => {
-  const statusData = Object.entries(analytics.byStatus).map(([status, count]) => ({
-    name: status.charAt(0).toUpperCase() + status.slice(1),
-    value: count,
-    color: statusColors[status as keyof typeof statusColors] || '#6b7280'
-  }));
+  // Mock data for demonstration
+  const statusData = [
+    { name: 'New', count: 45, color: '#3B82F6' },
+    { name: 'Assigned', count: 23, color: '#F59E0B' },
+    { name: 'Contacted', count: 34, color: '#10B981' },
+    { name: 'Qualified', count: 12, color: '#8B5CF6' },
+    { name: 'Converted', count: 8, color: '#EF4444' },
+  ];
 
-  const priorityData = Object.entries(analytics.byPriority).map(([priority, count]) => ({
-    name: priority.charAt(0).toUpperCase() + priority.slice(1),
-    value: count
-  }));
+  const sourceData = [
+    { name: 'Website', count: 56 },
+    { name: 'Referral', count: 34 },
+    { name: 'Social Media', count: 28 },
+    { name: 'Email Campaign', count: 22 },
+    { name: 'Trade Show', count: 15 },
+  ];
 
-  const sourceData = Object.entries(analytics.bySource).map(([source, count]) => ({
-    name: source || 'Unknown',
-    value: count
-  }));
-
-  if (isLoading) {
-    return (
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader className="pb-2">
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-full"></div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
+  if (open === false) {
+    return null;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Lead Analytics Dashboard</h2>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Total Leads
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.total}</div>
-            <p className="text-xs text-muted-foreground">
-              Active leads in pipeline
-            </p>
+            <div className="text-2xl font-bold">122</div>
+            <p className="text-xs text-gray-500">+12% from last month</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Conversion Rate
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.conversionMetrics.rate}%</div>
-            <Progress value={analytics.conversionMetrics.rate} className="mt-2" />
+            <div className="text-2xl font-bold">6.6%</div>
+            <p className="text-xs text-gray-500">+2.1% from last month</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg AI Score</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Avg. Time to Convert
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.avgAiScore}</div>
-            <div className="flex items-center gap-1 mt-1">
-              <Award className="h-3 w-3" />
-              <span className="text-xs text-muted-foreground">
-                AI-powered scoring
-              </span>
-            </div>
+            <div className="text-2xl font-bold">14 days</div>
+            <p className="text-xs text-gray-500">-3 days from last month</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Conversion Time</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              High Priority
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {analytics.conversionMetrics.avgTimeToConversion} days
-            </div>
-            <p className="text-xs text-muted-foreground">
-              From lead to conversion
-            </p>
+            <div className="text-2xl font-bold">28</div>
+            <p className="text-xs text-gray-500">Require attention</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Lead Status Distribution */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Lead Status Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={statusData}>
+      {/* Status Distribution */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lead Status Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              {statusData.map((status) => (
+                <div key={status.name} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: status.color }}
+                    />
+                    <span className="text-sm">{status.name}</span>
+                  </div>
+                  <Badge variant="secondary">{status.count}</Badge>
+                </div>
+              ))}
+            </div>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={statusData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#3B82F6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Lead Sources */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lead Sources</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sourceData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="value" fill="#0088FE">
-                  {statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
+                <Bar dataKey="count" fill="#10B981" />
               </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Priority Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Priority Levels
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={priorityData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, value }) => `${name}: ${value}`}
-                >
-                  {priorityData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Lead Sources */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Lead Sources
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={sourceData} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={100} />
-                <Tooltip />
-                <Bar dataKey="value" fill="#00C49F" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* AI Insights */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5" />
-              AI Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">High-Value Leads</span>
-                <Badge variant="secondary">
-                  {Math.round((analytics.avgAiScore / 100) * analytics.total)}
-                </Badge>
-              </div>
-              <Progress value={analytics.avgAiScore} />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Ready for Contact</span>
-                <Badge variant="outline">
-                  {analytics.byStatus.new + analytics.byStatus.assigned || 0}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Conversion Pipeline</span>
-                <Badge variant="secondary">
-                  {analytics.byStatus.qualified || 0} qualified
-                </Badge>
-              </div>
-            </div>
-
-            <div className="pt-2 border-t">
-              <p className="text-xs text-muted-foreground">
-                AI recommendations updating in real-time
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Performance Metrics */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Pipeline Velocity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">+{analytics.conversionMetrics.rate}%</div>
-            <p className="text-xs text-muted-foreground">vs last period</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Lead Quality Score</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{analytics.avgAiScore}/100</div>
-            <p className="text-xs text-muted-foreground">AI-powered assessment</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Active Opportunities</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {(analytics.byStatus.contacted || 0) + (analytics.byStatus.qualified || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">In progress</p>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

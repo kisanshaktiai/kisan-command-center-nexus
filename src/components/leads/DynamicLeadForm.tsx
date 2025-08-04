@@ -26,9 +26,10 @@ export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
   onCancel,
   isLoading = false,
 }) => {
-  const { currentTenant } = useMultiTenant();
+  const multiTenantContext = useMultiTenant();
+  const tenantId = multiTenantContext?.tenant?.id;
   const { permissions, getFieldPermissions } = useLeadPermissions();
-  const { data: customFields = [] } = useCustomFields(currentTenant?.id);
+  const { data: customFields = [] } = useCustomFields(tenantId);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
 
   const {
@@ -64,7 +65,7 @@ export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
 
   const handleFormSubmit = async (data: any) => {
     // Convert custom field values to the expected format
-    const customFields: CustomFieldValue[] = customFields.map(field => ({
+    const customFieldsArray: CustomFieldValue[] = customFields.map(field => ({
       field_name: field.field_name,
       field_type: field.field_type,
       value: customFieldValues[field.field_name],
@@ -73,7 +74,7 @@ export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
 
     const submitData = {
       ...data,
-      custom_fields: customFields,
+      custom_fields: customFieldsArray,
     };
 
     await onSubmit(submitData);
@@ -110,7 +111,7 @@ export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
               value={value}
               onChange={(e) => updateValue(e.target.value)}
               disabled={isDisabled}
-              placeholder={`Enter ${field.field_label.toLowerCase()}`}
+              placeholder={`Enter ${field.field_label?.toLowerCase()}`}
             />
           </div>
         );
@@ -128,7 +129,7 @@ export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
               value={value}
               onChange={(e) => updateValue(Number(e.target.value))}
               disabled={isDisabled}
-              placeholder={`Enter ${field.field_label.toLowerCase()}`}
+              placeholder={`Enter ${field.field_label?.toLowerCase()}`}
             />
           </div>
         );
@@ -162,7 +163,7 @@ export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
               value={value}
               onChange={(e) => updateValue(e.target.value)}
               disabled={isDisabled}
-              placeholder={`Enter ${field.field_label.toLowerCase()}`}
+              placeholder={`Enter ${field.field_label?.toLowerCase()}`}
               rows={3}
             />
           </div>
@@ -181,10 +182,10 @@ export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
               disabled={isDisabled}
             >
               <SelectTrigger>
-                <SelectValue placeholder={`Select ${field.field_label.toLowerCase()}`} />
+                <SelectValue placeholder={`Select ${field.field_label?.toLowerCase()}`} />
               </SelectTrigger>
               <SelectContent>
-                {field.options.items?.map((option: any) => (
+                {field.options?.items?.map((option: any) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -304,7 +305,7 @@ export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
               <Label htmlFor="priority">Priority</Label>
               <Select
                 value={watch('priority')}
-                onValueChange={(value) => setValue('priority', value)}
+                onValueChange={(value: 'low' | 'medium' | 'high' | 'urgent') => setValue('priority', value)}
               >
                 <SelectTrigger>
                   <SelectValue />

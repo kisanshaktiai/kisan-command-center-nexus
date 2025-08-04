@@ -31,7 +31,18 @@ export class LeadCommunicationService extends TenantAwareService {
       const { data, error } = await query.order('template_name');
 
       if (error) throw error;
-      return data || [];
+      return (data || []).map(item => ({
+        id: item.id,
+        tenant_id: item.tenant_id,
+        template_name: item.template_name,
+        template_type: item.template_type,
+        subject: item.subject,
+        content: item.content,
+        variables: Array.isArray(item.variables) ? item.variables : [],
+        is_active: item.is_active,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      })) as LeadCommunicationTemplate[];
     } catch (error) {
       console.error('Error fetching communication templates:', error);
       return [];
@@ -53,7 +64,7 @@ export class LeadCommunicationService extends TenantAwareService {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as LeadCommunicationTemplate;
     } catch (error) {
       console.error('Error creating communication template:', error);
       return null;
@@ -122,7 +133,7 @@ export class LeadCommunicationService extends TenantAwareService {
     metadata: Record<string, any>
   ): Promise<void> {
     try {
-      const { data: user } = await supabase.auth.getUser();
+      const { data: userResponse } = await supabase.auth.getUser();
 
       const { error } = await supabase
         .from('lead_communication_logs')
@@ -134,7 +145,7 @@ export class LeadCommunicationService extends TenantAwareService {
           content,
           status: 'sent',
           sent_at: new Date().toISOString(),
-          created_by: user.data.user?.id,
+          created_by: userResponse.user?.id,
           metadata
         });
 

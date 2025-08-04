@@ -24,7 +24,7 @@ export class AuditService extends TenantAwareService {
     if (!tenantId) return;
 
     try {
-      const { data: user } = await supabase.auth.getUser();
+      const { data: userResponse } = await supabase.auth.getUser();
       
       const auditEntry = {
         lead_id: leadId,
@@ -32,7 +32,7 @@ export class AuditService extends TenantAwareService {
         action_type: actionType,
         old_values: oldValues,
         new_values: newValues,
-        performed_by: user.data.user?.id,
+        performed_by: userResponse.user?.id,
         source: context.source,
         context: {
           user_agent: context.user_agent,
@@ -67,7 +67,7 @@ export class AuditService extends TenantAwareService {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as LeadAuditLog[];
     } catch (error) {
       console.error('Error fetching audit history:', error);
       return [];
