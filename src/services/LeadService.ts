@@ -1,3 +1,4 @@
+
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
@@ -42,6 +43,10 @@ interface ConvertToTenantData {
 class LeadServiceClass extends BaseService {
   private static instanceStorage: { instance?: LeadServiceClass } = {};
 
+  // Valid status values that match database constraints
+  private readonly VALID_STATUSES = ['new', 'assigned', 'contacted', 'qualified', 'rejected'] as const;
+  private readonly VALID_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
+
   constructor() {
     super();
   }
@@ -53,11 +58,19 @@ class LeadServiceClass extends BaseService {
     return this.instanceStorage.instance;
   }
 
+  private validateStatus(status: string): status is Lead['status'] {
+    return this.VALID_STATUSES.includes(status as any);
+  }
+
+  private validatePriority(priority: string): priority is Lead['priority'] {
+    return this.VALID_PRIORITIES.includes(priority as any);
+  }
+
   async getLeads(): Promise<ServiceResult<Lead[]>> {
     return this.executeOperation(async () => {
       console.log('Fetching leads from database...');
       
-      // Use only fields that exist in the database
+      // Use only fields that exist in the database - simplified query
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select(`
@@ -116,11 +129,17 @@ class LeadServiceClass extends BaseService {
             
             return {
               ...lead,
+              // Validate and cast status and priority with fallbacks
+              status: this.validateStatus(lead.status) ? lead.status as Lead['status'] : 'new',
+              priority: this.validatePriority(lead.priority) ? lead.priority as Lead['priority'] : 'medium',
               assigned_admin: adminData || null
             };
           }
           return {
             ...lead,
+            // Validate and cast status and priority with fallbacks
+            status: this.validateStatus(lead.status) ? lead.status as Lead['status'] : 'new',
+            priority: this.validatePriority(lead.priority) ? lead.priority as Lead['priority'] : 'medium',
             assigned_admin: null
           };
         })
@@ -134,6 +153,12 @@ class LeadServiceClass extends BaseService {
     return this.executeOperation(async () => {
       console.log('Creating lead:', leadData);
       
+      // Validate priority before inserting
+      const priority = leadData.priority || 'medium';
+      if (!this.validatePriority(priority)) {
+        throw new Error(`Invalid priority: ${priority}. Valid priorities are: ${this.VALID_PRIORITIES.join(', ')}`);
+      }
+      
       const { data, error } = await supabase
         .from('leads')
         .insert({
@@ -143,7 +168,7 @@ class LeadServiceClass extends BaseService {
           organization_name: leadData.organization_name,
           organization_type: 'company',
           source: leadData.source,
-          priority: leadData.priority || 'medium',
+          priority: priority,
           notes: leadData.notes,
           status: 'new',
           qualification_score: 0,
@@ -158,13 +183,35 @@ class LeadServiceClass extends BaseService {
       }
       
       console.log('Lead created successfully:', data);
-      return data as Lead;
+      return {
+        ...data,
+        status: data.status as Lead['status'],
+        priority: data.priority as Lead['priority'],
+        assigned_admin: null
+      } as Lead;
     }, 'createLead');
   }
 
   async updateLead(leadId: string, updateData: UpdateLeadData): Promise<ServiceResult<Lead>> {
     return this.executeOperation(async () => {
       console.log('LeadService: Updating lead:', { leadId, updateData });
+      
+      // Validate status if provided
+      if (updateData.status) {
+        if (!this.validateStatus(updateData.status)) {
+          throw new Error(`Invalid status: ${updateData.status}. Valid statuses are: ${this.VALID_STATUSES.join(', ')}`);
+        }
+        
+        // Prevent direct conversion to 'converted' status
+        if (updateData.status === 'converted') {
+          throw new Error('Cannot update status to "converted" directly. Use the conversion flow instead.');
+        }
+      }
+
+      // Validate priority if provided
+      if (updateData.priority && !this.validatePriority(updateData.priority)) {
+        throw new Error(`Invalid priority: ${updateData.priority}. Valid priorities are: ${this.VALID_PRIORITIES.join(', ')}`);
+      }
       
       const updatePayload: any = {
         ...updateData,
@@ -205,7 +252,12 @@ class LeadServiceClass extends BaseService {
       }
       
       console.log('LeadService: Lead updated successfully:', data);
-      return data as Lead;
+      return {
+        ...data,
+        status: data.status as Lead['status'],
+        priority: data.priority as Lead['priority'],
+        assigned_admin: null // Will be populated by calling code if needed
+      } as Lead;
     }, 'updateLead');
   }
 
@@ -236,7 +288,7 @@ class LeadServiceClass extends BaseService {
       // Generate a temporary password
       const tempPassword = this.generateTempPassword();
       
-      // Call the updated RPC function to create tenant
+      // Call the RPC function to convert lead to tenant
       const { data: rpcResult, error } = await supabase.rpc('convert_lead_to_tenant', {
         p_lead_id: convertData.leadId,
         p_tenant_name: convertData.tenantName,

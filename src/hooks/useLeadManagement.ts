@@ -131,6 +131,13 @@ export const useUpdateLeadStatus = () => {
   const queryClient = useQueryClient();
   const { showSuccess, showError, showLoading, dismiss } = useNotifications();
 
+  // Define valid status values that match database constraints
+  const VALID_STATUSES = ['new', 'assigned', 'contacted', 'qualified', 'rejected'] as const;
+  
+  const validateStatus = (status: string): boolean => {
+    return VALID_STATUSES.includes(status as any);
+  };
+
   return useMutation({
     mutationFn: async ({ leadId, status, notes }: { 
       leadId: string; 
@@ -139,9 +146,21 @@ export const useUpdateLeadStatus = () => {
     }) => {
       console.log('Starting lead status update:', { leadId, status, notes });
       
+      // Validate status before proceeding
+      if (!validateStatus(status)) {
+        throw new Error(`Invalid status: ${status}. Valid statuses are: ${VALID_STATUSES.join(', ')}`);
+      }
+
+      // Handle conversion separately - don't update status to "converted" directly
+      if (status === 'converted') {
+        throw new Error('Lead conversion must be handled through the convert-to-tenant flow, not direct status update');
+      }
+      
       const loadingToast = showLoading(`Updating lead status to ${status}...`);
       
       try {
+        console.log('LeadService: Validated status update request:', { leadId, status });
+        
         // Use the LeadService with proper error handling
         const result = await LeadService.updateLead(leadId, { 
           status, 
@@ -202,6 +221,7 @@ export const useUpdateLeadStatus = () => {
 export const useConvertLeadToTenant = () => {
   const queryClient = useQueryClient();
   const { convertToTenant } = useLeadService();
+  const { showSuccess, showError } = useNotifications();
 
   return useMutation({
     mutationFn: async ({ 
@@ -240,6 +260,11 @@ export const useConvertLeadToTenant = () => {
       }
 
       console.log('Lead conversion successful:', result);
+      
+      showSuccess('Lead converted to tenant successfully', {
+        description: `${tenantName} has been created and the lead has been marked as converted.`,
+      });
+      
       return result;
     },
     onSuccess: (data, variables) => {
@@ -249,9 +274,13 @@ export const useConvertLeadToTenant = () => {
     },
     onError: (error, variables) => {
       console.error('Failed to convert lead to tenant:', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         leadId: variables.leadId,
         tenantName: variables.tenantName
+      });
+      
+      showError('Failed to convert lead to tenant', {
+        description: error instanceof Error ? error.message : 'An unknown error occurred during conversion.',
       });
     },
   });
