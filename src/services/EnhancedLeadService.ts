@@ -46,7 +46,7 @@ export class EnhancedLeadService extends TenantAwareService {
   }
 
   async createLead(leadData: EnhancedCreateLeadData, context: ActionContext): Promise<Lead | null> {
-    const endTimer = telemetryService.startTimer('create_lead');
+    const startTime = Date.now();
     
     try {
       const tenantId = await this.getTenantId();
@@ -84,7 +84,7 @@ export class EnhancedLeadService extends TenantAwareService {
         .single();
 
       if (error) {
-        endTimer(false, error.message);
+        telemetryService.recordMetric('create_lead_error', 1);
         throw error;
       }
 
@@ -112,19 +112,20 @@ export class EnhancedLeadService extends TenantAwareService {
         context
       );
 
-      endTimer(true);
+      telemetryService.recordMetric('create_lead_success', 1);
+      telemetryService.recordTiming('create_lead_duration', Date.now() - startTime);
       console.log('EnhancedLeadService: Lead created successfully:', lead);
       return lead;
 
     } catch (error) {
-      endTimer(false, error instanceof Error ? error.message : 'Unknown error');
+      telemetryService.recordMetric('create_lead_error', 1);
       console.error('EnhancedLeadService: Error creating lead:', error);
       return null;
     }
   }
 
   async updateLead(leadId: string, updateData: EnhancedUpdateLeadData, context: ActionContext): Promise<Lead | null> {
-    const endTimer = telemetryService.startTimer('update_lead');
+    const startTime = Date.now();
 
     try {
       const tenantId = await this.getTenantId();
@@ -169,7 +170,7 @@ export class EnhancedLeadService extends TenantAwareService {
         .single();
 
       if (error) {
-        endTimer(false, error.message);
+        telemetryService.recordMetric('update_lead_error', 1);
         throw error;
       }
 
@@ -203,19 +204,20 @@ export class EnhancedLeadService extends TenantAwareService {
         context
       );
 
-      endTimer(true);
+      telemetryService.recordMetric('update_lead_success', 1);
+      telemetryService.recordTiming('update_lead_duration', Date.now() - startTime);
       console.log('EnhancedLeadService: Lead updated successfully:', updatedLead);
       return updatedLead;
 
     } catch (error) {
-      endTimer(false, error instanceof Error ? error.message : 'Unknown error');
+      telemetryService.recordMetric('update_lead_error', 1);
       console.error('EnhancedLeadService: Error updating lead:', error);
       return null;
     }
   }
 
   async assignLead(leadId: string, adminId: string, reason: string, context: ActionContext): Promise<boolean> {
-    const endTimer = telemetryService.startTimer('assign_lead');
+    const startTime = Date.now();
 
     try {
       const tenantId = await this.getTenantId();
@@ -238,7 +240,7 @@ export class EnhancedLeadService extends TenantAwareService {
       });
 
       if (error) {
-        endTimer(false, error.message);
+        telemetryService.recordMetric('assign_lead_error', 1);
         throw error;
       }
 
@@ -264,18 +266,19 @@ export class EnhancedLeadService extends TenantAwareService {
         context
       );
 
-      endTimer(true);
+      telemetryService.recordMetric('assign_lead_success', 1);
+      telemetryService.recordTiming('assign_lead_duration', Date.now() - startTime);
       return true;
 
     } catch (error) {
-      endTimer(false, error instanceof Error ? error.message : 'Unknown error');
+      telemetryService.recordMetric('assign_lead_error', 1);
       console.error('EnhancedLeadService: Error assigning lead:', error);
       return false;
     }
   }
 
   async getLeadsWithAnalytics(): Promise<{ leads: Lead[]; analytics: any }> {
-    const endTimer = telemetryService.startTimer('get_leads_with_analytics');
+    const startTime = Date.now();
 
     try {
       const tenantId = await this.getTenantId();
@@ -291,7 +294,7 @@ export class EnhancedLeadService extends TenantAwareService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        endTimer(false, error.message);
+        telemetryService.recordMetric('get_leads_error', 1);
         throw error;
       }
 
@@ -308,11 +311,12 @@ export class EnhancedLeadService extends TenantAwareService {
         conversionMetrics: this.calculateConversionMetrics(transformedLeads)
       };
 
-      endTimer(true);
+      telemetryService.recordMetric('get_leads_success', 1);
+      telemetryService.recordTiming('get_leads_duration', Date.now() - startTime);
       return { leads: transformedLeads, analytics };
 
     } catch (error) {
-      endTimer(false, error instanceof Error ? error.message : 'Unknown error');
+      telemetryService.recordMetric('get_leads_error', 1);
       console.error('EnhancedLeadService: Error fetching leads with analytics:', error);
       return { leads: [], analytics: {} };
     }

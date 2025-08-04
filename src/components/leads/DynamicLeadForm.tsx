@@ -24,8 +24,8 @@ export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
   onCancel,
 }) => {
   const multiTenant = useMultiTenant();
-  const tenantId = multiTenant?.tenant_id || null;
-  const { customFields, loading: fieldsLoading } = useCustomFields(tenantId);
+  const tenantId = multiTenant?.tenant?.tenant_id || null;
+  const { data: customFields = [], isLoading: fieldsLoading } = useCustomFields(tenantId);
   const { createLead, updateLead, isLoading } = useLeadService();
   
   // Form state
