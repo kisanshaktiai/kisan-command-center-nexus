@@ -1,307 +1,317 @@
 
-import React, { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { 
-  TrendingUp, 
-  Users, 
-  Target, 
-  Award,
-  BarChart3,
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
   PieChart,
-  Calendar
+  Pie,
+  Cell,
+  LineChart,
+  Line
+} from 'recharts';
+import { 
+  Users, 
+  TrendingUp, 
+  Target, 
+  Clock, 
+  Award, 
+  Zap,
+  Activity,
+  DollarSign
 } from 'lucide-react';
-import {
-  useConversionFunnel,
-  useLeadPerformance,
-  useSourceEffectiveness,
-  useTeamPerformance,
-} from '@/hooks/useLeadAnalytics';
 
-interface LeadAnalyticsDashboardProps {
-  open: boolean;
-  onClose: () => void;
+interface AnalyticsData {
+  total: number;
+  byStatus: Record<string, number>;
+  byPriority: Record<string, number>;
+  bySource: Record<string, number>;
+  avgAiScore: number;
+  conversionMetrics: {
+    rate: number;
+    avgTimeToConversion: number;
+  };
 }
 
-export const LeadAnalyticsDashboard: React.FC<LeadAnalyticsDashboardProps> = ({
-  open,
-  onClose,
-}) => {
-  const [dateRange, setDateRange] = useState({
-    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0],
-  });
+interface LeadAnalyticsDashboardProps {
+  analytics: AnalyticsData;
+  isLoading?: boolean;
+}
 
-  const { data: funnelData, isLoading: funnelLoading } = useConversionFunnel(dateRange);
-  const { data: performanceData, isLoading: performanceLoading } = useLeadPerformance(dateRange);
-  const { data: sourceData, isLoading: sourceLoading } = useSourceEffectiveness(dateRange);
-  const { data: teamData, isLoading: teamLoading } = useTeamPerformance(dateRange);
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
+const statusColors = {
+  new: '#3b82f6',
+  assigned: '#f59e0b', 
+  contacted: '#f97316',
+  qualified: '#10b981',
+  converted: '#059669',
+  rejected: '#ef4444'
+};
+
+export const LeadAnalyticsDashboard: React.FC<LeadAnalyticsDashboardProps> = ({
+  analytics,
+  isLoading = false
+}) => {
+  const statusData = Object.entries(analytics.byStatus).map(([status, count]) => ({
+    name: status.charAt(0).toUpperCase() + status.slice(1),
+    value: count,
+    color: statusColors[status as keyof typeof statusColors] || '#6b7280'
+  }));
+
+  const priorityData = Object.entries(analytics.byPriority).map(([priority, count]) => ({
+    name: priority.charAt(0).toUpperCase() + priority.slice(1),
+    value: count
+  }));
+
+  const sourceData = Object.entries(analytics.bySource).map(([source, count]) => ({
+    name: source || 'Unknown',
+    value: count
+  }));
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Card key={i} className="animate-pulse">
+            <CardHeader className="pb-2">
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-full"></div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Lead Analytics Dashboard
-          </DialogTitle>
-        </DialogHeader>
+    <div className="space-y-6">
+      {/* Key Metrics */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{analytics.total}</div>
+            <p className="text-xs text-muted-foreground">
+              Active leads in pipeline
+            </p>
+          </CardContent>
+        </Card>
 
-        <Tabs defaultValue="funnel" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="funnel">Conversion Funnel</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="sources">Lead Sources</TabsTrigger>
-            <TabsTrigger value="team">Team Performance</TabsTrigger>
-          </TabsList>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{analytics.conversionMetrics.rate}%</div>
+            <Progress value={analytics.conversionMetrics.rate} className="mt-2" />
+          </CardContent>
+        </Card>
 
-          <TabsContent value="funnel" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Conversion Funnel
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {funnelLoading ? (
-                  <div className="animate-pulse space-y-4">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="h-12 bg-gray-200 rounded"></div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {funnelData && Object.entries(funnelData.funnel).map(([stage, count]) => {
-                      const percentage = funnelData.total > 0 ? ((count as number) / funnelData.total) * 100 : 0;
-                      return (
-                        <div key={stage} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="w-20 justify-center">
-                              {stage.charAt(0).toUpperCase() + stage.slice(1)}
-                            </Badge>
-                            <span className="font-medium">{count as number} leads</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-32 bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-blue-500 h-2 rounded-full" 
-                                style={{ width: `${percentage}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-sm text-gray-600 w-12">
-                              {percentage.toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg AI Score</CardTitle>
+            <Zap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{analytics.avgAiScore}</div>
+            <div className="flex items-center gap-1 mt-1">
+              <Award className="h-3 w-3" />
+              <span className="text-xs text-muted-foreground">
+                AI-powered scoring
+              </span>
+            </div>
+          </CardContent>
+        </Card>
 
-          <TabsContent value="performance" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <Users className="h-8 w-8 text-blue-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Leads</p>
-                      <p className="text-2xl font-bold">
-                        {performanceLoading ? '...' : performanceData?.totalLeads || 0}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg. Conversion Time</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {analytics.conversionMetrics.avgTimeToConversion} days
+            </div>
+            <p className="text-xs text-muted-foreground">
+              From lead to conversion
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <Target className="h-8 w-8 text-green-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Avg Score</p>
-                      <p className="text-2xl font-bold">
-                        {performanceLoading ? '...' : (performanceData?.avgScore || 0).toFixed(1)}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+      {/* Charts */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Lead Status Distribution */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Lead Status Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={statusData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#0088FE">
+                  {statusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <Calendar className="h-8 w-8 text-orange-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Avg Time to Contact</p>
-                      <p className="text-2xl font-bold">
-                        {performanceLoading ? '...' : (performanceData?.avgTimeToContact || 0).toFixed(1)}h
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        {/* Priority Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Priority Levels
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={priorityData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                  label={({ name, value }) => `${name}: ${value}`}
+                >
+                  {priorityData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <Award className="h-8 w-8 text-purple-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Avg Time to Conversion</p>
-                      <p className="text-2xl font-bold">
-                        {performanceLoading ? '...' : (performanceData?.avgTimeToConversion || 0).toFixed(1)}d
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        {/* Lead Sources */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Lead Sources
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={sourceData} layout="horizontal">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis dataKey="name" type="category" width={100} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#00C49F" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* AI Insights */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5" />
+              AI Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">High-Value Leads</span>
+                <Badge variant="secondary">
+                  {Math.round((analytics.avgAiScore / 100) * analytics.total)}
+                </Badge>
+              </div>
+              <Progress value={analytics.avgAiScore} />
             </div>
 
-            {/* Top Performing Leads */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Performing Leads</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {performanceLoading ? (
-                  <div className="animate-pulse space-y-2">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="h-8 bg-gray-200 rounded"></div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {performanceData?.topPerformers?.map((lead, index) => (
-                      <div key={lead.id} className="flex items-center justify-between p-3 border rounded">
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline">#{index + 1}</Badge>
-                          <div>
-                            <p className="font-medium">{lead.name}</p>
-                            <p className="text-sm text-gray-600">{lead.organization}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge>{lead.status}</Badge>
-                          <span className="font-medium">{lead.score}</span>
-                        </div>
-                      </div>
-                    )) || <p className="text-gray-500">No leads available</p>}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Ready for Contact</span>
+                <Badge variant="outline">
+                  {analytics.byStatus.new + analytics.byStatus.assigned || 0}
+                </Badge>
+              </div>
+            </div>
 
-          <TabsContent value="sources" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PieChart className="h-5 w-5" />
-                  Lead Source Effectiveness
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {sourceLoading ? (
-                  <div className="animate-pulse space-y-4">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="h-16 bg-gray-200 rounded"></div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {sourceData && Object.entries(sourceData).map(([source, stats]: [string, any]) => (
-                      <div key={source} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline" className="w-24 justify-center">
-                            {source.charAt(0).toUpperCase() + source.slice(1)}
-                          </Badge>
-                          <div>
-                            <p className="font-medium">{stats.total} leads</p>
-                            <p className="text-sm text-gray-600">
-                              {stats.converted} converted ({stats.conversionRate?.toFixed(1)}%)
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">Score: {stats.avgScore?.toFixed(1)}</p>
-                          <div className="w-24 bg-gray-200 rounded-full h-2 mt-1">
-                            <div 
-                              className="bg-green-500 h-2 rounded-full" 
-                              style={{ width: `${Math.min(stats.conversionRate || 0, 100)}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Conversion Pipeline</span>
+                <Badge variant="secondary">
+                  {analytics.byStatus.qualified || 0} qualified
+                </Badge>
+              </div>
+            </div>
 
-          <TabsContent value="team" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Team Performance
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {teamLoading ? (
-                  <div className="animate-pulse space-y-4">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="h-20 bg-gray-200 rounded"></div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {teamData && Object.entries(teamData).map(([adminId, stats]: [string, any]) => (
-                      <div key={adminId} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                            {stats.name?.charAt(0) || 'A'}
-                          </div>
-                          <div>
-                            <p className="font-medium">{stats.name || 'Unknown Admin'}</p>
-                            <p className="text-sm text-gray-600">
-                              {stats.totalLeads} leads • {stats.converted} converted
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">
-                            {stats.conversionRate?.toFixed(1) || 0}% conversion
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Avg Score: {stats.avgScore?.toFixed(1) || 0}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+            <div className="pt-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                AI recommendations updating in real-time
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        <div className="flex justify-end">
-          <Button onClick={onClose}>Close</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      {/* Performance Metrics */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Pipeline Velocity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">+{analytics.conversionMetrics.rate}%</div>
+            <p className="text-xs text-muted-foreground">vs last period</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Lead Quality Score</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{analytics.avgAiScore}/100</div>
+            <p className="text-xs text-muted-foreground">AI-powered assessment</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Active Opportunities</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              {(analytics.byStatus.contacted || 0) + (analytics.byStatus.qualified || 0)}
+            </div>
+            <p className="text-xs text-muted-foreground">In progress</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 };

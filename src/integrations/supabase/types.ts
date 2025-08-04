@@ -2572,6 +2572,53 @@ export type Database = {
           },
         ]
       }
+      lead_audit_logs: {
+        Row: {
+          action_type: string
+          context: Json | null
+          created_at: string | null
+          id: string
+          lead_id: string
+          new_values: Json | null
+          old_values: Json | null
+          performed_by: string | null
+          source: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action_type: string
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          lead_id: string
+          new_values?: Json | null
+          old_values?: Json | null
+          performed_by?: string | null
+          source?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action_type?: string
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          performed_by?: string | null
+          source?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_audit_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_communication_logs: {
         Row: {
           communication_type: string
@@ -2627,6 +2674,90 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      lead_communication_templates: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          subject: string | null
+          template_name: string
+          template_type: string
+          tenant_id: string
+          updated_at: string | null
+          variables: Json | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          subject?: string | null
+          template_name: string
+          template_type: string
+          tenant_id: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          subject?: string | null
+          template_name?: string
+          template_type?: string
+          tenant_id?: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Relationships: []
+      }
+      lead_custom_fields: {
+        Row: {
+          created_at: string | null
+          field_label: string | null
+          field_name: string
+          field_order: number | null
+          field_type: string
+          id: string
+          is_active: boolean | null
+          is_required: boolean | null
+          options: Json | null
+          tenant_id: string
+          updated_at: string | null
+          validation_rules: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          field_label?: string | null
+          field_name: string
+          field_order?: number | null
+          field_type: string
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          options?: Json | null
+          tenant_id: string
+          updated_at?: string | null
+          validation_rules?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          field_label?: string | null
+          field_name?: string
+          field_order?: number | null
+          field_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          options?: Json | null
+          tenant_id?: string
+          updated_at?: string | null
+          validation_rules?: Json | null
+        }
+        Relationships: []
       }
       lead_scoring_rules: {
         Row: {
@@ -2698,9 +2829,12 @@ export type Database = {
       }
       leads: {
         Row: {
+          ai_recommended_action: string | null
+          ai_score: number | null
           assigned_at: string | null
           assigned_to: string | null
           budget_range: string | null
+          campaign_id: string | null
           company_size: string | null
           contact_name: string
           contract_sent: boolean | null
@@ -2709,6 +2843,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           current_solution: string | null
+          custom_fields: Json | null
           demo_scheduled: boolean | null
           email: string
           expected_farmers: number | null
@@ -2734,14 +2869,18 @@ export type Database = {
           requirements: string | null
           sales_qualified: boolean | null
           source: string | null
+          source_id: string | null
           status: string
           timeline: string | null
           updated_at: string | null
         }
         Insert: {
+          ai_recommended_action?: string | null
+          ai_score?: number | null
           assigned_at?: string | null
           assigned_to?: string | null
           budget_range?: string | null
+          campaign_id?: string | null
           company_size?: string | null
           contact_name: string
           contract_sent?: boolean | null
@@ -2750,6 +2889,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           current_solution?: string | null
+          custom_fields?: Json | null
           demo_scheduled?: boolean | null
           email: string
           expected_farmers?: number | null
@@ -2775,14 +2915,18 @@ export type Database = {
           requirements?: string | null
           sales_qualified?: boolean | null
           source?: string | null
+          source_id?: string | null
           status?: string
           timeline?: string | null
           updated_at?: string | null
         }
         Update: {
+          ai_recommended_action?: string | null
+          ai_score?: number | null
           assigned_at?: string | null
           assigned_to?: string | null
           budget_range?: string | null
+          campaign_id?: string | null
           company_size?: string | null
           contact_name?: string
           contract_sent?: boolean | null
@@ -2791,6 +2935,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           current_solution?: string | null
+          custom_fields?: Json | null
           demo_scheduled?: boolean | null
           email?: string
           expected_farmers?: number | null
@@ -2816,6 +2961,7 @@ export type Database = {
           requirements?: string | null
           sales_qualified?: boolean | null
           source?: string | null
+          source_id?: string | null
           status?: string
           timeline?: string | null
           updated_at?: string | null

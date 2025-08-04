@@ -1,3 +1,4 @@
+
 // Lead management types
 export interface Lead {
   id: string;
@@ -29,11 +30,70 @@ export interface Lead {
   contract_sent?: boolean;
   last_activity?: string;
   created_by?: string;
+  // AI and Analytics enhancements
+  ai_score?: number;
+  ai_recommended_action?: string;
+  source_id?: string;
+  campaign_id?: string;
+  custom_fields?: CustomFieldValue[];
   // Add assigned admin information
   assigned_admin?: {
     full_name: string;
     email: string;
   } | null;
+}
+
+export interface CustomFieldConfig {
+  id: string;
+  tenant_id: string;
+  field_name: string;
+  field_type: 'text' | 'number' | 'date' | 'email' | 'phone' | 'select' | 'multiselect' | 'textarea' | 'checkbox';
+  field_label: string;
+  field_order: number;
+  is_required: boolean;
+  options: Record<string, any>;
+  validation_rules: Record<string, any>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomFieldValue {
+  field_name: string;
+  field_type: string;
+  value: any;
+  label?: string;
+}
+
+export interface LeadAuditLog {
+  id: string;
+  lead_id: string;
+  tenant_id: string;
+  action_type: 'created' | 'updated' | 'status_changed' | 'assigned' | 'contacted' | 'converted' | 'deleted';
+  old_values: Record<string, any>;
+  new_values: Record<string, any>;
+  performed_by?: string;
+  source: string;
+  context: Record<string, any>;
+  created_at: string;
+}
+
+export interface ActionContext {
+  source: 'ui' | 'api' | 'automation' | 'import';
+  user_agent?: string;
+  ip_address?: string;
+  session_id?: string;
+  tenant_id?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface LeadEvent {
+  event_type: 'lead_created' | 'status_changed' | 'assigned' | 'scored' | 'converted';
+  lead_id: string;
+  tenant_id: string;
+  event_data: Record<string, any>;
+  context: ActionContext;
+  timestamp: string;
 }
 
 export interface LeadActivity {
@@ -70,6 +130,19 @@ export interface LeadCommunicationLog {
   created_by?: string;
   metadata: Record<string, any>;
   created_at: string;
+}
+
+export interface LeadCommunicationTemplate {
+  id: string;
+  tenant_id: string;
+  template_name: string;
+  template_type: 'email' | 'sms' | 'call_script' | 'linkedin';
+  subject?: string;
+  content: string;
+  variables: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface LeadTag {
