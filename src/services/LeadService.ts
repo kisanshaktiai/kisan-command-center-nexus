@@ -1,4 +1,3 @@
-
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
@@ -285,17 +284,9 @@ class LeadServiceClass extends BaseService {
     return this.executeOperation(async () => {
       console.log('Converting lead to tenant:', convertData);
       
-      // Generate a temporary password
-      const tempPassword = this.generateTempPassword();
-      
-      // Call the RPC function to convert lead to tenant
-      const { data: rpcResult, error } = await supabase.rpc('convert_lead_to_tenant', {
-        p_lead_id: convertData.leadId,
-        p_tenant_name: convertData.tenantName,
-        p_tenant_slug: convertData.tenantSlug,
-        p_subscription_plan: convertData.subscriptionPlan,
-        p_admin_email: convertData.adminEmail,
-        p_admin_name: convertData.adminName,
+      // Use the edge function for conversion
+      const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
+        body: convertData,
       });
 
       if (error) {
@@ -303,44 +294,8 @@ class LeadServiceClass extends BaseService {
         throw error;
       }
 
-      console.log('RPC conversion result:', rpcResult);
-
-      // Extract tenant ID from the result
-      let tenantId: string | null = null;
-      
-      if (rpcResult && typeof rpcResult === 'object' && 'tenant_id' in rpcResult) {
-        tenantId = String(rpcResult.tenant_id);
-      }
-      
-      if (!tenantId) {
-        console.error('No tenant ID returned from conversion');
-        throw new Error('Failed to get tenant ID from conversion result');
-      }
-
-      // Send conversion email with account details
-      const { data: emailResult, error: emailError } = await supabase.functions.invoke('tenant-conversion-email', {
-        body: {
-          leadId: convertData.leadId,
-          tenantId: tenantId,
-          adminEmail: convertData.adminEmail || '',
-          adminName: convertData.adminName || '',
-          tenantName: convertData.tenantName,
-          tempPassword: tempPassword
-        }
-      });
-
-      if (emailError) {
-        console.error('Email sending failed:', emailError);
-        // Don't throw error here - tenant was created successfully
-      } else {
-        console.log('Conversion email sent successfully');
-      }
-
-      return {
-        tenant_id: tenantId,
-        emailSent: !emailError,
-        tempPassword: tempPassword // Include for admin reference
-      };
+      console.log('Lead conversion successful:', data);
+      return data;
     }, 'convertToTenant');
   }
 
