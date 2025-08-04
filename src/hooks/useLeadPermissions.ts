@@ -1,140 +1,147 @@
 
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useMultiTenant } from '@/hooks/useMultiTenant';
+import { supabase } from '@/integrations/supabase/client';
+import type { Lead } from '@/types/leads';
 
-export interface LeadPermissions {
-  canCreate: boolean;
-  canRead: boolean;
-  canUpdate: boolean;
+interface LeadPermissions {
+  canView: boolean;
+  canEdit: boolean;
   canDelete: boolean;
   canAssign: boolean;
   canConvert: boolean;
-  canViewSensitiveFields: boolean;
-  canBulkAction: boolean;
-  canExport: boolean;
-  canManageSettings: boolean;
+  restrictedFields: string[];
 }
 
-export interface FieldPermissions {
-  canView: boolean;
-  canEdit: boolean;
-  isRequired: boolean;
-}
+export const useLeadPermissions = (lead?: Lead) => {
+  const [permissions, setPermissions] = useState<LeadPermissions>({
+    canView: false,
+    canEdit: false,
+    canDelete: false,
+    canAssign: false,
+    canConvert: false,
+    restrictedFields: [],
+  });
 
-export const useLeadPermissions = () => {
-  const multiTenantContext = useMultiTenant();
-  
-  // Access user data from the context, handling potential undefined
-  const currentUser = multiTenantContext?.user || null;
-  const tenantRole = currentUser?.role || null;
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const multiTenant = useMultiTenant();
 
-  const permissions = useMemo((): LeadPermissions => {
-    const isActive = currentUser?.is_active !== false;
+  useEffect(() => {
+    const fetchUserAndPermissions = async () => {
+      try {
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUser(user);
 
-    if (!isActive || !currentUser) {
-      return {
-        canCreate: false,
-        canRead: false,
-        canUpdate: false,
-        canDelete: false,
-        canAssign: false,
-        canConvert: false,
-        canViewSensitiveFields: false,
-        canBulkAction: false,
-        canExport: false,
-        canManageSettings: false,
-      };
-    }
+        if (!user) {
+          setIsLoading(false);
+          return;
+        }
 
-    switch (tenantRole) {
+        // Get admin user details
+        const { data: adminUser } = await supabase
+          .from('admin_users')
+          .select('role, is_active')
+          .eq('id', user.id)
+          .single();
+
+        if (!adminUser || !adminUser.is_active) {
+          setIsLoading(false);
+          return;
+        }
+
+        // Calculate permissions based on role
+        const newPermissions = calculatePermissions(adminUser.role, lead);
+        setPermissions(newPermissions);
+      } catch (error) {
+        console.error('Error fetching user permissions:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserAndPermissions();
+  }, [lead, multiTenant]);
+
+  const calculatePermissions = (role: string, lead?: Lead): LeadPermissions => {
+    const basePermissions = {
+      canView: true,
+      canEdit: false,
+      canDelete: false,
+      canAssign: false,
+      canConvert: false,
+      restrictedFields: [] as string[],
+    };
+
+    switch (role) {
       case 'super_admin':
-      case 'platform_admin':
         return {
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
+          ...basePermissions,
+          canEdit: true,
           canDelete: true,
           canAssign: true,
           canConvert: true,
-          canViewSensitiveFields: true,
-          canBulkAction: true,
-          canExport: true,
-          canManageSettings: true,
+        };
+
+      case 'platform_admin':
+        return {
+          ...basePermissions,
+          canEdit: true,
+          canDelete: false,
+          canAssign: true,
+          canConvert: true,
+          restrictedFields: ['ai_score', 'ai_recommended_action'],
         };
 
       case 'admin':
         return {
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
+          ...basePermissions,
+          canEdit: true,
+          canDelete: false,
+          canAssign: false,
+          canConvert: lead?.status === 'qualified',
+          restrictedFields: ['ai_score', 'ai_recommended_action', 'lead_score'],
+        };
+
+      case 'sales_manager':
+        return {
+          ...basePermissions,
+          canEdit: true,
           canDelete: false,
           canAssign: true,
-          canConvert: true,
-          canViewSensitiveFields: true,
-          canBulkAction: true,
-          canExport: true,
-          canManageSettings: false,
+          canConvert: lead?.status === 'qualified',
+          restrictedFields: ['ai_score', 'ai_recommended_action', 'lead_score'],
         };
 
-      case 'manager':
+      case 'sales_rep':
         return {
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
+          ...basePermissions,
+          canEdit: lead?.assigned_to === currentUser?.id,
           canDelete: false,
           canAssign: false,
           canConvert: false,
-          canViewSensitiveFields: true,
-          canBulkAction: false,
-          canExport: true,
-          canManageSettings: false,
+          restrictedFields: ['ai_score', 'ai_recommended_action', 'lead_score', 'qualification_score'],
         };
 
-      case 'user':
       default:
-        return {
-          canCreate: false,
-          canRead: true,
-          canUpdate: false,
-          canDelete: false,
-          canAssign: false,
-          canConvert: false,
-          canViewSensitiveFields: false,
-          canBulkAction: false,
-          canExport: false,
-          canManageSettings: false,
-        };
+        return basePermissions;
     }
-  }, [tenantRole, currentUser?.is_active]);
+  };
 
-  const getFieldPermissions = useMemo(() => {
-    return (fieldName: string): FieldPermissions => {
-      // Sensitive fields that require higher permissions
-      const sensitiveFields = ['ai_score', 'ai_recommended_action', 'qualification_score', 'converted_tenant_id'];
-      const isSensitive = sensitiveFields.includes(fieldName);
+  const canAccessField = (fieldName: string): boolean => {
+    return !permissions.restrictedFields.includes(fieldName);
+  };
 
-      if (isSensitive && !permissions.canViewSensitiveFields) {
-        return {
-          canView: false,
-          canEdit: false,
-          isRequired: false,
-        };
-      }
-
-      // Read-only fields for certain roles
-      const readOnlyFields = ['created_at', 'updated_at', 'lead_score', 'last_activity'];
-      const isReadOnly = readOnlyFields.includes(fieldName);
-
-      return {
-        canView: permissions.canRead,
-        canEdit: permissions.canUpdate && !isReadOnly,
-        isRequired: ['contact_name', 'email'].includes(fieldName),
-      };
-    };
-  }, [tenantRole, permissions]);
+  const canPerformAction = (action: keyof Omit<LeadPermissions, 'restrictedFields'>): boolean => {
+    return permissions[action];
+  };
 
   return {
     permissions,
-    getFieldPermissions,
+    canAccessField,
+    canPerformAction,
+    currentUser,
+    isLoading,
   };
 };

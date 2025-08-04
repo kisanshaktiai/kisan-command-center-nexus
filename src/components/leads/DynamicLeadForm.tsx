@@ -1,213 +1,247 @@
 
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useCustomFields } from '@/hooks/useCustomFields';
+import { useMultiTenant } from '@/hooks/useMultiTenant';
+import { useLeadService } from '@/hooks/useLeadService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useCustomFields } from '@/hooks/useCustomFields';
-import { useLeadPermissions } from '@/hooks/useLeadPermissions';
-import { useMultiTenant } from '@/hooks/useMultiTenant';
-import type { Lead, CustomFieldValue, CustomFieldConfig } from '@/types/leads';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import type { Lead, CustomFieldValue } from '@/types/leads';
 
 interface DynamicLeadFormProps {
   lead?: Lead;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (leadData: any) => void;
   onCancel: () => void;
-  isLoading?: boolean;
 }
 
 export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
   lead,
   onSubmit,
   onCancel,
-  isLoading = false,
 }) => {
-  const multiTenantContext = useMultiTenant();
-  const tenantId = multiTenantContext?.tenant?.id;
-  const { permissions, getFieldPermissions } = useLeadPermissions();
-  const { data: customFields = [] } = useCustomFields(tenantId);
-  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm({
-    defaultValues: {
-      contact_name: lead?.contact_name || '',
-      email: lead?.email || '',
-      phone: lead?.phone || '',
-      organization_name: lead?.organization_name || '',
-      source: lead?.source || '',
-      source_id: lead?.source_id || '',
-      campaign_id: lead?.campaign_id || '',
-      priority: lead?.priority || 'medium',
-      notes: lead?.notes || '',
-    },
+  const multiTenant = useMultiTenant();
+  const tenantId = multiTenant?.tenant_id || null;
+  const { customFields, loading: fieldsLoading } = useCustomFields(tenantId);
+  const { createLead, updateLead, isLoading } = useLeadService();
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    contact_name: lead?.contact_name || '',
+    email: lead?.email || '',
+    phone: lead?.phone || '',
+    organization_name: lead?.organization_name || '',
+    source: lead?.source || '',
+    priority: lead?.priority || 'medium' as const,
+    notes: lead?.notes || '',
+    custom_fields: lead?.custom_fields || [] as CustomFieldValue[],
   });
 
-  // Initialize custom field values
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Initialize custom fields if creating new lead
   useEffect(() => {
-    if (lead?.custom_fields) {
-      const values = lead.custom_fields.reduce((acc, field) => {
-        acc[field.field_name] = field.value;
-        return acc;
-      }, {} as Record<string, any>);
-      setCustomFieldValues(values);
+    if (!lead && customFields.length > 0) {
+      const initialCustomFields: CustomFieldValue[] = customFields.map(field => ({
+        field_name: field.field_name,
+        field_type: field.field_type,
+        value: getDefaultValue(field.field_type),
+        label: field.field_label || field.field_name,
+      }));
+      
+      setFormData(prev => ({
+        ...prev,
+        custom_fields: initialCustomFields,
+      }));
     }
-  }, [lead]);
+  }, [customFields, lead]);
 
-  const handleFormSubmit = async (data: any) => {
-    // Convert custom field values to the expected format
-    const customFieldsArray: CustomFieldValue[] = customFields.map(field => ({
-      field_name: field.field_name,
-      field_type: field.field_type,
-      value: customFieldValues[field.field_name],
-      label: field.field_label,
-    })).filter(field => field.value !== undefined && field.value !== '');
-
-    const submitData = {
-      ...data,
-      custom_fields: customFieldsArray,
-    };
-
-    await onSubmit(submitData);
+  const getDefaultValue = (fieldType: string) => {
+    switch (fieldType) {
+      case 'checkbox':
+        return false;
+      case 'number':
+        return 0;
+      case 'multiselect':
+        return [];
+      default:
+        return '';
+    }
   };
 
-  const renderCustomField = (field: CustomFieldConfig) => {
-    const fieldPermissions = getFieldPermissions(field.field_name);
-    
-    if (!fieldPermissions.canView) return null;
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
 
-    const value = customFieldValues[field.field_name] || '';
-    const isDisabled = !fieldPermissions.canEdit || isLoading;
+    // Required field validation
+    if (!formData.contact_name.trim()) {
+      newErrors.contact_name = 'Contact name is required';
+    }
 
-    const updateValue = (newValue: any) => {
-      setCustomFieldValues(prev => ({
-        ...prev,
-        [field.field_name]: newValue,
-      }));
-    };
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Invalid email format';
+    }
+
+    // Custom field validation
+    customFields.forEach(field => {
+      if (field.is_required) {
+        const customFieldValue = formData.custom_fields.find(
+          cf => cf.field_name === field.field_name
+        );
+        
+        if (!customFieldValue || !customFieldValue.value) {
+          newErrors[`custom_${field.field_name}`] = `${field.field_label || field.field_name} is required`;
+        }
+      }
+    });
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleCustomFieldChange = (fieldName: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      custom_fields: prev.custom_fields.map(cf =>
+        cf.field_name === fieldName ? { ...cf, value } : cf
+      ),
+    }));
+  };
+
+  const renderCustomField = (field: any) => {
+    const customFieldValue = formData.custom_fields.find(
+      cf => cf.field_name === field.field_name
+    );
+    const value = customFieldValue?.value || getDefaultValue(field.field_type);
+    const error = errors[`custom_${field.field_name}`];
 
     switch (field.field_type) {
       case 'text':
       case 'email':
       case 'phone':
         return (
-          <div key={field.id} className="space-y-2">
+          <div key={field.id}>
             <Label htmlFor={field.field_name}>
-              {field.field_label}
+              {field.field_label || field.field_name}
               {field.is_required && <span className="text-red-500 ml-1">*</span>}
             </Label>
             <Input
               id={field.field_name}
-              type={field.field_type}
+              type={field.field_type === 'email' ? 'email' : field.field_type === 'phone' ? 'tel' : 'text'}
               value={value}
-              onChange={(e) => updateValue(e.target.value)}
-              disabled={isDisabled}
-              placeholder={`Enter ${field.field_label?.toLowerCase()}`}
+              onChange={(e) => handleCustomFieldChange(field.field_name, e.target.value)}
+              className={error ? 'border-red-500' : ''}
             />
+            {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+          </div>
+        );
+
+      case 'textarea':
+        return (
+          <div key={field.id}>
+            <Label htmlFor={field.field_name}>
+              {field.field_label || field.field_name}
+              {field.is_required && <span className="text-red-500 ml-1">*</span>}
+            </Label>
+            <Textarea
+              id={field.field_name}
+              value={value}
+              onChange={(e) => handleCustomFieldChange(field.field_name, e.target.value)}
+              className={error ? 'border-red-500' : ''}
+            />
+            {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
           </div>
         );
 
       case 'number':
         return (
-          <div key={field.id} className="space-y-2">
+          <div key={field.id}>
             <Label htmlFor={field.field_name}>
-              {field.field_label}
+              {field.field_label || field.field_name}
               {field.is_required && <span className="text-red-500 ml-1">*</span>}
             </Label>
             <Input
               id={field.field_name}
               type="number"
               value={value}
-              onChange={(e) => updateValue(Number(e.target.value))}
-              disabled={isDisabled}
-              placeholder={`Enter ${field.field_label?.toLowerCase()}`}
+              onChange={(e) => handleCustomFieldChange(field.field_name, Number(e.target.value))}
+              className={error ? 'border-red-500' : ''}
             />
+            {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+          </div>
+        );
+
+      case 'select':
+        const options = field.options?.values || [];
+        return (
+          <div key={field.id}>
+            <Label htmlFor={field.field_name}>
+              {field.field_label || field.field_name}
+              {field.is_required && <span className="text-red-500 ml-1">*</span>}
+            </Label>
+            <Select
+              value={value}
+              onValueChange={(val) => handleCustomFieldChange(field.field_name, val)}
+            >
+              <SelectTrigger className={error ? 'border-red-500' : ''}>
+                <SelectValue placeholder="Select an option" />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((option: string) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
           </div>
         );
 
       case 'date':
         return (
-          <div key={field.id} className="space-y-2">
+          <div key={field.id}>
             <Label htmlFor={field.field_name}>
-              {field.field_label}
+              {field.field_label || field.field_name}
               {field.is_required && <span className="text-red-500 ml-1">*</span>}
             </Label>
             <Input
               id={field.field_name}
               type="date"
               value={value}
-              onChange={(e) => updateValue(e.target.value)}
-              disabled={isDisabled}
+              onChange={(e) => handleCustomFieldChange(field.field_name, e.target.value)}
+              className={error ? 'border-red-500' : ''}
             />
-          </div>
-        );
-
-      case 'textarea':
-        return (
-          <div key={field.id} className="space-y-2">
-            <Label htmlFor={field.field_name}>
-              {field.field_label}
-              {field.is_required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Textarea
-              id={field.field_name}
-              value={value}
-              onChange={(e) => updateValue(e.target.value)}
-              disabled={isDisabled}
-              placeholder={`Enter ${field.field_label?.toLowerCase()}`}
-              rows={3}
-            />
-          </div>
-        );
-
-      case 'select':
-        return (
-          <div key={field.id} className="space-y-2">
-            <Label htmlFor={field.field_name}>
-              {field.field_label}
-              {field.is_required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Select
-              value={value}
-              onValueChange={updateValue}
-              disabled={isDisabled}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={`Select ${field.field_label?.toLowerCase()}`} />
-              </SelectTrigger>
-              <SelectContent>
-                {field.options?.items?.map((option: any) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
           </div>
         );
 
       case 'checkbox':
         return (
           <div key={field.id} className="flex items-center space-x-2">
-            <Checkbox
+            <input
               id={field.field_name}
+              type="checkbox"
               checked={Boolean(value)}
-              onCheckedChange={updateValue}
-              disabled={isDisabled}
+              onChange={(e) => handleCustomFieldChange(field.field_name, e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
             <Label htmlFor={field.field_name}>
-              {field.field_label}
+              {field.field_label || field.field_name}
               {field.is_required && <span className="text-red-500 ml-1">*</span>}
             </Label>
+            {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
           </div>
         );
 
@@ -216,96 +250,114 @@ export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
     }
   };
 
-  if (!permissions.canCreate && !lead) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-gray-500">
-            You don't have permission to create leads.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
 
-  if (!permissions.canUpdate && lead) {
+    try {
+      const leadData = {
+        ...formData,
+        priority: formData.priority as 'low' | 'medium' | 'high' | 'urgent',
+      };
+
+      if (lead) {
+        await updateLead(lead.id, leadData);
+      } else {
+        await createLead(leadData);
+      }
+      
+      onSubmit(leadData);
+    } catch (error) {
+      console.error('Failed to save lead:', error);
+    }
+  };
+
+  if (fieldsLoading) {
     return (
       <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-gray-500">
-            You don't have permission to edit leads.
-          </p>
+        <CardContent className="flex items-center justify-center py-8">
+          <div className="text-center">Loading form...</div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card>
       <CardHeader>
-        <CardTitle>
-          {lead ? 'Edit Lead' : 'Create New Lead'}
-        </CardTitle>
+        <CardTitle>{lead ? 'Edit Lead' : 'Create New Lead'}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-          {/* Core Fields */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Standard Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="contact_name">
                 Contact Name <span className="text-red-500">*</span>
               </Label>
               <Input
-                {...register('contact_name', { required: 'Contact name is required' })}
-                disabled={isLoading}
+                id="contact_name"
+                value={formData.contact_name}
+                onChange={(e) => handleInputChange('contact_name', e.target.value)}
+                className={errors.contact_name ? 'border-red-500' : ''}
               />
               {errors.contact_name && (
-                <p className="text-red-500 text-sm">{errors.contact_name.message}</p>
+                <p className="text-red-500 text-sm mt-1">{errors.contact_name}</p>
               )}
             </div>
 
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="email">
                 Email <span className="text-red-500">*</span>
               </Label>
               <Input
-                {...register('email', { 
-                  required: 'Email is required',
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Invalid email address'
-                  }
-                })}
+                id="email"
                 type="email"
-                disabled={isLoading}
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                className={errors.email ? 'border-red-500' : ''}
               />
               {errors.email && (
-                <p className="text-red-500 text-sm">{errors.email.message}</p>
+                <p className="text-red-500 text-sm mt-1">{errors.email}</p>
               )}
             </div>
 
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="phone">Phone</Label>
               <Input
-                {...register('phone')}
+                id="phone"
                 type="tel"
-                disabled={isLoading}
+                value={formData.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
               />
             </div>
 
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="organization_name">Organization</Label>
               <Input
-                {...register('organization_name')}
-                disabled={isLoading}
+                id="organization_name"
+                value={formData.organization_name}
+                onChange={(e) => handleInputChange('organization_name', e.target.value)}
               />
             </div>
 
-            <div className="space-y-2">
+            <div>
+              <Label htmlFor="source">Source</Label>
+              <Input
+                id="source"
+                value={formData.source}
+                onChange={(e) => handleInputChange('source', e.target.value)}
+              />
+            </div>
+
+            <div>
               <Label htmlFor="priority">Priority</Label>
               <Select
-                value={watch('priority')}
-                onValueChange={(value: 'low' | 'medium' | 'high' | 'urgent') => setValue('priority', value)}
+                value={formData.priority}
+                onValueChange={(value) => handleInputChange('priority', value)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -318,77 +370,38 @@ export const DynamicLeadForm: React.FC<DynamicLeadFormProps> = ({
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="source">Source</Label>
-              <Input
-                {...register('source')}
-                disabled={isLoading}
-                placeholder="Website, referral, etc."
-              />
-            </div>
-
-            {permissions.canViewSensitiveFields && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="source_id">Source ID</Label>
-                  <Input
-                    {...register('source_id')}
-                    disabled={isLoading}
-                    placeholder="Campaign tracking ID"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="campaign_id">Campaign ID</Label>
-                  <Input
-                    {...register('campaign_id')}
-                    disabled={isLoading}
-                    placeholder="Marketing campaign ID"
-                  />
-                </div>
-              </>
-            )}
+          <div>
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => handleInputChange('notes', e.target.value)}
+              rows={3}
+            />
           </div>
 
           {/* Custom Fields */}
           {customFields.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium border-t pt-4">
-                Additional Information
-              </h3>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Custom Fields</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {customFields.map(renderCustomField)}
+                {customFields
+                  .filter(field => field.is_active)
+                  .sort((a, b) => a.field_order - b.field_order)
+                  .map(renderCustomField)}
               </div>
             </div>
           )}
 
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              {...register('notes')}
-              disabled={isLoading}
-              rows={4}
-              placeholder="Additional notes or comments about this lead..."
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancel}
-              disabled={isLoading}
-            >
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Saving...' : (lead ? 'Update Lead' : 'Create Lead')}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Saving...' : lead ? 'Update Lead' : 'Create Lead'}
             </Button>
           </div>
         </form>

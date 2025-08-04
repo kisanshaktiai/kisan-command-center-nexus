@@ -47,24 +47,16 @@ serve(async (req) => {
       );
     }
 
-    // Check slug availability with explicit type casting
-    const { data: slugCheck, error: slugError } = await supabase.rpc('check_slug_availability', {
-      p_slug: tenantSlug,
-      p_tenant_id: null
-    });
+    // Check slug availability
+    const { data: existingTenant } = await supabase
+      .from('tenants')
+      .select('id')
+      .eq('slug', tenantSlug)
+      .single();
 
-    if (slugError) {
-      console.error('Slug check failed:', slugError);
+    if (existingTenant) {
       return new Response(
-        JSON.stringify({ error: 'Failed to validate tenant slug' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const slugResult = slugCheck as { available: boolean; error?: string };
-    if (!slugResult.available) {
-      return new Response(
-        JSON.stringify({ error: slugResult.error || 'Tenant slug is not available' }),
+        JSON.stringify({ error: 'This slug is already taken' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -104,37 +96,41 @@ serve(async (req) => {
 
     // Create or update the admin user
     const adminEmailAddress = adminEmail || leadData.email;
-    const { data: existingUser, error: userCheckError } = await supabase.auth.admin.getUserByEmail(adminEmailAddress);
     
-    let userId;
-    if (!existingUser || userCheckError) {
-      // Create new user
-      const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
-        email: adminEmailAddress,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: {
-          full_name: adminName || leadData.contact_name,
-          tenant_id: tenantData.id,
-          role: 'tenant_admin'
-        }
-      });
+    try {
+      // Try to get existing user first
+      const { data: existingAuthUser } = await supabase
+        .from('auth.users')
+        .select('id, email')
+        .eq('email', adminEmailAddress)
+        .single();
 
-      if (createUserError) {
-        console.error('Failed to create user:', createUserError);
-        // Don't fail the entire conversion, just log the error
-        userId = null;
+      let userId = existingAuthUser?.id;
+
+      if (!userId) {
+        // Create new user using admin API
+        const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
+          email: adminEmailAddress,
+          password: tempPassword,
+          email_confirm: true,
+          user_metadata: {
+            full_name: adminName || leadData.contact_name,
+            tenant_id: tenantData.id,
+            role: 'tenant_admin'
+          }
+        });
+
+        if (createUserError) {
+          console.error('Failed to create user:', createUserError);
+          userId = null;
+        } else {
+          userId = newUser.user?.id;
+        }
       } else {
-        userId = newUser.user?.id;
-      }
-    } else {
-      userId = existingUser.user?.id;
-      
-      // Update existing user's metadata
-      if (userId) {
+        // Update existing user's metadata
         const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
           user_metadata: {
-            ...existingUser.user.user_metadata,
+            full_name: adminName || leadData.contact_name,
             tenant_id: tenantData.id,
             role: 'tenant_admin'
           }
@@ -144,22 +140,24 @@ serve(async (req) => {
           console.error('Failed to update user metadata:', updateError);
         }
       }
-    }
 
-    // Create user_tenants relationship if user was created/found
-    if (userId) {
-      const { error: tenantUserError } = await supabase
-        .from('user_tenants')
-        .insert({
-          user_id: userId,
-          tenant_id: tenantData.id,
-          role: 'tenant_admin',
-          is_active: true
-        });
+      // Create user_tenants relationship if user was created/found
+      if (userId) {
+        const { error: tenantUserError } = await supabase
+          .from('user_tenants')
+          .insert({
+            user_id: userId,
+            tenant_id: tenantData.id,
+            role: 'tenant_admin',
+            is_active: true
+          });
 
-      if (tenantUserError) {
-        console.error('Failed to create tenant user relationship:', tenantUserError);
+        if (tenantUserError) {
+          console.error('Failed to create tenant user relationship:', tenantUserError);
+        }
       }
+    } catch (authError) {
+      console.warn('Auth operation failed, continuing without user creation:', authError);
     }
 
     // Update the lead status to converted

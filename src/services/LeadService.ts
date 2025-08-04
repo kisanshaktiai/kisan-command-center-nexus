@@ -1,6 +1,7 @@
+
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
-import type { Lead } from '@/types/leads';
+import type { Lead, CustomFieldValue } from '@/types/leads';
 
 interface CreateLeadData {
   contact_name: string;
@@ -65,6 +66,26 @@ class LeadServiceClass extends BaseService {
     return this.VALID_PRIORITIES.includes(priority as any);
   }
 
+  private transformDbRowToLead(dbRow: any): Lead {
+    // Transform custom_fields from JSON to CustomFieldValue[]
+    const customFields: CustomFieldValue[] = Array.isArray(dbRow.custom_fields) 
+      ? dbRow.custom_fields.map((field: any) => ({
+          field_name: field.field_name || '',
+          field_type: field.field_type || 'text',
+          value: field.value || '',
+          label: field.label || field.field_name || ''
+        }))
+      : [];
+
+    return {
+      ...dbRow,
+      status: this.validateStatus(dbRow.status) ? dbRow.status as Lead['status'] : 'new',
+      priority: this.validatePriority(dbRow.priority) ? dbRow.priority as Lead['priority'] : 'medium',
+      custom_fields: customFields,
+      assigned_admin: dbRow.assigned_admin || null
+    } as Lead;
+  }
+
   async getLeads(): Promise<ServiceResult<Lead[]>> {
     return this.executeOperation(async () => {
       console.log('Fetching leads from database...');
@@ -100,7 +121,12 @@ class LeadServiceClass extends BaseService {
           proposal_sent,
           contract_sent,
           last_activity,
-          created_by
+          created_by,
+          ai_score,
+          ai_recommended_action,
+          source_id,
+          campaign_id,
+          custom_fields
         `)
         .order('created_at', { ascending: false });
 
@@ -126,25 +152,19 @@ class LeadServiceClass extends BaseService {
               .eq('id', lead.assigned_to)
               .single();
             
-            return {
+            return this.transformDbRowToLead({
               ...lead,
-              // Validate and cast status and priority with fallbacks
-              status: this.validateStatus(lead.status) ? lead.status as Lead['status'] : 'new',
-              priority: this.validatePriority(lead.priority) ? lead.priority as Lead['priority'] : 'medium',
               assigned_admin: adminData || null
-            };
+            });
           }
-          return {
+          return this.transformDbRowToLead({
             ...lead,
-            // Validate and cast status and priority with fallbacks
-            status: this.validateStatus(lead.status) ? lead.status as Lead['status'] : 'new',
-            priority: this.validatePriority(lead.priority) ? lead.priority as Lead['priority'] : 'medium',
             assigned_admin: null
-          };
+          });
         })
       );
 
-      return leadsWithAdmins as Lead[];
+      return leadsWithAdmins;
     }, 'getLeads');
   }
 
@@ -182,12 +202,10 @@ class LeadServiceClass extends BaseService {
       }
       
       console.log('Lead created successfully:', data);
-      return {
+      return this.transformDbRowToLead({
         ...data,
-        status: data.status as Lead['status'],
-        priority: data.priority as Lead['priority'],
         assigned_admin: null
-      } as Lead;
+      });
     }, 'createLead');
   }
 
@@ -251,12 +269,10 @@ class LeadServiceClass extends BaseService {
       }
       
       console.log('LeadService: Lead updated successfully:', data);
-      return {
+      return this.transformDbRowToLead({
         ...data,
-        status: data.status as Lead['status'],
-        priority: data.priority as Lead['priority'],
         assigned_admin: null // Will be populated by calling code if needed
-      } as Lead;
+      });
     }, 'updateLead');
   }
 
@@ -297,27 +313,6 @@ class LeadServiceClass extends BaseService {
       console.log('Lead conversion successful:', data);
       return data;
     }, 'convertToTenant');
-  }
-
-  private generateTempPassword(): string {
-    // Generate a secure temporary password
-    const length = 12;
-    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-    let password = '';
-    
-    // Ensure at least one of each type
-    password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)]; // uppercase
-    password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]; // lowercase
-    password += '0123456789'[Math.floor(Math.random() * 10)]; // number
-    password += '!@#$%^&*'[Math.floor(Math.random() * 8)]; // special
-    
-    // Fill the rest
-    for (let i = 4; i < length; i++) {
-      password += charset[Math.floor(Math.random() * charset.length)];
-    }
-    
-    // Shuffle the password
-    return password.split('').sort(() => Math.random() - 0.5).join('');
   }
 
   async getAdminUsers(): Promise<ServiceResult<any[]>> {
