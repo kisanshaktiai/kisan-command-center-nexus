@@ -1,3 +1,4 @@
+
 export interface TelemetryMetric {
   operation: string;
   duration: number;
@@ -35,7 +36,8 @@ export class TelemetryService {
     };
   }
 
-  private recordMetric(metric: TelemetryMetric): void {
+  // Make recordMetric public so it can be used externally
+  recordMetric(metric: TelemetryMetric): void {
     this.metrics.push(metric);
     
     // Log performance warnings for slow operations
@@ -47,6 +49,29 @@ export class TelemetryService {
     if (this.metrics.length > 1000) {
       this.metrics = this.metrics.slice(-500);
     }
+  }
+
+  // Add a simple method for recording events
+  recordEvent(operation: string, success: boolean, error?: string, metadata?: Record<string, any>): void {
+    this.recordMetric({
+      operation,
+      duration: 0,
+      success,
+      error,
+      metadata,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // Add a method for recording timing
+  recordTiming(operation: string, duration: number, success: boolean = true, error?: string): void {
+    this.recordMetric({
+      operation,
+      duration,
+      success,
+      error,
+      timestamp: new Date().toISOString()
+    });
   }
 
   getMetrics(operation?: string): TelemetryMetric[] {
