@@ -19,7 +19,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useConvertLeadToTenant } from '@/hooks/useLeadManagement';
 import { subscriptionPlanOptions } from '@/types/tenant';
-import { CheckCircle, Copy, Eye, EyeOff, AlertTriangle, Info } from 'lucide-react';
+import { CheckCircle, Copy, Eye, EyeOff, AlertTriangle, Info, RefreshCw } from 'lucide-react';
 import type { Lead } from '@/types/leads';
 
 interface ConvertLeadDialogProps {
@@ -33,6 +33,16 @@ interface ConversionError {
   code?: string;
 }
 
+interface ConversionResult {
+  success: boolean;
+  message?: string;
+  tenantId: string;
+  userId?: string;
+  tenantSlug: string;
+  tempPassword?: string;
+  isRecovery?: boolean;
+}
+
 export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   open,
   onClose,
@@ -43,7 +53,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   const [subscriptionPlan, setSubscriptionPlan] = useState('Kisan_Basic');
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
-  const [conversionResult, setConversionResult] = useState<any>(null);
+  const [conversionResult, setConversionResult] = useState<ConversionResult | null>(null);
   const [conversionError, setConversionError] = useState<ConversionError | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -68,7 +78,6 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   const getErrorMessage = (error: any): { message: string; code: string } => {
     console.log('Processing conversion error:', error);
     
-    // Handle different error formats
     let errorMessage = 'An unexpected error occurred during conversion.';
     let errorCode = 'UNKNOWN_ERROR';
     
@@ -76,12 +85,11 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       errorMessage = error.message;
     }
     
-    // Handle specific error codes from the edge function
     if (error?.code || (error as any)?.code) {
       errorCode = error.code || (error as any).code;
       switch (errorCode) {
         case 'SLUG_CONFLICT':
-          errorMessage = `The slug "${tenantSlug}" is already taken. Please choose a different one.`;
+          errorMessage = `The slug "${tenantSlug}" is already taken by a different organization. Please choose a different one.`;
           break;
         case 'LEAD_ALREADY_CONVERTED':
           errorMessage = 'This lead has already been converted to a tenant.';
@@ -127,7 +135,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
     }, {
       onSuccess: (result) => {
         console.log('Conversion successful:', result);
-        setConversionResult(result);
+        setConversionResult(result as ConversionResult);
         setConversionError(null);
       },
       onError: (error: any) => {
@@ -139,9 +147,13 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
     });
   };
 
+  const handleRetry = () => {
+    setConversionError(null);
+    setConversionResult(null);
+  };
+
   const handleClose = () => {
     onClose();
-    // Reset form after a delay to allow dialog animation
     setTimeout(() => {
       setTenantName('');
       setTenantSlug('');
@@ -194,7 +206,8 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
             )}
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setConversionError(null)}>
+              <Button variant="outline" onClick={handleRetry} className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" />
                 Try Again
               </Button>
               <Button onClick={handleClose}>
@@ -215,14 +228,17 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-500" />
-              Conversion Successful!
+              {conversionResult.isRecovery ? 'Conversion Recovered!' : 'Conversion Successful!'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <Alert>
               <AlertDescription>
-                The lead has been successfully converted to a tenant. An email with login credentials has been sent to the admin.
+                {conversionResult.isRecovery 
+                  ? 'The lead conversion was completed successfully. The existing tenant has been properly linked to this lead.'
+                  : 'The lead has been successfully converted to a tenant. An email with login credentials has been sent to the admin.'
+                }
               </AlertDescription>
             </Alert>
 
@@ -262,7 +278,9 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
 
               {conversionResult.tempPassword && (
                 <div>
-                  <Label className="text-sm font-medium">Temporary Password</Label>
+                  <Label className="text-sm font-medium">
+                    {conversionResult.isRecovery ? 'Original Password (if available)' : 'Temporary Password'}
+                  </Label>
                   <div className="flex items-center gap-2">
                     <Input
                       type={showPassword ? 'text' : 'password'}
@@ -280,15 +298,27 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => copyToClipboard(conversionResult.tempPassword)}
+                      onClick={() => copyToClipboard(conversionResult.tempPassword!)}
                     >
                       <Copy className="h-3 w-3" />
                     </Button>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    This password was emailed to the admin and should be changed on first login.
+                    {conversionResult.isRecovery 
+                      ? 'This is the original password from when the tenant was first created.'
+                      : 'This password was emailed to the admin and should be changed on first login.'
+                    }
                   </p>
                 </div>
+              )}
+
+              {conversionResult.isRecovery && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    This was a partial conversion recovery. The tenant already existed but wasn't properly linked to this lead. The conversion has now been completed.
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
 

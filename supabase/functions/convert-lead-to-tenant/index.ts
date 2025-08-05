@@ -25,6 +25,7 @@ interface ConversionResponse {
   userId?: string;
   tenantSlug?: string;
   tempPassword?: string;
+  isRecovery?: boolean;
 }
 
 serve(async (req) => {
@@ -139,42 +140,23 @@ serve(async (req) => {
 
     const tenantId = conversionResult.tenant_id;
     const tempPassword = conversionResult.temp_password;
+    const isRecovery = conversionResult.is_recovery || false;
 
-    console.log('Tenant created successfully:', tenantId);
+    console.log('Tenant created successfully:', tenantId, isRecovery ? '(recovery)' : '(new)');
 
-    // Create user account in auth.users if it doesn't exist
+    // Create user account in auth.users if it doesn't exist and it's not a recovery
     let userId: string | undefined;
-    try {
-      const { data: existingUser, error: userCheckError } = await supabase.auth.admin.getUserByEmail(adminEmail);
-      
-      if (!existingUser?.user || userCheckError) {
-        // Create new user with proper metadata
-        console.log('Creating new auth user...');
-        const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
-          email: adminEmail,
-          password: tempPassword,
-          email_confirm: true,
-          user_metadata: {
-            full_name: adminName,
-            tenant_id: tenantId,
-            role: 'tenant_admin'  // Use correct enum value
-          }
-        });
-
-        if (createUserError) {
-          console.error('Failed to create auth user:', createUserError);
-          // Don't fail the entire operation, but log the issue
-        } else {
-          userId = newUser.user?.id;
-          console.log('Created auth user:', userId);
-        }
-      } else {
-        userId = existingUser.user?.id;
-        console.log('Using existing auth user:', userId);
+    if (!isRecovery || tempPassword !== 'recovery-no-password') {
+      try {
+        const { data: existingUser, error: userCheckError } = await supabase.auth.admin.getUserByEmail(adminEmail);
         
-        // Update existing user's metadata to include tenant info
-        if (userId) {
-          const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+        if (!existingUser?.user || userCheckError) {
+          // Create new user with proper metadata
+          console.log('Creating new auth user...');
+          const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
+            email: adminEmail,
+            password: tempPassword,
+            email_confirm: true,
             user_metadata: {
               full_name: adminName,
               tenant_id: tenantId,
@@ -182,98 +164,118 @@ serve(async (req) => {
             }
           });
 
-          if (updateError) {
-            console.error('Failed to update user metadata:', updateError);
+          if (createUserError) {
+            console.error('Failed to create auth user:', createUserError);
+          } else {
+            userId = newUser.user?.id;
+            console.log('Created auth user:', userId);
+          }
+        } else {
+          userId = existingUser.user?.id;
+          console.log('Using existing auth user:', userId);
+          
+          // Update existing user's metadata to include tenant info
+          if (userId) {
+            const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+              user_metadata: {
+                full_name: adminName,
+                tenant_id: tenantId,
+                role: 'tenant_admin'
+              }
+            });
+
+            if (updateError) {
+              console.error('Failed to update user metadata:', updateError);
+            }
           }
         }
-      }
 
-      // Create user_tenants relationship if userId is available
-      if (userId) {
-        const { error: tenantUserError } = await supabase
-          .from('user_tenants')
-          .insert({
-            user_id: userId,
-            tenant_id: tenantId,
-            role: 'tenant_admin',
-            is_active: true
-          });
+        // Create user_tenants relationship if userId is available
+        if (userId) {
+          const { error: tenantUserError } = await supabase
+            .from('user_tenants')
+            .insert({
+              user_id: userId,
+              tenant_id: tenantId,
+              role: 'tenant_admin',
+              is_active: true
+            });
 
-        if (tenantUserError) {
-          console.error('Failed to create tenant user relationship:', tenantUserError);
-          // Don't fail the operation, but log it
-        } else {
-          console.log('Created user-tenant relationship');
+          if (tenantUserError) {
+            console.error('Failed to create tenant user relationship:', tenantUserError);
+          } else {
+            console.log('Created user-tenant relationship');
+          }
         }
+      } catch (error) {
+        console.error('Error in user creation process:', error);
       }
-    } catch (error) {
-      console.error('Error in user creation process:', error);
-      // Don't fail the conversion for user creation issues
     }
 
-    // Send welcome email using the centralized email service
-    try {
-      const loginUrl = `${Deno.env.get('SITE_URL') || 'https://yourapp.com'}/auth`;
-      
-      console.log('Sending welcome email...');
-      const { error: emailError } = await supabase.functions.invoke('send-email', {
-        body: {
-          to: adminEmail,
-          subject: `Welcome to ${tenantName} - Your Account is Ready!`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h1>Welcome to ${tenantName}!</h1>
-              <p>Dear ${adminName},</p>
-              <p>Congratulations! Your lead has been converted to a tenant account.</p>
-              
-              <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                <h3>Login Credentials:</h3>
-                <p><strong>Email:</strong> ${adminEmail}</p>
-                <p><strong>Temporary Password:</strong> ${tempPassword}</p>
-                <p><strong>Tenant:</strong> ${tenantName}</p>
+    // Send welcome email using the centralized email service (only for new conversions)
+    if (!isRecovery) {
+      try {
+        const loginUrl = `${Deno.env.get('SITE_URL') || 'https://yourapp.com'}/auth`;
+        
+        console.log('Sending welcome email...');
+        const { error: emailError } = await supabase.functions.invoke('send-email', {
+          body: {
+            to: adminEmail,
+            subject: `Welcome to ${tenantName} - Your Account is Ready!`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h1>Welcome to ${tenantName}!</h1>
+                <p>Dear ${adminName},</p>
+                <p>Congratulations! Your lead has been converted to a tenant account.</p>
+                
+                <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                  <h3>Login Credentials:</h3>
+                  <p><strong>Email:</strong> ${adminEmail}</p>
+                  <p><strong>Temporary Password:</strong> ${tempPassword}</p>
+                  <p><strong>Tenant:</strong> ${tenantName}</p>
+                </div>
+                
+                <p><strong>Important:</strong> Please change your password after your first login.</p>
+                
+                <div style="margin: 30px 0;">
+                  <a href="${loginUrl}" 
+                     style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Login to Your Account
+                  </a>
+                </div>
+                
+                <p>Best regards,<br>The KisanShaktiAI Team</p>
               </div>
-              
-              <p><strong>Important:</strong> Please change your password after your first login.</p>
-              
-              <div style="margin: 30px 0;">
-                <a href="${loginUrl}" 
-                   style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                  Login to Your Account
-                </a>
-              </div>
-              
-              <p>Best regards,<br>The KisanShaktiAI Team</p>
-            </div>
-          `,
-          text: `Welcome to ${tenantName}! Login Details: Email: ${adminEmail}, Password: ${tempPassword}. Login at: ${loginUrl}`,
-          metadata: {
-            type: 'lead_conversion',
-            tenant_id: tenantId,
-            lead_id: leadId,
-            user_id: userId
+            `,
+            text: `Welcome to ${tenantName}! Login Details: Email: ${adminEmail}, Password: ${tempPassword}. Login at: ${loginUrl}`,
+            metadata: {
+              type: 'lead_conversion',
+              tenant_id: tenantId,
+              lead_id: leadId,
+              user_id: userId
+            }
           }
-        }
-      });
+        });
 
-      if (emailError) {
-        console.error('Failed to send welcome email:', emailError);
-        // Don't fail the conversion for email issues
-      } else {
-        console.log('Welcome email sent successfully');
+        if (emailError) {
+          console.error('Failed to send welcome email:', emailError);
+        } else {
+          console.log('Welcome email sent successfully');
+        }
+      } catch (emailError) {
+        console.error('Email sending failed:', emailError);
       }
-    } catch (emailError) {
-      console.error('Email sending failed:', emailError);
-      // Don't fail the conversion for email issues
     }
 
     // Return success response with all necessary data
     const response: ConversionResponse = {
       success: true,
-      message: 'Lead converted to tenant successfully',
+      message: conversionResult.message || 'Lead converted to tenant successfully',
       tenantId: tenantId,
       userId: userId,
       tenantSlug: tenantSlug,
-      tempPassword: tempPassword
+      tempPassword: isRecovery && tempPassword === 'recovery-no-password' ? undefined : tempPassword,
+      isRecovery: isRecovery
     };
 
     console.log('Conversion completed successfully');
