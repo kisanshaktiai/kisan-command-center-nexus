@@ -1,5 +1,6 @@
+
 // Consolidated admin-related types
-export type AdminRole = 'super_admin' | 'admin' | 'viewer';
+export type AdminRole = 'super_admin' | 'platform_admin' | 'admin';
 export type InviteStatus = 'pending' | 'accepted' | 'expired' | 'cancelled';
 
 export interface AdminInvite {

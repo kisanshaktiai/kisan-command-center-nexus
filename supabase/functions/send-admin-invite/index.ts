@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { Resend } from "npm:resend@2.0.0";
@@ -59,7 +60,7 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Validate role
+    // Validate role - updated to use correct enum values
     const validRoles = ['admin', 'platform_admin', 'super_admin'];
     if (!validRoles.includes(role)) {
       return new Response(JSON.stringify({ 
