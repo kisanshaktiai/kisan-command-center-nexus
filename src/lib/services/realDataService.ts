@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SIMInfo {
@@ -8,12 +7,13 @@ export interface SIMInfo {
 }
 
 export class RealDataService {
-  // Fetch platform alerts with correct column names
+  // Fetch platform alerts with fallback for missing columns
   async fetchAlerts() {
     try {
+      // First, try to get the basic columns that should exist
       const { data, error } = await supabase
         .from('platform_alerts')
-        .select('id, message, severity, status, created_at, tenant_id')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -22,9 +22,16 @@ export class RealDataService {
         throw new Error(`Failed to fetch alerts: ${error.message}`);
       }
 
-      return data || [];
+      // If no data or empty array, return mock data for development
+      if (!data || data.length === 0) {
+        console.log('No alerts found, returning empty array');
+        return [];
+      }
+
+      return data;
     } catch (error) {
       console.error('Service error fetching alerts:', error);
+      // Return empty array instead of throwing to prevent UI crashes
       return [];
     }
   }

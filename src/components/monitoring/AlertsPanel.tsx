@@ -63,9 +63,10 @@ export const AlertsPanel: React.FC = () => {
     );
   }
 
+  // Safely handle alerts data
   const alertsArray = Array.isArray(alerts) ? alerts : [];
-  const activeAlerts = alertsArray.filter(alert => alert.status === 'active');
-  const acknowledgedAlerts = alertsArray.filter(alert => alert.status === 'acknowledged');
+  const activeAlerts = alertsArray.filter(alert => alert?.status === 'active');
+  const acknowledgedAlerts = alertsArray.filter(alert => alert?.status === 'acknowledged');
 
   const getAlertIcon = (severity: string) => {
     switch (severity) {
@@ -185,55 +186,64 @@ export const AlertsPanel: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {alertsArray.map((alert) => (
-                <div
-                  key={alert.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-start gap-3 flex-1">
-                    {getAlertIcon(alert.severity)}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium">
-                          System Alert
-                        </h4>
-                        <Badge variant={getAlertBadgeVariant(alert.severity) as any}>
-                          {alert.severity}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {alert.message}
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>Status: {alert.status}</span>
-                        <span>{formatTimeAgo(alert.created_at)}</span>
+              {alertsArray.map((alert) => {
+                // Safely access alert properties with fallbacks
+                const alertId = alert?.id || 'unknown';
+                const alertSeverity = alert?.severity || 'low';
+                const alertMessage = alert?.message || 'No message available';
+                const alertStatus = alert?.status || 'unknown';
+                const alertCreatedAt = alert?.created_at || new Date().toISOString();
+
+                return (
+                  <div
+                    key={alertId}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div className="flex items-start gap-3 flex-1">
+                      {getAlertIcon(alertSeverity)}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium">
+                            System Alert
+                          </h4>
+                          <Badge variant={getAlertBadgeVariant(alertSeverity) as any}>
+                            {alertSeverity}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {alertMessage}
+                        </p>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>Status: {alertStatus}</span>
+                          <span>{formatTimeAgo(alertCreatedAt)}</span>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      {alertStatus === 'active' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAcknowledge(alertId)}
+                          disabled={acknowledgeAlert.isPending}
+                        >
+                          Acknowledge
+                        </Button>
+                      )}
+                      {(alertStatus === 'active' || alertStatus === 'acknowledged') && (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => handleResolve(alertId)}
+                          disabled={resolveAlert.isPending}
+                        >
+                          Resolve
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {alert.status === 'active' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleAcknowledge(alert.id)}
-                        disabled={acknowledgeAlert.isPending}
-                      >
-                        Acknowledge
-                      </Button>
-                    )}
-                    {(alert.status === 'active' || alert.status === 'acknowledged') && (
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={() => handleResolve(alert.id)}
-                        disabled={resolveAlert.isPending}
-                      >
-                        Resolve
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
