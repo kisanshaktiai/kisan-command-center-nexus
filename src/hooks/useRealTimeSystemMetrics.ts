@@ -1,4 +1,5 @@
 
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
@@ -45,12 +46,12 @@ export const useRealTimeSystemMetrics = () => {
           return generateMockSystemMetrics();
         }
 
-        // Transform the actual data to match our interface
+        // Transform the actual data to match our interface - using 'value' column name
         return data?.map(item => ({
           id: item.id,
-          cpu_usage: item.metric_name === 'cpu_usage' ? Number(item.metric_value) : Math.round(20 + Math.random() * 60),
-          memory_usage: item.metric_name === 'memory_usage' ? Number(item.metric_value) : Math.round(30 + Math.random() * 50),
-          disk_usage: item.metric_name === 'disk_usage' ? Number(item.metric_value) : Math.round(40 + Math.random() * 40),
+          cpu_usage: item.metric_name === 'cpu_usage' ? Number(item.value) : Math.round(20 + Math.random() * 60),
+          memory_usage: item.metric_name === 'memory_usage' ? Number(item.value) : Math.round(30 + Math.random() * 50),
+          disk_usage: item.metric_name === 'disk_usage' ? Number(item.value) : Math.round(40 + Math.random() * 40),
           health_score: 95,
           timestamp: item.created_at,
           created_at: item.created_at
@@ -165,9 +166,9 @@ export const useRealTimeSystemMetrics = () => {
           console.log('New system metric:', payload);
           const newMetric: SystemMetrics = {
             id: payload.new.id,
-            cpu_usage: payload.new.metric_name === 'cpu_usage' ? Number(payload.new.metric_value) : Math.round(20 + Math.random() * 60),
-            memory_usage: payload.new.metric_name === 'memory_usage' ? Number(payload.new.metric_value) : Math.round(30 + Math.random() * 50),
-            disk_usage: payload.new.metric_name === 'disk_usage' ? Number(payload.new.metric_value) : Math.round(40 + Math.random() * 40),
+            cpu_usage: payload.new.metric_name === 'cpu_usage' ? Number(payload.new.value) : Math.round(20 + Math.random() * 60),
+            memory_usage: payload.new.metric_name === 'memory_usage' ? Number(payload.new.value) : Math.round(30 + Math.random() * 50),
+            disk_usage: payload.new.metric_name === 'disk_usage' ? Number(payload.new.value) : Math.round(40 + Math.random() * 40),
             health_score: 95,
             timestamp: payload.new.created_at,
             created_at: payload.new.created_at
@@ -223,3 +224,4 @@ export const useRealTimeSystemMetrics = () => {
     error: systemError || resourceError
   };
 };
+

@@ -1,4 +1,5 @@
 
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -73,17 +74,17 @@ export const usePlatformMonitoring = () => {
         const latestSystemMetric = systemMetrics?.[0];
         const latestResourceMetric = resourceMetrics?.[0];
 
-        // Extract values with fallbacks
+        // Extract values with fallbacks - using 'value' column name
         const getCpuUsage = () => {
           if (latestSystemMetric?.metric_name === 'cpu_usage') {
-            return Number(latestSystemMetric.metric_value);
+            return Number(latestSystemMetric.value);
           }
           return Math.round(20 + Math.random() * 60);
         };
 
         const getMemoryUsage = () => {
           if (latestSystemMetric?.metric_name === 'memory_usage') {
-            return Number(latestSystemMetric.metric_value);
+            return Number(latestSystemMetric.value);
           }
           return Math.round(30 + Math.random() * 50);
         };
@@ -168,3 +169,4 @@ export const usePlatformMonitoring = () => {
     refetch,
   };
 };
+
