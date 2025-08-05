@@ -8,7 +8,7 @@ interface CreateLeadData {
   email: string;
   phone?: string;
   organization_name?: string;
-  organization_type?: string; // Added missing field
+  organization_type?: string;
   source?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   notes?: string;
@@ -19,7 +19,7 @@ interface UpdateLeadData {
   email?: string;
   phone?: string;
   organization_name?: string;
-  organization_type?: string; // Added missing field
+  organization_type?: string;
   status?: Lead['status'];
   priority?: Lead['priority'];
   notes?: string;
@@ -49,7 +49,52 @@ interface ConversionResult {
   message?: string;
 }
 
+// Database row type for leads table
+interface LeadRow {
+  id: string;
+  contact_name: string;
+  email: string;
+  phone?: string;
+  organization_name?: string;
+  organization_type?: string;
+  assigned_to?: string;
+  assigned_at?: string;
+  status: string; // Database returns string, we'll cast to proper type
+  priority: string;
+  source?: string;
+  qualification_score: number;
+  converted_tenant_id?: string;
+  converted_at?: string;
+  rejection_reason?: string;
+  last_contact_at?: string;
+  next_follow_up_at?: string;
+  created_at: string;
+  updated_at: string;
+  notes?: string;
+  lead_score?: number;
+  marketing_qualified?: boolean;
+  sales_qualified?: boolean;
+  demo_scheduled?: boolean;
+  proposal_sent?: boolean;
+  contract_sent?: boolean;
+  last_activity?: string;
+  created_by?: string;
+  ai_score?: number;
+  ai_recommended_action?: string;
+  source_id?: string;
+  campaign_id?: string;
+}
+
 export class LeadService extends BaseService {
+  // Helper method to convert database row to Lead type
+  private static convertRowToLead(row: LeadRow): Lead {
+    return {
+      ...row,
+      status: row.status as Lead['status'],
+      priority: row.priority as Lead['priority'],
+    };
+  }
+
   static async getLeads(): Promise<ServiceResult<Lead[]>> {
     try {
       const { data, error } = await supabase
@@ -62,8 +107,9 @@ export class LeadService extends BaseService {
         throw new Error(`Failed to fetch leads: ${error.message}`);
       }
 
-      console.log('LeadService: Successfully fetched leads:', data?.length || 0);
-      return { success: true, data: data || [] };
+      const leads = data ? data.map(row => this.convertRowToLead(row as LeadRow)) : [];
+      console.log('LeadService: Successfully fetched leads:', leads.length);
+      return { success: true, data: leads };
     } catch (error) {
       console.error('LeadService: Unexpected error fetching leads:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unexpected error while fetching leads';
@@ -75,12 +121,23 @@ export class LeadService extends BaseService {
     try {
       console.log('LeadService: Creating lead with data:', leadData);
 
+      // Prepare data for database with proper defaults
+      const insertData = {
+        contact_name: leadData.contact_name,
+        email: leadData.email,
+        phone: leadData.phone,
+        organization_name: leadData.organization_name || '',
+        organization_type: leadData.organization_type || 'company',
+        source: leadData.source,
+        priority: leadData.priority || 'medium',
+        notes: leadData.notes,
+        status: 'new',
+        qualification_score: 0
+      };
+
       const { data, error } = await supabase
         .from('leads')
-        .insert({
-          ...leadData,
-          organization_type: leadData.organization_type || 'company' // Default value
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -89,8 +146,9 @@ export class LeadService extends BaseService {
         throw new Error(`Failed to create lead: ${error.message}`);
       }
 
-      console.log('LeadService: Successfully created lead:', data.id);
-      return { success: true, data };
+      const lead = this.convertRowToLead(data as LeadRow);
+      console.log('LeadService: Successfully created lead:', lead.id);
+      return { success: true, data: lead };
     } catch (error) {
       console.error('LeadService: Unexpected error creating lead:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unexpected error while creating lead';
@@ -102,12 +160,10 @@ export class LeadService extends BaseService {
     try {
       console.log('LeadService: Updating lead:', leadId, updateData);
 
-      // Validate lead ID
       if (!leadId) {
         throw new Error('Lead ID is required');
       }
 
-      // Prepare update data with timestamp
       const dataToUpdate = {
         ...updateData,
         updated_at: new Date().toISOString()
@@ -130,8 +186,9 @@ export class LeadService extends BaseService {
         throw new Error('Update operation failed - no data returned');
       }
 
-      console.log('LeadService: Successfully updated lead:', data.id);
-      return { success: true, data };
+      const lead = this.convertRowToLead(data as LeadRow);
+      console.log('LeadService: Successfully updated lead:', lead.id);
+      return { success: true, data: lead };
     } catch (error) {
       console.error('LeadService: Unexpected error updating lead:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unexpected error while updating lead';
@@ -149,7 +206,6 @@ export class LeadService extends BaseService {
         throw new Error('Lead ID and Admin ID are required');
       }
 
-      // Update lead assignment
       const { error: updateError } = await supabase
         .from('leads')
         .update({
@@ -165,7 +221,6 @@ export class LeadService extends BaseService {
         throw new Error(`Failed to assign lead: ${updateError.message}`);
       }
 
-      // Log the assignment
       const { error: logError } = await supabase
         .from('lead_assignments')
         .insert({
@@ -177,7 +232,6 @@ export class LeadService extends BaseService {
 
       if (logError) {
         console.warn('LeadService: Failed to log assignment:', logError);
-        // Don't fail the operation for logging issues
       }
 
       console.log('LeadService: Successfully assigned lead:', leadId, 'to:', adminId);
@@ -191,7 +245,7 @@ export class LeadService extends BaseService {
 
   static async convertToTenant(convertData: ConvertToTenantData): Promise<ServiceResult<ConversionResult>> {
     const maxRetries = 3;
-    const retryDelay = 1000; // 1 second
+    const retryDelay = 1000;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -209,7 +263,6 @@ export class LeadService extends BaseService {
         if (error) {
           console.error(`LeadService: Edge function error (attempt ${attempt}):`, error);
           
-          // Check if it's a network/connectivity issue that might benefit from retry
           if (attempt < maxRetries && this.isRetryableError(error)) {
             console.log(`LeadService: Retrying in ${retryDelay}ms...`);
             await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
@@ -275,7 +328,6 @@ export class LeadService extends BaseService {
   }
 
   private static isRetryableError(error: any): boolean {
-    // Check for network errors, timeout errors, or temporary server errors
     const errorMessage = error?.message?.toLowerCase() || '';
     const errorStatus = error?.status;
     
