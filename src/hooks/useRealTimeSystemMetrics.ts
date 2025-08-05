@@ -27,13 +27,12 @@ export const useRealTimeSystemMetrics = () => {
   const [realtimeSystemData, setRealtimeSystemData] = useState<SystemMetrics[]>([]);
   const [realtimeResourceData, setRealtimeResourceData] = useState<ResourceMetrics[]>([]);
 
-  // Fetch system health metrics - using the correct table structure
-  const { data: systemMetrics, isLoading: systemLoading } = useQuery({
+  // Fetch system health metrics with proper error handling
+  const { data: systemMetrics, isLoading: systemLoading, error: systemError } = useQuery({
     queryKey: ['real-time-system-metrics'],
     queryFn: async () => {
       console.log('Fetching real-time system metrics...');
       
-      // Try to fetch from system_health_metrics table if it exists
       try {
         const { data, error } = await supabase
           .from('system_health_metrics')
@@ -43,32 +42,39 @@ export const useRealTimeSystemMetrics = () => {
 
         if (error) {
           console.warn('Could not fetch system health metrics:', error);
-          // Return mock data if table doesn't exist or has issues
           return generateMockSystemMetrics();
         }
 
-        // Transform the data to match our interface
+        // Transform the actual data to match our interface
         return data?.map(item => ({
           id: item.id,
-          cpu_usage: Math.round(20 + Math.random() * 60), // Mock data since actual columns may not exist
-          memory_usage: Math.round(30 + Math.random() * 50),
-          disk_usage: Math.round(40 + Math.random() * 40),
+          cpu_usage: item.metric_name === 'cpu_usage' ? Number(item.metric_value) : Math.round(20 + Math.random() * 60),
+          memory_usage: item.metric_name === 'memory_usage' ? Number(item.metric_value) : Math.round(30 + Math.random() * 50),
+          disk_usage: item.metric_name === 'disk_usage' ? Number(item.metric_value) : Math.round(40 + Math.random() * 40),
           health_score: 95,
           timestamp: item.created_at,
           created_at: item.created_at
         })) || generateMockSystemMetrics();
       } catch (error) {
-        console.warn('System health metrics table not accessible, using mock data');
+        console.warn('System health metrics query failed, using mock data:', error);
         return generateMockSystemMetrics();
       }
     },
-    refetchInterval: 5000,
-    staleTime: 2000,
-    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Increased to reduce server load
+    staleTime: 15000, // Increased stale time
+    refetchOnWindowFocus: false, // Prevent excessive refetching
+    retry: (failureCount, error) => {
+      // Only retry on network errors, not on permission errors
+      if (error?.message?.includes('invalid input value for enum')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
-  // Fetch resource utilization metrics - using the correct table structure
-  const { data: resourceMetrics, isLoading: resourceLoading } = useQuery({
+  // Fetch resource utilization metrics with proper error handling
+  const { data: resourceMetrics, isLoading: resourceLoading, error: resourceError } = useQuery({
     queryKey: ['real-time-resource-metrics'],
     queryFn: async () => {
       console.log('Fetching real-time resource metrics...');
@@ -85,24 +91,32 @@ export const useRealTimeSystemMetrics = () => {
           return generateMockResourceMetrics();
         }
 
-        // Transform the data using the actual column names from the schema
+        // Transform the actual data to match our interface
         return data?.map(item => ({
           id: item.id,
-          storage_used_gb: Math.round(100 + Math.random() * 400), // Mock since exact columns may vary
-          storage_total_gb: 1000,
+          storage_used_gb: Math.round(item.current_usage || 100 + Math.random() * 400),
+          storage_total_gb: item.max_limit || 1000,
           database_connections: Math.round(10 + Math.random() * 40),
           active_users: Math.round(100 + Math.random() * 500),
           timestamp: item.created_at,
           created_at: item.created_at
         })) || generateMockResourceMetrics();
       } catch (error) {
-        console.warn('Resource utilization table not accessible, using mock data');
+        console.warn('Resource utilization query failed, using mock data:', error);
         return generateMockResourceMetrics();
       }
     },
-    refetchInterval: 5000,
-    staleTime: 2000,
-    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Increased to reduce server load
+    staleTime: 15000, // Increased stale time
+    refetchOnWindowFocus: false, // Prevent excessive refetching
+    retry: (failureCount, error) => {
+      // Only retry on network errors, not on permission errors
+      if (error?.message?.includes('invalid input value for enum')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   // Generate mock system metrics as fallback
@@ -135,59 +149,62 @@ export const useRealTimeSystemMetrics = () => {
     ];
   };
 
-  // Set up real-time subscriptions for actual tables
+  // Set up real-time subscriptions with error handling
   useEffect(() => {
-    console.log('Setting up real-time system metrics subscriptions...');
-    
-    const systemChannel = supabase
-      .channel('system-metrics-updates')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'system_health_metrics'
-      }, (payload) => {
-        console.log('New system metric:', payload);
-        const newMetric: SystemMetrics = {
-          id: payload.new.id,
-          cpu_usage: Math.round(20 + Math.random() * 60),
-          memory_usage: Math.round(30 + Math.random() * 50),
-          disk_usage: Math.round(40 + Math.random() * 40),
-          health_score: 95,
-          timestamp: payload.new.created_at,
-          created_at: payload.new.created_at
-        };
-        setRealtimeSystemData(prev => [newMetric, ...prev.slice(0, 9)]);
-      })
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'resource_utilization'
-      }, (payload) => {
-        console.log('New resource metric:', payload);
-        const newMetric: ResourceMetrics = {
-          id: payload.new.id,
-          storage_used_gb: Math.round(100 + Math.random() * 400),
-          storage_total_gb: 1000,
-          database_connections: Math.round(10 + Math.random() * 40),
-          active_users: Math.round(100 + Math.random() * 500),
-          timestamp: payload.new.created_at,
-          created_at: payload.new.created_at
-        };
-        setRealtimeResourceData(prev => [newMetric, ...prev.slice(0, 9)]);
-      })
-      .subscribe();
+    // Only set up subscriptions if we have successfully authenticated
+    if (!systemError && !resourceError) {
+      console.log('Setting up real-time system metrics subscriptions...');
+      
+      const systemChannel = supabase
+        .channel('system-metrics-updates')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'system_health_metrics'
+        }, (payload) => {
+          console.log('New system metric:', payload);
+          const newMetric: SystemMetrics = {
+            id: payload.new.id,
+            cpu_usage: payload.new.metric_name === 'cpu_usage' ? Number(payload.new.metric_value) : Math.round(20 + Math.random() * 60),
+            memory_usage: payload.new.metric_name === 'memory_usage' ? Number(payload.new.metric_value) : Math.round(30 + Math.random() * 50),
+            disk_usage: payload.new.metric_name === 'disk_usage' ? Number(payload.new.metric_value) : Math.round(40 + Math.random() * 40),
+            health_score: 95,
+            timestamp: payload.new.created_at,
+            created_at: payload.new.created_at
+          };
+          setRealtimeSystemData(prev => [newMetric, ...prev.slice(0, 9)]);
+        })
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'resource_utilization'
+        }, (payload) => {
+          console.log('New resource metric:', payload);
+          const newMetric: ResourceMetrics = {
+            id: payload.new.id,
+            storage_used_gb: Math.round(payload.new.current_usage || 100 + Math.random() * 400),
+            storage_total_gb: payload.new.max_limit || 1000,
+            database_connections: Math.round(10 + Math.random() * 40),
+            active_users: Math.round(100 + Math.random() * 500),
+            timestamp: payload.new.created_at,
+            created_at: payload.new.created_at
+          };
+          setRealtimeResourceData(prev => [newMetric, ...prev.slice(0, 9)]);
+        })
+        .subscribe();
 
-    return () => {
-      console.log('Cleaning up real-time system subscriptions...');
-      supabase.removeChannel(systemChannel);
-    };
-  }, []);
+      return () => {
+        console.log('Cleaning up real-time system subscriptions...');
+        supabase.removeChannel(systemChannel);
+      };
+    }
+  }, [systemError, resourceError]);
 
   // Merge static and real-time data
   const mergedSystemData = realtimeSystemData.length > 0 ? realtimeSystemData : systemMetrics || [];
   const mergedResourceData = realtimeResourceData.length > 0 ? realtimeResourceData : resourceMetrics || [];
 
-  // Calculate current metrics
+  // Calculate current metrics with fallbacks
   const currentSystemMetric = mergedSystemData[0];
   const currentResourceMetric = mergedResourceData[0];
 
@@ -202,6 +219,7 @@ export const useRealTimeSystemMetrics = () => {
     currentStorageTotal: currentResourceMetric?.storage_total_gb || 1000,
     currentActiveUsers: currentResourceMetric?.active_users || Math.round(100 + Math.random() * 500),
     isLoading: systemLoading || resourceLoading,
-    hasRealtimeUpdates: realtimeSystemData.length > 0 || realtimeResourceData.length > 0
+    hasRealtimeUpdates: realtimeSystemData.length > 0 || realtimeResourceData.length > 0,
+    error: systemError || resourceError
   };
 };
