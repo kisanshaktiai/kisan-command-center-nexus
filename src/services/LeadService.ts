@@ -1,6 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { BaseService, ServiceResult } from './BaseService';
+import { CentralizedEmailService } from './CentralizedEmailService';
 import type { Lead } from '@/types/leads';
 
 interface CreateLeadData {
@@ -244,65 +244,66 @@ export class LeadService extends BaseService {
   }
 
   static async convertToTenant(convertData: ConvertToTenantData): Promise<ServiceResult<ConversionResult>> {
-    const maxRetries = 3;
-    const retryDelay = 1000;
+    try {
+      console.log('LeadService: Converting lead to tenant using centralized email service:', {
+        leadId: convertData.leadId,
+        tenantName: convertData.tenantName,
+        tenantSlug: convertData.tenantSlug,
+        subscriptionPlan: convertData.subscriptionPlan
+      });
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`LeadService: Converting lead to tenant (attempt ${attempt}):`, {
-          leadId: convertData.leadId,
-          tenantName: convertData.tenantName,
-          tenantSlug: convertData.tenantSlug,
-          subscriptionPlan: convertData.subscriptionPlan
-        });
+      // First, convert lead to tenant using existing edge function
+      const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
+        body: convertData,
+      });
 
-        const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
-          body: convertData,
-        });
-
-        if (error) {
-          console.error(`LeadService: Edge function error (attempt ${attempt}):`, error);
-          
-          if (attempt < maxRetries && this.isRetryableError(error)) {
-            console.log(`LeadService: Retrying in ${retryDelay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
-            continue;
-          }
-          
-          throw new Error(`Failed to convert lead to tenant: ${error.message || 'Unknown error'}`);
-        }
-
-        if (!data || !data.success) {
-          const errorMessage = data?.error || 'Conversion failed without specific error';
-          console.error(`LeadService: Conversion failed (attempt ${attempt}):`, errorMessage);
-          
-          if (attempt < maxRetries && !data?.error?.includes('already taken') && !data?.error?.includes('not found')) {
-            console.log(`LeadService: Retrying in ${retryDelay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
-            continue;
-          }
-          
-          throw new Error(errorMessage);
-        }
-
-        console.log('LeadService: Successfully converted lead to tenant:', data.tenant_id);
-        return { success: true, data };
-
-      } catch (error) {
-        console.error(`LeadService: Unexpected error converting lead (attempt ${attempt}):`, error);
-        
-        if (attempt < maxRetries) {
-          console.log(`LeadService: Retrying in ${retryDelay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
-          continue;
-        }
-        
-        const errorMessage = error instanceof Error ? error.message : 'Unexpected error while converting lead to tenant';
-        return { success: false, error: errorMessage };
+      if (error) {
+        console.error('LeadService: Edge function error:', error);
+        throw new Error(`Failed to convert lead to tenant: ${error.message || 'Unknown error'}`);
       }
-    }
 
-    return { success: false, error: 'Failed to convert lead after multiple attempts' };
+      if (!data || !data.success) {
+        const errorMessage = data?.error || 'Conversion failed without specific error';
+        console.error('LeadService: Conversion failed:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      console.log('LeadService: Tenant created successfully:', data.tenant_id);
+
+      // Now create the tenant user and send activation email using centralized service
+      if (data.tenant_id) {
+        try {
+          const emailResult = await CentralizedEmailService.sendLeadActivationEmail(
+            convertData.leadId,
+            data.tenant_id,
+            convertData.adminEmail || '', // This should be populated from the lead
+            convertData.adminName || ''   // This should be populated from the lead
+          );
+
+          if (emailResult.success) {
+            console.log('LeadService: Activation email sent successfully');
+            data.email_sent = true;
+            data.invitation_token = emailResult.data?.invitation_token;
+          } else {
+            console.warn('LeadService: Failed to send activation email:', emailResult.error);
+            data.email_sent = false;
+            data.email_error = emailResult.error;
+          }
+        } catch (emailError) {
+          console.error('LeadService: Error sending activation email:', emailError);
+          data.email_sent = false;
+          data.email_error = emailError instanceof Error ? emailError.message : 'Email sending failed';
+        }
+      }
+
+      console.log('LeadService: Lead conversion completed with email service');
+      return { success: true, data };
+
+    } catch (error) {
+      console.error('LeadService: Unexpected error converting lead:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unexpected error while converting lead to tenant';
+      return { success: false, error: errorMessage };
+    }
   }
 
   static async getAdminUsers(): Promise<ServiceResult<any[]>> {

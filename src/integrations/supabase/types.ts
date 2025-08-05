@@ -1554,6 +1554,130 @@ export type Database = {
           },
         ]
       }
+      email_logs: {
+        Row: {
+          clicked_at: string | null
+          created_at: string | null
+          delivered_at: string | null
+          error_message: string | null
+          external_id: string | null
+          id: string
+          metadata: Json | null
+          opened_at: string | null
+          recipient_email: string
+          sender_email: string
+          sent_at: string | null
+          status: string
+          subject: string
+          template_type: string
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          clicked_at?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          opened_at?: string | null
+          recipient_email: string
+          sender_email: string
+          sent_at?: string | null
+          status?: string
+          subject: string
+          template_type: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          clicked_at?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          opened_at?: string | null
+          recipient_email?: string
+          sender_email?: string
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          template_type?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_templates: {
+        Row: {
+          created_at: string | null
+          html_content: string
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          sender_email: string | null
+          sender_name: string | null
+          subject: string
+          template_name: string
+          template_type: string
+          tenant_id: string | null
+          text_content: string | null
+          updated_at: string | null
+          variables: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          html_content: string
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          sender_email?: string | null
+          sender_name?: string | null
+          subject: string
+          template_name: string
+          template_type: string
+          tenant_id?: string | null
+          text_content?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          html_content?: string
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          sender_email?: string | null
+          sender_name?: string | null
+          subject?: string
+          template_name?: string
+          template_type?: string
+          tenant_id?: string | null
+          text_content?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_verifications: {
         Row: {
           created_at: string | null
@@ -5487,6 +5611,85 @@ export type Database = {
           },
         ]
       }
+      user_invitations: {
+        Row: {
+          accepted_at: string | null
+          clicked_at: string | null
+          created_at: string | null
+          created_by: string | null
+          email: string
+          expires_at: string
+          id: string
+          invitation_token: string
+          invitation_type: string
+          lead_id: string | null
+          metadata: Json | null
+          sent_at: string | null
+          status: string
+          tenant_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          clicked_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          invitation_token: string
+          invitation_type?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          clicked_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invitation_token?: string
+          invitation_type?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_invitations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_invitations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_invitations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_presence: {
         Row: {
           created_at: string | null
@@ -7513,6 +7716,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      mark_invitation_accepted: {
+        Args: { token: string }
+        Returns: boolean
+      }
+      mark_invitation_clicked: {
+        Args: { token: string }
+        Returns: boolean
+      }
       mark_invite_used: {
         Args: { invite_token: string }
         Returns: boolean
@@ -8864,6 +9075,17 @@ export type Database = {
           email: string
           role: string
           invite_id: string
+          expires_at: string
+        }[]
+      }
+      validate_invitation_token: {
+        Args: { token: string }
+        Returns: {
+          invitation_id: string
+          tenant_id: string
+          email: string
+          invitation_type: string
+          is_valid: boolean
           expires_at: string
         }[]
       }
