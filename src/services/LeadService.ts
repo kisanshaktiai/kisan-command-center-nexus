@@ -8,6 +8,7 @@ interface CreateLeadData {
   email: string;
   phone?: string;
   organization_name?: string;
+  organization_type?: string; // Added missing field
   source?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   notes?: string;
@@ -18,6 +19,7 @@ interface UpdateLeadData {
   email?: string;
   phone?: string;
   organization_name?: string;
+  organization_type?: string; // Added missing field
   status?: Lead['status'];
   priority?: Lead['priority'];
   notes?: string;
@@ -57,14 +59,15 @@ export class LeadService extends BaseService {
 
       if (error) {
         console.error('LeadService: Error fetching leads:', error);
-        return this.handleError(error, 'Failed to fetch leads');
+        throw new Error(`Failed to fetch leads: ${error.message}`);
       }
 
       console.log('LeadService: Successfully fetched leads:', data?.length || 0);
-      return this.handleSuccess(data || []);
+      return { success: true, data: data || [] };
     } catch (error) {
       console.error('LeadService: Unexpected error fetching leads:', error);
-      return this.handleError(error, 'Unexpected error while fetching leads');
+      const errorMessage = error instanceof Error ? error.message : 'Unexpected error while fetching leads';
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -74,20 +77,24 @@ export class LeadService extends BaseService {
 
       const { data, error } = await supabase
         .from('leads')
-        .insert(leadData)
+        .insert({
+          ...leadData,
+          organization_type: leadData.organization_type || 'company' // Default value
+        })
         .select()
         .single();
 
       if (error) {
         console.error('LeadService: Error creating lead:', error);
-        return this.handleError(error, 'Failed to create lead');
+        throw new Error(`Failed to create lead: ${error.message}`);
       }
 
       console.log('LeadService: Successfully created lead:', data.id);
-      return this.handleSuccess(data);
+      return { success: true, data };
     } catch (error) {
       console.error('LeadService: Unexpected error creating lead:', error);
-      return this.handleError(error, 'Unexpected error while creating lead');
+      const errorMessage = error instanceof Error ? error.message : 'Unexpected error while creating lead';
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -97,7 +104,7 @@ export class LeadService extends BaseService {
 
       // Validate lead ID
       if (!leadId) {
-        return this.handleError(new Error('Lead ID is required'), 'Lead ID is required');
+        throw new Error('Lead ID is required');
       }
 
       // Prepare update data with timestamp
@@ -115,19 +122,20 @@ export class LeadService extends BaseService {
 
       if (error) {
         console.error('LeadService: Error updating lead:', error);
-        return this.handleError(error, 'Failed to update lead');
+        throw new Error(`Failed to update lead: ${error.message}`);
       }
 
       if (!data) {
         console.error('LeadService: No data returned from update');
-        return this.handleError(new Error('No data returned'), 'Update operation failed');
+        throw new Error('Update operation failed - no data returned');
       }
 
       console.log('LeadService: Successfully updated lead:', data.id);
-      return this.handleSuccess(data);
+      return { success: true, data };
     } catch (error) {
       console.error('LeadService: Unexpected error updating lead:', error);
-      return this.handleError(error, 'Unexpected error while updating lead');
+      const errorMessage = error instanceof Error ? error.message : 'Unexpected error while updating lead';
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -138,10 +146,7 @@ export class LeadService extends BaseService {
       const { leadId, adminId, reason } = assignData;
 
       if (!leadId || !adminId) {
-        return this.handleError(
-          new Error('Lead ID and Admin ID are required'), 
-          'Lead ID and Admin ID are required'
-        );
+        throw new Error('Lead ID and Admin ID are required');
       }
 
       // Update lead assignment
@@ -157,7 +162,7 @@ export class LeadService extends BaseService {
 
       if (updateError) {
         console.error('LeadService: Error assigning lead:', updateError);
-        return this.handleError(updateError, 'Failed to assign lead');
+        throw new Error(`Failed to assign lead: ${updateError.message}`);
       }
 
       // Log the assignment
@@ -176,10 +181,11 @@ export class LeadService extends BaseService {
       }
 
       console.log('LeadService: Successfully assigned lead:', leadId, 'to:', adminId);
-      return this.handleSuccess(true);
+      return { success: true, data: true };
     } catch (error) {
       console.error('LeadService: Unexpected error assigning lead:', error);
-      return this.handleError(error, 'Unexpected error while assigning lead');
+      const errorMessage = error instanceof Error ? error.message : 'Unexpected error while assigning lead';
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -210,7 +216,7 @@ export class LeadService extends BaseService {
             continue;
           }
           
-          return this.handleError(error, `Failed to convert lead to tenant: ${error.message || 'Unknown error'}`);
+          throw new Error(`Failed to convert lead to tenant: ${error.message || 'Unknown error'}`);
         }
 
         if (!data || !data.success) {
@@ -223,11 +229,11 @@ export class LeadService extends BaseService {
             continue;
           }
           
-          return this.handleError(new Error(errorMessage), errorMessage);
+          throw new Error(errorMessage);
         }
 
         console.log('LeadService: Successfully converted lead to tenant:', data.tenant_id);
-        return this.handleSuccess(data);
+        return { success: true, data };
 
       } catch (error) {
         console.error(`LeadService: Unexpected error converting lead (attempt ${attempt}):`, error);
@@ -238,14 +244,12 @@ export class LeadService extends BaseService {
           continue;
         }
         
-        return this.handleError(error, 'Unexpected error while converting lead to tenant');
+        const errorMessage = error instanceof Error ? error.message : 'Unexpected error while converting lead to tenant';
+        return { success: false, error: errorMessage };
       }
     }
 
-    return this.handleError(
-      new Error('Max retries exceeded'), 
-      'Failed to convert lead after multiple attempts'
-    );
+    return { success: false, error: 'Failed to convert lead after multiple attempts' };
   }
 
   static async getAdminUsers(): Promise<ServiceResult<any[]>> {
@@ -258,14 +262,15 @@ export class LeadService extends BaseService {
 
       if (error) {
         console.error('LeadService: Error fetching admin users:', error);
-        return this.handleError(error, 'Failed to fetch admin users');
+        throw new Error(`Failed to fetch admin users: ${error.message}`);
       }
 
       console.log('LeadService: Successfully fetched admin users:', data?.length || 0);
-      return this.handleSuccess(data || []);
+      return { success: true, data: data || [] };
     } catch (error) {
       console.error('LeadService: Unexpected error fetching admin users:', error);
-      return this.handleError(error, 'Unexpected error while fetching admin users');
+      const errorMessage = error instanceof Error ? error.message : 'Unexpected error while fetching admin users';
+      return { success: false, error: errorMessage };
     }
   }
 
