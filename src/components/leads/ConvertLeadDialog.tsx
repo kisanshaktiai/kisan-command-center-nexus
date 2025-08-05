@@ -19,7 +19,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useConvertLeadToTenant } from '@/hooks/useLeadManagement';
 import { subscriptionPlanOptions } from '@/types/tenant';
-import { CheckCircle, Copy, Eye, EyeOff, AlertTriangle, Info, RefreshCw } from 'lucide-react';
+import { CheckCircle, Copy, Eye, EyeOff, AlertTriangle, Info, RefreshCw, UserCheck } from 'lucide-react';
 import type { Lead } from '@/types/leads';
 
 interface ConvertLeadDialogProps {
@@ -41,6 +41,7 @@ interface ConversionResult {
   tenantSlug: string;
   tempPassword?: string;
   isRecovery?: boolean;
+  userTenantCreated?: boolean;
 }
 
 export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
@@ -102,6 +103,9 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
           break;
         case 'DATABASE_ERROR':
           errorMessage = 'Database operation failed. Please try again.';
+          break;
+        case 'USER_SETUP_ERROR':
+          errorMessage = 'Tenant created but user access setup failed. Contact support for assistance.';
           break;
         case 'INTERNAL_ERROR':
           errorMessage = 'Internal server error. Please try again later.';
@@ -205,6 +209,15 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
               </Alert>
             )}
 
+            {conversionError.code === 'USER_SETUP_ERROR' && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  The tenant was created successfully, but there was an issue setting up user access. Please contact support to complete the setup.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleRetry} className="flex items-center gap-2">
                 <RefreshCw className="h-4 w-4" />
@@ -242,6 +255,15 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
               </AlertDescription>
             </Alert>
 
+            {conversionResult.userTenantCreated && (
+              <Alert>
+                <UserCheck className="h-4 w-4" />
+                <AlertDescription>
+                  User access has been successfully configured for the tenant.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-3">
               <div>
                 <Label className="text-sm font-medium">Tenant Name</Label>
@@ -276,10 +298,26 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
                 </div>
               </div>
 
+              {conversionResult.userId && (
+                <div>
+                  <Label className="text-sm font-medium">User ID</Label>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-gray-600 font-mono">{conversionResult.userId}</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(conversionResult.userId!)}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {conversionResult.tempPassword && (
                 <div>
                   <Label className="text-sm font-medium">
-                    {conversionResult.isRecovery ? 'Original Password (if available)' : 'Temporary Password'}
+                    {conversionResult.isRecovery ? 'Password (if available)' : 'Temporary Password'}
                   </Label>
                   <div className="flex items-center gap-2">
                     <Input
@@ -305,7 +343,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     {conversionResult.isRecovery 
-                      ? 'This is the original password from when the tenant was first created.'
+                      ? 'This is the password from when the tenant was first created.'
                       : 'This password was emailed to the admin and should be changed on first login.'
                     }
                   </p>

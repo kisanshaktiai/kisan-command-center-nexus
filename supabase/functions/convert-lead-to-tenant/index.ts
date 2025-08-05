@@ -26,6 +26,7 @@ interface ConversionResponse {
   tenantSlug?: string;
   tempPassword?: string;
   isRecovery?: boolean;
+  userTenantCreated?: boolean;
 }
 
 serve(async (req) => {
@@ -64,8 +65,8 @@ serve(async (req) => {
       });
     }
 
-    // Use the secure database function for lead conversion
-    console.log('Calling secure conversion function...');
+    // Use the enhanced database function for lead conversion
+    console.log('Calling enhanced conversion function...');
     const { data: conversionResult, error: conversionError } = await supabase.rpc(
       'convert_lead_to_tenant_secure',
       {
@@ -144,19 +145,42 @@ serve(async (req) => {
 
     console.log('Tenant created successfully:', tenantId, isRecovery ? '(recovery)' : '(new)');
 
-    // Create user account in auth.users if it doesn't exist and it's not a recovery
+    // Always ensure user account and user-tenant relationship exist
     let userId: string | undefined;
-    if (!isRecovery || tempPassword !== 'recovery-no-password') {
-      try {
-        const { data: existingUser, error: userCheckError } = await supabase.auth.admin.getUserByEmail(adminEmail);
+    let userTenantCreated = false;
+
+    try {
+      // Check if user exists in auth
+      const { data: existingUser, error: userCheckError } = await supabase.auth.admin.getUserByEmail(adminEmail);
+      
+      if (!existingUser?.user || userCheckError) {
+        // Create new user with proper metadata
+        console.log('Creating new auth user...');
+        const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
+          email: adminEmail,
+          password: tempPassword !== 'recovery-no-password' ? tempPassword : 'TempPass123!',
+          email_confirm: true,
+          user_metadata: {
+            full_name: adminName,
+            tenant_id: tenantId,
+            role: 'tenant_admin'
+          }
+        });
+
+        if (createUserError) {
+          console.error('Failed to create auth user:', createUserError);
+          throw new Error(`Failed to create user: ${createUserError.message}`);
+        } else {
+          userId = newUser.user?.id;
+          console.log('Created auth user:', userId);
+        }
+      } else {
+        userId = existingUser.user?.id;
+        console.log('Using existing auth user:', userId);
         
-        if (!existingUser?.user || userCheckError) {
-          // Create new user with proper metadata
-          console.log('Creating new auth user...');
-          const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
-            email: adminEmail,
-            password: tempPassword,
-            email_confirm: true,
+        // Update existing user's metadata to include tenant info
+        if (userId) {
+          const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
             user_metadata: {
               full_name: adminName,
               tenant_id: tenantId,
@@ -164,34 +188,25 @@ serve(async (req) => {
             }
           });
 
-          if (createUserError) {
-            console.error('Failed to create auth user:', createUserError);
-          } else {
-            userId = newUser.user?.id;
-            console.log('Created auth user:', userId);
-          }
-        } else {
-          userId = existingUser.user?.id;
-          console.log('Using existing auth user:', userId);
-          
-          // Update existing user's metadata to include tenant info
-          if (userId) {
-            const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
-              user_metadata: {
-                full_name: adminName,
-                tenant_id: tenantId,
-                role: 'tenant_admin'
-              }
-            });
-
-            if (updateError) {
-              console.error('Failed to update user metadata:', updateError);
-            }
+          if (updateError) {
+            console.error('Failed to update user metadata:', updateError);
           }
         }
+      }
 
-        // Create user_tenants relationship if userId is available
-        if (userId) {
+      // CRITICAL: Always ensure user_tenants relationship exists
+      if (userId) {
+        // Check if relationship already exists
+        const { data: existingRelation, error: relationCheckError } = await supabase
+          .from('user_tenants')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('tenant_id', tenantId)
+          .single();
+
+        if (!existingRelation && !relationCheckError) {
+          // Create user_tenants relationship
+          console.log('Creating user-tenant relationship...');
           const { error: tenantUserError } = await supabase
             .from('user_tenants')
             .insert({
@@ -203,17 +218,50 @@ serve(async (req) => {
 
           if (tenantUserError) {
             console.error('Failed to create tenant user relationship:', tenantUserError);
+            throw new Error(`Failed to create user-tenant relationship: ${tenantUserError.message}`);
           } else {
-            console.log('Created user-tenant relationship');
+            userTenantCreated = true;
+            console.log('Created user-tenant relationship successfully');
           }
+        } else if (existingRelation) {
+          console.log('User-tenant relationship already exists');
+          userTenantCreated = true;
+        } else {
+          console.error('Error checking user-tenant relationship:', relationCheckError);
         }
-      } catch (error) {
-        console.error('Error in user creation process:', error);
+
+        // Final validation: Ensure relationship exists
+        const { data: finalCheck, error: finalCheckError } = await supabase
+          .from('user_tenants')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true)
+          .single();
+
+        if (!finalCheck || finalCheckError) {
+          console.error('User-tenant relationship validation failed:', finalCheckError);
+          throw new Error('Failed to establish user-tenant relationship');
+        }
       }
+
+    } catch (error) {
+      console.error('Error in user/relationship creation:', error);
+      
+      // Return error since user access is critical
+      const response: ConversionResponse = {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to set up user access',
+        code: 'USER_SETUP_ERROR'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Send welcome email using the centralized email service (only for new conversions)
-    if (!isRecovery) {
+    // Send welcome email only for new conversions (not recovery)
+    if (!isRecovery && tempPassword !== 'recovery-no-password') {
       try {
         const loginUrl = `${Deno.env.get('SITE_URL') || 'https://yourapp.com'}/auth`;
         
@@ -264,10 +312,11 @@ serve(async (req) => {
         }
       } catch (emailError) {
         console.error('Email sending failed:', emailError);
+        // Don't fail the conversion for email errors
       }
     }
 
-    // Return success response with all necessary data
+    // Return comprehensive success response
     const response: ConversionResponse = {
       success: true,
       message: conversionResult.message || 'Lead converted to tenant successfully',
@@ -275,10 +324,11 @@ serve(async (req) => {
       userId: userId,
       tenantSlug: tenantSlug,
       tempPassword: isRecovery && tempPassword === 'recovery-no-password' ? undefined : tempPassword,
-      isRecovery: isRecovery
+      isRecovery: isRecovery,
+      userTenantCreated: userTenantCreated
     };
 
-    console.log('Conversion completed successfully');
+    console.log('Conversion completed successfully with user access verified');
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -287,7 +337,6 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Lead conversion error:', error);
     
-    // Always return a structured JSON response
     const response: ConversionResponse = {
       success: false,
       error: error.message || 'Unknown error occurred during conversion',
