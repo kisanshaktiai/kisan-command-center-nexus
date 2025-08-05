@@ -4,6 +4,7 @@ import { authenticationService } from '@/services/AuthenticationService';
 import { AuthState, TenantData } from '@/types/auth';
 import { ServiceResult } from '@/services/BaseService';
 import { useNotifications } from './useNotifications';
+import { useAuthStore } from '@/lib/stores/authStore';
 
 /**
  * Hook for Authentication Service Operations
@@ -13,6 +14,7 @@ export const useAuthenticationService = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showSuccess, showError } = useNotifications();
+  const { setAuthState } = useAuthStore();
 
   const clearError = useCallback(() => {
     setError(null);
@@ -67,11 +69,16 @@ export const useAuthenticationService = () => {
   ) => {
     return handleAuthOperation(
       () => authenticationService.signInUser(email, password),
-      onSuccess,
+      (authState) => {
+        // Update global auth store immediately
+        setAuthState(authState);
+        console.log('User signed in, auth state updated:', authState);
+        onSuccess?.(authState);
+      },
       onError,
       { success: 'Successfully signed in!' }
     );
-  }, [handleAuthOperation]);
+  }, [handleAuthOperation, setAuthState]);
 
   const signInAdmin = useCallback(async (
     email: string, 
@@ -81,11 +88,16 @@ export const useAuthenticationService = () => {
   ) => {
     return handleAuthOperation(
       () => authenticationService.signInAdmin(email, password),
-      onSuccess,
+      (authState) => {
+        // Update global auth store immediately
+        setAuthState(authState);
+        console.log('Admin signed in, auth state updated:', authState);
+        onSuccess?.(authState);
+      },
       onError,
       { success: 'Welcome back, admin!' }
     );
-  }, [handleAuthOperation]);
+  }, [handleAuthOperation, setAuthState]);
 
   const registerUser = useCallback(async (
     email: string, 
@@ -114,11 +126,16 @@ export const useAuthenticationService = () => {
   ) => {
     return handleAuthOperation(
       () => authenticationService.bootstrapSuperAdmin(email, password, fullName),
-      onSuccess,
+      (authState) => {
+        // Update global auth store immediately
+        setAuthState(authState);
+        console.log('Super admin bootstrapped, auth state updated:', authState);
+        onSuccess?.(authState);
+      },
       onError,
       { success: 'System initialized successfully!' }
     );
-  }, [handleAuthOperation]);
+  }, [handleAuthOperation, setAuthState]);
 
   const checkAdminStatus = useCallback(async (
     userId: string,

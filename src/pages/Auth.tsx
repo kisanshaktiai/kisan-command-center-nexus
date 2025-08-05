@@ -12,25 +12,15 @@ export default function Auth() {
   const [needsBootstrap, setNeedsBootstrap] = useState<boolean | null>(null);
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
-  const [hasRedirected, setHasRedirected] = useState(false);
 
   console.log('Auth.tsx: Render state:', { 
-    user: user?.id, 
-    isLoading, 
+    hasUser: !!user, 
     isAdmin,
+    isLoading, 
     needsBootstrap, 
     checkingBootstrap,
-    bootstrapError,
-    hasRedirected
+    bootstrapError
   });
-
-  // Prevent infinite redirect loops
-  useEffect(() => {
-    if (user && isAdmin && !isLoading && !hasRedirected) {
-      console.log('Auth.tsx: Setting redirect flag for authenticated admin');
-      setHasRedirected(true);
-    }
-  }, [user, isAdmin, isLoading, hasRedirected]);
 
   useEffect(() => {
     // Only check bootstrap if we don't have a user and auth is not loading
@@ -41,6 +31,12 @@ export default function Auth() {
       setCheckingBootstrap(false);
     }
   }, [isLoading, user]);
+
+  // Immediate redirect for authenticated admin users
+  if (!isLoading && user && isAdmin) {
+    console.log('Auth.tsx: Redirecting authenticated admin user to super-admin');
+    return <Navigate to="/super-admin" replace />;
+  }
 
   const checkBootstrapStatus = async () => {
     try {
@@ -67,12 +63,6 @@ export default function Auth() {
       setCheckingBootstrap(false);
     }
   };
-
-  // Redirect authenticated admin users
-  if (user && isAdmin && !isLoading && hasRedirected) {
-    console.log('Auth.tsx: Redirecting authenticated admin user to super-admin');
-    return <Navigate to="/super-admin" replace />;
-  }
 
   // Show loading state while checking auth or bootstrap
   if (isLoading || checkingBootstrap) {
