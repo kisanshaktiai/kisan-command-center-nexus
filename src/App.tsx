@@ -14,11 +14,6 @@ import OnboardPartner from './pages/OnboardPartner';
 import ResetPassword from './pages/auth/ResetPassword';
 import LeadManagementPage from './pages/super-admin/LeadManagement';
 import AdminManagementPage from './pages/super-admin/AdminUserManagement';
-import Settings from './pages/Settings';
-import Billing from './pages/Billing';
-import { useAuth } from './hooks/useAuth';
-import { RequireAuth } from './components/auth/RequireAuth';
-import { RequireSuperAdmin } from './components/auth/RequireSuperAdmin';
 
 // Import the new activation page
 import ActivateAccount from '@/pages/auth/ActivateAccount';
