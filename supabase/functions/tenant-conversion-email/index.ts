@@ -82,42 +82,53 @@ serve(async (req) => {
       console.error('Failed to create tenant user relationship:', tenantUserError);
     }
 
-    // Send welcome email (this would integrate with your email service)
-    const emailData = {
-      to: adminEmail,
-      subject: `Welcome to ${tenantName} - Your Tenant Account is Ready!`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Welcome to ${tenantName}!</h2>
-          <p>Dear ${adminName},</p>
-          <p>Congratulations! Your lead has been converted to a tenant account. You can now access your dedicated tenant dashboard.</p>
-          
-          <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3>Login Credentials:</h3>
-            <p><strong>Email:</strong> ${adminEmail}</p>
-            <p><strong>Temporary Password:</strong> ${tempPassword}</p>
-            <p><strong>Tenant:</strong> ${tenantName}</p>
+    // Use the centralized EmailService via send-email function
+    const loginUrl = `${Deno.env.get('SITE_URL') || 'https://yourapp.com'}/auth`;
+    
+    const { data: emailData, error: emailError } = await supabase.functions.invoke('send-email', {
+      body: {
+        to: adminEmail,
+        subject: `Welcome to ${tenantName} - Your Tenant Account is Ready!`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Welcome to ${tenantName}!</h2>
+            <p>Dear ${adminName},</p>
+            <p>Congratulations! Your lead has been converted to a tenant account. You can now access your dedicated tenant dashboard.</p>
+            
+            <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3>Login Credentials:</h3>
+              <p><strong>Email:</strong> ${adminEmail}</p>
+              <p><strong>Temporary Password:</strong> ${tempPassword}</p>
+              <p><strong>Tenant:</strong> ${tenantName}</p>
+            </div>
+            
+            <p><strong>Important:</strong> Please change your password after your first login for security purposes.</p>
+            
+            <div style="margin: 30px 0;">
+              <a href="${loginUrl}" 
+                 style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                Login to Your Account
+              </a>
+            </div>
+            
+            <p>If you have any questions, please don't hesitate to contact our support team.</p>
+            
+            <p>Best regards,<br>The Team</p>
           </div>
-          
-          <p><strong>Important:</strong> Please change your password after your first login for security purposes.</p>
-          
-          <div style="margin: 30px 0;">
-            <a href="${Deno.env.get('SITE_URL') || 'https://yourapp.com'}/auth" 
-               style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Login to Your Account
-            </a>
-          </div>
-          
-          <p>If you have any questions, please don't hesitate to contact our support team.</p>
-          
-          <p>Best regards,<br>The Team</p>
-        </div>
-      `
-    };
+        `,
+        text: `Welcome to ${tenantName}! Dear ${adminName}, Congratulations! Your lead has been converted to a tenant account. Login Details: Email: ${adminEmail}, Temporary Password: ${tempPassword}, Tenant: ${tenantName}. Login at: ${loginUrl}`,
+        metadata: {
+          type: 'lead_conversion',
+          tenant_id: tenantId,
+          lead_id: leadId,
+          user_id: userId
+        }
+      }
+    });
 
-    // Here you would integrate with your email service (Resend, SendGrid, etc.)
-    // For now, we'll log the email data and mark as sent
-    console.log('Email to be sent:', emailData);
+    if (emailError) {
+      console.error('Failed to send email:', emailError);
+    }
 
     // Update lead with conversion completion
     const { error: leadUpdateError } = await supabase
