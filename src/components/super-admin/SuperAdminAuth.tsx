@@ -29,13 +29,12 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
     console.log('SuperAdminAuth: Attempting admin login...');
     clearError();
     
-    // The signInAdmin will now handle global state updates and navigation will be handled by Auth.tsx
     await signInAdmin(
       email,
       password,
       (authState) => {
         console.log('SuperAdminAuth: Login successful, auth state:', authState);
-        // Don't navigate here - let Auth.tsx handle the redirect
+        // Navigation will be handled by Auth.tsx through useEffect
       },
       (error) => {
         console.error('SuperAdminAuth: Login failed:', error);

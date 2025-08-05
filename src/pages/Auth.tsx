@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
 import { BootstrapSetup } from '@/components/auth/BootstrapSetup';
@@ -8,19 +8,29 @@ import { authenticationService } from '@/services/AuthenticationService';
 import { Loader2 } from 'lucide-react';
 
 export default function Auth() {
-  const { user, isLoading, isAdmin } = useAuth();
+  const { user, isLoading, isAdmin, isSuperAdmin } = useAuth();
   const [needsBootstrap, setNeedsBootstrap] = useState<boolean | null>(null);
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   console.log('Auth.tsx: Render state:', { 
     hasUser: !!user, 
     isAdmin,
+    isSuperAdmin,
     isLoading, 
     needsBootstrap, 
     checkingBootstrap,
     bootstrapError
   });
+
+  // Handle navigation for authenticated admin users
+  useEffect(() => {
+    if (!isLoading && user && isAdmin) {
+      console.log('Auth.tsx: Authenticated admin detected, navigating to super-admin');
+      navigate('/super-admin', { replace: true });
+    }
+  }, [isLoading, user, isAdmin, navigate]);
 
   useEffect(() => {
     // Only check bootstrap if we don't have a user and auth is not loading
@@ -31,12 +41,6 @@ export default function Auth() {
       setCheckingBootstrap(false);
     }
   }, [isLoading, user]);
-
-  // Immediate redirect for authenticated admin users
-  if (!isLoading && user && isAdmin) {
-    console.log('Auth.tsx: Redirecting authenticated admin user to super-admin');
-    return <Navigate to="/super-admin" replace />;
-  }
 
   const checkBootstrapStatus = async () => {
     try {

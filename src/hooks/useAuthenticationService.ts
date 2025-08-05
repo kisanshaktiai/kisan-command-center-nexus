@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { authenticationService } from '@/services/AuthenticationService';
 import { AuthState, TenantData } from '@/types/auth';
@@ -14,7 +13,7 @@ export const useAuthenticationService = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showSuccess, showError } = useNotifications();
-  const { setAuthState } = useAuthStore();
+  const authStore = useAuthStore();
 
   const clearError = useCallback(() => {
     setError(null);
@@ -70,15 +69,23 @@ export const useAuthenticationService = () => {
     return handleAuthOperation(
       () => authenticationService.signInUser(email, password),
       (authState) => {
-        // Update global auth store immediately
-        setAuthState(authState);
-        console.log('User signed in, auth state updated:', authState);
+        console.log('User signed in, updating auth state:', authState);
+        // Update all auth state properties atomically
+        authStore.setUser(authState.user);
+        authStore.setSession(authState.session);
+        authStore.setAuthState({
+          isAuthenticated: authState.isAuthenticated,
+          isAdmin: authState.isAdmin,
+          isSuperAdmin: authState.isSuperAdmin,
+          adminRole: authState.adminRole,
+          profile: authState.profile
+        });
         onSuccess?.(authState);
       },
       onError,
       { success: 'Successfully signed in!' }
     );
-  }, [handleAuthOperation, setAuthState]);
+  }, [handleAuthOperation, authStore]);
 
   const signInAdmin = useCallback(async (
     email: string, 
@@ -89,15 +96,34 @@ export const useAuthenticationService = () => {
     return handleAuthOperation(
       () => authenticationService.signInAdmin(email, password),
       (authState) => {
-        // Update global auth store immediately
-        setAuthState(authState);
-        console.log('Admin signed in, auth state updated:', authState);
+        console.log('Admin signed in, updating auth state:', authState);
+        // Update all auth state properties atomically and immediately
+        authStore.setUser(authState.user);
+        authStore.setSession(authState.session);
+        authStore.setAuthState({
+          isAuthenticated: authState.isAuthenticated,
+          isAdmin: authState.isAdmin,
+          isSuperAdmin: authState.isSuperAdmin,
+          adminRole: authState.adminRole,
+          profile: authState.profile
+        });
+        
+        // Force immediate state update
+        authStore.setLoading(false);
+        
+        console.log('Auth store updated:', {
+          hasUser: !!authStore.user,
+          isAdmin: authStore.isAdmin,
+          isSuperAdmin: authStore.isSuperAdmin,
+          isAuthenticated: authStore.isAuthenticated
+        });
+        
         onSuccess?.(authState);
       },
       onError,
       { success: 'Welcome back, admin!' }
     );
-  }, [handleAuthOperation, setAuthState]);
+  }, [handleAuthOperation, authStore]);
 
   const registerUser = useCallback(async (
     email: string, 
@@ -127,15 +153,24 @@ export const useAuthenticationService = () => {
     return handleAuthOperation(
       () => authenticationService.bootstrapSuperAdmin(email, password, fullName),
       (authState) => {
-        // Update global auth store immediately
-        setAuthState(authState);
-        console.log('Super admin bootstrapped, auth state updated:', authState);
+        console.log('Super admin bootstrapped, updating auth state:', authState);
+        // Update all auth state properties atomically
+        authStore.setUser(authState.user);
+        authStore.setSession(authState.session);
+        authStore.setAuthState({
+          isAuthenticated: authState.isAuthenticated,
+          isAdmin: authState.isAdmin,
+          isSuperAdmin: authState.isSuperAdmin,
+          adminRole: authState.adminRole,
+          profile: authState.profile
+        });
+        authStore.setLoading(false);
         onSuccess?.(authState);
       },
       onError,
       { success: 'System initialized successfully!' }
     );
-  }, [handleAuthOperation, setAuthState]);
+  }, [handleAuthOperation, authStore]);
 
   const checkAdminStatus = useCallback(async (
     userId: string,
