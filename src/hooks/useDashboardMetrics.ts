@@ -48,12 +48,12 @@ export const useDashboardMetrics = () => {
             .select('id, status')
             .eq('status', 'active'),
           
-          // Fixed: Use correct column name 'amount' instead of potential typos
+          // Use correct column names for financial_analytics table
           supabase
             .from('financial_analytics')
-            .select('amount, metric_type, created_at')
+            .select('amount, metric_type, period_start, period_end, created_at')
             .eq('metric_type', 'revenue')
-            .order('created_at', { ascending: false })
+            .order('period_start', { ascending: false })
             .limit(10)
         ]);
 

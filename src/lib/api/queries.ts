@@ -25,7 +25,7 @@ export const usePlatformAlerts = () => {
   });
 };
 
-// System health query with better error handling
+// System health query with correct column selection
 export const useSystemHealth = () => {
   return useQuery({
     queryKey: ['system-health'],
@@ -48,7 +48,7 @@ export const useSystemHealth = () => {
   });
 };
 
-// Financial metrics query with better error handling
+// Financial metrics query with correct column selection
 export const useFinancialMetrics = () => {
   return useQuery({
     queryKey: ['financial-metrics'],
@@ -134,14 +134,13 @@ export const useResolveAlert = () => {
 // Alias for backwards compatibility
 export const useSystemHealthMetrics = useSystemHealth;
 
-// Resource utilization query with better error handling
+// Resource utilization query with correct API call
 export const useResourceUtilization = () => {
   return useQuery({
     queryKey: ['resource-utilization'],
     queryFn: async () => {
       try {
-        const healthData = await realDataService.fetchSystemHealth();
-        return healthData;
+        return await realDataService.fetchResourceUtilization();
       } catch (error) {
         console.error('Failed to fetch resource utilization:', error);
         return []; // Return empty array as fallback

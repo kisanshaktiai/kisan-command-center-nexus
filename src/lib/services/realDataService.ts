@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SIMInfo {
@@ -42,13 +41,13 @@ export class RealDataService {
     }
   }
 
-  // Fetch system health metrics with corrected column names
+  // Fetch system health metrics with correct column names
   async fetchSystemHealth() {
     try {
       const { data, error } = await supabase
         .from('system_health_metrics')
         .select('id, metric_name, value, unit, timestamp, created_at, tenant_id')
-        .order('created_at', { ascending: false })
+        .order('timestamp', { ascending: false })
         .limit(100);
 
       if (error) {
@@ -62,13 +61,13 @@ export class RealDataService {
     }
   }
 
-  // Fetch financial metrics with corrected column names
+  // Fetch financial metrics with correct column names
   async fetchFinancialMetrics() {
     try {
       const { data, error } = await supabase
         .from('financial_analytics')
         .select('id, amount, metric_type, period_start, period_end, created_at, tenant_id')
-        .order('created_at', { ascending: false })
+        .order('period_start', { ascending: false })
         .limit(100);
 
       if (error) {
@@ -136,6 +135,26 @@ export class RealDataService {
     } catch (error) {
       console.error('Error resolving alert:', error);
       throw error;
+    }
+  }
+
+  // Fetch resource utilization data with correct column names
+  async fetchResourceUtilization() {
+    try {
+      const { data, error } = await supabase
+        .from('resource_utilization')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.error('Error fetching resource utilization:', error.message, error.details, error.hint);
+        throw error;
+      }
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching resource utilization:', error);
+      return [];
     }
   }
 
