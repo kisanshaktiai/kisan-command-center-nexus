@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { BaseService, ServiceResult } from './BaseService';
 import type { 
@@ -259,10 +258,7 @@ export class EmailService extends BaseService {
           .single();
 
         if (tenantTemplate) {
-          return {
-            ...tenantTemplate,
-            metadata: tenantTemplate.metadata as Record<string, any>
-          } as EmailTemplate;
+          return tenantTemplate as EmailTemplate;
         }
       }
 
@@ -277,10 +273,7 @@ export class EmailService extends BaseService {
         .single();
 
       if (defaultTemplate) {
-        return {
-          ...defaultTemplate,
-          metadata: defaultTemplate.metadata as Record<string, any>
-        } as EmailTemplate;
+        return defaultTemplate as EmailTemplate;
       }
 
       return null;
