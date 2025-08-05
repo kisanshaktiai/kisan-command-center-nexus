@@ -21,6 +21,7 @@ export interface CreateTenantUserRequest {
   sendActivationEmail?: boolean;
 }
 
+// Updated interfaces to match database schema
 export interface EmailTemplate {
   id: string;
   tenant_id: string | null;
@@ -32,7 +33,7 @@ export interface EmailTemplate {
   sender_name: string;
   sender_email: string;
   is_active: boolean;
-  variables: string[];
+  variables: any; // Json type from Supabase
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -45,7 +46,7 @@ export interface EmailLog {
   sender_email: string;
   template_type: string;
   subject: string;
-  status: 'pending' | 'sent' | 'delivered' | 'failed' | 'bounced';
+  status: string; // Database uses text, not enum
   external_id?: string;
   error_message?: string;
   metadata: Record<string, any>;
@@ -64,8 +65,8 @@ export interface UserInvitation {
   email: string;
   user_id?: string;
   invitation_token: string;
-  invitation_type: 'tenant_activation' | 'admin_invite' | 'password_reset';
-  status: 'pending' | 'sent' | 'clicked' | 'accepted' | 'expired' | 'cancelled';
+  invitation_type: string; // Database uses text, not enum
+  status: string; // Database uses text, not enum
   expires_at: string;
   sent_at?: string;
   clicked_at?: string;
@@ -173,7 +174,7 @@ export class CentralizedEmailService extends BaseService {
         throw new Error(`Failed to fetch email templates: ${error.message}`);
       }
 
-      return { success: true, data: data || [] };
+      return { success: true, data: (data || []) as EmailTemplate[] };
 
     } catch (error) {
       console.error('CentralizedEmailService: Unexpected error:', error);
@@ -187,11 +188,11 @@ export class CentralizedEmailService extends BaseService {
   /**
    * Create or update email template
    */
-  static async upsertEmailTemplate(template: Partial<EmailTemplate>): Promise<ServiceResult<EmailTemplate>> {
+  static async upsertEmailTemplate(template: Omit<EmailTemplate, 'id' | 'created_at' | 'updated_at'> & { id?: string }): Promise<ServiceResult<EmailTemplate>> {
     try {
       const { data, error } = await supabase
         .from('email_templates')
-        .upsert(template, {
+        .upsert(template as any, {
           onConflict: 'tenant_id,template_type'
         })
         .select()
@@ -202,7 +203,7 @@ export class CentralizedEmailService extends BaseService {
         throw new Error(`Failed to save email template: ${error.message}`);
       }
 
-      return { success: true, data };
+      return { success: true, data: data as EmailTemplate };
 
     } catch (error) {
       console.error('CentralizedEmailService: Unexpected error:', error);
@@ -230,7 +231,7 @@ export class CentralizedEmailService extends BaseService {
         throw new Error(`Failed to fetch email logs: ${error.message}`);
       }
 
-      return { success: true, data: data || [] };
+      return { success: true, data: (data || []) as EmailLog[] };
 
     } catch (error) {
       console.error('CentralizedEmailService: Unexpected error:', error);
@@ -262,7 +263,7 @@ export class CentralizedEmailService extends BaseService {
         throw new Error(`Failed to fetch user invitations: ${error.message}`);
       }
 
-      return { success: true, data: data || [] };
+      return { success: true, data: (data || []) as UserInvitation[] };
 
     } catch (error) {
       console.error('CentralizedEmailService: Unexpected error:', error);

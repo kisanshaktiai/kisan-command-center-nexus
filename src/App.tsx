@@ -1,18 +1,19 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/sonner";
 import Index from './pages/Index';
 import Auth from './pages/Auth';
-import AuthCallback from './pages/AuthCallback';
+import AuthCallback from './pages/auth/AuthCallback';
 import Register from './pages/Register';
 import AdminRegister from './pages/AdminRegister';
 import SuperAdmin from './pages/SuperAdmin';
 import NotFound from './pages/NotFound';
 import OnboardPartner from './pages/OnboardPartner';
-import ResetPassword from './pages/ResetPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 import LeadManagementPage from './pages/super-admin/LeadManagement';
-import AdminManagementPage from './pages/super-admin/AdminManagement';
+import AdminManagementPage from './pages/super-admin/AdminUserManagement';
 import Settings from './pages/Settings';
 import Billing from './pages/Billing';
 import { useAuth } from './hooks/useAuth';
