@@ -195,18 +195,17 @@ export const AlertsPanel: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-medium">
-                          {alert.alert_name}
+                          System Alert
                         </h4>
                         <Badge variant={getAlertBadgeVariant(alert.severity) as any}>
                           {alert.severity}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
-                        {alert.description}
+                        {alert.message}
                       </p>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>Metric: {alert.metric_name}</span>
-                        <span>Value: {alert.current_value}</span>
+                        <span>Status: {alert.status}</span>
                         <span>{formatTimeAgo(alert.created_at)}</span>
                       </div>
                     </div>

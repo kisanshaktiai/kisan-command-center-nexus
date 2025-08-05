@@ -8,12 +8,12 @@ export interface SIMInfo {
 }
 
 export class RealDataService {
-  // Fetch platform alerts with proper error handling
+  // Fetch platform alerts with correct column names
   async fetchAlerts() {
     try {
       const { data, error } = await supabase
         .from('platform_alerts')
-        .select('id, title, message, severity, status, created_at, tenant_id')
+        .select('id, message, severity, status, created_at, tenant_id')
         .order('created_at', { ascending: false })
         .limit(50);
 
