@@ -22,7 +22,7 @@ export class RealDataService {
     return RealDataService.instance;
   }
 
-  // Fetch platform alerts from database
+  // Fetch platform alerts from database with better error handling
   async fetchAlerts() {
     try {
       const { data, error } = await supabase
@@ -31,7 +31,10 @@ export class RealDataService {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching alerts:', error.message, error.details, error.hint);
+        throw error;
+      }
       return data || [];
     } catch (error) {
       console.error('Error fetching alerts:', error);
@@ -39,16 +42,19 @@ export class RealDataService {
     }
   }
 
-  // Fetch system health metrics
+  // Fetch system health metrics with corrected column names
   async fetchSystemHealth() {
     try {
       const { data, error } = await supabase
-        .from('system_metrics')
-        .select('*')
-        .order('timestamp', { ascending: false })
+        .from('system_health_metrics')
+        .select('id, metric_name, value, unit, timestamp, created_at, tenant_id')
+        .order('created_at', { ascending: false })
         .limit(100);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching system health:', error.message, error.details, error.hint);
+        throw error;
+      }
       return data || [];
     } catch (error) {
       console.error('Error fetching system health:', error);
@@ -56,16 +62,19 @@ export class RealDataService {
     }
   }
 
-  // Fetch financial metrics
+  // Fetch financial metrics with corrected column names
   async fetchFinancialMetrics() {
     try {
       const { data, error } = await supabase
-        .from('financial_metrics')
-        .select('*')
-        .order('period_start', { ascending: false })
+        .from('financial_analytics')
+        .select('id, amount, metric_type, period_start, period_end, created_at, tenant_id')
+        .order('created_at', { ascending: false })
         .limit(100);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching financial metrics:', error.message, error.details, error.hint);
+        throw error;
+      }
       return data || [];
     } catch (error) {
       console.error('Error fetching financial metrics:', error);
@@ -92,7 +101,7 @@ export class RealDataService {
     }
   }
 
-  // Acknowledge alert
+  // Acknowledge alert with better error handling
   async acknowledgeAlert(alertId: string) {
     try {
       const { error } = await supabase
@@ -100,7 +109,10 @@ export class RealDataService {
         .update({ status: 'acknowledged' })
         .eq('id', alertId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error acknowledging alert:', error.message, error.details, error.hint);
+        throw error;
+      }
       return { success: true };
     } catch (error) {
       console.error('Error acknowledging alert:', error);
@@ -108,7 +120,7 @@ export class RealDataService {
     }
   }
 
-  // Resolve alert
+  // Resolve alert with better error handling
   async resolveAlert(alertId: string) {
     try {
       const { error } = await supabase
@@ -116,7 +128,10 @@ export class RealDataService {
         .update({ status: 'resolved' })
         .eq('id', alertId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error resolving alert:', error.message, error.details, error.hint);
+        throw error;
+      }
       return { success: true };
     } catch (error) {
       console.error('Error resolving alert:', error);
