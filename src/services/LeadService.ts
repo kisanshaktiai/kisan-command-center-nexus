@@ -1,4 +1,3 @@
-
 import { BaseService, ServiceResult } from './BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead, CustomFieldValue } from '@/types/leads';
@@ -43,8 +42,8 @@ interface ConvertToTenantData {
 class LeadServiceClass extends BaseService {
   private static instanceStorage: { instance?: LeadServiceClass } = {};
 
-  // Valid status values that match database constraints
-  private readonly VALID_STATUSES = ['new', 'assigned', 'contacted', 'qualified', 'rejected'] as const;
+  // Updated valid status values to include 'converted'
+  private readonly VALID_STATUSES = ['new', 'assigned', 'contacted', 'qualified', 'converted', 'rejected'] as const;
   private readonly VALID_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
 
   constructor() {
@@ -217,11 +216,6 @@ class LeadServiceClass extends BaseService {
       if (updateData.status) {
         if (!this.validateStatus(updateData.status)) {
           throw new Error(`Invalid status: ${updateData.status}. Valid statuses are: ${this.VALID_STATUSES.join(', ')}`);
-        }
-        
-        // Prevent direct conversion to 'converted' status
-        if (updateData.status === 'converted') {
-          throw new Error('Cannot update status to "converted" directly. Use the conversion flow instead.');
         }
       }
 

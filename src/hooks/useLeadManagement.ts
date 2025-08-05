@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
@@ -131,8 +130,8 @@ export const useUpdateLeadStatus = () => {
   const queryClient = useQueryClient();
   const { showSuccess, showError, showLoading, dismiss } = useNotifications();
 
-  // Define valid status values that match database constraints
-  const VALID_STATUSES = ['new', 'assigned', 'contacted', 'qualified', 'rejected'] as const;
+  // Updated valid status values to include 'converted'
+  const VALID_STATUSES = ['new', 'assigned', 'contacted', 'qualified', 'converted', 'rejected'] as const;
   
   const validateStatus = (status: string): boolean => {
     return VALID_STATUSES.includes(status as any);
@@ -149,11 +148,6 @@ export const useUpdateLeadStatus = () => {
       // Validate status before proceeding
       if (!validateStatus(status)) {
         throw new Error(`Invalid status: ${status}. Valid statuses are: ${VALID_STATUSES.join(', ')}`);
-      }
-
-      // Handle conversion separately - don't update status to "converted" directly
-      if (status === 'converted') {
-        throw new Error('Lead conversion must be handled through the convert-to-tenant flow, not direct status update');
       }
       
       const loadingToast = showLoading(`Updating lead status to ${status}...`);
