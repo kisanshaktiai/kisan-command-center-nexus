@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
 import { BootstrapSetup } from '@/components/auth/BootstrapSetup';
@@ -8,29 +8,29 @@ import { authenticationService } from '@/services/AuthenticationService';
 import { Loader2 } from 'lucide-react';
 
 export default function Auth() {
-  const { user, isLoading, isAdmin, isSuperAdmin } = useAuth();
+  const { user, isLoading, isAdmin } = useAuth();
   const [needsBootstrap, setNeedsBootstrap] = useState<boolean | null>(null);
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [hasRedirected, setHasRedirected] = useState(false);
 
   console.log('Auth.tsx: Render state:', { 
-    hasUser: !!user, 
-    isAdmin,
-    isSuperAdmin,
+    user: user?.id, 
     isLoading, 
+    isAdmin,
     needsBootstrap, 
     checkingBootstrap,
-    bootstrapError
+    bootstrapError,
+    hasRedirected
   });
 
-  // Handle navigation for authenticated admin users
+  // Prevent infinite redirect loops
   useEffect(() => {
-    if (!isLoading && user && isAdmin) {
-      console.log('Auth.tsx: Authenticated admin detected, navigating to super-admin');
-      navigate('/super-admin', { replace: true });
+    if (user && isAdmin && !isLoading && !hasRedirected) {
+      console.log('Auth.tsx: Setting redirect flag for authenticated admin');
+      setHasRedirected(true);
     }
-  }, [isLoading, user, isAdmin, navigate]);
+  }, [user, isAdmin, isLoading, hasRedirected]);
 
   useEffect(() => {
     // Only check bootstrap if we don't have a user and auth is not loading
@@ -67,6 +67,12 @@ export default function Auth() {
       setCheckingBootstrap(false);
     }
   };
+
+  // Redirect authenticated admin users
+  if (user && isAdmin && !isLoading && hasRedirected) {
+    console.log('Auth.tsx: Redirecting authenticated admin user to super-admin');
+    return <Navigate to="/super-admin" replace />;
+  }
 
   // Show loading state while checking auth or bootstrap
   if (isLoading || checkingBootstrap) {

@@ -1,10 +1,11 @@
-
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Shield, Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuthenticationService } from '@/hooks/useAuthenticationService';
 import { AuthErrorBoundary } from '../auth/AuthErrorBoundary';
 
@@ -16,6 +17,7 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
   
   const { signInAdmin, isLoading, error, clearError } = useAuthenticationService();
 
@@ -23,21 +25,21 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
     e.preventDefault();
     
     if (!email || !password) {
+      toast.error('Please enter both email and password');
       return;
     }
 
-    console.log('SuperAdminAuth: Attempting admin login...');
     clearError();
     
     await signInAdmin(
       email,
       password,
-      (authState) => {
-        console.log('SuperAdminAuth: Login successful, auth state:', authState);
-        // Navigation will be handled by Auth.tsx through useEffect
+      () => {
+        toast.success('Successfully logged in as admin');
+        navigate('/super-admin');
       },
       (error) => {
-        console.error('SuperAdminAuth: Login failed:', error);
+        toast.error(error);
       }
     );
   };
