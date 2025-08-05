@@ -34,11 +34,11 @@ export const usePlatformMonitoring = () => {
       console.log('Fetching platform monitoring data...');
       
       try {
-        // Fixed: Use correct column names and handle potential schema differences
+        // Use correct column names and handle potential schema differences
         const [systemHealthResult, resourceResult, apiLogsResult, financialResult, subscriptionsResult] = await Promise.all([
           supabase
             .from('system_health_metrics')
-            .select('id, metric_name, value, unit, timestamp, created_at')
+            .select('id, metric_name, metric_type, value, unit, timestamp, created_at, labels')
             .order('created_at', { ascending: false })
             .limit(10),
           

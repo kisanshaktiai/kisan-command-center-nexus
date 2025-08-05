@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SIMInfo {
@@ -41,12 +42,12 @@ export class RealDataService {
     }
   }
 
-  // Fetch system health metrics with correct column names
+  // Fetch system health metrics - using correct column names from actual schema
   async fetchSystemHealth() {
     try {
       const { data, error } = await supabase
         .from('system_health_metrics')
-        .select('id, metric_name, value, unit, timestamp, created_at, tenant_id')
+        .select('id, metric_name, metric_type, value, unit, timestamp, created_at, tenant_id, labels')
         .order('timestamp', { ascending: false })
         .limit(100);
 
@@ -61,12 +62,12 @@ export class RealDataService {
     }
   }
 
-  // Fetch financial metrics with correct column names
+  // Fetch financial metrics - using correct column names from actual schema
   async fetchFinancialMetrics() {
     try {
       const { data, error } = await supabase
         .from('financial_analytics')
-        .select('id, amount, metric_type, period_start, period_end, created_at, tenant_id')
+        .select('id, amount, metric_type, currency, period_start, period_end, period_type, breakdown, created_at, tenant_id')
         .order('period_start', { ascending: false })
         .limit(100);
 
@@ -138,13 +139,13 @@ export class RealDataService {
     }
   }
 
-  // Fetch resource utilization data with correct column names
+  // Fetch resource utilization data - using correct column names from actual schema
   async fetchResourceUtilization() {
     try {
       const { data, error } = await supabase
         .from('resource_utilization')
-        .select('*')
-        .order('timestamp', { ascending: false })
+        .select('id, tenant_id, resource_type, current_usage, max_limit, usage_percentage, period_start, period_end, metadata, created_at, updated_at')
+        .order('created_at', { ascending: false })
         .limit(100);
 
       if (error) {
