@@ -1,6 +1,7 @@
-import { BaseService, ServiceResult } from './BaseService';
+
 import { supabase } from '@/integrations/supabase/client';
-import type { Lead, CustomFieldValue } from '@/types/leads';
+import { BaseService, ServiceResult } from './BaseService';
+import type { Lead } from '@/types/leads';
 
 interface CreateLeadData {
   contact_name: string;
@@ -39,294 +40,248 @@ interface ConvertToTenantData {
   adminName?: string;
 }
 
-class LeadServiceClass extends BaseService {
-  private static instanceStorage: { instance?: LeadServiceClass } = {};
+interface ConversionResult {
+  success: boolean;
+  tenant_id?: string;
+  tempPassword?: string;
+  message?: string;
+}
 
-  // Updated valid status values to include 'converted'
-  private readonly VALID_STATUSES = ['new', 'assigned', 'contacted', 'qualified', 'converted', 'rejected'] as const;
-  private readonly VALID_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
-
-  constructor() {
-    super();
-  }
-
-  static getInstance(): LeadServiceClass {
-    if (!this.instanceStorage.instance) {
-      this.instanceStorage.instance = new LeadServiceClass();
-    }
-    return this.instanceStorage.instance;
-  }
-
-  private validateStatus(status: string): status is Lead['status'] {
-    return this.VALID_STATUSES.includes(status as any);
-  }
-
-  private validatePriority(priority: string): priority is Lead['priority'] {
-    return this.VALID_PRIORITIES.includes(priority as any);
-  }
-
-  private transformDbRowToLead(dbRow: any): Lead {
-    // Transform custom_fields from JSON to CustomFieldValue[]
-    const customFields: CustomFieldValue[] = Array.isArray(dbRow.custom_fields) 
-      ? dbRow.custom_fields.map((field: any) => ({
-          field_name: field.field_name || '',
-          field_type: field.field_type || 'text',
-          value: field.value || '',
-          label: field.label || field.field_name || ''
-        }))
-      : [];
-
-    return {
-      ...dbRow,
-      status: this.validateStatus(dbRow.status) ? dbRow.status as Lead['status'] : 'new',
-      priority: this.validatePriority(dbRow.priority) ? dbRow.priority as Lead['priority'] : 'medium',
-      custom_fields: customFields,
-      assigned_admin: dbRow.assigned_admin || null
-    } as Lead;
-  }
-
-  async getLeads(): Promise<ServiceResult<Lead[]>> {
-    return this.executeOperation(async () => {
-      console.log('Fetching leads from database...');
-      
-      // Use only fields that exist in the database - simplified query
-      const { data: leadsData, error: leadsError } = await supabase
-        .from('leads')
-        .select(`
-          id,
-          contact_name,
-          email,
-          phone,
-          organization_name,
-          organization_type,
-          assigned_to,
-          assigned_at,
-          status,
-          priority,
-          source,
-          qualification_score,
-          converted_tenant_id,
-          converted_at,
-          rejection_reason,
-          last_contact_at,
-          next_follow_up_at,
-          created_at,
-          updated_at,
-          notes,
-          lead_score,
-          marketing_qualified,
-          sales_qualified,
-          demo_scheduled,
-          proposal_sent,
-          contract_sent,
-          last_activity,
-          created_by,
-          ai_score,
-          ai_recommended_action,
-          source_id,
-          campaign_id,
-          custom_fields
-        `)
-        .order('created_at', { ascending: false });
-
-      if (leadsError) {
-        console.error('Error fetching leads:', leadsError);
-        throw leadsError;
-      }
-
-      if (!leadsData) {
-        console.log('No leads data returned');
-        return [];
-      }
-
-      console.log('Leads fetched successfully:', leadsData.length);
-
-      // Get admin users data for assigned leads
-      const leadsWithAdmins = await Promise.all(
-        leadsData.map(async (lead) => {
-          if (lead.assigned_to) {
-            const { data: adminData } = await supabase
-              .from('admin_users')
-              .select('full_name, email')
-              .eq('id', lead.assigned_to)
-              .single();
-            
-            return this.transformDbRowToLead({
-              ...lead,
-              assigned_admin: adminData || null
-            });
-          }
-          return this.transformDbRowToLead({
-            ...lead,
-            assigned_admin: null
-          });
-        })
-      );
-
-      return leadsWithAdmins;
-    }, 'getLeads');
-  }
-
-  async createLead(leadData: CreateLeadData): Promise<ServiceResult<Lead>> {
-    return this.executeOperation(async () => {
-      console.log('Creating lead:', leadData);
-      
-      // Validate priority before inserting
-      const priority = leadData.priority || 'medium';
-      if (!this.validatePriority(priority)) {
-        throw new Error(`Invalid priority: ${priority}. Valid priorities are: ${this.VALID_PRIORITIES.join(', ')}`);
-      }
-      
+export class LeadService extends BaseService {
+  static async getLeads(): Promise<ServiceResult<Lead[]>> {
+    try {
       const { data, error } = await supabase
         .from('leads')
-        .insert({
-          contact_name: leadData.contact_name,
-          email: leadData.email,
-          phone: leadData.phone,
-          organization_name: leadData.organization_name,
-          organization_type: 'company',
-          source: leadData.source,
-          priority: priority,
-          notes: leadData.notes,
-          status: 'new',
-          qualification_score: 0,
-          lead_score: 0,
-        })
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('LeadService: Error fetching leads:', error);
+        return this.handleError(error, 'Failed to fetch leads');
+      }
+
+      console.log('LeadService: Successfully fetched leads:', data?.length || 0);
+      return this.handleSuccess(data || []);
+    } catch (error) {
+      console.error('LeadService: Unexpected error fetching leads:', error);
+      return this.handleError(error, 'Unexpected error while fetching leads');
+    }
+  }
+
+  static async createLead(leadData: CreateLeadData): Promise<ServiceResult<Lead>> {
+    try {
+      console.log('LeadService: Creating lead with data:', leadData);
+
+      const { data, error } = await supabase
+        .from('leads')
+        .insert(leadData)
         .select()
         .single();
 
       if (error) {
-        console.error('Error creating lead:', error);
-        throw error;
+        console.error('LeadService: Error creating lead:', error);
+        return this.handleError(error, 'Failed to create lead');
       }
-      
-      console.log('Lead created successfully:', data);
-      return this.transformDbRowToLead({
-        ...data,
-        assigned_admin: null
-      });
-    }, 'createLead');
+
+      console.log('LeadService: Successfully created lead:', data.id);
+      return this.handleSuccess(data);
+    } catch (error) {
+      console.error('LeadService: Unexpected error creating lead:', error);
+      return this.handleError(error, 'Unexpected error while creating lead');
+    }
   }
 
-  async updateLead(leadId: string, updateData: UpdateLeadData): Promise<ServiceResult<Lead>> {
-    return this.executeOperation(async () => {
-      console.log('LeadService: Updating lead:', { leadId, updateData });
-      
-      // Validate status if provided
-      if (updateData.status) {
-        if (!this.validateStatus(updateData.status)) {
-          throw new Error(`Invalid status: ${updateData.status}. Valid statuses are: ${this.VALID_STATUSES.join(', ')}`);
-        }
+  static async updateLead(leadId: string, updateData: UpdateLeadData): Promise<ServiceResult<Lead>> {
+    try {
+      console.log('LeadService: Updating lead:', leadId, updateData);
+
+      // Validate lead ID
+      if (!leadId) {
+        return this.handleError(new Error('Lead ID is required'), 'Lead ID is required');
       }
 
-      // Validate priority if provided
-      if (updateData.priority && !this.validatePriority(updateData.priority)) {
-        throw new Error(`Invalid priority: ${updateData.priority}. Valid priorities are: ${this.VALID_PRIORITIES.join(', ')}`);
-      }
-      
-      const updatePayload: any = {
+      // Prepare update data with timestamp
+      const dataToUpdate = {
         ...updateData,
         updated_at: new Date().toISOString()
       };
 
-      // Remove undefined values to prevent database errors
-      Object.keys(updatePayload).forEach(key => {
-        if (updatePayload[key] === undefined) {
-          delete updatePayload[key];
-        }
-      });
-
-      console.log('LeadService: Update payload prepared:', updatePayload);
-
       const { data, error } = await supabase
         .from('leads')
-        .update(updatePayload)
+        .update(dataToUpdate)
         .eq('id', leadId)
         .select()
         .single();
 
       if (error) {
-        console.error('LeadService: Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          leadId,
-          updatePayload
-        });
-        throw error;
+        console.error('LeadService: Error updating lead:', error);
+        return this.handleError(error, 'Failed to update lead');
       }
 
       if (!data) {
         console.error('LeadService: No data returned from update');
-        throw new Error('No data returned from update operation');
-      }
-      
-      console.log('LeadService: Lead updated successfully:', data);
-      return this.transformDbRowToLead({
-        ...data,
-        assigned_admin: null // Will be populated by calling code if needed
-      });
-    }, 'updateLead');
-  }
-
-  async assignLead(assignData: AssignLeadData): Promise<ServiceResult<boolean>> {
-    return this.executeOperation(async () => {
-      console.log('Assigning lead:', assignData);
-      
-      const { error } = await supabase.rpc('reassign_lead', {
-        p_lead_id: assignData.leadId,
-        p_new_admin_id: assignData.adminId,
-        p_reason: assignData.reason,
-      });
-
-      if (error) {
-        console.error('Error assigning lead:', error);
-        throw error;
-      }
-      
-      console.log('Lead assigned successfully');
-      return true;
-    }, 'assignLead');
-  }
-
-  async convertToTenant(convertData: ConvertToTenantData): Promise<ServiceResult<any>> {
-    return this.executeOperation(async () => {
-      console.log('Converting lead to tenant:', convertData);
-      
-      // Use the edge function for conversion
-      const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
-        body: convertData,
-      });
-
-      if (error) {
-        console.error('Error converting lead to tenant:', error);
-        throw error;
+        return this.handleError(new Error('No data returned'), 'Update operation failed');
       }
 
-      console.log('Lead conversion successful:', data);
-      return data;
-    }, 'convertToTenant');
+      console.log('LeadService: Successfully updated lead:', data.id);
+      return this.handleSuccess(data);
+    } catch (error) {
+      console.error('LeadService: Unexpected error updating lead:', error);
+      return this.handleError(error, 'Unexpected error while updating lead');
+    }
   }
 
-  async getAdminUsers(): Promise<ServiceResult<any[]>> {
-    return this.executeOperation(async () => {
-      console.log('Fetching admin users...');
-      
+  static async assignLead(assignData: AssignLeadData): Promise<ServiceResult<boolean>> {
+    try {
+      console.log('LeadService: Assigning lead:', assignData);
+
+      const { leadId, adminId, reason } = assignData;
+
+      if (!leadId || !adminId) {
+        return this.handleError(
+          new Error('Lead ID and Admin ID are required'), 
+          'Lead ID and Admin ID are required'
+        );
+      }
+
+      // Update lead assignment
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({
+          assigned_to: adminId,
+          assigned_at: new Date().toISOString(),
+          status: 'assigned',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', leadId);
+
+      if (updateError) {
+        console.error('LeadService: Error assigning lead:', updateError);
+        return this.handleError(updateError, 'Failed to assign lead');
+      }
+
+      // Log the assignment
+      const { error: logError } = await supabase
+        .from('lead_assignments')
+        .insert({
+          lead_id: leadId,
+          assigned_to: adminId,
+          assignment_type: 'manual',
+          assignment_reason: reason || 'Manual assignment'
+        });
+
+      if (logError) {
+        console.warn('LeadService: Failed to log assignment:', logError);
+        // Don't fail the operation for logging issues
+      }
+
+      console.log('LeadService: Successfully assigned lead:', leadId, 'to:', adminId);
+      return this.handleSuccess(true);
+    } catch (error) {
+      console.error('LeadService: Unexpected error assigning lead:', error);
+      return this.handleError(error, 'Unexpected error while assigning lead');
+    }
+  }
+
+  static async convertToTenant(convertData: ConvertToTenantData): Promise<ServiceResult<ConversionResult>> {
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1 second
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`LeadService: Converting lead to tenant (attempt ${attempt}):`, {
+          leadId: convertData.leadId,
+          tenantName: convertData.tenantName,
+          tenantSlug: convertData.tenantSlug,
+          subscriptionPlan: convertData.subscriptionPlan
+        });
+
+        const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
+          body: convertData,
+        });
+
+        if (error) {
+          console.error(`LeadService: Edge function error (attempt ${attempt}):`, error);
+          
+          // Check if it's a network/connectivity issue that might benefit from retry
+          if (attempt < maxRetries && this.isRetryableError(error)) {
+            console.log(`LeadService: Retrying in ${retryDelay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+            continue;
+          }
+          
+          return this.handleError(error, `Failed to convert lead to tenant: ${error.message || 'Unknown error'}`);
+        }
+
+        if (!data || !data.success) {
+          const errorMessage = data?.error || 'Conversion failed without specific error';
+          console.error(`LeadService: Conversion failed (attempt ${attempt}):`, errorMessage);
+          
+          if (attempt < maxRetries && !data?.error?.includes('already taken') && !data?.error?.includes('not found')) {
+            console.log(`LeadService: Retrying in ${retryDelay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+            continue;
+          }
+          
+          return this.handleError(new Error(errorMessage), errorMessage);
+        }
+
+        console.log('LeadService: Successfully converted lead to tenant:', data.tenant_id);
+        return this.handleSuccess(data);
+
+      } catch (error) {
+        console.error(`LeadService: Unexpected error converting lead (attempt ${attempt}):`, error);
+        
+        if (attempt < maxRetries) {
+          console.log(`LeadService: Retrying in ${retryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+          continue;
+        }
+        
+        return this.handleError(error, 'Unexpected error while converting lead to tenant');
+      }
+    }
+
+    return this.handleError(
+      new Error('Max retries exceeded'), 
+      'Failed to convert lead after multiple attempts'
+    );
+  }
+
+  static async getAdminUsers(): Promise<ServiceResult<any[]>> {
+    try {
       const { data, error } = await supabase
         .from('admin_users')
-        .select('id, full_name, email')
-        .eq('is_active', true);
+        .select('id, email, full_name, role, is_active')
+        .eq('is_active', true)
+        .order('full_name', { ascending: true });
 
       if (error) {
-        console.error('Error fetching admin users:', error);
-        throw error;
+        console.error('LeadService: Error fetching admin users:', error);
+        return this.handleError(error, 'Failed to fetch admin users');
       }
-      
-      console.log('Admin users fetched:', data?.length || 0);
-      return data;
-    }, 'getAdminUsers');
+
+      console.log('LeadService: Successfully fetched admin users:', data?.length || 0);
+      return this.handleSuccess(data || []);
+    } catch (error) {
+      console.error('LeadService: Unexpected error fetching admin users:', error);
+      return this.handleError(error, 'Unexpected error while fetching admin users');
+    }
+  }
+
+  private static isRetryableError(error: any): boolean {
+    // Check for network errors, timeout errors, or temporary server errors
+    const errorMessage = error?.message?.toLowerCase() || '';
+    const errorStatus = error?.status;
+    
+    return (
+      errorMessage.includes('network') ||
+      errorMessage.includes('timeout') ||
+      errorMessage.includes('connection') ||
+      errorMessage.includes('fetch') ||
+      errorStatus === 502 ||
+      errorStatus === 503 ||
+      errorStatus === 504
+    );
   }
 }
-
-export const LeadService = LeadServiceClass.getInstance();

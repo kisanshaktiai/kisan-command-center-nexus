@@ -137,6 +137,9 @@ verify_jwt = false
 [functions.create-super-admin]
 verify_jwt = false
 
+[functions.convert-lead-to-tenant]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323
