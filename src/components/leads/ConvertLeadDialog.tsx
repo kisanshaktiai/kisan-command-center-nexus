@@ -19,7 +19,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useConvertLeadToTenant } from '@/hooks/useLeadManagement';
 import { subscriptionPlanOptions } from '@/types/tenant';
-import { CheckCircle, Copy, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Copy, Eye, EyeOff, AlertTriangle, Info } from 'lucide-react';
 import type { Lead } from '@/types/leads';
 
 interface ConvertLeadDialogProps {
@@ -65,59 +65,75 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
     }
   }, [lead, open]);
 
+  const getErrorMessage = (error: any): { message: string; code: string } => {
+    console.log('Processing conversion error:', error);
+    
+    // Handle different error formats
+    let errorMessage = 'An unexpected error occurred during conversion.';
+    let errorCode = 'UNKNOWN_ERROR';
+    
+    if (error?.message) {
+      errorMessage = error.message;
+    }
+    
+    // Handle specific error codes from the edge function
+    if (error?.code || (error as any)?.code) {
+      errorCode = error.code || (error as any).code;
+      switch (errorCode) {
+        case 'SLUG_CONFLICT':
+          errorMessage = `The slug "${tenantSlug}" is already taken. Please choose a different one.`;
+          break;
+        case 'LEAD_ALREADY_CONVERTED':
+          errorMessage = 'This lead has already been converted to a tenant.';
+          break;
+        case 'LEAD_NOT_FOUND':
+          errorMessage = 'Lead not found or not in a convertible status.';
+          break;
+        case 'VALIDATION_ERROR':
+          errorMessage = error.message || 'Please check all required fields.';
+          break;
+        case 'DATABASE_ERROR':
+          errorMessage = 'Database operation failed. Please try again.';
+          break;
+        case 'INTERNAL_ERROR':
+          errorMessage = 'Internal server error. Please try again later.';
+          break;
+        default:
+          errorMessage = error.message || errorMessage;
+      }
+    }
+
+    return { message: errorMessage, code: errorCode };
+  };
+
   const handleSubmit = () => {
-    if (!lead || !tenantName || !tenantSlug) return;
+    if (!lead || !tenantName.trim() || !tenantSlug.trim() || !adminName.trim() || !adminEmail.trim()) {
+      setConversionError({
+        message: 'Please fill in all required fields.',
+        code: 'VALIDATION_ERROR'
+      });
+      return;
+    }
 
     setConversionError(null);
 
     convertMutation.mutate({
       leadId: lead.id,
-      tenantName,
-      tenantSlug,
+      tenantName: tenantName.trim(),
+      tenantSlug: tenantSlug.trim(),
       subscriptionPlan,
-      adminName: adminName.trim() || undefined,
-      adminEmail: adminEmail.trim() || undefined,
+      adminName: adminName.trim(),
+      adminEmail: adminEmail.trim(),
     }, {
       onSuccess: (result) => {
+        console.log('Conversion successful:', result);
         setConversionResult(result);
         setConversionError(null);
       },
       onError: (error: any) => {
-        console.error('Conversion error:', error);
-        
-        // Parse error response for better user feedback
-        let errorMessage = 'An unexpected error occurred during conversion.';
-        let errorCode = 'UNKNOWN_ERROR';
-        
-        if (error?.message) {
-          errorMessage = error.message;
-        }
-        
-        // Handle specific error responses from the edge function
-        if (typeof error === 'object' && error.code) {
-          errorCode = error.code;
-          switch (error.code) {
-            case 'SLUG_CONFLICT':
-              errorMessage = `The slug "${tenantSlug}" is already taken. Please choose a different one.`;
-              break;
-            case 'LEAD_ALREADY_CONVERTED':
-              errorMessage = 'This lead has already been converted to a tenant.';
-              break;
-            case 'TENANT_EXISTS':
-              errorMessage = `A tenant with this name or slug already exists. Please use different values.`;
-              break;
-            case 'VALIDATION_ERROR':
-              errorMessage = error.message || 'Please check all required fields.';
-              break;
-            default:
-              errorMessage = error.message || errorMessage;
-          }
-        }
-
-        setConversionError({
-          message: errorMessage,
-          code: errorCode
-        });
+        console.error('Conversion error in component:', error);
+        const { message, code } = getErrorMessage(error);
+        setConversionError({ message, code });
         setConversionResult(null);
       },
     });
@@ -166,6 +182,15 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
               <div className="text-sm text-gray-500">
                 Error Code: {conversionError.code}
               </div>
+            )}
+
+            {conversionError.code === 'SLUG_CONFLICT' && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Try modifying the tenant slug to make it unique, such as adding numbers or your company identifier.
+                </AlertDescription>
+              </Alert>
             )}
 
             <div className="flex justify-end gap-2">
@@ -288,7 +313,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="tenantName">Organization Name</Label>
+            <Label htmlFor="tenantName">Organization Name *</Label>
             <Input
               id="tenantName"
               value={tenantName}
@@ -299,7 +324,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
           </div>
 
           <div>
-            <Label htmlFor="tenantSlug">Tenant Slug</Label>
+            <Label htmlFor="tenantSlug">Tenant Slug *</Label>
             <Input
               id="tenantSlug"
               value={tenantSlug}
@@ -330,7 +355,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
           </div>
 
           <div>
-            <Label htmlFor="adminName">Admin Name</Label>
+            <Label htmlFor="adminName">Admin Name *</Label>
             <Input
               id="adminName"
               value={adminName}
@@ -341,7 +366,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
           </div>
 
           <div>
-            <Label htmlFor="adminEmail">Admin Email</Label>
+            <Label htmlFor="adminEmail">Admin Email *</Label>
             <Input
               id="adminEmail"
               type="email"
@@ -358,7 +383,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!tenantName || !tenantSlug || !adminEmail || !adminName || convertMutation.isPending}
+              disabled={!tenantName.trim() || !tenantSlug.trim() || !adminEmail.trim() || !adminName.trim() || convertMutation.isPending}
             >
               {convertMutation.isPending ? 'Converting...' : 'Convert to Tenant'}
             </Button>

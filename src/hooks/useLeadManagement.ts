@@ -212,7 +212,7 @@ export const useUpdateLeadStatus = () => {
 
 export const useConvertLeadToTenant = () => {
   const queryClient = useQueryClient();
-  const { showSuccess, showError } = useNotifications();
+  const { showSuccess, showError, showLoading, dismiss } = useNotifications();
 
   return useMutation({
     mutationFn: async ({ 
@@ -230,52 +230,70 @@ export const useConvertLeadToTenant = () => {
       adminEmail?: string;
       adminName?: string;
     }) => {
+      // Validate required fields
+      if (!leadId || !tenantName || !tenantSlug || !adminEmail || !adminName) {
+        throw new Error('All fields are required for lead conversion');
+      }
+
       console.log('Converting lead to tenant:', {
         leadId,
         tenantName,
         tenantSlug,
-        subscriptionPlan
+        subscriptionPlan,
+        adminEmail,
+        adminName
       });
 
-      // Call the edge function with proper error handling
-      const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
-        body: {
-          leadId,
-          tenantName,
-          tenantSlug,
-          subscriptionPlan: subscriptionPlan || 'Kisan_Basic',
-          adminEmail,
-          adminName,
+      const loadingToast = showLoading('Converting lead to tenant...');
+
+      try {
+        // Call the edge function with proper error handling
+        const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
+          body: {
+            leadId,
+            tenantName,
+            tenantSlug,
+            subscriptionPlan: subscriptionPlan || 'Kisan_Basic',
+            adminEmail,
+            adminName,
+          }
+        });
+
+        dismiss(loadingToast);
+
+        if (error) {
+          console.error('Edge function invocation error:', error);
+          throw new Error(`Conversion failed: ${error.message || 'Unknown error'}`);
         }
-      });
 
-      if (error) {
-        console.error('Edge function invocation error:', error);
-        throw new Error(`Conversion failed: ${error.message || 'Unknown error'}`);
-      }
+        // Handle edge function response
+        if (!data) {
+          throw new Error('No response data from conversion service');
+        }
 
-      // Handle edge function response
-      if (!data) {
-        throw new Error('No response data from conversion service');
-      }
+        console.log('Edge function response:', data);
 
-      // Check if the response indicates success
-      if (!data.success) {
-        console.error('Conversion service returned error:', data);
+        // Check if the response indicates success
+        if (!data.success) {
+          console.error('Conversion service returned error:', data);
+          
+          // Create a structured error with the code for better handling
+          const error = new Error(data.error || 'Conversion failed');
+          (error as any).code = data.code;
+          throw error;
+        }
+
+        console.log('Lead conversion successful:', data);
         
-        // Create a structured error with the code for better handling
-        const error = new Error(data.error || 'Conversion failed');
-        (error as any).code = data.code;
-        throw error;
+        showSuccess('Lead converted to tenant successfully', {
+          description: `${tenantName} has been created and the lead has been marked as converted.`,
+        });
+        
+        return data;
+      } catch (error) {
+        dismiss(loadingToast);
+        throw error; // Re-throw to be handled by the calling component
       }
-
-      console.log('Lead conversion successful:', data);
-      
-      showSuccess('Lead converted to tenant successfully', {
-        description: `${tenantName} has been created and the lead has been marked as converted.`,
-      });
-      
-      return data;
     },
     onSuccess: (data, variables) => {
       console.log('Lead converted to tenant successfully:', variables.tenantName);
@@ -285,8 +303,10 @@ export const useConvertLeadToTenant = () => {
     onError: (error, variables) => {
       console.error('Failed to convert lead to tenant:', {
         error: error instanceof Error ? error.message : 'Unknown error',
+        code: (error as any)?.code,
         leadId: variables.leadId,
-        tenantName: variables.tenantName
+        tenantName: variables.tenantName,
+        timestamp: new Date().toISOString()
       });
       
       // Don't show error toast here as it's handled in the component

@@ -7079,6 +7079,17 @@ export type Database = {
         }
         Returns: Json
       }
+      convert_lead_to_tenant_secure: {
+        Args: {
+          p_lead_id: string
+          p_tenant_name: string
+          p_tenant_slug: string
+          p_subscription_plan?: string
+          p_admin_email?: string
+          p_admin_name?: string
+        }
+        Returns: Json
+      }
       create_tenant_with_validation: {
         Args: {
           p_name: string
