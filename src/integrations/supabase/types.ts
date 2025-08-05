@@ -1556,60 +1556,79 @@ export type Database = {
       }
       email_logs: {
         Row: {
+          bounced_at: string | null
           clicked_at: string | null
           created_at: string | null
           delivered_at: string | null
           error_message: string | null
-          external_id: string | null
+          external_message_id: string | null
+          failed_at: string | null
           id: string
           metadata: Json | null
           opened_at: string | null
           recipient_email: string
-          sender_email: string
+          recipient_id: string | null
+          retry_count: number | null
           sent_at: string | null
           status: string
           subject: string
+          template_id: string | null
           template_type: string
           tenant_id: string | null
           updated_at: string | null
         }
         Insert: {
+          bounced_at?: string | null
           clicked_at?: string | null
           created_at?: string | null
           delivered_at?: string | null
           error_message?: string | null
-          external_id?: string | null
+          external_message_id?: string | null
+          failed_at?: string | null
           id?: string
           metadata?: Json | null
           opened_at?: string | null
           recipient_email: string
-          sender_email: string
+          recipient_id?: string | null
+          retry_count?: number | null
           sent_at?: string | null
           status?: string
           subject: string
+          template_id?: string | null
           template_type: string
           tenant_id?: string | null
           updated_at?: string | null
         }
         Update: {
+          bounced_at?: string | null
           clicked_at?: string | null
           created_at?: string | null
           delivered_at?: string | null
           error_message?: string | null
-          external_id?: string | null
+          external_message_id?: string | null
+          failed_at?: string | null
           id?: string
           metadata?: Json | null
           opened_at?: string | null
           recipient_email?: string
-          sender_email?: string
+          recipient_id?: string | null
+          retry_count?: number | null
           sent_at?: string | null
           status?: string
           subject?: string
+          template_id?: string | null
           template_type?: string
           tenant_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "email_logs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "email_logs_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1622,51 +1641,48 @@ export type Database = {
       email_templates: {
         Row: {
           created_at: string | null
-          html_content: string
+          created_by: string | null
+          html_template: string
           id: string
           is_active: boolean | null
-          metadata: Json | null
-          sender_email: string | null
-          sender_name: string | null
-          subject: string
+          is_default: boolean | null
+          subject_template: string
           template_name: string
           template_type: string
           tenant_id: string | null
-          text_content: string | null
+          text_template: string | null
           updated_at: string | null
-          variables: Json | null
+          variables: string[] | null
         }
         Insert: {
           created_at?: string | null
-          html_content: string
+          created_by?: string | null
+          html_template: string
           id?: string
           is_active?: boolean | null
-          metadata?: Json | null
-          sender_email?: string | null
-          sender_name?: string | null
-          subject: string
+          is_default?: boolean | null
+          subject_template: string
           template_name: string
           template_type: string
           tenant_id?: string | null
-          text_content?: string | null
+          text_template?: string | null
           updated_at?: string | null
-          variables?: Json | null
+          variables?: string[] | null
         }
         Update: {
           created_at?: string | null
-          html_content?: string
+          created_by?: string | null
+          html_template?: string
           id?: string
           is_active?: boolean | null
-          metadata?: Json | null
-          sender_email?: string | null
-          sender_name?: string | null
-          subject?: string
+          is_default?: boolean | null
+          subject_template?: string
           template_name?: string
           template_type?: string
           tenant_id?: string | null
-          text_content?: string | null
+          text_template?: string | null
           updated_at?: string | null
-          variables?: Json | null
+          variables?: string[] | null
         }
         Relationships: [
           {
@@ -1685,20 +1701,24 @@ export type Database = {
           expires_at: string
           id: string
           is_verified: boolean | null
-          updated_at: string | null
+          metadata: Json | null
+          tenant_id: string | null
           user_id: string
           verification_token: string
+          verification_type: string
           verified_at: string | null
         }
         Insert: {
           created_at?: string | null
           email: string
-          expires_at: string
+          expires_at?: string
           id?: string
           is_verified?: boolean | null
-          updated_at?: string | null
+          metadata?: Json | null
+          tenant_id?: string | null
           user_id: string
           verification_token: string
+          verification_type?: string
           verified_at?: string | null
         }
         Update: {
@@ -1707,12 +1727,22 @@ export type Database = {
           expires_at?: string
           id?: string
           is_verified?: boolean | null
-          updated_at?: string | null
+          metadata?: Json | null
+          tenant_id?: string | null
           user_id?: string
           verification_token?: string
+          verification_type?: string
           verified_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_verifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       farmer_subscriptions: {
         Row: {

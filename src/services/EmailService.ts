@@ -112,7 +112,8 @@ export class EmailService extends BaseService {
           tenant_id: data.tenantId,
           email: data.email,
           verification_token: verificationToken,
-          verification_type: 'email_verification'
+          verification_type: 'email_verification',
+          metadata: {}
         });
 
       if (insertError) {
@@ -181,7 +182,8 @@ export class EmailService extends BaseService {
           template_type: request.templateType,
           subject,
           status: 'pending',
-          metadata: request.metadata || {}
+          metadata: request.metadata || {},
+          retry_count: 0
         })
         .select()
         .single();
@@ -193,7 +195,7 @@ export class EmailService extends BaseService {
       logId = logData.id;
 
       // Send email via Supabase edge function
-      const { data, error } = await supabase.functions.invoke('send-auth-email', {
+      const { data, error } = await supabase.functions.invoke('send-email', {
         body: {
           to: request.to,
           subject,
@@ -246,15 +248,8 @@ export class EmailService extends BaseService {
    */
   private async getEmailTemplate(templateType: string, tenantId?: string): Promise<EmailTemplate | null> {
     try {
-      let query = supabase
-        .from('email_templates')
-        .select('*')
-        .eq('template_type', templateType)
-        .eq('is_active', true)
-        .order('is_default', { ascending: true });
-
       if (tenantId) {
-        // First try to get tenant-specific template, then fall back to default
+        // First try to get tenant-specific template
         const { data: tenantTemplate } = await supabase
           .from('email_templates')
           .select('*')
