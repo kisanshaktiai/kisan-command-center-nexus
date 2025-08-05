@@ -19,13 +19,18 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useConvertLeadToTenant } from '@/hooks/useLeadManagement';
 import { subscriptionPlanOptions } from '@/types/tenant';
-import { CheckCircle, Copy, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle, Copy, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import type { Lead } from '@/types/leads';
 
 interface ConvertLeadDialogProps {
   open: boolean;
   onClose: () => void;
   lead?: Lead;
+}
+
+interface ConversionError {
+  message: string;
+  code?: string;
 }
 
 export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
@@ -39,6 +44,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [conversionResult, setConversionResult] = useState<any>(null);
+  const [conversionError, setConversionError] = useState<ConversionError | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const convertMutation = useConvertLeadToTenant();
@@ -55,11 +61,14 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       setAdminName(lead.contact_name);
       setAdminEmail(lead.email);
       setConversionResult(null);
+      setConversionError(null);
     }
   }, [lead, open]);
 
   const handleSubmit = () => {
     if (!lead || !tenantName || !tenantSlug) return;
+
+    setConversionError(null);
 
     convertMutation.mutate({
       leadId: lead.id,
@@ -71,6 +80,45 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
     }, {
       onSuccess: (result) => {
         setConversionResult(result);
+        setConversionError(null);
+      },
+      onError: (error: any) => {
+        console.error('Conversion error:', error);
+        
+        // Parse error response for better user feedback
+        let errorMessage = 'An unexpected error occurred during conversion.';
+        let errorCode = 'UNKNOWN_ERROR';
+        
+        if (error?.message) {
+          errorMessage = error.message;
+        }
+        
+        // Handle specific error responses from the edge function
+        if (typeof error === 'object' && error.code) {
+          errorCode = error.code;
+          switch (error.code) {
+            case 'SLUG_CONFLICT':
+              errorMessage = `The slug "${tenantSlug}" is already taken. Please choose a different one.`;
+              break;
+            case 'LEAD_ALREADY_CONVERTED':
+              errorMessage = 'This lead has already been converted to a tenant.';
+              break;
+            case 'TENANT_EXISTS':
+              errorMessage = `A tenant with this name or slug already exists. Please use different values.`;
+              break;
+            case 'VALIDATION_ERROR':
+              errorMessage = error.message || 'Please check all required fields.';
+              break;
+            default:
+              errorMessage = error.message || errorMessage;
+          }
+        }
+
+        setConversionError({
+          message: errorMessage,
+          code: errorCode
+        });
+        setConversionResult(null);
       },
     });
   };
@@ -85,6 +133,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       setAdminName('');
       setAdminEmail('');
       setConversionResult(null);
+      setConversionError(null);
       setShowPassword(false);
     }, 300);
   };
@@ -92,6 +141,46 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
+
+  // Show error state
+  if (conversionError) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Conversion Failed
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                {conversionError.message}
+              </AlertDescription>
+            </Alert>
+
+            {conversionError.code && (
+              <div className="text-sm text-gray-500">
+                Error Code: {conversionError.code}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConversionError(null)}>
+                Try Again
+              </Button>
+              <Button onClick={handleClose}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   // Show success result if conversion completed
   if (conversionResult) {
@@ -116,6 +205,20 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
               <div>
                 <Label className="text-sm font-medium">Tenant Name</Label>
                 <p className="text-sm text-gray-600">{tenantName}</p>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Tenant ID</Label>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-600 font-mono">{conversionResult.tenantId}</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(conversionResult.tenantId)}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
 
               <div>
@@ -191,6 +294,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
               value={tenantName}
               onChange={(e) => setTenantName(e.target.value)}
               placeholder="Enter organization name"
+              required
             />
           </div>
 
@@ -201,7 +305,12 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
               value={tenantSlug}
               onChange={(e) => setTenantSlug(e.target.value)}
               placeholder="organization-slug"
+              pattern="^[a-z0-9-]+$"
+              required
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Only lowercase letters, numbers, and hyphens allowed
+            </p>
           </div>
 
           <div>
@@ -227,6 +336,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
               value={adminName}
               onChange={(e) => setAdminName(e.target.value)}
               placeholder="Admin full name"
+              required
             />
           </div>
 
@@ -238,6 +348,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
               value={adminEmail}
               onChange={(e) => setAdminEmail(e.target.value)}
               placeholder="admin@example.com"
+              required
             />
           </div>
 
@@ -247,7 +358,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!tenantName || !tenantSlug || convertMutation.isPending}
+              disabled={!tenantName || !tenantSlug || !adminEmail || !adminName || convertMutation.isPending}
             >
               {convertMutation.isPending ? 'Converting...' : 'Convert to Tenant'}
             </Button>
