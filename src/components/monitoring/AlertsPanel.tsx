@@ -65,8 +65,8 @@ export const AlertsPanel: React.FC = () => {
 
   // Safely handle alerts data
   const alertsArray = Array.isArray(alerts) ? alerts : [];
-  const activeAlerts = alertsArray.filter(alert => alert?.status === 'active');
-  const acknowledgedAlerts = alertsArray.filter(alert => alert?.status === 'acknowledged');
+  const activeAlerts = alertsArray.filter(alert => alert?.alert_status === 'active');
+  const acknowledgedAlerts = alertsArray.filter(alert => alert?.alert_status === 'acknowledged');
 
   const getAlertIcon = (severity: string) => {
     switch (severity) {
@@ -190,9 +190,12 @@ export const AlertsPanel: React.FC = () => {
                 // Safely access alert properties with fallbacks
                 const alertId = alert?.id || 'unknown';
                 const alertSeverity = alert?.severity || 'low';
-                const alertMessage = alert?.message || 'No message available';
-                const alertStatus = alert?.status || 'unknown';
+                const alertName = alert?.alert_name || 'System Alert';
+                const alertDescription = alert?.description || 'No description available';
+                const alertStatus = alert?.alert_status || 'unknown';
                 const alertCreatedAt = alert?.created_at || new Date().toISOString();
+                const metricName = alert?.metric_name || '';
+                const currentValue = alert?.current_value || 0;
 
                 return (
                   <div
@@ -204,17 +207,19 @@ export const AlertsPanel: React.FC = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-medium">
-                            System Alert
+                            {alertName}
                           </h4>
                           <Badge variant={getAlertBadgeVariant(alertSeverity) as any}>
                             {alertSeverity}
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mb-2">
-                          {alertMessage}
+                          {alertDescription}
                         </p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span>Status: {alertStatus}</span>
+                          {metricName && <span>Metric: {metricName}</span>}
+                          {currentValue > 0 && <span>Value: {currentValue}</span>}
                           <span>{formatTimeAgo(alertCreatedAt)}</span>
                         </div>
                       </div>
