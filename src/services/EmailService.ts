@@ -259,7 +259,10 @@ export class EmailService extends BaseService {
           .single();
 
         if (tenantTemplate) {
-          return tenantTemplate;
+          return {
+            ...tenantTemplate,
+            metadata: tenantTemplate.metadata as Record<string, any>
+          } as EmailTemplate;
         }
       }
 
@@ -273,7 +276,14 @@ export class EmailService extends BaseService {
         .eq('is_active', true)
         .single();
 
-      return defaultTemplate;
+      if (defaultTemplate) {
+        return {
+          ...defaultTemplate,
+          metadata: defaultTemplate.metadata as Record<string, any>
+        } as EmailTemplate;
+      }
+
+      return null;
     } catch (error) {
       console.error('EmailService: Error fetching email template:', error);
       return null;
@@ -369,7 +379,13 @@ export class EmailService extends BaseService {
         throw new Error(`Failed to update verification: ${updateError.message}`);
       }
 
-      return { success: true, data };
+      // Cast the response to match our interface
+      const verification: EmailVerification = {
+        ...data,
+        metadata: data.metadata as Record<string, any>
+      };
+
+      return { success: true, data: verification };
     } catch (error) {
       console.error('EmailService: Error verifying token:', error);
       return { 
@@ -400,7 +416,14 @@ export class EmailService extends BaseService {
         throw new Error(`Failed to fetch email logs: ${error.message}`);
       }
 
-      return { success: true, data: data || [] };
+      // Cast the response to match our interface
+      const emailLogs: EmailLog[] = (data || []).map(log => ({
+        ...log,
+        status: log.status as EmailStatus,
+        metadata: log.metadata as Record<string, any>
+      }));
+
+      return { success: true, data: emailLogs };
     } catch (error) {
       console.error('EmailService: Error fetching email logs:', error);
       return { 
