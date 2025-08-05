@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -65,8 +64,8 @@ export const AlertsPanel: React.FC = () => {
 
   // Safely handle alerts data
   const alertsArray = Array.isArray(alerts) ? alerts : [];
-  const activeAlerts = alertsArray.filter(alert => alert?.alert_status === 'active');
-  const acknowledgedAlerts = alertsArray.filter(alert => alert?.alert_status === 'acknowledged');
+  const activeAlerts = alertsArray.filter(alert => alert?.status === 'active');
+  const acknowledgedAlerts = alertsArray.filter(alert => alert?.status === 'acknowledged');
 
   const getAlertIcon = (severity: string) => {
     switch (severity) {
@@ -192,7 +191,7 @@ export const AlertsPanel: React.FC = () => {
                 const alertSeverity = alert?.severity || 'low';
                 const alertName = alert?.alert_name || 'System Alert';
                 const alertDescription = alert?.description || 'No description available';
-                const alertStatus = alert?.alert_status || 'unknown';
+                const alertStatus = alert?.status || 'unknown';
                 const alertCreatedAt = alert?.created_at || new Date().toISOString();
                 const metricName = alert?.metric_name || '';
                 const currentValue = alert?.current_value || 0;
