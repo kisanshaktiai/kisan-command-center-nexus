@@ -65,7 +65,10 @@ serve(async (req) => {
       });
     }
 
-    // Use the enhanced database function for lead conversion
+    // Validate subscription plan enum - convert to proper enum format
+    const validPlans = ['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'Custom_Enterprise'];
+    const normalizedPlan = validPlans.includes(subscriptionPlan) ? subscriptionPlan : 'Kisan_Basic';
+
     console.log('Calling enhanced conversion function...');
     const { data: conversionResult, error: conversionError } = await supabase.rpc(
       'convert_lead_to_tenant_secure',
@@ -73,7 +76,7 @@ serve(async (req) => {
         p_lead_id: leadId,
         p_tenant_name: tenantName,
         p_tenant_slug: tenantSlug,
-        p_subscription_plan: subscriptionPlan || 'Kisan_Basic',
+        p_subscription_plan: normalizedPlan, // Use normalized enum value
         p_admin_email: adminEmail,
         p_admin_name: adminName
       }

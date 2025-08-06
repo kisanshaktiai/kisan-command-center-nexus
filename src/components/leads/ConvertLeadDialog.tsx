@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -127,7 +126,26 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       return;
     }
 
+    // Additional validation for subscription plan
+    const validPlans = ['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'Custom_Enterprise'];
+    if (!validPlans.includes(subscriptionPlan)) {
+      setConversionError({
+        message: 'Invalid subscription plan selected.',
+        code: 'VALIDATION_ERROR'
+      });
+      return;
+    }
+
     setConversionError(null);
+
+    console.log('Starting conversion with data:', {
+      leadId: lead.id,
+      tenantName: tenantName.trim(),
+      tenantSlug: tenantSlug.trim(),
+      subscriptionPlan,
+      adminName: adminName.trim(),
+      adminEmail: adminEmail.trim(),
+    });
 
     convertMutation.mutate({
       leadId: lead.id,

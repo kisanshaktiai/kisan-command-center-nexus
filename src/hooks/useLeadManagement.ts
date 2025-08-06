@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
@@ -247,13 +246,21 @@ export const useConvertLeadToTenant = () => {
       const loadingToast = showLoading('Converting lead to tenant...');
 
       try {
+        // Ensure subscription plan is in the correct format
+        const validPlans = ['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'Custom_Enterprise'];
+        const normalizedPlan = validPlans.includes(subscriptionPlan || '') 
+          ? subscriptionPlan 
+          : 'Kisan_Basic';
+
+        console.log('Normalized subscription plan:', normalizedPlan);
+
         // Call the edge function with proper error handling
         const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
           body: {
             leadId,
             tenantName,
             tenantSlug,
-            subscriptionPlan: subscriptionPlan || 'Kisan_Basic',
+            subscriptionPlan: normalizedPlan,
             adminEmail,
             adminName,
           }
