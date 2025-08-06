@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -224,12 +223,15 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   if (conversionError) {
     return (
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" aria-describedby="conversion-error-desc">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-500" />
               Conversion Failed
             </DialogTitle>
+            <DialogDescription id="conversion-error-desc">
+              The lead conversion process encountered an error. Review the details below and try again.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -274,14 +276,14 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   if (conversionResult) {
     return (
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" aria-describedby="conversion-success-desc">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-500" />
               {conversionResult.isRecovery ? 'Conversion Recovered!' : 'Conversion Successful!'}
             </DialogTitle>
-            <DialogDescription>
-              Lead has been successfully converted to a tenant account.
+            <DialogDescription id="conversion-success-desc">
+              Lead has been successfully converted to a tenant account. Review the tenant details and admin credentials below.
             </DialogDescription>
           </DialogHeader>
 
@@ -421,11 +423,11 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   // Show conversion form
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby="convert-lead-desc">
         <DialogHeader>
           <DialogTitle>Convert Lead to Tenant</DialogTitle>
-          <DialogDescription>
-            Complete the information below to convert this qualified lead into a tenant account.
+          <DialogDescription id="convert-lead-desc">
+            Complete the tenant information and admin account details below to convert this qualified lead into a tenant account.
           </DialogDescription>
         </DialogHeader>
 

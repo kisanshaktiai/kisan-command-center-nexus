@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -67,9 +68,12 @@ export const LeadAssignmentDialog: React.FC<LeadAssignmentDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent aria-describedby="lead-assignment-desc">
         <DialogHeader>
           <DialogTitle>Reassign Lead: {leadName}</DialogTitle>
+          <DialogDescription id="lead-assignment-desc">
+            Select an admin user to reassign this lead to. Optionally provide a reason for the reassignment.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

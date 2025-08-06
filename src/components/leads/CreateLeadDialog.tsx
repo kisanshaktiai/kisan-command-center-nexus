@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,9 +62,12 @@ export const CreateLeadDialog: React.FC<CreateLeadDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" aria-describedby="create-lead-desc">
         <DialogHeader>
           <DialogTitle>Create New Lead</DialogTitle>
+          <DialogDescription id="create-lead-desc">
+            Fill out the form below to create a new lead. Contact name and email are required fields.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">

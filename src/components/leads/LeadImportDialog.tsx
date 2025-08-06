@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -141,12 +142,15 @@ Mike Johnson,mike.j@example.com,+1-555-0125,StartupXYZ,Social Media,low,Early st
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby="lead-import-desc">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
             Import Leads
           </DialogTitle>
+          <DialogDescription id="lead-import-desc">
+            Upload a CSV or Excel file to import multiple leads at once. Download the template to see the required format.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
