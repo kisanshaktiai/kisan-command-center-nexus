@@ -2,19 +2,20 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import { useLeads, useUpdateLeadStatus, useConvertLeadToTenant } from '@/hooks/useLeadManagement';
 import { LeadService } from '@/services/LeadService';
 import { supabase } from '@/integrations/supabase/client';
 
 // Mock dependencies
-jest.mock('@/services/LeadService');
-jest.mock('@/integrations/supabase/client');
-jest.mock('@/hooks/useNotifications', () => ({
+vi.mock('@/services/LeadService');
+vi.mock('@/integrations/supabase/client');
+vi.mock('@/hooks/useNotifications', () => ({
   useNotifications: () => ({
-    showSuccess: jest.fn(),
-    showError: jest.fn(),
-    showLoading: jest.fn(),
-    dismiss: jest.fn(),
+    showSuccess: vi.fn(),
+    showError: vi.fn(),
+    showLoading: vi.fn(),
+    dismiss: vi.fn(),
   }),
 }));
 
@@ -32,7 +33,7 @@ describe('useLeadManagement hooks', () => {
         mutations: { retry: false },
       },
     });
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('useLeads', () => {
@@ -50,7 +51,7 @@ describe('useLeadManagement hooks', () => {
         },
       ];
 
-      (LeadService.getLeads as jest.Mock).mockResolvedValue({
+      (LeadService.getLeads as Mock).mockResolvedValue({
         success: true,
         data: mockLeads,
       });
@@ -78,7 +79,7 @@ describe('useLeadManagement hooks', () => {
         qualification_score: 0,
       };
 
-      (LeadService.updateLead as jest.Mock).mockResolvedValue({
+      (LeadService.updateLead as Mock).mockResolvedValue({
         success: true,
         data: mockUpdatedLead,
       });
@@ -113,7 +114,7 @@ describe('useLeadManagement hooks', () => {
         temp_password: 'temp123',
       };
 
-      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+      (supabase.functions.invoke as Mock).mockResolvedValue({
         data: mockResponse,
         error: null,
       });
@@ -154,7 +155,7 @@ describe('useLeadManagement hooks', () => {
         code: 'SLUG_CONFLICT',
       };
 
-      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+      (supabase.functions.invoke as Mock).mockResolvedValue({
         data: mockError,
         error: null,
       });
