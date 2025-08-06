@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
@@ -131,6 +130,12 @@ export const useUpdateLeadStatus = () => {
   const queryClient = useQueryClient();
   const { showSuccess, showError, showLoading, dismiss } = useNotifications();
 
+  const VALID_STATUSES = ['new', 'assigned', 'contacted', 'qualified', 'converted', 'rejected'] as const;
+  
+  const validateStatus = (status: string): boolean => {
+    return VALID_STATUSES.includes(status as any);
+  };
+
   return useMutation({
     mutationFn: async ({ leadId, status, notes }: { 
       leadId: string; 
@@ -139,10 +144,15 @@ export const useUpdateLeadStatus = () => {
     }) => {
       console.log('Starting lead status update:', { leadId, status, notes });
       
+      if (!validateStatus(status)) {
+        throw new Error(`Invalid status: ${status}. Valid statuses are: ${VALID_STATUSES.join(', ')}`);
+      }
+      
       const loadingToast = showLoading(`Updating lead status to ${status}...`);
       
       try {
-        // Use the LeadService with proper error handling
+        console.log('LeadService: Validated status update request:', { leadId, status });
+        
         const result = await LeadService.updateLead(leadId, { 
           status, 
           notes,
@@ -201,7 +211,7 @@ export const useUpdateLeadStatus = () => {
 
 export const useConvertLeadToTenant = () => {
   const queryClient = useQueryClient();
-  const { convertToTenant } = useLeadService();
+  const { showSuccess, showError, showLoading, dismiss } = useNotifications();
 
   return useMutation({
     mutationFn: async ({ 
@@ -219,28 +229,78 @@ export const useConvertLeadToTenant = () => {
       adminEmail?: string;
       adminName?: string;
     }) => {
-      console.log('Converting lead to tenant:', {
-        leadId,
-        tenantName,
-        tenantSlug,
-        subscriptionPlan
-      });
+      // Validate required fields
+      if (!leadId || !tenantName || !tenantSlug || !adminEmail || !adminName) {
+        throw new Error('All fields are required for lead conversion');
+      }
 
-      const result = await convertToTenant({
+      console.log('Converting lead to tenant:', {
         leadId,
         tenantName,
         tenantSlug,
         subscriptionPlan,
         adminEmail,
-        adminName,
+        adminName
       });
 
-      if (!result) {
-        throw new Error('Failed to convert lead to tenant - no result returned');
-      }
+      const loadingToast = showLoading('Converting lead to tenant...');
 
-      console.log('Lead conversion successful:', result);
-      return result;
+      try {
+        // Ensure subscription plan is in the correct format
+        const validPlans = ['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'Custom_Enterprise'];
+        const normalizedPlan = validPlans.includes(subscriptionPlan || '') 
+          ? subscriptionPlan 
+          : 'Kisan_Basic';
+
+        console.log('Normalized subscription plan:', normalizedPlan);
+
+        // Call the edge function with proper error handling
+        const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
+          body: {
+            leadId,
+            tenantName,
+            tenantSlug,
+            subscriptionPlan: normalizedPlan,
+            adminEmail,
+            adminName,
+          }
+        });
+
+        dismiss(loadingToast);
+
+        if (error) {
+          console.error('Edge function invocation error:', error);
+          throw new Error(`Conversion failed: ${error.message || 'Unknown error'}`);
+        }
+
+        // Handle edge function response
+        if (!data) {
+          throw new Error('No response data from conversion service');
+        }
+
+        console.log('Edge function response:', data);
+
+        // Check if the response indicates success
+        if (!data.success) {
+          console.error('Conversion service returned error:', data);
+          
+          // Create a structured error with the code for better handling
+          const error = new Error(data.error || 'Conversion failed');
+          (error as any).code = data.code;
+          throw error;
+        }
+
+        console.log('Lead conversion successful:', data);
+        
+        showSuccess('Lead converted to tenant successfully', {
+          description: `${tenantName} has been created and the lead has been marked as converted.`,
+        });
+        
+        return data;
+      } catch (error) {
+        dismiss(loadingToast);
+        throw error; // Re-throw to be handled by the calling component
+      }
     },
     onSuccess: (data, variables) => {
       console.log('Lead converted to tenant successfully:', variables.tenantName);
@@ -249,10 +309,15 @@ export const useConvertLeadToTenant = () => {
     },
     onError: (error, variables) => {
       console.error('Failed to convert lead to tenant:', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: (error as any)?.code,
         leadId: variables.leadId,
-        tenantName: variables.tenantName
+        tenantName: variables.tenantName,
+        timestamp: new Date().toISOString()
       });
+      
+      // Don't show error toast here as it's handled in the component
+      // This allows for better error message customization based on error codes
     },
   });
 };

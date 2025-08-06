@@ -34,25 +34,26 @@ const FinancialReporting: React.FC = () => {
     );
   }
 
-  // Process financial data
+  // Process financial data - using metric_type instead of metric_name
   const revenueData = Array.isArray(financialData) ? financialData
-    .filter(item => item.metric_name === 'revenue')
+    .filter(item => item.metric_type === 'revenue')
     .sort((a, b) => new Date(a.period_start).getTime() - new Date(b.period_start).getTime())
     .map(item => ({
       period: new Date(item.period_start).toLocaleDateString(),
       amount: item.amount,
-      currency: item.currency
+      currency: 'USD' // Default currency since not in schema
     })) : [];
 
   const expenseData = Array.isArray(financialData) ? financialData
-    .filter(item => item.category === 'expense')
+    .filter(item => item.metric_type === 'cost' || item.metric_type === 'expense')
     .reduce((acc, item) => {
-      const existingItem = acc.find(a => a.category === item.category);
+      const metricType = item.metric_type;
+      const existingItem = acc.find(a => a.category === metricType);
       if (existingItem) {
         existingItem.amount += item.amount;
       } else {
         acc.push({
-          category: item.category,
+          category: metricType,
           amount: item.amount
         });
       }
@@ -60,21 +61,10 @@ const FinancialReporting: React.FC = () => {
     }, [] as Array<{ category: string; amount: number }>) : [];
 
   const categoryBreakdown = Array.isArray(financialData) ? financialData
-    .filter(item => item.metric_name === 'subscription_revenue')
+    .filter(item => item.metric_type === 'revenue')
     .reduce((acc, item) => {
-      // Safely parse metadata
-      let breakdown: any = {};
-      try {
-        if (typeof item.metadata === 'string') {
-          breakdown = JSON.parse(item.metadata);
-        } else if (typeof item.metadata === 'object' && item.metadata !== null) {
-          breakdown = item.metadata;
-        }
-      } catch (e) {
-        console.warn('Failed to parse metadata:', e);
-      }
-
-      const category = breakdown?.category || 'other';
+      // Use metric_type as category since metadata doesn't exist
+      const category = item.metric_type || 'other';
       const existingItem = acc.find(a => a.name === category);
       if (existingItem) {
         existingItem.value += item.amount;
@@ -138,7 +128,7 @@ const FinancialReporting: React.FC = () => {
           <CardContent>
             <div className="text-2xl font-bold">
               {Array.isArray(financialData) ? 
-                financialData.filter(item => item.metric_name === 'active_subscriptions').length : 0
+                financialData.filter(item => item.metric_type === 'subscription').length : 0
               }
             </div>
           </CardContent>

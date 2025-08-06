@@ -8,7 +8,8 @@ interface CreateLeadData {
   contact_name: string;
   email: string;
   phone?: string;
-  organization_name?: string; // Changed from company_name
+  organization_name?: string;
+  organization_type?: string; // Added missing field
   source?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   notes?: string;
@@ -18,7 +19,8 @@ interface UpdateLeadData {
   contact_name?: string;
   email?: string;
   phone?: string;
-  organization_name?: string; // Changed from company_name
+  organization_name?: string;
+  organization_type?: string; // Added missing field
   status?: Lead['status'];
   priority?: Lead['priority'];
   notes?: string;

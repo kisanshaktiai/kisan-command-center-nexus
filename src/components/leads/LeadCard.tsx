@@ -59,15 +59,21 @@ export const LeadCard: React.FC<LeadCardProps> = ({
 
   const handleStatusUpdate = async (leadId: string, newStatus: Lead['status'], notes?: string) => {
     try {
+      console.log('LeadCard: Handling status update:', { leadId, newStatus, notes });
       await updateStatus.mutateAsync({ 
         leadId, 
         status: newStatus,
         notes: notes || `Status updated to ${newStatus}` 
       });
     } catch (error) {
-      console.error('Failed to update lead status:', error);
+      console.error('LeadCard: Failed to update lead status:', error);
       throw error;
     }
+  };
+
+  const handleConvertLead = (leadId: string) => {
+    console.log('LeadCard: Handling lead conversion for:', leadId);
+    onConvert(leadId);
   };
 
   return (
@@ -177,10 +183,11 @@ export const LeadCard: React.FC<LeadCardProps> = ({
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 pt-2 border-t">
-          {/* Status Update */}
+          {/* Status Update with Conversion Handling */}
           <EnhancedLeadStatusSelect
             lead={lead}
             onStatusChange={handleStatusUpdate}
+            onConvertLead={handleConvertLead}
             disabled={updateStatus.isPending}
           />
 
@@ -195,7 +202,7 @@ export const LeadCard: React.FC<LeadCardProps> = ({
             {lead.assigned_admin ? 'Reassign' : 'Assign'}
           </Button>
 
-          {/* Conversion */}
+          {/* Direct Conversion Button for Qualified Leads */}
           {canConvert && (
             <Button
               variant="default"

@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Lead } from '@/types/leads';
 
-// Define valid status transitions locally since RPC function isn't available
+// Define valid status transitions that match database constraints
 const getValidNextStatuses = (currentStatus: Lead['status']): string[] => {
   switch (currentStatus) {
     case 'new':
@@ -12,9 +12,10 @@ const getValidNextStatuses = (currentStatus: Lead['status']): string[] => {
     case 'contacted':
       return ['qualified', 'rejected', 'assigned'];
     case 'qualified':
-      return ['converted', 'rejected', 'contacted'];
+      // Note: 'converted' is handled separately through conversion flow, not direct status update
+      return ['rejected', 'contacted'];
     case 'converted':
-      return [];
+      return []; // No transitions allowed from converted status
     case 'rejected':
       return ['new', 'assigned', 'contacted'];
     default:
@@ -26,8 +27,10 @@ export const useValidNextStatuses = (currentStatus: Lead['status']) => {
   return useQuery({
     queryKey: ['valid-next-statuses', currentStatus],
     queryFn: async () => {
-      // Return the valid statuses directly
-      return getValidNextStatuses(currentStatus);
+      console.log('Getting valid next statuses for:', currentStatus);
+      const validStatuses = getValidNextStatuses(currentStatus);
+      console.log('Valid next statuses:', validStatuses);
+      return validStatuses;
     },
     enabled: !!currentStatus,
   });

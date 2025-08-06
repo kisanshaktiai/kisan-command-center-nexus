@@ -91,7 +91,7 @@ serve(async (req) => {
       )
     }
 
-    // Validate the role
+    // Validate the role - updated to use correct enum values
     const validRoles = ['super_admin', 'platform_admin', 'admin']
     if (!validRoles.includes(role)) {
       return new Response(

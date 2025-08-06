@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Select,
   SelectContent,
@@ -8,54 +8,108 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { useUpdateLeadStatus } from '@/hooks/useLeadManagement';
+import { ConvertLeadDialog } from './ConvertLeadDialog';
 import type { Lead } from '@/types/leads';
 
 interface LeadStatusSelectProps {
-  currentStatus: Lead['status'];
-  onStatusChange: (status: Lead['status']) => void;
-  disabled?: boolean;
+  lead: Lead;
+  onStatusChange?: (newStatus: Lead['status']) => void;
 }
 
-const statusOptions: { value: Lead['status']; label: string; variant: any }[] = [
-  { value: 'new', label: 'New', variant: 'secondary' },
-  { value: 'assigned', label: 'Assigned', variant: 'outline' },
-  { value: 'contacted', label: 'Contacted', variant: 'default' },
-  { value: 'qualified', label: 'Qualified', variant: 'default' },
-  { value: 'converted', label: 'Converted', variant: 'default' },
-  { value: 'rejected', label: 'Rejected', variant: 'destructive' },
-];
+const statusColors = {
+  new: 'bg-blue-100 text-blue-800',
+  assigned: 'bg-yellow-100 text-yellow-800',
+  contacted: 'bg-purple-100 text-purple-800',
+  qualified: 'bg-green-100 text-green-800',
+  converted: 'bg-emerald-100 text-emerald-800',
+  rejected: 'bg-red-100 text-red-800',
+} as const;
+
+const statusLabels = {
+  new: 'New',
+  assigned: 'Assigned',
+  contacted: 'Contacted',
+  qualified: 'Qualified',
+  converted: 'Converted',
+  rejected: 'Rejected',
+} as const;
 
 export const LeadStatusSelect: React.FC<LeadStatusSelectProps> = ({
-  currentStatus,
+  lead,
   onStatusChange,
-  disabled = false,
 }) => {
-  const currentStatusInfo = statusOptions.find(option => option.value === currentStatus);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<Lead['status'] | null>(null);
+  const updateStatusMutation = useUpdateLeadStatus();
+
+  const handleStatusChange = (newStatus: Lead['status']) => {
+    // If changing from qualified to converted, show conversion dialog
+    if (lead.status === 'qualified' && newStatus === 'converted') {
+      setPendingStatus(newStatus);
+      setShowConvertDialog(true);
+      return;
+    }
+
+    // For other status changes, proceed normally
+    updateStatusMutation.mutate(
+      {
+        leadId: lead.id,
+        status: newStatus,
+        notes: `Status changed from ${lead.status} to ${newStatus}`,
+      },
+      {
+        onSuccess: () => {
+          onStatusChange?.(newStatus);
+        },
+      }
+    );
+  };
+
+  const handleConvertDialogClose = () => {
+    setShowConvertDialog(false);
+    setPendingStatus(null);
+  };
+
+  const handleConvertSuccess = () => {
+    setShowConvertDialog(false);
+    setPendingStatus(null);
+    // The conversion dialog already handles the status update
+    onStatusChange?.('converted');
+  };
 
   return (
-    <Select
-      value={currentStatus}
-      onValueChange={onStatusChange}
-      disabled={disabled}
-    >
-      <SelectTrigger className="w-32">
-        <SelectValue>
-          {currentStatusInfo && (
-            <Badge variant={currentStatusInfo.variant} className="text-xs">
-              {currentStatusInfo.label}
-            </Badge>
-          )}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {statusOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            <Badge variant={option.variant} className="text-xs">
-              {option.label}
-            </Badge>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <>
+      <div className="flex items-center gap-2">
+        <Select
+          value={lead.status}
+          onValueChange={handleStatusChange}
+          disabled={updateStatusMutation.isPending}
+        >
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="new">New</SelectItem>
+            <SelectItem value="assigned">Assigned</SelectItem>
+            <SelectItem value="contacted">Contacted</SelectItem>
+            <SelectItem value="qualified">Qualified</SelectItem>
+            <SelectItem value="converted">Converted</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Badge className={statusColors[lead.status]}>
+          {statusLabels[lead.status]}
+        </Badge>
+      </div>
+
+      <ConvertLeadDialog
+        open={showConvertDialog}
+        onClose={handleConvertDialogClose}
+        lead={lead}
+        onSuccess={handleConvertSuccess}
+      />
+    </>
   );
 };
