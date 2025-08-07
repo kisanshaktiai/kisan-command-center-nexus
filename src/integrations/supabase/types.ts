@@ -169,30 +169,51 @@ export type Database = {
         Row: {
           action: string
           admin_id: string | null
+          correlation_id: string | null
           created_at: string | null
           details: Json | null
+          duration_ms: number | null
           id: string
           ip_address: unknown | null
+          request_id: string | null
+          request_payload: Json | null
+          response_data: Json | null
+          security_context: Json | null
+          session_id: string | null
           target_admin_id: string | null
           user_agent: string | null
         }
         Insert: {
           action: string
           admin_id?: string | null
+          correlation_id?: string | null
           created_at?: string | null
           details?: Json | null
+          duration_ms?: number | null
           id?: string
           ip_address?: unknown | null
+          request_id?: string | null
+          request_payload?: Json | null
+          response_data?: Json | null
+          security_context?: Json | null
+          session_id?: string | null
           target_admin_id?: string | null
           user_agent?: string | null
         }
         Update: {
           action?: string
           admin_id?: string | null
+          correlation_id?: string | null
           created_at?: string | null
           details?: Json | null
+          duration_ms?: number | null
           id?: string
           ip_address?: unknown | null
+          request_id?: string | null
+          request_payload?: Json | null
+          response_data?: Json | null
+          security_context?: Json | null
+          session_id?: string | null
           target_admin_id?: string | null
           user_agent?: string | null
         }
@@ -1558,14 +1579,19 @@ export type Database = {
         Row: {
           bounced_at: string | null
           clicked_at: string | null
+          correlation_id: string | null
           created_at: string | null
           delivered_at: string | null
+          delivery_attempts: number | null
           error_message: string | null
           external_message_id: string | null
           failed_at: string | null
           id: string
+          last_attempt_at: string | null
           metadata: Json | null
           opened_at: string | null
+          priority: string | null
+          provider_response: Json | null
           recipient_email: string
           recipient_id: string | null
           retry_count: number | null
@@ -1580,14 +1606,19 @@ export type Database = {
         Insert: {
           bounced_at?: string | null
           clicked_at?: string | null
+          correlation_id?: string | null
           created_at?: string | null
           delivered_at?: string | null
+          delivery_attempts?: number | null
           error_message?: string | null
           external_message_id?: string | null
           failed_at?: string | null
           id?: string
+          last_attempt_at?: string | null
           metadata?: Json | null
           opened_at?: string | null
+          priority?: string | null
+          provider_response?: Json | null
           recipient_email: string
           recipient_id?: string | null
           retry_count?: number | null
@@ -1602,14 +1633,19 @@ export type Database = {
         Update: {
           bounced_at?: string | null
           clicked_at?: string | null
+          correlation_id?: string | null
           created_at?: string | null
           delivered_at?: string | null
+          delivery_attempts?: number | null
           error_message?: string | null
           external_message_id?: string | null
           failed_at?: string | null
           id?: string
+          last_attempt_at?: string | null
           metadata?: Json | null
           opened_at?: string | null
+          priority?: string | null
+          provider_response?: Json | null
           recipient_email?: string
           recipient_id?: string | null
           retry_count?: number | null
@@ -4330,6 +4366,39 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: string
+          identifier: string
+          identifier_type: string
+          last_request: string
+          request_count: number
+          window_start: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          identifier: string
+          identifier_type: string
+          last_request?: string
+          request_count?: number
+          window_start?: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          identifier?: string
+          identifier_type?: string
+          last_request?: string
+          request_count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
       resource_usage: {
         Row: {
           application_method: string | null
@@ -5228,6 +5297,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tenant_creation_requests: {
+        Row: {
+          admin_id: string | null
+          completed_at: string | null
+          created_at: string
+          error_details: Json | null
+          id: string
+          idempotency_key: string
+          request_data: Json
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          admin_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_details?: Json | null
+          id?: string
+          idempotency_key: string
+          request_data?: Json
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          admin_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_details?: Json | null
+          id?: string
+          idempotency_key?: string
+          request_data?: Json
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
       }
       tenant_detection_events: {
         Row: {
@@ -7056,8 +7161,16 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      cleanup_old_idempotency_records: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       cleanup_old_metrics: {
         Args: { table_name: string; keep_count?: number }
+        Returns: number
+      }
+      cleanup_old_rate_limits: {
+        Args: Record<PropertyKey, never>
         Returns: number
       }
       complete_bootstrap: {
@@ -7724,6 +7837,23 @@ export type Database = {
           p_details?: Json
           p_ip_address?: unknown
           p_user_agent?: string
+        }
+        Returns: string
+      }
+      log_enhanced_admin_action: {
+        Args: {
+          p_action: string
+          p_target_admin_id?: string
+          p_details?: Json
+          p_ip_address?: unknown
+          p_user_agent?: string
+          p_request_id?: string
+          p_correlation_id?: string
+          p_session_id?: string
+          p_request_payload?: Json
+          p_response_data?: Json
+          p_duration_ms?: number
+          p_security_context?: Json
         }
         Returns: string
       }
