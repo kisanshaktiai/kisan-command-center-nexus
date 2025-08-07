@@ -141,7 +141,7 @@ export const useTenantManagement = () => {
     try {
       setIsSubmitting(true);
       setCreationSuccess(null);
-      console.log('Creating tenant with admin email integration:', formData);
+      console.log('Creating tenant with admin user via Edge Function:', formData);
       
       // Map form data to CreateTenantDTO
       const createData = {
@@ -175,15 +175,22 @@ export const useTenantManagement = () => {
     } catch (error: any) {
       console.error('Error creating tenant:', error);
       
-      // Check if it's an email-related error
-      const isEmailError = error.message?.toLowerCase().includes('email');
+      // Provide specific error messages
+      let errorMessage = "Failed to create tenant";
+      if (error.message?.includes('Slug already exists')) {
+        errorMessage = "A tenant with this slug already exists";
+      } else if (error.message?.includes('Admin access required')) {
+        errorMessage = "You don't have permission to create tenants";
+      } else if (error.message?.includes('Missing required fields')) {
+        errorMessage = "Please fill in all required fields";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
       
       toast({
-        title: isEmailError ? "Tenant Created, Email Failed" : "Error",
-        description: isEmailError 
-          ? `Tenant was created but welcome email failed to send. Please manually send credentials to ${formData.owner_email}.`
-          : error.message || "Failed to create tenant",
-        variant: isEmailError ? "destructive" : "destructive",
+        title: "Error Creating Tenant",
+        description: errorMessage,
+        variant: "destructive",
       });
       return false;
     } finally {

@@ -1,11 +1,10 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { TenantDTO, CreateTenantDTO, UpdateTenantDTO } from '@/data/types/tenant';
-import { emailService } from '@/services/EmailService';
 import type { Database } from '@/integrations/supabase/types';
 
 // Use the actual database types
 type DatabaseTenant = Database['public']['Tables']['tenants']['Row'];
-type TenantInsert = Database['public']['Tables']['tenants']['Insert'];
 type TenantUpdate = Database['public']['Tables']['tenants']['Update'];
 
 class TenantService {
@@ -54,7 +53,7 @@ class TenantService {
 
   async createTenant(tenantData: CreateTenantDTO): Promise<TenantDTO> {
     try {
-      console.log('Domain Service: Creating tenant with admin user setup:', tenantData);
+      console.log('Domain Service: Creating tenant via Edge Function:', tenantData);
       
       // Validate required fields
       if (!tenantData.name?.trim()) {
@@ -73,108 +72,31 @@ class TenantService {
         throw new Error('Admin name is required');
       }
 
-      // Check slug availability first
-      const { data: existingTenant } = await supabase
-        .from('tenants')
-        .select('id')
-        .eq('slug', tenantData.slug)
-        .single();
-
-      if (existingTenant) {
-        throw new Error('A tenant with this slug already exists');
-      }
-
-      // Generate temporary password for admin user
-      const tempPassword = this.generateTemporaryPassword();
-
-      // Create admin user in auth.users first
-      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-        email: tenantData.owner_email,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: {
-          full_name: tenantData.owner_name,
-          tenant_slug: tenantData.slug,
-          role: 'tenant_admin'
+      // Call the Edge Function to create tenant with admin user
+      const { data, error } = await supabase.functions.invoke('create-tenant-with-admin', {
+        body: {
+          name: tenantData.name,
+          slug: tenantData.slug,
+          type: tenantData.type,
+          subscription_plan: tenantData.subscription_plan,
+          owner_email: tenantData.owner_email,
+          owner_name: tenantData.owner_name,
+          metadata: tenantData.metadata || {}
         }
       });
 
-      if (authError) {
-        console.error('Domain Service: Error creating auth user:', authError);
-        throw new Error(`Failed to create admin user: ${authError.message}`);
-      }
-
-      // Map the CreateTenantDTO to the database insert type
-      const insertData: TenantInsert = {
-        name: tenantData.name,
-        slug: tenantData.slug,
-        type: tenantData.type,
-        subscription_plan: tenantData.subscription_plan,
-        owner_email: tenantData.owner_email,
-        owner_name: tenantData.owner_name,
-        metadata: {
-          ...tenantData.metadata,
-          admin_user_id: authUser.user.id,
-          created_via: 'manual_creation'
-        },
-        status: 'trial',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      console.log('Domain Service: Inserting tenant data:', insertData);
-
-      const { data, error } = await supabase
-        .from('tenants')
-        .insert(insertData)
-        .select()
-        .single();
-
       if (error) {
-        console.error('Domain Service: Database error:', error);
-        // Clean up auth user if tenant creation fails
-        await supabase.auth.admin.deleteUser(authUser.user.id);
-        throw error;
+        console.error('Domain Service: Edge Function error:', error);
+        throw new Error(`Failed to create tenant: ${error.message}`);
       }
 
-      // Create user_tenants relationship
-      const { error: relationError } = await supabase
-        .from('user_tenants')
-        .insert({
-          user_id: authUser.user.id,
-          tenant_id: data.id,
-          role: 'tenant_owner',
-          is_active: true,
-          joined_at: new Date().toISOString()
-        });
-
-      if (relationError) {
-        console.error('Domain Service: Error creating user-tenant relation:', relationError);
-        // Don't fail the whole process, just log the error
+      if (!data?.success) {
+        console.error('Domain Service: Edge Function returned error:', data?.error);
+        throw new Error(data?.error || 'Failed to create tenant');
       }
 
-      // Send welcome email with login credentials
-      try {
-        const loginUrl = `${window.location.origin}/auth`;
-        
-        await emailService.sendTenantWelcomeEmail({
-          tenantName: data.name,
-          userName: tenantData.owner_name,
-          email: tenantData.owner_email,
-          password: tempPassword,
-          loginUrl,
-          tenantId: data.id,
-          userId: authUser.user.id
-        });
-        
-        console.log('Domain Service: Welcome email sent successfully');
-      } catch (emailError) {
-        console.error('Domain Service: Failed to send welcome email:', emailError);
-        // Don't fail tenant creation if email fails, just log
-      }
-
-      console.log('Domain Service: Tenant created successfully with admin user:', data);
-      return this.mapToTenantDTO(data);
+      console.log('Domain Service: Tenant created successfully:', data);
+      return this.mapToTenantDTO(data.tenant);
     } catch (error) {
       console.error('Domain Service: Error creating tenant:', error);
       throw error;
@@ -221,27 +143,6 @@ class TenantService {
       owner_email: data.owner_email || undefined,
       owner_name: data.owner_name || undefined
     };
-  }
-
-  private generateTemporaryPassword(): string {
-    // Generate a secure temporary password
-    const length = 12;
-    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-    let password = '';
-    
-    // Ensure at least one of each type
-    password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)];
-    password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)];
-    password += '0123456789'[Math.floor(Math.random() * 10)];
-    password += '!@#$%^&*'[Math.floor(Math.random() * 8)];
-    
-    // Fill the rest randomly
-    for (let i = 4; i < length; i++) {
-      password += charset[Math.floor(Math.random() * charset.length)];
-    }
-    
-    // Shuffle the password
-    return password.split('').sort(() => 0.5 - Math.random()).join('');
   }
 }
 
