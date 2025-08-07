@@ -8,6 +8,7 @@ import { TenantViewToggle } from '@/components/tenant/TenantViewToggle';
 import { TenantMetricsCard } from '@/components/tenant/TenantMetricsCard';
 import { TenantListView } from '@/components/tenant/TenantListView';
 import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
+import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
 import { Tenant } from '@/types/tenant';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTenantManagement } from '@/hooks/useTenantManagement';
@@ -21,6 +22,7 @@ export default function TenantManagement() {
     tenantMetrics,
     viewPreferences,
     formData,
+    creationSuccess,
     setViewPreferences,
     setFormData,
     handleCreateTenant: createTenant,
@@ -29,6 +31,7 @@ export default function TenantManagement() {
     resetForm,
     populateFormForEdit,
     setError,
+    setCreationSuccess,
   } = useTenantManagement();
 
   // Local dialog state
@@ -171,6 +174,16 @@ export default function TenantManagement() {
 
   return (
     <div className="space-y-6">
+      {/* Success Notification */}
+      {creationSuccess && (
+        <TenantCreationSuccess
+          tenantName={creationSuccess.tenantName}
+          adminEmail={creationSuccess.adminEmail}
+          hasEmailSent={creationSuccess.hasEmailSent}
+          onClose={() => setCreationSuccess(null)}
+        />
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Tenant Management</h1>
@@ -190,7 +203,8 @@ export default function TenantManagement() {
             <DialogHeader>
               <DialogTitle>Create New Tenant</DialogTitle>
               <DialogDescription>
-                Set up a new tenant organization with their subscription and limits.
+                Set up a new tenant organization with their subscription and admin account. 
+                A welcome email with login credentials will be sent automatically.
               </DialogDescription>
             </DialogHeader>
             <TenantForm 

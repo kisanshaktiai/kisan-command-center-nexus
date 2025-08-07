@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail, CheckCircle } from 'lucide-react';
 import { TenantFormData, Tenant } from '@/types/tenant';
 import { useSlugValidation } from '@/hooks/useSlugValidation';
 import { TenantFormBasic } from './TenantFormBasic';
@@ -33,8 +33,13 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     setFormData({ ...formData, [field]: value });
   };
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const isFormValid = () => {
-    return (
+    const baseValidation = (
       formData.name && 
       formData.slug && 
       isSlugValid && 
@@ -42,13 +47,28 @@ export const TenantForm: React.FC<TenantFormProps> = ({
       formData.subscription_plan &&
       formData.subdomain
     );
+
+    // For new tenants, require admin details
+    if (!isEditing) {
+      return baseValidation && 
+        formData.owner_name && 
+        formData.owner_email && 
+        validateEmail(formData.owner_email);
+    }
+
+    return baseValidation;
   };
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-6">
       <Tabs defaultValue="basic" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="basic">Basic Info</TabsTrigger>
+          <TabsTrigger value="basic" className="flex items-center gap-2">
+            {!isEditing && formData.owner_email && validateEmail(formData.owner_email) && (
+              <CheckCircle className="w-4 h-4 text-green-500" />
+            )}
+            Basic Info
+          </TabsTrigger>
           <TabsTrigger value="business">Business Details</TabsTrigger>
           <TabsTrigger value="limits">Limits & Features</TabsTrigger>
         </TabsList>
@@ -79,6 +99,13 @@ export const TenantForm: React.FC<TenantFormProps> = ({
       </Tabs>
 
       <div className="flex justify-end space-x-4">
+        {!isEditing && (
+          <div className="flex items-center text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg mr-auto">
+            <Mail className="w-4 h-4 mr-2" />
+            Welcome email will be sent automatically after creation
+          </div>
+        )}
+        
         <Button 
           type="submit" 
           disabled={!isFormValid() || isSlugChecking}
@@ -87,7 +114,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
           {isSlugChecking ? (
             <Loader2 className="w-4 h-4 animate-spin mr-2" />
           ) : null}
-          {isEditing ? 'Update Tenant' : 'Create Tenant'}
+          {isEditing ? 'Update Tenant' : 'Create Tenant & Send Welcome Email'}
         </Button>
       </div>
     </form>

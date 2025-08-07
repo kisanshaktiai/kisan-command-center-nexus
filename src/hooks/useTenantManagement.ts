@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { useTenants, useCreateTenant, useUpdateTenant } from '@/data/hooks/useTenants';
@@ -8,6 +7,11 @@ import { supabase } from '@/integrations/supabase/client';
 
 export const useTenantManagement = () => {
   const [tenantMetrics, setTenantMetrics] = useState<Record<string, TenantMetrics>>({});
+  const [creationSuccess, setCreationSuccess] = useState<{
+    tenantName: string;
+    adminEmail: string;
+    hasEmailSent: boolean;
+  } | null>(null);
   const { toast } = useToast();
 
   // Use React Query hooks
@@ -38,6 +42,9 @@ export const useTenantManagement = () => {
     max_products: 100,
     max_storage_gb: 10,
     max_api_calls_per_day: 10000,
+    owner_name: '',
+    owner_email: '',
+    subdomain: '',
   });
 
   useEffect(() => {
@@ -133,7 +140,8 @@ export const useTenantManagement = () => {
     
     try {
       setIsSubmitting(true);
-      console.log('Creating tenant with form data:', formData);
+      setCreationSuccess(null);
+      console.log('Creating tenant with admin email integration:', formData);
       
       // Map form data to CreateTenantDTO
       const createData = {
@@ -146,15 +154,36 @@ export const useTenantManagement = () => {
         metadata: formData.metadata || {}
       };
 
-      await createTenantMutation.mutateAsync(createData);
+      const result = await createTenantMutation.mutateAsync(createData);
+      
+      // Set success state for feedback
+      setCreationSuccess({
+        tenantName: formData.name,
+        adminEmail: formData.owner_email || '',
+        hasEmailSent: true
+      });
+
+      // Show success toast with email notification
+      toast({
+        title: "Tenant Created Successfully",
+        description: `Welcome email sent to ${formData.owner_email} with login credentials.`,
+        variant: "default",
+      });
+
       resetForm();
       return true;
     } catch (error: any) {
       console.error('Error creating tenant:', error);
+      
+      // Check if it's an email-related error
+      const isEmailError = error.message?.toLowerCase().includes('email');
+      
       toast({
-        title: "Error",
-        description: error.message || "Failed to create tenant",
-        variant: "destructive",
+        title: isEmailError ? "Tenant Created, Email Failed" : "Error",
+        description: isEmailError 
+          ? `Tenant was created but welcome email failed to send. Please manually send credentials to ${formData.owner_email}.`
+          : error.message || "Failed to create tenant",
+        variant: isEmailError ? "destructive" : "destructive",
       });
       return false;
     } finally {
@@ -239,7 +268,11 @@ export const useTenantManagement = () => {
       max_products: 100,
       max_storage_gb: 10,
       max_api_calls_per_day: 10000,
+      owner_name: '',
+      owner_email: '',
+      subdomain: '',
     });
+    setCreationSuccess(null);
   };
 
   const populateFormForEdit = (tenant: Tenant) => {
@@ -295,6 +328,7 @@ export const useTenantManagement = () => {
     tenantMetrics,
     viewPreferences,
     formData,
+    creationSuccess,
     
     // Actions
     setViewPreferences,
@@ -306,5 +340,6 @@ export const useTenantManagement = () => {
     populateFormForEdit,
     fetchTenants,
     setError,
+    setCreationSuccess,
   };
 };
