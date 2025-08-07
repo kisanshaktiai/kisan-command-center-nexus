@@ -113,7 +113,7 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Create invite record
+    // Create invite record in admin_invites table
     console.log('Creating invite record...');
     const { data: invite, error: inviteError } = await supabase
       .from('admin_invites')
@@ -141,7 +141,8 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Invite record created:', invite.id);
 
     // Create invite link
-    const inviteUrl = `${Deno.env.get('SITE_URL') || 'https://app.kisanshaktiai.in'}/register?invite=${inviteToken}`;
+    const siteUrl = Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com') || 'https://app.kisanshaktiai.in';
+    const inviteUrl = `${siteUrl}/register?invite=${inviteToken}`;
 
     // Create branded email template
     const emailTemplate = `
@@ -249,21 +250,21 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Email sent successfully:', emailResult.data?.id);
 
-    // Log analytics event
+    // Log analytics event (non-blocking)
     try {
       await supabase
         .from('admin_invite_analytics')
         .insert({
           invite_id: invite.id,
           event_type: 'sent',
-          ip_address: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-          user_agent: req.headers.get('user-agent'),
+          ip_address: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || null,
+          user_agent: req.headers.get('user-agent') || null,
           metadata: {
             email_id: emailResult.data?.id
           }
         });
     } catch (analyticsError) {
-      console.error('Failed to log analytics:', analyticsError);
+      console.error('Failed to log analytics (non-blocking):', analyticsError);
       // Don't fail the request for analytics errors
     }
 
