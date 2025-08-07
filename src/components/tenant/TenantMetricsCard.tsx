@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -138,14 +139,14 @@ export const TenantMetricsCard: React.FC<TenantMetricsCardProps> = ({
             <div className="space-y-3">
               <UsageMeter 
                 label="Farmers" 
-                value={metrics.usageMetrics.farmers.current} 
-                max={metrics.usageMetrics.farmers.limit} 
+                current={metrics.usageMetrics.farmers.current} 
+                limit={metrics.usageMetrics.farmers.limit} 
                 className="text-xs"
               />
               <UsageMeter 
                 label="Storage" 
-                value={metrics.usageMetrics.storage.current} 
-                max={metrics.usageMetrics.storage.limit} 
+                current={metrics.usageMetrics.storage.current} 
+                limit={metrics.usageMetrics.storage.limit} 
                 unit="GB"
                 className="text-xs"
               />
@@ -239,28 +240,28 @@ export const TenantMetricsCard: React.FC<TenantMetricsCardProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <UsageMeter 
               label="Farmers" 
-              value={metrics.usageMetrics.farmers.current} 
-              max={metrics.usageMetrics.farmers.limit} 
-              showPercentage
+              current={metrics.usageMetrics.farmers.current} 
+              limit={metrics.usageMetrics.farmers.limit} 
+              showDetails
             />
             <UsageMeter 
               label="Dealers" 
-              value={metrics.usageMetrics.dealers.current} 
-              max={metrics.usageMetrics.dealers.limit} 
-              showPercentage
+              current={metrics.usageMetrics.dealers.current} 
+              limit={metrics.usageMetrics.dealers.limit} 
+              showDetails
             />
             <UsageMeter 
               label="Storage" 
-              value={metrics.usageMetrics.storage.current} 
-              max={metrics.usageMetrics.storage.limit} 
+              current={metrics.usageMetrics.storage.current} 
+              limit={metrics.usageMetrics.storage.limit} 
               unit="GB"
-              showPercentage
+              showDetails
             />
             <UsageMeter 
               label="API Calls" 
-              value={metrics.usageMetrics.apiCalls.current} 
-              max={metrics.usageMetrics.apiCalls.limit} 
-              showPercentage
+              current={metrics.usageMetrics.apiCalls.current} 
+              limit={metrics.usageMetrics.apiCalls.limit} 
+              showDetails
             />
           </div>
         )}
@@ -277,9 +278,8 @@ export const TenantMetricsCard: React.FC<TenantMetricsCardProps> = ({
               />
               <TrendChart 
                 data={metrics.growthTrends.revenue} 
-                label="Revenue" 
+                label="Revenue (₹)" 
                 color="hsl(var(--chart-2))" 
-                prefix="₹"
               />
               <TrendChart 
                 data={metrics.growthTrends.apiUsage} 
