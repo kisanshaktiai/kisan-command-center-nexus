@@ -1,9 +1,9 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { TenantDTO, CreateTenantDTO, UpdateTenantDTO } from '@/data/types/tenant';
+import { emailService } from '@/services/EnhancedEmailService';
 import type { Database } from '@/integrations/supabase/types';
 
-// Use the actual database types
 type DatabaseTenant = Database['public']['Tables']['tenants']['Row'];
 type TenantUpdate = Database['public']['Tables']['tenants']['Update'];
 
@@ -72,6 +72,10 @@ class TenantService {
         throw new Error('Admin name is required');
       }
 
+      // Check if user already exists
+      const userCheck = await emailService.checkUserExists(tenantData.owner_email);
+      console.log('User existence check result:', userCheck);
+
       // Call the Edge Function to create tenant with admin user
       const { data, error } = await supabase.functions.invoke('create-tenant-with-admin', {
         body: {
@@ -81,7 +85,11 @@ class TenantService {
           subscription_plan: tenantData.subscription_plan,
           owner_email: tenantData.owner_email,
           owner_name: tenantData.owner_name,
-          metadata: tenantData.metadata || {}
+          metadata: {
+            ...tenantData.metadata,
+            existing_user: userCheck.exists,
+            user_id: userCheck.userId
+          }
         }
       });
 
@@ -96,6 +104,26 @@ class TenantService {
       }
 
       console.log('Domain Service: Tenant created successfully:', data);
+
+      // Send enhanced welcome email
+      if (data.tenant && data.temp_password) {
+        try {
+          const emailResult = await emailService.sendTenantWelcomeEmail({
+            tenantName: tenantData.name,
+            adminName: tenantData.owner_name,
+            adminEmail: tenantData.owner_email,
+            tempPassword: data.temp_password,
+            loginUrl: `https://${tenantData.slug}.yourdomain.com/login`,
+            tenantSlug: tenantData.slug
+          });
+
+          console.log('Welcome email sent:', emailResult);
+        } catch (emailError) {
+          console.error('Failed to send welcome email:', emailError);
+          // Don't fail tenant creation if email fails
+        }
+      }
+
       return this.mapToTenantDTO(data.tenant);
     } catch (error) {
       console.error('Domain Service: Error creating tenant:', error);
@@ -105,7 +133,6 @@ class TenantService {
 
   async updateTenant(tenantId: string, updates: UpdateTenantDTO): Promise<TenantDTO> {
     try {
-      // Map the UpdateTenantDTO to the database update type
       const updateData: TenantUpdate = {
         ...(updates.name && { name: updates.name }),
         ...(updates.status && { status: updates.status }),
