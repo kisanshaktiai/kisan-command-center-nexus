@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -141,14 +140,12 @@ export const TenantMetricsCard: React.FC<TenantMetricsCardProps> = ({
                 label="Farmers" 
                 current={metrics.usageMetrics.farmers.current} 
                 limit={metrics.usageMetrics.farmers.limit} 
-                className="text-xs"
               />
               <UsageMeter 
                 label="Storage" 
                 current={metrics.usageMetrics.storage.current} 
                 limit={metrics.usageMetrics.storage.limit} 
                 unit="GB"
-                className="text-xs"
               />
             </div>
           )}
@@ -180,7 +177,6 @@ export const TenantMetricsCard: React.FC<TenantMetricsCardProps> = ({
     );
   }
 
-  // Large card layout with email actions
   return (
     <Card className="h-full hover:shadow-lg transition-shadow duration-200">
       <CardHeader className="pb-4">
