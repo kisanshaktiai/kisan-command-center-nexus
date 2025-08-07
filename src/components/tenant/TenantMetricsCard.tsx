@@ -1,19 +1,51 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Building2, TrendingUp, Users, Crown, Calendar, MapPin, Edit, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Building2, Users, Zap, MoreVertical, Edit, Trash2, Eye, TrendingUp, AlertCircle } from 'lucide-react';
 import { Tenant } from '@/types/tenant';
-import { TenantService } from '@/services/tenantService';
+import { TenantMetrics } from '@/types/tenantView';
 import { UsageMeter } from './UsageMeter';
 import { TrendChart } from './TrendChart';
-import { TenantMetrics } from '@/types/tenantView';
+import { TenantEmailActions } from './TenantEmailActions';
+
+// Define interfaces and type definitions
+interface UsageProps {
+  current: number;
+  limit: number;
+}
+
+interface GrowthTrendsProps {
+  farmers: number[];
+  revenue: number[];
+  apiUsage: number[];
+}
+
+interface TenantMetricsProps {
+  usageMetrics: {
+    farmers: UsageProps;
+    dealers: UsageProps;
+    products: UsageProps;
+    storage: UsageProps;
+    apiCalls: UsageProps;
+  };
+  growthTrends: GrowthTrendsProps;
+  healthScore: number;
+  lastActivityDate: string;
+}
+
+interface TenantViewPreferences {
+  mode: 'small-cards' | 'large-cards' | 'list' | 'analytics';
+  density: 'comfortable' | 'compact';
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+}
 
 interface TenantMetricsCardProps {
   tenant: Tenant;
   metrics?: TenantMetrics;
-  size: 'small' | 'large';
+  size?: 'small' | 'large';
   onEdit: (tenant: Tenant) => void;
   onDelete: (tenantId: string) => void;
   onViewDetails: (tenant: Tenant) => void;
@@ -22,208 +54,282 @@ interface TenantMetricsCardProps {
 export const TenantMetricsCard: React.FC<TenantMetricsCardProps> = ({
   tenant,
   metrics,
-  size,
+  size = 'small',
   onEdit,
   onDelete,
   onViewDetails,
 }) => {
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString();
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'active': return 'bg-green-500';
+      case 'trial': return 'bg-blue-500';
+      case 'suspended': return 'bg-yellow-500';
+      case 'cancelled': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getSubscriptionBadgeVariant = (plan: string) => {
+    switch (plan) {
+      case 'AI_Enterprise': return 'default';
+      case 'Shakti_Growth': return 'secondary';
+      case 'Kisan_Basic': return 'outline';
+      default: return 'outline';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   if (size === 'small') {
     return (
-      <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group" onClick={() => onViewDetails(tenant)}>
+      <Card className="h-full hover:shadow-lg transition-shadow duration-200">
         <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Building2 className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-base font-semibold truncate">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-lg font-semibold truncate">
                   {tenant.name}
                 </CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {tenant.slug}
-                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${getStatusColor(tenant.status)}`} />
+                <span className="text-sm text-muted-foreground capitalize">
+                  {tenant.status}
+                </span>
+                <Badge variant={getSubscriptionBadgeVariant(tenant.subscription_plan)} className="text-xs">
+                  {tenant.subscription_plan.replace('_', ' ')}
+                </Badge>
               </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <Badge variant={TenantService.getStatusBadgeVariant(tenant.status)} className="text-xs">
-                {tenant.status?.toUpperCase()}
-              </Badge>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => onViewDetails(tenant)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEdit(tenant)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Tenant
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDelete(tenant.id)}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Tenant
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardHeader>
+        
+        <CardContent className="space-y-4">
+          {/* Usage Metrics */}
+          {metrics?.usageMetrics && (
+            <div className="space-y-3">
+              <UsageMeter 
+                label="Farmers" 
+                value={metrics.usageMetrics.farmers.current} 
+                max={metrics.usageMetrics.farmers.limit} 
+                className="text-xs"
+              />
+              <UsageMeter 
+                label="Storage" 
+                value={metrics.usageMetrics.storage.current} 
+                max={metrics.usageMetrics.storage.limit} 
+                unit="GB"
+                className="text-xs"
+              />
+            </div>
+          )}
 
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex items-center space-x-1">
-              <Users className="h-3 w-3 text-muted-foreground" />
-              <span>{tenant.max_farmers || 'N/A'}</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <Crown className="h-3 w-3 text-muted-foreground" />
-              <span className="capitalize">{tenant.type?.replace('_', ' ')}</span>
-            </div>
+          {/* Tenant Info */}
+          <div className="text-xs text-muted-foreground space-y-1">
+            <div>Slug: <span className="font-mono">{tenant.slug}</span></div>
+            <div>Created: {formatDate(tenant.created_at)}</div>
+            {tenant.owner_email && (
+              <div>Admin: {tenant.owner_email}</div>
+            )}
           </div>
 
-          <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="flex space-x-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(tenant);
-                }}
-                className="h-6 w-6 p-0"
-              >
-                <Edit className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(tenant.id);
-                }}
-                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => onViewDetails(tenant)}
+              className="flex-1"
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              Details
+            </Button>
+            <TenantEmailActions tenant={tenant} />
           </div>
         </CardContent>
       </Card>
     );
   }
 
+  // Large card layout with email actions
   return (
-    <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => onViewDetails(tenant)}>
+    <Card className="h-full hover:shadow-lg transition-shadow duration-200">
       <CardHeader className="pb-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-primary/10 rounded-lg">
-              <Building2 className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-lg font-semibold">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-3">
+              <Building2 className="h-6 w-6 text-muted-foreground" />
+              <CardTitle className="text-xl font-bold">
                 {tenant.name}
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {tenant.slug}
-              </p>
+            </div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className={`w-3 h-3 rounded-full ${getStatusColor(tenant.status)}`} />
+              <span className="text-sm font-medium capitalize">
+                {tenant.status}
+              </span>
+              <Badge variant={getSubscriptionBadgeVariant(tenant.subscription_plan)}>
+                {tenant.subscription_plan.replace('_', ' ')}
+              </Badge>
+              {metrics?.healthScore && (
+                <div className="flex items-center gap-1">
+                  <TrendingUp className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium text-green-600">
+                    {metrics.healthScore}%
+                  </span>
+                </div>
+              )}
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <Badge variant={TenantService.getStatusBadgeVariant(tenant.status)}>
-              {tenant.status?.toUpperCase()}
-            </Badge>
-            <Badge variant={TenantService.getPlanBadgeVariant(tenant.subscription_plan)}>
-              {TenantService.getPlanDisplayName(tenant.subscription_plan)}
-            </Badge>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => onViewDetails(tenant)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View Details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEdit(tenant)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Tenant
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDelete(tenant.id)}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Tenant
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
-
+      
       <CardContent className="space-y-6">
-        {/* Basic Info */}
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="flex items-center space-x-2">
-            <Crown className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">Type:</span>
-            <span className="text-muted-foreground capitalize">{tenant.type?.replace('_', ' ')}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">Created:</span>
-            <span className="text-muted-foreground">{formatDate(tenant.created_at)}</span>
-          </div>
-        </div>
-
-        {/* Usage Metrics */}
-        {metrics && (
-          <div className="space-y-4">
-            <h4 className="font-medium text-sm flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Usage & Limits
-            </h4>
-            <div className="grid grid-cols-2 gap-4">
-              <UsageMeter
-                label="Farmers"
-                current={metrics.usageMetrics.farmers.current}
-                limit={metrics.usageMetrics.farmers.limit}
-                showDetails={false}
-              />
-              <UsageMeter
-                label="Dealers"
-                current={metrics.usageMetrics.dealers.current}
-                limit={metrics.usageMetrics.dealers.limit}
-                showDetails={false}
-              />
-            </div>
+        {/* Usage Metrics Grid */}
+        {metrics?.usageMetrics && (
+          <div className="grid grid-cols-2 gap-4">
+            <UsageMeter 
+              label="Farmers" 
+              value={metrics.usageMetrics.farmers.current} 
+              max={metrics.usageMetrics.farmers.limit} 
+              showPercentage
+            />
+            <UsageMeter 
+              label="Dealers" 
+              value={metrics.usageMetrics.dealers.current} 
+              max={metrics.usageMetrics.dealers.limit} 
+              showPercentage
+            />
+            <UsageMeter 
+              label="Storage" 
+              value={metrics.usageMetrics.storage.current} 
+              max={metrics.usageMetrics.storage.limit} 
+              unit="GB"
+              showPercentage
+            />
+            <UsageMeter 
+              label="API Calls" 
+              value={metrics.usageMetrics.apiCalls.current} 
+              max={metrics.usageMetrics.apiCalls.limit} 
+              showPercentage
+            />
           </div>
         )}
 
         {/* Growth Trends */}
         {metrics?.growthTrends && (
-          <div className="space-y-3">
-            <h4 className="font-medium text-sm">Growth Trends</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <TrendChart
-                data={metrics.growthTrends.farmers}
-                label="Farmer Growth"
-                color="#10B981"
+          <div className="space-y-4">
+            <h4 className="font-semibold text-sm">Growth Trends (7 days)</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <TrendChart 
+                data={metrics.growthTrends.farmers} 
+                label="Farmers" 
+                color="hsl(var(--chart-1))"
               />
-              <TrendChart
-                data={metrics.growthTrends.revenue}
-                label="Revenue Growth"
-                color="#3B82F6"
+              <TrendChart 
+                data={metrics.growthTrends.revenue} 
+                label="Revenue" 
+                color="hsl(var(--chart-2))" 
+                prefix="₹"
+              />
+              <TrendChart 
+                data={metrics.growthTrends.apiUsage} 
+                label="API Usage" 
+                color="hsl(var(--chart-3))"
               />
             </div>
           </div>
         )}
 
-        {/* Health Score */}
-        {metrics?.healthScore !== undefined && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-sm">Health Score</span>
-              <Badge variant={metrics.healthScore >= 80 ? 'default' : metrics.healthScore >= 60 ? 'secondary' : 'destructive'}>
-                {metrics.healthScore}/100
-              </Badge>
+        {/* Tenant Details */}
+        <div className="space-y-3 pt-4 border-t">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">Slug:</span>
+              <p className="font-mono mt-1">{tenant.slug}</p>
             </div>
+            <div>
+              <span className="text-muted-foreground">Created:</span>
+              <p className="mt-1">{formatDate(tenant.created_at)}</p>
+            </div>
+            {tenant.owner_email && (
+              <div className="col-span-2">
+                <span className="text-muted-foreground">Admin Contact:</span>
+                <p className="mt-1">{tenant.owner_email}</p>
+                {tenant.owner_name && (
+                  <p className="text-muted-foreground text-xs">{tenant.owner_name}</p>
+                )}
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
-        {/* Actions */}
-        <div className="flex justify-end space-x-2 pt-4 border-t">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(tenant);
-            }}
-            className="flex items-center space-x-1"
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-4 border-t">
+          <Button 
+            variant="outline" 
+            onClick={() => onViewDetails(tenant)}
+            className="flex-1"
           >
-            <Edit className="h-4 w-4" />
-            <span>Edit</span>
+            <Eye className="h-4 w-4 mr-2" />
+            View Details
           </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(tenant.id);
-            }}
-            className="flex items-center space-x-1"
+          <TenantEmailActions tenant={tenant} />
+          <Button 
+            variant="outline" 
+            onClick={() => onEdit(tenant)}
           >
-            <Trash2 className="h-4 w-4" />
-            <span>Delete</span>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
           </Button>
         </div>
       </CardContent>
