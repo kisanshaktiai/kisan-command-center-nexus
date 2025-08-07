@@ -72,6 +72,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const requestData: CreateTenantRequest = await req.json();
+    console.log("Creating tenant with data:", { ...requestData, owner_email: requestData.owner_email });
 
     // Validate required fields
     if (!requestData.name?.trim() || !requestData.slug?.trim() || !requestData.owner_email?.trim() || !requestData.owner_name?.trim()) {
@@ -95,47 +96,65 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Generate temporary password
-    const generateTemporaryPassword = (): string => {
-      const length = 12;
-      const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-      let password = '';
-      
-      // Ensure at least one of each type
-      password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)];
-      password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)];
-      password += '0123456789'[Math.floor(Math.random() * 10)];
-      password += '!@#$%^&*'[Math.floor(Math.random() * 8)];
-      
-      // Fill the rest randomly
-      for (let i = 4; i < length; i++) {
-        password += charset[Math.floor(Math.random() * charset.length)];
-      }
-      
-      // Shuffle the password
-      return password.split('').sort(() => 0.5 - Math.random()).join('');
-    };
+    // Check if user already exists in auth.users
+    const { data: existingAuthUser } = await supabaseServiceRole.auth.admin.listUsers();
+    const userExists = existingAuthUser.users?.find(u => u.email === requestData.owner_email);
 
-    const tempPassword = generateTemporaryPassword();
+    let authUser;
+    let tempPassword = '';
+    let isNewUser = false;
 
-    // Create admin user in auth.users using service role
-    const { data: authUser, error: authError } = await supabaseServiceRole.auth.admin.createUser({
-      email: requestData.owner_email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
-        full_name: requestData.owner_name,
-        tenant_slug: requestData.slug,
-        role: 'tenant_admin'
-      }
-    });
+    if (userExists) {
+      console.log("User already exists in auth.users:", requestData.owner_email);
+      authUser = { user: userExists };
+    } else {
+      console.log("Creating new user in auth.users:", requestData.owner_email);
+      isNewUser = true;
 
-    if (authError) {
-      console.error('Error creating auth user:', authError);
-      return new Response(JSON.stringify({ error: `Failed to create admin user: ${authError.message}` }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+      // Generate temporary password
+      const generateTemporaryPassword = (): string => {
+        const length = 12;
+        const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+        let password = '';
+        
+        // Ensure at least one of each type
+        password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)];
+        password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)];
+        password += '0123456789'[Math.floor(Math.random() * 10)];
+        password += '!@#$%^&*'[Math.floor(Math.random() * 8)];
+        
+        // Fill the rest randomly
+        for (let i = 4; i < length; i++) {
+          password += charset[Math.floor(Math.random() * charset.length)];
+        }
+        
+        // Shuffle the password
+        return password.split('').sort(() => 0.5 - Math.random()).join('');
+      };
+
+      tempPassword = generateTemporaryPassword();
+
+      // Create admin user in auth.users using service role
+      const createUserResult = await supabaseServiceRole.auth.admin.createUser({
+        email: requestData.owner_email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: requestData.owner_name,
+          tenant_slug: requestData.slug,
+          role: 'tenant_admin'
+        }
       });
+
+      if (createUserResult.error) {
+        console.error('Error creating auth user:', createUserResult.error);
+        return new Response(JSON.stringify({ error: `Failed to create admin user: ${createUserResult.error.message}` }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+
+      authUser = createUserResult;
     }
 
     // Create tenant
@@ -148,12 +167,15 @@ const handler = async (req: Request): Promise<Response> => {
         subscription_plan: requestData.subscription_plan,
         owner_email: requestData.owner_email,
         owner_name: requestData.owner_name,
+        subdomain: requestData.slug,
         metadata: {
           ...requestData.metadata,
           admin_user_id: authUser.user.id,
-          created_via: 'manual_creation'
+          created_via: 'manual_creation',
+          is_new_user: isNewUser
         },
         status: 'trial',
+        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -162,8 +184,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (tenantError) {
       console.error('Error creating tenant:', tenantError);
-      // Clean up auth user if tenant creation fails
-      await supabaseServiceRole.auth.admin.deleteUser(authUser.user.id);
+      // Clean up auth user if tenant creation fails and it's a new user
+      if (isNewUser) {
+        await supabaseServiceRole.auth.admin.deleteUser(authUser.user.id);
+      }
       return new Response(JSON.stringify({ error: tenantError.message }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -185,10 +209,40 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('Error creating user-tenant relation:', relationError);
     }
 
-    // Send welcome email
+    // Send welcome email with improved handling
+    let emailSent = false;
+    let emailError = '';
+
     try {
-      const loginUrl = `${req.headers.get('origin') || 'https://your-domain.com'}/auth`;
+      console.log("Attempting to send welcome email...");
       
+      const loginUrl = `${req.headers.get('origin') || 'https://f7f3ec00-3a42-4b69-b48b-a0622a7f7b10.lovableproject.com'}/auth`;
+      
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+            <h1 style="color: white; font-size: 24px; margin: 0;">Welcome to ${requestData.name}</h1>
+          </div>
+          <div style="padding: 40px 30px; background: white;">
+            <h2>Hi ${requestData.owner_name},</h2>
+            <p>Your ${requestData.name} account has been set up successfully. Here are your login credentials:</p>
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p><strong>Email:</strong> ${requestData.owner_email}</p>
+              ${isNewUser ? `<p><strong>Temporary Password:</strong> <code style="background: #e9ecef; padding: 4px 8px; border-radius: 4px;">${tempPassword}</code></p>` : '<p><strong>Login:</strong> Use your existing password</p>'}
+            </div>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${loginUrl}" style="background: #10b981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Login to Your Account</a>
+            </div>
+            ${isNewUser ? '<p><strong>Important:</strong> Please change your password after your first login for security reasons.</p>' : ''}
+            <p>Best regards,<br>The KisanShaktiAI Team</p>
+          </div>
+          <div style="background: #f8f9fa; padding: 30px; text-align: center; color: #6b7280; font-size: 14px;">
+            <p>This email contains sensitive login information. Please keep it secure.</p>
+            <p>© 2025 KisanShaktiAI. All rights reserved.</p>
+          </div>
+        </div>
+      `;
+
       const emailResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
         method: 'POST',
         headers: {
@@ -198,39 +252,39 @@ const handler = async (req: Request): Promise<Response> => {
         body: JSON.stringify({
           to: requestData.owner_email,
           subject: `Welcome to ${requestData.name} - Your Account is Ready!`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Welcome to ${requestData.name}!</h2>
-              <p>Hello ${requestData.owner_name},</p>
-              <p>Your tenant account has been successfully created. Here are your login credentials:</p>
-              <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                <p><strong>Email:</strong> ${requestData.owner_email}</p>
-                <p><strong>Temporary Password:</strong> ${tempPassword}</p>
-                <p><strong>Login URL:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
-              </div>
-              <p><strong>Important:</strong> Please change your password after your first login for security purposes.</p>
-              <p>Best regards,<br>Your Team</p>
-            </div>
-          `,
+          html: emailHtml,
           metadata: {
             tenantId: tenant.id,
-            userId: authUser.user.id
+            userId: authUser.user.id,
+            template_type: 'tenant_welcome_creation'
           }
         }),
       });
 
-      if (!emailResponse.ok) {
-        console.error('Failed to send welcome email:', await emailResponse.text());
+      if (emailResponse.ok) {
+        const emailResult = await emailResponse.json();
+        console.log('Email sent successfully:', emailResult);
+        emailSent = true;
+      } else {
+        const emailErrorText = await emailResponse.text();
+        console.error('Failed to send welcome email:', emailErrorText);
+        emailError = emailErrorText;
       }
-    } catch (emailError) {
-      console.error('Error sending welcome email:', emailError);
+    } catch (error) {
+      console.error('Error sending welcome email:', error);
+      emailError = error.message;
     }
 
+    // Return success with email status
     return new Response(JSON.stringify({ 
       success: true, 
       tenant: tenant,
       message: 'Tenant created successfully with admin user',
-      adminEmail: requestData.owner_email
+      adminEmail: requestData.owner_email,
+      emailSent: emailSent,
+      emailError: emailError || undefined,
+      isNewUser: isNewUser,
+      tempPassword: isNewUser ? tempPassword : undefined
     }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },

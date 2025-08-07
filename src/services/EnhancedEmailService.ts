@@ -48,6 +48,7 @@ export class EnhancedEmailService {
         return { exists: false };
       }
 
+      console.log('User existence check result:', data);
       return {
         exists: data?.exists || false,
         userId: data?.userId
@@ -67,6 +68,7 @@ export class EnhancedEmailService {
       
       const emailTemplate = this.generateWelcomeEmailTemplate(data, userCheck.exists);
       
+      console.log('Calling send-email function...');
       const { data: result, error } = await supabase.functions.invoke('send-email', {
         body: {
           to: data.adminEmail,
@@ -76,26 +78,93 @@ export class EnhancedEmailService {
           metadata: {
             type: 'tenant_welcome',
             tenantSlug: data.tenantSlug,
-            isExistingUser: userCheck.exists
+            isExistingUser: userCheck.exists,
+            template_version: '2.0'
           }
         }
       });
 
+      console.log('Send email function response:', { result, error });
+
       if (error) {
         console.error('Error sending welcome email:', error);
+        
+        // Log the failed email attempt
+        try {
+          await supabase.from('email_logs').insert({
+            recipient_email: data.adminEmail,
+            subject: emailTemplate.subject,
+            status: 'failed',
+            error_message: error.message,
+            template_type: 'tenant_welcome',
+            metadata: {
+              type: 'tenant_welcome',
+              tenantSlug: data.tenantSlug,
+              isExistingUser: userCheck.exists,
+              error_details: error
+            },
+            retry_count: 0
+          });
+        } catch (logError) {
+          console.warn('Failed to log email error:', logError);
+        }
+
         return {
           sent: false,
           error: error.message || 'Failed to send email'
         };
       }
 
+      // Log successful email attempt
+      try {
+        await supabase.from('email_logs').insert({
+          recipient_email: data.adminEmail,
+          subject: emailTemplate.subject,
+          status: result?.success ? 'sent' : 'attempted',
+          external_message_id: result?.messageId,
+          template_type: 'tenant_welcome',
+          metadata: {
+            type: 'tenant_welcome',
+            tenantSlug: data.tenantSlug,
+            isExistingUser: userCheck.exists,
+            provider: result?.provider,
+            warning: result?.warning
+          },
+          sent_at: new Date().toISOString(),
+          retry_count: 0
+        });
+      } catch (logError) {
+        console.warn('Failed to log email success:', logError);
+      }
+
       return {
-        sent: true,
+        sent: result?.success || false,
         messageId: result?.messageId,
-        deliveredAt: new Date().toISOString()
+        deliveredAt: new Date().toISOString(),
+        error: result?.warning || result?.error
       };
     } catch (error) {
       console.error('Error in sendTenantWelcomeEmail:', error);
+      
+      // Log the error
+      try {
+        await supabase.from('email_logs').insert({
+          recipient_email: data.adminEmail,
+          subject: `Welcome to ${data.tenantName}`,
+          status: 'failed',
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+          template_type: 'tenant_welcome',
+          metadata: {
+            type: 'tenant_welcome',
+            tenantSlug: data.tenantSlug,
+            error_type: 'service_error'
+          },
+          retry_count: 0
+        });
+      } catch (logError) {
+        console.warn('Failed to log service error:', logError);
+      }
+
       return {
         sent: false,
         error: error instanceof Error ? error.message : 'Unknown error'

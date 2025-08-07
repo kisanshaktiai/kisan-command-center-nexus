@@ -66,6 +66,15 @@ export const useTenantFormNavigation = (
     };
   }, [formData]);
 
+  const validateBrandingTab = useCallback((): TabValidation => {
+    const errors: string[] = [];
+    // Branding tab is optional
+    return {
+      isValid: true,
+      errors
+    };
+  }, []);
+
   const getTabValidation = useCallback((tab: string): TabValidation => {
     switch (tab) {
       case 'basic':
@@ -74,15 +83,18 @@ export const useTenantFormNavigation = (
         return validateBusinessTab();
       case 'limits':
         return validateLimitsTab();
+      case 'branding':
+        return validateBrandingTab();
       default:
         return { isValid: true, errors: [] };
     }
-  }, [validateBasicTab, validateBusinessTab, validateLimitsTab]);
+  }, [validateBasicTab, validateBusinessTab, validateLimitsTab, validateBrandingTab]);
 
   const tabs = [
     { id: 'basic', label: 'Basic Info', validation: getTabValidation('basic') },
     { id: 'business', label: 'Business Details', validation: getTabValidation('business') },
-    { id: 'limits', label: 'Limits & Features', validation: getTabValidation('limits') }
+    { id: 'limits', label: 'Limits & Features', validation: getTabValidation('limits') },
+    { id: 'branding', label: 'Branding', validation: getTabValidation('branding') }
   ];
 
   const currentTabIndex = tabs.findIndex(tab => tab.id === currentTab);

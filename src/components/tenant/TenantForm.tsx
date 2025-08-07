@@ -47,27 +47,38 @@ export const TenantForm: React.FC<TenantFormProps> = ({
 
   const currentValidation = getCurrentTabValidation();
 
+  // All tabs including branding
+  const allTabs = [
+    { id: 'basic', label: 'Basic Info' },
+    { id: 'business', label: 'Business Details' },
+    { id: 'limits', label: 'Limits & Features' },
+    { id: 'branding', label: 'Branding' }
+  ];
+
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-6">
       <Tabs value={currentTab} onValueChange={goToTab} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          {tabs.map((tab) => (
-            <TabsTrigger 
-              key={tab.id} 
-              value={tab.id} 
-              className="flex items-center gap-2"
-              disabled={!tab.validation.isValid && tab.id !== currentTab}
-            >
-              {tab.validation.isValid && (
-                <CheckCircle className="w-4 h-4 text-green-500" />
-              )}
-              {!tab.validation.isValid && tab.validation.errors.length > 0 && tab.id !== currentTab && (
-                <AlertCircle className="w-4 h-4 text-red-500" />
-              )}
-              {tab.label}
-            </TabsTrigger>
-          ))}
-          <TabsTrigger value="branding">Branding</TabsTrigger>
+          {allTabs.map((tab) => {
+            const tabValidation = tabs.find(t => t.id === tab.id)?.validation || { isValid: true, errors: [] };
+            
+            return (
+              <TabsTrigger 
+                key={tab.id} 
+                value={tab.id} 
+                className="flex items-center gap-2"
+                disabled={!tabValidation.isValid && tab.id !== currentTab}
+              >
+                {tabValidation.isValid && (
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                )}
+                {!tabValidation.isValid && tabValidation.errors.length > 0 && tab.id !== currentTab && (
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                )}
+                {tab.label}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
 
         {/* Show current tab validation errors */}
@@ -165,17 +176,20 @@ export const TenantForm: React.FC<TenantFormProps> = ({
       {/* Progress Indicator */}
       <div className="mt-4 p-4 bg-gray-50 rounded-lg">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">Progress: {tabs.filter(tab => tab.validation.isValid).length} of {tabs.length} sections completed</span>
+          <span className="text-gray-600">Progress: {tabs.filter(tab => tab.validation.isValid).length} of {allTabs.length} sections completed</span>
           <div className="flex items-center gap-1">
-            {tabs.map((tab, index) => (
-              <div
-                key={tab.id}
-                className={`w-2 h-2 rounded-full ${
-                  tab.validation.isValid ? 'bg-green-500' : 
-                  tab.id === currentTab ? 'bg-blue-500' : 'bg-gray-300'
-                }`}
-              />
-            ))}
+            {allTabs.map((tab, index) => {
+              const tabValidation = tabs.find(t => t.id === tab.id)?.validation || { isValid: true, errors: [] };
+              return (
+                <div
+                  key={tab.id}
+                  className={`w-2 h-2 rounded-full ${
+                    tabValidation.isValid ? 'bg-green-500' : 
+                    tab.id === currentTab ? 'bg-blue-500' : 'bg-gray-300'
+                  }`}
+                />
+              );
+            })}
           </div>
         </div>
       </div>
