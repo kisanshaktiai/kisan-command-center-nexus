@@ -17,6 +17,13 @@ interface InviteRequest {
   primaryColor?: string;
 }
 
+// Generate secure invite token
+function generateInviteToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -30,15 +37,23 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    console.log('Starting admin invite process...');
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
     if (!resendApiKey) {
+      console.error('RESEND_API_KEY not configured');
       throw new Error('RESEND_API_KEY not configured');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
     const resend = new Resend(resendApiKey);
 
     const {
@@ -50,8 +65,11 @@ const handler = async (req: Request): Promise<Response> => {
       primaryColor = '#2563eb'
     }: InviteRequest = await req.json();
 
+    console.log('Request data:', { email, role, invitedBy, organizationName });
+
     // Validate required fields
     if (!email || !role || !invitedBy) {
+      console.error('Missing required fields:', { email, role, invitedBy });
       return new Response(JSON.stringify({ 
         error: 'Missing required fields: email, role, invitedBy' 
       }), {
@@ -60,9 +78,10 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Validate role - updated to use correct enum values
+    // Validate role
     const validRoles = ['admin', 'platform_admin', 'super_admin'];
     if (!validRoles.includes(role)) {
+      console.error('Invalid role:', role);
       return new Response(JSON.stringify({ 
         error: 'Invalid role. Must be admin, platform_admin, or super_admin' 
       }), {
@@ -72,14 +91,8 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Generate secure invite token
-    const { data: tokenData, error: tokenError } = await supabase
-      .rpc('generate_invite_token');
-
-    if (tokenError) {
-      throw new Error(`Failed to generate invite token: ${tokenError.message}`);
-    }
-
-    const inviteToken = tokenData;
+    const inviteToken = generateInviteToken();
+    console.log('Generated invite token');
 
     // Check if user already has a pending invite
     const { data: existingInvite } = await supabase
@@ -91,6 +104,7 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (existingInvite) {
+      console.log('User already has pending invite:', email);
       return new Response(JSON.stringify({ 
         error: 'User already has a pending invite' 
       }), {
@@ -100,6 +114,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Create invite record
+    console.log('Creating invite record...');
     const { data: invite, error: inviteError } = await supabase
       .from('admin_invites')
       .insert({
@@ -119,8 +134,11 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (inviteError) {
+      console.error('Failed to create invite:', inviteError);
       throw new Error(`Failed to create invite: ${inviteError.message}`);
     }
+
+    console.log('Invite record created:', invite.id);
 
     // Create invite link
     const inviteUrl = `${Deno.env.get('SITE_URL') || 'https://app.kisanshaktiai.in'}/register?invite=${inviteToken}`;
@@ -210,6 +228,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     // Send email
+    console.log('Sending email to:', email);
     const emailResult = await resend.emails.send({
       from: `${organizationName} <admin@kisanshaktiai.in>`,
       to: [email],
@@ -218,6 +237,7 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (emailResult.error) {
+      console.error('Failed to send email:', emailResult.error);
       // Delete the invite if email fails
       await supabase
         .from('admin_invites')
@@ -227,18 +247,25 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to send email: ${emailResult.error.message}`);
     }
 
+    console.log('Email sent successfully:', emailResult.data?.id);
+
     // Log analytics event
-    await supabase
-      .from('admin_invite_analytics')
-      .insert({
-        invite_id: invite.id,
-        event_type: 'sent',
-        ip_address: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-        user_agent: req.headers.get('user-agent'),
-        metadata: {
-          email_id: emailResult.data?.id
-        }
-      });
+    try {
+      await supabase
+        .from('admin_invite_analytics')
+        .insert({
+          invite_id: invite.id,
+          event_type: 'sent',
+          ip_address: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+          user_agent: req.headers.get('user-agent'),
+          metadata: {
+            email_id: emailResult.data?.id
+          }
+        });
+    } catch (analyticsError) {
+      console.error('Failed to log analytics:', analyticsError);
+      // Don't fail the request for analytics errors
+    }
 
     return new Response(JSON.stringify({
       success: true,
