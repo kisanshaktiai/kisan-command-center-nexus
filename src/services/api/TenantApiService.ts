@@ -37,8 +37,16 @@ export class TenantApiService extends BaseService {
       return typeof value === 'string' && (validTenantStatuses as string[]).includes(value);
     };
     
-    const tenantType: TenantType = isTenantType(tenant.type) ? tenant.type : 'agri_company';
-    const tenantStatus: TenantStatus = isTenantStatus(tenant.status) ? tenant.status : 'trial';
+    // Cast the values properly after validation
+    let tenantType: TenantType = 'agri_company';
+    if (isTenantType(tenant.type)) {
+      tenantType = tenant.type;
+    }
+    
+    let tenantStatus: TenantStatus = 'trial';
+    if (isTenantStatus(tenant.status)) {
+      tenantStatus = tenant.status;
+    }
 
     return {
       id: tenant.id,
