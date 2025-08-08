@@ -9,6 +9,7 @@ import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
 import { useTenants, useCreateTenantMutation, useUpdateTenantMutation, useDeleteTenantMutation } from '@/data/hooks/useTenantData';
 import { Tenant } from '@/types/tenant';
+import { TenantViewPreferences } from '@/types/tenantView';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
@@ -16,11 +17,11 @@ export default function TenantManagementRefactored() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [viewPreferences, setViewPreferences] = useState({
-    mode: 'small-cards' as const,
-    density: 'comfortable' as const,
-    sortBy: 'created_at' as const,
-    sortOrder: 'desc' as const
+  const [viewPreferences, setViewPreferences] = useState<TenantViewPreferences>({
+    mode: 'small-cards',
+    density: 'comfortable',
+    sortBy: 'created_at',
+    sortOrder: 'desc'
   });
 
   // Modal states
@@ -30,10 +31,21 @@ export default function TenantManagementRefactored() {
 
   // Data hooks
   const filters = { searchTerm, filterType, filterStatus };
-  const { data: tenants = [], isLoading, error } = useTenants(filters);
+  const { data: rawTenants = [], isLoading, error } = useTenants(filters);
   const createTenantMutation = useCreateTenantMutation();
   const updateTenantMutation = useUpdateTenantMutation();
   const deleteTenantMutation = useDeleteTenantMutation();
+
+  // Convert raw tenant data to proper Tenant type
+  const tenants: Tenant[] = rawTenants.map(tenant => ({
+    ...tenant,
+    metadata: typeof tenant.metadata === 'string' 
+      ? JSON.parse(tenant.metadata) 
+      : tenant.metadata || {},
+    business_address: typeof tenant.business_address === 'string'
+      ? JSON.parse(tenant.business_address)
+      : tenant.business_address || null
+  }));
 
   // Filter tenants based on search and filters
   const filteredTenants = tenants.filter(tenant => {
@@ -74,7 +86,6 @@ export default function TenantManagementRefactored() {
       });
       return true;
     } catch (error) {
-      // Error handling is done in the mutation
       console.error('Error creating tenant:', error);
       return false;
     }
@@ -84,7 +95,6 @@ export default function TenantManagementRefactored() {
     try {
       await updateTenantMutation.mutateAsync({ id, data: tenantData });
     } catch (error) {
-      // Error handling is done in the mutation
       console.error('Error updating tenant:', error);
     }
   };
@@ -93,9 +103,12 @@ export default function TenantManagementRefactored() {
     try {
       await deleteTenantMutation.mutateAsync(tenantId);
     } catch (error) {
-      // Error handling is done in the mutation
       console.error('Error deleting tenant:', error);
     }
+  };
+
+  const handlePreferencesChange = (preferences: TenantViewPreferences) => {
+    setViewPreferences(preferences);
   };
 
   if (isLoading) {
@@ -142,7 +155,7 @@ export default function TenantManagementRefactored() {
             filterStatus={filterStatus}
             setFilterStatus={setFilterStatus}
             viewPreferences={viewPreferences}
-            setViewPreferences={setViewPreferences}
+            setViewPreferences={handlePreferencesChange}
             totalCount={filteredTenants.length}
           />
 
@@ -153,7 +166,7 @@ export default function TenantManagementRefactored() {
             onEdit={(tenant) => handleUpdateTenant(tenant.id, tenant)}
             onDelete={handleDeleteTenant}
             onViewDetails={handleViewDetails}
-            tenantMetrics={{}} // This would come from a metrics service
+            tenantMetrics={{}}
           />
         </DataErrorBoundary>
 

@@ -20,12 +20,16 @@ export const TenantManagementHeader: React.FC<TenantManagementHeaderProps> = ({
 }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const handleCreate = async (tenantData: any) => {
+  const handleCreate = async (tenantData: any): Promise<boolean> => {
     const success = await onCreateTenant(tenantData);
     if (success) {
       setIsCreateModalOpen(false);
     }
     return success;
+  };
+
+  const handleCancel = () => {
+    setIsCreateModalOpen(false);
   };
 
   return (
@@ -51,7 +55,7 @@ export const TenantManagementHeader: React.FC<TenantManagementHeaderProps> = ({
           <TenantForm
             mode="create"
             onSubmit={handleCreate}
-            onCancel={() => setIsCreateModalOpen(false)}
+            onCancel={handleCancel}
           />
         </DialogContent>
       </Dialog>
