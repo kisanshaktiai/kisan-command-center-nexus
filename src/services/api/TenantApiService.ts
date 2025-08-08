@@ -28,8 +28,15 @@ export class TenantApiService extends BaseService {
     const validTenantTypes: TenantType[] = ['agri_company', 'dealer', 'ngo', 'government', 'university', 'sugar_factory', 'cooperative', 'insurance'];
     const validTenantStatuses: TenantStatus[] = ['trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'];
     
-    const tenantType = validTenantTypes.includes(tenant.type as TenantType) ? tenant.type as TenantType : 'agri_company';
-    const tenantStatus = validTenantStatuses.includes(tenant.status as TenantStatus) ? tenant.status as TenantStatus : 'trial';
+    // Use type predicates to safely check if the values are valid enum values
+    const isTenantType = (value: any): value is TenantType => 
+      typeof value === 'string' && validTenantTypes.includes(value as TenantType);
+    
+    const isTenantStatus = (value: any): value is TenantStatus => 
+      typeof value === 'string' && validTenantStatuses.includes(value as TenantStatus);
+    
+    const tenantType = isTenantType(tenant.type) ? tenant.type : 'agri_company' as TenantType;
+    const tenantStatus = isTenantStatus(tenant.status) ? tenant.status : 'trial' as TenantStatus;
 
     return {
       id: tenant.id,
