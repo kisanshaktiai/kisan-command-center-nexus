@@ -17,10 +17,13 @@ export const tenantMappers = {
   typeToLabel: (type: TenantType): string => {
     const typeMap: Record<TenantType, string> = {
       agri_company: 'Agriculture Company',
-      retailer: 'Retailer',
-      distributor: 'Distributor',
-      individual: 'Individual',
-      cooperative: 'Cooperative'
+      dealer: 'Dealer',
+      ngo: 'NGO',
+      government: 'Government',
+      university: 'University',
+      sugar_factory: 'Sugar Factory',
+      cooperative: 'Cooperative',
+      insurance: 'Insurance'
     };
     return typeMap[type] || type;
   },
