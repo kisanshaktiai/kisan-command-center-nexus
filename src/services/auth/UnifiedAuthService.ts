@@ -49,7 +49,7 @@ export class UnifiedAuthService extends BaseService {
       this.initialized = true;
       return { success: true };
     } catch (error) {
-      return this.handleError(error, 'Failed to initialize authentication');
+      return this.createServiceResult(error, 'Failed to initialize authentication');
     } finally {
       this.initializing = false;
     }
@@ -66,7 +66,7 @@ export class UnifiedAuthService extends BaseService {
       const authState = await this.buildAuthState(user, session);
       return { success: true, data: authState };
     } catch (error) {
-      return this.handleError(error, 'Sign in failed');
+      return this.createServiceResult(error, 'Sign in failed');
     }
   }
 
@@ -76,7 +76,7 @@ export class UnifiedAuthService extends BaseService {
       this.clearAuthState();
       return { success: true };
     } catch (error) {
-      return this.handleError(error, 'Sign out failed');
+      return this.createServiceResult(error, 'Sign out failed');
     }
   }
 
@@ -90,7 +90,7 @@ export class UnifiedAuthService extends BaseService {
 
       return { success: true, data: { user, session } };
     } catch (error) {
-      return this.handleError(error, 'Registration failed');
+      return this.createServiceResult(error, 'Registration failed');
     }
   }
 
@@ -170,8 +170,8 @@ export class UnifiedAuthService extends BaseService {
     console.log('Auth state cleared');
   }
 
-  private handleError(error: unknown, fallbackMessage: string): ServiceResult<never> {
-    const message = error instanceof Error ? error.message : fallbackMessage;
+  private createServiceResult<T>(error: unknown, context: string): ServiceResult<T> {
+    const message = error instanceof Error ? error.message : context;
     console.error('UnifiedAuthService error:', error);
     return { success: false, error: message };
   }

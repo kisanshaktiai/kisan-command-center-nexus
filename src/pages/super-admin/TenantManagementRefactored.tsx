@@ -18,6 +18,7 @@ export default function TenantManagementRefactored() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [viewPreferences, setViewPreferences] = useState({
     mode: 'small-cards' as const,
+    density: 'comfortable' as const,
     sortBy: 'created_at' as const,
     sortOrder: 'desc' as const
   });
@@ -63,7 +64,7 @@ export default function TenantManagementRefactored() {
     setIsDetailsModalOpen(true);
   };
 
-  const handleCreateTenant = async (tenantData: any) => {
+  const handleCreateTenant = async (tenantData: any): Promise<boolean> => {
     try {
       await createTenantMutation.mutateAsync(tenantData);
       setCreationSuccess({
@@ -71,9 +72,11 @@ export default function TenantManagementRefactored() {
         adminEmail: tenantData.admin_email,
         hasEmailSent: true
       });
+      return true;
     } catch (error) {
       // Error handling is done in the mutation
       console.error('Error creating tenant:', error);
+      return false;
     }
   };
 

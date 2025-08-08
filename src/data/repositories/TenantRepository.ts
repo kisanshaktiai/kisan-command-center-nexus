@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { BaseService } from '@/services/BaseService';
-import { CreateTenantDTO, UpdateTenantDTO, Tenant } from '@/data/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO, TenantDTO } from '@/data/types/tenant';
 
 export class TenantRepository extends BaseService {
   private static instance: TenantRepository;
