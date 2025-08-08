@@ -1,3 +1,4 @@
+
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import { CreateTenantDTO, UpdateTenantDTO, TenantDTO } from '@/data/types/tenant';
@@ -24,27 +25,29 @@ export class TenantApiService extends BaseService {
   }
 
   private mapTenantFromDatabase(tenant: any): TenantDTO {
-    // Define valid enum values
-    const validTenantTypes = [
-      'agri_company', 'dealer', 'ngo', 'government', 
-      'university', 'sugar_factory', 'cooperative', 'insurance'
-    ] as const;
-    
-    const validTenantStatuses = [
-      'trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'
-    ] as const;
-    
-    // Helper function to validate and return enum value or default
+    // Helper function to validate and return tenant type
     const getTenantType = (value: any): TenantType => {
-      return typeof value === 'string' && validTenantTypes.includes(value as any) 
-        ? value as TenantType 
-        : 'agri_company';
+      const validTypes: readonly TenantType[] = [
+        'agri_company', 'dealer', 'ngo', 'government', 
+        'university', 'sugar_factory', 'cooperative', 'insurance'
+      ];
+      
+      if (typeof value === 'string' && (validTypes as readonly string[]).includes(value)) {
+        return value as TenantType;
+      }
+      return 'agri_company';
     };
 
+    // Helper function to validate and return tenant status
     const getTenantStatus = (value: any): TenantStatus => {
-      return typeof value === 'string' && validTenantStatuses.includes(value as any) 
-        ? value as TenantStatus 
-        : 'trial';
+      const validStatuses: readonly TenantStatus[] = [
+        'trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'
+      ];
+      
+      if (typeof value === 'string' && (validStatuses as readonly string[]).includes(value)) {
+        return value as TenantStatus;
+      }
+      return 'trial';
     };
 
     return {
