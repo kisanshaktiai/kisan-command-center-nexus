@@ -12,22 +12,36 @@ import { TenantFormLimits } from './TenantFormLimits';
 import { TenantFormBranding } from './TenantFormBranding';
 
 interface TenantFormProps {
-  formData: TenantFormData;
-  setFormData: (data: TenantFormData) => void;
-  onSubmit: () => void;
-  isEditing: boolean;
-  currentTenant?: Tenant;
+  mode: 'create' | 'edit';
+  onSubmit: (tenantData: TenantFormData) => Promise<boolean>;
+  onCancel: () => void;
+  initialData?: Tenant;
   isSubmitting?: boolean;
 }
 
 export const TenantForm: React.FC<TenantFormProps> = ({ 
-  formData, 
-  setFormData, 
-  onSubmit, 
-  isEditing, 
-  currentTenant,
+  mode,
+  onSubmit,
+  onCancel,
+  initialData,
   isSubmitting = false
 }) => {
+  const [formData, setFormData] = React.useState<TenantFormData>({
+    name: initialData?.name || '',
+    slug: initialData?.slug || '',
+    type: (initialData?.type as any) || 'agri_company',
+    status: (initialData?.status as any) || 'trial',
+    subscription_plan: initialData?.subscription_plan || 'Kisan_Basic',
+    max_farmers: initialData?.max_farmers || 1000,
+    max_dealers: initialData?.max_dealers || 50,
+    max_products: initialData?.max_products || 100,
+    max_storage_gb: initialData?.max_storage_gb || 10,
+    max_api_calls_per_day: initialData?.max_api_calls_per_day || 10000,
+    owner_name: initialData?.owner_name || '',
+    owner_email: initialData?.owner_email || '',
+    subdomain: initialData?.subdomain || '',
+  });
+
   const {
     currentTab,
     tabs,
@@ -39,10 +53,15 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     goToTab,
     isFormComplete,
     getCurrentTabValidation
-  } = useTenantFormNavigation(formData, isEditing, true, false);
+  } = useTenantFormNavigation(formData, mode === 'edit', true, false);
 
   const handleFieldChange = (field: keyof TenantFormData, value: string | number | object) => {
     setFormData({ ...formData, [field]: value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onSubmit(formData);
   };
 
   const currentValidation = getCurrentTabValidation();
@@ -56,7 +75,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
   ];
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <Tabs value={currentTab} onValueChange={goToTab} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           {allTabs.map((tab) => {
@@ -102,7 +121,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
           <TenantFormBasic
             formData={formData}
             onFieldChange={handleFieldChange}
-            currentTenantId={isEditing ? currentTenant?.id : undefined}
+            currentTenantId={mode === 'edit' ? initialData?.id : undefined}
           />
         </TabsContent>
 
@@ -153,12 +172,21 @@ export const TenantForm: React.FC<TenantFormProps> = ({
         </div>
 
         <div className="flex items-center gap-4">
-          {!isEditing && (
+          {mode === 'create' && (
             <div className="flex items-center text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
               <Mail className="w-4 h-4 mr-2" />
               Welcome email will be sent automatically after creation
             </div>
           )}
+          
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
           
           <Button 
             type="submit" 
@@ -168,7 +196,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
             {isSubmitting ? (
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
             ) : null}
-            {isEditing ? 'Update Tenant' : 'Create Tenant & Send Welcome Email'}
+            {mode === 'edit' ? 'Update Tenant' : 'Create Tenant & Send Welcome Email'}
           </Button>
         </div>
       </div>
