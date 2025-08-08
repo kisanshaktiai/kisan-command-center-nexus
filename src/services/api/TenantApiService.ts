@@ -25,28 +25,22 @@ export class TenantApiService extends BaseService {
 
   private mapTenantFromDatabase(tenant: any): TenantDTO {
     // Safe enum casting with fallbacks
-    const validTenantTypes: TenantType[] = ['agri_company', 'dealer', 'ngo', 'government', 'university', 'sugar_factory', 'cooperative', 'insurance'];
-    const validTenantStatuses: TenantStatus[] = ['trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'];
+    const validTenantTypes: TenantType[] = [
+      'agri_company', 'dealer', 'ngo', 'government', 
+      'university', 'sugar_factory', 'cooperative', 'insurance'
+    ];
+    const validTenantStatuses: TenantStatus[] = [
+      'trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'
+    ];
     
-    // Use type predicates to safely check if the values are valid enum values
-    const isTenantType = (value: any): value is TenantType => {
-      return typeof value === 'string' && (validTenantTypes as string[]).includes(value);
-    };
+    const isTenantType = (value: any): value is TenantType =>
+      typeof value === 'string' && validTenantTypes.includes(value as TenantType);
+
+    const isTenantStatus = (value: any): value is TenantStatus =>
+      typeof value === 'string' && validTenantStatuses.includes(value as TenantStatus);
     
-    const isTenantStatus = (value: any): value is TenantStatus => {
-      return typeof value === 'string' && (validTenantStatuses as string[]).includes(value);
-    };
-    
-    // Cast the values properly after validation
-    let tenantType: TenantType = 'agri_company';
-    if (isTenantType(tenant.type)) {
-      tenantType = tenant.type;
-    }
-    
-    let tenantStatus: TenantStatus = 'trial';
-    if (isTenantStatus(tenant.status)) {
-      tenantStatus = tenant.status;
-    }
+    const tenantType: TenantType = isTenantType(tenant.type) ? tenant.type : 'agri_company';
+    const tenantStatus: TenantStatus = isTenantStatus(tenant.status) ? tenant.status : 'trial';
 
     return {
       id: tenant.id,
