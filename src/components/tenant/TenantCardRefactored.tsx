@@ -137,6 +137,7 @@ export const TenantCardRefactored: React.FC<TenantCardRefactoredProps> = ({
             </h4>
             <TrendChart 
               data={metrics.growthTrends.farmers}
+              label="Farmers Growth"
               height={60}
               color="hsl(var(--primary))"
             />
