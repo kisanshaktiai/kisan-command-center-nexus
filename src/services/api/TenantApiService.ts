@@ -1,3 +1,4 @@
+
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import { CreateTenantDTO, UpdateTenantDTO, TenantDTO } from '@/data/types/tenant';
@@ -25,19 +26,19 @@ export class TenantApiService extends BaseService {
 
   private mapTenantFromDatabase(tenant: any): TenantDTO {
     // Safe enum casting with fallbacks
-    const validTenantTypes: TenantType[] = [
+    const validTenantTypes = [
       'agri_company', 'dealer', 'ngo', 'government', 
       'university', 'sugar_factory', 'cooperative', 'insurance'
-    ];
-    const validTenantStatuses: TenantStatus[] = [
+    ] as const;
+    const validTenantStatuses = [
       'trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'
-    ];
+    ] as const;
     
     const isTenantType = (value: any): value is TenantType =>
-      typeof value === 'string' && validTenantTypes.includes(value as TenantType);
+      typeof value === 'string' && validTenantTypes.includes(value as any);
 
     const isTenantStatus = (value: any): value is TenantStatus =>
-      typeof value === 'string' && validTenantStatuses.includes(value as TenantStatus);
+      typeof value === 'string' && validTenantStatuses.includes(value as any);
     
     const tenantType: TenantType = isTenantType(tenant.type) ? tenant.type : 'agri_company';
     const tenantStatus: TenantStatus = isTenantStatus(tenant.status) ? tenant.status : 'trial';
