@@ -2,8 +2,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { tenantManagementService } from '../services/TenantManagementService';
 import { tenantQueries } from '@/data/queries/tenantQueries';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
-interface UseTenantDataOptions {
+export interface UseTenantDataOptions {
   filters?: {
     search?: string;
     type?: string;
@@ -13,6 +14,10 @@ interface UseTenantDataOptions {
 
 export const useTenantData = (options: UseTenantDataOptions = {}) => {
   const { filters = {} } = options;
+  const { handleError } = useErrorHandler({ 
+    component: 'TenantData',
+    fallbackMessage: 'Failed to load tenants' 
+  });
 
   const {
     data: tenants = [],
@@ -23,11 +28,20 @@ export const useTenantData = (options: UseTenantDataOptions = {}) => {
     queryFn: async () => {
       const result = await tenantManagementService.getAllTenants(filters);
       if (!result.success) {
-        throw new Error(result.error);
+        const errorToThrow = new Error(result.error || 'Failed to fetch tenants');
+        handleError(errorToThrow, 'fetch tenants');
+        throw errorToThrow;
       }
       return result.data || [];
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: (failureCount, error) => {
+      // Don't retry on validation errors (4xx)
+      if (error instanceof Error && error.message.includes('validation')) {
+        return false;
+      }
+      return failureCount < 3;
+    }
   });
 
   return {

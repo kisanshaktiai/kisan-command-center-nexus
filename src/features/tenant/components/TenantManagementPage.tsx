@@ -1,6 +1,6 @@
 
 import React, { memo } from 'react';
-import { TenantErrorBoundary } from '@/components/error-boundaries/TenantErrorBoundary';
+import { TenantErrorBoundary } from './TenantErrorBoundary';
 import { DataErrorBoundary } from '@/components/error-boundaries/DataErrorBoundary';
 import { TenantManagementHeader } from './TenantManagementHeader';
 import { TenantViewControls } from './TenantViewControls';
