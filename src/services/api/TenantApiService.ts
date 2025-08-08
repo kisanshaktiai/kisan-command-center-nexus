@@ -1,4 +1,3 @@
-
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import { CreateTenantDTO, UpdateTenantDTO, TenantDTO } from '@/data/types/tenant';
@@ -25,12 +24,19 @@ export class TenantApiService extends BaseService {
   }
 
   private mapTenantFromDatabase(tenant: any): TenantDTO {
+    // Safe enum casting with fallbacks
+    const validTenantTypes: TenantType[] = ['agri_company', 'dealer', 'ngo', 'government', 'university', 'sugar_factory', 'cooperative', 'insurance'];
+    const validTenantStatuses: TenantStatus[] = ['trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'];
+    
+    const tenantType = validTenantTypes.includes(tenant.type) ? tenant.type as TenantType : 'agri_company';
+    const tenantStatus = validTenantStatuses.includes(tenant.status) ? tenant.status as TenantStatus : 'trial';
+
     return {
       id: tenant.id,
       name: tenant.name,
       slug: tenant.slug,
-      type: tenant.type as TenantType,
-      status: tenant.status as TenantStatus,
+      type: tenantType,
+      status: tenantStatus,
       subscription_plan: tenant.subscription_plan,
       created_at: tenant.created_at,
       updated_at: tenant.updated_at,
@@ -148,14 +154,17 @@ export class TenantApiService extends BaseService {
         if (cleanedData.metadata) {
           const { metadata } = cleanedData;
           // Filter out any metadata that might contain role information
-          cleanedData.metadata = Object.keys(metadata).reduce((acc, key) => {
-            // Skip any fields that might contain role information
-            if (key === 'role' || key === 'user_role' || key === 'admin_role') {
+          const cleanedMetadata = Object.keys(metadata).reduce((acc, key) => {
+            // Skip any fields that might contain role information or other enum conflicts
+            if (key === 'role' || key === 'user_role' || key === 'admin_role' || key === 'admin') {
+              console.log(`Filtering out potentially problematic metadata field: ${key}`);
               return acc;
             }
             acc[key] = metadata[key];
             return acc;
           }, {} as Record<string, any>);
+          
+          cleanedData.metadata = cleanedMetadata;
         }
 
         const { data: tenant, error } = await supabase
