@@ -1,57 +1,57 @@
 
-import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { TenantForm } from '@/components/tenant/TenantForm';
-import { TenantFormData } from '@/types/tenant';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 interface TenantManagementHeaderProps {
-  isCreateDialogOpen: boolean;
-  setIsCreateDialogOpen: (open: boolean) => void;
-  formData: TenantFormData;
-  setFormData: (data: TenantFormData) => void;
-  onCreateTenant: () => Promise<boolean>;
-  resetForm: () => void;
+  onCreateTenant: (tenantData: any) => Promise<boolean>;
 }
 
 export const TenantManagementHeader: React.FC<TenantManagementHeaderProps> = ({
-  isCreateDialogOpen,
-  setIsCreateDialogOpen,
-  formData,
-  setFormData,
-  onCreateTenant,
-  resetForm
+  onCreateTenant
 }) => {
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const handleCreate = async (tenantData: any) => {
+    const success = await onCreateTenant(tenantData);
+    if (success) {
+      setIsCreateModalOpen(false);
+    }
+    return success;
+  };
+
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="flex justify-between items-center">
       <div>
-        <h1 className="text-3xl font-bold">Tenant Management</h1>
-        <p className="text-muted-foreground">Manage and configure tenant organizations</p>
+        <h1 className="text-3xl font-bold tracking-tight">Tenant Management</h1>
+        <p className="text-muted-foreground">
+          Manage and monitor all tenant organizations
+        </p>
       </div>
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
         <DialogTrigger asChild>
-          <Button onClick={() => {
-            console.log('Opening create dialog');
-            resetForm();
-          }}>
+          <Button>
             <Plus className="mr-2 h-4 w-4" />
-            Add Tenant
+            Create Tenant
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Tenant</DialogTitle>
-            <DialogDescription>
-              Set up a new tenant organization with their subscription and admin account. 
-              A welcome email with login credentials will be sent automatically.
-            </DialogDescription>
           </DialogHeader>
-          <TenantForm 
-            formData={formData} 
-            setFormData={setFormData} 
-            onSubmit={onCreateTenant}
-            isEditing={false}
+          <TenantForm
+            mode="create"
+            onSubmit={handleCreate}
+            onCancel={() => setIsCreateModalOpen(false)}
           />
         </DialogContent>
       </Dialog>
