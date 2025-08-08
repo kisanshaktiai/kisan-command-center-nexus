@@ -56,9 +56,7 @@ export const DataErrorBoundary: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   return (
     <ErrorBoundary
-      fallback={({ error, resetErrorBoundary }) => (
-        <DataErrorFallback error={error} resetErrorBoundary={resetErrorBoundary} />
-      )}
+      fallback={DataErrorFallback}
       context={{
         component: 'DataLayer',
         level: 'medium',
