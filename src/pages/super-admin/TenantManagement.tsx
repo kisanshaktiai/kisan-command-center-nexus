@@ -9,7 +9,7 @@ import { TenantMetricsCard } from '@/components/tenant/TenantMetricsCard';
 import { TenantListView } from '@/components/tenant/TenantListView';
 import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
-import { Tenant } from '@/types/tenant';
+import { Tenant, TenantFormData } from '@/types/tenant';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTenantManagement } from '@/hooks/useTenantManagement';
 
@@ -44,20 +44,26 @@ export default function TenantManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
-  const handleCreateTenant = async () => {
+  const handleCreateTenant = async (tenantData: TenantFormData): Promise<boolean> => {
+    // Update the form data in the hook
+    setFormData(tenantData);
     const success = await createTenant();
     if (success) {
       setIsCreateDialogOpen(false);
     }
+    return success;
   };
 
-  const handleUpdateTenant = async () => {
-    if (!editingTenant) return;
+  const handleUpdateTenant = async (tenantData: TenantFormData): Promise<boolean> => {
+    if (!editingTenant) return false;
+    // Update the form data in the hook
+    setFormData(tenantData);
     const success = await updateTenant(editingTenant);
     if (success) {
       setIsEditDialogOpen(false);
       setEditingTenant(null);
     }
+    return success;
   };
 
   const openEditDialog = (tenant: Tenant) => {
@@ -208,10 +214,10 @@ export default function TenantManagement() {
               </DialogDescription>
             </DialogHeader>
             <TenantForm 
-              formData={formData} 
-              setFormData={setFormData} 
+              mode="create"
               onSubmit={handleCreateTenant}
-              isEditing={false}
+              onCancel={() => setIsCreateDialogOpen(false)}
+              isSubmitting={isSubmitting}
             />
           </DialogContent>
         </Dialog>
@@ -295,11 +301,11 @@ export default function TenantManagement() {
             </DialogDescription>
           </DialogHeader>
           <TenantForm 
-            formData={formData} 
-            setFormData={setFormData} 
+            mode="edit"
             onSubmit={handleUpdateTenant}
-            isEditing={true}
-            currentTenant={editingTenant}
+            onCancel={() => setIsEditDialogOpen(false)}
+            initialData={editingTenant || undefined}
+            isSubmitting={isSubmitting}
           />
         </DialogContent>
       </Dialog>
