@@ -29,14 +29,16 @@ export class TenantApiService extends BaseService {
     const validTenantStatuses: TenantStatus[] = ['trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'];
     
     // Use type predicates to safely check if the values are valid enum values
-    const isTenantType = (value: any): value is TenantType => 
-      typeof value === 'string' && validTenantTypes.includes(value as TenantType);
+    const isTenantType = (value: any): value is TenantType => {
+      return typeof value === 'string' && (validTenantTypes as string[]).includes(value);
+    };
     
-    const isTenantStatus = (value: any): value is TenantStatus => 
-      typeof value === 'string' && validTenantStatuses.includes(value as TenantStatus);
+    const isTenantStatus = (value: any): value is TenantStatus => {
+      return typeof value === 'string' && (validTenantStatuses as string[]).includes(value);
+    };
     
-    const tenantType = isTenantType(tenant.type) ? tenant.type : 'agri_company' as TenantType;
-    const tenantStatus = isTenantStatus(tenant.status) ? tenant.status : 'trial' as TenantStatus;
+    const tenantType: TenantType = isTenantType(tenant.type) ? tenant.type : 'agri_company';
+    const tenantStatus: TenantStatus = isTenantStatus(tenant.status) ? tenant.status : 'trial';
 
     return {
       id: tenant.id,
