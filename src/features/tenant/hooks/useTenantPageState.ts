@@ -1,6 +1,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
-import { Tenant, UpdateTenantDTO } from '@/types/tenant';
+import { Tenant } from '@/types/tenant';
+import { UpdateTenantDTO } from '@/data/types/tenant';
 import { useTenantData } from './useTenantData';
 import { useTenantMutations } from './useTenantMutations';
 import { useTenantFiltering } from './useTenantFiltering';
