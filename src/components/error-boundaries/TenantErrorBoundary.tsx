@@ -72,7 +72,9 @@ export const TenantErrorBoundary: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   return (
     <ErrorBoundary
-      fallback={TenantErrorFallback}
+      fallback={(props: { error?: Error; resetErrorBoundary: () => void }) => (
+        <TenantErrorFallback {...props} />
+      )}
       context={{
         component: 'TenantManagement',
         level: 'high',
