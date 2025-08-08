@@ -1,0 +1,75 @@
+
+import React from 'react';
+import { useCurrentAuth } from '@/data/hooks/useAuthData';
+import { RBACService, Permission, Role } from '@/utils/rbac';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Shield } from 'lucide-react';
+
+interface RBACGuardProps {
+  children: React.ReactNode;
+  permissions?: Permission[];
+  roles?: Role[];
+  requireAll?: boolean;
+  fallback?: React.ReactNode;
+}
+
+export const RBACGuard: React.FC<RBACGuardProps> = ({
+  children,
+  permissions = [],
+  roles = [],
+  requireAll = false,
+  fallback
+}) => {
+  const { data: authState, isLoading } = useCurrentAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!authState) {
+    return fallback || (
+      <Alert variant="destructive">
+        <Shield className="h-4 w-4" />
+        <AlertDescription>
+          Authentication required to access this content.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Check role-based access
+  if (roles.length > 0 && !RBACService.hasRole(authState, roles)) {
+    return fallback || (
+      <Alert variant="destructive">
+        <Shield className="h-4 w-4" />
+        <AlertDescription>
+          You don't have the required role to access this content.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Check permission-based access
+  if (permissions.length > 0) {
+    const hasAccess = requireAll 
+      ? RBACService.hasAllPermissions(authState, permissions)
+      : RBACService.hasAnyPermission(authState, permissions);
+
+    if (!hasAccess) {
+      return fallback || (
+        <Alert variant="destructive">
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to access this content.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+  }
+
+  return <>{children}</>;
+};
