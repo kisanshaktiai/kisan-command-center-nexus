@@ -2,6 +2,7 @@
 import { useCallback } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { unifiedErrorService } from '@/services/core/UnifiedErrorService';
+import { errorProcessor } from '@/services/core/ErrorProcessor';
 
 export interface UseErrorHandlerOptions {
   component?: string;
@@ -21,7 +22,7 @@ export const useErrorHandler = (options: UseErrorHandlerOptions = {}) => {
     
     const errorResult = unifiedErrorService.processError(
       error,
-      unifiedErrorService.createContext(
+      errorProcessor.createContext(
         mergedOptions.component || 'Unknown',
         action
       ),

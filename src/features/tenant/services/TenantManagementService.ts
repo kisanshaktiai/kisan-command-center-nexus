@@ -29,7 +29,11 @@ export class TenantManagementService extends BaseService {
     // Validate tenant data before creation
     const validationResult = await this.validateTenantData(data);
     if (!validationResult.success) {
-      return validationResult as ServiceResult<TenantDTO>;
+      return {
+        success: false,
+        error: validationResult.error,
+        data: null
+      } as ServiceResult<TenantDTO>;
     }
 
     return tenantApiService.createTenant(data);

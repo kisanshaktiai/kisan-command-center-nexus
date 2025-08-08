@@ -2,6 +2,7 @@
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import { CreateTenantDTO, UpdateTenantDTO, TenantDTO } from '@/data/types/tenant';
+import { TenantType, TenantStatus } from '@/types/tenant';
 
 export interface TenantFilters {
   search?: string;
@@ -62,8 +63,8 @@ export class TenantApiService extends BaseService {
           id: tenant.id,
           name: tenant.name,
           slug: tenant.slug,
-          type: tenant.type,
-          status: tenant.status,
+          type: tenant.type as TenantType,
+          status: tenant.status as TenantStatus,
           subscription_plan: tenant.subscription_plan,
           created_at: tenant.created_at,
           updated_at: tenant.updated_at,
@@ -111,8 +112,8 @@ export class TenantApiService extends BaseService {
           id: data.id,
           name: data.name,
           slug: data.slug,
-          type: data.type,
-          status: data.status,
+          type: data.type as TenantType,
+          status: data.status as TenantStatus,
           subscription_plan: data.subscription_plan,
           created_at: data.created_at,
           updated_at: data.updated_at,
@@ -155,8 +156,8 @@ export class TenantApiService extends BaseService {
           id: tenant.id,
           name: tenant.name,
           slug: tenant.slug,
-          type: tenant.type,
-          status: tenant.status,
+          type: tenant.type as TenantType,
+          status: tenant.status as TenantStatus,
           subscription_plan: tenant.subscription_plan,
           created_at: tenant.created_at,
           updated_at: tenant.updated_at,
@@ -200,8 +201,8 @@ export class TenantApiService extends BaseService {
           id: tenant.id,
           name: tenant.name,
           slug: tenant.slug,
-          type: tenant.type,
-          status: tenant.status,
+          type: tenant.type as TenantType,
+          status: tenant.status as TenantStatus,
           subscription_plan: tenant.subscription_plan,
           created_at: tenant.created_at,
           updated_at: tenant.updated_at,
