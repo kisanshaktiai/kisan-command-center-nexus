@@ -51,14 +51,16 @@ const DataErrorFallback: React.FC<DataErrorFallbackProps> = ({
   );
 };
 
-export const DataErrorBoundary: React.FC<{ children: React.ReactNode }> = ({
+interface DataErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+export const DataErrorBoundary: React.FC<DataErrorBoundaryProps> = ({
   children
 }) => {
   return (
     <ErrorBoundary
-      fallback={(props: { error?: Error; resetErrorBoundary: () => void }) => (
-        <DataErrorFallback {...props} />
-      )}
+      fallback={<DataErrorFallback error={undefined} resetErrorBoundary={() => {}} />}
       context={{
         component: 'DataLayer',
         level: 'medium',
