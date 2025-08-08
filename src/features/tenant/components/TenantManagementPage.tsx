@@ -9,6 +9,7 @@ import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
 import { useTenantManagement } from '../hooks/useTenantManagement';
 import { Tenant } from '@/types/tenant';
+import { UpdateTenantDTO } from '@/data/types/tenant';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
@@ -47,6 +48,40 @@ const TenantManagementPage = memo(() => {
 
   const handlePreferencesChange = (preferences: any) => {
     setViewPreferences(preferences);
+  };
+
+  // Convert Tenant to UpdateTenantDTO
+  const convertTenantToUpdateDTO = (tenant: Tenant): UpdateTenantDTO => {
+    return {
+      name: tenant.name,
+      status: tenant.status as any, // Cast to handle type compatibility
+      subscription_plan: tenant.subscription_plan,
+      owner_phone: tenant.owner_phone,
+      business_registration: tenant.business_registration,
+      business_address: tenant.business_address,
+      established_date: tenant.established_date,
+      subscription_start_date: tenant.subscription_start_date,
+      subscription_end_date: tenant.subscription_end_date,
+      trial_ends_at: tenant.trial_ends_at,
+      max_farmers: tenant.max_farmers,
+      max_dealers: tenant.max_dealers,
+      max_products: tenant.max_products,
+      max_storage_gb: tenant.max_storage_gb,
+      max_api_calls_per_day: tenant.max_api_calls_per_day,
+      subdomain: tenant.subdomain,
+      custom_domain: tenant.custom_domain,
+      metadata: tenant.metadata,
+    };
+  };
+
+  const handleEdit = (tenant: Tenant) => {
+    const updateData = convertTenantToUpdateDTO(tenant);
+    handleUpdateTenant(tenant.id, updateData);
+  };
+
+  const handleDetailsEdit = (tenant: Tenant) => {
+    const updateData = convertTenantToUpdateDTO(tenant);
+    handleUpdateTenant(tenant.id, updateData);
   };
 
   if (isLoading) {
@@ -105,7 +140,7 @@ const TenantManagementPage = memo(() => {
           <TenantViewRenderer
             tenants={tenants}
             viewPreferences={viewPreferences}
-            onEdit={(tenant) => handleUpdateTenant(tenant.id, tenant)}
+            onEdit={handleEdit}
             onDelete={handleDeleteTenant}
             onViewDetails={handleViewDetails}
             tenantMetrics={{}}
@@ -117,7 +152,7 @@ const TenantManagementPage = memo(() => {
           tenant={detailsTenant}
           isOpen={isDetailsModalOpen}
           onClose={() => setIsDetailsModalOpen(false)}
-          onEdit={(tenant) => handleUpdateTenant(tenant.id, tenant)}
+          onEdit={handleDetailsEdit}
         />
       </div>
     </TenantErrorBoundary>
@@ -126,4 +161,5 @@ const TenantManagementPage = memo(() => {
 
 TenantManagementPage.displayName = 'TenantManagementPage';
 
+export { TenantManagementPage };
 export default TenantManagementPage;

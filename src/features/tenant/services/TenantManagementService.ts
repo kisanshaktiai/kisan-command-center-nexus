@@ -20,28 +20,146 @@ export class TenantManagementService extends BaseService {
 
   async getAllTenants(filters?: any): Promise<ServiceResult<TenantDTO[]>> {
     return this.executeOperation(
-      () => tenantRepository.getTenants(filters),
+      async () => {
+        const data = await tenantRepository.getTenants(filters);
+        // Map the data to ensure type compatibility
+        return data.map((tenant: any): TenantDTO => ({
+          id: tenant.id,
+          name: tenant.name,
+          slug: tenant.slug,
+          type: tenant.type,
+          status: tenant.status,
+          subscription_plan: tenant.subscription_plan,
+          created_at: tenant.created_at,
+          updated_at: tenant.updated_at,
+          owner_email: tenant.owner_email,
+          owner_name: tenant.owner_name,
+          owner_phone: tenant.owner_phone,
+          business_registration: tenant.business_registration,
+          business_address: tenant.business_address,
+          established_date: tenant.established_date,
+          subscription_start_date: tenant.subscription_start_date,
+          subscription_end_date: tenant.subscription_end_date,
+          trial_ends_at: tenant.trial_ends_at,
+          max_farmers: tenant.max_farmers,
+          max_dealers: tenant.max_dealers,
+          max_products: tenant.max_products,
+          max_storage_gb: tenant.max_storage_gb,
+          max_api_calls_per_day: tenant.max_api_calls_per_day,
+          subdomain: tenant.subdomain,
+          custom_domain: tenant.custom_domain,
+          metadata: tenant.metadata,
+        }));
+      },
       'getAllTenants'
     );
   }
 
   async getTenantById(id: string): Promise<ServiceResult<TenantDTO>> {
     return this.executeOperation(
-      () => tenantRepository.getTenant(id),
+      async () => {
+        const tenant = await tenantRepository.getTenant(id);
+        // Map the data to ensure type compatibility
+        return {
+          id: tenant.id,
+          name: tenant.name,
+          slug: tenant.slug,
+          type: tenant.type,
+          status: tenant.status,
+          subscription_plan: tenant.subscription_plan,
+          created_at: tenant.created_at,
+          updated_at: tenant.updated_at,
+          owner_email: tenant.owner_email,
+          owner_name: tenant.owner_name,
+          owner_phone: tenant.owner_phone,
+          business_registration: tenant.business_registration,
+          business_address: tenant.business_address,
+          established_date: tenant.established_date,
+          subscription_start_date: tenant.subscription_start_date,
+          subscription_end_date: tenant.subscription_end_date,
+          trial_ends_at: tenant.trial_ends_at,
+          max_farmers: tenant.max_farmers,
+          max_dealers: tenant.max_dealers,
+          max_products: tenant.max_products,
+          max_storage_gb: tenant.max_storage_gb,
+          max_api_calls_per_day: tenant.max_api_calls_per_day,
+          subdomain: tenant.subdomain,
+          custom_domain: tenant.custom_domain,
+          metadata: tenant.metadata,
+        } as TenantDTO;
+      },
       'getTenantById'
     );
   }
 
   async createTenant(data: CreateTenantDTO): Promise<ServiceResult<TenantDTO>> {
     return this.executeOperation(
-      () => tenantRepository.createTenant(data),
+      async () => {
+        const tenant = await tenantRepository.createTenant(data);
+        return {
+          id: tenant.id,
+          name: tenant.name,
+          slug: tenant.slug,
+          type: tenant.type,
+          status: tenant.status,
+          subscription_plan: tenant.subscription_plan,
+          created_at: tenant.created_at,
+          updated_at: tenant.updated_at,
+          owner_email: tenant.owner_email,
+          owner_name: tenant.owner_name,
+          owner_phone: tenant.owner_phone,
+          business_registration: tenant.business_registration,
+          business_address: tenant.business_address,
+          established_date: tenant.established_date,
+          subscription_start_date: tenant.subscription_start_date,
+          subscription_end_date: tenant.subscription_end_date,
+          trial_ends_at: tenant.trial_ends_at,
+          max_farmers: tenant.max_farmers,
+          max_dealers: tenant.max_dealers,
+          max_products: tenant.max_products,
+          max_storage_gb: tenant.max_storage_gb,
+          max_api_calls_per_day: tenant.max_api_calls_per_day,
+          subdomain: tenant.subdomain,
+          custom_domain: tenant.custom_domain,
+          metadata: tenant.metadata,
+        } as TenantDTO;
+      },
       'createTenant'
     );
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<TenantDTO>> {
     return this.executeOperation(
-      () => tenantRepository.updateTenant(id, data),
+      async () => {
+        const tenant = await tenantRepository.updateTenant(id, data);
+        return {
+          id: tenant.id,
+          name: tenant.name,
+          slug: tenant.slug,
+          type: tenant.type,
+          status: tenant.status,
+          subscription_plan: tenant.subscription_plan,
+          created_at: tenant.created_at,
+          updated_at: tenant.updated_at,
+          owner_email: tenant.owner_email,
+          owner_name: tenant.owner_name,
+          owner_phone: tenant.owner_phone,
+          business_registration: tenant.business_registration,
+          business_address: tenant.business_address,
+          established_date: tenant.established_date,
+          subscription_start_date: tenant.subscription_start_date,
+          subscription_end_date: tenant.subscription_end_date,
+          trial_ends_at: tenant.trial_ends_at,
+          max_farmers: tenant.max_farmers,
+          max_dealers: tenant.max_dealers,
+          max_products: tenant.max_products,
+          max_storage_gb: tenant.max_storage_gb,
+          max_api_calls_per_day: tenant.max_api_calls_per_day,
+          subdomain: tenant.subdomain,
+          custom_domain: tenant.custom_domain,
+          metadata: tenant.metadata,
+        } as TenantDTO;
+      },
       'updateTenant'
     );
   }

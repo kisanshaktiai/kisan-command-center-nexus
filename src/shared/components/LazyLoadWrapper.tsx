@@ -33,11 +33,11 @@ export const withLazyLoad = <P extends object>(
   Component: ComponentType<P>,
   fallback?: React.ReactNode
 ) => {
-  const LazyComponent = React.forwardRef<any, P>((props, ref) => (
+  const LazyComponent = (props: P) => (
     <LazyLoadWrapper fallback={fallback}>
-      <Component {...props} ref={ref} />
+      <Component {...props} />
     </LazyLoadWrapper>
-  ));
+  );
   
   LazyComponent.displayName = `withLazyLoad(${Component.displayName || Component.name})`;
   
