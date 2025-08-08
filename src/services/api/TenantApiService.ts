@@ -24,31 +24,35 @@ export class TenantApiService extends BaseService {
   }
 
   private mapTenantFromDatabase(tenant: any): TenantDTO {
-    // Safe enum casting with fallbacks
+    // Define valid enum values
     const validTenantTypes = [
       'agri_company', 'dealer', 'ngo', 'government', 
       'university', 'sugar_factory', 'cooperative', 'insurance'
     ] as const;
+    
     const validTenantStatuses = [
       'trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'
     ] as const;
     
-    const isTenantType = (value: any): value is TenantType =>
-      typeof value === 'string' && validTenantTypes.includes(value as any);
+    // Helper function to validate and return enum value or default
+    const getTenantType = (value: any): TenantType => {
+      return typeof value === 'string' && validTenantTypes.includes(value as any) 
+        ? value as TenantType 
+        : 'agri_company';
+    };
 
-    const isTenantStatus = (value: any): value is TenantStatus =>
-      typeof value === 'string' && validTenantStatuses.includes(value as any);
-    
-    // Use explicit casting after validation
-    const tenantType: TenantType = isTenantType(tenant.type) ? (tenant.type as TenantType) : 'agri_company';
-    const tenantStatus: TenantStatus = isTenantStatus(tenant.status) ? (tenant.status as TenantStatus) : 'trial';
+    const getTenantStatus = (value: any): TenantStatus => {
+      return typeof value === 'string' && validTenantStatuses.includes(value as any) 
+        ? value as TenantStatus 
+        : 'trial';
+    };
 
     return {
       id: tenant.id,
       name: tenant.name,
       slug: tenant.slug,
-      type: tenantType,
-      status: tenantStatus,
+      type: getTenantType(tenant.type),
+      status: getTenantStatus(tenant.status),
       subscription_plan: tenant.subscription_plan,
       created_at: tenant.created_at,
       updated_at: tenant.updated_at,
