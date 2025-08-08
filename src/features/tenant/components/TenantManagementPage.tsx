@@ -1,20 +1,26 @@
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { TenantErrorBoundary } from '@/components/error-boundaries/TenantErrorBoundary';
 import { DataErrorBoundary } from '@/components/error-boundaries/DataErrorBoundary';
 import { TenantManagementHeader } from './TenantManagementHeader';
 import { TenantViewControls } from './TenantViewControls';
 import { TenantViewRenderer } from './TenantViewRenderer';
-import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
+import { TenantDetailsModalRefactored } from '@/components/tenant/TenantDetailsModalRefactored';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
 import { useTenantData } from '../hooks/useTenantData';
 import { useTenantMutations } from '../hooks/useTenantMutations';
 import { useTenantFiltering } from '../hooks/useTenantFiltering';
 import { useTenantUIState } from '../hooks/useTenantUIState';
+import { useModalManager } from '@/hooks/useModalManager';
+import { TenantDisplayService } from '@/services/TenantDisplayService';
 import { Tenant } from '@/types/tenant';
 import { UpdateTenantDTO } from '@/data/types/tenant';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
+
+const MODAL_IDS = {
+  TENANT_DETAILS: 'tenant-details'
+} as const;
 
 const TenantManagementPage = memo(() => {
   // Data hooks
@@ -23,14 +29,13 @@ const TenantManagementPage = memo(() => {
   
   // UI state hooks
   const { 
-    detailsTenant, 
-    isDetailsModalOpen, 
     creationSuccess,
-    handleViewDetails,
-    closeDetailsModal,
     handleCreateSuccess,
     clearCreationSuccess 
   } = useTenantUIState();
+  
+  // Modal management
+  const modalManager = useModalManager<Tenant>();
   
   // Filtering hooks
   const {
@@ -44,6 +49,18 @@ const TenantManagementPage = memo(() => {
     setViewPreferences,
     filteredTenants,
   } = useTenantFiltering({ tenants });
+
+  // Format tenants for display (memoized for performance)
+  const formattedTenants = useMemo(() => {
+    return TenantDisplayService.formatTenantsForDisplay(filteredTenants);
+  }, [filteredTenants]);
+
+  // Get current modal state and formatted data
+  const detailsTenant = modalManager.getModalData<Tenant>(MODAL_IDS.TENANT_DETAILS);
+  const isDetailsModalOpen = modalManager.isModalOpen(MODAL_IDS.TENANT_DETAILS);
+  const detailsFormattedData = useMemo(() => {
+    return detailsTenant ? TenantDisplayService.formatTenantForDisplay(detailsTenant) : null;
+  }, [detailsTenant]);
 
   // Action handlers
   const handleCreateTenant = async (data: any): Promise<boolean> => {
@@ -78,6 +95,14 @@ const TenantManagementPage = memo(() => {
     }
   };
 
+  const handleViewDetails = (tenant: Tenant) => {
+    modalManager.openModal(MODAL_IDS.TENANT_DETAILS, tenant);
+  };
+
+  const closeDetailsModal = () => {
+    modalManager.closeModal(MODAL_IDS.TENANT_DETAILS);
+  };
+
   const handleEdit = (tenant: Tenant) => {
     const updateData: UpdateTenantDTO = {
       name: tenant.name,
@@ -103,27 +128,10 @@ const TenantManagementPage = memo(() => {
   };
 
   const handleDetailsEdit = (tenant: Tenant) => {
-    const updateData: UpdateTenantDTO = {
-      name: tenant.name,
-      status: tenant.status as any,
-      subscription_plan: tenant.subscription_plan,
-      owner_phone: tenant.owner_phone,
-      business_registration: tenant.business_registration,
-      business_address: tenant.business_address,
-      established_date: tenant.established_date,
-      subscription_start_date: tenant.subscription_start_date,
-      subscription_end_date: tenant.subscription_end_date,
-      trial_ends_at: tenant.trial_ends_at,
-      max_farmers: tenant.max_farmers,
-      max_dealers: tenant.max_dealers,
-      max_products: tenant.max_products,
-      max_storage_gb: tenant.max_storage_gb,
-      max_api_calls_per_day: tenant.max_api_calls_per_day,
-      subdomain: tenant.subdomain,
-      custom_domain: tenant.custom_domain,
-      metadata: tenant.metadata,
-    };
-    handleUpdateTenant(tenant.id, updateData);
+    // Close details modal first
+    closeDetailsModal();
+    // Then handle edit
+    handleEdit(tenant);
   };
 
   if (isLoading) {
@@ -181,6 +189,7 @@ const TenantManagementPage = memo(() => {
           {/* Tenant Views */}
           <TenantViewRenderer
             tenants={filteredTenants}
+            formattedTenants={formattedTenants}
             viewPreferences={viewPreferences}
             onEdit={handleEdit}
             onDelete={handleDeleteTenant}
@@ -190,8 +199,9 @@ const TenantManagementPage = memo(() => {
         </DataErrorBoundary>
 
         {/* Details Modal */}
-        <TenantDetailsModal
+        <TenantDetailsModalRefactored
           tenant={detailsTenant}
+          formattedData={detailsFormattedData}
           isOpen={isDetailsModalOpen}
           onClose={closeDetailsModal}
           onEdit={handleDetailsEdit}

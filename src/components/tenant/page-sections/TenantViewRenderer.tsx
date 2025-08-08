@@ -1,12 +1,14 @@
 
 import React from 'react';
-import { TenantCard } from '@/components/tenant/TenantCard';
+import { TenantCardRefactored } from '@/components/tenant/TenantCardRefactored';
 import { TenantListView } from '@/components/tenant/TenantListView';
 import { TenantViewPreferences, TenantMetrics } from '@/types/tenantView';
 import { Tenant } from '@/types/tenant';
+import { FormattedTenantData } from '@/services/TenantDisplayService';
 
 export interface TenantViewRendererProps {
   tenants: Tenant[];
+  formattedTenants: FormattedTenantData[];
   viewPreferences: TenantViewPreferences;
   onEdit: (tenant: Tenant) => void;
   onDelete: (tenantId: string) => void;
@@ -16,6 +18,7 @@ export interface TenantViewRendererProps {
 
 export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
   tenants,
+  formattedTenants,
   viewPreferences,
   onEdit,
   onDelete,
@@ -37,17 +40,21 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
     case 'large-cards':
       return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {tenants.map((tenant) => (
-            <TenantCard
-              key={tenant.id}
-              tenant={tenant}
-              size="large"
-              onEdit={() => onEdit(tenant)}
-              onDelete={() => onDelete(tenant.id)}
-              onViewDetails={() => onViewDetails(tenant)}
-              metrics={tenantMetrics[tenant.id]}
-            />
-          ))}
+          {tenants.map((tenant, index) => {
+            const formattedData = formattedTenants[index];
+            return (
+              <TenantCardRefactored
+                key={tenant.id}
+                tenant={tenant}
+                formattedData={formattedData}
+                size="large"
+                onEdit={() => onEdit(tenant)}
+                onDelete={() => onDelete(tenant.id)}
+                onViewDetails={() => onViewDetails(tenant)}
+                metrics={tenantMetrics[tenant.id]}
+              />
+            );
+          })}
         </div>
       );
 
@@ -64,18 +71,22 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
     case 'analytics':
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {tenants.map((tenant) => (
-            <TenantCard
-              key={tenant.id}
-              tenant={tenant}
-              size="analytics"
-              onEdit={() => onEdit(tenant)}
-              onDelete={() => onDelete(tenant.id)}
-              onViewDetails={() => onViewDetails(tenant)}
-              metrics={tenantMetrics[tenant.id]}
-              showAnalytics={true}
-            />
-          ))}
+          {tenants.map((tenant, index) => {
+            const formattedData = formattedTenants[index];
+            return (
+              <TenantCardRefactored
+                key={tenant.id}
+                tenant={tenant}
+                formattedData={formattedData}
+                size="analytics"
+                onEdit={() => onEdit(tenant)}
+                onDelete={() => onDelete(tenant.id)}
+                onViewDetails={() => onViewDetails(tenant)}
+                metrics={tenantMetrics[tenant.id]}
+                showAnalytics={true}
+              />
+            );
+          })}
         </div>
       );
 
@@ -83,17 +94,21 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
     default:
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-          {tenants.map((tenant) => (
-            <TenantCard
-              key={tenant.id}
-              tenant={tenant}
-              size="small"
-              onEdit={() => onEdit(tenant)}
-              onDelete={() => onDelete(tenant.id)}
-              onViewDetails={() => onViewDetails(tenant)}
-              metrics={tenantMetrics[tenant.id]}
-            />
-          ))}
+          {tenants.map((tenant, index) => {
+            const formattedData = formattedTenants[index];
+            return (
+              <TenantCardRefactored
+                key={tenant.id}
+                tenant={tenant}
+                formattedData={formattedData}
+                size="small"
+                onEdit={() => onEdit(tenant)}
+                onDelete={() => onDelete(tenant.id)}
+                onViewDetails={() => onViewDetails(tenant)}
+                metrics={tenantMetrics[tenant.id]}
+              />
+            );
+          })}
         </div>
       );
   }
