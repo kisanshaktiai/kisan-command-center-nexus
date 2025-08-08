@@ -361,15 +361,16 @@ export const useTenantManagement = () => {
       console.log('Updating tenant with enhanced security:', formData);
       
       // Map form data to UpdateTenantDTO with security context
+      // Make sure we don't pass any invalid enum values
       const updateData = {
         name: formData.name,
         status: formData.status,
         subscription_plan: formData.subscription_plan,
         metadata: {
-          ...formData.metadata,
           updated_via: 'admin_ui',
           security_context: securityContext,
           last_updated: new Date().toISOString()
+          // Remove any role-related fields that might cause enum issues
         }
       };
 

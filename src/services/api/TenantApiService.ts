@@ -24,6 +24,36 @@ export class TenantApiService extends BaseService {
     return TenantApiService.instance;
   }
 
+  private mapTenantFromDatabase(tenant: any): TenantDTO {
+    return {
+      id: tenant.id,
+      name: tenant.name,
+      slug: tenant.slug,
+      type: tenant.type as TenantType,
+      status: tenant.status as TenantStatus,
+      subscription_plan: tenant.subscription_plan,
+      created_at: tenant.created_at,
+      updated_at: tenant.updated_at,
+      owner_email: tenant.owner_email,
+      owner_name: tenant.owner_name,
+      owner_phone: tenant.owner_phone,
+      business_registration: tenant.business_registration,
+      business_address: tenant.business_address,
+      established_date: tenant.established_date,
+      subscription_start_date: tenant.subscription_start_date,
+      subscription_end_date: tenant.subscription_end_date,
+      trial_ends_at: tenant.trial_ends_at,
+      max_farmers: tenant.max_farmers,
+      max_dealers: tenant.max_dealers,
+      max_products: tenant.max_products,
+      max_storage_gb: tenant.max_storage_gb,
+      max_api_calls_per_day: tenant.max_api_calls_per_day,
+      subdomain: tenant.subdomain,
+      custom_domain: tenant.custom_domain,
+      metadata: tenant.metadata,
+    };
+  }
+
   async getTenants(filters?: TenantFilters): Promise<ServiceResult<TenantDTO[]>> {
     return this.executeOperation(
       async () => {
@@ -59,33 +89,7 @@ export class TenantApiService extends BaseService {
         
         if (error) throw error;
         
-        return (data || []).map((tenant: any): TenantDTO => ({
-          id: tenant.id,
-          name: tenant.name,
-          slug: tenant.slug,
-          type: tenant.type as TenantType,
-          status: tenant.status as TenantStatus,
-          subscription_plan: tenant.subscription_plan,
-          created_at: tenant.created_at,
-          updated_at: tenant.updated_at,
-          owner_email: tenant.owner_email,
-          owner_name: tenant.owner_name,
-          owner_phone: tenant.owner_phone,
-          business_registration: tenant.business_registration,
-          business_address: tenant.business_address,
-          established_date: tenant.established_date,
-          subscription_start_date: tenant.subscription_start_date,
-          subscription_end_date: tenant.subscription_end_date,
-          trial_ends_at: tenant.trial_ends_at,
-          max_farmers: tenant.max_farmers,
-          max_dealers: tenant.max_dealers,
-          max_products: tenant.max_products,
-          max_storage_gb: tenant.max_storage_gb,
-          max_api_calls_per_day: tenant.max_api_calls_per_day,
-          subdomain: tenant.subdomain,
-          custom_domain: tenant.custom_domain,
-          metadata: tenant.metadata,
-        }));
+        return (data || []).map((tenant: any) => this.mapTenantFromDatabase(tenant));
       },
       'getTenants'
     );
@@ -108,33 +112,7 @@ export class TenantApiService extends BaseService {
         if (error) throw error;
         if (!data) throw new Error('Tenant not found');
 
-        return {
-          id: data.id,
-          name: data.name,
-          slug: data.slug,
-          type: data.type as TenantType,
-          status: data.status as TenantStatus,
-          subscription_plan: data.subscription_plan,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-          owner_email: data.owner_email,
-          owner_name: data.owner_name,
-          owner_phone: data.owner_phone,
-          business_registration: data.business_registration,
-          business_address: data.business_address,
-          established_date: data.established_date,
-          subscription_start_date: data.subscription_start_date,
-          subscription_end_date: data.subscription_end_date,
-          trial_ends_at: data.trial_ends_at,
-          max_farmers: data.max_farmers,
-          max_dealers: data.max_dealers,
-          max_products: data.max_products,
-          max_storage_gb: data.max_storage_gb,
-          max_api_calls_per_day: data.max_api_calls_per_day,
-          subdomain: data.subdomain,
-          custom_domain: data.custom_domain,
-          metadata: data.metadata,
-        } as TenantDTO;
+        return this.mapTenantFromDatabase(data);
       },
       'getTenantById'
     );
@@ -152,33 +130,7 @@ export class TenantApiService extends BaseService {
         if (error) throw error;
         if (!tenant) throw new Error('Failed to create tenant');
 
-        return {
-          id: tenant.id,
-          name: tenant.name,
-          slug: tenant.slug,
-          type: tenant.type as TenantType,
-          status: tenant.status as TenantStatus,
-          subscription_plan: tenant.subscription_plan,
-          created_at: tenant.created_at,
-          updated_at: tenant.updated_at,
-          owner_email: tenant.owner_email,
-          owner_name: tenant.owner_name,
-          owner_phone: tenant.owner_phone,
-          business_registration: tenant.business_registration,
-          business_address: tenant.business_address,
-          established_date: tenant.established_date,
-          subscription_start_date: tenant.subscription_start_date,
-          subscription_end_date: tenant.subscription_end_date,
-          trial_ends_at: tenant.trial_ends_at,
-          max_farmers: tenant.max_farmers,
-          max_dealers: tenant.max_dealers,
-          max_products: tenant.max_products,
-          max_storage_gb: tenant.max_storage_gb,
-          max_api_calls_per_day: tenant.max_api_calls_per_day,
-          subdomain: tenant.subdomain,
-          custom_domain: tenant.custom_domain,
-          metadata: tenant.metadata,
-        } as TenantDTO;
+        return this.mapTenantFromDatabase(tenant);
       },
       'createTenant'
     );
@@ -187,9 +139,28 @@ export class TenantApiService extends BaseService {
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<TenantDTO>> {
     return this.executeOperation(
       async () => {
+        // Clean the data to ensure no invalid enum values are passed
+        const cleanedData = { ...data };
+        
+        // Remove any fields that might contain invalid enum values
+        // The error suggests 'admin' is being passed to a user_role enum
+        // Make sure metadata doesn't contain problematic fields
+        if (cleanedData.metadata) {
+          const { metadata } = cleanedData;
+          // Filter out any metadata that might contain role information
+          cleanedData.metadata = Object.keys(metadata).reduce((acc, key) => {
+            // Skip any fields that might contain role information
+            if (key === 'role' || key === 'user_role' || key === 'admin_role') {
+              return acc;
+            }
+            acc[key] = metadata[key];
+            return acc;
+          }, {} as Record<string, any>);
+        }
+
         const { data: tenant, error } = await supabase
           .from('tenants')
-          .update(data)
+          .update(cleanedData)
           .eq('id', id)
           .select()
           .single();
@@ -197,33 +168,7 @@ export class TenantApiService extends BaseService {
         if (error) throw error;
         if (!tenant) throw new Error('Failed to update tenant');
 
-        return {
-          id: tenant.id,
-          name: tenant.name,
-          slug: tenant.slug,
-          type: tenant.type as TenantType,
-          status: tenant.status as TenantStatus,
-          subscription_plan: tenant.subscription_plan,
-          created_at: tenant.created_at,
-          updated_at: tenant.updated_at,
-          owner_email: tenant.owner_email,
-          owner_name: tenant.owner_name,
-          owner_phone: tenant.owner_phone,
-          business_registration: tenant.business_registration,
-          business_address: tenant.business_address,
-          established_date: tenant.established_date,
-          subscription_start_date: tenant.subscription_start_date,
-          subscription_end_date: tenant.subscription_end_date,
-          trial_ends_at: tenant.trial_ends_at,
-          max_farmers: tenant.max_farmers,
-          max_dealers: tenant.max_dealers,
-          max_products: tenant.max_products,
-          max_storage_gb: tenant.max_storage_gb,
-          max_api_calls_per_day: tenant.max_api_calls_per_day,
-          subdomain: tenant.subdomain,
-          custom_domain: tenant.custom_domain,
-          metadata: tenant.metadata,
-        } as TenantDTO;
+        return this.mapTenantFromDatabase(tenant);
       },
       'updateTenant'
     );
