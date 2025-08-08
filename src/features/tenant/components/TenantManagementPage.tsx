@@ -1,176 +1,75 @@
 
-import React, { memo, useMemo } from 'react';
+import React, { memo } from 'react';
 import { TenantErrorBoundary } from '@/components/error-boundaries/TenantErrorBoundary';
 import { DataErrorBoundary } from '@/components/error-boundaries/DataErrorBoundary';
 import { TenantManagementHeader } from './TenantManagementHeader';
 import { TenantViewControls } from './TenantViewControls';
 import { TenantViewRenderer } from './TenantViewRenderer';
 import { TenantDetailsModalRefactored } from '@/components/tenant/TenantDetailsModalRefactored';
-import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
-import { useTenantData } from '../hooks/useTenantData';
-import { useTenantMutations } from '../hooks/useTenantMutations';
-import { useTenantFiltering } from '../hooks/useTenantFiltering';
-import { useTenantUIState } from '../hooks/useTenantUIState';
-import { useModalManager } from '@/hooks/useModalManager';
-import { TenantDisplayService } from '@/services/TenantDisplayService';
-import { Tenant } from '@/types/tenant';
-import { UpdateTenantDTO } from '@/data/types/tenant';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
-
-const MODAL_IDS = {
-  TENANT_DETAILS: 'tenant-details'
-} as const;
+import { TenantLoadingState } from './TenantLoadingState';
+import { TenantErrorState } from './TenantErrorState';
+import { TenantSuccessNotification } from './TenantSuccessNotification';
+import { useTenantPageState } from '../hooks/useTenantPageState';
 
 const TenantManagementPage = memo(() => {
-  // Data hooks
-  const { tenants, isLoading, error } = useTenantData();
-  const { createTenantMutation, updateTenantMutation, deleteTenantMutation, isSubmitting } = useTenantMutations();
-  
-  // UI state hooks
-  const { 
-    creationSuccess,
-    handleCreateSuccess,
-    clearCreationSuccess 
-  } = useTenantUIState();
-  
-  // Modal management
-  const modalManager = useModalManager<Tenant>();
-  
-  // Filtering hooks
   const {
+    // Data
+    tenants,
+    formattedTenants,
+    isLoading,
+    error,
+    isSubmitting,
+
+    // UI State
+    creationSuccess,
+    clearCreationSuccess,
+
+    // Filters
     searchTerm,
     setSearchTerm,
     filterType,
     setFilterType,
     filterStatus,
     setFilterStatus,
+
+    // View preferences
     viewPreferences,
     setViewPreferences,
-    filteredTenants,
-  } = useTenantFiltering({ tenants });
 
-  // Format tenants for display (memoized for performance)
-  const formattedTenants = useMemo(() => {
-    return TenantDisplayService.formatTenantsForDisplay(filteredTenants);
-  }, [filteredTenants]);
+    // Modal state
+    detailsTenant,
+    isDetailsModalOpen,
+    detailsFormattedData,
 
-  // Get current modal state and formatted data
-  const detailsTenant = modalManager.getModalData<Tenant>(MODAL_IDS.TENANT_DETAILS);
-  const isDetailsModalOpen = modalManager.isModalOpen(MODAL_IDS.TENANT_DETAILS);
-  const detailsFormattedData = useMemo(() => {
-    return detailsTenant ? TenantDisplayService.formatTenantForDisplay(detailsTenant) : null;
-  }, [detailsTenant]);
-
-  // Action handlers
-  const handleCreateTenant = async (data: any): Promise<boolean> => {
-    try {
-      const result = await createTenantMutation.mutateAsync(data);
-      handleCreateSuccess({
-        tenantName: data.name,
-        adminEmail: data.owner_email,
-        hasEmailSent: true
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const handleUpdateTenant = async (id: string, data: UpdateTenantDTO): Promise<boolean> => {
-    try {
-      await updateTenantMutation.mutateAsync({ id, data });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const handleDeleteTenant = async (id: string): Promise<boolean> => {
-    try {
-      await deleteTenantMutation.mutateAsync(id);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const handleViewDetails = (tenant: Tenant) => {
-    modalManager.openModal(MODAL_IDS.TENANT_DETAILS, tenant);
-  };
-
-  const closeDetailsModal = () => {
-    modalManager.closeModal(MODAL_IDS.TENANT_DETAILS);
-  };
-
-  const handleEdit = (tenant: Tenant) => {
-    const updateData: UpdateTenantDTO = {
-      name: tenant.name,
-      status: tenant.status as any,
-      subscription_plan: tenant.subscription_plan,
-      owner_phone: tenant.owner_phone,
-      business_registration: tenant.business_registration,
-      business_address: tenant.business_address,
-      established_date: tenant.established_date,
-      subscription_start_date: tenant.subscription_start_date,
-      subscription_end_date: tenant.subscription_end_date,
-      trial_ends_at: tenant.trial_ends_at,
-      max_farmers: tenant.max_farmers,
-      max_dealers: tenant.max_dealers,
-      max_products: tenant.max_products,
-      max_storage_gb: tenant.max_storage_gb,
-      max_api_calls_per_day: tenant.max_api_calls_per_day,
-      subdomain: tenant.subdomain,
-      custom_domain: tenant.custom_domain,
-      metadata: tenant.metadata,
-    };
-    handleUpdateTenant(tenant.id, updateData);
-  };
-
-  const handleDetailsEdit = (tenant: Tenant) => {
-    // Close details modal first
-    closeDetailsModal();
-    // Then handle edit
-    handleEdit(tenant);
-  };
+    // Actions
+    handleCreateTenant,
+    handleDeleteTenant,
+    handleViewDetails,
+    handleDetailsEdit,
+    closeDetailsModal,
+  } = useTenantPageState();
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <TenantLoadingState />;
   }
 
   return (
     <TenantErrorBoundary>
       <div className="space-y-6">
         {/* Success Notification */}
-        {creationSuccess && (
-          <TenantCreationSuccess
-            tenantName={creationSuccess.tenantName}
-            adminEmail={creationSuccess.adminEmail}
-            hasEmailSent={creationSuccess.hasEmailSent}
-            onClose={clearCreationSuccess}
-          />
-        )}
+        <TenantSuccessNotification 
+          creationSuccess={creationSuccess}
+          onClose={clearCreationSuccess}
+        />
 
         {/* Header */}
         <TenantManagementHeader 
           onCreateTenant={handleCreateTenant}
-          onCreateSuccess={handleCreateSuccess}
           isSubmitting={isSubmitting}
         />
 
         {/* Error Alert */}
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load tenants. Please try refreshing the page.
-            </AlertDescription>
-          </Alert>
-        )}
+        <TenantErrorState error={error} />
 
         <DataErrorBoundary>
           {/* View Controls */}
@@ -183,15 +82,15 @@ const TenantManagementPage = memo(() => {
             setFilterStatus={setFilterStatus}
             viewPreferences={viewPreferences}
             setViewPreferences={setViewPreferences}
-            totalCount={filteredTenants.length}
+            totalCount={tenants.length}
           />
 
           {/* Tenant Views */}
           <TenantViewRenderer
-            tenants={filteredTenants}
+            tenants={tenants}
             formattedTenants={formattedTenants}
             viewPreferences={viewPreferences}
-            onEdit={handleEdit}
+            onEdit={() => {}} // Will be implemented with proper edit modal
             onDelete={handleDeleteTenant}
             onViewDetails={handleViewDetails}
             tenantMetrics={{}}

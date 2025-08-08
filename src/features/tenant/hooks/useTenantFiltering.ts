@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react';
 import { TenantDTO } from '@/data/types/tenant';
 import { TenantViewPreferences } from '@/types/tenantView';
+import { tenantOperations } from '@/shared/utils/tenantUtils';
 
 interface UseTenantFilteringOptions {
   tenants: TenantDTO[];
@@ -33,32 +34,13 @@ export const useTenantFiltering = ({
     initialViewPreferences
   );
 
-  // Filter and sort tenants
+  // Filter and sort tenants using shared utilities
   const filteredAndSortedTenants = useMemo(() => {
-    let filtered = tenants.filter((tenant: TenantDTO) => {
-      const matchesSearch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           tenant.slug.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = filterType === 'all' || tenant.type === filterType;
-      const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
-      return matchesSearch && matchesType && matchesStatus;
-    });
-
-    // Sort
-    const { sortBy, sortOrder } = viewPreferences;
-    filtered = [...filtered].sort((a, b) => {
-      let aValue = a[sortBy as keyof TenantDTO] as string;
-      let bValue = b[sortBy as keyof TenantDTO] as string;
-      
-      if (sortBy === 'created_at') {
-        aValue = new Date(aValue).getTime().toString();
-        bValue = new Date(bValue).getTime().toString();
-      }
-      
-      const comparison = aValue?.localeCompare(bValue) || 0;
-      return sortOrder === 'desc' ? -comparison : comparison;
-    });
-
-    return filtered;
+    return tenantOperations.filterAndSort(
+      tenants,
+      { searchTerm, filterType, filterStatus },
+      viewPreferences
+    );
   }, [tenants, searchTerm, filterType, filterStatus, viewPreferences]);
 
   return {
