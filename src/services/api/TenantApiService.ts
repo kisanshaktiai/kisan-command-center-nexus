@@ -1,4 +1,3 @@
-
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import { CreateTenantDTO, UpdateTenantDTO, TenantDTO } from '@/data/types/tenant';
@@ -40,8 +39,9 @@ export class TenantApiService extends BaseService {
     const isTenantStatus = (value: any): value is TenantStatus =>
       typeof value === 'string' && validTenantStatuses.includes(value as any);
     
-    const tenantType: TenantType = isTenantType(tenant.type) ? tenant.type : 'agri_company';
-    const tenantStatus: TenantStatus = isTenantStatus(tenant.status) ? tenant.status : 'trial';
+    // Use explicit casting after validation
+    const tenantType: TenantType = isTenantType(tenant.type) ? (tenant.type as TenantType) : 'agri_company';
+    const tenantStatus: TenantStatus = isTenantStatus(tenant.status) ? (tenant.status as TenantStatus) : 'trial';
 
     return {
       id: tenant.id,
