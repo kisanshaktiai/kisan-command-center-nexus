@@ -1,5 +1,5 @@
 
-import React, { useState, memo } from 'react';
+import React, { memo } from 'react';
 import { TenantErrorBoundary } from '@/components/error-boundaries/TenantErrorBoundary';
 import { DataErrorBoundary } from '@/components/error-boundaries/DataErrorBoundary';
 import { TenantManagementHeader } from './TenantManagementHeader';
@@ -7,18 +7,33 @@ import { TenantViewControls } from './TenantViewControls';
 import { TenantViewRenderer } from './TenantViewRenderer';
 import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
-import { useTenantManagement } from '../hooks/useTenantManagement';
+import { useTenantData } from '../hooks/useTenantData';
+import { useTenantMutations } from '../hooks/useTenantMutations';
+import { useTenantFiltering } from '../hooks/useTenantFiltering';
+import { useTenantUIState } from '../hooks/useTenantUIState';
 import { Tenant } from '@/types/tenant';
 import { UpdateTenantDTO } from '@/data/types/tenant';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 const TenantManagementPage = memo(() => {
+  // Data hooks
+  const { tenants, isLoading, error } = useTenantData();
+  const { createTenantMutation, updateTenantMutation, deleteTenantMutation, isSubmitting } = useTenantMutations();
+  
+  // UI state hooks
+  const { 
+    detailsTenant, 
+    isDetailsModalOpen, 
+    creationSuccess,
+    handleViewDetails,
+    closeDetailsModal,
+    handleCreateSuccess,
+    clearCreationSuccess 
+  } = useTenantUIState();
+  
+  // Filtering hooks
   const {
-    tenants,
-    isLoading,
-    error,
-    isSubmitting,
     searchTerm,
     setSearchTerm,
     filterType,
@@ -27,34 +42,46 @@ const TenantManagementPage = memo(() => {
     setFilterStatus,
     viewPreferences,
     setViewPreferences,
-    handleCreateTenant,
-    handleUpdateTenant,
-    handleDeleteTenant,
-  } = useTenantManagement();
+    filteredTenants,
+  } = useTenantFiltering({ tenants });
 
-  // Modal states
-  const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [creationSuccess, setCreationSuccess] = useState<any>(null);
-
-  const handleViewDetails = (tenant: Tenant) => {
-    setDetailsTenant(tenant);
-    setIsDetailsModalOpen(true);
+  // Action handlers
+  const handleCreateTenant = async (data: any): Promise<boolean> => {
+    try {
+      const result = await createTenantMutation.mutateAsync(data);
+      handleCreateSuccess({
+        tenantName: data.name,
+        adminEmail: data.owner_email,
+        hasEmailSent: true
+      });
+      return true;
+    } catch {
+      return false;
+    }
   };
 
-  const handleCreateSuccess = (result: any) => {
-    setCreationSuccess(result);
+  const handleUpdateTenant = async (id: string, data: UpdateTenantDTO): Promise<boolean> => {
+    try {
+      await updateTenantMutation.mutateAsync({ id, data });
+      return true;
+    } catch {
+      return false;
+    }
   };
 
-  const handlePreferencesChange = (preferences: any) => {
-    setViewPreferences(preferences);
+  const handleDeleteTenant = async (id: string): Promise<boolean> => {
+    try {
+      await deleteTenantMutation.mutateAsync(id);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
-  // Convert Tenant to UpdateTenantDTO
-  const convertTenantToUpdateDTO = (tenant: Tenant): UpdateTenantDTO => {
-    return {
+  const handleEdit = (tenant: Tenant) => {
+    const updateData: UpdateTenantDTO = {
       name: tenant.name,
-      status: tenant.status as any, // Cast to handle type compatibility
+      status: tenant.status as any,
       subscription_plan: tenant.subscription_plan,
       owner_phone: tenant.owner_phone,
       business_registration: tenant.business_registration,
@@ -72,15 +99,30 @@ const TenantManagementPage = memo(() => {
       custom_domain: tenant.custom_domain,
       metadata: tenant.metadata,
     };
-  };
-
-  const handleEdit = (tenant: Tenant) => {
-    const updateData = convertTenantToUpdateDTO(tenant);
     handleUpdateTenant(tenant.id, updateData);
   };
 
   const handleDetailsEdit = (tenant: Tenant) => {
-    const updateData = convertTenantToUpdateDTO(tenant);
+    const updateData: UpdateTenantDTO = {
+      name: tenant.name,
+      status: tenant.status as any,
+      subscription_plan: tenant.subscription_plan,
+      owner_phone: tenant.owner_phone,
+      business_registration: tenant.business_registration,
+      business_address: tenant.business_address,
+      established_date: tenant.established_date,
+      subscription_start_date: tenant.subscription_start_date,
+      subscription_end_date: tenant.subscription_end_date,
+      trial_ends_at: tenant.trial_ends_at,
+      max_farmers: tenant.max_farmers,
+      max_dealers: tenant.max_dealers,
+      max_products: tenant.max_products,
+      max_storage_gb: tenant.max_storage_gb,
+      max_api_calls_per_day: tenant.max_api_calls_per_day,
+      subdomain: tenant.subdomain,
+      custom_domain: tenant.custom_domain,
+      metadata: tenant.metadata,
+    };
     handleUpdateTenant(tenant.id, updateData);
   };
 
@@ -101,7 +143,7 @@ const TenantManagementPage = memo(() => {
             tenantName={creationSuccess.tenantName}
             adminEmail={creationSuccess.adminEmail}
             hasEmailSent={creationSuccess.hasEmailSent}
-            onClose={() => setCreationSuccess(null)}
+            onClose={clearCreationSuccess}
           />
         )}
 
@@ -132,13 +174,13 @@ const TenantManagementPage = memo(() => {
             filterStatus={filterStatus}
             setFilterStatus={setFilterStatus}
             viewPreferences={viewPreferences}
-            setViewPreferences={handlePreferencesChange}
-            totalCount={tenants.length}
+            setViewPreferences={setViewPreferences}
+            totalCount={filteredTenants.length}
           />
 
           {/* Tenant Views */}
           <TenantViewRenderer
-            tenants={tenants}
+            tenants={filteredTenants}
             viewPreferences={viewPreferences}
             onEdit={handleEdit}
             onDelete={handleDeleteTenant}
@@ -151,7 +193,7 @@ const TenantManagementPage = memo(() => {
         <TenantDetailsModal
           tenant={detailsTenant}
           isOpen={isDetailsModalOpen}
-          onClose={() => setIsDetailsModalOpen(false)}
+          onClose={closeDetailsModal}
           onEdit={handleDetailsEdit}
         />
       </div>
