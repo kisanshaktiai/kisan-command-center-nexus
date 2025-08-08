@@ -28,8 +28,8 @@ export class TenantApiService extends BaseService {
     const validTenantTypes: TenantType[] = ['agri_company', 'dealer', 'ngo', 'government', 'university', 'sugar_factory', 'cooperative', 'insurance'];
     const validTenantStatuses: TenantStatus[] = ['trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'];
     
-    const tenantType = validTenantTypes.includes(tenant.type) ? tenant.type as TenantType : 'agri_company';
-    const tenantStatus = validTenantStatuses.includes(tenant.status) ? tenant.status as TenantStatus : 'trial';
+    const tenantType = validTenantTypes.includes(tenant.type as TenantType) ? tenant.type as TenantType : 'agri_company';
+    const tenantStatus = validTenantStatuses.includes(tenant.status as TenantStatus) ? tenant.status as TenantStatus : 'trial';
 
     return {
       id: tenant.id,
