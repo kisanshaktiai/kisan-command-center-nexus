@@ -45,8 +45,8 @@ import { toast } from 'sonner';
 const TenantManagement: React.FC = () => {
   // State management
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [viewPreferences, setViewPreferences] = useState<TenantViewPreferences>({
     mode: 'small-cards',
     density: 'comfortable',
@@ -65,8 +65,8 @@ const TenantManagement: React.FC = () => {
   // Data hooks
   const filters: TenantFilters = {
     search: searchTerm,
-    type: filterType || undefined,
-    status: filterStatus || undefined,
+    type: filterType !== 'all' ? filterType : undefined,
+    status: filterStatus !== 'all' ? filterStatus : undefined,
   };
 
   const { data: tenants = [], isLoading, error, refetch } = useTenantData({ filters });
@@ -97,8 +97,8 @@ const TenantManagement: React.FC = () => {
         tenant.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (tenant.owner_email && tenant.owner_email.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      const matchesType = !filterType || tenant.type === filterType;
-      const matchesStatus = !filterStatus || tenant.status === filterStatus;
+      const matchesType = filterType === 'all' || tenant.type === filterType;
+      const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
       
       return matchesSearch && matchesType && matchesStatus;
     });
@@ -106,15 +106,15 @@ const TenantManagement: React.FC = () => {
 
   // Event handlers
   const handleCreateSuccess = async (tenantData: TenantFormData): Promise<boolean> => {
-    // Convert TenantFormData to CreateTenantDTO
+    // Convert TenantFormData to CreateTenantDTO with proper handling of optional fields
     const createDTO: CreateTenantDTO = {
       name: tenantData.name,
       slug: tenantData.slug,
-      type: tenantData.type as any, // Type conversion handled by enum mapping
-      status: tenantData.status as any, // Type conversion handled by enum mapping
-      subscription_plan: tenantData.subscription_plan as any, // Type conversion handled by enum mapping
-      owner_email: tenantData.owner_email,
-      owner_name: tenantData.owner_name,
+      type: tenantData.type as any,
+      status: tenantData.status as any,
+      subscription_plan: tenantData.subscription_plan as any,
+      owner_email: tenantData.owner_email || '', // Ensure required field is provided
+      owner_name: tenantData.owner_name || '', // Ensure required field is provided
       owner_phone: tenantData.owner_phone,
       business_registration: tenantData.business_registration,
       business_address: tenantData.business_address,
@@ -239,24 +239,39 @@ const TenantManagement: React.FC = () => {
 
     return (
       <div className={`grid gap-6 ${gridCols}`}>
-        {formattedTenants.map((formattedTenant) => {
-          const tenant = tenantsArray.find(t => t.id === formattedTenant.id);
-          if (!tenant) return null;
+        {formattedTenants
+          .filter(formattedTenant => {
+            const tenant = tenantsArray.find(t => t.id === formattedTenant.id);
+            if (!tenant) return false;
+            
+            const matchesSearch = !searchTerm || 
+              tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              tenant.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (tenant.owner_email && tenant.owner_email.toLowerCase().includes(searchTerm.toLowerCase()));
+            
+            const matchesType = filterType === 'all' || tenant.type === filterType;
+            const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
+            
+            return matchesSearch && matchesType && matchesStatus;
+          })
+          .map((formattedTenant) => {
+            const tenant = tenantsArray.find(t => t.id === formattedTenant.id);
+            if (!tenant) return null;
 
-          return (
-            <TenantCardRefactored
-              key={tenant.id}
-              tenant={tenant}
-              formattedData={formattedTenant}
-              size={viewPreferences.mode === 'large-cards' ? 'large' : 'small'}
-              onEdit={() => openEdit(tenant)}
-              onDelete={() => handleSuspendTenant(tenant.id)}
-              onViewDetails={() => openDetails(tenant)}
-              metrics={tenantMetrics[tenant.id]}
-              showAnalytics={viewPreferences.mode === 'analytics'}
-            />
-          );
-        })}
+            return (
+              <TenantCardRefactored
+                key={tenant.id}
+                tenant={tenant}
+                formattedData={formattedTenant}
+                size={viewPreferences.mode === 'large-cards' ? 'large' : 'small'}
+                onEdit={() => openEdit(tenant)}
+                onDelete={() => handleSuspendTenant(tenant.id)}
+                onViewDetails={() => openDetails(tenant)}
+                metrics={tenantMetrics[tenant.id]}
+                showAnalytics={viewPreferences.mode === 'analytics'}
+              />
+            );
+          })}
       </div>
     );
   };
@@ -369,7 +384,7 @@ const TenantManagement: React.FC = () => {
                   <SelectValue placeholder="All types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All types</SelectItem>
+                  <SelectItem value="all">All types</SelectItem>
                   <SelectItem value="agri_company">Agri Company</SelectItem>
                   <SelectItem value="cooperative">Cooperative</SelectItem>
                   <SelectItem value="government">Government</SelectItem>
@@ -383,7 +398,7 @@ const TenantManagement: React.FC = () => {
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All statuses</SelectItem>
+                  <SelectItem value="all">All statuses</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="trial">Trial</SelectItem>
                   <SelectItem value="suspended">Suspended</SelectItem>
@@ -421,7 +436,7 @@ const TenantManagement: React.FC = () => {
             <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No tenants found</h3>
             <p className="text-gray-600 mb-4">
-              {searchTerm || filterType || filterStatus 
+              {searchTerm || filterType !== 'all' || filterStatus !== 'all'
                 ? 'No tenants match your current filters.' 
                 : 'Get started by creating your first tenant.'}
             </p>
