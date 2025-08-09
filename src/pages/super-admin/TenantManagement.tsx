@@ -13,7 +13,7 @@ import { TenantViewToggle } from "@/components/tenant/TenantViewToggle";
 import { TenantListView } from "@/components/tenant/TenantListView";
 import { TenantCreationSuccess } from "@/components/tenant/TenantCreationSuccess";
 import { tenantService, ServiceResult } from "@/services/tenantService";
-import { Tenant, TenantFilters as TenantFilterType, createTenantID } from "@/types/tenant";
+import { Tenant, TenantFilters as TenantFilterType, TenantID } from "@/types/tenant";
 import { TenantViewPreferences } from "@/types/tenantView";
 import { toast } from "sonner";
 
@@ -110,7 +110,7 @@ const TenantManagement = () => {
   const handleUpdateTenant = async (id: string, data: any) => {
     setIsSubmitting(true);
     try {
-      const tenantId = createTenantID(id);
+      const tenantId = id as TenantID;
       const result = await tenantService.updateTenant(tenantId, data);
       if (result.success) {
         toast.success("Tenant updated successfully");
@@ -130,7 +130,7 @@ const TenantManagement = () => {
     if (window.confirm("Are you sure you want to delete this tenant?")) {
       setIsSubmitting(true);
       try {
-        const tenantId = createTenantID(id);
+        const tenantId = id as TenantID;
         const result = await tenantService.deleteTenant(tenantId);
         if (result.success) {
           toast.success("Tenant deleted successfully");
@@ -289,8 +289,8 @@ const TenantManagement = () => {
           </Select>
         </div>
         <TenantViewToggle 
-          currentView={viewMode} 
-          onViewChange={setViewMode} 
+          viewMode={viewMode} 
+          onViewModeChange={setViewMode} 
         />
       </div>
 
@@ -318,8 +318,8 @@ const TenantManagement = () => {
       {/* Tenant Form Modal */}
       {showForm && (
         <TenantForm
-          open={showForm}
-          onOpenChange={setShowForm}
+          isOpen={showForm}
+          onClose={() => setShowForm(false)}
           onSubmit={handleCreateTenant}
           isSubmitting={isSubmitting}
         />
