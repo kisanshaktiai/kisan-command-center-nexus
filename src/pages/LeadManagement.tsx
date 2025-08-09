@@ -45,11 +45,11 @@ export const LeadManagement: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
+      {/* Compact Header - matching project design */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Lead Management</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <h1 className="text-2xl font-bold tracking-tight">Lead Management</h1>
+          <p className="text-muted-foreground text-sm">
             Manage and convert leads into tenants
           </p>
         </div>
@@ -59,12 +59,11 @@ export const LeadManagement: React.FC = () => {
             onClick={handleRefresh}
             disabled={isLoading}
             size="sm"
-            className="text-xs"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button size="sm" className="text-xs">
+          <Button size="sm">
             <Plus className="h-4 w-4 mr-2" />
             New Lead
           </Button>
@@ -75,14 +74,14 @@ export const LeadManagement: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription className="text-xs text-muted-foreground">Total Leads</CardDescription>
-            <CardTitle className="text-2xl text-foreground">{stats.total}</CardTitle>
+            <CardDescription className="text-xs">Total Leads</CardDescription>
+            <CardTitle className="text-2xl">{stats.total}</CardTitle>
           </CardHeader>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription className="text-xs text-muted-foreground">Qualified</CardDescription>
+            <CardDescription className="text-xs">Qualified</CardDescription>
             <div className="flex items-center gap-2">
               <CardTitle className="text-2xl text-info">{stats.qualified}</CardTitle>
               <Badge variant="secondary" className="text-xs">
@@ -94,7 +93,7 @@ export const LeadManagement: React.FC = () => {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription className="text-xs text-muted-foreground">Converted</CardDescription>
+            <CardDescription className="text-xs">Converted</CardDescription>
             <div className="flex items-center gap-2">
               <CardTitle className="text-2xl text-[hsl(var(--success))]">{stats.converted}</CardTitle>
               <Badge variant="success" className="text-xs">
@@ -106,7 +105,7 @@ export const LeadManagement: React.FC = () => {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription className="text-xs text-muted-foreground">Conversion Rate</CardDescription>
+            <CardDescription className="text-xs">Conversion Rate</CardDescription>
             <div className="flex items-center gap-2">
               <CardTitle className="text-2xl text-[hsl(var(--info))]">{stats.conversionRate}%</CardTitle>
               <Badge 
@@ -123,8 +122,8 @@ export const LeadManagement: React.FC = () => {
       {/* Lead Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-foreground">All Leads</CardTitle>
-          <CardDescription className="text-sm text-muted-foreground">
+          <CardTitle>All Leads</CardTitle>
+          <CardDescription>
             Track and manage all leads in your pipeline
           </CardDescription>
         </CardHeader>
