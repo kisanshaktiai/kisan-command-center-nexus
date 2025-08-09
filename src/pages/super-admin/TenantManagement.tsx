@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,12 @@ import { TenantFilters } from "@/components/tenant/TenantFilters";
 import { TenantViewToggle } from "@/components/tenant/TenantViewToggle";
 import { TenantListView } from "@/components/tenant/TenantListView";
 import { TenantCreationSuccess } from "@/components/tenant/TenantCreationSuccess";
+import { TenantEditModal } from "@/components/tenant/TenantEditModal";
+import { TenantDetailsModalRefactored } from "@/components/tenant/TenantDetailsModalRefactored";
+import { TenantDisplayService } from "@/services/TenantDisplayService";
+import { useTenantAnalytics } from "@/features/tenant/hooks/useTenantAnalytics";
 import { tenantService, ServiceResult } from "@/services/tenantService";
-import { Tenant, TenantFilters as TenantFilterType, TenantID } from "@/types/tenant";
+import { Tenant, TenantFilters as TenantFilterType, TenantID, UpdateTenantDTO, createTenantID } from "@/types/tenant";
 import { TenantViewPreferences } from "@/types/tenantView";
 import { toast } from "sonner";
 import {
@@ -40,6 +44,12 @@ const TenantManagement = () => {
     sortBy: 'created_at',
     sortOrder: 'desc',
   });
+
+  // Modal states for edit and details
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchTenants();
@@ -69,6 +79,14 @@ const TenantManagement = () => {
     }
     return [];
   };
+
+  // Get tenants array and initialize analytics
+  const tenantsArray = getTenantsArray();
+  const { tenantMetrics, refreshMetrics } = useTenantAnalytics({ 
+    tenants: tenantsArray, 
+    autoRefresh: true, 
+    refreshInterval: 30000 
+  });
 
   const fetchTenants = async (filters?: TenantFilterType) => {
     setLoading(true);
@@ -133,36 +151,94 @@ const TenantManagement = () => {
     }
   };
 
-  // Enhanced filtering and sorting logic
-  const filteredTenants = getTenantsArray()
-    .filter((tenant: Tenant) => {
-      const matchesSearch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           tenant.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (tenant.owner_email && tenant.owner_email.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesType = filterType === 'all' || tenant.type === filterType;
-      const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
-      return matchesSearch && matchesType && matchesStatus;
-    })
-    .sort((a: Tenant, b: Tenant) => {
-      const { sortBy, sortOrder } = viewPreferences;
-      let comparison = 0;
+  // Modal handlers
+  const openEdit = (tenant: Tenant) => {
+    console.log('Opening edit modal for tenant:', tenant.id);
+    setEditingTenant(tenant);
+    setIsEditModalOpen(true);
+  };
 
-      switch (sortBy) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case 'created_at':
-          comparison = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-          break;
-        case 'status':
-          comparison = (a.status || '').localeCompare(b.status || '');
-          break;
-        default:
-          comparison = 0;
+  const closeEdit = () => {
+    console.log('Closing edit modal');
+    setIsEditModalOpen(false);
+    setEditingTenant(null);
+  };
+
+  const openDetails = (tenant: Tenant) => {
+    console.log('Opening details modal for tenant:', tenant.id);
+    setDetailsTenant(tenant);
+    setIsDetailsModalOpen(true);
+    refreshMetrics();
+  };
+
+  const closeDetails = () => {
+    console.log('Closing details modal');
+    setIsDetailsModalOpen(false);
+    setDetailsTenant(null);
+  };
+
+  const handleDetailsEdit = (tenant: Tenant) => {
+    console.log('Edit from details modal for tenant:', tenant.id);
+    setIsDetailsModalOpen(false);
+    setDetailsTenant(null);
+    setEditingTenant(tenant);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveTenant = async (id: string, data: UpdateTenantDTO): Promise<boolean> => {
+    console.log('Saving tenant:', id, data);
+    setIsSubmitting(true);
+    try {
+      const result = await tenantService.updateTenant(createTenantID(id), data);
+      if (result.success) {
+        toast.success('Tenant updated successfully');
+        await fetchTenants();
+        refreshMetrics();
+        return true;
       }
+      toast.error(result.error || 'Failed to update tenant');
+      return false;
+    } catch (e: any) {
+      console.error('Error updating tenant:', e);
+      toast.error(e?.message || 'Failed to update tenant');
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-      return sortOrder === 'desc' ? -comparison : comparison;
-    });
+  // Enhanced filtering and sorting logic with memoization
+  const filteredTenants = useMemo(() => {
+    return tenantsArray
+      .filter((tenant: Tenant) => {
+        const matchesSearch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             tenant.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             (tenant.owner_email && tenant.owner_email.toLowerCase().includes(searchTerm.toLowerCase()));
+        const matchesType = filterType === 'all' || tenant.type === filterType;
+        const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
+        return matchesSearch && matchesType && matchesStatus;
+      })
+      .sort((a: Tenant, b: Tenant) => {
+        const { sortBy, sortOrder } = viewPreferences;
+        let comparison = 0;
+
+        switch (sortBy) {
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'created_at':
+            comparison = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+            break;
+          case 'status':
+            comparison = (a.status || '').localeCompare(b.status || '');
+            break;
+          default:
+            comparison = 0;
+        }
+
+        return sortOrder === 'desc' ? -comparison : comparison;
+      });
+  }, [tenantsArray, searchTerm, filterType, filterStatus, viewPreferences]);
 
   const handleViewPreferencesChange = (newPreferences: TenantViewPreferences) => {
     setViewPreferences(newPreferences);
@@ -200,8 +276,9 @@ const TenantManagement = () => {
               <TenantCard
                 key={tenant.id}
                 tenant={tenant}
-                onEdit={() => {}}
+                onEdit={() => openEdit(tenant)}
                 onDelete={() => handleDeleteTenant(tenant.id)}
+                onViewDetails={() => openDetails(tenant)}
               />
             ))}
           </div>
@@ -210,9 +287,10 @@ const TenantManagement = () => {
         return (
           <TenantListView
             tenants={filteredTenants}
-            onEdit={() => {}}
+            onEdit={openEdit}
             onDelete={handleDeleteTenant}
-            onViewDetails={() => {}}
+            onViewDetails={openDetails}
+            metrics={tenantMetrics}
           />
         );
       case 'analytics':
@@ -240,8 +318,11 @@ const TenantManagement = () => {
                       <span className="capitalize">{tenant.subscription_plan}</span>
                     </div>
                     <div className="pt-2 flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => {}}>
+                      <Button size="sm" variant="outline" onClick={() => openDetails(tenant)}>
                         View Details
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => openEdit(tenant)}>
+                        Edit
                       </Button>
                       <Button 
                         size="sm" 
@@ -265,8 +346,9 @@ const TenantManagement = () => {
               <TenantCard
                 key={tenant.id}
                 tenant={tenant}
-                onEdit={() => {}}
+                onEdit={() => openEdit(tenant)}
                 onDelete={() => handleDeleteTenant(tenant.id)}
+                onViewDetails={() => openDetails(tenant)}
               />
             ))}
           </div>
@@ -330,11 +412,11 @@ const TenantManagement = () => {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground bg-background/60 rounded-lg px-3 py-2 backdrop-blur-sm border border-border/50">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <Activity className="w-4 h-4" />
-                  <span className="font-medium">{getTenantsArray().filter(t => t.status === 'active').length} Active</span>
+                  <span className="font-medium">{tenantsArray.filter(t => t.status === 'active').length} Active</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground bg-background/60 rounded-lg px-3 py-2 backdrop-blur-sm border border-border/50">
                   <Users className="w-4 h-4" />
-                  <span className="font-medium">{getTenantsArray().length} Total</span>
+                  <span className="font-medium">{tenantsArray.length} Total</span>
                 </div>
               </div>
               
@@ -357,7 +439,7 @@ const TenantManagement = () => {
         {[
           {
             title: "Total Tenants",
-            value: getTenantsArray().length,
+            value: tenantsArray.length,
             change: "+2 from last month",
             icon: Building2,
             color: "text-blue-600",
@@ -365,7 +447,7 @@ const TenantManagement = () => {
           },
           {
             title: "Active Tenants", 
-            value: getTenantsArray().filter(t => t.status === 'active').length,
+            value: tenantsArray.filter(t => t.status === 'active').length,
             change: "Currently active",
             icon: Activity,
             color: "text-green-600",
@@ -373,7 +455,7 @@ const TenantManagement = () => {
           },
           {
             title: "Trial Tenants",
-            value: getTenantsArray().filter(t => t.status === 'trial').length,
+            value: tenantsArray.filter(t => t.status === 'trial').length,
             change: "On trial period",
             icon: Users,
             color: "text-orange-600", 
@@ -505,6 +587,27 @@ const TenantManagement = () => {
           {renderTenantView()}
         </div>
       </div>
+
+      {/* Details Modal */}
+      <TenantDetailsModalRefactored
+        tenant={detailsTenant}
+        formattedData={detailsTenant ? TenantDisplayService.formatTenantForDisplay(detailsTenant) : null}
+        isOpen={isDetailsModalOpen}
+        onClose={closeDetails}
+        onEdit={handleDetailsEdit}
+        metrics={detailsTenant ? tenantMetrics[detailsTenant.id] : undefined}
+      />
+
+      {/* Edit Modal */}
+      {editingTenant && (
+        <TenantEditModal
+          tenant={editingTenant}
+          isOpen={isEditModalOpen}
+          onClose={closeEdit}
+          onSave={handleSaveTenant}
+          isSubmitting={isSubmitting}
+        />
+      )}
 
       {/* Create Tenant Modal */}
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
