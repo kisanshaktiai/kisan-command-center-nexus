@@ -33,6 +33,7 @@ export interface CreateTenantDTO {
   name: string;
   slug: string;
   type: TenantType;
+  status?: TenantStatus;
   subscription_plan: SubscriptionPlan;
   owner_email: string;
   owner_name: string;
@@ -55,6 +56,7 @@ export interface CreateTenantDTO {
 
 export interface UpdateTenantDTO {
   name?: string;
+  type?: TenantType;
   status?: TenantStatus;
   subscription_plan?: SubscriptionPlan;
   owner_phone?: string;

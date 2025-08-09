@@ -1,3 +1,4 @@
+
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import { CreateTenantDTO, UpdateTenantDTO, TenantDTO } from '@/data/types/tenant';
@@ -53,11 +54,21 @@ export class TenantApiService extends BaseService {
     (TenantApiService.validStatuses as readonly string[]).includes(v);
 
   private getTenantType(value: unknown): TenantType {
-    return TenantApiService.isTenantType(value) ? value : 'agri_company';
+    for (const validType of TenantApiService.validTypes) {
+      if (value === validType) {
+        return validType as TenantType;
+      }
+    }
+    return 'agri_company';
   }
 
   private getTenantStatus(value: unknown): TenantStatus {
-    return TenantApiService.isTenantStatus(value) ? value : 'trial';
+    for (const validStatus of TenantApiService.validStatuses) {
+      if (value === validStatus) {
+        return validStatus as TenantStatus;
+      }
+    }
+    return 'trial';
   }
 
   private mapTenantFromDatabase(tenant: any): TenantDTO {
@@ -159,11 +170,11 @@ export class TenantApiService extends BaseService {
   async createTenant(payload: CreateTenantDTO): Promise<ServiceResult<TenantDTO>> {
     return this.executeOperation(
       async () => {
-        // Optional safety: coerce enums before insert
+        // Ensure enums are properly typed
         const data: CreateTenantDTO = {
           ...payload,
           type: this.getTenantType(payload.type),
-          status: this.getTenantStatus(payload.status),
+          status: payload.status ? this.getTenantStatus(payload.status) : undefined,
         };
 
         const { data: tenant, error } = await supabase
@@ -188,10 +199,10 @@ export class TenantApiService extends BaseService {
         const cleanedData: UpdateTenantDTO = { ...payload };
 
         if (cleanedData.type != null) {
-          cleanedData.type = this.getTenantType(cleanedData.type as unknown);
+          cleanedData.type = this.getTenantType(cleanedData.type);
         }
         if (cleanedData.status != null) {
-          cleanedData.status = this.getTenantStatus(cleanedData.status as unknown);
+          cleanedData.status = this.getTenantStatus(cleanedData.status);
         }
 
         // Scrub metadata keys that might collide with enum columns in other tables

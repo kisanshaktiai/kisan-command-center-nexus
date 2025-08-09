@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { tenantManagementService } from '../services/TenantManagementService';
 import { tenantQueries } from '@/data/queries/tenantQueries';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
+import { TenantType, TenantStatus } from '@/types/tenant';
 
 export interface UseTenantDataOptions {
   filters?: {
@@ -19,6 +20,13 @@ export const useTenantData = (options: UseTenantDataOptions = {}) => {
     fallbackMessage: 'Failed to load tenants' 
   });
 
+  // Convert string filters to proper enum types for the API
+  const apiFilters = {
+    search: filters.search,
+    type: filters.type ? filters.type as TenantType : undefined,
+    status: filters.status ? filters.status as TenantStatus : undefined,
+  };
+
   const {
     data: tenants = [],
     isLoading,
@@ -26,7 +34,7 @@ export const useTenantData = (options: UseTenantDataOptions = {}) => {
   } = useQuery({
     queryKey: tenantQueries.list(filters),
     queryFn: async () => {
-      const result = await tenantManagementService.getAllTenants(filters);
+      const result = await tenantManagementService.getAllTenants(apiFilters);
       if (!result.success) {
         const errorToThrow = new Error(result.error || 'Failed to fetch tenants');
         handleError(errorToThrow, 'fetch tenants');
