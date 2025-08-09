@@ -22,7 +22,7 @@ import { EnhancedLeadKanban } from './EnhancedLeadKanban';
 import { EnhancedLeadManagement } from './EnhancedLeadManagement';
 import { LeadAnalyticsDashboard } from './LeadAnalyticsDashboard';
 import { CreateLeadDialog } from './CreateLeadDialog';
-import { useLeadManagement } from '@/hooks/useLeadManagement';
+import { useLeads } from '@/hooks/useLeadManagement';
 
 type ViewMode = 'kanban' | 'table' | 'analytics';
 
@@ -32,10 +32,26 @@ const WorldClassLeadManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-  const { leads, isLoading, refetch } = useLeadManagement({
-    search: searchTerm,
-    status: statusFilter === 'all' ? undefined : statusFilter,
-  });
+  const { data: leads = [], isLoading, refetch } = useLeads();
+
+  // Filter leads based on search and status
+  const filteredLeads = useMemo(() => {
+    let filtered = leads || [];
+    
+    if (searchTerm) {
+      filtered = filtered.filter(lead => 
+        lead.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(lead => lead.status === statusFilter);
+    }
+    
+    return filtered;
+  }, [leads, searchTerm, statusFilter]);
 
   // Calculate metrics
   const metrics = useMemo(() => {
@@ -60,7 +76,7 @@ const WorldClassLeadManagement: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       {/* Compact Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -185,7 +201,14 @@ const WorldClassLeadManagement: React.FC = () => {
       </div>
 
       {/* Content based on view */}
-      {currentView === 'kanban' && <EnhancedLeadKanban />}
+      {currentView === 'kanban' && (
+        <EnhancedLeadKanban 
+          leads={filteredLeads} 
+          isLoading={isLoading}
+          selectedLeads={[]}
+          onSelectionChange={() => {}}
+        />
+      )}
       {currentView === 'table' && <EnhancedLeadManagement />}
       {currentView === 'analytics' && <LeadAnalyticsDashboard />}
 
@@ -193,7 +216,6 @@ const WorldClassLeadManagement: React.FC = () => {
       <CreateLeadDialog
         open={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
-        onSuccess={handleCreateSuccess}
       />
     </div>
   );

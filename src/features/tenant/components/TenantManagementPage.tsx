@@ -54,13 +54,15 @@ const TenantManagementPage: React.FC = () => {
   };
 
   const handleCreateTenantClick = () => {
-    // Create a minimal tenant data structure for creation
+    // Create a proper tenant data structure for creation
     const newTenantData = {
-      name: '',
-      slug: '',
+      name: 'New Tenant',
+      slug: 'new-tenant',
       type: 'agri_company' as const,
       status: 'trial' as const,
       subscription_plan: 'Kisan_Basic' as const,
+      owner_name: '',
+      owner_email: '',
     };
     handleCreateTenant(newTenantData);
   };
@@ -173,15 +175,16 @@ const TenantManagementPage: React.FC = () => {
           isOpen={isEditModalOpen}
           onClose={closeEditModal}
           tenant={editingTenant}
-          onSave={(data) => handleSaveTenant(editingTenant.id, data)}
+          onSave={(data) => handleSaveTenant(editingTenant.id, { ...data })}
           isSubmitting={isSubmitting}
         />
       )}
 
-      <TenantCreationSuccess
-        isVisible={!!creationSuccess}
-        onDismiss={clearCreationSuccess}
-      />
+      {creationSuccess && (
+        <TenantCreationSuccess
+          onDismiss={clearCreationSuccess}
+        />
+      )}
     </div>
   );
 };
