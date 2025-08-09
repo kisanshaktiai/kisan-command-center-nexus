@@ -169,11 +169,13 @@ const navigationConfig: NavigationItem[] = [
 ];
 
 const EnhancedSidebar: React.FC = () => {
-  const { collapsed } = useSidebar();
+  const { state } = useSidebar();
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { currentTenant, availableTenants, switchTenant } = useEnhancedTenant();
   const { hasRole, hasPermission, context } = useRBAC();
+
+  const isCollapsed = state === 'collapsed';
 
   const shouldShowItem = (item: NavigationItem): boolean => {
     // Check roles
@@ -218,7 +220,7 @@ const EnhancedSidebar: React.FC = () => {
             }
           >
             <Icon className="h-4 w-4" />
-            {!collapsed && (
+            {!isCollapsed && (
               <>
                 <span>{item.label}</span>
                 {item.badge && <Badge variant="secondary" className="ml-auto">{item.badge}</Badge>}
@@ -236,7 +238,7 @@ const EnhancedSidebar: React.FC = () => {
 
     return (
       <SidebarGroup key={title}>
-        {title && !collapsed && <SidebarGroupLabel>{title}</SidebarGroupLabel>}
+        {title && !isCollapsed && <SidebarGroupLabel>{title}</SidebarGroupLabel>}
         <SidebarGroupContent>
           <SidebarMenu>
             {visibleItems.map(item => {
@@ -252,14 +254,14 @@ const EnhancedSidebar: React.FC = () => {
   };
 
   return (
-    <Sidebar className={collapsed ? 'w-16' : 'w-64'} collapsible>
+    <Sidebar className={isCollapsed ? 'w-16' : 'w-64'} collapsible="icon">
       {/* Header */}
       <div className="p-4 border-b">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <Building2 className="w-4 h-4 text-primary-foreground" />
           </div>
-          {!collapsed && (
+          {!isCollapsed && (
             <div className="flex-1">
               <h3 className="font-semibold text-sm">
                 {currentTenant?.branding?.app_name || 'Kisan Platform'}
@@ -274,7 +276,7 @@ const EnhancedSidebar: React.FC = () => {
 
       <SidebarContent>
         {/* Tenant Selector */}
-        {!collapsed && availableTenants.length > 1 && (
+        {!isCollapsed && availableTenants.length > 1 && (
           <div className="p-4 border-b">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -322,7 +324,7 @@ const EnhancedSidebar: React.FC = () => {
                     {user?.email?.charAt(0).toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                {!collapsed && (
+                {!isCollapsed && (
                   <div className="ml-3 text-left flex-1">
                     <p className="text-sm font-medium">
                       {user?.user_metadata?.full_name || 'User'}

@@ -107,18 +107,8 @@ class ApiFactoryClass {
               { body: params }
             );
           } else {
-            // Database query
-            let query = supabase.from(endpoint).select(params?.select || '*');
-            
-            if (params) {
-              Object.entries(params).forEach(([key, value]) => {
-                if (key !== 'select' && value !== undefined) {
-                  query = query.eq(key, value);
-                }
-              });
-            }
-            
-            response = await query;
+            // Use a more generic approach for database queries
+            response = await this.executeDatabaseQuery(endpoint, method, data, params);
           }
           break;
 
@@ -129,32 +119,17 @@ class ApiFactoryClass {
               { body: data }
             );
           } else {
-            response = await supabase.from(endpoint).insert(data).select();
+            response = await this.executeDatabaseQuery(endpoint, method, data, params);
           }
           break;
 
         case 'PUT':
         case 'PATCH':
-          if (params?.id) {
-            response = await supabase
-              .from(endpoint)
-              .update(data)
-              .eq('id', params.id)
-              .select();
-          } else {
-            throw new Error('ID required for update operations');
-          }
+          response = await this.executeDatabaseQuery(endpoint, method, data, params);
           break;
 
         case 'DELETE':
-          if (params?.id) {
-            response = await supabase
-              .from(endpoint)
-              .delete()
-              .eq('id', params.id);
-          } else {
-            throw new Error('ID required for delete operations');
-          }
+          response = await this.executeDatabaseQuery(endpoint, method, data, params);
           break;
 
         default:
@@ -226,6 +201,52 @@ class ApiFactoryClass {
         success: false,
         error: errorMessage
       };
+    }
+  }
+
+  private async executeDatabaseQuery(endpoint: string, method: string, data?: any, params?: Record<string, any>) {
+    // Use type assertion to bypass strict typing for dynamic table names
+    const table = (supabase as any).from(endpoint);
+    
+    switch (method) {
+      case 'GET':
+        let query = table.select(params?.select || '*');
+        
+        if (params) {
+          Object.entries(params).forEach(([key, value]) => {
+            if (key !== 'select' && value !== undefined) {
+              query = query.eq(key, value);
+            }
+          });
+        }
+        
+        return await query;
+
+      case 'POST':
+        return await table.insert(data).select();
+
+      case 'PUT':
+      case 'PATCH':
+        if (params?.id) {
+          return await table
+            .update(data)
+            .eq('id', params.id)
+            .select();
+        } else {
+          throw new Error('ID required for update operations');
+        }
+
+      case 'DELETE':
+        if (params?.id) {
+          return await table
+            .delete()
+            .eq('id', params.id);
+        } else {
+          throw new Error('ID required for delete operations');
+        }
+
+      default:
+        throw new Error(`Unsupported database method: ${method}`);
     }
   }
 

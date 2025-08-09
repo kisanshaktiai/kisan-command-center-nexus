@@ -169,35 +169,41 @@ export const EnhancedTenantProvider: React.FC<{ children: React.ReactNode }> = (
     try {
       setError(null);
       
-      let query = supabase.from('tenants').select('id, name, slug, status');
+      let tenantIds: string[] = [];
       
       if (isSuperAdmin) {
         // Super admins can see all tenants
+        const { data: allTenants, error: tenantsError } = await supabase
+          .from('tenants')
+          .select('id')
+          .order('name');
+        
+        if (tenantsError) throw tenantsError;
+        tenantIds = allTenants?.map(t => t.id) || [];
       } else if (isAdmin) {
         // Regular admins can see tenants they have access to
-        query = query.in('id', 
-          supabase
-            .from('user_tenants')
-            .select('tenant_id')
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-        );
+        const { data: userTenantAccess, error: accessError } = await supabase
+          .from('user_tenants')
+          .select('tenant_id')
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+        
+        if (accessError) throw accessError;
+        tenantIds = userTenantAccess?.map(ut => ut.tenant_id) || [];
       } else {
         // Regular users see their assigned tenants
-        query = query.in('id',
-          supabase
-            .from('user_tenants')
-            .select('tenant_id')
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-        );
+        const { data: userTenantAccess, error: accessError } = await supabase
+          .from('user_tenants')
+          .select('tenant_id')
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+        
+        if (accessError) throw accessError;
+        tenantIds = userTenantAccess?.map(ut => ut.tenant_id) || [];
       }
 
-      const { data: tenantsData, error: tenantsError } = await query.order('name');
-      if (tenantsError) throw tenantsError;
-
       // Load full details for each tenant
-      const tenantPromises = tenantsData?.map(t => fetchTenantDetails(t.id)) || [];
+      const tenantPromises = tenantIds.map(id => fetchTenantDetails(id));
       const tenantDetails = await Promise.all(tenantPromises);
       const validTenants = tenantDetails.filter(Boolean) as EnhancedTenant[];
       
