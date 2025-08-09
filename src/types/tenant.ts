@@ -127,6 +127,9 @@ export interface Tenant {
   created_at: string;
   updated_at: string;
   deleted_at?: string;
+  suspended_at?: string; // Added for soft delete
+  archived_at?: string;   // Added for archiving
+  reactivated_at?: string; // Added for reactivation tracking
   branding?: TenantBranding | null;
   features?: TenantFeatures | null;
 }

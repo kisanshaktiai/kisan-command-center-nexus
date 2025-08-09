@@ -52,7 +52,7 @@ interface Stats {
 
 const TenantManagement = () => {
   const {
-    tenants,
+    tenants: tenantsData,
     loading,
     error,
     formData,
@@ -64,6 +64,9 @@ const TenantManagement = () => {
     creationSuccess,
     setCreationSuccess,
   } = useTenantManagement();
+
+  // Extract actual tenants array from the hook return
+  const tenants = Array.isArray(tenantsData) ? tenantsData : [];
 
   const { suspendTenant, reactivateTenant, archiveTenant, isLoading: softDeleteLoading } = useTenantSoftDelete();
 
@@ -151,10 +154,11 @@ const TenantManagement = () => {
   };
 
   const handleSubmit = async (tenantData: any): Promise<boolean> => {
-    if (editingTenant) {
-      return await handleUpdateTenant(editingTenant, tenantData);
-    }
     return await handleCreateTenant(tenantData);
+  };
+
+  const handleDeleteTenantWrapper = async (tenantId: string) => {
+    await handleDeleteTenant(tenantId);
   };
 
   const handleSuspendTenant = (tenant: Tenant) => {
@@ -286,11 +290,12 @@ const TenantManagement = () => {
     <div className="space-y-4">
       {creationSuccess && (
         <TenantCreationSuccess 
-          success={creationSuccess}
+          creationSuccess={creationSuccess}
           onClose={() => setCreationSuccess(null)}
         />
       )}
 
+      
       <div className="bg-white rounded-lg shadow-sm border p-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -364,6 +369,7 @@ const TenantManagement = () => {
         </Card>
       </div>
 
+      
       <Card className="p-4">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 max-w-md">
@@ -474,56 +480,15 @@ const TenantManagement = () => {
           : "space-y-4"
         }>
           {filteredAndSortedTenants.map((tenant) => (
-            <div key={tenant.id} className={viewMode === 'list' ? "border rounded-lg" : ""}>
-              {viewMode === 'grid' ? (
-                <TenantCard
-                  tenant={tenant}
-                  onEdit={() => handleEdit(tenant)}
-                  onDelete={async () => {
-                    if (tenant.status === 'active' || tenant.status === 'trial') {
-                      handleSuspendTenant(tenant);
-                    } else if (tenant.status === 'suspended') {
-                      handleArchiveTenant(tenant);
-                    }
-                  }}
-                />
-              ) : (
-                <div className="flex items-center justify-between p-4 hover:bg-gray-50">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <h3 className="font-semibold text-gray-900 truncate">{tenant.name}</h3>
-                        <p className="text-sm text-gray-600 truncate">@{tenant.slug}</p>
-                      </div>
-                      <Badge variant={
-                        tenant.status === 'active' ? 'default' :
-                        tenant.status === 'trial' ? 'secondary' :
-                        tenant.status === 'suspended' ? 'destructive' :
-                        'outline'
-                      }>
-                        {tenant.status}
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">
-                      {tenant.owner_email}
-                    </span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {getTenantActions(tenant)}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              )}
-            </div>
+            <TenantCard
+              key={tenant.id}
+              tenant={tenant}
+              onEdit={() => handleEdit(tenant)}
+              onDelete={async () => await handleDeleteTenantWrapper(tenant.id)}
+              onSuspend={() => handleSuspendTenant(tenant)}
+              onReactivate={() => handleReactivateTenant(tenant)}
+              onArchive={() => handleArchiveTenant(tenant)}
+            />
           ))}
         </div>
       )}

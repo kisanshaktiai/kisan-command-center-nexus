@@ -14,6 +14,15 @@ export interface ArchiveTenantOptions {
   encryptionKeyId: string;
 }
 
+// Type for RPC response
+interface RpcResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+  tenant_id?: string;
+  archive_job_id?: string;
+}
+
 export const useTenantSoftDelete = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -38,11 +47,12 @@ export const useTenantSoftDelete = () => {
         return false;
       }
 
-      if (!data?.success) {
-        console.error('Suspend tenant returned error:', data?.error);
+      const response = data as RpcResponse;
+      if (!response?.success) {
+        console.error('Suspend tenant returned error:', response?.error);
         toast({
           title: "Error",
-          description: data?.error || "Failed to suspend tenant",
+          description: response?.error || "Failed to suspend tenant",
           variant: "destructive",
         });
         return false;
@@ -87,11 +97,12 @@ export const useTenantSoftDelete = () => {
         return false;
       }
 
-      if (!data?.success) {
-        console.error('Reactivate tenant returned error:', data?.error);
+      const response = data as RpcResponse;
+      if (!response?.success) {
+        console.error('Reactivate tenant returned error:', response?.error);
         toast({
           title: "Error",
-          description: data?.error || "Failed to reactivate tenant",
+          description: response?.error || "Failed to reactivate tenant",
           variant: "destructive",
         });
         return false;
@@ -138,11 +149,12 @@ export const useTenantSoftDelete = () => {
         return false;
       }
 
-      if (!data?.success) {
-        console.error('Archive tenant returned error:', data?.error);
+      const response = data as RpcResponse;
+      if (!response?.success) {
+        console.error('Archive tenant returned error:', response?.error);
         toast({
           title: "Error",
-          description: data?.error || "Failed to archive tenant",
+          description: response?.error || "Failed to archive tenant",
           variant: "destructive",
         });
         return false;
