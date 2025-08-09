@@ -132,14 +132,16 @@ const TenantManagementPage = memo(() => {
           metrics={detailsTenant ? tenantMetrics[detailsTenant.id] : undefined}
         />
 
-        {/* Edit Modal */}
-        <TenantEditModal
-          tenant={editingTenant}
-          isOpen={isEditModalOpen}
-          onClose={closeEditModal}
-          onSave={handleSaveTenant}
-          isSubmitting={isSubmitting}
-        />
+        {/* Edit Modal - This should now work correctly */}
+        {editingTenant && (
+          <TenantEditModal
+            tenant={editingTenant}
+            isOpen={isEditModalOpen}
+            onClose={closeEditModal}
+            onSave={handleSaveTenant}
+            isSubmitting={isSubmitting}
+          />
+        )}
       </div>
     </TenantErrorBoundary>
   );

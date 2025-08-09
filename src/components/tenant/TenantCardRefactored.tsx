@@ -48,17 +48,23 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
 }) => {
   const isSuspended = tenant.status === 'suspended';
   
-  const handleEdit = () => {
+  const handleEdit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     console.log('TenantCardRefactored: Edit clicked for tenant:', tenant.id);
     onEdit();
   };
 
-  const handleViewDetails = () => {
+  const handleViewDetails = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     console.log('TenantCardRefactored: View details clicked for tenant:', tenant.id);
     onViewDetails();
   };
   
-  const handleSuspendAction = () => {
+  const handleSuspendAction = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     console.log('TenantCardRefactored: Suspend action for tenant:', tenant.id);
     if (window.confirm(
       isSuspended 
@@ -72,7 +78,7 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
   const ActionMenu = () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>

@@ -5,7 +5,7 @@ import { useTenantData } from './useTenantData';
 import { useTenantManagement } from './useTenantManagement';
 import { useTenantAnalytics } from './useTenantAnalytics';
 import { TenantDisplayService, FormattedTenantData } from '@/services/TenantDisplayService';
-import { Tenant } from '@/types/tenant';
+import { Tenant, UpdateTenantDTO } from '@/types/tenant';
 
 interface UseTenantPageStateOptions {
   initialFilters?: {
@@ -48,7 +48,7 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
   const [filterType, setFilterType] = useState(options.initialFilters?.type || '');
   const [filterStatus, setFilterStatus] = useState(options.initialFilters?.status || '');
 
-  // Modal states - moved here for better control
+  // Modal states - fixed state management
   const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
@@ -65,7 +65,6 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
     console.log('useTenantPageState: Opening details for tenant:', tenant.id);
     setDetailsTenant(tenant);
     setIsDetailsModalOpen(true);
-    // Refresh metrics for the selected tenant
     refreshMetrics();
   };
 
@@ -96,12 +95,11 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
     setEditingTenant(null);
   };
 
-  const handleSaveTenant = async (id: string, data: any): Promise<boolean> => {
+  const handleSaveTenant = async (id: string, data: UpdateTenantDTO): Promise<boolean> => {
     console.log('useTenantPageState: Saving tenant:', id, data);
     const success = await handleUpdateTenant(id, data);
     if (success) {
       closeEditModal();
-      // Refresh metrics after update
       refreshMetrics();
     }
     return success;
@@ -128,7 +126,7 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
     isDetailsModalOpen,
     detailsFormattedData,
 
-    // Edit modal
+    // Edit modal - ensure these are returned
     editingTenant,
     isEditModalOpen,
 
