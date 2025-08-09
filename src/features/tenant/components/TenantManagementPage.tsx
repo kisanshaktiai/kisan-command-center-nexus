@@ -59,10 +59,10 @@ const TenantManagementPage = memo(() => {
   } = useTenantPageState();
 
   const handleSuspendTenant = async (tenantId: string): Promise<boolean> => {
-    // This will be handled by the updated service that calls suspend_tenant function
+    console.log('TenantManagementPage: Suspend/Delete tenant:', tenantId);
     try {
-      // For now, just return true - the actual implementation would be in the service
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulated delay
+      // Simulate suspension action
+      await new Promise(resolve => setTimeout(resolve, 1000));
       refreshMetrics(); // Refresh metrics after action
       return true;
     } catch {
@@ -73,6 +73,10 @@ const TenantManagementPage = memo(() => {
   if (isLoading) {
     return <TenantLoadingState />;
   }
+
+  console.log('TenantManagementPage: Rendering with tenants:', tenants.length);
+  console.log('TenantManagementPage: Edit modal open:', isEditModalOpen, 'editing:', editingTenant?.id);
+  console.log('TenantManagementPage: Details modal open:', isDetailsModalOpen, 'details:', detailsTenant?.id);
 
   return (
     <TenantErrorBoundary>

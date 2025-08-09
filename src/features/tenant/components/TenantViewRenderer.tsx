@@ -1,22 +1,22 @@
 
-import React, { memo, useCallback } from 'react';
-import { TenantCardRefactored } from '@/components/tenant/TenantCardRefactored';
-import { TenantListView } from '@/components/tenant/TenantListView';
-import { TenantViewPreferences, TenantMetrics } from '@/types/tenantView';
+import React from 'react';
 import { Tenant } from '@/types/tenant';
 import { FormattedTenantData } from '@/services/TenantDisplayService';
+import { TenantViewPreferences, TenantMetrics } from '@/types/tenantView';
+import { TenantCardRefactored } from '@/components/tenant/TenantCardRefactored';
+import { TenantListView } from '@/components/tenant/TenantListView';
 
-export interface TenantViewRendererProps {
+interface TenantViewRendererProps {
   tenants: Tenant[];
   formattedTenants: FormattedTenantData[];
   viewPreferences: TenantViewPreferences;
   onEdit: (tenant: Tenant) => void;
-  onDelete: (tenantId: string) => void;
+  onDelete: (tenantId: string) => Promise<boolean>;
   onViewDetails: (tenant: Tenant) => void;
   tenantMetrics: Record<string, TenantMetrics>;
 }
 
-const TenantViewRenderer = memo<TenantViewRendererProps>(({
+export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
   tenants,
   formattedTenants,
   viewPreferences,
@@ -25,107 +25,77 @@ const TenantViewRenderer = memo<TenantViewRendererProps>(({
   onViewDetails,
   tenantMetrics
 }) => {
-  const handleEdit = useCallback((tenant: Tenant) => {
+  const handleEdit = (tenant: Tenant) => {
+    console.log('TenantViewRenderer: Edit clicked for tenant:', tenant.id);
     onEdit(tenant);
-  }, [onEdit]);
+  };
 
-  const handleDelete = useCallback((tenantId: string) => {
-    onDelete(tenantId);
-  }, [onDelete]);
+  const handleDelete = async (tenantId: string) => {
+    console.log('TenantViewRenderer: Delete clicked for tenant:', tenantId);
+    return await onDelete(tenantId);
+  };
 
-  const handleViewDetails = useCallback((tenant: Tenant) => {
+  const handleViewDetails = (tenant: Tenant) => {
+    console.log('TenantViewRenderer: View details clicked for tenant:', tenant.id);
     onViewDetails(tenant);
-  }, [onViewDetails]);
+  };
 
-  if (tenants.length === 0) {
+  if (viewPreferences.mode === 'list') {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground text-lg">No tenants found</p>
-        <p className="text-muted-foreground text-sm mt-2">
-          Adjust your filters or create a new tenant to get started
-        </p>
-      </div>
+      <TenantListView
+        tenants={tenants}
+        formattedTenants={formattedTenants}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onViewDetails={handleViewDetails}
+        tenantMetrics={tenantMetrics}
+      />
     );
   }
 
-  switch (viewPreferences.mode) {
-    case 'large-cards':
-      return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {tenants.map((tenant, index) => {
-            const formattedData = formattedTenants[index];
-            return (
-              <TenantCardRefactored
-                key={tenant.id}
-                tenant={tenant}
-                formattedData={formattedData}
-                size="large"
-                onEdit={() => handleEdit(tenant)}
-                onDelete={() => handleDelete(tenant.id)}
-                onViewDetails={() => handleViewDetails(tenant)}
-                metrics={tenantMetrics[tenant.id]}
-              />
-            );
-          })}
-        </div>
-      );
+  // Grid view for cards
+  const getGridCols = () => {
+    switch (viewPreferences.mode) {
+      case 'large-cards':
+        return 'grid-cols-1 lg:grid-cols-2';
+      case 'analytics':
+        return 'grid-cols-1 lg:grid-cols-2 xl:grid-cols-3';
+      default: // small-cards
+        return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+    }
+  };
 
-    case 'list':
-      return (
-        <TenantListView
-          tenants={tenants}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onViewDetails={handleViewDetails}
-        />
-      );
+  const getDensitySpacing = () => {
+    switch (viewPreferences.density) {
+      case 'compact':
+        return 'gap-3';
+      case 'spacious':
+        return 'gap-8';
+      default: // comfortable
+        return 'gap-6';
+    }
+  };
 
-    case 'analytics':
-      return (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {tenants.map((tenant, index) => {
-            const formattedData = formattedTenants[index];
-            return (
-              <TenantCardRefactored
-                key={tenant.id}
-                tenant={tenant}
-                formattedData={formattedData}
-                size="analytics"
-                onEdit={() => handleEdit(tenant)}
-                onDelete={() => handleDelete(tenant.id)}
-                onViewDetails={() => handleViewDetails(tenant)}
-                metrics={tenantMetrics[tenant.id]}
-                showAnalytics={true}
-              />
-            );
-          })}
-        </div>
-      );
+  return (
+    <div className={`grid ${getGridCols()} ${getDensitySpacing()}`}>
+      {tenants.map((tenant, index) => {
+        const formattedData = formattedTenants[index];
+        if (!formattedData) return null;
 
-    case 'small-cards':
-    default:
-      return (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-          {tenants.map((tenant, index) => {
-            const formattedData = formattedTenants[index];
-            return (
-              <TenantCardRefactored
-                key={tenant.id}
-                tenant={tenant}
-                formattedData={formattedData}
-                size="small"
-                onEdit={() => handleEdit(tenant)}
-                onDelete={() => handleDelete(tenant.id)}
-                onViewDetails={() => handleViewDetails(tenant)}
-                metrics={tenantMetrics[tenant.id]}
-              />
-            );
-          })}
-        </div>
-      );
-  }
-});
-
-TenantViewRenderer.displayName = 'TenantViewRenderer';
-
-export { TenantViewRenderer };
+        return (
+          <TenantCardRefactored
+            key={tenant.id}
+            tenant={tenant}
+            formattedData={formattedData}
+            size={viewPreferences.mode === 'large-cards' ? 'large' : viewPreferences.mode === 'analytics' ? 'analytics' : 'small'}
+            onEdit={() => handleEdit(tenant)}
+            onDelete={() => handleDelete(tenant.id)}
+            onViewDetails={() => handleViewDetails(tenant)}
+            metrics={tenantMetrics[tenant.id]}
+            showAnalytics={viewPreferences.mode === 'analytics'}
+          />
+        );
+      })}
+    </div>
+  );
+};

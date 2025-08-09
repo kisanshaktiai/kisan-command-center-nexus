@@ -48,7 +48,18 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
 }) => {
   const isSuspended = tenant.status === 'suspended';
   
+  const handleEdit = () => {
+    console.log('TenantCardRefactored: Edit clicked for tenant:', tenant.id);
+    onEdit();
+  };
+
+  const handleViewDetails = () => {
+    console.log('TenantCardRefactored: View details clicked for tenant:', tenant.id);
+    onViewDetails();
+  };
+  
   const handleSuspendAction = () => {
+    console.log('TenantCardRefactored: Suspend action for tenant:', tenant.id);
     if (window.confirm(
       isSuspended 
         ? 'Are you sure you want to reactivate this tenant?' 
@@ -66,11 +77,11 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={onViewDetails}>
+        <DropdownMenuItem onClick={handleViewDetails}>
           <Eye className="mr-2 h-4 w-4" />
           View Details
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onEdit}>
+        <DropdownMenuItem onClick={handleEdit}>
           <Edit className="mr-2 h-4 w-4" />
           Edit Tenant
         </DropdownMenuItem>

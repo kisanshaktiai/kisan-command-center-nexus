@@ -62,6 +62,7 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
 
   // Enhanced action handlers
   const handleViewDetails = (tenant: Tenant) => {
+    console.log('useTenantPageState: Opening details for tenant:', tenant.id);
     setDetailsTenant(tenant);
     setIsDetailsModalOpen(true);
     // Refresh metrics for the selected tenant
@@ -69,6 +70,7 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
   };
 
   const handleDetailsEdit = (tenant: Tenant) => {
+    console.log('useTenantPageState: Edit from details for tenant:', tenant.id);
     // Close details modal and open edit modal
     setIsDetailsModalOpen(false);
     setDetailsTenant(null);
@@ -77,21 +79,25 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
   };
 
   const handleEditTenant = (tenant: Tenant) => {
+    console.log('useTenantPageState: Direct edit for tenant:', tenant.id);
     setEditingTenant(tenant);
     setIsEditModalOpen(true);
   };
 
   const closeDetailsModal = () => {
+    console.log('useTenantPageState: Closing details modal');
     setIsDetailsModalOpen(false);
     setDetailsTenant(null);
   };
 
   const closeEditModal = () => {
+    console.log('useTenantPageState: Closing edit modal');
     setIsEditModalOpen(false);
     setEditingTenant(null);
   };
 
   const handleSaveTenant = async (id: string, data: any): Promise<boolean> => {
+    console.log('useTenantPageState: Saving tenant:', id, data);
     const success = await handleUpdateTenant(id, data);
     if (success) {
       closeEditModal();
