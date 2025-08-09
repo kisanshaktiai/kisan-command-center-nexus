@@ -65,7 +65,7 @@ export class TenantManagementService extends BaseService {
           throw new Error(error.message);
         }
 
-        const result = data as RPCResponse;
+        const result = data as unknown as RPCResponse;
         if (!result?.success) {
           throw new Error(result?.error || 'Failed to suspend tenant');
         }
@@ -87,7 +87,7 @@ export class TenantManagementService extends BaseService {
           throw new Error(error.message);
         }
 
-        const result = data as RPCResponse;
+        const result = data as unknown as RPCResponse;
         if (!result?.success) {
           throw new Error(result?.error || 'Failed to reactivate tenant');
         }
@@ -112,7 +112,7 @@ export class TenantManagementService extends BaseService {
           throw new Error(error.message);
         }
 
-        const result = data as RPCResponse;
+        const result = data as unknown as RPCResponse;
         if (!result?.success) {
           throw new Error(result?.error || 'Failed to archive tenant');
         }
