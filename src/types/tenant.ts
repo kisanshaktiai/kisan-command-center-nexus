@@ -1,4 +1,3 @@
-
 import { TenantType, TenantStatus, SubscriptionPlan } from './enums';
 
 // Branded type for tenant ID to prevent mixing with generic strings
@@ -48,8 +47,8 @@ export interface CreateTenantDTO {
   type: TenantTypeValue; // Strict union type for database
   status: TenantStatusValue; // Strict union type for database
   subscription_plan: SubscriptionPlanValue; // Strict union type for database
-  owner_email: string;
-  owner_name: string;
+  owner_email?: string; // Made optional to match TenantFormData
+  owner_name?: string; // Made optional to match TenantFormData
   owner_phone?: string;
   business_registration?: string;
   business_address?: any;
@@ -72,6 +71,8 @@ export interface UpdateTenantDTO {
   type?: TenantTypeValue; // Strict union type for database
   status?: TenantStatusValue; // Strict union type for database
   subscription_plan?: SubscriptionPlanValue; // Strict union type for database
+  owner_name?: string; // Added missing field
+  owner_email?: string; // Added missing field
   owner_phone?: string;
   business_registration?: string;
   business_address?: any;
