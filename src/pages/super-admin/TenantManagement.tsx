@@ -164,7 +164,7 @@ const TenantManagement = () => {
   };
 
   const handleSubmit = async (tenantData: TenantFormData): Promise<boolean> => {
-    return await handleCreateTenant(tenantData);
+    return await handleCreateTenant();
   };
 
   const handleDeleteTenantWrapper = async (tenantId: string) => {
