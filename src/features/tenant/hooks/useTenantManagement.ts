@@ -1,6 +1,6 @@
 
 import { useCallback } from 'react';
-import { CreateTenantDTO, UpdateTenantDTO } from '@/data/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
 import { TenantViewPreferences } from '@/types/tenantView';
 import { useTenantData } from './useTenantData';
 import { useTenantMutations } from './useTenantMutations';
@@ -17,7 +17,7 @@ interface UseTenantManagementOptions {
 
 export const useTenantManagement = (options: UseTenantManagementOptions = {}) => {
   // Data and mutations
-  const { tenants, isLoading, error } = useTenantData({ filters: options.initialFilters });
+  const { data: tenants = [], isLoading, error } = useTenantData({ filters: options.initialFilters });
   const { createTenantMutation, updateTenantMutation, deleteTenantMutation, isSubmitting } = useTenantMutations();
   
   // Filtering and sorting

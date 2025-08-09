@@ -155,3 +155,43 @@ export interface TenantFeatures {
   third_party_integrations?: boolean;
   white_label_mobile_app?: boolean;
 }
+
+// RPC Response type for database operations
+export interface RpcResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+  tenant_id?: string;
+  data?: any;
+}
+
+// Helper options for forms and filters
+export const tenantTypeOptions = [
+  { value: TenantType.AGRI_COMPANY, label: 'Agricultural Company' },
+  { value: TenantType.DEALER, label: 'Dealer' },
+  { value: TenantType.NGO, label: 'NGO' },
+  { value: TenantType.GOVERNMENT, label: 'Government' },
+  { value: TenantType.UNIVERSITY, label: 'University' },
+  { value: TenantType.SUGAR_FACTORY, label: 'Sugar Factory' },
+  { value: TenantType.COOPERATIVE, label: 'Cooperative' },
+  { value: TenantType.INSURANCE, label: 'Insurance' },
+];
+
+export const tenantStatusOptions = [
+  { value: TenantStatus.TRIAL, label: 'Trial' },
+  { value: TenantStatus.ACTIVE, label: 'Active' },
+  { value: TenantStatus.SUSPENDED, label: 'Suspended' },
+  { value: TenantStatus.CANCELLED, label: 'Cancelled' },
+  { value: TenantStatus.ARCHIVED, label: 'Archived' },
+  { value: TenantStatus.PENDING_APPROVAL, label: 'Pending Approval' },
+];
+
+export const subscriptionPlanOptions = [
+  { value: SubscriptionPlan.KISAN_BASIC, label: 'Kisan – Starter' },
+  { value: SubscriptionPlan.SHAKTI_GROWTH, label: 'Shakti – Growth' },
+  { value: SubscriptionPlan.AI_ENTERPRISE, label: 'AI – Enterprise' },
+  { value: SubscriptionPlan.CUSTOM, label: 'Custom Plan' },
+];
+
+// Re-export enums for convenience
+export { TenantType, TenantStatus, SubscriptionPlan };

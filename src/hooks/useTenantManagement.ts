@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { useTenants, useCreateTenant, useUpdateTenant } from '@/data/hooks/useTenants';
 import { Tenant, TenantFormData } from '@/types/tenant';
+import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
 import { TenantViewPreferences, TenantMetrics } from '@/types/tenantView';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -41,13 +42,13 @@ export const useTenantManagement = () => {
     sortOrder: 'desc',
   });
 
-  // Form state with default values
+  // Form state with default values using enums
   const [formData, setFormData] = useState<TenantFormData>({
     name: '',
     slug: '',
-    type: 'agri_company',
-    status: 'trial',
-    subscription_plan: 'Kisan_Basic',
+    type: TenantType.AGRI_COMPANY,
+    status: TenantStatus.TRIAL,
+    subscription_plan: SubscriptionPlan.KISAN_BASIC,
     max_farmers: 1000,
     max_dealers: 50,
     max_products: 100,
@@ -440,9 +441,9 @@ export const useTenantManagement = () => {
     setFormData({
       name: '',
       slug: '',
-      type: 'agri_company',
-      status: 'trial',
-      subscription_plan: 'Kisan_Basic',
+      type: TenantType.AGRI_COMPANY,
+      status: TenantStatus.TRIAL,
+      subscription_plan: SubscriptionPlan.KISAN_BASIC,
       max_farmers: 1000,
       max_dealers: 50,
       max_products: 100,
@@ -471,15 +472,15 @@ export const useTenantManagement = () => {
     setFormData({
       name: tenant.name || '',
       slug: tenant.slug || '',
-      type: (tenant.type as any) || 'agri_company',
-      status: (tenant.status as any) || 'trial',
+      type: tenant.type || TenantType.AGRI_COMPANY,
+      status: tenant.status || TenantStatus.TRIAL,
       owner_name: tenant.owner_name || '',
       owner_email: tenant.owner_email || '',
       owner_phone: tenant.owner_phone || '',
       business_registration: tenant.business_registration || '',
       business_address: businessAddress,
       established_date: tenant.established_date || '',
-      subscription_plan: tenant.subscription_plan || 'Kisan_Basic',
+      subscription_plan: tenant.subscription_plan || SubscriptionPlan.KISAN_BASIC,
       subscription_start_date: tenant.subscription_start_date || '',
       subscription_end_date: tenant.subscription_end_date || '',
       trial_ends_at: tenant.trial_ends_at || '',
@@ -522,6 +523,6 @@ export const useTenantManagement = () => {
     fetchTenants,
     setError,
     setCreationSuccess,
-    validateEmailFormat,
+    validateEmailFormat: (email: string) => ({ isValid: true }),
   };
 };

@@ -1,7 +1,7 @@
 
 import { BaseService, ServiceResult } from '@/services/BaseService';
-import { tenantApiService, TenantFilters } from '@/services/api/TenantApiService';
-import { CreateTenantDTO, UpdateTenantDTO, TenantDTO } from '@/data/types/tenant';
+import { tenantApiService } from '@/services/api/TenantApiService';
+import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant } from '@/types/tenant';
 
 export class TenantManagementService extends BaseService {
   private static instance: TenantManagementService;
@@ -17,15 +17,15 @@ export class TenantManagementService extends BaseService {
     return TenantManagementService.instance;
   }
 
-  async getAllTenants(filters?: TenantFilters): Promise<ServiceResult<TenantDTO[]>> {
+  async getAllTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
     return tenantApiService.getTenants(filters);
   }
 
-  async getTenantById(id: string): Promise<ServiceResult<TenantDTO>> {
+  async getTenantById(id: string): Promise<ServiceResult<Tenant>> {
     return tenantApiService.getTenantById(id);
   }
 
-  async createTenant(data: CreateTenantDTO): Promise<ServiceResult<TenantDTO>> {
+  async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
     // Validate tenant data before creation
     const validationResult = await this.validateTenantData(data);
     if (!validationResult.success) {
@@ -33,18 +33,22 @@ export class TenantManagementService extends BaseService {
         success: false,
         error: validationResult.error,
         data: null
-      } as ServiceResult<TenantDTO>;
+      } as ServiceResult<Tenant>;
     }
 
     return tenantApiService.createTenant(data);
   }
 
-  async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<TenantDTO>> {
+  async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
     return tenantApiService.updateTenant(id, data);
   }
 
   async deleteTenant(id: string): Promise<ServiceResult<boolean>> {
-    return tenantApiService.deleteTenant(id);
+    const result = await tenantApiService.deleteTenant(id);
+    return {
+      ...result,
+      data: result.success
+    };
   }
 
   async validateTenantData(data: Partial<CreateTenantDTO>): Promise<ServiceResult<boolean>> {

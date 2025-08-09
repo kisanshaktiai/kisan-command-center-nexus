@@ -1,42 +1,38 @@
 
-import { TenantStatus, TenantType } from '@/types/tenant';
+import { TenantStatus, TenantType, SubscriptionPlan } from '@/types/enums';
 
-export const tenantMappers = {
-  statusToLabel: (status: TenantStatus): string => {
-    const statusMap: Record<TenantStatus, string> = {
-      active: 'Active',
-      trial: 'Trial',
-      suspended: 'Suspended',
-      cancelled: 'Cancelled',
-      archived: 'Archived',
-      pending_approval: 'Pending Approval'
-    };
-    return statusMap[status] || status;
-  },
+export const mapTenantTypeToDisplay = (type: TenantType): string => {
+  const mapping = {
+    [TenantType.AGRI_COMPANY]: 'Agricultural Company',
+    [TenantType.DEALER]: 'Dealer',
+    [TenantType.NGO]: 'NGO',
+    [TenantType.GOVERNMENT]: 'Government',
+    [TenantType.UNIVERSITY]: 'University',
+    [TenantType.SUGAR_FACTORY]: 'Sugar Factory',
+    [TenantType.COOPERATIVE]: 'Cooperative',
+    [TenantType.INSURANCE]: 'Insurance',
+  };
+  return mapping[type] || type;
+};
 
-  typeToLabel: (type: TenantType): string => {
-    const typeMap: Record<TenantType, string> = {
-      agri_company: 'Agriculture Company',
-      dealer: 'Dealer',
-      ngo: 'NGO',
-      government: 'Government',
-      university: 'University',
-      sugar_factory: 'Sugar Factory',
-      cooperative: 'Cooperative',
-      insurance: 'Insurance'
-    };
-    return typeMap[type] || type;
-  },
+export const mapTenantStatusToDisplay = (status: TenantStatus): string => {
+  const mapping = {
+    [TenantStatus.TRIAL]: 'Trial',
+    [TenantStatus.ACTIVE]: 'Active',
+    [TenantStatus.SUSPENDED]: 'Suspended',
+    [TenantStatus.CANCELLED]: 'Cancelled',
+    [TenantStatus.ARCHIVED]: 'Archived',
+    [TenantStatus.PENDING_APPROVAL]: 'Pending Approval',
+  };
+  return mapping[status] || status;
+};
 
-  statusToBadgeVariant: (status: TenantStatus) => {
-    const variantMap: Record<TenantStatus, string> = {
-      active: 'default',
-      trial: 'secondary',
-      suspended: 'destructive',
-      cancelled: 'destructive',
-      archived: 'outline',
-      pending_approval: 'secondary'
-    };
-    return variantMap[status] || 'outline';
-  }
+export const mapSubscriptionPlanToDisplay = (plan: SubscriptionPlan): string => {
+  const mapping = {
+    [SubscriptionPlan.KISAN_BASIC]: 'Kisan – Starter',
+    [SubscriptionPlan.SHAKTI_GROWTH]: 'Shakti – Growth',
+    [SubscriptionPlan.AI_ENTERPRISE]: 'AI – Enterprise',
+    [SubscriptionPlan.CUSTOM]: 'Custom Plan',
+  };
+  return mapping[plan] || plan;
 };

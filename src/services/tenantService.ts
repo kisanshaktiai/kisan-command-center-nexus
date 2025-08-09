@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant, TenantFormData, RpcResponse, SubscriptionPlan } from '@/types/tenant';
+import { TenantType, TenantStatus } from '@/types/enums';
 import { toast } from 'sonner';
 
 // Database subscription plan enum type that matches the database
@@ -14,69 +15,69 @@ export class TenantService {
   // Convert database subscription plan to frontend type
   private static convertSubscriptionPlan(dbPlan: string | null): SubscriptionPlan {
     const planMapping: Record<string, SubscriptionPlan> = {
-      'Kisan_Basic': 'Kisan_Basic',
-      'Shakti_Growth': 'Shakti_Growth',
-      'AI_Enterprise': 'AI_Enterprise',
-      'custom': 'custom'
+      'Kisan_Basic': SubscriptionPlan.KISAN_BASIC,
+      'Shakti_Growth': SubscriptionPlan.SHAKTI_GROWTH,
+      'AI_Enterprise': SubscriptionPlan.AI_ENTERPRISE,
+      'custom': SubscriptionPlan.CUSTOM
     };
     
-    return planMapping[dbPlan || ''] || 'Kisan_Basic';
+    return planMapping[dbPlan || ''] || SubscriptionPlan.KISAN_BASIC;
+  }
+
+  // Convert database tenant type to enum
+  private static convertTenantType(dbType: string | null): TenantType {
+    const typeMapping: Record<string, TenantType> = {
+      'agri_company': TenantType.AGRI_COMPANY,
+      'dealer': TenantType.DEALER,
+      'ngo': TenantType.NGO,
+      'government': TenantType.GOVERNMENT,
+      'university': TenantType.UNIVERSITY,
+      'sugar_factory': TenantType.SUGAR_FACTORY,
+      'cooperative': TenantType.COOPERATIVE,
+      'insurance': TenantType.INSURANCE
+    };
+    
+    return typeMapping[dbType || ''] || TenantType.AGRI_COMPANY;
+  }
+
+  // Convert database tenant status to enum
+  private static convertTenantStatus(dbStatus: string | null): TenantStatus {
+    const statusMapping: Record<string, TenantStatus> = {
+      'trial': TenantStatus.TRIAL,
+      'active': TenantStatus.ACTIVE,
+      'suspended': TenantStatus.SUSPENDED,
+      'cancelled': TenantStatus.CANCELLED,
+      'archived': TenantStatus.ARCHIVED,
+      'pending_approval': TenantStatus.PENDING_APPROVAL
+    };
+    
+    return statusMapping[dbStatus || ''] || TenantStatus.TRIAL;
   }
 
   // Convert database tenant to frontend type with enhanced data
   private static convertDatabaseTenant(dbTenant: any): Tenant {
     return {
       ...dbTenant,
+      type: TenantService.convertTenantType(dbTenant.type),
+      status: TenantService.convertTenantStatus(dbTenant.status),
       subscription_plan: TenantService.convertSubscriptionPlan(dbTenant.subscription_plan),
-      status: dbTenant.status || 'trial',
       // Include branding and features data if available
       branding: dbTenant.tenant_branding?.[0] || null,
       features: dbTenant.tenant_features?.[0] || null,
     };
   }
 
+  
   static async fetchTenants(): Promise<Tenant[]> {
     try {
       console.log('TenantService: Fetching tenants with comprehensive data...');
       
-      // Fetch tenants with their branding and features data
       const { data, error } = await supabase
         .from('tenants')
         .select(`
           *,
-          tenant_branding (
-            primary_color,
-            secondary_color,
-            accent_color,
-            background_color,
-            text_color,
-            app_name,
-            app_tagline,
-            logo_url,
-            font_family
-          ),
-          tenant_features (
-            ai_chat,
-            weather_forecast,
-            marketplace,
-            community_forum,
-            satellite_imagery,
-            soil_testing,
-            drone_monitoring,
-            iot_integration,
-            ecommerce,
-            payment_gateway,
-            inventory_management,
-            logistics_tracking,
-            basic_analytics,
-            advanced_analytics,
-            predictive_analytics,
-            custom_reports,
-            api_access,
-            webhook_support,
-            third_party_integrations,
-            white_label_mobile_app
-          )
+          tenant_branding (*),
+          tenant_features (*)
         `)
         .order('created_at', { ascending: false });
 
@@ -86,12 +87,7 @@ export class TenantService {
         throw new Error(`Failed to fetch tenants: ${error.message}`);
       }
       
-      console.log('TenantService: Raw tenants data with relations:', data);
-      
-      // Convert database records to frontend types using static method
       const convertedTenants = (data || []).map(TenantService.convertDatabaseTenant);
-      console.log('TenantService: Converted tenants with enhanced data:', convertedTenants);
-      
       return convertedTenants;
     } catch (error) {
       console.error('TenantService: Exception in fetchTenants:', error);
@@ -419,41 +415,41 @@ export class TenantService {
 
   static getPlanLimits(plan: SubscriptionPlan) {
     const limits = {
-      Kisan_Basic: { farmers: 1000, dealers: 50, products: 100, storage: 10, api_calls: 10000 },
-      Shakti_Growth: { farmers: 5000, dealers: 200, products: 500, storage: 50, api_calls: 50000 },
-      AI_Enterprise: { farmers: 20000, dealers: 1000, products: 2000, storage: 200, api_calls: 200000 },
-      custom: { farmers: 50000, dealers: 2000, products: 5000, storage: 500, api_calls: 500000 },
+      [SubscriptionPlan.KISAN_BASIC]: { farmers: 1000, dealers: 50, products: 100, storage: 10, api_calls: 10000 },
+      [SubscriptionPlan.SHAKTI_GROWTH]: { farmers: 5000, dealers: 200, products: 500, storage: 50, api_calls: 50000 },
+      [SubscriptionPlan.AI_ENTERPRISE]: { farmers: 20000, dealers: 1000, products: 2000, storage: 200, api_calls: 200000 },
+      [SubscriptionPlan.CUSTOM]: { farmers: 50000, dealers: 2000, products: 5000, storage: 500, api_calls: 500000 },
     };
-    return limits[plan] || limits.Kisan_Basic;
+    return limits[plan] || limits[SubscriptionPlan.KISAN_BASIC];
   }
 
-  static getStatusBadgeVariant(status: string | null) {
+  static getStatusBadgeVariant(status: TenantStatus | null) {
     switch (status) {
-      case 'active': return 'default';
-      case 'trial': return 'secondary';
-      case 'suspended': return 'destructive';
-      case 'cancelled': return 'outline';
+      case TenantStatus.ACTIVE: return 'default';
+      case TenantStatus.TRIAL: return 'secondary';
+      case TenantStatus.SUSPENDED: return 'destructive';
+      case TenantStatus.CANCELLED: return 'outline';
       default: return 'secondary';
     }
   }
 
   static getPlanBadgeVariant(plan: SubscriptionPlan | null) {
     switch (plan) {
-      case 'AI_Enterprise': return 'default';
-      case 'Shakti_Growth': return 'secondary';
-      case 'Kisan_Basic': return 'outline';
-      case 'custom': return 'destructive';
+      case SubscriptionPlan.AI_ENTERPRISE: return 'default';
+      case SubscriptionPlan.SHAKTI_GROWTH: return 'secondary';
+      case SubscriptionPlan.KISAN_BASIC: return 'outline';
+      case SubscriptionPlan.CUSTOM: return 'destructive';
       default: return 'outline';
     }
   }
 
   static getPlanDisplayName(plan: SubscriptionPlan | null) {
     const displayNames = {
-      'Kisan_Basic': 'Kisan – Starter',
-      'Shakti_Growth': 'Shakti – Growth', 
-      'AI_Enterprise': 'AI – Enterprise',
-      'custom': 'Custom Plan'
+      [SubscriptionPlan.KISAN_BASIC]: 'Kisan – Starter',
+      [SubscriptionPlan.SHAKTI_GROWTH]: 'Shakti – Growth', 
+      [SubscriptionPlan.AI_ENTERPRISE]: 'AI – Enterprise',
+      [SubscriptionPlan.CUSTOM]: 'Custom Plan'
     };
-    return displayNames[plan || 'Kisan_Basic'] || 'Kisan – Starter';
+    return displayNames[plan || SubscriptionPlan.KISAN_BASIC] || 'Kisan – Starter';
   }
 }

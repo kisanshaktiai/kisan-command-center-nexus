@@ -1,17 +1,29 @@
 
 import React from 'react';
 import { useCurrentAuth } from '@/data/hooks/useAuthData';
-import { RBACService, Permission, Role } from '@/utils/rbac';
+import { RBACService, Permission, UserRole, RBACContext } from '@/utils/rbac';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield } from 'lucide-react';
 
 interface RBACGuardProps {
   children: React.ReactNode;
   permissions?: Permission[];
-  roles?: Role[];
+  roles?: UserRole[];
   requireAll?: boolean;
   fallback?: React.ReactNode;
 }
+
+// Helper function to convert AuthState to RBACContext
+const buildRBACContextFromAuthState = (authState: any): RBACContext | null => {
+  if (!authState?.user?.id) return null;
+  
+  const userRole = authState.user.role || UserRole.TENANT_USER;
+  const userId = authState.user.id;
+  const tenantId = authState.user.tenant_id;
+  const tenantRole = authState.user.tenant_role;
+  
+  return RBACService.buildContext(userId, userRole, tenantId, tenantRole);
+};
 
 export const RBACGuard: React.FC<RBACGuardProps> = ({
   children,
@@ -30,7 +42,9 @@ export const RBACGuard: React.FC<RBACGuardProps> = ({
     );
   }
 
-  if (!authState) {
+  const rbacContext = buildRBACContextFromAuthState(authState);
+  
+  if (!rbacContext) {
     return fallback || (
       <Alert variant="destructive">
         <Shield className="h-4 w-4" />
@@ -42,7 +56,7 @@ export const RBACGuard: React.FC<RBACGuardProps> = ({
   }
 
   // Check role-based access
-  if (roles.length > 0 && !RBACService.hasRole(authState, roles)) {
+  if (roles.length > 0 && !RBACService.hasRole(rbacContext, roles)) {
     return fallback || (
       <Alert variant="destructive">
         <Shield className="h-4 w-4" />
@@ -56,8 +70,8 @@ export const RBACGuard: React.FC<RBACGuardProps> = ({
   // Check permission-based access
   if (permissions.length > 0) {
     const hasAccess = requireAll 
-      ? RBACService.hasAllPermissions(authState, permissions)
-      : RBACService.hasAnyPermission(authState, permissions);
+      ? RBACService.hasAllPermissions(rbacContext, permissions)
+      : RBACService.hasAnyPermission(rbacContext, permissions);
 
     if (!hasAccess) {
       return fallback || (

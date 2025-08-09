@@ -117,3 +117,5 @@ export class RBACService {
 
 // Export types and enums for use in other modules
 export { UserRole, Permission };
+// Export Role as an alias for UserRole to maintain compatibility
+export { UserRole as Role };

@@ -1,8 +1,7 @@
 
-// Re-export all tenant-related types
+// Re-export all tenant-related types from centralized location
 export * from '@/types/tenant';
 export * from '@/types/tenantView';
-export * from '@/data/types/tenant';
 
 // Additional feature-specific types
 export interface TenantFeatureConfig {
