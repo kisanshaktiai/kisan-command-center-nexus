@@ -4,7 +4,7 @@ import { WorldClassLeadManagement } from '@/components/leads/WorldClassLeadManag
 
 export default function LeadManagementPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <WorldClassLeadManagement />
     </div>
   );

@@ -21,6 +21,7 @@ interface OptimizedMetricCardProps {
   loading?: boolean;
   className?: string;
   onClick?: () => void;
+  textColor?: 'white' | 'default';
 }
 
 export const OptimizedMetricCard = React.memo<OptimizedMetricCardProps>(({
@@ -32,7 +33,8 @@ export const OptimizedMetricCard = React.memo<OptimizedMetricCardProps>(({
   iconColor,
   loading = false,
   className = '',
-  onClick
+  onClick,
+  textColor = 'default'
 }) => {
   if (loading) {
     return (
@@ -52,6 +54,9 @@ export const OptimizedMetricCard = React.memo<OptimizedMetricCardProps>(({
     );
   }
 
+  const titleColor = textColor === 'white' ? 'text-white/90' : 'text-gray-600';
+  const valueColor = textColor === 'white' ? 'text-white' : 'text-gray-900';
+
   return (
     <Card 
       className={cn(
@@ -63,13 +68,13 @@ export const OptimizedMetricCard = React.memo<OptimizedMetricCardProps>(({
       <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
       <CardContent className="relative p-6">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <p className={cn("text-sm font-medium", titleColor)}>{title}</p>
           <div className={cn("p-2 rounded-full shadow-lg", iconColor)}>
             <Icon className="h-6 w-6 text-white" />
           </div>
         </div>
         <div className="space-y-1">
-          <p className="text-2xl font-bold text-gray-900">
+          <p className={cn("text-2xl font-bold", valueColor)}>
             {typeof value === 'number' ? value.toLocaleString() : value}
           </p>
           {change && (

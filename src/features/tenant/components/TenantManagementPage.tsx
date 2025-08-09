@@ -1,54 +1,43 @@
 
-import React, { memo } from 'react';
-import { TenantErrorBoundary } from './TenantErrorBoundary';
-import { DataErrorBoundary } from '@/components/error-boundaries/DataErrorBoundary';
-import { TenantManagementHeader } from './TenantManagementHeader';
-import { TenantViewControls } from './TenantViewControls';
-import { TenantViewRenderer } from './TenantViewRenderer';
+import React from 'react';
+import { Plus, Users, Building, Archive, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { OptimizedMetricCard } from '@/components/ui/optimized-metric-card';
+import { TenantViewToggle } from '@/components/tenant/TenantViewToggle';
+import { TenantFilters } from '@/components/tenant/TenantFilters';
+import { TenantViewRenderer } from '@/features/tenant/components/TenantViewRenderer';
 import { TenantDetailsModalRefactored } from '@/components/tenant/TenantDetailsModalRefactored';
-import { TenantEditModal } from '@/components/tenant/TenantEditModal';
-import { TenantLoadingState } from './TenantLoadingState';
-import { TenantErrorState } from './TenantErrorState';
-import { TenantSuccessNotification } from './TenantSuccessNotification';
-import { useTenantPageState } from '../hooks/useTenantPageState';
+import { TenantEditModalEnhanced } from '@/components/tenant/TenantEditModalEnhanced';
+import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
+import { TenantErrorState } from '@/features/tenant/components/TenantErrorState';
+import { TenantLoadingState } from '@/features/tenant/components/TenantLoadingState';
+import { useTenantPageState } from '@/features/tenant/hooks/useTenantPageState';
 
-const TenantManagementPage = memo(() => {
+const TenantManagementPage: React.FC = () => {
   const {
-    // Data
     tenants,
     formattedTenants,
     isLoading,
     error,
     isSubmitting,
-
-    // Analytics
     tenantMetrics,
     refreshMetrics,
-
-    // UI State
     creationSuccess,
     clearCreationSuccess,
-
-    // Filters
+    detailsTenant,
+    isDetailsModalOpen,
+    detailsFormattedData,
+    editingTenant,
+    isEditModalOpen,
+    viewPreferences,
+    setViewPreferences,
     searchTerm,
     setSearchTerm,
     filterType,
     setFilterType,
     filterStatus,
     setFilterStatus,
-
-    // View preferences
-    viewPreferences,
-    setViewPreferences,
-
-    // Modal state
-    detailsTenant,
-    isDetailsModalOpen,
-    detailsFormattedData,
-    editingTenant,
-    isEditModalOpen,
-
-    // Actions
     handleCreateTenant,
     handleViewDetails,
     handleDetailsEdit,
@@ -58,96 +47,131 @@ const TenantManagementPage = memo(() => {
     closeEditModal,
   } = useTenantPageState();
 
-  const handleSuspendTenant = async (tenantId: string): Promise<boolean> => {
-    console.log('TenantManagementPage: Suspend/Delete tenant:', tenantId);
-    try {
-      // Simulate suspension action
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      refreshMetrics(); // Refresh metrics after action
-      return true;
-    } catch {
-      return false;
-    }
+  const handleDeleteTenant = async (tenantId: string): Promise<boolean> => {
+    console.log('TenantManagementPage: Delete/suspend tenant:', tenantId);
+    // Implement delete/suspend logic here
+    return true;
   };
 
-  if (isLoading) {
-    return <TenantLoadingState />;
-  }
+  if (isLoading) return <TenantLoadingState />;
+  if (error) return <TenantErrorState error={error} />;
 
-  console.log('TenantManagementPage: Rendering with tenants:', tenants.length);
-  console.log('TenantManagementPage: Edit modal open:', isEditModalOpen, 'editing:', editingTenant?.id);
-  console.log('TenantManagementPage: Details modal open:', isDetailsModalOpen, 'details:', detailsTenant?.id);
+  // Calculate summary metrics
+  const totalTenants = tenants.length;
+  const activeTenants = tenants.filter(t => t.status === 'active').length;
+  const trialTenants = tenants.filter(t => t.status === 'trial').length;
+  const archivedTenants = tenants.filter(t => t.status === 'archived').length;
 
   return (
-    <TenantErrorBoundary>
-      <div className="space-y-6">
-        {/* Success Notification */}
-        <TenantSuccessNotification 
-          creationSuccess={creationSuccess}
-          onClose={clearCreationSuccess}
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Tenant Management</h1>
+          <p className="text-muted-foreground text-sm">
+            Manage organizations and their configurations
+          </p>
+        </div>
+        <Button onClick={() => handleCreateTenant({})}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add New Tenant
+        </Button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <OptimizedMetricCard
+          title="Total Tenants"
+          value={totalTenants}
+          icon={Building}
+          gradient="from-blue-600 to-purple-600"
+          iconColor="bg-blue-600"
+          textColor="white"
         />
-
-        {/* Header */}
-        <TenantManagementHeader 
-          onCreateTenant={handleCreateTenant}
-          isSubmitting={isSubmitting}
+        <OptimizedMetricCard
+          title="Active Tenants"
+          value={activeTenants}
+          icon={Users}
+          gradient="from-green-500 to-emerald-600"
+          iconColor="bg-green-600"
+          textColor="white"
         />
+        <OptimizedMetricCard
+          title="Trial Tenants"
+          value={trialTenants}
+          icon={Clock}
+          gradient="from-orange-500 to-red-500"
+          iconColor="bg-orange-600"
+          textColor="white"
+        />
+        <OptimizedMetricCard
+          title="Archived Tenants"
+          value={archivedTenants}
+          icon={Archive}
+          gradient="from-gray-600 to-slate-700"
+          iconColor="bg-gray-600"
+          textColor="white"
+        />
+      </div>
 
-        {/* Error Alert */}
-        <TenantErrorState error={error} />
-
-        <DataErrorBoundary>
-          {/* View Controls */}
-          <TenantViewControls
+      {/* Filters and View Controls */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex-1">
+          <TenantFilters
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             filterType={filterType}
             setFilterType={setFilterType}
             filterStatus={filterStatus}
             setFilterStatus={setFilterStatus}
-            viewPreferences={viewPreferences}
-            setViewPreferences={setViewPreferences}
-            totalCount={tenants.length}
           />
+        </div>
+        <TenantViewToggle
+          preferences={viewPreferences}
+          onPreferencesChange={setViewPreferences}
+          totalCount={tenants.length}
+        />
+      </div>
 
-          {/* Tenant Views */}
-          <TenantViewRenderer
-            tenants={tenants}
-            formattedTenants={formattedTenants}
-            viewPreferences={viewPreferences}
-            onEdit={handleEditTenant}
-            onDelete={handleSuspendTenant}
-            onViewDetails={handleViewDetails}
-            tenantMetrics={tenantMetrics}
-          />
-        </DataErrorBoundary>
+      {/* Tenant Display */}
+      <TenantViewRenderer
+        tenants={tenants}
+        formattedTenants={formattedTenants}
+        viewPreferences={viewPreferences}
+        onEdit={handleEditTenant}
+        onDelete={handleDeleteTenant}
+        onViewDetails={handleViewDetails}
+        tenantMetrics={tenantMetrics}
+      />
 
-        {/* Details Modal with Analytics */}
+      {/* Modals */}
+      {isDetailsModalOpen && detailsTenant && detailsFormattedData && (
         <TenantDetailsModalRefactored
-          tenant={detailsTenant}
-          formattedData={detailsFormattedData}
           isOpen={isDetailsModalOpen}
           onClose={closeDetailsModal}
-          onEdit={handleDetailsEdit}
-          metrics={detailsTenant ? tenantMetrics[detailsTenant.id] : undefined}
+          tenant={detailsTenant}
+          formattedData={detailsFormattedData}
+          onEdit={() => handleDetailsEdit(detailsTenant)}
+          metrics={tenantMetrics[detailsTenant.id]}
         />
+      )}
 
-        {/* Edit Modal - This should now work correctly */}
-        {editingTenant && (
-          <TenantEditModal
-            tenant={editingTenant}
-            isOpen={isEditModalOpen}
-            onClose={closeEditModal}
-            onSave={handleSaveTenant}
-            isSubmitting={isSubmitting}
-          />
-        )}
-      </div>
-    </TenantErrorBoundary>
+      {isEditModalOpen && editingTenant && (
+        <TenantEditModalEnhanced
+          isOpen={isEditModalOpen}
+          onClose={closeEditModal}
+          tenant={editingTenant}
+          onSave={(data) => handleSaveTenant(editingTenant.id, data)}
+          isSubmitting={isSubmitting}
+        />
+      )}
+
+      <TenantCreationSuccess
+        isVisible={creationSuccess}
+        onDismiss={clearCreationSuccess}
+      />
+    </div>
   );
-});
+};
 
-TenantManagementPage.displayName = 'TenantManagementPage';
-
-export { TenantManagementPage };
 export default TenantManagementPage;

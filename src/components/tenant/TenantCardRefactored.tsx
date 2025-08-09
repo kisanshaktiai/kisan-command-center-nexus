@@ -36,7 +36,7 @@ interface TenantCardRefacturedProps {
   showAnalytics?: boolean;
 }
 
-export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
+export const TenantCardRefactured: React.FC<TenantCardRefacturedProps> = ({
   tenant,
   formattedData,
   size,
@@ -74,6 +74,38 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
       onDelete(); // This now handles suspension/reactivation
     }
   };
+
+  const ActionButtons = () => (
+    <div className="flex items-center gap-1">
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onClick={handleViewDetails}
+        className="h-8 w-8 p-0"
+        title="View Details"
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onClick={handleEdit}
+        className="h-8 w-8 p-0"
+        title="Edit Tenant"
+      >
+        <Edit className="h-4 w-4" />
+      </Button>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onClick={handleSuspendAction}
+        className={`h-8 w-8 p-0 ${isSuspended ? 'text-green-600 hover:text-green-700' : 'text-orange-600 hover:text-orange-700'}`}
+        title={isSuspended ? 'Reactivate' : 'Suspend'}
+      >
+        {isSuspended ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+      </Button>
+    </div>
+  );
 
   const ActionMenu = () => (
     <DropdownMenu>
@@ -114,7 +146,7 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
 
   if (size === 'large') {
     return (
-      <Card className="h-full">
+      <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer" onClick={handleViewDetails}>
         <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
           <div className="space-y-1 flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -129,7 +161,7 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
             <Badge variant={formattedData.statusBadgeVariant as any}>
               {formattedData.displayStatus}
             </Badge>
-            <ActionMenu />
+            <ActionButtons />
           </div>
         </CardHeader>
         
@@ -169,7 +201,7 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
   }
 
   return (
-    <Card className="h-full">
+    <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer" onClick={handleViewDetails}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="space-y-1 flex-1 min-w-0">
@@ -181,7 +213,7 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
               {formattedData.ownerEmail}
             </p>
           </div>
-          <ActionMenu />
+          <ActionButtons />
         </div>
         
         <div className="flex items-center gap-2">
