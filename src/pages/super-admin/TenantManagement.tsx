@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,7 +67,7 @@ const TenantManagement = () => {
     formData,
     setFormData,
     handleCreateTenant,
-    handleDeleteTenant,
+    handleDeleteTenant: originalHandleDeleteTenant,
     resetForm,
     populateFormForEdit,
     creationSuccess,
@@ -163,12 +164,33 @@ const TenantManagement = () => {
     resetForm();
   };
 
-  const handleSubmit = async (tenantData: TenantFormData): Promise<boolean> => {
+  const handleSubmit = async (): Promise<boolean> => {
     return await handleCreateTenant();
   };
 
+  // Updated delete logic - use soft delete instead of hard delete
   const handleDeleteTenantWrapper = async (tenantId: string) => {
-    await handleDeleteTenant(tenantId);
+    const tenant = tenants.find(t => t.id === tenantId);
+    if (!tenant) return;
+    
+    if (!confirm('Are you sure you want to delete this tenant? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Use suspend tenant as soft delete
+      const success = await suspendTenant({ 
+        tenantId, 
+        reason: 'Deleted by admin' 
+      });
+      
+      if (success) {
+        // Optionally refresh the tenant list or let React Query handle it
+        console.log('Tenant soft deleted successfully');
+      }
+    } catch (error) {
+      console.error('Error deleting tenant:', error);
+    }
   };
 
   const handleSuspendTenant = (tenant: Tenant) => {
