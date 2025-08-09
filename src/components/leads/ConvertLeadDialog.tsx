@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -62,6 +63,8 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   const [conversionResult, setConversionResult] = useState<ConversionResult | null>(null);
   const [conversionError, setConversionError] = useState<ConversionError | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isValidatingSlug, setIsValidatingSlug] = useState(false);
+  const [slugValidationMessage, setSlugValidationMessage] = useState<string>('');
 
   const convertMutation = useConvertLeadToTenant();
 
@@ -69,13 +72,16 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
     if (lead && open) {
       // Pre-populate form with lead data
       setTenantName(lead.organization_name || '');
-      setTenantSlug(
-        (lead.organization_name || lead.contact_name)
-          .toLowerCase()
-          .replace(/[^a-z0-9\s-]/g, '')
-          .replace(/\s+/g, '-')
-          .slice(0, 50)
-      );
+      const baseSlug = (lead.organization_name || lead.contact_name)
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .slice(0, 50);
+      
+      // Add timestamp to make slug unique
+      const uniqueSlug = `${baseSlug}-${Date.now().toString().slice(-6)}`;
+      setTenantSlug(uniqueSlug);
+      
       setTenantType(lead.organization_type || 'agri_company');
       setAdminName(lead.contact_name || '');
       setAdminEmail(lead.email || '');
@@ -84,15 +90,60 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       setConversionResult(null);
       setConversionError(null);
       setShowPassword(false);
+      setSlugValidationMessage('');
     }
   }, [lead, open]);
+
+  // Real-time slug validation
+  React.useEffect(() => {
+    if (tenantSlug && tenantSlug.length >= 3) {
+      setIsValidatingSlug(true);
+      const timeoutId = setTimeout(async () => {
+        try {
+          // Basic validation first
+          if (!/^[a-z0-9-]+$/.test(tenantSlug)) {
+            setSlugValidationMessage('Slug must contain only lowercase letters, numbers, and hyphens');
+            setIsValidatingSlug(false);
+            return;
+          }
+          
+          if (tenantSlug.startsWith('-') || tenantSlug.endsWith('-')) {
+            setSlugValidationMessage('Slug cannot start or end with a hyphen');
+            setIsValidatingSlug(false);
+            return;
+          }
+          
+          if (tenantSlug.includes('--')) {
+            setSlugValidationMessage('Slug cannot contain consecutive hyphens');
+            setIsValidatingSlug(false);
+            return;
+          }
+
+          setSlugValidationMessage('Slug format is valid');
+        } catch (error) {
+          setSlugValidationMessage('Error validating slug');
+        }
+        setIsValidatingSlug(false);
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    } else {
+      setSlugValidationMessage('');
+    }
+  }, [tenantSlug]);
 
   const validateForm = () => {
     if (!tenantName.trim()) return 'Organization name is required';
     if (!tenantSlug.trim()) return 'Tenant slug is required';
+    if (tenantSlug.length < 3) return 'Tenant slug must be at least 3 characters';
     if (!adminName.trim()) return 'Admin name is required';
     if (!adminEmail.trim()) return 'Admin email is required';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) return 'Valid email is required';
+    if (slugValidationMessage.includes('must contain only') || 
+        slugValidationMessage.includes('cannot start') || 
+        slugValidationMessage.includes('cannot contain')) {
+      return slugValidationMessage;
+    }
     return null;
   };
 
@@ -110,7 +161,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       errorCode = error.code || (error as any).code;
       switch (errorCode) {
         case 'SLUG_CONFLICT':
-          errorMessage = `The slug "${tenantSlug}" is already taken. Please choose a different one.`;
+          errorMessage = `The slug "${tenantSlug}" is already taken. Please choose a different one or try adding numbers/letters.`;
           break;
         case 'LEAD_ALREADY_CONVERTED':
           errorMessage = 'This lead has already been converted to a tenant.';
@@ -212,11 +263,24 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       setConversionResult(null);
       setConversionError(null);
       setShowPassword(false);
+      setSlugValidationMessage('');
     }, 300);
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const generateSuggestedSlug = () => {
+    const base = tenantName || lead?.organization_name || lead?.contact_name || 'tenant';
+    const cleanBase = base
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .slice(0, 40);
+    const timestamp = Date.now().toString().slice(-6);
+    const suggested = `${cleanBase}-${timestamp}`;
+    setTenantSlug(suggested);
   };
 
   // Show error state
@@ -225,11 +289,11 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="max-w-md" aria-describedby="conversion-error-desc">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
               Conversion Failed
             </DialogTitle>
-            <DialogDescription id="conversion-error-desc">
+            <DialogDescription id="conversion-error-desc" className="text-muted-foreground">
               The lead conversion process encountered an error. Review the details below and try again.
             </DialogDescription>
           </DialogHeader>
@@ -237,13 +301,13 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
           <div className="space-y-4">
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
+              <AlertDescription className="text-sm">
                 {conversionError.message}
               </AlertDescription>
             </Alert>
 
             {conversionError.code && (
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-muted-foreground">
                 Error Code: {conversionError.code}
               </div>
             )}
@@ -251,18 +315,24 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
             {conversionError.code === 'SLUG_CONFLICT' && (
               <Alert>
                 <Info className="h-4 w-4" />
-                <AlertDescription>
-                  Try modifying the tenant slug to make it unique, such as adding numbers or your company identifier.
+                <AlertDescription className="text-sm">
+                  Try modifying the tenant slug to make it unique, or use the "Generate New Slug" button below.
                 </AlertDescription>
               </Alert>
             )}
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={handleRetry} className="flex items-center gap-2">
+              {conversionError.code === 'SLUG_CONFLICT' && (
+                <Button variant="outline" onClick={generateSuggestedSlug} className="flex items-center gap-2 text-sm">
+                  <RefreshCw className="h-4 w-4" />
+                  Generate New Slug
+                </Button>
+              )}
+              <Button variant="outline" onClick={handleRetry} className="flex items-center gap-2 text-sm">
                 <RefreshCw className="h-4 w-4" />
                 Try Again
               </Button>
-              <Button onClick={handleClose}>
+              <Button onClick={handleClose} className="text-sm">
                 Close
               </Button>
             </div>
@@ -278,19 +348,19 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="max-w-lg" aria-describedby="conversion-success-desc">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <CheckCircle className="h-5 w-5 text-success" />
               {conversionResult.isRecovery ? 'Conversion Recovered!' : 'Conversion Successful!'}
             </DialogTitle>
-            <DialogDescription id="conversion-success-desc">
+            <DialogDescription id="conversion-success-desc" className="text-muted-foreground text-sm">
               Lead has been successfully converted to a tenant account. Review the tenant details and admin credentials below.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <Alert className="bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-700">
+            <Alert className="bg-success/10 border-success/20">
+              <CheckCircle className="h-4 w-4 text-success" />
+              <AlertDescription className="text-success text-sm">
                 {conversionResult.isRecovery 
                   ? 'The lead conversion was completed successfully. The existing tenant has been properly linked to this lead.'
                   : 'The lead has been successfully converted to a tenant. A welcome email with login credentials has been sent to the admin.'
@@ -299,9 +369,9 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
             </Alert>
 
             {conversionResult.userTenantCreated && (
-              <Alert className="bg-blue-50 border-blue-200">
-                <UserCheck className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-700">
+              <Alert className="bg-info/10 border-info/20">
+                <UserCheck className="h-4 w-4 text-info" />
+                <AlertDescription className="text-info text-sm">
                   User access has been successfully configured for the tenant.
                 </AlertDescription>
               </Alert>
@@ -309,16 +379,16 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
 
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">Tenant Details</Label>
-                <div className="bg-gray-50 p-3 rounded-md space-y-2">
+                <Label className="text-sm font-medium text-foreground">Tenant Details</Label>
+                <div className="bg-muted p-3 rounded-md space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Name:</span>
-                    <span className="text-sm font-medium">{tenantName}</span>
+                    <span className="text-sm text-muted-foreground">Name:</span>
+                    <span className="text-sm font-medium text-foreground">{tenantName}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Slug:</span>
+                    <span className="text-sm text-muted-foreground">Slug:</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono">{tenantSlug}</span>
+                      <span className="text-sm font-mono text-foreground">{tenantSlug}</span>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -330,9 +400,9 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">ID:</span>
+                    <span className="text-sm text-muted-foreground">ID:</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-gray-500">
+                      <span className="text-xs font-mono text-muted-foreground">
                         {conversionResult.tenantId.slice(0, 8)}...
                       </span>
                       <Button
@@ -349,12 +419,12 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">Admin Account</Label>
-                <div className="bg-gray-50 p-3 rounded-md space-y-2">
+                <Label className="text-sm font-medium text-foreground">Admin Account</Label>
+                <div className="bg-muted p-3 rounded-md space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Email:</span>
+                    <span className="text-sm text-muted-foreground">Email:</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm">{adminEmail}</span>
+                      <span className="text-sm text-foreground">{adminEmail}</span>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -369,7 +439,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
                   {conversionResult.tempPassword && (
                     <div className="space-y-1">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-muted-foreground">
                           {conversionResult.isRecovery ? 'Password:' : 'Temp Password:'}
                         </span>
                         <div className="flex items-center gap-2">
@@ -397,7 +467,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
                           </Button>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         {conversionResult.isRecovery 
                           ? 'This is the password from when the tenant was first created.'
                           : 'This password was emailed to the admin and must be changed on first login.'
@@ -410,7 +480,7 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={handleClose} className="bg-green-600 hover:bg-green-700">
+              <Button onClick={handleClose} className="bg-success hover:bg-success/90 text-sm">
                 Complete
               </Button>
             </div>
@@ -425,8 +495,8 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby="convert-lead-desc">
         <DialogHeader>
-          <DialogTitle>Convert Lead to Tenant</DialogTitle>
-          <DialogDescription id="convert-lead-desc">
+          <DialogTitle className="text-foreground">Convert Lead to Tenant</DialogTitle>
+          <DialogDescription id="convert-lead-desc" className="text-muted-foreground text-sm">
             Complete the tenant information and admin account details below to convert this qualified lead into a tenant account.
           </DialogDescription>
         </DialogHeader>
@@ -434,43 +504,75 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Tenant Information */}
           <div className="space-y-4">
-            <h3 className="font-medium text-gray-900 border-b pb-2">Tenant Information</h3>
+            <h3 className="font-medium text-foreground border-b pb-2 text-sm">Tenant Information</h3>
             
             <div>
-              <Label htmlFor="tenantName">Organization Name *</Label>
+              <Label htmlFor="tenantName" className="text-sm">Organization Name *</Label>
               <Input
                 id="tenantName"
                 value={tenantName}
                 onChange={(e) => setTenantName(e.target.value)}
                 placeholder="Enter organization name"
                 required
+                className="text-sm"
               />
             </div>
 
             <div>
-              <Label htmlFor="tenantSlug">Tenant Slug *</Label>
-              <Input
-                id="tenantSlug"
-                value={tenantSlug}
-                onChange={(e) => setTenantSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                placeholder="organization-slug"
-                pattern="^[a-z0-9-]+$"
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Only lowercase letters, numbers, and hyphens allowed
-              </p>
+              <Label htmlFor="tenantSlug" className="text-sm">Tenant Slug *</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="tenantSlug"
+                  value={tenantSlug}
+                  onChange={(e) => setTenantSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="organization-slug"
+                  pattern="^[a-z0-9-]+$"
+                  required
+                  className="text-sm font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={generateSuggestedSlug}
+                  className="text-xs whitespace-nowrap"
+                >
+                  Generate
+                </Button>
+              </div>
+              <div className="mt-1">
+                {isValidatingSlug && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Validating...
+                  </p>
+                )}
+                {!isValidatingSlug && slugValidationMessage && (
+                  <p className={`text-xs ${
+                    slugValidationMessage.includes('valid') 
+                      ? 'text-success' 
+                      : 'text-destructive'
+                  }`}>
+                    {slugValidationMessage}
+                  </p>
+                )}
+                {!isValidatingSlug && !slugValidationMessage && (
+                  <p className="text-xs text-muted-foreground">
+                    Only lowercase letters, numbers, and hyphens allowed
+                  </p>
+                )}
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="tenantType">Organization Type</Label>
+              <Label htmlFor="tenantType" className="text-sm">Organization Type</Label>
               <Select value={tenantType} onValueChange={setTenantType}>
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {tenantTypeOptions.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
+                    <SelectItem key={type.value} value={type.value} className="text-sm">
                       {type.label}
                     </SelectItem>
                   ))}
@@ -479,14 +581,14 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
             </div>
 
             <div>
-              <Label htmlFor="subscriptionPlan">Subscription Plan</Label>
+              <Label htmlFor="subscriptionPlan" className="text-sm">Subscription Plan</Label>
               <Select value={subscriptionPlan} onValueChange={setSubscriptionPlan}>
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {subscriptionPlanOptions.map((plan) => (
-                    <SelectItem key={plan.value} value={plan.value}>
+                    <SelectItem key={plan.value} value={plan.value} className="text-sm">
                       {plan.label}
                     </SelectItem>
                   ))}
@@ -497,21 +599,22 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
 
           {/* Admin Information */}
           <div className="space-y-4">
-            <h3 className="font-medium text-gray-900 border-b pb-2">Admin Account Details</h3>
+            <h3 className="font-medium text-foreground border-b pb-2 text-sm">Admin Account Details</h3>
             
             <div>
-              <Label htmlFor="adminName">Admin Name *</Label>
+              <Label htmlFor="adminName" className="text-sm">Admin Name *</Label>
               <Input
                 id="adminName"
                 value={adminName}
                 onChange={(e) => setAdminName(e.target.value)}
                 placeholder="Full name"
                 required
+                className="text-sm"
               />
             </div>
 
             <div>
-              <Label htmlFor="adminEmail">Admin Email *</Label>
+              <Label htmlFor="adminEmail" className="text-sm">Admin Email *</Label>
               <Input
                 id="adminEmail"
                 type="email"
@@ -519,40 +622,43 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
                 onChange={(e) => setAdminEmail(e.target.value)}
                 placeholder="admin@example.com"
                 required
+                className="text-sm"
               />
             </div>
 
             <div>
-              <Label htmlFor="adminPhone">Phone Number</Label>
+              <Label htmlFor="adminPhone" className="text-sm">Phone Number</Label>
               <Input
                 id="adminPhone"
                 type="tel"
                 value={adminPhone}
                 onChange={(e) => setAdminPhone(e.target.value)}
                 placeholder="+1234567890"
+                className="text-sm"
               />
             </div>
 
             <div>
-              <Label htmlFor="businessRegistration">Business Registration</Label>
+              <Label htmlFor="businessRegistration" className="text-sm">Business Registration</Label>
               <Input
                 id="businessRegistration"
                 value={businessRegistration}
                 onChange={(e) => setBusinessRegistration(e.target.value)}
                 placeholder="GST/Tax ID (optional)"
+                className="text-sm"
               />
             </div>
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose} className="text-sm">
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={convertMutation.isPending}
-            className="bg-green-600 hover:bg-green-700"
+            disabled={convertMutation.isPending || isValidatingSlug}
+            className="bg-success hover:bg-success/90 text-sm"
           >
             {convertMutation.isPending ? (
               <>

@@ -9,7 +9,7 @@ import {
   Droppable, 
   Draggable,
   DropResult 
-} from 'react-beautiful-dnd';
+} from '@hello-pangea/dnd';
 import { 
   User, 
   Mail, 
@@ -108,19 +108,35 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
   }, {} as Record<Lead['status'], Lead[]>);
 
   const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
+    console.log('Drag end result:', result);
+    
+    if (!result.destination) {
+      console.log('No destination, drag cancelled');
+      return;
+    }
 
     const { source, destination, draggableId } = result;
     
     // If dropped in the same position, do nothing
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
+      console.log('Dropped in same position, no change needed');
       return;
     }
 
     const newStatus = destination.droppableId as Lead['status'];
     const lead = leads.find(l => l.id === draggableId);
     
-    if (!lead || lead.status === newStatus) return;
+    if (!lead) {
+      console.error('Lead not found:', draggableId);
+      return;
+    }
+    
+    if (lead.status === newStatus) {
+      console.log('Status unchanged');
+      return;
+    }
+
+    console.log(`Moving lead ${lead.id} from ${lead.status} to ${newStatus}`);
 
     // Open confirmation dialog for status change
     setTransitionDialog({
@@ -134,6 +150,12 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
     if (!transitionDialog.lead || !transitionDialog.newStatus) return;
 
     try {
+      console.log('Confirming status change:', {
+        leadId: transitionDialog.lead.id,
+        newStatus: transitionDialog.newStatus,
+        notes
+      });
+
       await updateStatus.mutateAsync({
         leadId: transitionDialog.lead.id,
         status: transitionDialog.newStatus,
@@ -148,6 +170,7 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
 
   const handleStatusUpdate = async (leadId: string, status: Lead['status'], notes?: string): Promise<void> => {
     try {
+      console.log('Direct status update:', { leadId, status, notes });
       await updateStatus.mutateAsync({ leadId, status, notes });
     } catch (error) {
       console.error('Status update failed:', error);
@@ -170,12 +193,12 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
         {statusColumns.map((column) => (
           <Card key={column.id} className="animate-pulse">
             <CardHeader className="pb-3">
-              <div className="h-6 bg-gray-200 rounded"></div>
+              <div className="h-6 bg-muted rounded"></div>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {Array.from({ length: 2 }).map((_, i) => (
-                  <div key={i} className="h-32 bg-gray-100 rounded"></div>
+                  <div key={i} className="h-32 bg-muted rounded"></div>
                 ))}
               </div>
             </CardContent>
@@ -196,10 +219,10 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
             return (
               <Card key={column.id} className={`${column.color} border-2 min-h-[600px]`}>
                 <CardHeader className={`${column.headerColor} text-white pb-3 rounded-t-lg`}>
-                  <CardTitle className="text-sm flex items-center gap-2">
+                  <CardTitle className="text-sm flex items-center gap-2 font-medium">
                     <IconComponent className="h-4 w-4" />
                     {column.title}
-                    <Badge variant="secondary" className="ml-auto bg-white/20 text-white">
+                    <Badge variant="secondary" className="ml-auto bg-white/20 text-white text-xs">
                       {columnLeads.length}
                     </Badge>
                   </CardTitle>
@@ -233,6 +256,10 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
                                     ? 'rotate-2 scale-105 shadow-xl z-50' 
                                     : 'hover:scale-102 hover:shadow-md'
                                 }`}
+                                style={{
+                                  ...provided.draggableProps.style,
+                                  cursor: lead.status === 'converted' ? 'not-allowed' : 'grab',
+                                }}
                               >
                                 <EnhancedLeadCard
                                   lead={lead}
@@ -248,7 +275,7 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
                         {provided.placeholder}
                         
                         {columnLeads.length === 0 && (
-                          <div className="text-center py-8 text-gray-400">
+                          <div className="text-center py-8 text-muted-foreground">
                             <IconComponent className="h-8 w-8 mx-auto mb-2 opacity-50" />
                             <p className="text-sm">No leads in {column.title.toLowerCase()}</p>
                           </div>
