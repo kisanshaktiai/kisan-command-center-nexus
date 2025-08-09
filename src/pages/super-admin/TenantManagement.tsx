@@ -205,14 +205,21 @@ export default function TenantManagement() {
       </Tabs>
 
       {/* Create/Edit Form */}
-      {(showCreateForm || selectedTenant) && (
+      {showCreateForm && (
         <TenantForm
-          initialData={selectedTenant || undefined}
-          onSave={selectedTenant ? (data: any) => handleUpdateTenant(selectedTenant) : handleCreateTenant}
-          onCancel={() => {
-            setShowCreateForm(false);
+          onSave={handleCreateTenant}
+          onCancel={() => setShowCreateForm(false)}
+        />
+      )}
+      
+      {selectedTenant && (
+        <TenantForm
+          initialData={selectedTenant}
+          onSave={(data: any) => {
+            handleUpdateTenant(selectedTenant);
             setSelectedTenant(null);
           }}
+          onCancel={() => setSelectedTenant(null)}
         />
       )}
     </div>

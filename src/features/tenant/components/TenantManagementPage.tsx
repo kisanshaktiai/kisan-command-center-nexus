@@ -186,7 +186,7 @@ const TenantManagementPage: React.FC = () => {
           tenantName={creationSuccess.tenantName}
           adminEmail={creationSuccess.adminEmail}
           hasEmailSent={creationSuccess.hasEmailSent}
-          onDismiss={clearCreationSuccess}
+          onClose={clearCreationSuccess}
         />
       )}
     </div>
