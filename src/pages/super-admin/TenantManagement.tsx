@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -157,7 +156,7 @@ const TenantManagement = () => {
             }
           </p>
           {!searchTerm && filterType === 'all' && filterStatus === 'all' && (
-            <Button onClick={() => setShowCreateModal(true)} size="lg">
+            <Button onClick={() => setShowCreateModal(true)} size="lg" className="shadow-lg hover:shadow-xl transition-all duration-200">
               <Plus className="mr-2 h-5 w-5" />
               Create First Tenant
             </Button>
@@ -176,7 +175,6 @@ const TenantManagement = () => {
                 tenant={tenant}
                 onEdit={() => {}}
                 onDelete={() => handleDeleteTenant(tenant.id)}
-                variant="large"
               />
             ))}
           </div>
@@ -193,14 +191,13 @@ const TenantManagement = () => {
       case 'small-cards':
       default:
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
             {filteredTenants.map((tenant: Tenant) => (
               <TenantCard
                 key={tenant.id}
                 tenant={tenant}
                 onEdit={() => {}}
                 onDelete={() => handleDeleteTenant(tenant.id)}
-                variant="compact"
               />
             ))}
           </div>
@@ -229,7 +226,7 @@ const TenantManagement = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-8 p-6 bg-gradient-to-br from-background via-muted/10 to-background min-h-screen">
       {creationSuccess && (
         <TenantCreationSuccess
           tenantName={creationSuccess.tenantName}
@@ -239,31 +236,56 @@ const TenantManagement = () => {
         />
       )}
       
-      {/* Modern Header with Glassmorphism Effect */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border backdrop-blur-sm">
-        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-        <div className="relative p-8">
+      {/* Enhanced Modern Header with Glassmorphism */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/8 via-primary/4 to-transparent border border-primary/10 backdrop-blur-xl shadow-2xl">
+        <div className="absolute inset-0 bg-grid-pattern opacity-[0.02]"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-primary/5 via-transparent to-accent/5"></div>
+        <div className="relative p-10">
           <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                Tenant Management
-              </h1>
-              <p className="text-lg text-muted-foreground max-w-2xl">
-                Manage and monitor all tenant organizations with advanced controls and insights
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-primary/10 backdrop-blur-sm border border-primary/20">
+                  <Building2 className="h-8 w-8 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-5xl font-bold tracking-tight bg-gradient-to-r from-foreground via-foreground/90 to-foreground/70 bg-clip-text">
+                    Tenant Management
+                  </h1>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20">
+                      Enterprise Dashboard
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      v2.0
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xl text-muted-foreground max-w-2xl leading-relaxed">
+                Orchestrate and monitor all tenant organizations with advanced controls, real-time insights, and enterprise-grade management tools
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground bg-background/50 rounded-lg px-3 py-2 backdrop-blur-sm border">
-                <Activity className="w-4 h-4" />
-                {getTenantsArray().filter(t => t.status === 'active').length} Active
+            
+            <div className="flex items-center gap-6">
+              <div className="hidden lg:flex items-center gap-4">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground bg-background/60 rounded-xl px-4 py-3 backdrop-blur-sm border border-border/50 shadow-sm">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <Activity className="w-4 h-4" />
+                  <span className="font-medium">{getTenantsArray().filter(t => t.status === 'active').length} Active</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground bg-background/60 rounded-xl px-4 py-3 backdrop-blur-sm border border-border/50 shadow-sm">
+                  <Users className="w-4 h-4" />
+                  <span className="font-medium">{getTenantsArray().length} Total</span>
+                </div>
               </div>
+              
               <Button 
                 onClick={() => setShowCreateModal(true)} 
                 disabled={isSubmitting}
                 size="lg"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200 group"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-2xl hover:shadow-primary/25 transition-all duration-300 group rounded-xl px-8 py-4 text-base font-semibold"
               >
-                <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform duration-200" />
+                <Plus className="mr-3 h-5 w-5 group-hover:rotate-180 transition-transform duration-300" />
                 Create Tenant
               </Button>
             </div>
@@ -322,96 +344,133 @@ const TenantManagement = () => {
         ))}
       </div>
 
-      {/* Enhanced Filters and Controls */}
-      <Card className="border-0 shadow-sm bg-background/50 backdrop-blur-sm">
-        <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
-            {/* Search and Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 flex-1 max-w-2xl">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search tenants by name, slug, or email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-background border-muted-foreground/20 focus:border-primary/50 transition-colors"
+      {/* Enhanced Filters and Controls with Modern Design */}
+      <Card className="border-0 shadow-xl bg-background/80 backdrop-blur-xl rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-primary/5 via-transparent to-accent/5 p-1">
+          <CardContent className="p-8 bg-background/90 backdrop-blur-sm rounded-2xl">
+            <div className="flex flex-col xl:flex-row gap-8 items-start xl:items-center justify-between">
+              {/* Enhanced Search and Filters */}
+              <div className="flex flex-col lg:flex-row gap-6 flex-1 max-w-4xl">
+                <div className="relative flex-1 min-w-80">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground/60" />
+                  <Input
+                    placeholder="Search tenants by name, slug, or email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-12 pr-4 py-4 text-base bg-background/70 border-border/50 focus:border-primary/50 transition-all duration-200 rounded-xl shadow-sm hover:shadow-md focus:shadow-lg backdrop-blur-sm"
+                  />
+                  {searchTerm && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 rounded-full"
+                    >
+                      ×
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="flex gap-4">
+                  <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="w-48 bg-background/70 border-border/50 hover:bg-background/90 transition-colors duration-200 rounded-xl shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <Filter className="w-4 h-4 text-muted-foreground" />
+                        <SelectValue placeholder="Type" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="agri_company">Agri Company</SelectItem>
+                      <SelectItem value="dealer">Dealer</SelectItem>
+                      <SelectItem value="ngo">NGO</SelectItem>
+                      <SelectItem value="government">Government</SelectItem>
+                      <SelectItem value="university">University</SelectItem>
+                      <SelectItem value="sugar_factory">Sugar Factory</SelectItem>
+                      <SelectItem value="cooperative">Cooperative</SelectItem>
+                      <SelectItem value="insurance">Insurance</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-44 bg-background/70 border-border/50 hover:bg-background/90 transition-colors duration-200 rounded-xl shadow-sm">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="trial">Trial</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="archived">Archived</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Enhanced View Toggle and Stats */}
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <Badge variant="outline" className="bg-background/60 backdrop-blur-sm rounded-xl px-3 py-1.5 border-border/50">
+                    <span className="font-semibold text-primary">{filteredTenants.length}</span>
+                    <span className="ml-1">tenant{filteredTenants.length !== 1 ? 's' : ''}</span>
+                  </Badge>
+                </div>
+                
+                <TenantViewToggle 
+                  preferences={viewPreferences}
+                  onPreferencesChange={setViewPreferences}
+                  totalCount={filteredTenants.length}
                 />
               </div>
-              
-              <div className="flex gap-3">
-                <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="w-[160px] bg-background border-muted-foreground/20">
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="agri_company">Agri Company</SelectItem>
-                    <SelectItem value="dealer">Dealer</SelectItem>
-                    <SelectItem value="ngo">NGO</SelectItem>
-                    <SelectItem value="government">Government</SelectItem>
-                    <SelectItem value="university">University</SelectItem>
-                    <SelectItem value="sugar_factory">Sugar Factory</SelectItem>
-                    <SelectItem value="cooperative">Cooperative</SelectItem>
-                    <SelectItem value="insurance">Insurance</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[140px] bg-background border-muted-foreground/20">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="trial">Trial</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
-
-            {/* View Toggle with Enhanced Design */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Badge variant="outline" className="bg-background/50">
-                  {filteredTenants.length} tenant{filteredTenants.length !== 1 ? 's' : ''}
-                </Badge>
-              </div>
-              
-              <TenantViewToggle 
-                preferences={viewPreferences}
-                onPreferencesChange={setViewPreferences}
-                totalCount={filteredTenants.length}
-              />
-            </div>
-          </div>
-        </CardContent>
+          </CardContent>
+        </div>
       </Card>
 
-      {/* Tenant View with Enhanced Loading States */}
-      <div className="min-h-[400px]">
-        {renderTenantView()}
+      {/* Enhanced Tenant View with Modern Layouts */}
+      <div className="min-h-[500px] space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-semibold tracking-tight">Organizations</h2>
+            {viewPreferences.mode !== 'list' && (
+              <Badge variant="secondary" className="text-xs">
+                {viewPreferences.mode === 'large-cards' ? 'Large Cards' : 'Compact Cards'} View
+              </Badge>
+            )}
+          </div>
+        </div>
+        
+        <div className="relative">
+          {renderTenantView()}
+        </div>
       </div>
 
-      {/* Enhanced Create Tenant Modal */}
+      {/* Enhanced Create Tenant Modal with Modern Design */}
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 border-b">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Plus className="w-6 h-6 text-primary" />
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden p-0 bg-background/95 backdrop-blur-xl border-0 shadow-2xl rounded-3xl">
+          {/* Modern Header with Gradient */}
+          <div className="relative bg-gradient-to-r from-primary/10 via-primary/5 to-accent/5 p-8 border-b border-border/50">
+            <div className="absolute inset-0 bg-grid-pattern opacity-[0.02]"></div>
+            <DialogHeader className="relative">
+              <DialogTitle className="text-3xl font-bold flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20">
+                  <Plus className="w-7 h-7 text-primary" />
                 </div>
-                Create New Tenant
+                <div>
+                  <span className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+                    Create New Tenant
+                  </span>
+                  <p className="text-base font-normal text-muted-foreground mt-2 leading-relaxed">
+                    Set up a new tenant organization with customized settings, limits, and branding options
+                  </p>
+                </div>
               </DialogTitle>
-              <p className="text-muted-foreground mt-2">
-                Set up a new tenant organization with customized settings and limits
-              </p>
             </DialogHeader>
           </div>
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+          
+          {/* Form Content with Enhanced Styling */}
+          <div className="p-8 overflow-y-auto max-h-[calc(95vh-200px)] bg-gradient-to-br from-background via-muted/5 to-background">
             <TenantForm
               mode="create"
               onSubmit={handleCreateTenant}
