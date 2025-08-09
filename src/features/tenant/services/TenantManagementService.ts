@@ -4,6 +4,15 @@ import { tenantApiService } from '@/services/api/TenantApiService';
 import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant } from '@/types/tenant';
 import { supabase } from '@/integrations/supabase/client';
 
+// Type for RPC response
+interface RPCResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+  tenant_id?: string;
+  archive_job_id?: string;
+}
+
 export class TenantManagementService extends BaseService {
   private static instance: TenantManagementService;
 
@@ -56,8 +65,9 @@ export class TenantManagementService extends BaseService {
           throw new Error(error.message);
         }
 
-        if (!data?.success) {
-          throw new Error(data?.error || 'Failed to suspend tenant');
+        const result = data as RPCResponse;
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to suspend tenant');
         }
 
         return true;
@@ -77,8 +87,9 @@ export class TenantManagementService extends BaseService {
           throw new Error(error.message);
         }
 
-        if (!data?.success) {
-          throw new Error(data?.error || 'Failed to reactivate tenant');
+        const result = data as RPCResponse;
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to reactivate tenant');
         }
 
         return true;
@@ -101,8 +112,9 @@ export class TenantManagementService extends BaseService {
           throw new Error(error.message);
         }
 
-        if (!data?.success) {
-          throw new Error(data?.error || 'Failed to archive tenant');
+        const result = data as RPCResponse;
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to archive tenant');
         }
 
         return true;
