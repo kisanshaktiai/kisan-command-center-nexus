@@ -8,17 +8,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, AlertTriangle, Activity, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-interface DatabaseSecurityEvent {
-  id: string;
-  event_type: string;
-  metadata: any;
-  ip_address: string | null;
-  user_agent: string | null;
-  created_at: string;
-  user_id: string | null;
-  tenant_id: string | null;
-}
-
 interface SecurityEvent {
   id: string;
   event_type: string;
@@ -35,19 +24,6 @@ export const SecurityEventMonitor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [criticalEvents, setCriticalEvents] = useState<SecurityEvent[]>([]);
 
-  const transformDatabaseEvent = (dbEvent: DatabaseSecurityEvent): SecurityEvent => {
-    const metadata = dbEvent.metadata || {};
-    return {
-      id: dbEvent.id,
-      event_type: dbEvent.event_type,
-      event_details: typeof metadata === 'object' ? metadata : {},
-      ip_address: dbEvent.ip_address,
-      user_agent: dbEvent.user_agent,
-      risk_level: (metadata?.risk_level as 'low' | 'medium' | 'high' | 'critical') || 'low',
-      created_at: dbEvent.created_at
-    };
-  };
-
   useEffect(() => {
     if (!user || !isAdmin) return;
 
@@ -55,7 +31,7 @@ export const SecurityEventMonitor: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('security_events')
-          .select('*')
+          .select('id, event_type, event_details, ip_address, user_agent, risk_level, created_at')
           .order('created_at', { ascending: false })
           .limit(50);
 
@@ -64,7 +40,16 @@ export const SecurityEventMonitor: React.FC = () => {
           return;
         }
 
-        const transformedEvents = (data || []).map(transformDatabaseEvent);
+        const transformedEvents: SecurityEvent[] = (data || []).map(event => ({
+          id: event.id,
+          event_type: event.event_type,
+          event_details: (event.event_details as Record<string, any>) || {},
+          ip_address: event.ip_address,
+          user_agent: event.user_agent,
+          risk_level: (event.risk_level as 'low' | 'medium' | 'high' | 'critical') || 'low',
+          created_at: event.created_at
+        }));
+
         setEvents(transformedEvents);
         setCriticalEvents(transformedEvents.filter(event => 
           event.risk_level === 'critical' || event.risk_level === 'high'
@@ -89,11 +74,21 @@ export const SecurityEventMonitor: React.FC = () => {
           table: 'security_events'
         },
         (payload) => {
-          const newEvent = transformDatabaseEvent(payload.new as DatabaseSecurityEvent);
-          setEvents(prev => [newEvent, ...prev].slice(0, 50));
+          const newEvent = payload.new as any;
+          const transformedEvent: SecurityEvent = {
+            id: newEvent.id,
+            event_type: newEvent.event_type,
+            event_details: newEvent.event_details || {},
+            ip_address: newEvent.ip_address,
+            user_agent: newEvent.user_agent,
+            risk_level: newEvent.risk_level || 'low',
+            created_at: newEvent.created_at
+          };
+
+          setEvents(prev => [transformedEvent, ...prev].slice(0, 50));
           
-          if (newEvent.risk_level === 'critical' || newEvent.risk_level === 'high') {
-            setCriticalEvents(prev => [newEvent, ...prev]);
+          if (transformedEvent.risk_level === 'critical' || transformedEvent.risk_level === 'high') {
+            setCriticalEvents(prev => [transformedEvent, ...prev]);
           }
         }
       )

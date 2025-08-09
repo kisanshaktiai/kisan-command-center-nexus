@@ -4805,33 +4805,84 @@ export type Database = {
         }
         Relationships: []
       }
+      security_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string | null
+          event_details: Json | null
+          id: string
+          is_active: boolean | null
+          message: string
+          metadata: Json | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string | null
+          event_details?: Json | null
+          id?: string
+          is_active?: boolean | null
+          message: string
+          metadata?: Json | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string | null
+          event_details?: Json | null
+          id?: string
+          is_active?: boolean | null
+          message?: string
+          metadata?: Json | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       security_events: {
         Row: {
           created_at: string
+          event_details: Json | null
           event_type: string
           id: string
           ip_address: string | null
           metadata: Json | null
+          risk_level: string | null
           tenant_id: string | null
           user_agent: string | null
           user_id: string | null
         }
         Insert: {
           created_at?: string
+          event_details?: Json | null
           event_type: string
           id?: string
           ip_address?: string | null
           metadata?: Json | null
+          risk_level?: string | null
           tenant_id?: string | null
           user_agent?: string | null
           user_id?: string | null
         }
         Update: {
           created_at?: string
+          event_details?: Json | null
           event_type?: string
           id?: string
           ip_address?: string | null
           metadata?: Json | null
+          risk_level?: string | null
           tenant_id?: string | null
           user_agent?: string | null
           user_id?: string | null

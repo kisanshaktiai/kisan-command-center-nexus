@@ -15,6 +15,7 @@ interface SecurityEvent {
   created_at: string;
   ip_address?: string;
   user_agent?: string;
+  metadata?: any;
 }
 
 interface SecurityMetrics {
@@ -35,24 +36,36 @@ export const SecurityMonitoringDashboard: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch recent security events
+      // Fetch recent security events with proper column names
       const { data: events, error: eventsError } = await supabase
         .from('security_events')
-        .select('*')
+        .select('id, event_type, risk_level, event_details, created_at, ip_address, user_agent, metadata')
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (eventsError) throw eventsError;
 
+      // Transform the data to match our interface
+      const transformedEvents: SecurityEvent[] = (events || []).map(event => ({
+        id: event.id,
+        event_type: event.event_type,
+        risk_level: (event.risk_level as 'low' | 'medium' | 'high' | 'critical') || 'low',
+        event_details: event.event_details || event.metadata || {},
+        created_at: event.created_at,
+        ip_address: event.ip_address,
+        user_agent: event.user_agent,
+        metadata: event.metadata
+      }));
+
       // Calculate metrics
-      const totalEvents = events?.length || 0;
-      const criticalEvents = events?.filter(e => e.risk_level === 'critical').length || 0;
-      const highRiskEvents = events?.filter(e => e.risk_level === 'high').length || 0;
-      const recentEvents = events?.slice(0, 10) || [];
+      const totalEvents = transformedEvents.length;
+      const criticalEvents = transformedEvents.filter(e => e.risk_level === 'critical').length;
+      const highRiskEvents = transformedEvents.filter(e => e.risk_level === 'high').length;
+      const recentEvents = transformedEvents.slice(0, 10);
 
       // Calculate top risk types
       const riskTypes: { [key: string]: number } = {};
-      events?.forEach(event => {
+      transformedEvents.forEach(event => {
         riskTypes[event.event_type] = (riskTypes[event.event_type] || 0) + 1;
       });
       

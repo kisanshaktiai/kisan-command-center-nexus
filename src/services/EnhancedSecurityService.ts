@@ -37,7 +37,7 @@ export class EnhancedSecurityService extends BaseService {
   }
 
   /**
-   * Log security events to the database
+   * Log security events to the database using the new function signature
    */
   async logSecurityEvent(eventData: SecurityEventData): Promise<ServiceResult<string>> {
     return this.executeOperation(async () => {
@@ -210,7 +210,7 @@ export class EnhancedSecurityService extends BaseService {
    */
   private async triggerSecurityAlert(eventData: SecurityEventData): Promise<void> {
     try {
-      // Log alert to security_alerts table if it exists
+      // Check if security_alerts table exists by attempting to insert
       const { error } = await supabase
         .from('security_alerts')
         .insert({
