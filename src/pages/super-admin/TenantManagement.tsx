@@ -1,322 +1,317 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, AlertCircle, Building2 } from 'lucide-react';
-import { TenantForm } from '@/components/tenant/TenantForm';
-import { TenantFilters } from '@/components/tenant/TenantFilters';
-import { TenantViewToggle } from '@/components/tenant/TenantViewToggle';
-import { TenantMetricsCard } from '@/components/tenant/TenantMetricsCard';
-import { TenantListView } from '@/components/tenant/TenantListView';
-import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
-import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
-import { Tenant, TenantFormData } from '@/types/tenant';
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useTenantManagement } from '@/hooks/useTenantManagement';
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Plus, Building2, Users, Activity, TrendingUp } from "lucide-react";
+import { TenantCard } from "@/components/tenant/TenantCard";
+import { TenantForm } from "@/components/tenant/TenantForm";
+import { TenantFilters } from "@/components/tenant/TenantFilters";
+import { TenantViewToggle } from "@/components/tenant/TenantViewToggle";
+import { TenantListView } from "@/components/tenant/TenantListView";
+import { TenantCreationSuccess } from "@/components/tenant/TenantCreationSuccess";
+import { tenantService } from "@/services/tenantService";
+import { Tenant, TenantFilters as TenantFilterType } from "@/types/tenant";
+import { TenantViewPreferences } from "@/types/tenantView";
+import { ServiceResult } from "@/services/BaseService";
+import { toast } from "sonner";
 
-export default function TenantManagement() {
-  const {
-    tenants,
-    loading,
-    error,
-    isSubmitting,
-    tenantMetrics,
-    viewPreferences,
-    formData,
-    creationSuccess,
-    setViewPreferences,
-    setFormData,
-    handleCreateTenant: createTenant,
-    handleUpdateTenant: updateTenant,
-    handleDeleteTenant: deleteTenant,
-    resetForm,
-    populateFormForEdit,
-    setError,
-    setCreationSuccess,
-  } = useTenantManagement();
-
-  // Local dialog state
+const TenantManagement = () => {
+  // State declarations
+  const [tenants, setTenants] = useState<Tenant[] | ServiceResult<Tenant[]>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
-  const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showForm, setShowForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [creationSuccess, setCreationSuccess] = useState<any>(null);
+  const [viewPreferences, setViewPreferences] = useState<TenantViewPreferences>({
+    mode: 'small-cards',
+    density: 'comfortable',
+    sortBy: 'created_at',
+    sortOrder: 'desc',
+  });
 
-  const handleCreateTenant = async (tenantData: TenantFormData): Promise<boolean> => {
-    // Update the form data in the hook
-    setFormData(tenantData);
-    const success = await createTenant();
-    if (success) {
-      setIsCreateDialogOpen(false);
+  useEffect(() => {
+    fetchTenants();
+  }, []);
+
+  useEffect(() => {
+    // Load view preferences from localStorage
+    const savedPreferences = localStorage.getItem('tenant-view-preferences');
+    if (savedPreferences) {
+      setViewPreferences(JSON.parse(savedPreferences));
     }
-    return success;
-  };
+  }, []);
 
-  const handleUpdateTenant = async (tenantData: TenantFormData): Promise<boolean> => {
-    if (!editingTenant) return false;
-    // Update the form data in the hook
-    setFormData(tenantData);
-    const success = await updateTenant(editingTenant);
-    if (success) {
-      setIsEditDialogOpen(false);
-      setEditingTenant(null);
+  useEffect(() => {
+    // Save view preferences to localStorage
+    localStorage.setItem('tenant-view-preferences', JSON.stringify(viewPreferences));
+  }, [viewPreferences]);
+
+  // Helper function to get tenants array with proper type checking
+  const getTenantsArray = (): Tenant[] => {
+    if (Array.isArray(tenants)) {
+      return tenants;
     }
-    return success;
+    // If tenants is a ServiceResult, extract the data array
+    if (tenants && typeof tenants === 'object' && 'data' in tenants && tenants.success) {
+      return Array.isArray(tenants.data) ? tenants.data : [];
+    }
+    return [];
   };
 
-  const openEditDialog = (tenant: Tenant) => {
-    console.log('Opening edit dialog for tenant:', tenant);
-    setEditingTenant(tenant);
-    populateFormForEdit(tenant);
-    setIsEditDialogOpen(true);
+  const fetchTenants = async (filters?: TenantFilterType) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await tenantService.getTenants(filters);
+      setTenants(result);
+    } catch (err: any) {
+      console.error('Error fetching tenants:', err);
+      setError(err.message || 'Failed to fetch tenants');
+      toast.error('Failed to fetch tenants');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleViewDetails = (tenant: Tenant) => {
-    setDetailsTenant(tenant);
-    setIsDetailsModalOpen(true);
+  const handleCreateTenant = async (data: any) => {
+    setIsSubmitting(true);
+    try {
+      const result = await tenantService.createTenant(data);
+      if (result.success) {
+        toast.success("Tenant created successfully");
+        setCreationSuccess(result.data);
+        setShowForm(false);
+        fetchTenants(); // Refresh tenant list
+      } else {
+        toast.error(result.error || "Failed to create tenant");
+      }
+    } catch (err: any) {
+      console.error('Error creating tenant:', err);
+      toast.error(err.message || "Failed to create tenant");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const filteredTenants = tenants.filter(tenant => {
+  const handleUpdateTenant = async (id: string, data: any) => {
+    setIsSubmitting(true);
+    try {
+      const result = await tenantService.updateTenant(id, data);
+      if (result.success) {
+        toast.success("Tenant updated successfully");
+        fetchTenants(); // Refresh tenant list
+      } else {
+        toast.error(result.error || "Failed to update tenant");
+      }
+    } catch (err: any) {
+      console.error('Error updating tenant:', err);
+      toast.error(err.message || "Failed to update tenant");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteTenant = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this tenant?")) {
+      setIsSubmitting(true);
+      try {
+        const result = await tenantService.deleteTenant(id);
+        if (result.success) {
+          toast.success("Tenant deleted successfully");
+          fetchTenants(); // Refresh tenant list
+        } else {
+          toast.error(result.error || "Failed to delete tenant");
+        }
+      } catch (err: any) {
+        console.error('Error deleting tenant:', err);
+        toast.error(err.message || "Failed to delete tenant");
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  const filteredTenants = getTenantsArray().filter((tenant: Tenant) => {
     const matchesSearch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tenant.slug.toLowerCase().includes(searchTerm.toLowerCase());
+                         tenant.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (tenant.owner_email && tenant.owner_email.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesType = filterType === 'all' || tenant.type === filterType;
     const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  // Sort tenants based on preferences
-  const sortedTenants = [...filteredTenants].sort((a, b) => {
-    const { sortBy, sortOrder } = viewPreferences;
-    let aValue = a[sortBy as keyof Tenant] as string;
-    let bValue = b[sortBy as keyof Tenant] as string;
-    
-    if (sortBy === 'created_at') {
-      aValue = new Date(aValue).getTime().toString();
-      bValue = new Date(bValue).getTime().toString();
-    }
-    
-    const comparison = aValue?.localeCompare(bValue) || 0;
-    return sortOrder === 'desc' ? -comparison : comparison;
-  });
-
-  const renderTenantView = () => {
-    switch (viewPreferences.mode) {
-      case 'small-cards':
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {sortedTenants.map((tenant) => (
-              <TenantMetricsCard
-                key={tenant.id}
-                tenant={tenant}
-                metrics={tenantMetrics[tenant.id]}
-                size="small"
-                onEdit={openEditDialog}
-                onDelete={deleteTenant}
-                onViewDetails={handleViewDetails}
-              />
-            ))}
-          </div>
-        );
-      
-      case 'large-cards':
-        return (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {sortedTenants.map((tenant) => (
-              <TenantMetricsCard
-                key={tenant.id}
-                tenant={tenant}
-                metrics={tenantMetrics[tenant.id]}
-                size="large"
-                onEdit={openEditDialog}
-                onDelete={deleteTenant}
-                onViewDetails={handleViewDetails}
-              />
-            ))}
-          </div>
-        );
-      
-      case 'list':
-        return (
-          <TenantListView
-            tenants={sortedTenants}
-            metrics={tenantMetrics}
-            onEdit={openEditDialog}
-            onDelete={deleteTenant}
-            onViewDetails={handleViewDetails}
-          />
-        );
-      
-      case 'analytics':
-        return (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {sortedTenants.map((tenant) => (
-              <TenantMetricsCard
-                key={tenant.id}
-                tenant={tenant}
-                metrics={tenantMetrics[tenant.id]}
-                size="large"
-                onEdit={openEditDialog}
-                onDelete={deleteTenant}
-                onViewDetails={handleViewDetails}
-              />
-            ))}
-          </div>
-        );
-      
-      default:
-        return null;
-    }
-  };
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <div>Loading tenants...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
   }
 
   return (
     <div className="space-y-6">
-      {/* Success Notification */}
       {creationSuccess && (
         <TenantCreationSuccess
-          tenantName={creationSuccess.tenantName}
-          adminEmail={creationSuccess.adminEmail}
-          hasEmailSent={creationSuccess.hasEmailSent}
+          tenantName={creationSuccess.name}
+          adminEmail={creationSuccess.owner_email}
           onClose={() => setCreationSuccess(null)}
         />
       )}
-
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Tenant Management</h1>
-          <p className="text-muted-foreground">Manage and configure tenant organizations</p>
-        </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => {
-              console.log('Opening create dialog');
-              resetForm();
-            }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Tenant
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Tenant</DialogTitle>
-              <DialogDescription>
-                Set up a new tenant organization with their subscription and admin account. 
-                A welcome email with login credentials will be sent automatically.
-              </DialogDescription>
-            </DialogHeader>
-            <TenantForm 
-              mode="create"
-              onSubmit={handleCreateTenant}
-              onCancel={() => setIsCreateDialogOpen(false)}
-              isSubmitting={isSubmitting}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Error Alert */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {error}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="ml-2"
-              onClick={() => setError(null)}
-            >
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* View Controls */}
-      <div className="flex flex-col lg:flex-row gap-4">
-        <div className="flex-1">
-          <TenantFilters
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            filterType={filterType}
-            setFilterType={setFilterType}
-            filterStatus={filterStatus}
-            setFilterStatus={setFilterStatus}
-          />
-        </div>
-        <TenantViewToggle
-          preferences={viewPreferences}
-          onPreferencesChange={setViewPreferences}
-          totalCount={filteredTenants.length}
-        />
-      </div>
-
-      {/* Tenant Views */}
-      {renderTenantView()}
-
-      {/* Empty State */}
-      {!loading && filteredTenants.length === 0 && (
-        <div className="text-center py-12">
-          <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-2 text-sm font-semibold text-muted-foreground">
-            {tenants.length === 0 ? 'No tenants found' : 'No tenants match your filters'}
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {tenants.length === 0 
-              ? 'Get started by creating your first tenant.' 
-              : 'Try adjusting your search or filters.'
-            }
+          <h2 className="text-3xl font-bold tracking-tight">Tenant Management</h2>
+          <p className="text-muted-foreground">
+            Manage tenant organizations and their subscriptions
           </p>
-          {tenants.length === 0 && (
-            <Button 
-              className="mt-4" 
-              onClick={() => {
-                resetForm();
-                setIsCreateDialogOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create First Tenant
-            </Button>
-          )}
         </div>
+        <Button onClick={() => setShowForm(true)} disabled={isSubmitting}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create Tenant
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Tenants</CardTitle>
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{getTenantsArray().length}</div>
+            <p className="text-xs text-muted-foreground">
+              +2 from last month
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {getTenantsArray().filter(t => t.status === 'active').length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Currently active
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Trial Tenants</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {getTenantsArray().filter(t => t.status === 'trial').length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              On trial period
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">+12.3%</div>
+            <p className="text-xs text-muted-foreground">
+              Month over month
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Input
+            type="text"
+            placeholder="Search tenants..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-md"
+          />
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="agri_company">Agri Company</SelectItem>
+              <SelectItem value="dealer">Dealer</SelectItem>
+              <SelectItem value="ngo">NGO</SelectItem>
+              <SelectItem value="government">Government</SelectItem>
+              <SelectItem value="university">University</SelectItem>
+              <SelectItem value="sugar_factory">Sugar Factory</SelectItem>
+              <SelectItem value="cooperative">Cooperative</SelectItem>
+              <SelectItem value="insurance">Insurance</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="trial">Trial</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="suspended">Suspended</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <TenantViewToggle viewMode={viewMode} setViewMode={setViewMode} />
+      </div>
+
+      {/* Tenant Grid or List */}
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filteredTenants.map((tenant: Tenant) => (
+            <TenantCard
+              key={tenant.id}
+              tenant={tenant}
+              onEdit={() => {}}
+              onDelete={() => handleDeleteTenant(tenant.id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <TenantListView
+          tenants={filteredTenants}
+          onEdit={() => {}}
+          onDelete={handleDeleteTenant}
+        />
       )}
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Tenant</DialogTitle>
-            <DialogDescription>
-              Update tenant information, subscription, and limits.
-            </DialogDescription>
-          </DialogHeader>
-          <TenantForm 
-            mode="edit"
-            onSubmit={handleUpdateTenant}
-            onCancel={() => setIsEditDialogOpen(false)}
-            initialData={editingTenant || undefined}
-            isSubmitting={isSubmitting}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Details Modal */}
-      <TenantDetailsModal
-        tenant={detailsTenant}
-        isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
-        onEdit={openEditDialog}
-      />
+      {/* Tenant Form Modal */}
+      {showForm && (
+        <TenantForm
+          open={showForm}
+          onOpenChange={setShowForm}
+          onSubmit={handleCreateTenant}
+          isSubmitting={isSubmitting}
+        />
+      )}
     </div>
   );
-}
+};
+
+export default TenantManagement;

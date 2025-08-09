@@ -1,6 +1,16 @@
 
 import { enhancedApiFactory } from './EnhancedApiFactory';
-import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant, convertDatabaseTenant } from '@/types/tenant';
+import { 
+  CreateTenantDTO, 
+  UpdateTenantDTO, 
+  TenantFilters, 
+  Tenant, 
+  convertDatabaseTenant,
+  convertEnumToString,
+  TenantTypeValue,
+  TenantStatusValue,
+  SubscriptionPlanValue
+} from '@/types/tenant';
 import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
 
 // Re-export TenantFilters for external use
@@ -16,35 +26,41 @@ export class TenantApiService {
     return TenantApiService.instance;
   }
 
-  // Helper functions to validate and convert enums
-  private validateTenantType(type: string | TenantType): TenantType {
+  // Helper functions to convert UI enums to database string literals
+  private convertTenantType(type: string | TenantType): TenantTypeValue {
     if (typeof type === 'string') {
-      if (Object.values(TenantType).includes(type as TenantType)) {
-        return type as TenantType;
+      // If it's already a valid database value, return as is
+      if (['agri_company', 'dealer', 'ngo', 'government', 'university', 'sugar_factory', 'cooperative', 'insurance'].includes(type)) {
+        return type as TenantTypeValue;
       }
-      throw new Error(`Invalid tenant type: ${type}`);
+      // If it's an enum value, convert it
+      return convertEnumToString.type(type as TenantType);
     }
-    return type;
+    return convertEnumToString.type(type);
   }
 
-  private validateTenantStatus(status: string | TenantStatus): TenantStatus {
+  private convertTenantStatus(status: string | TenantStatus): TenantStatusValue {
     if (typeof status === 'string') {
-      if (Object.values(TenantStatus).includes(status as TenantStatus)) {
-        return status as TenantStatus;
+      // If it's already a valid database value, return as is
+      if (['active', 'trial', 'suspended', 'cancelled', 'archived', 'pending_approval'].includes(status)) {
+        return status as TenantStatusValue;
       }
-      throw new Error(`Invalid tenant status: ${status}`);
+      // If it's an enum value, convert it
+      return convertEnumToString.status(status as TenantStatus);
     }
-    return status;
+    return convertEnumToString.status(status);
   }
 
-  private validateSubscriptionPlan(plan: string | SubscriptionPlan): SubscriptionPlan {
+  private convertSubscriptionPlan(plan: string | SubscriptionPlan): SubscriptionPlanValue {
     if (typeof plan === 'string') {
-      if (Object.values(SubscriptionPlan).includes(plan as SubscriptionPlan)) {
-        return plan as SubscriptionPlan;
+      // If it's already a valid database value, return as is
+      if (['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'custom'].includes(plan)) {
+        return plan as SubscriptionPlanValue;
       }
-      throw new Error(`Invalid subscription plan: ${plan}`);
+      // If it's an enum value, convert it
+      return convertEnumToString.subscriptionPlan(plan as SubscriptionPlan);
     }
-    return plan;
+    return convertEnumToString.subscriptionPlan(plan);
   }
 
   async getTenants(filters?: TenantFilters) {
@@ -68,12 +84,12 @@ export class TenantApiService {
   }
 
   async createTenant(data: CreateTenantDTO) {
-    // Validate and convert enums before sending
+    // Convert enums to database string literals
     const validatedData: CreateTenantDTO = {
       ...data,
-      type: this.validateTenantType(data.type),
-      status: this.validateTenantStatus(data.status),
-      subscription_plan: this.validateSubscriptionPlan(data.subscription_plan)
+      type: this.convertTenantType(data.type),
+      status: this.convertTenantStatus(data.status),
+      subscription_plan: this.convertSubscriptionPlan(data.subscription_plan)
     };
 
     const response = await enhancedApiFactory.post<any>('tenants', validatedData);
@@ -86,19 +102,19 @@ export class TenantApiService {
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO) {
-    // Validate and convert enums if provided
+    // Convert enums to database string literals if provided
     const validatedData: UpdateTenantDTO = { ...data };
     
     if (data.type) {
-      validatedData.type = this.validateTenantType(data.type);
+      validatedData.type = this.convertTenantType(data.type);
     }
     
     if (data.status) {
-      validatedData.status = this.validateTenantStatus(data.status);
+      validatedData.status = this.convertTenantStatus(data.status);
     }
     
     if (data.subscription_plan) {
-      validatedData.subscription_plan = this.validateSubscriptionPlan(data.subscription_plan);
+      validatedData.subscription_plan = this.convertSubscriptionPlan(data.subscription_plan);
     }
 
     const response = await enhancedApiFactory.put<any>('tenants', id, validatedData);
@@ -115,7 +131,7 @@ export class TenantApiService {
   }
 
   async getTenantsByType(type: TenantType | string) {
-    const validatedType = this.validateTenantType(type);
+    const validatedType = this.convertTenantType(type);
     const response = await enhancedApiFactory.get<any[]>('tenants', { type: validatedType });
     if (response.success && response.data) {
       const convertedTenants = response.data.map(convertDatabaseTenant);
@@ -125,7 +141,7 @@ export class TenantApiService {
   }
 
   async getTenantsByStatus(status: TenantStatus | string) {
-    const validatedStatus = this.validateTenantStatus(status);
+    const validatedStatus = this.convertTenantStatus(status);
     const response = await enhancedApiFactory.get<any[]>('tenants', { status: validatedStatus });
     if (response.success && response.data) {
       const convertedTenants = response.data.map(convertDatabaseTenant);
@@ -135,7 +151,7 @@ export class TenantApiService {
   }
 
   async updateTenantStatus(id: string, status: TenantStatus | string) {
-    const validatedStatus = this.validateTenantStatus(status);
+    const validatedStatus = this.convertTenantStatus(status);
     const response = await enhancedApiFactory.patch<any>('tenants', id, { status: validatedStatus });
     if (response.success && response.data) {
       const convertedTenant = convertDatabaseTenant(response.data);

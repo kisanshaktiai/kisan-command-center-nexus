@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { BaseService } from '@/services/BaseService';
-import { CreateTenantDTO, UpdateTenantDTO, Tenant } from '@/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO, convertEnumToString } from '@/types/tenant';
 
 export class TenantRepository extends BaseService {
   private static instance: TenantRepository;
@@ -54,9 +54,17 @@ export class TenantRepository extends BaseService {
   }
 
   async createTenant(tenantData: CreateTenantDTO) {
+    // Ensure status, type, and subscription_plan are the correct string literals
+    const dbData = {
+      ...tenantData,
+      status: tenantData.status, // Already correct type
+      type: tenantData.type, // Already correct type
+      subscription_plan: tenantData.subscription_plan // Already correct type
+    };
+
     const { data, error } = await supabase
       .from('tenants')
-      .insert(tenantData)
+      .insert(dbData)
       .select()
       .single();
 
@@ -65,9 +73,17 @@ export class TenantRepository extends BaseService {
   }
 
   async updateTenant(id: string, tenantData: UpdateTenantDTO) {
+    // Ensure status, type, and subscription_plan are the correct string literals if provided
+    const dbData = {
+      ...tenantData,
+      ...(tenantData.status && { status: tenantData.status }),
+      ...(tenantData.type && { type: tenantData.type }),
+      ...(tenantData.subscription_plan && { subscription_plan: tenantData.subscription_plan })
+    };
+
     const { data, error } = await supabase
       .from('tenants')
-      .update(tenantData)
+      .update(dbData)
       .eq('id', id)
       .select()
       .single();

@@ -2,6 +2,14 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Import tenant context type for injection
+let getCurrentTenantId: (() => string | null) | null = null;
+
+// Function to set the tenant ID getter (called from TenantProvider)
+export const setTenantIdGetter = (getter: () => string | null) => {
+  getCurrentTenantId = getter;
+};
+
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -35,8 +43,13 @@ class ApiFactoryClass {
   private defaultRetries = 3;
   private baseDelay = 1000; // 1 second
 
-  private getCurrentTenantId(): string | null {
-    return localStorage.getItem('currentTenantId');
+  private getCurrentTenantIdInternal(): string | null {
+    // Try the injected getter first
+    if (getCurrentTenantId) {
+      return getCurrentTenantId();
+    }
+    // Fallback to localStorage/sessionStorage
+    return sessionStorage.getItem('currentTenantId') || localStorage.getItem('currentTenantId');
   }
 
   private async delay(ms: number): Promise<void> {
@@ -76,10 +89,11 @@ class ApiFactoryClass {
     } = config;
 
     try {
-      // Inject tenant ID if not skipped
-      const currentTenantId = tenantId || this.getCurrentTenantId();
+      // Inject tenant ID if not skipped and available
+      const currentTenantId = tenantId || this.getCurrentTenantIdInternal();
       if (!skipTenantInjection && currentTenantId) {
         headers['X-Tenant-ID'] = currentTenantId;
+        headers['x-tenant-id'] = currentTenantId; // Also add lowercase version for compatibility
         
         // Also inject into data for POST/PUT requests
         if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
@@ -104,7 +118,7 @@ class ApiFactoryClass {
             // Edge function call
             response = await supabase.functions.invoke(
               endpoint.replace('functions/', ''),
-              { body: params }
+              { body: params, headers }
             );
           } else {
             // Use a more generic approach for database queries
@@ -116,7 +130,7 @@ class ApiFactoryClass {
           if (endpoint.startsWith('functions/')) {
             response = await supabase.functions.invoke(
               endpoint.replace('functions/', ''),
-              { body: data }
+              { body: data, headers }
             );
           } else {
             response = await this.executeDatabaseQuery(endpoint, method, data, params);
