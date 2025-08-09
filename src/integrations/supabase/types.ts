@@ -1575,6 +1575,48 @@ export type Database = {
           },
         ]
       }
+      email_events: {
+        Row: {
+          created_at: string | null
+          email_address: string
+          error_message: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          sent_at: string | null
+          status: string
+          template_type: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_address: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          sent_at?: string | null
+          status?: string
+          template_type: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email_address?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          sent_at?: string | null
+          status?: string
+          template_type?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       email_logs: {
         Row: {
           bounced_at: string | null
@@ -5218,6 +5260,47 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_archive_jobs: {
+        Row: {
+          archive_location: string
+          archived_at: string | null
+          created_at: string | null
+          encryption_key_id: string
+          id: string
+          reactivated_at: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          archive_location: string
+          archived_at?: string | null
+          created_at?: string | null
+          encryption_key_id: string
+          id?: string
+          reactivated_at?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          archive_location?: string
+          archived_at?: string | null
+          created_at?: string | null
+          encryption_key_id?: string
+          id?: string
+          reactivated_at?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_archive_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_branding: {
         Row: {
           accent_color: string | null
@@ -5590,6 +5673,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          archived_at: string | null
           branding_updated_at: string | null
           branding_version: number | null
           business_address: Json | null
@@ -5610,6 +5694,7 @@ export type Database = {
           owner_email: string | null
           owner_name: string | null
           owner_phone: string | null
+          reactivated_at: string | null
           settings: Json | null
           slug: string
           status: Database["public"]["Enums"]["tenant_status"] | null
@@ -5619,11 +5704,13 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_plan"]
             | null
           subscription_start_date: string | null
+          suspended_at: string | null
           trial_ends_at: string | null
           type: Database["public"]["Enums"]["tenant_type"]
           updated_at: string | null
         }
         Insert: {
+          archived_at?: string | null
           branding_updated_at?: string | null
           branding_version?: number | null
           business_address?: Json | null
@@ -5644,6 +5731,7 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          reactivated_at?: string | null
           settings?: Json | null
           slug: string
           status?: Database["public"]["Enums"]["tenant_status"] | null
@@ -5653,11 +5741,13 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_plan"]
             | null
           subscription_start_date?: string | null
+          suspended_at?: string | null
           trial_ends_at?: string | null
           type: Database["public"]["Enums"]["tenant_type"]
           updated_at?: string | null
         }
         Update: {
+          archived_at?: string | null
           branding_updated_at?: string | null
           branding_version?: number | null
           business_address?: Json | null
@@ -5678,6 +5768,7 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          reactivated_at?: string | null
           settings?: Json | null
           slug?: string
           status?: Database["public"]["Enums"]["tenant_status"] | null
@@ -5687,6 +5778,7 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_plan"]
             | null
           subscription_start_date?: string | null
+          suspended_at?: string | null
           trial_ends_at?: string | null
           type?: Database["public"]["Enums"]["tenant_type"]
           updated_at?: string | null
@@ -7064,6 +7156,14 @@ export type Database = {
             }
         Returns: string
       }
+      archive_tenant_data: {
+        Args: {
+          p_tenant_id: string
+          p_archive_location: string
+          p_encryption_key_id: string
+        }
+        Returns: Json
+      }
       box: {
         Args: { "": unknown } | { "": unknown }
         Returns: unknown
@@ -8088,6 +8188,10 @@ export type Database = {
       postgis_wagyu_version: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      reactivate_tenant: {
+        Args: { p_tenant_id: string }
+        Returns: Json
       }
       reassign_lead: {
         Args: { p_lead_id: string; p_new_admin_id: string; p_reason?: string }
@@ -9184,6 +9288,10 @@ export type Database = {
       st_zmin: {
         Args: { "": unknown }
         Returns: number
+      }
+      suspend_tenant: {
+        Args: { p_tenant_id: string; p_reason?: string }
+        Returns: Json
       }
       test_lead_auto_assignment: {
         Args: Record<PropertyKey, never>
