@@ -3,7 +3,7 @@ import React from 'react';
 import { Tenant } from '@/types/tenant';
 import { FormattedTenantData } from '@/services/TenantDisplayService';
 import { TenantViewPreferences, TenantMetrics } from '@/types/tenantView';
-import { TenantCardRefactored } from '@/components/tenant/TenantCardRefactored';
+import { TenantCardRefactured } from '@/components/tenant/TenantCardRefactored';
 import { TenantListView } from '@/components/tenant/TenantListView';
 
 interface TenantViewRendererProps {
@@ -82,7 +82,7 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
         if (!formattedData) return null;
 
         return (
-          <TenantCardRefactored
+          <TenantCardRefactured
             key={tenant.id}
             tenant={tenant}
             formattedData={formattedData}

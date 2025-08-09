@@ -53,6 +53,18 @@ const TenantManagementPage: React.FC = () => {
     return true;
   };
 
+  const handleCreateTenantClick = () => {
+    // Create a minimal tenant data structure for creation
+    const newTenantData = {
+      name: '',
+      slug: '',
+      type: 'agri_company' as const,
+      status: 'trial' as const,
+      subscription_plan: 'Kisan_Basic' as const,
+    };
+    handleCreateTenant(newTenantData);
+  };
+
   if (isLoading) return <TenantLoadingState />;
   if (error) return <TenantErrorState error={error} />;
 
@@ -72,7 +84,7 @@ const TenantManagementPage: React.FC = () => {
             Manage organizations and their configurations
           </p>
         </div>
-        <Button onClick={() => handleCreateTenant({})}>
+        <Button onClick={handleCreateTenantClick}>
           <Plus className="h-4 w-4 mr-2" />
           Add New Tenant
         </Button>
@@ -167,7 +179,7 @@ const TenantManagementPage: React.FC = () => {
       )}
 
       <TenantCreationSuccess
-        isVisible={creationSuccess}
+        isVisible={!!creationSuccess}
         onDismiss={clearCreationSuccess}
       />
     </div>
@@ -175,3 +187,4 @@ const TenantManagementPage: React.FC = () => {
 };
 
 export default TenantManagementPage;
+export { TenantManagementPage };

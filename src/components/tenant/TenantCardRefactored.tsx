@@ -51,21 +51,21 @@ export const TenantCardRefactured: React.FC<TenantCardRefacturedProps> = ({
   const handleEdit = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('TenantCardRefactored: Edit clicked for tenant:', tenant.id);
+    console.log('TenantCardRefactured: Edit clicked for tenant:', tenant.id);
     onEdit();
   };
 
   const handleViewDetails = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('TenantCardRefactored: View details clicked for tenant:', tenant.id);
+    console.log('TenantCardRefactured: View details clicked for tenant:', tenant.id);
     onViewDetails();
   };
   
   const handleSuspendAction = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('TenantCardRefactored: Suspend action for tenant:', tenant.id);
+    console.log('TenantCardRefactured: Suspend action for tenant:', tenant.id);
     if (window.confirm(
       isSuspended 
         ? 'Are you sure you want to reactivate this tenant?' 
@@ -258,3 +258,5 @@ export const TenantCardRefactured: React.FC<TenantCardRefacturedProps> = ({
     </Card>
   );
 };
+
+export default TenantCardRefactured;
