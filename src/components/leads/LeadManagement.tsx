@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -149,18 +150,18 @@ export const LeadManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Compact Header - matching project design */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Lead Management</h1>
-          <p className="text-gray-600 mt-1">Manage and track leads through the conversion pipeline</p>
+          <h1 className="text-2xl font-bold tracking-tight">Lead Management</h1>
+          <p className="text-muted-foreground text-sm">Manage and track leads through the conversion pipeline</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setAnalyticsOpen(true)}>
+          <Button variant="outline" onClick={() => setAnalyticsOpen(true)} size="sm">
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
           </Button>
-          <Button onClick={() => setCreateLeadDialogOpen(true)}>
+          <Button onClick={() => setCreateLeadDialogOpen(true)} size="sm">
             <Plus className="h-4 w-4 mr-2" />
             Add Lead
           </Button>
