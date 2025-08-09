@@ -35,9 +35,9 @@ export interface TenantFormData {
 export interface CreateTenantDTO {
   name: string;
   slug: string;
-  type: TenantType;
-  status: TenantStatus;
-  subscription_plan: SubscriptionPlan;
+  type: TenantType | string;
+  status: TenantStatus | string;
+  subscription_plan: SubscriptionPlan | string;
   owner_email: string;
   owner_name: string;
   owner_phone?: string;
@@ -59,9 +59,9 @@ export interface CreateTenantDTO {
 
 export interface UpdateTenantDTO {
   name?: string;
-  type?: TenantType;
-  status?: TenantStatus;
-  subscription_plan?: SubscriptionPlan;
+  type?: TenantType | string;
+  status?: TenantStatus | string;
+  subscription_plan?: SubscriptionPlan | string;
   owner_phone?: string;
   business_registration?: string;
   business_address?: any;
@@ -81,9 +81,9 @@ export interface UpdateTenantDTO {
 
 export interface TenantFilters {
   search?: string;
-  type?: TenantType;
-  status?: TenantStatus;
-  subscription_plan?: SubscriptionPlan;
+  type?: TenantType | string;
+  status?: TenantStatus | string;
+  subscription_plan?: SubscriptionPlan | string;
   limit?: number;
   offset?: number;
   sort_by?: string;
@@ -192,6 +192,18 @@ export const subscriptionPlanOptions = [
   { value: SubscriptionPlan.AI_ENTERPRISE, label: 'AI – Enterprise' },
   { value: SubscriptionPlan.CUSTOM, label: 'Custom Plan' },
 ];
+
+// Type conversion utilities
+export const convertDatabaseTenant = (dbTenant: any): Tenant => {
+  return {
+    ...dbTenant,
+    type: Object.values(TenantType).find(t => t === dbTenant.type) || TenantType.AGRI_COMPANY,
+    status: Object.values(TenantStatus).find(s => s === dbTenant.status) || TenantStatus.TRIAL,
+    subscription_plan: Object.values(SubscriptionPlan).find(p => p === dbTenant.subscription_plan) || SubscriptionPlan.KISAN_BASIC,
+    branding: dbTenant.tenant_branding?.[0] || null,
+    features: dbTenant.tenant_features?.[0] || null,
+  };
+};
 
 // Re-export enums for convenience
 export { TenantType, TenantStatus, SubscriptionPlan };

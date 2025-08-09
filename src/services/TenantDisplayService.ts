@@ -1,7 +1,7 @@
 
 import { Tenant } from '@/types/tenant';
 import { formatters } from '@/shared/utils/formatters';
-import { tenantMappers } from '@/shared/utils/mappers';
+import { mapTenantTypeToDisplay, mapTenantStatusToDisplay, mapSubscriptionPlanToDisplay } from '@/shared/utils/mappers';
 
 export interface FormattedTenantData {
   id: string;
@@ -36,11 +36,11 @@ export class TenantDisplayService {
       id: tenant.id,
       name: tenant.name,
       slug: tenant.slug,
-      displayType: tenantMappers.typeToLabel(tenant.type as any),
-      displayStatus: tenantMappers.statusToLabel(tenant.status as any),
-      statusBadgeVariant: tenantMappers.statusToBadgeVariant(tenant.status as any),
+      displayType: mapTenantTypeToDisplay(tenant.type),
+      displayStatus: mapTenantStatusToDisplay(tenant.status),
+      statusBadgeVariant: this.getStatusBadgeVariant(tenant.status),
       planBadgeVariant: this.getPlanBadgeVariant(tenant.subscription_plan),
-      planDisplayName: this.getPlanDisplayName(tenant.subscription_plan),
+      planDisplayName: mapSubscriptionPlanToDisplay(tenant.subscription_plan),
       ownerEmail: tenant.owner_email || 'Not provided',
       ownerName: tenant.owner_name || 'Not provided',
       ownerPhone: tenant.owner_phone || 'Not provided',
@@ -64,17 +64,23 @@ export class TenantDisplayService {
     return tenants.map(tenant => this.formatTenantForDisplay(tenant));
   }
 
-  private static getPlanBadgeVariant(plan: string) {
+  private static getStatusBadgeVariant(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'active': return 'default';
+      case 'trial': return 'secondary';
+      case 'suspended': return 'destructive';
+      case 'cancelled': return 'outline';
+      default: return 'secondary';
+    }
+  }
+
+  private static getPlanBadgeVariant(plan: string): string {
     switch (plan) {
       case 'AI_Enterprise': return 'default';
       case 'Shakti_Growth': return 'secondary';
       case 'Kisan_Basic': return 'outline';
       default: return 'outline';
     }
-  }
-
-  private static getPlanDisplayName(plan: string): string {
-    return plan.replace('_', ' ');
   }
 
   private static formatBusinessAddress(address: any): string {

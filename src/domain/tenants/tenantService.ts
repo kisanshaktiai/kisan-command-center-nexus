@@ -1,6 +1,7 @@
+
 import { tenantRepository } from '@/data/repositories/TenantRepository';
 import { BaseService, ServiceResult } from '@/services/BaseService';
-import { CreateTenantDTO, UpdateTenantDTO, Tenant, TenantFilters } from '@/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO, Tenant, TenantFilters, convertDatabaseTenant } from '@/types/tenant';
 
 export class TenantService extends BaseService {
   private static instance: TenantService;
@@ -18,28 +19,40 @@ export class TenantService extends BaseService {
 
   async getTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
     return this.executeOperation(
-      async () => tenantRepository.getTenants(filters),
+      async () => {
+        const rawData = await tenantRepository.getTenants(filters);
+        return rawData.map(convertDatabaseTenant);
+      },
       'getTenants'
     );
   }
 
   async getTenant(id: string): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      async () => tenantRepository.getTenant(id),
+      async () => {
+        const rawData = await tenantRepository.getTenant(id);
+        return convertDatabaseTenant(rawData);
+      },
       'getTenant'
     );
   }
 
   async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      async () => tenantRepository.createTenant(data),
+      async () => {
+        const rawData = await tenantRepository.createTenant(data);
+        return convertDatabaseTenant(rawData);
+      },
       'createTenant'
     );
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      async () => tenantRepository.updateTenant(id, data),
+      async () => {
+        const rawData = await tenantRepository.updateTenant(id, data);
+        return convertDatabaseTenant(rawData);
+      },
       'updateTenant'
     );
   }

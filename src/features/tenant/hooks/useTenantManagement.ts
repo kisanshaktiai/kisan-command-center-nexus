@@ -1,10 +1,11 @@
 
-import { useCallback } from 'react';
-import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
+import { useCallback, useState } from 'react';
+import { CreateTenantDTO, UpdateTenantDTO, Tenant } from '@/types/tenant';
 import { TenantViewPreferences } from '@/types/tenantView';
 import { useTenantData } from './useTenantData';
 import { useTenantMutations } from './useTenantMutations';
 import { useTenantFiltering } from './useTenantFiltering';
+import { TenantDisplayService, FormattedTenantData } from '@/services/TenantDisplayService';
 
 interface UseTenantManagementOptions {
   initialFilters?: {
@@ -13,6 +14,14 @@ interface UseTenantManagementOptions {
     status?: string;
   };
   initialViewPreferences?: TenantViewPreferences;
+}
+
+interface CreationSuccessState {
+  tenantName: string;
+  adminEmail: string;
+  hasEmailSent: boolean;
+  correlationId?: string;
+  warnings?: string[];
 }
 
 export const useTenantManagement = (options: UseTenantManagementOptions = {}) => {
@@ -37,18 +46,34 @@ export const useTenantManagement = (options: UseTenantManagementOptions = {}) =>
     initialViewPreferences: options.initialViewPreferences
   });
 
-  // Mock data for missing properties (to be replaced with actual implementations)
-  const formattedTenants = filteredTenants;
-  const creationSuccess = null;
-  const clearCreationSuccess = () => {};
-  const detailsTenant = null;
-  const isDetailsModalOpen = false;
-  const detailsFormattedData = null;
+  // Additional state for UI management
+  const [creationSuccess, setCreationSuccess] = useState<CreationSuccessState | null>(null);
+  const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
+  // Format tenants for display
+  const formattedTenants: FormattedTenantData[] = TenantDisplayService.formatTenantsForDisplay(filteredTenants);
+  
+  // Format details tenant for display
+  const detailsFormattedData = detailsTenant ? TenantDisplayService.formatTenantForDisplay(detailsTenant) : null;
+
+  // Success state management
+  const clearCreationSuccess = useCallback(() => {
+    setCreationSuccess(null);
+  }, []);
 
   // Action handlers
   const handleCreateTenant = useCallback(async (data: CreateTenantDTO): Promise<boolean> => {
     try {
-      await createTenantMutation.mutateAsync(data);
+      const result = await createTenantMutation.mutateAsync(data);
+      if (result) {
+        setCreationSuccess({
+          tenantName: data.name,
+          adminEmail: data.owner_email,
+          hasEmailSent: true,
+          correlationId: `create-${Date.now()}`
+        });
+      }
       return true;
     } catch {
       return false;
@@ -73,16 +98,19 @@ export const useTenantManagement = (options: UseTenantManagementOptions = {}) =>
     }
   }, [deleteTenantMutation]);
 
-  const handleViewDetails = useCallback((tenant: any) => {
-    console.log('View details for tenant:', tenant);
+  const handleViewDetails = useCallback((tenant: Tenant) => {
+    setDetailsTenant(tenant);
+    setIsDetailsModalOpen(true);
   }, []);
 
   const handleDetailsEdit = useCallback(() => {
+    // This would typically open an edit modal or navigate to edit page
     console.log('Edit tenant details');
   }, []);
 
   const closeDetailsModal = useCallback(() => {
-    console.log('Close details modal');
+    setIsDetailsModalOpen(false);
+    setDetailsTenant(null);
   }, []);
 
   return {
