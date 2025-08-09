@@ -11,7 +11,7 @@ import { AdminInviteRegistration } from '@/components/auth/AdminInviteRegistrati
 import Register from './pages/Register';
 import NotFound from './pages/NotFound';
 import AdminLeads from './pages/admin/AdminLeads';
-import AppProviders from './components/providers/AppProviders';
+import { AppProviders } from './components/providers/AppProviders';
 
 const App = () => (
   <AppProviders>

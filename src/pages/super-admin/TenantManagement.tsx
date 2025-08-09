@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,9 @@ import { TenantFilters } from "@/components/tenant/TenantFilters";
 import { TenantViewToggle } from "@/components/tenant/TenantViewToggle";
 import { TenantListView } from "@/components/tenant/TenantListView";
 import { TenantCreationSuccess } from "@/components/tenant/TenantCreationSuccess";
-import { tenantService } from "@/services/tenantService";
-import { Tenant, TenantFilters as TenantFilterType } from "@/types/tenant";
+import { tenantService, ServiceResult } from "@/services/tenantService";
+import { Tenant, TenantFilters as TenantFilterType, createTenantID } from "@/types/tenant";
 import { TenantViewPreferences } from "@/types/tenantView";
-import { ServiceResult } from "@/services/BaseService";
 import { toast } from "sonner";
 
 const TenantManagement = () => {
@@ -80,21 +80,28 @@ const TenantManagement = () => {
     }
   };
 
-  const handleCreateTenant = async (data: any) => {
+  const handleCreateTenant = async (data: any): Promise<boolean> => {
     setIsSubmitting(true);
     try {
       const result = await tenantService.createTenant(data);
       if (result.success) {
         toast.success("Tenant created successfully");
-        setCreationSuccess(result.data);
+        setCreationSuccess({
+          tenantName: data.name,
+          adminEmail: data.owner_email,
+          hasEmailSent: true
+        });
         setShowForm(false);
         fetchTenants(); // Refresh tenant list
+        return true;
       } else {
         toast.error(result.error || "Failed to create tenant");
+        return false;
       }
     } catch (err: any) {
       console.error('Error creating tenant:', err);
       toast.error(err.message || "Failed to create tenant");
+      return false;
     } finally {
       setIsSubmitting(false);
     }
@@ -103,7 +110,8 @@ const TenantManagement = () => {
   const handleUpdateTenant = async (id: string, data: any) => {
     setIsSubmitting(true);
     try {
-      const result = await tenantService.updateTenant(id, data);
+      const tenantId = createTenantID(id);
+      const result = await tenantService.updateTenant(tenantId, data);
       if (result.success) {
         toast.success("Tenant updated successfully");
         fetchTenants(); // Refresh tenant list
@@ -118,11 +126,12 @@ const TenantManagement = () => {
     }
   };
 
-  const handleDeleteTenant = async (id: string) => {
+  const handleDeleteTenant = async (id: string): Promise<void> => {
     if (window.confirm("Are you sure you want to delete this tenant?")) {
       setIsSubmitting(true);
       try {
-        const result = await tenantService.deleteTenant(id);
+        const tenantId = createTenantID(id);
+        const result = await tenantService.deleteTenant(tenantId);
         if (result.success) {
           toast.success("Tenant deleted successfully");
           fetchTenants(); // Refresh tenant list
@@ -159,8 +168,9 @@ const TenantManagement = () => {
     <div className="space-y-6">
       {creationSuccess && (
         <TenantCreationSuccess
-          tenantName={creationSuccess.name}
-          adminEmail={creationSuccess.owner_email}
+          tenantName={creationSuccess.tenantName}
+          adminEmail={creationSuccess.adminEmail}
+          hasEmailSent={creationSuccess.hasEmailSent}
           onClose={() => setCreationSuccess(null)}
         />
       )}
@@ -278,7 +288,10 @@ const TenantManagement = () => {
             </SelectContent>
           </Select>
         </div>
-        <TenantViewToggle viewMode={viewMode} setViewMode={setViewMode} />
+        <TenantViewToggle 
+          currentView={viewMode} 
+          onViewChange={setViewMode} 
+        />
       </div>
 
       {/* Tenant Grid or List */}
@@ -298,6 +311,7 @@ const TenantManagement = () => {
           tenants={filteredTenants}
           onEdit={() => {}}
           onDelete={handleDeleteTenant}
+          onViewDetails={() => {}}
         />
       )}
 

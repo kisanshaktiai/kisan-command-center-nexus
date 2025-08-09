@@ -1,179 +1,158 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { ApiResponse, ApiFactory } from '@/services/ApiFactory';
 import { 
   Tenant, 
   CreateTenantDTO, 
   UpdateTenantDTO, 
-  RpcResponse, 
-  convertDatabaseTenant,
-  convertEnumToString,
-  TenantID
+  TenantFilters,
+  TenantID,
+  createTenantID,
+  convertDatabaseTenant
 } from '@/types/tenant';
-import { SubscriptionPlan, TenantType, TenantStatus } from '@/types/enums';
+import { TenantStatus, TenantType, SubscriptionPlan } from '@/types/enums';
 
-export class TenantService {
-  private static instance: TenantService;
+export interface ServiceResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
 
-  static getInstance(): TenantService {
-    if (!TenantService.instance) {
-      TenantService.instance = new TenantService();
-    }
-    return TenantService.instance;
-  }
-
-  async getTenants(tenantId?: TenantID) {
+class TenantService {
+  async getTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
     try {
-      let query = supabase
-        .from('tenants')
-        .select(`
-          *,
-          tenant_subscriptions (
-            id,
-            subscription_plan,
-            status,
-            current_period_start,
-            current_period_end
-          ),
-          tenant_features (*),
-          tenant_branding (*)
-        `)
-        .order('created_at', { ascending: false });
-
-      // If tenantId is provided, filter by it (for tenant-specific queries)
-      if (tenantId) {
-        query = query.eq('id', tenantId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Error fetching tenants:', error);
-        return { success: false, data: [], error: error.message };
-      }
-
-      const tenants = data?.map(convertDatabaseTenant) || [];
+      const response = await ApiFactory.get<any[]>('tenants', filters);
       
-      return { success: true, data: tenants };
-    } catch (error: any) {
-      console.error('Error in getTenants:', error);
-      return { success: false, data: [], error: error.message };
-    }
-  }
-
-  async getTenant(id: string): Promise<{ success: boolean; data?: Tenant; error?: string }> {
-    try {
-      const { data, error } = await supabase
-        .from('tenants')
-        .select(`
-          *,
-          tenant_subscriptions (*),
-          tenant_features (*),
-          tenant_branding (*)
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) {
-        console.error('Error fetching tenant:', error);
-        return { success: false, error: error.message };
+      if (response.success && response.data) {
+        const convertedTenants = response.data.map(convertDatabaseTenant);
+        return {
+          success: true,
+          data: convertedTenants
+        };
       }
-
-      if (!data) {
-        return { success: false, error: 'Tenant not found' };
-      }
-
-      return { success: true, data: convertDatabaseTenant(data) };
-    } catch (error: any) {
-      console.error('Error in getTenant:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  async createTenant(tenantData: CreateTenantDTO): Promise<{ success: boolean; data?: Tenant; error?: string }> {
-    try {
-      // Convert data to proper database format
-      const dbData = {
-        ...tenantData,
-        type: tenantData.type, // Already correct string literal
-        status: tenantData.status, // Already correct string literal
-        subscription_plan: tenantData.subscription_plan // Already correct string literal
+      
+      return {
+        success: false,
+        error: response.error || 'Failed to fetch tenants'
       };
-
-      const { data, error } = await supabase
-        .from('tenants')
-        .insert(dbData)
-        .select(`
-          *,
-          tenant_subscriptions (*),
-          tenant_features (*),
-          tenant_branding (*)
-        `)
-        .single();
-
-      if (error) {
-        console.error('Error creating tenant:', error);
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data: convertDatabaseTenant(data) };
     } catch (error: any) {
-      console.error('Error in createTenant:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  async updateTenant(id: string, tenantData: UpdateTenantDTO): Promise<{ success: boolean; data?: Tenant; error?: string }> {
-    try {
-      // Convert data to proper database format
-      const dbData = {
-        ...tenantData,
-        ...(tenantData.type && { type: tenantData.type }),
-        ...(tenantData.status && { status: tenantData.status }),
-        ...(tenantData.subscription_plan && { subscription_plan: tenantData.subscription_plan })
+      return {
+        success: false,
+        error: error.message || 'Failed to fetch tenants'
       };
-
-      const { data, error } = await supabase
-        .from('tenants')
-        .update(dbData)
-        .eq('id', id)
-        .select(`
-          *,
-          tenant_subscriptions (*),
-          tenant_features (*),
-          tenant_branding (*)
-        `)
-        .single();
-
-      if (error) {
-        console.error('Error updating tenant:', error);
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data: convertDatabaseTenant(data) };
-    } catch (error: any) {
-      console.error('Error in updateTenant:', error);
-      return { success: false, error: error.message };
     }
   }
 
-  async deleteTenant(id: string): Promise<{ success: boolean; error?: string }> {
+  async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
     try {
-      const { error } = await supabase
-        .from('tenants')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Error deleting tenant:', error);
-        return { success: false, error: error.message };
+      const response = await ApiFactory.post<any>('tenants', data);
+      
+      if (response.success && response.data) {
+        const convertedTenant = convertDatabaseTenant(response.data);
+        return {
+          success: true,
+          data: convertedTenant
+        };
       }
-
-      return { success: true };
+      
+      return {
+        success: false,
+        error: response.error || 'Failed to create tenant'
+      };
     } catch (error: any) {
-      console.error('Error in deleteTenant:', error);
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: error.message || 'Failed to create tenant'
+      };
+    }
+  }
+
+  async updateTenant(id: TenantID, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
+    try {
+      const response = await ApiFactory.put<any>('tenants', id, data);
+      
+      if (response.success && response.data) {
+        const convertedTenant = convertDatabaseTenant(response.data);
+        return {
+          success: true,
+          data: convertedTenant
+        };
+      }
+      
+      return {
+        success: false,
+        error: response.error || 'Failed to update tenant'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to update tenant'
+      };
+    }
+  }
+
+  async deleteTenant(id: TenantID): Promise<ServiceResult<void>> {
+    try {
+      const response = await ApiFactory.delete('tenants', id);
+      
+      return {
+        success: response.success,
+        error: response.error
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to delete tenant'
+      };
+    }
+  }
+
+  // Utility methods for UI display
+  getStatusBadgeVariant(status: TenantStatus): "default" | "secondary" | "destructive" | "outline" {
+    switch (status) {
+      case TenantStatus.ACTIVE:
+        return "default";
+      case TenantStatus.TRIAL:
+        return "secondary";
+      case TenantStatus.SUSPENDED:
+      case TenantStatus.CANCELLED:
+        return "destructive";
+      case TenantStatus.ARCHIVED:
+      case TenantStatus.PENDING_APPROVAL:
+        return "outline";
+      default:
+        return "outline";
+    }
+  }
+
+  getPlanBadgeVariant(plan: SubscriptionPlan): "default" | "secondary" | "destructive" | "outline" {
+    switch (plan) {
+      case SubscriptionPlan.KISAN_BASIC:
+        return "secondary";
+      case SubscriptionPlan.SHAKTI_GROWTH:
+        return "default";
+      case SubscriptionPlan.AI_ENTERPRISE:
+        return "destructive";
+      case SubscriptionPlan.CUSTOM:
+        return "outline";
+      default:
+        return "outline";
+    }
+  }
+
+  getPlanDisplayName(plan: SubscriptionPlan): string {
+    switch (plan) {
+      case SubscriptionPlan.KISAN_BASIC:
+        return "Kisan Basic";
+      case SubscriptionPlan.SHAKTI_GROWTH:
+        return "Shakti Growth";
+      case SubscriptionPlan.AI_ENTERPRISE:
+        return "AI Enterprise";
+      case SubscriptionPlan.CUSTOM:
+        return "Custom Plan";
+      default:
+        return "Unknown Plan";
     }
   }
 }
 
-export const tenantService = TenantService.getInstance();
+export const tenantService = new TenantService();

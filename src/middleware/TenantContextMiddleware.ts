@@ -1,131 +1,137 @@
-import { supabase } from '@/integrations/supabase/client';
-import { Tenant } from '@/types/tenant';
+
+import { 
+  Tenant, 
+  TenantBranding, 
+  TenantFeatures,
+  TenantID,
+  createTenantID
+} from '@/types/tenant';
 import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface TenantContext {
-  tenantId: string | null;
+  tenantId: TenantID | null;
   tenant: Tenant | null;
+  branding: TenantBranding | null;
+  features: TenantFeatures | null;
   isLoading: boolean;
   error: string | null;
 }
 
-export class TenantContextService {
-  private static instance: TenantContextService;
-  private context: TenantContext = {
+class TenantContextService {
+  private currentContext: TenantContext = {
     tenantId: null,
     tenant: null,
+    branding: null,
+    features: null,
     isLoading: false,
-    error: null
+    error: null,
   };
-  private cache = new Map<string, { tenant: Tenant; timestamp: number }>();
-  private subscribers = new Set<(context: TenantContext) => void>();
 
-  public static getInstance(): TenantContextService {
-    if (!TenantContextService.instance) {
-      TenantContextService.instance = new TenantContextService();
-    }
-    return TenantContextService.instance;
+  private subscribers: Set<(context: TenantContext) => void> = new Set();
+  private tenantCache = new Map<string, Tenant>();
+
+  getCurrentContext(): TenantContext {
+    return this.currentContext;
   }
 
-  private notifySubscribers() {
-    this.subscribers.forEach(callback => callback(this.context));
-  }
-
-  public subscribe(callback: (context: TenantContext) => void): () => void {
+  subscribe(callback: (context: TenantContext) => void): () => void {
     this.subscribers.add(callback);
     return () => this.subscribers.delete(callback);
   }
 
-  public getCurrentContext(): TenantContext {
-    return this.context;
+  private notifySubscribers() {
+    this.subscribers.forEach(callback => callback(this.currentContext));
   }
 
-  public async setTenantById(tenantId: string | null): Promise<void> {
-    if (!tenantId) {
-      this.context = {
-        tenantId: null,
-        tenant: null,
-        isLoading: false,
-        error: null
-      };
-      this.notifySubscribers();
-      return;
-    }
-
-    // Check cache first
-    const cached = this.cache.get(tenantId);
-    const cacheExpiry = 5 * 60 * 1000; // 5 minutes
-    if (cached && Date.now() - cached.timestamp < cacheExpiry) {
-      this.context = {
-        tenantId,
-        tenant: cached.tenant,
-        isLoading: false,
-        error: null
-      };
-      this.notifySubscribers();
-      return;
-    }
-
-    this.context = { ...this.context, isLoading: true, error: null };
+  private updateContext(updates: Partial<TenantContext>) {
+    this.currentContext = { ...this.currentContext, ...updates };
     this.notifySubscribers();
+  }
+
+  async setTenantById(tenantId: string | null): Promise<boolean> {
+    if (!tenantId) {
+      this.clearContext();
+      return true;
+    }
+
+    const brandedTenantId = createTenantID(tenantId);
+    
+    // Check cache first
+    if (this.tenantCache.has(tenantId)) {
+      const cachedTenant = this.tenantCache.get(tenantId)!;
+      this.updateContext({
+        tenantId: brandedTenantId,
+        tenant: cachedTenant,
+        isLoading: false,
+        error: null,
+      });
+      return true;
+    }
+
+    this.updateContext({ isLoading: true, error: null });
 
     try {
-      const { data: tenant, error } = await supabase
+      const { data, error } = await supabase
         .from('tenants')
-        .select('*')
+        .select(`
+          *,
+          tenant_branding (*),
+          tenant_features (*)
+        `)
         .eq('id', tenantId)
         .single();
 
       if (error) throw error;
 
-      // Transform database tenant to typed Tenant
-      const typedTenant: Tenant = {
-        ...tenant,
-        type: tenant.type as TenantType,
-        status: tenant.status as TenantStatus,
-        subscription_plan: tenant.subscription_plan as SubscriptionPlan,
-        metadata: (tenant.metadata as Record<string, any>) || {}
+      const tenant: Tenant = {
+        ...data,
+        id: createTenantID(data.id),
+        type: data.type as TenantType,
+        status: data.status as TenantStatus,
+        subscription_plan: data.subscription_plan as SubscriptionPlan,
+        metadata: (data.metadata as Record<string, any>) || {},
+        branding: data.tenant_branding?.[0] || null,
+        features: data.tenant_features?.[0] || null,
       };
 
-      // Update cache
-      this.cache.set(tenantId, { tenant: typedTenant, timestamp: Date.now() });
+      // Cache the tenant
+      this.tenantCache.set(tenantId, tenant);
 
-      this.context = {
-        tenantId,
-        tenant: typedTenant,
+      this.updateContext({
+        tenantId: brandedTenantId,
+        tenant,
+        branding: tenant.branding,
+        features: tenant.features,
         isLoading: false,
-        error: null
-      };
+        error: null,
+      });
+
+      return true;
     } catch (error) {
-      console.error('Error fetching tenant:', error);
-      this.context = {
-        tenantId,
-        tenant: null,
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load tenant';
+      this.updateContext({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch tenant'
-      };
+        error: errorMessage,
+      });
+      return false;
     }
-
-    this.notifySubscribers();
   }
 
-  public clearContext(): void {
-    this.context = {
+  clearContext() {
+    this.updateContext({
       tenantId: null,
       tenant: null,
+      branding: null,
+      features: null,
       isLoading: false,
-      error: null
-    };
-    this.notifySubscribers();
+      error: null,
+    });
   }
 
-  public invalidateCache(tenantId?: string): void {
-    if (tenantId) {
-      this.cache.delete(tenantId);
-    } else {
-      this.cache.clear();
-    }
+  invalidateCache(tenantId: string) {
+    this.tenantCache.delete(tenantId);
   }
 }
 
-export const tenantContextService = TenantContextService.getInstance();
+export const tenantContextService = new TenantContextService();
