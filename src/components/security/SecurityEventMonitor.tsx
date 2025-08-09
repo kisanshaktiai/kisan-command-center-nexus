@@ -8,6 +8,17 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, AlertTriangle, Activity, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
+interface DatabaseSecurityEvent {
+  id: string;
+  event_type: string;
+  metadata: any;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+  user_id: string | null;
+  tenant_id: string | null;
+}
+
 interface SecurityEvent {
   id: string;
   event_type: string;
@@ -23,6 +34,19 @@ export const SecurityEventMonitor: React.FC = () => {
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [criticalEvents, setCriticalEvents] = useState<SecurityEvent[]>([]);
+
+  const transformDatabaseEvent = (dbEvent: DatabaseSecurityEvent): SecurityEvent => {
+    const metadata = dbEvent.metadata || {};
+    return {
+      id: dbEvent.id,
+      event_type: dbEvent.event_type,
+      event_details: typeof metadata === 'object' ? metadata : {},
+      ip_address: dbEvent.ip_address,
+      user_agent: dbEvent.user_agent,
+      risk_level: (metadata?.risk_level as 'low' | 'medium' | 'high' | 'critical') || 'low',
+      created_at: dbEvent.created_at
+    };
+  };
 
   useEffect(() => {
     if (!user || !isAdmin) return;
@@ -40,10 +64,11 @@ export const SecurityEventMonitor: React.FC = () => {
           return;
         }
 
-        setEvents(data || []);
-        setCriticalEvents(data?.filter(event => 
+        const transformedEvents = (data || []).map(transformDatabaseEvent);
+        setEvents(transformedEvents);
+        setCriticalEvents(transformedEvents.filter(event => 
           event.risk_level === 'critical' || event.risk_level === 'high'
-        ) || []);
+        ));
       } catch (error) {
         console.error('Error fetching security events:', error);
       } finally {
@@ -64,7 +89,7 @@ export const SecurityEventMonitor: React.FC = () => {
           table: 'security_events'
         },
         (payload) => {
-          const newEvent = payload.new as SecurityEvent;
+          const newEvent = transformDatabaseEvent(payload.new as DatabaseSecurityEvent);
           setEvents(prev => [newEvent, ...prev].slice(0, 50));
           
           if (newEvent.risk_level === 'critical' || newEvent.risk_level === 'high') {

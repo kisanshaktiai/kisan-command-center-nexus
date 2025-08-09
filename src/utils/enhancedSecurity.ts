@@ -177,7 +177,7 @@ export class EnhancedSecurityUtils {
       await supabase.rpc('log_security_event', {
         p_user_id: event.userId || null,
         p_event_type: event.eventType,
-        p_event_details: event.details || {},
+        p_event_details: event.details as any || {},
         p_ip_address: event.ipAddress || null,
         p_user_agent: event.userAgent || null,
         p_risk_level: event.riskLevel || 'low'
@@ -206,10 +206,11 @@ export class EnhancedSecurityUtils {
         return { isLocked: false, attemptsRemaining: 5, lockedUntil: null };
       }
 
+      const result = data as any;
       return {
-        isLocked: data.is_locked || false,
-        attemptsRemaining: data.attempts_remaining || 0,
-        lockedUntil: data.locked_until || null
+        isLocked: result?.is_locked || false,
+        attemptsRemaining: result?.attempts_remaining || 0,
+        lockedUntil: result?.locked_until || null
       };
     } catch (error) {
       console.error('Account lockout check error:', error);
@@ -236,10 +237,11 @@ export class EnhancedSecurityUtils {
         return { isLocked: false, attemptsRemaining: 5, lockedUntil: null };
       }
 
+      const result = data as any;
       return {
-        isLocked: data.is_locked || false,
-        attemptsRemaining: data.attempts_remaining || 0,
-        lockedUntil: data.locked_until || null
+        isLocked: result?.is_locked || false,
+        attemptsRemaining: result?.attempts_remaining || 0,
+        lockedUntil: result?.locked_until || null
       };
     } catch (error) {
       console.error('Failed login recording error:', error);
