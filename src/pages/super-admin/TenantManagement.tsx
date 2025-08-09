@@ -300,12 +300,13 @@ const TenantManagement = () => {
     <div className="space-y-4">
       {creationSuccess && (
         <TenantCreationSuccess 
-          success={creationSuccess}
+          tenantName={creationSuccess.tenantName}
+          adminEmail={creationSuccess.adminEmail}
+          hasEmailSent={creationSuccess.hasEmailSent}
           onClose={() => setCreationSuccess(null)}
         />
       )}
 
-      
       <div className="bg-white rounded-lg shadow-sm border p-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -337,7 +338,6 @@ const TenantManagement = () => {
         </div>
       </div>
 
-      
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="p-3">
           <div className="flex items-center justify-between">
@@ -380,7 +380,6 @@ const TenantManagement = () => {
         </Card>
       </div>
 
-      
       <Card className="p-4">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 max-w-md">
@@ -467,8 +466,6 @@ const TenantManagement = () => {
           </div>
         </div>
       </Card>
-
-      
 
       {filteredAndSortedTenants.length === 0 ? (
         <Card className="p-8 text-center">
