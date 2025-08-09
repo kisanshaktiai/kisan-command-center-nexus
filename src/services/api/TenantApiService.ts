@@ -1,10 +1,9 @@
-
 import { enhancedApiFactory } from './EnhancedApiFactory';
 import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant } from '@/types/tenant';
 import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
 
 // Re-export TenantFilters for external use
-export { TenantFilters };
+export type { TenantFilters };
 
 export class TenantApiService {
   private static instance: TenantApiService;

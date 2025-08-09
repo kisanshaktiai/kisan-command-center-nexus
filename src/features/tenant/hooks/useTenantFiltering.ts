@@ -1,11 +1,11 @@
 
 import { useState, useMemo } from 'react';
-import { TenantDTO } from '@/data/types/tenant';
+import { Tenant } from '@/types/tenant';
 import { TenantViewPreferences } from '@/types/tenantView';
 import { tenantOperations } from '@/shared/utils/tenantUtils';
 
 interface UseTenantFilteringOptions {
-  tenants: TenantDTO[];
+  tenants: Tenant[];
   initialFilters?: {
     search?: string;
     type?: string;

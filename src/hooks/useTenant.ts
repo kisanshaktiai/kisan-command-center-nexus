@@ -3,7 +3,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { isTenant } from '@/lib/supabase-helpers';
-import { Tenant, SubscriptionPlan } from '@/types/tenant';
+import { Tenant } from '@/types/tenant';
+import { SubscriptionPlan, TenantType, TenantStatus } from '@/types/enums';
 
 interface TenantContextType {
   currentTenant: Tenant | null;
@@ -53,6 +54,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Transform the data to match our Tenant interface
           const transformedTenants = allTenants?.map(tenant => ({
             ...tenant,
+            type: tenant.type as TenantType,
+            status: tenant.status as TenantStatus,
             subscription_plan: tenant.subscription_plan as SubscriptionPlan,
             metadata: (tenant.metadata as Record<string, any>) || {}
           })) || [];
@@ -103,6 +106,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Transform the data to match our Tenant interface
           const transformedTenants = userTenants?.map(ut => ({
             ...ut.tenants,
+            type: ut.tenants.type as TenantType,
+            status: ut.tenants.status as TenantStatus,
             subscription_plan: ut.tenants.subscription_plan as SubscriptionPlan,
             metadata: (ut.tenants.metadata as Record<string, any>) || {}
           })).filter(Boolean) || [];

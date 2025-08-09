@@ -36,3 +36,10 @@ export const mapSubscriptionPlanToDisplay = (plan: SubscriptionPlan): string => 
   };
   return mapping[plan] || plan;
 };
+
+// Export all mappers as a group for backward compatibility
+export const tenantMappers = {
+  mapTenantTypeToDisplay,
+  mapTenantStatusToDisplay,
+  mapSubscriptionPlanToDisplay
+};

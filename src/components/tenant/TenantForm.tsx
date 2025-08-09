@@ -1,10 +1,10 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Mail, CheckCircle, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TenantFormData, Tenant } from '@/types/tenant';
+import { SubscriptionPlan, TenantType, TenantStatus } from '@/types/enums';
 import { useTenantFormNavigation } from '@/hooks/useTenantFormNavigation';
 import { TenantFormBasic } from './TenantFormBasic';
 import { TenantFormBusiness } from './TenantFormBusiness';
@@ -29,9 +29,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
   const [formData, setFormData] = React.useState<TenantFormData>({
     name: initialData?.name || '',
     slug: initialData?.slug || '',
-    type: (initialData?.type as any) || 'agri_company',
-    status: (initialData?.status as any) || 'trial',
-    subscription_plan: initialData?.subscription_plan || 'Kisan_Basic',
+    type: initialData?.type || TenantType.AGRI_COMPANY,
+    status: initialData?.status || TenantStatus.TRIAL,
+    subscription_plan: initialData?.subscription_plan || SubscriptionPlan.KISAN_BASIC,
     max_farmers: initialData?.max_farmers || 1000,
     max_dealers: initialData?.max_dealers || 50,
     max_products: initialData?.max_products || 100,

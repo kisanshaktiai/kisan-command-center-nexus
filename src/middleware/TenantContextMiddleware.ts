@@ -1,27 +1,24 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant } from '@/types/tenant';
-import { toast } from 'sonner';
+import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
 
 export interface TenantContext {
-  tenant: Tenant | null;
   tenantId: string | null;
+  tenant: Tenant | null;
   isLoading: boolean;
   error: string | null;
 }
 
-class TenantContextService {
+export class TenantContextService {
   private static instance: TenantContextService;
-  private currentContext: TenantContext = {
-    tenant: null,
+  private context: TenantContext = {
     tenantId: null,
+    tenant: null,
     isLoading: false,
     error: null
   };
-  
-  private listeners: Set<(context: TenantContext) => void> = new Set();
-  private cache: Map<string, { tenant: Tenant; timestamp: number }> = new Map();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private cache = new Map<string, { tenant: Tenant; timestamp: number }>();
+  private subscribers = new Set<(context: TenantContext) => void>();
 
   public static getInstance(): TenantContextService {
     if (!TenantContextService.instance) {
@@ -30,101 +27,96 @@ class TenantContextService {
     return TenantContextService.instance;
   }
 
-  public subscribe(listener: (context: TenantContext) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+  private notifySubscribers() {
+    this.subscribers.forEach(callback => callback(this.context));
   }
 
-  private notifyListeners(): void {
-    this.listeners.forEach(listener => listener(this.currentContext));
+  public subscribe(callback: (context: TenantContext) => void): () => void {
+    this.subscribers.add(callback);
+    return () => this.subscribers.delete(callback);
   }
 
   public getCurrentContext(): TenantContext {
-    return { ...this.currentContext };
+    return this.context;
   }
 
   public async setTenantById(tenantId: string | null): Promise<void> {
     if (!tenantId) {
-      this.currentContext = {
-        tenant: null,
+      this.context = {
         tenantId: null,
+        tenant: null,
         isLoading: false,
         error: null
       };
-      this.notifyListeners();
+      this.notifySubscribers();
       return;
     }
 
-    this.currentContext.isLoading = true;
-    this.currentContext.error = null;
-    this.notifyListeners();
+    // Check cache first
+    const cached = this.cache.get(tenantId);
+    const cacheExpiry = 5 * 60 * 1000; // 5 minutes
+    if (cached && Date.now() - cached.timestamp < cacheExpiry) {
+      this.context = {
+        tenantId,
+        tenant: cached.tenant,
+        isLoading: false,
+        error: null
+      };
+      this.notifySubscribers();
+      return;
+    }
+
+    this.context = { ...this.context, isLoading: true, error: null };
+    this.notifySubscribers();
 
     try {
-      // Check cache first
-      const cached = this.cache.get(tenantId);
-      if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-        this.currentContext = {
-          tenant: cached.tenant,
-          tenantId,
-          isLoading: false,
-          error: null
-        };
-        this.notifyListeners();
-        return;
-      }
-
-      // Fetch from database
-      const { data, error } = await supabase
+      const { data: tenant, error } = await supabase
         .from('tenants')
-        .select(`
-          *,
-          tenant_branding (*),
-          tenant_features (*)
-        `)
+        .select('*')
         .eq('id', tenantId)
         .single();
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      const tenant: Tenant = {
-        ...data,
-        branding: data.tenant_branding?.[0] || null,
-        features: data.tenant_features?.[0] || null
+      // Transform database tenant to typed Tenant
+      const typedTenant: Tenant = {
+        ...tenant,
+        type: tenant.type as TenantType,
+        status: tenant.status as TenantStatus,
+        subscription_plan: tenant.subscription_plan as SubscriptionPlan,
+        metadata: (tenant.metadata as Record<string, any>) || {}
       };
 
       // Update cache
-      this.cache.set(tenantId, { tenant, timestamp: Date.now() });
+      this.cache.set(tenantId, { tenant: typedTenant, timestamp: Date.now() });
 
-      this.currentContext = {
-        tenant,
+      this.context = {
         tenantId,
+        tenant: typedTenant,
         isLoading: false,
         error: null
       };
     } catch (error) {
-      console.error('Error loading tenant context:', error);
-      this.currentContext = {
-        tenant: null,
+      console.error('Error fetching tenant:', error);
+      this.context = {
         tenantId,
+        tenant: null,
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to load tenant'
+        error: error instanceof Error ? error.message : 'Failed to fetch tenant'
       };
-      toast.error('Failed to load tenant context');
     }
 
-    this.notifyListeners();
+    this.notifySubscribers();
   }
 
   public clearContext(): void {
-    this.currentContext = {
-      tenant: null,
+    this.context = {
       tenantId: null,
+      tenant: null,
       isLoading: false,
       error: null
     };
-    this.notifyListeners();
+    this.notifySubscribers();
   }
 
   public invalidateCache(tenantId?: string): void {

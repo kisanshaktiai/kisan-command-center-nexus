@@ -37,6 +37,14 @@ export const useTenantManagement = (options: UseTenantManagementOptions = {}) =>
     initialViewPreferences: options.initialViewPreferences
   });
 
+  // Mock data for missing properties (to be replaced with actual implementations)
+  const formattedTenants = filteredTenants;
+  const creationSuccess = null;
+  const clearCreationSuccess = () => {};
+  const detailsTenant = null;
+  const isDetailsModalOpen = false;
+  const detailsFormattedData = null;
+
   // Action handlers
   const handleCreateTenant = useCallback(async (data: CreateTenantDTO): Promise<boolean> => {
     try {
@@ -65,12 +73,34 @@ export const useTenantManagement = (options: UseTenantManagementOptions = {}) =>
     }
   }, [deleteTenantMutation]);
 
+  const handleViewDetails = useCallback((tenant: any) => {
+    console.log('View details for tenant:', tenant);
+  }, []);
+
+  const handleDetailsEdit = useCallback(() => {
+    console.log('Edit tenant details');
+  }, []);
+
+  const closeDetailsModal = useCallback(() => {
+    console.log('Close details modal');
+  }, []);
+
   return {
     // Data
     tenants: filteredTenants,
+    formattedTenants,
     isLoading,
     error,
     isSubmitting,
+
+    // Success state
+    creationSuccess,
+    clearCreationSuccess,
+
+    // Details modal
+    detailsTenant,
+    isDetailsModalOpen,
+    detailsFormattedData,
 
     // Filters
     searchTerm,
@@ -88,6 +118,9 @@ export const useTenantManagement = (options: UseTenantManagementOptions = {}) =>
     handleCreateTenant,
     handleUpdateTenant,
     handleDeleteTenant,
+    handleViewDetails,
+    handleDetailsEdit,
+    closeDetailsModal,
 
     // Mutations for direct access if needed
     createTenantMutation,

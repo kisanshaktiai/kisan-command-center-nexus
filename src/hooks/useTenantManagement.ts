@@ -251,6 +251,7 @@ export const useTenantManagement = () => {
         name: formData.name.trim(),
         slug: formData.slug.trim(),
         type: formData.type,
+        status: formData.status,
         subscription_plan: formData.subscription_plan,
         owner_email: formData.owner_email.trim(),
         owner_name: formData.owner_name.trim(),
@@ -362,7 +363,6 @@ export const useTenantManagement = () => {
       console.log('Updating tenant with enhanced security:', formData);
       
       // Map form data to UpdateTenantDTO with security context
-      // Make sure we don't pass any invalid enum values
       const updateData = {
         name: formData.name,
         status: formData.status,
@@ -371,7 +371,6 @@ export const useTenantManagement = () => {
           updated_via: 'admin_ui',
           security_context: securityContext,
           last_updated: new Date().toISOString()
-          // Remove any role-related fields that might cause enum issues
         }
       };
 
@@ -413,7 +412,7 @@ export const useTenantManagement = () => {
       await updateTenantMutation.mutateAsync({
         id: tenantId,
         data: { 
-          status: 'cancelled',
+          status: TenantStatus.CANCELLED,
           metadata: {
             deleted_via: 'admin_ui',
             security_context: securityContext,
