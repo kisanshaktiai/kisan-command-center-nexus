@@ -151,7 +151,11 @@ export class EnhancedSecurityUtils {
       const requestsPerMinute = (data.requestCount / data.timeWindow) * 60000;
       if (requestsPerMinute > 100) {
         reasons.push('High request frequency detected');
-        riskLevel = riskLevel === 'critical' ? 'critical' : 'high';
+        riskLevel = 'high';
+      }
+      if (requestsPerMinute > 300) {
+        reasons.push('Extremely high request frequency detected');
+        riskLevel = 'critical';
       }
     }
 
