@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -289,8 +288,9 @@ const TenantManagement = () => {
           </Select>
         </div>
         <TenantViewToggle 
-          viewMode={viewMode} 
-          onViewModeChange={setViewMode} 
+          preferences={viewPreferences}
+          onPreferencesChange={setViewPreferences}
+          totalCount={filteredTenants.length}
         />
       </div>
 
@@ -318,9 +318,9 @@ const TenantManagement = () => {
       {/* Tenant Form Modal */}
       {showForm && (
         <TenantForm
-          isOpen={showForm}
-          onClose={() => setShowForm(false)}
+          mode="create"
           onSubmit={handleCreateTenant}
+          onCancel={() => setShowForm(false)}
           isSubmitting={isSubmitting}
         />
       )}
