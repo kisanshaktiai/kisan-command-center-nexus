@@ -47,7 +47,7 @@ export const useTenantSoftDelete = () => {
         return false;
       }
 
-      const response = data as RpcResponse;
+      const response = data as unknown as RpcResponse;
       if (!response?.success) {
         console.error('Suspend tenant returned error:', response?.error);
         toast({
@@ -97,7 +97,7 @@ export const useTenantSoftDelete = () => {
         return false;
       }
 
-      const response = data as RpcResponse;
+      const response = data as unknown as RpcResponse;
       if (!response?.success) {
         console.error('Reactivate tenant returned error:', response?.error);
         toast({
@@ -149,7 +149,7 @@ export const useTenantSoftDelete = () => {
         return false;
       }
 
-      const response = data as RpcResponse;
+      const response = data as unknown as RpcResponse;
       if (!response?.success) {
         console.error('Archive tenant returned error:', response?.error);
         toast({

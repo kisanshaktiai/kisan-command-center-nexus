@@ -31,7 +31,7 @@ import {
   Play,
   Archive
 } from 'lucide-react';
-import { Tenant } from '@/types/tenant';
+import { Tenant, TenantFormData } from '@/types/tenant';
 import { TenantStatus } from '@/types/enums';
 import { useTenantSoftDelete } from '@/hooks/useTenantSoftDelete';
 import { TenantActionDialog } from '@/components/tenant/TenantActionDialog';
@@ -50,6 +50,14 @@ interface Stats {
   suspended: number;
 }
 
+interface CreationSuccessState {
+  tenantName: string;
+  adminEmail: string;
+  hasEmailSent: boolean;
+  correlationId?: string;
+  warnings?: string[];
+}
+
 const TenantManagement = () => {
   const {
     tenants: tenantsData,
@@ -65,8 +73,10 @@ const TenantManagement = () => {
     setCreationSuccess,
   } = useTenantManagement();
 
-  // Extract actual tenants array from the hook return
-  const tenants = Array.isArray(tenantsData) ? tenantsData : [];
+  // Extract actual tenants array from the hook return - handle both array and service result
+  const tenants = Array.isArray(tenantsData) ? tenantsData : 
+                 (tenantsData && typeof tenantsData === 'object' && 'data' in tenantsData) ? 
+                 (Array.isArray(tenantsData.data) ? tenantsData.data : []) : [];
 
   const { suspendTenant, reactivateTenant, archiveTenant, isLoading: softDeleteLoading } = useTenantSoftDelete();
 
@@ -153,7 +163,7 @@ const TenantManagement = () => {
     resetForm();
   };
 
-  const handleSubmit = async (tenantData: any): Promise<boolean> => {
+  const handleSubmit = async (tenantData: TenantFormData): Promise<boolean> => {
     return await handleCreateTenant(tenantData);
   };
 
@@ -290,7 +300,7 @@ const TenantManagement = () => {
     <div className="space-y-4">
       {creationSuccess && (
         <TenantCreationSuccess 
-          creationSuccess={creationSuccess}
+          success={creationSuccess}
           onClose={() => setCreationSuccess(null)}
         />
       )}
@@ -318,7 +328,7 @@ const TenantManagement = () => {
               </DialogHeader>
               <TenantForm
                 mode={editingTenant ? "edit" : "create"}
-                initialData={editingTenant ? formData : undefined}
+                initialData={editingTenant || undefined}
                 onSubmit={handleSubmit}
                 onCancel={handleCloseDialog}
               />
@@ -327,6 +337,7 @@ const TenantManagement = () => {
         </div>
       </div>
 
+      
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="p-3">
           <div className="flex items-center justify-between">
@@ -456,6 +467,8 @@ const TenantManagement = () => {
           </div>
         </div>
       </Card>
+
+      
 
       {filteredAndSortedTenants.length === 0 ? (
         <Card className="p-8 text-center">
