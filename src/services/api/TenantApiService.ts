@@ -5,8 +5,8 @@ import { TenantType, TenantStatus } from '@/types/tenant';
 
 export interface TenantFilters {
   search?: string;
-  type?: string;
-  status?: string;
+  type?: TenantType;     // ✅ strict enum instead of string
+  status?: TenantStatus; // ✅ strict enum instead of string
 }
 
 export class TenantApiService extends BaseService {
@@ -23,46 +23,50 @@ export class TenantApiService extends BaseService {
     return TenantApiService.instance;
   }
 
+  // ----- Enum helpers (safe narrowing from DB/string) -----
+  private static readonly validTypes = [
+    'agri_company',
+    'dealer',
+    'ngo',
+    'government',
+    'university',
+    'sugar_factory',
+    'cooperative',
+    'insurance',
+  ] as const;
+
+  private static readonly validStatuses = [
+    'trial',
+    'active',
+    'suspended',
+    'cancelled',
+    'archived',
+    'pending_approval',
+  ] as const;
+
+  private static isTenantType = (v: unknown): v is TenantType =>
+    typeof v === 'string' &&
+    (TenantApiService.validTypes as readonly string[]).includes(v);
+
+  private static isTenantStatus = (v: unknown): v is TenantStatus =>
+    typeof v === 'string' &&
+    (TenantApiService.validStatuses as readonly string[]).includes(v);
+
+  private getTenantType(value: unknown): TenantType {
+    return TenantApiService.isTenantType(value) ? value : 'agri_company';
+  }
+
+  private getTenantStatus(value: unknown): TenantStatus {
+    return TenantApiService.isTenantStatus(value) ? value : 'trial';
+  }
+
   private mapTenantFromDatabase(tenant: any): TenantDTO {
-    // Helper function to validate and return tenant type
-    const getTenantType = (value: any): TenantType => {
-      const validTypes = [
-        'agri_company', 'dealer', 'ngo', 'government', 
-        'university', 'sugar_factory', 'cooperative', 'insurance'
-      ] as const;
-      
-      if (typeof value === 'string') {
-        for (const type of validTypes) {
-          if (value === type) {
-            return type;
-          }
-        }
-      }
-      return 'agri_company';
-    };
-
-    // Helper function to validate and return tenant status
-    const getTenantStatus = (value: any): TenantStatus => {
-      const validStatuses = [
-        'trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'
-      ] as const;
-      
-      if (typeof value === 'string') {
-        for (const status of validStatuses) {
-          if (value === status) {
-            return status;
-          }
-        }
-      }
-      return 'trial';
-    };
-
     return {
       id: tenant.id,
       name: tenant.name,
       slug: tenant.slug,
-      type: getTenantType(tenant.type),
-      status: getTenantStatus(tenant.status),
+      type: this.getTenantType(tenant.type),
+      status: this.getTenantStatus(tenant.status),
       subscription_plan: tenant.subscription_plan,
       created_at: tenant.created_at,
       updated_at: tenant.updated_at,
@@ -104,24 +108,26 @@ export class TenantApiService extends BaseService {
           `)
           .order('created_at', { ascending: false });
 
-        // Apply filters
-        if (filters?.search) {
-          query = query.or(`name.ilike.%${filters.search}%,slug.ilike.%${filters.search}%`);
+        // Apply filters (TS-safe)
+        if (filters?.search && filters.search.trim().length > 0) {
+          const s = filters.search.trim();
+          // NOTE: Supabase `or` uses comma to join conditions.
+          query = query.or(`name.ilike.%${s}%,slug.ilike.%${s}%`);
         }
-        
+
         if (filters?.type) {
-          query = query.eq('type', filters.type);
+          query = query.eq('type', filters.type); // ✅ enum-safe
         }
-        
+
         if (filters?.status) {
-          query = query.eq('status', filters.status);
+          query = query.eq('status', filters.status); // ✅ enum-safe
         }
 
         const { data, error } = await query;
-        
+
         if (error) throw error;
-        
-        return (data || []).map((tenant: any) => this.mapTenantFromDatabase(tenant));
+
+        return (data ?? []).map((t: any) => this.mapTenantFromDatabase(t));
       },
       'getTenants'
     );
@@ -150,9 +156,16 @@ export class TenantApiService extends BaseService {
     );
   }
 
-  async createTenant(data: CreateTenantDTO): Promise<ServiceResult<TenantDTO>> {
+  async createTenant(payload: CreateTenantDTO): Promise<ServiceResult<TenantDTO>> {
     return this.executeOperation(
       async () => {
+        // Optional safety: coerce enums before insert
+        const data: CreateTenantDTO = {
+          ...payload,
+          type: this.getTenantType(payload.type),
+          status: this.getTenantStatus(payload.status),
+        };
+
         const { data: tenant, error } = await supabase
           .from('tenants')
           .insert(data)
@@ -168,29 +181,32 @@ export class TenantApiService extends BaseService {
     );
   }
 
-  async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<TenantDTO>> {
+  async updateTenant(id: string, payload: UpdateTenantDTO): Promise<ServiceResult<TenantDTO>> {
     return this.executeOperation(
       async () => {
-        // Clean the data to ensure no invalid enum values are passed
-        const cleanedData = { ...data };
-        
-        // Remove any fields that might contain invalid enum values
-        // The error suggests 'admin' is being passed to a user_role enum
-        // Make sure metadata doesn't contain problematic fields
-        if (cleanedData.metadata) {
+        // Clean & coerce enums
+        const cleanedData: UpdateTenantDTO = { ...payload };
+
+        if (cleanedData.type != null) {
+          cleanedData.type = this.getTenantType(cleanedData.type as unknown);
+        }
+        if (cleanedData.status != null) {
+          cleanedData.status = this.getTenantStatus(cleanedData.status as unknown);
+        }
+
+        // Scrub metadata keys that might collide with enum columns in other tables
+        if (cleanedData.metadata && typeof cleanedData.metadata === 'object') {
           const { metadata } = cleanedData;
-          // Filter out any metadata that might contain role information
           const cleanedMetadata = Object.keys(metadata).reduce((acc, key) => {
-            // Skip any fields that might contain role information or other enum conflicts
-            if (key === 'role' || key === 'user_role' || key === 'admin_role' || key === 'admin') {
+            if (['role', 'user_role', 'admin_role', 'admin'].includes(key)) {
+              // eslint-disable-next-line no-console
               console.log(`Filtering out potentially problematic metadata field: ${key}`);
               return acc;
             }
-            acc[key] = metadata[key];
+            (acc as any)[key] = (metadata as any)[key];
             return acc;
-          }, {} as Record<string, any>);
-          
-          cleanedData.metadata = cleanedMetadata;
+          }, {} as Record<string, unknown>);
+          cleanedData.metadata = cleanedMetadata as any;
         }
 
         const { data: tenant, error } = await supabase
@@ -212,11 +228,7 @@ export class TenantApiService extends BaseService {
   async deleteTenant(id: string): Promise<ServiceResult<boolean>> {
     return this.executeOperation(
       async () => {
-        const { error } = await supabase
-          .from('tenants')
-          .delete()
-          .eq('id', id);
-
+        const { error } = await supabase.from('tenants').delete().eq('id', id);
         if (error) throw error;
         return true;
       },
