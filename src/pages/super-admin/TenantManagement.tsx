@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Building, Search, Plus, Filter } from 'lucide-react';
 import { useTenantManagement } from '@/hooks/useTenantManagement';
-import { TenantCard } from '@/components/tenant/TenantCard';
+import { TenantCardRefactured } from '@/components/tenant/TenantCardRefactored';
 import { TenantForm } from '@/components/tenant/TenantForm';
 import { TenantListView } from '@/components/tenant/TenantListView';
 import { OptimizedMetricCard } from '@/components/ui/optimized-metric-card';
@@ -41,6 +42,12 @@ export default function TenantManagement() {
     filteredTenants,
     tenantStats
   } = useTenantManagement();
+
+  const handleViewDetails = (tenant: any) => {
+    console.log('View details for tenant:', tenant.id);
+    // For now, just edit the tenant
+    setSelectedTenant(tenant);
+  };
 
   if (isLoading) {
     return (
@@ -171,11 +178,13 @@ export default function TenantManagement() {
         <TabsContent value="cards" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTenants.map((tenant) => (
-              <TenantCard
+              <TenantCardRefactured
                 key={tenant.id}
                 tenant={tenant}
+                size="small"
                 onEdit={() => setSelectedTenant(tenant)}
                 onDelete={() => handleDeleteTenant(tenant.id)}
+                onViewDetails={() => handleViewDetails(tenant)}
               />
             ))}
           </div>
@@ -185,7 +194,10 @@ export default function TenantManagement() {
           <TenantListView
             tenants={filteredTenants}
             onEdit={setSelectedTenant}
-            onDelete={handleDeleteTenant}
+            onDelete={async (tenantId: string) => {
+              await handleDeleteTenant(tenantId);
+            }}
+            onViewDetails={handleViewDetails}
           />
         </TabsContent>
       </Tabs>
@@ -193,7 +205,7 @@ export default function TenantManagement() {
       {/* Create/Edit Form */}
       {(showCreateForm || selectedTenant) && (
         <TenantForm
-          tenant={selectedTenant}
+          initialData={selectedTenant || undefined}
           onSave={selectedTenant ? handleUpdateTenant : handleCreateTenant}
           onCancel={() => {
             setShowCreateForm(false);

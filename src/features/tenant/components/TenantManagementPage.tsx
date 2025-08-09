@@ -13,6 +13,7 @@ import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess
 import { TenantErrorState } from '@/features/tenant/components/TenantErrorState';
 import { TenantLoadingState } from '@/features/tenant/components/TenantLoadingState';
 import { useTenantPageState } from '@/features/tenant/hooks/useTenantPageState';
+import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
 
 const TenantManagementPage: React.FC = () => {
   const {
@@ -55,7 +56,7 @@ const TenantManagementPage: React.FC = () => {
 
   const handleCreateTenantClick = () => {
     // Create a proper tenant data structure for creation
-    const newTenantData = {
+    const newTenantData: CreateTenantDTO = {
       name: 'New Tenant',
       slug: 'new-tenant',
       type: 'agri_company' as const,
@@ -175,13 +176,16 @@ const TenantManagementPage: React.FC = () => {
           isOpen={isEditModalOpen}
           onClose={closeEditModal}
           tenant={editingTenant}
-          onSave={(data) => handleSaveTenant(editingTenant.id, data)}
+          onSave={(data: UpdateTenantDTO) => handleSaveTenant(editingTenant.id, data)}
           isSubmitting={isSubmitting}
         />
       )}
 
       {creationSuccess && (
         <TenantCreationSuccess
+          tenantName={creationSuccess.tenantName}
+          adminEmail={creationSuccess.adminEmail}
+          hasEmailSent={creationSuccess.hasEmailSent}
           onDismiss={clearCreationSuccess}
         />
       )}

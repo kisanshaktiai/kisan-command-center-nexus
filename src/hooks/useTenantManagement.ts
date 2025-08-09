@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { useTenants, useCreateTenant, useUpdateTenant } from '@/data/hooks/useTenants';
@@ -33,6 +34,14 @@ export const useTenantManagement = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [securityContext, setSecurityContext] = useState<SecurityContext>({});
+
+  // UI state for the old TenantManagement component
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
 
   // View preferences state
   const [viewPreferences, setViewPreferences] = useState<TenantViewPreferences>({
@@ -499,10 +508,30 @@ export const useTenantManagement = () => {
     console.log('Fetch tenants called - handled by React Query with enhanced security');
   };
 
+  // Calculate filtered tenants and stats for the old component
+  const filteredTenants = tenants.filter((tenant) => {
+    const matchesSearch = searchTerm === '' || 
+      tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tenant.owner_email?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesType = filterType === 'all' || tenant.type === filterType;
+    const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
+    
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
+  const tenantStats = {
+    total: tenants.length,
+    active: tenants.filter(t => t.status === 'active').length,
+    trial: tenants.filter(t => t.status === 'trial').length,
+    suspended: tenants.filter(t => t.status === 'suspended').length,
+  };
+
   return {
     // State
     tenants,
     loading: loading || isSubmitting,
+    isLoading: loading || isSubmitting, // Add alias for compatibility
     error,
     isSubmitting,
     tenantMetrics,
@@ -510,6 +539,22 @@ export const useTenantManagement = () => {
     formData,
     creationSuccess,
     securityContext,
+    
+    // UI state for old component
+    searchTerm,
+    setSearchTerm,
+    filterType,
+    setFilterType,
+    filterStatus,
+    setFilterStatus,
+    viewMode,
+    setViewMode,
+    showCreateForm,
+    setShowCreateForm,
+    selectedTenant,
+    setSelectedTenant,
+    filteredTenants,
+    tenantStats,
     
     // Actions
     setViewPreferences,
