@@ -2,6 +2,7 @@
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { tenantApiService } from '@/services/api/TenantApiService';
 import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant } from '@/types/tenant';
+import { supabase } from '@/integrations/supabase/client';
 
 export class TenantManagementService extends BaseService {
   private static instance: TenantManagementService;
@@ -43,12 +44,77 @@ export class TenantManagementService extends BaseService {
     return tenantApiService.updateTenant(id, data);
   }
 
+  async suspendTenant(id: string, reason?: string): Promise<ServiceResult<boolean>> {
+    return this.executeOperation(
+      async () => {
+        const { data, error } = await supabase.rpc('suspend_tenant', {
+          p_tenant_id: id,
+          p_reason: reason || 'Suspended by admin'
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (!data?.success) {
+          throw new Error(data?.error || 'Failed to suspend tenant');
+        }
+
+        return true;
+      },
+      'suspendTenant'
+    );
+  }
+
+  async reactivateTenant(id: string): Promise<ServiceResult<boolean>> {
+    return this.executeOperation(
+      async () => {
+        const { data, error } = await supabase.rpc('reactivate_tenant', {
+          p_tenant_id: id
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (!data?.success) {
+          throw new Error(data?.error || 'Failed to reactivate tenant');
+        }
+
+        return true;
+      },
+      'reactivateTenant'
+    );
+  }
+
+  // Archive tenant after 30 days of suspension
+  async archiveTenant(id: string, archiveLocation: string, encryptionKeyId: string): Promise<ServiceResult<boolean>> {
+    return this.executeOperation(
+      async () => {
+        const { data, error } = await supabase.rpc('archive_tenant_data', {
+          p_tenant_id: id,
+          p_archive_location: archiveLocation,
+          p_encryption_key_id: encryptionKeyId
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (!data?.success) {
+          throw new Error(data?.error || 'Failed to archive tenant');
+        }
+
+        return true;
+      },
+      'archiveTenant'
+    );
+  }
+
+  // Legacy delete method - now redirects to suspend
   async deleteTenant(id: string): Promise<ServiceResult<boolean>> {
-    const result = await tenantApiService.deleteTenant(id);
-    return {
-      ...result,
-      data: result.success
-    };
+    // Instead of hard delete, suspend the tenant
+    return this.suspendTenant(id, 'Deleted by admin - converted to suspension');
   }
 
   async validateTenantData(data: Partial<CreateTenantDTO>): Promise<ServiceResult<boolean>> {

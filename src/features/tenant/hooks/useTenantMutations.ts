@@ -57,35 +57,60 @@ export const useTenantMutations = () => {
     },
   });
 
+  // Updated to use suspension instead of hard delete
   const deleteTenantMutation = useMutation({
     mutationFn: async (id: string) => {
-      const result = await tenantManagementService.deleteTenant(id);
+      const result = await tenantManagementService.suspendTenant(id, 'Suspended by admin');
       if (!result.success) {
-        throw new Error(result.error || 'Failed to delete tenant');
+        throw new Error(result.error || 'Failed to suspend tenant');
       }
       return result.data!;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: tenantQueries.all });
-      showSuccess('Tenant deleted successfully');
+      showSuccess('Tenant suspended successfully');
     },
     onError: (error: Error) => {
       handleAsyncError(
         async () => { throw error; },
-        'delete tenant',
-        { fallbackMessage: 'Failed to delete tenant' }
+        'suspend tenant',
+        { fallbackMessage: 'Failed to suspend tenant' }
+      );
+    },
+  });
+
+  // New mutation for reactivation
+  const reactivateTenantMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const result = await tenantManagementService.reactivateTenant(id);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to reactivate tenant');
+      }
+      return result.data!;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tenantQueries.all });
+      showSuccess('Tenant reactivated successfully');
+    },
+    onError: (error: Error) => {
+      handleAsyncError(
+        async () => { throw error; },
+        'reactivate tenant',
+        { fallbackMessage: 'Failed to reactivate tenant' }
       );
     },
   });
 
   const isSubmitting = createTenantMutation.isPending || 
                       updateTenantMutation.isPending || 
-                      deleteTenantMutation.isPending;
+                      deleteTenantMutation.isPending ||
+                      reactivateTenantMutation.isPending;
 
   return {
     createTenantMutation,
     updateTenantMutation,
-    deleteTenantMutation,
+    deleteTenantMutation, // Now handles suspension
+    reactivateTenantMutation,
     isSubmitting
   };
 };
