@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { useTenants, useCreateTenant, useUpdateTenant } from '@/data/hooks/useTenants';
@@ -27,9 +26,12 @@ export const useTenantManagement = () => {
   const { toast } = useToast();
 
   // Use React Query hooks
-  const { data: tenants = [], isLoading: loading, error: queryError } = useTenants();
+  const { data: tenantsData = [], isLoading: loading, error: queryError } = useTenants();
   const createTenantMutation = useCreateTenant();
   const updateTenantMutation = useUpdateTenant();
+
+  // Ensure tenants is always an array
+  const tenants = Array.isArray(tenantsData) ? tenantsData : [];
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

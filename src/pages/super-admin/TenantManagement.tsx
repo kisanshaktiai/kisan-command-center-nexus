@@ -18,11 +18,12 @@ import { TenantCardRefactured } from '@/components/tenant/TenantCardRefactored';
 import { TenantForm } from '@/components/tenant/TenantForm';
 import { TenantListView } from '@/components/tenant/TenantListView';
 import { OptimizedMetricCard } from '@/components/ui/optimized-metric-card';
+import { TenantDisplayService } from '@/services/TenantDisplayService';
 
 export default function TenantManagement() {
   const {
     tenants,
-    isLoading,
+    loading,
     error,
     searchTerm,
     setSearchTerm,
@@ -49,7 +50,7 @@ export default function TenantManagement() {
     setSelectedTenant(tenant);
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -169,7 +170,7 @@ export default function TenantManagement() {
       </div>
 
       {/* View Toggle */}
-      <Tabs value={viewMode} onValueChange={setViewMode}>
+      <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'cards' | 'list')}>
         <TabsList>
           <TabsTrigger value="cards">Cards</TabsTrigger>
           <TabsTrigger value="list">List</TabsTrigger>
@@ -181,6 +182,7 @@ export default function TenantManagement() {
               <TenantCardRefactured
                 key={tenant.id}
                 tenant={tenant}
+                formattedData={TenantDisplayService.formatTenantForDisplay(tenant)}
                 size="small"
                 onEdit={() => setSelectedTenant(tenant)}
                 onDelete={() => handleDeleteTenant(tenant.id)}
@@ -206,7 +208,7 @@ export default function TenantManagement() {
       {(showCreateForm || selectedTenant) && (
         <TenantForm
           initialData={selectedTenant || undefined}
-          onSave={selectedTenant ? handleUpdateTenant : handleCreateTenant}
+          onSave={selectedTenant ? (data: any) => handleUpdateTenant(selectedTenant) : handleCreateTenant}
           onCancel={() => {
             setShowCreateForm(false);
             setSelectedTenant(null);
