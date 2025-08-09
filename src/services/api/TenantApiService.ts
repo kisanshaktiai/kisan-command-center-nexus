@@ -1,21 +1,10 @@
 
-import { BaseService, ServiceResult } from '@/services/BaseService';
-import { supabase } from '@/integrations/supabase/client';
-import { CreateTenantDTO, UpdateTenantDTO, TenantDTO } from '@/data/types/tenant';
-import { TenantType, TenantStatus } from '@/types/tenant';
+import { enhancedApiFactory } from './EnhancedApiFactory';
+import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant } from '@/types/tenant';
+import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
 
-export interface TenantFilters {
-  search?: string;
-  type?: TenantType;     // ✅ strict enum instead of string
-  status?: TenantStatus; // ✅ strict enum instead of string
-}
-
-export class TenantApiService extends BaseService {
+export class TenantApiService {
   private static instance: TenantApiService;
-
-  private constructor() {
-    super();
-  }
 
   public static getInstance(): TenantApiService {
     if (!TenantApiService.instance) {
@@ -24,227 +13,82 @@ export class TenantApiService extends BaseService {
     return TenantApiService.instance;
   }
 
-  // ----- Enum helpers (safe narrowing from DB/string) -----
-  private static readonly validTypes = [
-    'agri_company',
-    'dealer',
-    'ngo',
-    'government',
-    'university',
-    'sugar_factory',
-    'cooperative',
-    'insurance',
-  ] as const;
-
-  private static readonly validStatuses = [
-    'trial',
-    'active',
-    'suspended',
-    'cancelled',
-    'archived',
-    'pending_approval',
-  ] as const;
-
-  private static isTenantType = (v: unknown): v is TenantType =>
-    typeof v === 'string' &&
-    (TenantApiService.validTypes as readonly string[]).includes(v);
-
-  private static isTenantStatus = (v: unknown): v is TenantStatus =>
-    typeof v === 'string' &&
-    (TenantApiService.validStatuses as readonly string[]).includes(v);
-
-  private getTenantType(value: unknown): TenantType {
-    for (const validType of TenantApiService.validTypes) {
-      if (value === validType) {
-        return validType as TenantType;
-      }
+  // Helper functions to validate enums
+  private validateTenantType(type: string): TenantType {
+    if (Object.values(TenantType).includes(type as TenantType)) {
+      return type as TenantType;
     }
-    return 'agri_company';
+    throw new Error(`Invalid tenant type: ${type}`);
   }
 
-  private getTenantStatus(value: unknown): TenantStatus {
-    for (const validStatus of TenantApiService.validStatuses) {
-      if (value === validStatus) {
-        return validStatus as TenantStatus;
-      }
+  private validateTenantStatus(status: string): TenantStatus {
+    if (Object.values(TenantStatus).includes(status as TenantStatus)) {
+      return status as TenantStatus;
     }
-    return 'trial';
+    throw new Error(`Invalid tenant status: ${status}`);
   }
 
-  private mapTenantFromDatabase(tenant: any): TenantDTO {
-    return {
-      id: tenant.id,
-      name: tenant.name,
-      slug: tenant.slug,
-      type: this.getTenantType(tenant.type),
-      status: this.getTenantStatus(tenant.status),
-      subscription_plan: tenant.subscription_plan,
-      created_at: tenant.created_at,
-      updated_at: tenant.updated_at,
-      owner_email: tenant.owner_email,
-      owner_name: tenant.owner_name,
-      owner_phone: tenant.owner_phone,
-      business_registration: tenant.business_registration,
-      business_address: tenant.business_address,
-      established_date: tenant.established_date,
-      subscription_start_date: tenant.subscription_start_date,
-      subscription_end_date: tenant.subscription_end_date,
-      trial_ends_at: tenant.trial_ends_at,
-      max_farmers: tenant.max_farmers,
-      max_dealers: tenant.max_dealers,
-      max_products: tenant.max_products,
-      max_storage_gb: tenant.max_storage_gb,
-      max_api_calls_per_day: tenant.max_api_calls_per_day,
-      subdomain: tenant.subdomain,
-      custom_domain: tenant.custom_domain,
-      metadata: tenant.metadata,
+  private validateSubscriptionPlan(plan: string): SubscriptionPlan {
+    if (Object.values(SubscriptionPlan).includes(plan as SubscriptionPlan)) {
+      return plan as SubscriptionPlan;
+    }
+    throw new Error(`Invalid subscription plan: ${plan}`);
+  }
+
+  async getTenants(filters?: TenantFilters) {
+    return enhancedApiFactory.get<Tenant[]>('tenants', filters);
+  }
+
+  async getTenantById(id: string) {
+    return enhancedApiFactory.get<Tenant>('tenants', { id });
+  }
+
+  async createTenant(data: CreateTenantDTO) {
+    // Validate enums before sending
+    const validatedData: CreateTenantDTO = {
+      ...data,
+      type: this.validateTenantType(data.type),
+      status: this.validateTenantStatus(data.status),
+      subscription_plan: this.validateSubscriptionPlan(data.subscription_plan)
     };
+
+    return enhancedApiFactory.post<Tenant>('tenants', validatedData);
   }
 
-  async getTenants(filters?: TenantFilters): Promise<ServiceResult<TenantDTO[]>> {
-    return this.executeOperation(
-      async () => {
-        let query = supabase
-          .from('tenants')
-          .select(`
-            *,
-            tenant_subscriptions (
-              id,
-              subscription_plan,
-              status,
-              current_period_start,
-              current_period_end
-            ),
-            tenant_features (*)
-          `)
-          .order('created_at', { ascending: false });
+  async updateTenant(id: string, data: UpdateTenantDTO) {
+    // Validate enums if provided
+    const validatedData: UpdateTenantDTO = { ...data };
+    
+    if (data.type) {
+      validatedData.type = this.validateTenantType(data.type);
+    }
+    
+    if (data.status) {
+      validatedData.status = this.validateTenantStatus(data.status);
+    }
+    
+    if (data.subscription_plan) {
+      validatedData.subscription_plan = this.validateSubscriptionPlan(data.subscription_plan);
+    }
 
-        // Apply filters (TS-safe)
-        if (filters?.search && filters.search.trim().length > 0) {
-          const s = filters.search.trim();
-          // NOTE: Supabase `or` uses comma to join conditions.
-          query = query.or(`name.ilike.%${s}%,slug.ilike.%${s}%`);
-        }
-
-        if (filters?.type) {
-          query = query.eq('type', filters.type); // ✅ enum-safe
-        }
-
-        if (filters?.status) {
-          query = query.eq('status', filters.status); // ✅ enum-safe
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
-
-        return (data ?? []).map((t: any) => this.mapTenantFromDatabase(t));
-      },
-      'getTenants'
-    );
+    return enhancedApiFactory.put<Tenant>('tenants', id, validatedData);
   }
 
-  async getTenantById(id: string): Promise<ServiceResult<TenantDTO>> {
-    return this.executeOperation(
-      async () => {
-        const { data, error } = await supabase
-          .from('tenants')
-          .select(`
-            *,
-            tenant_subscriptions (*),
-            tenant_features (*),
-            tenant_branding (*)
-          `)
-          .eq('id', id)
-          .maybeSingle();
-
-        if (error) throw error;
-        if (!data) throw new Error('Tenant not found');
-
-        return this.mapTenantFromDatabase(data);
-      },
-      'getTenantById'
-    );
+  async deleteTenant(id: string) {
+    return enhancedApiFactory.delete('tenants', id);
   }
 
-  async createTenant(payload: CreateTenantDTO): Promise<ServiceResult<TenantDTO>> {
-    return this.executeOperation(
-      async () => {
-        // Ensure enums are properly typed
-        const data: CreateTenantDTO = {
-          ...payload,
-          type: this.getTenantType(payload.type),
-          status: payload.status ? this.getTenantStatus(payload.status) : undefined,
-        };
-
-        const { data: tenant, error } = await supabase
-          .from('tenants')
-          .insert(data)
-          .select()
-          .single();
-
-        if (error) throw error;
-        if (!tenant) throw new Error('Failed to create tenant');
-
-        return this.mapTenantFromDatabase(tenant);
-      },
-      'createTenant'
-    );
+  async getTenantsByType(type: TenantType) {
+    return enhancedApiFactory.get<Tenant[]>('tenants', { type });
   }
 
-  async updateTenant(id: string, payload: UpdateTenantDTO): Promise<ServiceResult<TenantDTO>> {
-    return this.executeOperation(
-      async () => {
-        // Clean & coerce enums
-        const cleanedData: UpdateTenantDTO = { ...payload };
-
-        if (cleanedData.type != null) {
-          cleanedData.type = this.getTenantType(cleanedData.type);
-        }
-        if (cleanedData.status != null) {
-          cleanedData.status = this.getTenantStatus(cleanedData.status);
-        }
-
-        // Scrub metadata keys that might collide with enum columns in other tables
-        if (cleanedData.metadata && typeof cleanedData.metadata === 'object') {
-          const { metadata } = cleanedData;
-          const cleanedMetadata = Object.keys(metadata).reduce((acc, key) => {
-            if (['role', 'user_role', 'admin_role', 'admin'].includes(key)) {
-              // eslint-disable-next-line no-console
-              console.log(`Filtering out potentially problematic metadata field: ${key}`);
-              return acc;
-            }
-            (acc as any)[key] = (metadata as any)[key];
-            return acc;
-          }, {} as Record<string, unknown>);
-          cleanedData.metadata = cleanedMetadata as any;
-        }
-
-        const { data: tenant, error } = await supabase
-          .from('tenants')
-          .update(cleanedData)
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        if (!tenant) throw new Error('Failed to update tenant');
-
-        return this.mapTenantFromDatabase(tenant);
-      },
-      'updateTenant'
-    );
+  async getTenantsByStatus(status: TenantStatus) {
+    return enhancedApiFactory.get<Tenant[]>('tenants', { status });
   }
 
-  async deleteTenant(id: string): Promise<ServiceResult<boolean>> {
-    return this.executeOperation(
-      async () => {
-        const { error } = await supabase.from('tenants').delete().eq('id', id);
-        if (error) throw error;
-        return true;
-      },
-      'deleteTenant'
-    );
+  async updateTenantStatus(id: string, status: TenantStatus) {
+    const validatedStatus = this.validateTenantStatus(status);
+    return enhancedApiFactory.patch<Tenant>('tenants', id, { status: validatedStatus });
   }
 }
 

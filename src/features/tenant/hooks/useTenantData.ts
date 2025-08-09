@@ -1,60 +1,59 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { tenantManagementService } from '../services/TenantManagementService';
-import { tenantQueries } from '@/data/queries/tenantQueries';
-import { useErrorHandler } from '@/hooks/useErrorHandler';
-import { TenantType, TenantStatus } from '@/types/tenant';
+import { enhancedApiFactory } from '@/services/api/EnhancedApiFactory';
+import { Tenant, TenantFilters } from '@/types/tenant';
+import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
 
-export interface UseTenantDataOptions {
+interface UseTenantDataOptions {
   filters?: {
     search?: string;
     type?: string;
     status?: string;
   };
+  enabled?: boolean;
 }
 
+// Helper functions to validate and convert filter strings to enums
+const validateTenantType = (type: string): TenantType | undefined => {
+  return Object.values(TenantType).includes(type as TenantType) 
+    ? (type as TenantType) 
+    : undefined;
+};
+
+const validateTenantStatus = (status: string): TenantStatus | undefined => {
+  return Object.values(TenantStatus).includes(status as TenantStatus) 
+    ? (status as TenantStatus) 
+    : undefined;
+};
+
 export const useTenantData = (options: UseTenantDataOptions = {}) => {
-  const { filters = {} } = options;
-  const { handleError } = useErrorHandler({ 
-    component: 'TenantData',
-    fallbackMessage: 'Failed to load tenants' 
-  });
+  const { filters = {}, enabled = true } = options;
 
-  // Convert string filters to proper enum types for the API
-  const apiFilters = {
-    search: filters.search,
-    type: filters.type ? filters.type as TenantType : undefined,
-    status: filters.status ? filters.status as TenantStatus : undefined,
-  };
-
-  const {
-    data: tenants = [],
-    isLoading,
-    error
-  } = useQuery({
-    queryKey: tenantQueries.list(filters),
+  return useQuery({
+    queryKey: ['tenants', filters],
     queryFn: async () => {
-      const result = await tenantManagementService.getAllTenants(apiFilters);
-      if (!result.success) {
-        const errorToThrow = new Error(result.error || 'Failed to fetch tenants');
-        handleError(errorToThrow, 'fetch tenants');
-        throw errorToThrow;
-      }
-      return result.data || [];
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: (failureCount, error) => {
-      // Don't retry on validation errors (4xx)
-      if (error instanceof Error && error.message.includes('validation')) {
-        return false;
-      }
-      return failureCount < 3;
-    }
-  });
+      // Convert and validate filter parameters
+      const apiFilters: TenantFilters = {
+        search: filters.search,
+        type: filters.type ? validateTenantType(filters.type) : undefined,
+        status: filters.status ? validateTenantStatus(filters.status) : undefined,
+      };
 
-  return {
-    tenants,
-    isLoading,
-    error
-  };
+      // Remove undefined values
+      const cleanFilters = Object.fromEntries(
+        Object.entries(apiFilters).filter(([, value]) => value !== undefined)
+      );
+
+      const response = await enhancedApiFactory.get<Tenant[]>('tenants', cleanFilters);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch tenants');
+      }
+
+      return response.data || [];
+    },
+    enabled,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
 };

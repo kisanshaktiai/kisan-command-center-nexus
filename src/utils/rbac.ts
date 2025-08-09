@@ -1,82 +1,119 @@
 
-import { AuthState } from '@/types/auth';
+import { UserRole, Permission } from '@/types/enums';
 
-export type Role = 'super_admin' | 'platform_admin' | 'admin' | 'user';
-export type Permission = 
-  | 'tenant.create' 
-  | 'tenant.read' 
-  | 'tenant.update' 
-  | 'tenant.delete'
-  | 'user.create'
-  | 'user.read'
-  | 'user.update'
-  | 'user.delete'
-  | 'admin.create'
-  | 'admin.read'
-  | 'admin.update'
-  | 'admin.delete';
+export interface RBACContext {
+  userId: string;
+  userRole: UserRole;
+  tenantId?: string;
+  tenantRole?: UserRole;
+  permissions: Permission[];
+}
 
-const rolePermissions: Record<Role, Permission[]> = {
-  super_admin: [
-    'tenant.create', 'tenant.read', 'tenant.update', 'tenant.delete',
-    'user.create', 'user.read', 'user.update', 'user.delete',
-    'admin.create', 'admin.read', 'admin.update', 'admin.delete'
+const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  [UserRole.SUPER_ADMIN]: [
+    Permission.SYSTEM_ADMIN,
+    Permission.SYSTEM_CONFIG,
+    Permission.TENANT_CREATE,
+    Permission.TENANT_READ,
+    Permission.TENANT_UPDATE,
+    Permission.TENANT_DELETE,
+    Permission.USER_CREATE,
+    Permission.USER_READ,
+    Permission.USER_UPDATE,
+    Permission.USER_DELETE,
+    Permission.BILLING_ADMIN,
   ],
-  platform_admin: [
-    'tenant.create', 'tenant.read', 'tenant.update', 'tenant.delete',
-    'user.read', 'user.update',
-    'admin.read'
+  [UserRole.PLATFORM_ADMIN]: [
+    Permission.TENANT_READ,
+    Permission.TENANT_UPDATE,
+    Permission.USER_READ,
+    Permission.USER_UPDATE,
+    Permission.BILLING_READ,
+    Permission.BILLING_UPDATE,
   ],
-  admin: [
-    'tenant.read', 'tenant.update',
-    'user.create', 'user.read', 'user.update'
+  [UserRole.TENANT_ADMIN]: [
+    Permission.TENANT_READ,
+    Permission.TENANT_UPDATE,
+    Permission.USER_CREATE,
+    Permission.USER_READ,
+    Permission.USER_UPDATE,
+    Permission.USER_DELETE,
+    Permission.BILLING_READ,
   ],
-  user: [
-    'user.read'
-  ]
+  [UserRole.TENANT_USER]: [
+    Permission.USER_READ,
+  ],
+  [UserRole.FARMER]: [
+    Permission.USER_READ,
+  ],
+  [UserRole.DEALER]: [
+    Permission.USER_READ,
+    Permission.USER_UPDATE,
+  ],
 };
 
 export class RBACService {
-  static hasPermission(authState: AuthState, permission: Permission): boolean {
-    if (!authState.isAuthenticated || !authState.adminRole) {
-      return false;
-    }
+  static hasPermission(context: RBACContext, permission: Permission): boolean {
+    return context.permissions.includes(permission);
+  }
 
-    const userRole = authState.adminRole as Role;
-    const permissions = rolePermissions[userRole] || [];
+  static hasAnyPermission(context: RBACContext, permissions: Permission[]): boolean {
+    return permissions.some(permission => this.hasPermission(context, permission));
+  }
+
+  static hasAllPermissions(context: RBACContext, permissions: Permission[]): boolean {
+    return permissions.every(permission => this.hasPermission(context, permission));
+  }
+
+  static hasRole(context: RBACContext, roles: UserRole[]): boolean {
+    return roles.includes(context.userRole) || 
+           (context.tenantRole && roles.includes(context.tenantRole));
+  }
+
+  static getPermissionsForRole(role: UserRole): Permission[] {
+    return ROLE_PERMISSIONS[role] || [];
+  }
+
+  static buildContext(
+    userId: string, 
+    userRole: UserRole, 
+    tenantId?: string, 
+    tenantRole?: UserRole
+  ): RBACContext {
+    const basePermissions = this.getPermissionsForRole(userRole);
+    const tenantPermissions = tenantRole ? this.getPermissionsForRole(tenantRole) : [];
     
-    return permissions.includes(permission);
+    const allPermissions = [...new Set([...basePermissions, ...tenantPermissions])];
+    
+    return {
+      userId,
+      userRole,
+      tenantId,
+      tenantRole,
+      permissions: allPermissions
+    };
   }
 
-  static hasAnyPermission(authState: AuthState, permissions: Permission[]): boolean {
-    return permissions.some(permission => this.hasPermission(authState, permission));
-  }
-
-  static hasAllPermissions(authState: AuthState, permissions: Permission[]): boolean {
-    return permissions.every(permission => this.hasPermission(authState, permission));
-  }
-
-  static hasRole(authState: AuthState, roles: Role[]): boolean {
-    if (!authState.isAuthenticated || !authState.adminRole) {
-      return false;
+  static canAccessTenant(context: RBACContext, targetTenantId: string): boolean {
+    if (context.userRole === UserRole.SUPER_ADMIN) {
+      return true;
     }
-
-    return roles.includes(authState.adminRole as Role);
+    
+    if (context.userRole === UserRole.PLATFORM_ADMIN) {
+      return true;
+    }
+    
+    return context.tenantId === targetTenantId;
   }
 
-  static canAccessTenantManagement(authState: AuthState): boolean {
-    return this.hasAnyPermission(authState, ['tenant.read', 'tenant.create', 'tenant.update']);
+  static isSystemAdmin(context: RBACContext): boolean {
+    return this.hasRole(context, [UserRole.SUPER_ADMIN, UserRole.PLATFORM_ADMIN]);
   }
 
-  static canCreateTenant(authState: AuthState): boolean {
-    return this.hasPermission(authState, 'tenant.create');
-  }
-
-  static canEditTenant(authState: AuthState): boolean {
-    return this.hasPermission(authState, 'tenant.update');
-  }
-
-  static canDeleteTenant(authState: AuthState): boolean {
-    return this.hasPermission(authState, 'tenant.delete');
+  static isTenantAdmin(context: RBACContext): boolean {
+    return this.hasRole(context, [UserRole.TENANT_ADMIN]) || this.isSystemAdmin(context);
   }
 }
+
+// Export types and enums for use in other modules
+export { UserRole, Permission };
