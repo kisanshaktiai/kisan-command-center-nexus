@@ -1,4 +1,3 @@
-
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { supabase } from '@/integrations/supabase/client';
 import { CreateTenantDTO, UpdateTenantDTO, TenantDTO } from '@/data/types/tenant';
@@ -27,25 +26,33 @@ export class TenantApiService extends BaseService {
   private mapTenantFromDatabase(tenant: any): TenantDTO {
     // Helper function to validate and return tenant type
     const getTenantType = (value: any): TenantType => {
-      const validTypes: readonly TenantType[] = [
+      const validTypes = [
         'agri_company', 'dealer', 'ngo', 'government', 
         'university', 'sugar_factory', 'cooperative', 'insurance'
-      ];
+      ] as const;
       
-      if (typeof value === 'string' && (validTypes as readonly string[]).includes(value)) {
-        return value as TenantType;
+      if (typeof value === 'string') {
+        for (const type of validTypes) {
+          if (value === type) {
+            return type;
+          }
+        }
       }
       return 'agri_company';
     };
 
     // Helper function to validate and return tenant status
     const getTenantStatus = (value: any): TenantStatus => {
-      const validStatuses: readonly TenantStatus[] = [
+      const validStatuses = [
         'trial', 'active', 'suspended', 'cancelled', 'archived', 'pending_approval'
-      ];
+      ] as const;
       
-      if (typeof value === 'string' && (validStatuses as readonly string[]).includes(value)) {
-        return value as TenantStatus;
+      if (typeof value === 'string') {
+        for (const status of validStatuses) {
+          if (value === status) {
+            return status;
+          }
+        }
       }
       return 'trial';
     };
