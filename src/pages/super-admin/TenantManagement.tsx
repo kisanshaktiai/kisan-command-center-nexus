@@ -19,6 +19,7 @@ import { TenantForm } from '@/components/tenant/TenantForm';
 import { TenantListView } from '@/components/tenant/TenantListView';
 import { OptimizedMetricCard } from '@/components/ui/optimized-metric-card';
 import { TenantDisplayService } from '@/services/TenantDisplayService';
+import { TenantFormData } from '@/types/tenant';
 
 export default function TenantManagement() {
   const {
@@ -48,6 +49,17 @@ export default function TenantManagement() {
     console.log('View details for tenant:', tenant.id);
     // For now, just edit the tenant
     setSelectedTenant(tenant);
+  };
+
+  // Convert the handleCreateTenant to match TenantForm expectations
+  const handleCreateTenantForm = async (tenantData: TenantFormData): Promise<boolean> => {
+    return await handleCreateTenant();
+  };
+
+  // Convert the handleUpdateTenant to match TenantForm expectations
+  const handleUpdateTenantForm = async (tenantData: TenantFormData): Promise<boolean> => {
+    if (!selectedTenant) return false;
+    return await handleUpdateTenant(selectedTenant);
   };
 
   if (loading) {
@@ -204,21 +216,21 @@ export default function TenantManagement() {
         </TabsContent>
       </Tabs>
 
-      {/* Create/Edit Form */}
+      {/* Create Form */}
       {showCreateForm && (
         <TenantForm
-          onSave={handleCreateTenant}
+          mode="create"
+          onSubmit={handleCreateTenantForm}
           onCancel={() => setShowCreateForm(false)}
         />
       )}
       
+      {/* Edit Form */}
       {selectedTenant && (
         <TenantForm
+          mode="edit"
           initialData={selectedTenant}
-          onSave={(data: any) => {
-            handleUpdateTenant(selectedTenant);
-            setSelectedTenant(null);
-          }}
+          onSubmit={handleUpdateTenantForm}
           onCancel={() => setSelectedTenant(null)}
         />
       )}
