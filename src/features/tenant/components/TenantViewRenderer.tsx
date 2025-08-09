@@ -44,11 +44,10 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
     return (
       <TenantListView
         tenants={tenants}
-        formattedTenants={formattedTenants}
+        metrics={tenantMetrics}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onViewDetails={handleViewDetails}
-        tenantMetrics={tenantMetrics}
       />
     );
   }
