@@ -175,7 +175,7 @@ const TenantManagementPage: React.FC = () => {
           isOpen={isEditModalOpen}
           onClose={closeEditModal}
           tenant={editingTenant}
-          onSave={(data) => handleSaveTenant(editingTenant.id, { ...data })}
+          onSave={(data) => handleSaveTenant(editingTenant.id, data)}
           isSubmitting={isSubmitting}
         />
       )}

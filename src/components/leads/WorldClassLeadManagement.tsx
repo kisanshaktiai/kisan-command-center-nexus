@@ -42,7 +42,7 @@ const WorldClassLeadManagement: React.FC = () => {
       filtered = filtered.filter(lead => 
         lead.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        lead.organization_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
