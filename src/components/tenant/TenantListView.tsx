@@ -2,7 +2,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Building2, Eye, Play, Pause } from 'lucide-react';
+import { Edit, Trash2, Building2 } from 'lucide-react';
 import { Tenant } from '@/types/tenant';
 import { tenantService } from '@/services/tenantService';
 import { TenantMetrics } from '@/types/tenantView';
@@ -28,28 +28,6 @@ export const TenantListView: React.FC<TenantListViewProps> = ({
     return new Date(dateString).toLocaleDateString();
   };
 
-  const handleViewDetails = (e: React.MouseEvent, tenant: Tenant) => {
-    e.stopPropagation();
-    onViewDetails(tenant);
-  };
-
-  const handleEdit = (e: React.MouseEvent, tenant: Tenant) => {
-    e.stopPropagation();
-    onEdit(tenant);
-  };
-
-  const handleSuspendToggle = (e: React.MouseEvent, tenant: Tenant) => {
-    e.stopPropagation();
-    const isSuspended = tenant.status === 'suspended';
-    if (window.confirm(
-      isSuspended 
-        ? 'Are you sure you want to reactivate this tenant?' 
-        : 'Are you sure you want to suspend this tenant?'
-    )) {
-      onDelete(tenant.id);
-    }
-  };
-
   return (
     <div className="border rounded-lg overflow-hidden">
       <div className="bg-muted/50 px-4 py-3 border-b">
@@ -66,7 +44,6 @@ export const TenantListView: React.FC<TenantListViewProps> = ({
       <div className="divide-y">
         {tenants.map((tenant) => {
           const tenantMetrics = metrics?.[tenant.id];
-          const isSuspended = tenant.status === 'suspended';
           
           return (
             <div
@@ -129,29 +106,24 @@ export const TenantListView: React.FC<TenantListViewProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={(e) => handleViewDetails(e, tenant)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(tenant);
+                    }}
                     className="h-8 w-8 p-0"
-                    title="View Details"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => handleEdit(e, tenant)}
-                    className="h-8 w-8 p-0"
-                    title="Edit Tenant"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={(e) => handleSuspendToggle(e, tenant)}
-                    className={`h-8 w-8 p-0 ${isSuspended ? 'text-green-600 hover:text-green-700' : 'text-orange-600 hover:text-orange-700'}`}
-                    title={isSuspended ? 'Reactivate' : 'Suspend'}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(tenant.id);
+                    }}
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                   >
-                    {isSuspended ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>

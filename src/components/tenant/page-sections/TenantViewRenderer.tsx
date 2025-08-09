@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { TenantCardRefactured } from '@/components/tenant/TenantCardRefactored';
+import { TenantCardRefactored } from '@/components/tenant/TenantCardRefactored';
 import { TenantListView } from '@/components/tenant/TenantListView';
 import { TenantViewPreferences, TenantMetrics } from '@/types/tenantView';
 import { Tenant } from '@/types/tenant';
@@ -43,7 +43,7 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
           {tenants.map((tenant, index) => {
             const formattedData = formattedTenants[index];
             return (
-              <TenantCardRefactured
+              <TenantCardRefactored
                 key={tenant.id}
                 tenant={tenant}
                 formattedData={formattedData}
@@ -74,7 +74,7 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
           {tenants.map((tenant, index) => {
             const formattedData = formattedTenants[index];
             return (
-              <TenantCardRefactured
+              <TenantCardRefactored
                 key={tenant.id}
                 tenant={tenant}
                 formattedData={formattedData}
@@ -97,7 +97,7 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
           {tenants.map((tenant, index) => {
             const formattedData = formattedTenants[index];
             return (
-              <TenantCardRefactured
+              <TenantCardRefactored
                 key={tenant.id}
                 tenant={tenant}
                 formattedData={formattedData}
