@@ -60,6 +60,16 @@ interface OnboardingStatusResponse {
   steps?: OnboardingStep[];
 }
 
+type StepStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
+
+interface RpcResponse {
+  success: boolean;
+  error?: string;
+  step_id?: string;
+  new_status?: string;
+  workflow_updated?: boolean;
+}
+
 export default function TenantOnboarding() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<OnboardingWorkflow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string>('');
@@ -209,9 +219,9 @@ export default function TenantOnboarding() {
     }
   });
 
-  // Update step status mutation with corrected RPC call
+  // Update step status mutation with corrected types
   const updateStepMutation = useMutation({
-    mutationFn: async ({ stepId, status, stepData = {} }: { stepId: string; status: string; stepData?: Record<string, any> }) => {
+    mutationFn: async ({ stepId, status, stepData = {} }: { stepId: string; status: StepStatus; stepData?: Record<string, any> }) => {
       // Validate inputs
       if (!stepId || stepId.trim() === '') {
         throw new Error('Invalid step ID provided');
@@ -226,10 +236,10 @@ export default function TenantOnboarding() {
 
       console.log('Updating step:', { stepId, status, stepData: validStepData });
 
-      // Call the corrected RPC function - it will handle enum casting internally
+      // Call the RPC function
       const { data, error } = await supabase.rpc('advance_onboarding_step', {
         p_step_id: stepId,
-        p_new_status: status, // Pass as string - function will cast to enum
+        p_new_status: status, // Now properly typed as StepStatus
         p_step_data: validStepData
       });
       
@@ -238,13 +248,16 @@ export default function TenantOnboarding() {
         throw new Error(`Failed to update step: ${error.message}`);
       }
 
+      // Type assertion for the response
+      const response = data as RpcResponse;
+      
       // Check if the function returned an error in the data
-      if (data && typeof data === 'object' && data.success === false) {
-        throw new Error(data.error || 'Unknown error occurred');
+      if (response && typeof response === 'object' && response.success === false) {
+        throw new Error(response.error || 'Unknown error occurred');
       }
       
-      console.log('Step update result:', data);
-      return data;
+      console.log('Step update result:', response);
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-steps'] });
