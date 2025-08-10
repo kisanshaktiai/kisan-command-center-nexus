@@ -7265,9 +7265,7 @@ export type Database = {
         Returns: string
       }
       advance_onboarding_step: {
-        Args:
-          | { p_step_id: string; p_new_status: string }
-          | { p_step_id: string; p_new_status: string; p_step_data?: Json }
+        Args: { p_step_id: string; p_new_status: string; p_step_data?: Json }
         Returns: Json
       }
       archive_tenant_data: {

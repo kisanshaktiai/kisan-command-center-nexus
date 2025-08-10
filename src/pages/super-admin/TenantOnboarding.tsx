@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -138,13 +137,24 @@ export default function TenantOnboarding() {
   // Create onboarding workflow mutation
   const createWorkflowMutation = useMutation({
     mutationFn: async (tenantId: string) => {
-      // Use direct function call with proper typing
+      // Validate tenantId
+      if (!tenantId || tenantId.trim() === '') {
+        throw new Error('Invalid tenant ID provided');
+      }
+
+      console.log('Starting onboarding workflow for tenant:', tenantId);
+      
       const { data, error } = await supabase.rpc('start_onboarding_workflow' as any, {
         p_tenant_id: tenantId,
         p_force_new: false,
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('RPC error:', error);
+        throw new Error(`Failed to start workflow: ${error.message}`);
+      }
+      
+      console.log('Workflow creation result:', data);
       return data;
     },
     onSuccess: () => {
@@ -156,19 +166,33 @@ export default function TenantOnboarding() {
     },
     onError: (error: any) => {
       console.error('Error starting workflow:', error);
-      showError('Failed to start workflow: ' + error.message);
+      showError('Failed to start workflow', {
+        description: error.message || 'Please try again later or contact support if the problem persists.'
+      });
     }
   });
 
   // Restart workflow mutation
   const restartWorkflowMutation = useMutation({
     mutationFn: async (tenantId: string) => {
+      // Validate tenantId
+      if (!tenantId || tenantId.trim() === '') {
+        throw new Error('Invalid tenant ID provided');
+      }
+
+      console.log('Restarting onboarding workflow for tenant:', tenantId);
+      
       const { data, error } = await supabase.rpc('start_onboarding_workflow' as any, {
         p_tenant_id: tenantId,
         p_force_new: true,
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('RPC error:', error);
+        throw new Error(`Failed to restart workflow: ${error.message}`);
+      }
+      
+      console.log('Workflow restart result:', data);
       return data;
     },
     onSuccess: () => {
@@ -179,19 +203,47 @@ export default function TenantOnboarding() {
     },
     onError: (error: any) => {
       console.error('Error restarting workflow:', error);
-      showError('Failed to restart workflow: ' + error.message);
+      showError('Failed to restart workflow', {
+        description: error.message || 'Please try again later or contact support if the problem persists.'
+      });
     }
   });
 
-  // Update step status mutation
+  // Update step status mutation with improved parameter handling
   const updateStepMutation = useMutation({
-    mutationFn: async ({ stepId, status }: { stepId: string; status: string }) => {
+    mutationFn: async ({ stepId, status, stepData = {} }: { stepId: string; status: string; stepData?: Record<string, any> }) => {
+      // Validate inputs
+      if (!stepId || stepId.trim() === '') {
+        throw new Error('Invalid step ID provided');
+      }
+      
+      if (!status || status.trim() === '') {
+        throw new Error('Invalid status provided');
+      }
+
+      // Ensure stepData is a valid JSON object
+      const validStepData = stepData && typeof stepData === 'object' ? stepData : {};
+
+      console.log('Updating step:', { stepId, status, stepData: validStepData });
+
+      // Always pass all three parameters to avoid function overload ambiguity
       const { data, error } = await supabase.rpc('advance_onboarding_step' as any, {
         p_step_id: stepId,
-        p_new_status: status
+        p_new_status: status,
+        p_step_data: validStepData
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('RPC error:', error);
+        throw new Error(`Failed to update step: ${error.message}`);
+      }
+
+      // Check if the function returned an error in the data
+      if (data && typeof data === 'object' && data.success === false) {
+        throw new Error(data.error || 'Unknown error occurred');
+      }
+      
+      console.log('Step update result:', data);
       return data;
     },
     onSuccess: () => {
@@ -201,7 +253,9 @@ export default function TenantOnboarding() {
     },
     onError: (error: any) => {
       console.error('Error updating step:', error);
-      showError('Failed to update step: ' + error.message);
+      showError('Failed to update step', {
+        description: error.message || 'Please try again later or contact support if the problem persists.'
+      });
     }
   });
 
@@ -514,7 +568,11 @@ export default function TenantOnboarding() {
                         {canCompleteStep(step) && (
                           <Button
                             size="sm"
-                            onClick={() => updateStepMutation.mutate({ stepId: step.id, status: 'completed' })}
+                            onClick={() => updateStepMutation.mutate({ 
+                              stepId: step.id, 
+                              status: 'completed',
+                              stepData: { completed_by: 'admin', completed_at: new Date().toISOString() }
+                            })}
                             disabled={updateStepMutation.isPending}
                           >
                             Complete
@@ -524,7 +582,11 @@ export default function TenantOnboarding() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => updateStepMutation.mutate({ stepId: step.id, status: 'in_progress' })}
+                            onClick={() => updateStepMutation.mutate({ 
+                              stepId: step.id, 
+                              status: 'in_progress',
+                              stepData: { started_by: 'admin', started_at: new Date().toISOString() }
+                            })}
                             disabled={updateStepMutation.isPending}
                           >
                             Start
