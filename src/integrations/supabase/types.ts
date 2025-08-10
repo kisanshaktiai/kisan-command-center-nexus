@@ -7265,7 +7265,11 @@ export type Database = {
         Returns: string
       }
       advance_onboarding_step: {
-        Args: { p_step_id: string; p_new_status: string; p_step_data?: Json }
+        Args: {
+          p_step_id: string
+          p_new_status: Database["public"]["Enums"]["onboarding_step_status"]
+          p_step_data?: Json
+        }
         Returns: Json
       }
       archive_tenant_data: {
@@ -8351,6 +8355,10 @@ export type Database = {
       set_limit: {
         Args: { "": number }
         Returns: number
+      }
+      set_onboarding_step_data: {
+        Args: { p_step_id: string; p_step_data: Json; p_new_status?: string }
+        Returns: Json
       }
       show_limit: {
         Args: Record<PropertyKey, never>

@@ -209,7 +209,7 @@ export default function TenantOnboarding() {
     }
   });
 
-  // Update step status mutation with improved parameter handling
+  // Update step status mutation with corrected RPC call
   const updateStepMutation = useMutation({
     mutationFn: async ({ stepId, status, stepData = {} }: { stepId: string; status: string; stepData?: Record<string, any> }) => {
       // Validate inputs
@@ -226,10 +226,10 @@ export default function TenantOnboarding() {
 
       console.log('Updating step:', { stepId, status, stepData: validStepData });
 
-      // Always pass all three parameters to avoid function overload ambiguity
-      const { data, error } = await supabase.rpc('advance_onboarding_step' as any, {
+      // Call the corrected RPC function - it will handle enum casting internally
+      const { data, error } = await supabase.rpc('advance_onboarding_step', {
         p_step_id: stepId,
-        p_new_status: status,
+        p_new_status: status, // Pass as string - function will cast to enum
         p_step_data: validStepData
       });
       
