@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -196,8 +195,8 @@ export default function TenantOnboarding() {
       
       if (error) throw error;
       
-      // Type assertion for the RPC response
-      const response = data as RpcResponse;
+      // Safe type conversion from Json to RpcResponse
+      const response = data as unknown as RpcResponse;
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to update step');
