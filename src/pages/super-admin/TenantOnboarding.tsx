@@ -113,75 +113,61 @@ export default function TenantOnboarding() {
     }
   });
 
-  // Create onboarding workflow mutation
+  // Create onboarding workflow mutation - now uses start_onboarding_workflow RPC
   const createWorkflowMutation = useMutation({
     mutationFn: async (tenantId: string) => {
-      // Get tenant details for template selection
-      const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .select('type, subscription_plan')
-        .eq('id', tenantId)
-        .single();
+      const { data, error } = await supabase.rpc('start_onboarding_workflow', {
+        p_tenant_id: tenantId,
+        p_force_new: false,
+      });
+      if (error) throw error;
 
-      if (tenantError) throw tenantError;
-
-      // Get template steps from database function
-      const { data: templateData, error: templateError } = await supabase
-        .rpc('get_onboarding_template', {
-          tenant_type: tenant.type,
-          subscription_plan: tenant.subscription_plan
-        });
-
-      if (templateError) throw templateError;
-
-      const steps = Array.isArray(templateData) ? templateData : [];
-      
-      // Create workflow
-      const { data: workflow, error: workflowError } = await supabase
-        .from('onboarding_workflows')
-        .insert([{
-          tenant_id: tenantId,
-          current_step: 1,
-          total_steps: steps.length,
-          status: 'in_progress',
-          metadata: { tenant_type: tenant.type, subscription_plan: tenant.subscription_plan }
-        }])
-        .select()
-        .single();
-      
-      if (workflowError) throw workflowError;
-
-      // Create steps based on template
-      const stepsData = steps.map((step: any, index: number) => ({
-        workflow_id: workflow.id,
-        step_number: step.step || index + 1,
-        step_name: step.name,
-        step_status: (step.step || index + 1) === 1 ? 'in_progress' as const : 'pending' as const,
-        step_data: {
-          description: step.description,
-          required: step.required || true,
-          estimated_time: step.estimated_time || 30
-        },
-        validation_errors: []
-      }));
-
-      const { error: stepsError } = await supabase
-        .from('onboarding_steps')
-        .insert(stepsData);
-      
-      if (stepsError) throw stepsError;
-      
-      return workflow;
+      const response = data as unknown as { success: boolean; workflow_id?: string; error?: string; reused?: boolean; total_steps?: number };
+      if (!response?.success) {
+        throw new Error(response?.error || 'Failed to start onboarding workflow');
+      }
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-workflows'] });
       queryClient.invalidateQueries({ queryKey: ['available-tenants'] });
-      showSuccess('Onboarding workflow created successfully');
+      showSuccess('Onboarding workflow started successfully');
       setSelectedTenant('');
     },
     onError: (error: any) => {
-      console.error('Error creating workflow:', error);
-      showError('Failed to create workflow: ' + error.message);
+      console.error('Error starting workflow:', error);
+      showError('Failed to start workflow: ' + error.message);
+    }
+  });
+
+  // Restart (force new) workflow mutation for a tenant
+  const restartWorkflowMutation = useMutation({
+    mutationFn: async (tenantId: string) => {
+      const { data, error } = await supabase.rpc('start_onboarding_workflow', {
+        p_tenant_id: tenantId,
+        p_force_new: true,
+      });
+      if (error) throw error;
+
+      const response = data as unknown as { success: boolean; workflow_id?: string; error?: string; reused?: boolean; total_steps?: number };
+      if (!response?.success) {
+        throw new Error(response?.error || 'Failed to restart onboarding workflow');
+      }
+      return response;
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['onboarding-workflows'] });
+      queryClient.invalidateQueries({ queryKey: ['onboarding-steps'] });
+      showSuccess('New onboarding workflow started');
+      // Optionally focus the newly created workflow
+      if (res?.workflow_id) {
+        // Refetch workflows and let user pick; for now, close the details dialog
+        setSelectedWorkflow(null);
+      }
+    },
+    onError: (error: any) => {
+      console.error('Error restarting workflow:', error);
+      showError('Failed to restart workflow: ' + error.message);
     }
   });
 
@@ -419,8 +405,21 @@ export default function TenantOnboarding() {
         <Dialog open={!!selectedWorkflow} onOpenChange={() => setSelectedWorkflow(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{selectedWorkflow.tenants?.name || 'Unknown Tenant'} - Onboarding Progress</DialogTitle>
-              <DialogDescription>Track and manage onboarding steps</DialogDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <DialogTitle>{selectedWorkflow.tenants?.name || 'Unknown Tenant'} - Onboarding Progress</DialogTitle>
+                  <DialogDescription>Track and manage onboarding steps</DialogDescription>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => restartWorkflowMutation.mutate(selectedWorkflow.tenant_id)}
+                  disabled={restartWorkflowMutation.isPending}
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  {restartWorkflowMutation.isPending ? 'Restarting...' : 'Restart'}
+                </Button>
+              </div>
             </DialogHeader>
             <div className="space-y-4">
               <div className="bg-muted p-4 rounded-lg">
