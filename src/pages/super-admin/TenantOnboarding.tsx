@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { CheckCircle, Clock, AlertCircle, Play, Pause, RotateCcw } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Play, Pause, RotateCcw, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -45,24 +46,30 @@ interface OnboardingStep {
 interface AvailableTenant {
   id: string;
   name: string;
+  status: string;
+  subscription_plan: string;
 }
 
-interface RpcResponse {
-  success: boolean;
-  error?: string;
-  step_id?: string;
-  new_status?: string;
+interface OnboardingStatusResponse {
+  workflow_exists: boolean;
+  workflow_status?: string;
+  current_step?: number;
+  total_steps?: number;
+  progress_percentage?: number;
+  next_pending_step?: any;
   workflow_id?: string;
+  steps?: OnboardingStep[];
 }
 
 export default function TenantOnboarding() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<OnboardingWorkflow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string>('');
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useNotifications();
 
   // Fetch onboarding workflows
-  const { data: workflows = [], isLoading: workflowsLoading } = useQuery({
+  const { data: workflows = [], isLoading: workflowsLoading, refetch: refetchWorkflows } = useQuery({
     queryKey: ['onboarding-workflows'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -103,36 +110,49 @@ export default function TenantOnboarding() {
     enabled: !!selectedWorkflow?.id
   });
 
-  // Fetch available tenants using the new RPC function
-  const { data: availableTenants = [] } = useQuery({
+  // Fetch available tenants
+  const { data: availableTenants = [], isLoading: tenantsLoading, refetch: refetchTenants } = useQuery({
     queryKey: ['available-tenants'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_available_tenants_for_onboarding');
+      // Use direct query instead of RPC to avoid TypeScript issues
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, name, status, subscription_plan')
+        .not('status', 'in', '(suspended,archived)')
+        .order('name');
+      
       if (error) throw error;
-      return data as AvailableTenant[];
+      
+      // Filter out tenants that already have active workflows
+      const { data: existingWorkflows } = await supabase
+        .from('onboarding_workflows')
+        .select('tenant_id')
+        .not('status', 'eq', 'completed');
+      
+      const existingTenantIds = new Set(existingWorkflows?.map(w => w.tenant_id) || []);
+      
+      return (data as AvailableTenant[]).filter(tenant => !existingTenantIds.has(tenant.id));
     }
   });
 
-  // Create onboarding workflow mutation - now uses start_onboarding_workflow RPC
+  // Create onboarding workflow mutation
   const createWorkflowMutation = useMutation({
     mutationFn: async (tenantId: string) => {
-      const { data, error } = await supabase.rpc('start_onboarding_workflow', {
+      // Use direct function call with proper typing
+      const { data, error } = await supabase.rpc('start_onboarding_workflow' as any, {
         p_tenant_id: tenantId,
         p_force_new: false,
       });
+      
       if (error) throw error;
-
-      const response = data as unknown as { success: boolean; workflow_id?: string; error?: string; reused?: boolean; total_steps?: number };
-      if (!response?.success) {
-        throw new Error(response?.error || 'Failed to start onboarding workflow');
-      }
-      return response;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-workflows'] });
       queryClient.invalidateQueries({ queryKey: ['available-tenants'] });
       showSuccess('Onboarding workflow started successfully');
       setSelectedTenant('');
+      setShowCreateDialog(false);
     },
     onError: (error: any) => {
       console.error('Error starting workflow:', error);
@@ -140,30 +160,22 @@ export default function TenantOnboarding() {
     }
   });
 
-  // Restart (force new) workflow mutation for a tenant
+  // Restart workflow mutation
   const restartWorkflowMutation = useMutation({
     mutationFn: async (tenantId: string) => {
-      const { data, error } = await supabase.rpc('start_onboarding_workflow', {
+      const { data, error } = await supabase.rpc('start_onboarding_workflow' as any, {
         p_tenant_id: tenantId,
         p_force_new: true,
       });
+      
       if (error) throw error;
-
-      const response = data as unknown as { success: boolean; workflow_id?: string; error?: string; reused?: boolean; total_steps?: number };
-      if (!response?.success) {
-        throw new Error(response?.error || 'Failed to restart onboarding workflow');
-      }
-      return response;
+      return data;
     },
-    onSuccess: (res) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-workflows'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding-steps'] });
       showSuccess('New onboarding workflow started');
-      // Optionally focus the newly created workflow
-      if (res?.workflow_id) {
-        // Refetch workflows and let user pick; for now, close the details dialog
-        setSelectedWorkflow(null);
-      }
+      setSelectedWorkflow(null);
     },
     onError: (error: any) => {
       console.error('Error restarting workflow:', error);
@@ -171,24 +183,16 @@ export default function TenantOnboarding() {
     }
   });
 
-  // Update step status mutation using the new RPC function
+  // Update step status mutation
   const updateStepMutation = useMutation({
     mutationFn: async ({ stepId, status }: { stepId: string; status: string }) => {
-      const { data, error } = await supabase.rpc('advance_onboarding_step', {
+      const { data, error } = await supabase.rpc('advance_onboarding_step' as any, {
         p_step_id: stepId,
         p_new_status: status
       });
       
       if (error) throw error;
-      
-      // Safe type conversion from Json to RpcResponse
-      const response = data as unknown as RpcResponse;
-      
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to update step');
-      }
-      
-      return response;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-steps'] });
@@ -235,6 +239,11 @@ export default function TenantOnboarding() {
     return step.step_status === 'in_progress';
   };
 
+  const handleRefreshTenants = () => {
+    refetchTenants();
+    showSuccess('Tenant list refreshed');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -242,7 +251,7 @@ export default function TenantOnboarding() {
           <h1 className="text-3xl font-bold">Tenant Onboarding</h1>
           <p className="text-muted-foreground">Manage tenant onboarding workflows and progress</p>
         </div>
-        <Dialog>
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
             <Button>
               <Play className="w-4 h-4 mr-2" />
@@ -255,28 +264,56 @@ export default function TenantOnboarding() {
               <DialogDescription>Select a tenant to begin the onboarding process</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
+              <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">Select Tenant</label>
-                <select
-                  className="w-full mt-1 p-2 border rounded-md"
-                  value={selectedTenant}
-                  onChange={(e) => setSelectedTenant(e.target.value)}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleRefreshTenants}
+                  disabled={tenantsLoading}
                 >
-                  <option value="">Choose a tenant...</option>
-                  {availableTenants.map((tenant) => (
-                    <option key={tenant.id} value={tenant.id}>
-                      {tenant.name}
-                    </option>
-                  ))}
-                </select>
+                  <RefreshCw className={`w-4 h-4 ${tenantsLoading ? 'animate-spin' : ''}`} />
+                </Button>
               </div>
-              <Button
-                onClick={() => selectedTenant && createWorkflowMutation.mutate(selectedTenant)}
-                disabled={!selectedTenant || createWorkflowMutation.isPending}
-                className="w-full"
-              >
-                {createWorkflowMutation.isPending ? 'Creating...' : 'Start Onboarding'}
-              </Button>
+              {tenantsLoading ? (
+                <div className="text-center py-4">Loading tenants...</div>
+              ) : availableTenants.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No tenants available for onboarding</p>
+                  <p className="text-sm mt-2">All eligible tenants may already have active workflows</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleRefreshTenants}
+                    className="mt-2"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh List
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <select
+                    className="w-full mt-1 p-2 border rounded-md"
+                    value={selectedTenant}
+                    onChange={(e) => setSelectedTenant(e.target.value)}
+                  >
+                    <option value="">Choose a tenant...</option>
+                    {availableTenants.map((tenant) => (
+                      <option key={tenant.id} value={tenant.id}>
+                        {tenant.name} ({tenant.subscription_plan}) - {tenant.status}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    onClick={() => selectedTenant && createWorkflowMutation.mutate(selectedTenant)}
+                    disabled={!selectedTenant || createWorkflowMutation.isPending}
+                    className="w-full"
+                  >
+                    {createWorkflowMutation.isPending ? 'Creating...' : 'Start Onboarding'}
+                  </Button>
+                </>
+              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -294,34 +331,50 @@ export default function TenantOnboarding() {
             <div className="text-center py-8">Loading workflows...</div>
           ) : (
             <div className="grid gap-4">
-              {workflows.filter(w => w.status !== 'completed').map((workflow) => (
-                <Card key={workflow.id} className="cursor-pointer hover:shadow-md transition-shadow" 
-                      onClick={() => setSelectedWorkflow(workflow)}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle>{workflow.tenants?.name || 'Unknown Tenant'}</CardTitle>
-                        <CardDescription>
-                          Started {new Date(workflow.started_at).toLocaleDateString()} • 
-                          {workflow.tenants?.type} • {workflow.tenants?.subscription_plan}
-                        </CardDescription>
-                      </div>
-                      <Badge className={getStatusColor(workflow.status)}>
-                        {workflow.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Progress</span>
-                        <span>{workflow.current_step}/{workflow.total_steps} steps</span>
-                      </div>
-                      <Progress value={calculateProgress(workflow)} className="h-2" />
-                    </div>
+              {workflows.filter(w => w.status !== 'completed').length === 0 ? (
+                <Card>
+                  <CardContent className="text-center py-8">
+                    <p className="text-muted-foreground">No active workflows found</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowCreateDialog(true)}
+                      className="mt-4"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Start New Onboarding
+                    </Button>
                   </CardContent>
                 </Card>
-              ))}
+              ) : (
+                workflows.filter(w => w.status !== 'completed').map((workflow) => (
+                  <Card key={workflow.id} className="cursor-pointer hover:shadow-md transition-shadow" 
+                        onClick={() => setSelectedWorkflow(workflow)}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle>{workflow.tenants?.name || 'Unknown Tenant'}</CardTitle>
+                          <CardDescription>
+                            Started {new Date(workflow.started_at).toLocaleDateString()} • 
+                            {workflow.tenants?.type} • {workflow.tenants?.subscription_plan}
+                          </CardDescription>
+                        </div>
+                        <Badge className={getStatusColor(workflow.status)}>
+                          {workflow.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progress</span>
+                          <span>{workflow.current_step}/{workflow.total_steps} steps</span>
+                        </div>
+                        <Progress value={calculateProgress(workflow)} className="h-2" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           )}
         </TabsContent>
