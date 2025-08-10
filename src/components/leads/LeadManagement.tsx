@@ -62,6 +62,16 @@ export const LeadManagement: React.FC<LeadManagementProps> = ({ className = '' }
     setShowConvertDialog(true);
   };
 
+  const handleImportSuccess = () => {
+    setShowImportDialog(false);
+    refetch();
+  };
+
+  const handleCreateSuccess = () => {
+    setShowCreateDialog(false);
+    refetch();
+  };
+
   return (
     <div className={cn('space-y-6', className)}>
       <div className="flex items-center justify-between">
@@ -121,21 +131,14 @@ export const LeadManagement: React.FC<LeadManagementProps> = ({ className = '' }
       />
 
       <LeadCreateDialog
-        open={showCreateDialog}
+        isOpen={showCreateDialog}
         onClose={() => setShowCreateDialog(false)}
-        onSuccess={() => {
-          setShowCreateDialog(false);
-          refetch();
-        }}
+        onSuccess={handleCreateSuccess}
       />
 
       <LeadImportDialog
         open={showImportDialog}
         onClose={() => setShowImportDialog(false)}
-        onSuccess={() => {
-          setShowImportDialog(false);
-          refetch();
-        }}
       />
 
       <LeadColumnManager
