@@ -70,6 +70,11 @@ interface RpcResponse {
   workflow_updated?: boolean;
 }
 
+// Type guard to check if response is a valid RpcResponse
+function isRpcResponse(data: any): data is RpcResponse {
+  return data && typeof data === 'object' && typeof data.success === 'boolean';
+}
+
 export default function TenantOnboarding() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<OnboardingWorkflow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string>('');
@@ -248,16 +253,19 @@ export default function TenantOnboarding() {
         throw new Error(`Failed to update step: ${error.message}`);
       }
 
-      // Type assertion for the response
-      const response = data as RpcResponse;
-      
-      // Check if the function returned an error in the data
-      if (response && typeof response === 'object' && response.success === false) {
-        throw new Error(response.error || 'Unknown error occurred');
+      // Safe type conversion with type guard
+      if (!isRpcResponse(data)) {
+        console.error('Unexpected response format:', data);
+        throw new Error('Unexpected response format from server');
       }
       
-      console.log('Step update result:', response);
-      return response;
+      // Check if the function returned an error in the data
+      if (data.success === false) {
+        throw new Error(data.error || 'Unknown error occurred');
+      }
+      
+      console.log('Step update result:', data);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-steps'] });
