@@ -167,9 +167,10 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
         {/* Bulk Actions */}
         {selectedLeads.length > 0 && (
           <BulkLeadActions
-            selectedLeadIds={selectedLeads}
+            selectedCount={selectedLeads.length}
+            onAutoAssign={() => {}}
+            onCalculateScore={() => {}}
             onClearSelection={() => onSelectionChange([])}
-            onRefresh={onRefresh}
           />
         )}
 
@@ -234,17 +235,13 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
 
       {/* Dialogs */}
       <LeadAssignmentDialog
-        isOpen={assignmentDialogOpen}
+        open={assignmentDialogOpen}
         onClose={() => {
           setAssignmentDialogOpen(false);
           setSelectedLeadForAction(null);
         }}
-        leadIds={selectedLeadForAction ? [selectedLeadForAction] : []}
-        onSuccess={() => {
-          setAssignmentDialogOpen(false);
-          setSelectedLeadForAction(null);
-          onRefresh?.();
-        }}
+        leadId={selectedLeadForAction}
+        leadName={selectedLead?.name}
       />
 
       <ConvertLeadDialog
