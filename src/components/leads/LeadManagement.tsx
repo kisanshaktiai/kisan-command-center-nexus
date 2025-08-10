@@ -131,7 +131,7 @@ export const LeadManagement: React.FC<LeadManagementProps> = ({ className = '' }
       />
 
       <LeadCreateDialog
-        isOpen={showCreateDialog}
+        open={showCreateDialog}
         onClose={() => setShowCreateDialog(false)}
         onSuccess={handleCreateSuccess}
       />
