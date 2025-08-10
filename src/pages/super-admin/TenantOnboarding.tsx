@@ -25,6 +25,8 @@ interface OnboardingWorkflow {
   tenants?: {
     name: string;
     status: string;
+    type: string;
+    subscription_plan: string;
   };
 }
 
@@ -41,14 +43,10 @@ interface OnboardingStep {
   updated_at: string;
 }
 
-const ONBOARDING_STEPS = [
-  { number: 1, name: 'Business Verification', description: 'Verify GST, PAN, and business documents' },
-  { number: 2, name: 'Subscription Plan', description: 'Select and configure subscription plan' },
-  { number: 3, name: 'Branding Configuration', description: 'Set up logo, colors, and brand identity' },
-  { number: 4, name: 'Feature Selection', description: 'Choose features and set limits' },
-  { number: 5, name: 'Data Import', description: 'Import existing farmer and product data' },
-  { number: 6, name: 'Team Invites', description: 'Invite team members and set roles' }
-];
+interface AvailableTenant {
+  id: string;
+  name: string;
+}
 
 export default function TenantOnboarding() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<OnboardingWorkflow | null>(null);
@@ -63,7 +61,7 @@ export default function TenantOnboarding() {
         .from('onboarding_workflows')
         .select(`
           *,
-          tenants(name, status)
+          tenants(name, status, type, subscription_plan)
         `)
         .order('created_at', { ascending: false });
       
@@ -72,7 +70,7 @@ export default function TenantOnboarding() {
     }
   });
 
-  // Fetch onboarding steps
+  // Fetch onboarding steps for selected workflow
   const { data: steps = [], isLoading: stepsLoading } = useQuery({
     queryKey: ['onboarding-steps', selectedWorkflow?.id],
     queryFn: async () => {
@@ -86,7 +84,6 @@ export default function TenantOnboarding() {
       
       if (error) throw error;
       
-      // Transform validation_errors from Json to any[]
       return data.map(step => ({
         ...step,
         validation_errors: Array.isArray(step.validation_errors) ? 
@@ -98,52 +95,65 @@ export default function TenantOnboarding() {
     enabled: !!selectedWorkflow?.id
   });
 
-  // Fetch tenants without workflows
+  // Fetch available tenants using the new RPC function
   const { data: availableTenants = [] } = useQuery({
     queryKey: ['available-tenants'],
     queryFn: async () => {
-      const { data: workflowData } = await supabase
-        .from('onboarding_workflows')
-        .select('tenant_id');
-      
-      const existingTenantIds = workflowData?.map(w => w.tenant_id) || [];
-      
-      const { data, error } = await supabase
-        .from('tenants')
-        .select('id, name')
-        .not('id', 'in', existingTenantIds.length > 0 ? `(${existingTenantIds.join(',')})` : '()')
-        .eq('status', 'active');
-      
+      const { data, error } = await supabase.rpc('get_available_tenants_for_onboarding');
       if (error) throw error;
-      return data;
+      return data as AvailableTenant[];
     }
   });
 
   // Create onboarding workflow mutation
   const createWorkflowMutation = useMutation({
     mutationFn: async (tenantId: string) => {
+      // Get tenant details for template selection
+      const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .select('type, subscription_plan')
+        .eq('id', tenantId)
+        .single();
+
+      if (tenantError) throw tenantError;
+
+      // Get template steps from database function
+      const { data: templateData, error: templateError } = await supabase
+        .rpc('get_onboarding_template', {
+          tenant_type: tenant.type,
+          subscription_plan: tenant.subscription_plan
+        });
+
+      if (templateError) throw templateError;
+
+      const steps = Array.isArray(templateData) ? templateData : [];
+      
       // Create workflow
       const { data: workflow, error: workflowError } = await supabase
         .from('onboarding_workflows')
         .insert([{
           tenant_id: tenantId,
           current_step: 1,
-          total_steps: 6,
+          total_steps: steps.length,
           status: 'in_progress',
-          metadata: {}
+          metadata: { tenant_type: tenant.type, subscription_plan: tenant.subscription_plan }
         }])
         .select()
         .single();
       
       if (workflowError) throw workflowError;
 
-      // Create steps
-      const stepsData = ONBOARDING_STEPS.map(step => ({
+      // Create steps based on template
+      const stepsData = steps.map((step: any, index: number) => ({
         workflow_id: workflow.id,
-        step_number: step.number,
+        step_number: step.step || index + 1,
         step_name: step.name,
-        step_status: step.number === 1 ? 'in_progress' as const : 'pending' as const,
-        step_data: {},
+        step_status: (step.step || index + 1) === 1 ? 'in_progress' as const : 'pending' as const,
+        step_data: {
+          description: step.description,
+          required: step.required || true,
+          estimated_time: step.estimated_time || 30
+        },
         validation_errors: []
       }));
 
@@ -162,31 +172,34 @@ export default function TenantOnboarding() {
       setSelectedTenant('');
     },
     onError: (error: any) => {
+      console.error('Error creating workflow:', error);
       toast.error('Failed to create workflow: ' + error.message);
     }
   });
 
-  // Update step status mutation
+  // Update step status mutation using the new RPC function
   const updateStepMutation = useMutation({
     mutationFn: async ({ stepId, status }: { stepId: string; status: string }) => {
-      const { data, error } = await supabase
-        .from('onboarding_steps')
-        .update({ 
-          step_status: status as any,
-          completed_at: status === 'completed' ? new Date().toISOString() : null
-        })
-        .eq('id', stepId)
-        .select()
-        .single();
+      const { data, error } = await supabase.rpc('advance_onboarding_step', {
+        p_step_id: stepId,
+        p_new_status: status
+      });
       
       if (error) throw error;
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to update step');
+      }
+      
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-steps'] });
+      queryClient.invalidateQueries({ queryKey: ['onboarding-workflows'] });
       toast.success('Step updated successfully');
     },
     onError: (error: any) => {
+      console.error('Error updating step:', error);
       toast.error('Failed to update step: ' + error.message);
     }
   });
@@ -211,7 +224,18 @@ export default function TenantOnboarding() {
   };
 
   const calculateProgress = (workflow: OnboardingWorkflow) => {
+    if (workflow.total_steps === 0) return 0;
     return Math.round((workflow.current_step / workflow.total_steps) * 100);
+  };
+
+  const canStartStep = (step: OnboardingStep) => {
+    return step.step_status === 'pending' && 
+           (step.step_number === 1 || 
+            steps.some(s => s.step_number === step.step_number - 1 && s.step_status === 'completed'));
+  };
+
+  const canCompleteStep = (step: OnboardingStep) => {
+    return step.step_status === 'in_progress';
   };
 
   return (
@@ -281,7 +305,8 @@ export default function TenantOnboarding() {
                       <div>
                         <CardTitle>{workflow.tenants?.name || 'Unknown Tenant'}</CardTitle>
                         <CardDescription>
-                          Started {new Date(workflow.started_at).toLocaleDateString()}
+                          Started {new Date(workflow.started_at).toLocaleDateString()} • 
+                          {workflow.tenants?.type} • {workflow.tenants?.subscription_plan}
                         </CardDescription>
                       </div>
                       <Badge className={getStatusColor(workflow.status)}>
@@ -359,7 +384,19 @@ export default function TenantOnboarding() {
                 <CardTitle>Average Duration</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">5.2 days</div>
+                <div className="text-3xl font-bold">
+                  {(() => {
+                    const completedWorkflows = workflows.filter(w => w.completed_at && w.started_at);
+                    if (completedWorkflows.length === 0) return 'N/A';
+                    
+                    const totalDays = completedWorkflows.reduce((acc, w) => {
+                      const days = Math.ceil((new Date(w.completed_at!).getTime() - new Date(w.started_at).getTime()) / (1000 * 60 * 60 * 24));
+                      return acc + days;
+                    }, 0);
+                    
+                    return Math.round(totalDays / completedWorkflows.length) + ' days';
+                  })()}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -375,6 +412,16 @@ export default function TenantOnboarding() {
               <DialogDescription>Track and manage onboarding steps</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              <div className="bg-muted p-4 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium">Overall Progress</span>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedWorkflow.current_step}/{selectedWorkflow.total_steps} steps
+                  </span>
+                </div>
+                <Progress value={calculateProgress(selectedWorkflow)} className="h-2" />
+              </div>
+              
               {stepsLoading ? (
                 <div className="text-center py-4">Loading steps...</div>
               ) : (
@@ -388,27 +435,34 @@ export default function TenantOnboarding() {
                         <div>
                           <h4 className="font-medium">{step.step_name}</h4>
                           <p className="text-sm text-muted-foreground">
-                            {ONBOARDING_STEPS.find(s => s.number === step.step_number)?.description}
+                            {step.step_data?.description || 'No description available'}
                           </p>
+                          {step.step_data?.estimated_time && (
+                            <p className="text-xs text-muted-foreground">
+                              Estimated time: {step.step_data.estimated_time} minutes
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge className={getStatusColor(step.step_status)}>
                           {step.step_status}
                         </Badge>
-                        {step.step_status === 'in_progress' && (
+                        {canCompleteStep(step) && (
                           <Button
                             size="sm"
                             onClick={() => updateStepMutation.mutate({ stepId: step.id, status: 'completed' })}
+                            disabled={updateStepMutation.isPending}
                           >
                             Complete
                           </Button>
                         )}
-                        {step.step_status === 'pending' && (
+                        {canStartStep(step) && (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => updateStepMutation.mutate({ stepId: step.id, status: 'in_progress' })}
+                            disabled={updateStepMutation.isPending}
                           >
                             Start
                           </Button>

@@ -7264,6 +7264,10 @@ export type Database = {
             }
         Returns: string
       }
+      advance_onboarding_step: {
+        Args: { p_step_id: string; p_new_status: string }
+        Returns: Json
+      }
       archive_tenant_data: {
         Args: {
           p_tenant_id: string
@@ -7471,6 +7475,10 @@ export type Database = {
       }
       enablelongtransactions: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      ensure_onboarding_workflow: {
+        Args: { p_tenant_id: string }
         Returns: string
       }
       equals: {
@@ -7940,6 +7948,13 @@ export type Database = {
       geomfromewkt: {
         Args: { "": string }
         Returns: unknown
+      }
+      get_available_tenants_for_onboarding: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          name: string
+        }[]
       }
       get_current_admin_role: {
         Args: Record<PropertyKey, never>
