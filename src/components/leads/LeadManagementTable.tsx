@@ -197,7 +197,7 @@ export const LeadManagementTable: React.FC<LeadManagementTableProps> = ({
       </div>
 
       <ConvertLeadDialog
-        open={showConvertDialog}
+        isOpen={showConvertDialog}
         onClose={() => setShowConvertDialog(false)}
         lead={selectedLead}
         onSuccess={() => {

@@ -105,7 +105,7 @@ export const LeadStatusSelect: React.FC<LeadStatusSelectProps> = ({
       </div>
 
       <ConvertLeadDialog
-        open={showConvertDialog}
+        isOpen={showConvertDialog}
         onClose={handleConvertDialogClose}
         lead={lead}
         onSuccess={handleConvertSuccess}
