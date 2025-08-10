@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
@@ -287,13 +288,25 @@ export const useConvertLeadToTenant = () => {
           // Create a structured error with the code for better handling
           const error = new Error(data.error || 'Conversion failed');
           (error as any).code = data.code;
+          
+          // Handle specific error cases with user-friendly messages
+          if (data.code === 'LEAD_NOT_QUALIFIED') {
+            throw new Error('Only qualified leads can be converted to tenants. Please qualify the lead first.');
+          } else if (data.code === 'LEAD_ALREADY_CONVERTED') {
+            throw new Error('This lead has already been converted to a tenant.');
+          } else if (data.code === 'SLUG_CONFLICT') {
+            throw new Error('The tenant slug is already taken. Please choose a different one.');
+          } else if (data.code === 'LEAD_NOT_FOUND') {
+            throw new Error('Lead not found. Please refresh and try again.');
+          }
+          
           throw error;
         }
 
         console.log('Lead conversion successful:', data);
         
         showSuccess('Lead converted to tenant successfully', {
-          description: `${tenantName} has been created and the lead has been marked as converted.`,
+          description: `${tenantName} has been created and the lead has been marked as converted. Welcome email sent to ${adminEmail}.`,
         });
         
         return data;

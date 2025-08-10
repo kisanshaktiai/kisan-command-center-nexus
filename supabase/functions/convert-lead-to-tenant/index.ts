@@ -1,4 +1,5 @@
 
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -76,7 +77,7 @@ serve(async (req) => {
         p_lead_id: leadId,
         p_tenant_name: tenantName,
         p_tenant_slug: tenantSlug,
-        p_subscription_plan: normalizedPlan, // Use normalized enum value
+        p_subscription_plan: normalizedPlan,
         p_admin_email: adminEmail,
         p_admin_name: adminName
       }
@@ -119,6 +120,9 @@ serve(async (req) => {
       switch (conversionResult.code) {
         case 'LEAD_NOT_FOUND':
           statusCode = 404;
+          break;
+        case 'LEAD_NOT_QUALIFIED':
+          statusCode = 422; // Unprocessable Entity
           break;
         case 'LEAD_ALREADY_CONVERTED':
         case 'SLUG_CONFLICT':
@@ -352,3 +356,4 @@ serve(async (req) => {
     });
   }
 });
+
