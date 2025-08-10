@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -241,7 +240,7 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
           setSelectedLeadForAction(null);
         }}
         leadId={selectedLeadForAction}
-        leadName={selectedLead?.name}
+        leadName={selectedLead?.contact_name}
       />
 
       <ConvertLeadDialog
