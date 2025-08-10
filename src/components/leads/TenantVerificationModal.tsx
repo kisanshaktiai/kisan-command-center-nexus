@@ -9,6 +9,7 @@ import { useConvertLeadToTenant } from '@/hooks/useLeadManagement';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/leads';
 import type { Tenant } from '@/types/tenant';
+import { convertDatabaseTenant } from '@/types/tenant';
 
 interface TenantVerificationModalProps {
   isOpen: boolean;
@@ -53,13 +54,17 @@ export const TenantVerificationModal: React.FC<TenantVerificationModalProps> = (
 
     setIsLoading(true);
     try {
-      const { data: tenant, error } = await supabase
+      const { data: tenantData, error } = await supabase
         .from('tenants')
-        .select('*')
+        .select(`
+          *,
+          tenant_branding (*),
+          tenant_features (*)
+        `)
         .eq('id', lead.converted_tenant_id)
         .single();
 
-      if (error || !tenant) {
+      if (error || !tenantData) {
         setVerificationData({
           isVerified: false,
           tenant: null,
@@ -68,6 +73,9 @@ export const TenantVerificationModal: React.FC<TenantVerificationModalProps> = (
         });
         return;
       }
+
+      // Convert database tenant to proper Tenant type
+      const tenant = convertDatabaseTenant(tenantData);
 
       // Check for discrepancies
       const discrepancies: string[] = [];
