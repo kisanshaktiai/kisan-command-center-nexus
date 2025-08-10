@@ -1,8 +1,8 @@
+
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { navItems } from "./nav-items";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import SuperAdmin from "./pages/SuperAdmin";
@@ -19,18 +19,13 @@ import DataManagement from "./pages/super-admin/DataManagement";
 import NotFound from "./pages/NotFound";
 import React from 'react';
 
-// Initialize react-query client
-// Documentation: https://tanstack.com/query/v4/
-// Usage:
-// 1. Import `useQuery` and `useMutation` hooks from `@tanstack/react-query`
-// 2. Use `useQuery` to fetch data and `useMutation` to update data
-// 3. Wrap your app with `QueryClientProvider` and pass the `queryClient` instance
-
+// Initialize react-query client with proper configuration
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
       retry: 1,
+      refetchOnWindowFocus: false,
     },
   },
 });
