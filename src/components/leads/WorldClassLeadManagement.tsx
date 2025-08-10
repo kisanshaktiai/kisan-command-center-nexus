@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,7 +36,7 @@ import { LeadSettingsDialog } from './LeadSettingsDialog';
 import type { Lead } from '@/types/leads';
 
 export const WorldClassLeadManagement: React.FC = () => {
-  const { data: leads = [], isLoading, error } = useLeads();
+  const { data: leads = [], isLoading, error, refetch } = useLeads();
   const { data: analytics } = useLeadAnalytics();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Lead['status'] | 'all'>('all');
@@ -388,6 +387,7 @@ export const WorldClassLeadManagement: React.FC = () => {
               isLoading={isLoading}
               selectedLeads={selectedLeads}
               onSelectionChange={setSelectedLeads}
+              onRefresh={() => refetch()}
             />
           </TabsContent>
 

@@ -1,295 +1,157 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  DragDropContext, 
-  Droppable, 
-  Draggable,
-  DropResult 
-} from '@hello-pangea/dnd';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Building, 
-  Calendar, 
-  UserCheck, 
-  ArrowRight,
-  MessageSquare,
-  Target,
-  Zap,
-  Clock,
-  AlertTriangle
+  Users, 
+  UserPlus, 
+  Clock, 
+  CheckCircle, 
+  TrendingUp, 
+  XCircle,
+  Filter,
+  Search,
+  MoreVertical
 } from 'lucide-react';
-import { useUpdateLeadStatus } from '@/hooks/useLeadManagement';
-import { LeadCard } from './LeadCard';
-import { StatusTransitionDialog } from './StatusTransitionDialog';
+import { LeadCard } from './EnhancedLeadCard';
+import { LeadAssignmentDialog } from './LeadAssignmentDialog';
+import { ConvertLeadDialog } from './ConvertLeadDialog';
+import { BulkLeadActions } from './BulkLeadActions';
 import type { Lead } from '@/types/leads';
-
-interface KanbanLeadCardProps {
-  lead: Lead;
-  isSelected: boolean;
-  onSelect: () => void;
-  isDragging: boolean;
-  onStatusUpdate: (leadId: string, status: Lead['status'], notes?: string) => Promise<void>;
-}
-
-const KanbanLeadCard: React.FC<KanbanLeadCardProps> = ({
-  lead,
-  isSelected,
-  onSelect,
-  isDragging,
-  onStatusUpdate,
-}) => {
-  const getPriorityColor = (priority: Lead['priority']) => {
-    switch (priority) {
-      case 'urgent': return 'text-red-600 bg-red-50 border-red-200';
-      case 'high': return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'medium': return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'low': return 'text-gray-600 bg-gray-50 border-gray-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  return (
-    <Card className={`transition-all duration-200 ${isSelected ? 'ring-2 ring-blue-500' : ''} ${isDragging ? 'shadow-xl' : ''}`}>
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={onSelect}
-            />
-            <div>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <User className="h-4 w-4" />
-                {lead.contact_name}
-              </CardTitle>
-              <Badge 
-                variant="outline" 
-                className={`${getPriorityColor(lead.priority)} text-xs mt-1`}
-              >
-                {lead.priority}
-              </Badge>
-            </div>
-          </div>
-          <div className="text-xs text-gray-500">
-            {new Date(lead.created_at).toLocaleDateString()}
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="pt-0 space-y-2">
-        <div className="flex items-center gap-2 text-xs">
-          <Mail className="h-3 w-3 text-gray-500" />
-          <span className="truncate">{lead.email}</span>
-        </div>
-        
-        {lead.phone && (
-          <div className="flex items-center gap-2 text-xs">
-            <Phone className="h-3 w-3 text-gray-500" />
-            <span>{lead.phone}</span>
-          </div>
-        )}
-        
-        {lead.organization_name && (
-          <div className="flex items-center gap-2 text-xs">
-            <Building className="h-3 w-3 text-gray-500" />
-            <span className="truncate">{lead.organization_name}</span>
-          </div>
-        )}
-
-        {lead.qualification_score > 0 && (
-          <div className="flex items-center gap-1">
-            <Target className="h-3 w-3 text-blue-500" />
-            <span className="text-xs text-blue-600">Score: {lead.qualification_score}</span>
-          </div>
-        )}
-
-        {lead.assigned_admin && (
-          <div className="text-xs bg-blue-50 p-1 rounded">
-            <UserCheck className="h-3 w-3 inline mr-1" />
-            {lead.assigned_admin.full_name}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
 
 interface EnhancedLeadKanbanProps {
   leads: Lead[];
   isLoading: boolean;
   selectedLeads: string[];
-  onSelectionChange: (selectedLeads: string[]) => void;
+  onSelectionChange: (leadIds: string[]) => void;
+  onRefresh?: () => void;
 }
 
-const statusColumns = [
-  { 
-    id: 'new' as const, 
-    title: 'New Leads', 
-    color: 'bg-blue-50 border-blue-200',
-    headerColor: 'bg-blue-500',
-    icon: AlertTriangle,
-    description: 'Fresh leads awaiting assignment'
+const statusConfig = {
+  new: {
+    title: 'New Leads',
+    icon: Users,
+    color: 'bg-blue-500',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    textColor: 'text-blue-900'
   },
-  { 
-    id: 'assigned' as const, 
-    title: 'Assigned', 
-    color: 'bg-yellow-50 border-yellow-200',
-    headerColor: 'bg-yellow-500',
-    icon: UserCheck,
-    description: 'Leads assigned to team members'
+  assigned: {
+    title: 'Assigned',
+    icon: UserPlus,
+    color: 'bg-purple-500',
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-200',
+    textColor: 'text-purple-900'
   },
-  { 
-    id: 'contacted' as const, 
-    title: 'Contacted', 
-    color: 'bg-orange-50 border-orange-200',
-    headerColor: 'bg-orange-500',
-    icon: MessageSquare,
-    description: 'Initial contact has been made'
-  },
-  { 
-    id: 'qualified' as const, 
-    title: 'Qualified', 
-    color: 'bg-green-50 border-green-200',
-    headerColor: 'bg-green-500',
-    icon: Target,
-    description: 'Leads meeting qualification criteria'
-  },
-  { 
-    id: 'converted' as const, 
-    title: 'Converted', 
-    color: 'bg-emerald-50 border-emerald-200',
-    headerColor: 'bg-emerald-500',
-    icon: Zap,
-    description: 'Successfully converted to tenants'
-  },
-  { 
-    id: 'rejected' as const, 
-    title: 'Rejected', 
-    color: 'bg-red-50 border-red-200',
-    headerColor: 'bg-red-500',
+  contacted: {
+    title: 'Contacted',
     icon: Clock,
-    description: 'Leads not suitable for conversion'
+    color: 'bg-yellow-500',
+    bgColor: 'bg-yellow-50',
+    borderColor: 'border-yellow-200',
+    textColor: 'text-yellow-900'
   },
-];
+  qualified: {
+    title: 'Qualified',
+    icon: TrendingUp,
+    color: 'bg-green-500',
+    bgColor: 'bg-green-50',
+    borderColor: 'border-green-200',
+    textColor: 'text-green-900'
+  },
+  converted: {
+    title: 'Converted',
+    icon: CheckCircle,
+    color: 'bg-emerald-500',
+    bgColor: 'bg-emerald-50',
+    borderColor: 'border-emerald-200',
+    textColor: 'text-emerald-900'
+  },
+  rejected: {
+    title: 'Rejected',
+    icon: XCircle,
+    color: 'bg-red-500',
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-200',
+    textColor: 'text-red-900'
+  }
+};
 
 export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
   leads,
   isLoading,
   selectedLeads,
   onSelectionChange,
+  onRefresh
 }) => {
-  const [transitionDialog, setTransitionDialog] = useState<{
-    open: boolean;
-    lead?: Lead;
-    newStatus?: Lead['status'];
-  }>({ open: false });
-  
-  const updateStatus = useUpdateLeadStatus();
+  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [selectedLeadForAction, setSelectedLeadForAction] = useState<string | null>(null);
+  const [expandedLeads, setExpandedLeads] = useState<Set<string>>(new Set());
 
   // Group leads by status
-  const leadsByStatus = statusColumns.reduce((acc, column) => {
-    acc[column.id] = leads.filter(lead => lead.status === column.id);
-    return acc;
-  }, {} as Record<Lead['status'], Lead[]>);
+  const leadsByStatus = useMemo(() => {
+    const grouped: Record<Lead['status'], Lead[]> = {
+      new: [],
+      assigned: [],
+      contacted: [],
+      qualified: [],
+      converted: [],
+      rejected: []
+    };
 
-  const handleDragEnd = (result: DropResult) => {
-    console.log('Drag end result:', result);
-    
-    if (!result.destination) {
-      console.log('No destination, drag cancelled');
-      return;
-    }
-
-    const { source, destination, draggableId } = result;
-    
-    // If dropped in the same position, do nothing
-    if (source.droppableId === destination.droppableId && source.index === destination.index) {
-      console.log('Dropped in same position, no change needed');
-      return;
-    }
-
-    const newStatus = destination.droppableId as Lead['status'];
-    const lead = leads.find(l => l.id === draggableId);
-    
-    if (!lead) {
-      console.error('Lead not found:', draggableId);
-      return;
-    }
-    
-    if (lead.status === newStatus) {
-      console.log('Status unchanged');
-      return;
-    }
-
-    console.log(`Moving lead ${lead.id} from ${lead.status} to ${newStatus}`);
-
-    // Open confirmation dialog for status change
-    setTransitionDialog({
-      open: true,
-      lead,
-      newStatus,
+    leads.forEach(lead => {
+      grouped[lead.status].push(lead);
     });
+
+    return grouped;
+  }, [leads]);
+
+  const handleReassignLead = (leadId: string) => {
+    setSelectedLeadForAction(leadId);
+    setAssignmentDialogOpen(true);
   };
 
-  const handleStatusConfirm = async (notes: string) => {
-    if (!transitionDialog.lead || !transitionDialog.newStatus) return;
+  const handleConvertLead = (leadId: string) => {
+    setSelectedLeadForAction(leadId);
+    setConvertDialogOpen(true);
+  };
 
-    try {
-      console.log('Confirming status change:', {
-        leadId: transitionDialog.lead.id,
-        newStatus: transitionDialog.newStatus,
-        notes
-      });
-
-      await updateStatus.mutateAsync({
-        leadId: transitionDialog.lead.id,
-        status: transitionDialog.newStatus,
-        notes,
-      });
-      
-      setTransitionDialog({ open: false });
-    } catch (error) {
-      console.error('Status update failed:', error);
+  const handleToggleExpanded = (leadId: string) => {
+    const newExpanded = new Set(expandedLeads);
+    if (newExpanded.has(leadId)) {
+      newExpanded.delete(leadId);
+    } else {
+      newExpanded.add(leadId);
     }
+    setExpandedLeads(newExpanded);
   };
 
-  const handleStatusUpdate = async (leadId: string, status: Lead['status'], notes?: string): Promise<void> => {
-    try {
-      console.log('Direct status update:', { leadId, status, notes });
-      await updateStatus.mutateAsync({ leadId, status, notes });
-    } catch (error) {
-      console.error('Status update failed:', error);
-      throw error;
-    }
-  };
-
-  const toggleLeadSelection = (leadId: string) => {
-    const isSelected = selectedLeads.includes(leadId);
-    if (isSelected) {
+  const handleLeadSelection = (leadId: string) => {
+    if (selectedLeads.includes(leadId)) {
       onSelectionChange(selectedLeads.filter(id => id !== leadId));
     } else {
       onSelectionChange([...selectedLeads, leadId]);
     }
   };
 
+  const selectedLead = selectedLeadForAction ? leads.find(l => l.id === selectedLeadForAction) : null;
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-        {statusColumns.map((column) => (
-          <Card key={column.id} className="animate-pulse">
+        {Object.keys(statusConfig).map((status) => (
+          <Card key={status} className="h-96">
             <CardHeader className="pb-3">
-              <div className="h-6 bg-muted rounded"></div>
+              <div className="animate-pulse bg-gray-200 h-6 rounded"></div>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <div key={i} className="h-32 bg-muted rounded"></div>
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse bg-gray-100 h-32 rounded"></div>
                 ))}
               </div>
             </CardContent>
@@ -301,93 +163,102 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
 
   return (
     <>
-      <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="space-y-6">
+        {/* Bulk Actions */}
+        {selectedLeads.length > 0 && (
+          <BulkLeadActions
+            selectedLeadIds={selectedLeads}
+            onClearSelection={() => onSelectionChange([])}
+            onRefresh={onRefresh}
+          />
+        )}
+
+        {/* Kanban Board */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-          {statusColumns.map((column) => {
-            const columnLeads = leadsByStatus[column.id] || [];
-            const IconComponent = column.icon;
-            
+          {Object.entries(statusConfig).map(([status, config]) => {
+            const statusLeads = leadsByStatus[status as Lead['status']];
+            const IconComponent = config.icon;
+
             return (
-              <Card key={column.id} className={`${column.color} border-2 min-h-[600px]`}>
-                <CardHeader className={`${column.headerColor} text-white pb-3 rounded-t-lg`}>
-                  <CardTitle className="text-sm flex items-center gap-2 font-medium">
-                    <IconComponent className="h-4 w-4" />
-                    {column.title}
-                    <Badge variant="secondary" className="ml-auto bg-white/20 text-white text-xs">
-                      {columnLeads.length}
+              <Card key={status} className={`${config.borderColor} border-2 min-h-[400px] flex flex-col`}>
+                <CardHeader className={`${config.bgColor} pb-4`}>
+                  <CardTitle className={`flex items-center justify-between ${config.textColor}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${config.color} text-white`}>
+                        <IconComponent className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-sm">{config.title}</div>
+                        <div className="text-xs opacity-70">
+                          {statusLeads.length} lead{statusLeads.length !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="ml-2">
+                      {statusLeads.length}
                     </Badge>
                   </CardTitle>
-                  <p className="text-xs opacity-90">{column.description}</p>
                 </CardHeader>
 
-                <Droppable droppableId={column.id}>
-                  {(provided, snapshot) => (
-                    <CardContent 
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={`p-3 min-h-[500px] transition-colors ${
-                        snapshot.isDraggingOver ? 'bg-white/50' : ''
-                      }`}
-                    >
-                      <div className="space-y-3">
-                        {columnLeads.map((lead, index) => (
-                          <Draggable 
-                            key={lead.id} 
-                            draggableId={lead.id} 
-                            index={index}
-                            isDragDisabled={lead.status === 'converted'}
-                          >
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={`transform transition-all duration-200 ${
-                                  snapshot.isDragging 
-                                    ? 'rotate-2 scale-105 shadow-xl z-50' 
-                                    : 'hover:scale-102 hover:shadow-md'
-                                }`}
-                                style={{
-                                  ...provided.draggableProps.style,
-                                  cursor: lead.status === 'converted' ? 'not-allowed' : 'grab',
-                                }}
-                              >
-                                <KanbanLeadCard
-                                  lead={lead}
-                                  isSelected={selectedLeads.includes(lead.id)}
-                                  onSelect={() => toggleLeadSelection(lead.id)}
-                                  isDragging={snapshot.isDragging}
-                                  onStatusUpdate={handleStatusUpdate}
-                                />
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                        
-                        {columnLeads.length === 0 && (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <IconComponent className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">No leads in {column.title.toLowerCase()}</p>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  )}
-                </Droppable>
+                <CardContent className="flex-1 p-4">
+                  <ScrollArea className="h-full">
+                    <div className="space-y-3">
+                      {statusLeads.map((lead) => (
+                        <LeadCard
+                          key={lead.id}
+                          lead={lead}
+                          onReassign={handleReassignLead}
+                          onConvert={handleConvertLead}
+                          isSelected={selectedLeads.includes(lead.id)}
+                          onSelect={() => handleLeadSelection(lead.id)}
+                          expanded={expandedLeads.has(lead.id)}
+                          onToggleExpanded={() => handleToggleExpanded(lead.id)}
+                          onRefresh={onRefresh}
+                        />
+                      ))}
+                      
+                      {statusLeads.length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          <div className="text-4xl mb-2">📋</div>
+                          <p className="text-sm">No leads in this status</p>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
               </Card>
             );
           })}
         </div>
-      </DragDropContext>
+      </div>
 
-      <StatusTransitionDialog
-        open={transitionDialog.open}
-        onClose={() => setTransitionDialog({ open: false })}
-        lead={transitionDialog.lead}
-        newStatus={transitionDialog.newStatus!}
-        onConfirm={handleStatusConfirm}
-        isLoading={updateStatus.isPending}
+      {/* Dialogs */}
+      <LeadAssignmentDialog
+        isOpen={assignmentDialogOpen}
+        onClose={() => {
+          setAssignmentDialogOpen(false);
+          setSelectedLeadForAction(null);
+        }}
+        leadIds={selectedLeadForAction ? [selectedLeadForAction] : []}
+        onSuccess={() => {
+          setAssignmentDialogOpen(false);
+          setSelectedLeadForAction(null);
+          onRefresh?.();
+        }}
+      />
+
+      <ConvertLeadDialog
+        isOpen={convertDialogOpen}
+        onClose={() => {
+          setConvertDialogOpen(false);
+          setSelectedLeadForAction(null);
+        }}
+        lead={selectedLead}
+        onSuccess={() => {
+          setConvertDialogOpen(false);
+          setSelectedLeadForAction(null);
+          onRefresh?.();
+        }}
       />
     </>
   );
