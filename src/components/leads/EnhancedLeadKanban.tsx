@@ -25,9 +25,100 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useUpdateLeadStatus } from '@/hooks/useLeadManagement';
-import { EnhancedLeadCard } from './EnhancedLeadCard';
+import { LeadCard } from './LeadCard';
 import { StatusTransitionDialog } from './StatusTransitionDialog';
 import type { Lead } from '@/types/leads';
+
+interface KanbanLeadCardProps {
+  lead: Lead;
+  isSelected: boolean;
+  onSelect: () => void;
+  isDragging: boolean;
+  onStatusUpdate: (leadId: string, status: Lead['status'], notes?: string) => Promise<void>;
+}
+
+const KanbanLeadCard: React.FC<KanbanLeadCardProps> = ({
+  lead,
+  isSelected,
+  onSelect,
+  isDragging,
+  onStatusUpdate,
+}) => {
+  const getPriorityColor = (priority: Lead['priority']) => {
+    switch (priority) {
+      case 'urgent': return 'text-red-600 bg-red-50 border-red-200';
+      case 'high': return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'medium': return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'low': return 'text-gray-600 bg-gray-50 border-gray-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
+  return (
+    <Card className={`transition-all duration-200 ${isSelected ? 'ring-2 ring-blue-500' : ''} ${isDragging ? 'shadow-xl' : ''}`}>
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={onSelect}
+            />
+            <div>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <User className="h-4 w-4" />
+                {lead.contact_name}
+              </CardTitle>
+              <Badge 
+                variant="outline" 
+                className={`${getPriorityColor(lead.priority)} text-xs mt-1`}
+              >
+                {lead.priority}
+              </Badge>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            {new Date(lead.created_at).toLocaleDateString()}
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="pt-0 space-y-2">
+        <div className="flex items-center gap-2 text-xs">
+          <Mail className="h-3 w-3 text-gray-500" />
+          <span className="truncate">{lead.email}</span>
+        </div>
+        
+        {lead.phone && (
+          <div className="flex items-center gap-2 text-xs">
+            <Phone className="h-3 w-3 text-gray-500" />
+            <span>{lead.phone}</span>
+          </div>
+        )}
+        
+        {lead.organization_name && (
+          <div className="flex items-center gap-2 text-xs">
+            <Building className="h-3 w-3 text-gray-500" />
+            <span className="truncate">{lead.organization_name}</span>
+          </div>
+        )}
+
+        {lead.qualification_score > 0 && (
+          <div className="flex items-center gap-1">
+            <Target className="h-3 w-3 text-blue-500" />
+            <span className="text-xs text-blue-600">Score: {lead.qualification_score}</span>
+          </div>
+        )}
+
+        {lead.assigned_admin && (
+          <div className="text-xs bg-blue-50 p-1 rounded">
+            <UserCheck className="h-3 w-3 inline mr-1" />
+            {lead.assigned_admin.full_name}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 interface EnhancedLeadKanbanProps {
   leads: Lead[];
@@ -261,7 +352,7 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
                                   cursor: lead.status === 'converted' ? 'not-allowed' : 'grab',
                                 }}
                               >
-                                <EnhancedLeadCard
+                                <KanbanLeadCard
                                   lead={lead}
                                   isSelected={selectedLeads.includes(lead.id)}
                                   onSelect={() => toggleLeadSelection(lead.id)}

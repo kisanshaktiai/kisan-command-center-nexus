@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   Table,
@@ -122,13 +123,19 @@ export const LeadManagement: React.FC<LeadManagementProps> = ({ className = '' }
       <LeadCreateDialog
         open={showCreateDialog}
         onClose={() => setShowCreateDialog(false)}
-        onSuccess={refetch}
+        onSuccess={() => {
+          setShowCreateDialog(false);
+          refetch();
+        }}
       />
 
       <LeadImportDialog
         open={showImportDialog}
         onClose={() => setShowImportDialog(false)}
-        onSuccess={refetch}
+        onSuccess={() => {
+          setShowImportDialog(false);
+          refetch();
+        }}
       />
 
       <LeadColumnManager
