@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { CheckCircle, Clock, AlertCircle, Play, Pause, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { useNotifications } from '@/hooks/useNotifications';
 
 interface OnboardingWorkflow {
   id: string;
@@ -48,10 +48,19 @@ interface AvailableTenant {
   name: string;
 }
 
+interface RpcResponse {
+  success: boolean;
+  error?: string;
+  step_id?: string;
+  new_status?: string;
+  workflow_id?: string;
+}
+
 export default function TenantOnboarding() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<OnboardingWorkflow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string>('');
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useNotifications();
 
   // Fetch onboarding workflows
   const { data: workflows = [], isLoading: workflowsLoading } = useQuery({
@@ -168,12 +177,12 @@ export default function TenantOnboarding() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-workflows'] });
       queryClient.invalidateQueries({ queryKey: ['available-tenants'] });
-      toast.success('Onboarding workflow created successfully');
+      showSuccess('Onboarding workflow created successfully');
       setSelectedTenant('');
     },
     onError: (error: any) => {
       console.error('Error creating workflow:', error);
-      toast.error('Failed to create workflow: ' + error.message);
+      showError('Failed to create workflow: ' + error.message);
     }
   });
 
@@ -187,20 +196,23 @@ export default function TenantOnboarding() {
       
       if (error) throw error;
       
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to update step');
+      // Type assertion for the RPC response
+      const response = data as RpcResponse;
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update step');
       }
       
-      return data;
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-steps'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding-workflows'] });
-      toast.success('Step updated successfully');
+      showSuccess('Step updated successfully');
     },
     onError: (error: any) => {
       console.error('Error updating step:', error);
-      toast.error('Failed to update step: ' + error.message);
+      showError('Failed to update step: ' + error.message);
     }
   });
 
