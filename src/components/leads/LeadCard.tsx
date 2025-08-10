@@ -1,243 +1,230 @@
 
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
 import { 
   User, 
   Mail, 
   Phone, 
   Building, 
   Calendar, 
-  UserCheck, 
-  ArrowRight,
-  MessageSquare,
-  Tag,
-  Trophy,
-  Target
+  Star,
+  MoreHorizontal,
+  Eye,
+  Edit,
+  UserPlus,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react';
-import { LeadTagManager } from './LeadTagManager';
-import { EnhancedLeadStatusSelect } from './EnhancedLeadStatusSelect';
-import { LeadWorkflowGuide } from './LeadWorkflowGuide';
-import { LeadActivityTimeline } from './LeadActivityTimeline';
-import { useUpdateLeadStatus } from '@/hooks/useLeadManagement';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { TenantVerificationModal } from './TenantVerificationModal';
 import type { Lead } from '@/types/leads';
 
 interface LeadCardProps {
   lead: Lead;
-  onReassign: (leadId: string) => void;
-  onConvert: (leadId: string) => void;
-  isSelected?: boolean;
-  onSelect?: () => void;
-  expanded?: boolean;
-  onToggleExpanded?: () => void;
+  onViewDetails?: (lead: Lead) => void;
+  onEdit?: (lead: Lead) => void;
+  onConvert?: (lead: Lead) => void;
+  onRefresh?: () => void;
 }
 
 export const LeadCard: React.FC<LeadCardProps> = ({
   lead,
-  onReassign,
+  onViewDetails,
+  onEdit,
   onConvert,
-  isSelected = false,
-  onSelect,
-  expanded = false,
-  onToggleExpanded,
+  onRefresh
 }) => {
-  const updateStatus = useUpdateLeadStatus();
+  const [showTenantVerification, setShowTenantVerification] = useState(false);
 
-  const getPriorityColor = (priority: Lead['priority']) => {
+  const getStatusColor = (status: Lead['status']) => {
+    switch (status) {
+      case 'new':
+        return 'bg-blue-100 text-blue-800';
+      case 'assigned':
+        return 'bg-purple-100 text-purple-800';
+      case 'contacted':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'qualified':
+        return 'bg-green-100 text-green-800';
+      case 'converted':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getPriorityIcon = (priority: Lead['priority']) => {
+    const className = "h-4 w-4";
     switch (priority) {
-      case 'urgent': return 'text-red-600 bg-red-50 border-red-200';
-      case 'high': return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'medium': return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'low': return 'text-gray-600 bg-gray-50 border-gray-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+      case 'urgent':
+        return <Star className={`${className} text-red-500 fill-red-500`} />;
+      case 'high':
+        return <Star className={`${className} text-orange-500 fill-orange-500`} />;
+      case 'medium':
+        return <Star className={`${className} text-yellow-500`} />;
+      case 'low':
+        return <Star className={`${className} text-gray-400`} />;
+      default:
+        return <Star className={`${className} text-gray-400`} />;
     }
   };
 
-  const canConvert = lead.status === 'qualified';
-
-  const handleStatusUpdate = async (leadId: string, newStatus: Lead['status'], notes?: string) => {
-    try {
-      console.log('LeadCard: Handling status update:', { leadId, newStatus, notes });
-      await updateStatus.mutateAsync({ 
-        leadId, 
-        status: newStatus,
-        notes: notes || `Status updated to ${newStatus}` 
-      });
-    } catch (error) {
-      console.error('LeadCard: Failed to update lead status:', error);
-      throw error;
+  const handleTenantInfoClick = () => {
+    if (lead.status === 'converted') {
+      setShowTenantVerification(true);
     }
   };
 
-  const handleConvertLead = (leadId: string) => {
-    console.log('LeadCard: Handling lead conversion for:', leadId);
-    onConvert(leadId);
+  const handleConversionSuccess = () => {
+    onRefresh?.();
+    setShowTenantVerification(false);
   };
 
   return (
-    <Card className={`transition-all duration-200 ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            {onSelect && (
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={onSelect}
-              />
-            )}
-            <div>
+    <>
+      <Card className="h-full flex flex-col hover:shadow-md transition-shadow">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
               <CardTitle className="text-lg flex items-center gap-2">
-                <User className="h-5 w-5" />
+                <User className="h-5 w-5 text-muted-foreground" />
                 {lead.contact_name}
               </CardTitle>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge 
-                  variant="outline" 
-                  className={getPriorityColor(lead.priority)}
-                >
-                  {lead.priority} priority
-                </Badge>
-                {lead.qualification_score > 0 && (
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Target className="h-3 w-3" />
-                    Score: {lead.qualification_score}
-                  </Badge>
-                )}
-              </div>
+              {lead.organization_name && (
+                <CardDescription className="flex items-center gap-1 mt-1">
+                  <Building className="h-4 w-4" />
+                  {lead.organization_name}
+                </CardDescription>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {getPriorityIcon(lead.priority)}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onViewDetails?.(lead)}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onEdit?.(lead)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Lead
+                  </DropdownMenuItem>
+                  {lead.status === 'qualified' && (
+                    <DropdownMenuItem onClick={() => onConvert?.(lead)}>
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Convert to Tenant
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-          <div className="text-sm text-gray-500">
-            {new Date(lead.created_at).toLocaleDateString()}
-          </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* Contact Information */}
-        <div className="space-y-2">
+        <CardContent className="flex-1 space-y-3">
           <div className="flex items-center gap-2 text-sm">
-            <Mail className="h-4 w-4 text-gray-500" />
-            <a href={`mailto:${lead.email}`} className="text-blue-600 hover:underline">
-              {lead.email}
-            </a>
+            <Mail className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">{lead.email}</span>
           </div>
+
           {lead.phone && (
             <div className="flex items-center gap-2 text-sm">
-              <Phone className="h-4 w-4 text-gray-500" />
-              <a href={`tel:${lead.phone}`} className="text-blue-600 hover:underline">
-                {lead.phone}
-              </a>
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">{lead.phone}</span>
             </div>
           )}
-          {lead.organization_name && (
-            <div className="flex items-center gap-2 text-sm">
-              <Building className="h-4 w-4 text-gray-500" />
-              <span>{lead.organization_name}</span>
-            </div>
-          )}
-        </div>
 
-        {/* Lead Tags */}
-        <div>
-          <LeadTagManager leadId={lead.id} className="mt-2" />
-        </div>
-
-        {/* Assignment Info */}
-        {lead.assigned_admin && (
-          <div className="flex items-center gap-2 text-sm bg-blue-50 p-2 rounded">
-            <UserCheck className="h-4 w-4 text-blue-600" />
-            <span className="text-blue-700">
-              Assigned to: {lead.assigned_admin.full_name}
+          <div className="flex items-center gap-2 text-sm">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">
+              Created: {new Date(lead.created_at).toLocaleDateString()}
             </span>
-            {lead.assigned_at && (
-              <span className="text-blue-600 text-xs">
-                ({new Date(lead.assigned_at).toLocaleDateString()})
-              </span>
-            )}
           </div>
-        )}
 
-        {/* Source */}
-        {lead.source && (
-          <div className="text-sm text-gray-600">
-            <strong>Source:</strong> {lead.source}
-          </div>
-        )}
-
-        {/* Notes */}
-        {lead.notes && (
-          <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-            <strong>Notes:</strong> {lead.notes}
-          </div>
-        )}
-
-        {/* Last Activity */}
-        {lead.last_contact_at && (
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <Calendar className="h-4 w-4" />
-            Last contact: {new Date(lead.last_contact_at).toLocaleDateString()}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2 pt-2 border-t">
-          {/* Status Update with Conversion Handling */}
-          <EnhancedLeadStatusSelect
-            lead={lead}
-            onStatusChange={handleStatusUpdate}
-            onConvertLead={handleConvertLead}
-            disabled={updateStatus.isPending}
-          />
-
-          {/* Reassignment */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onReassign(lead.id)}
-            disabled={lead.status === 'converted'}
-          >
-            <UserCheck className="h-4 w-4 mr-1" />
-            {lead.assigned_admin ? 'Reassign' : 'Assign'}
-          </Button>
-
-          {/* Direct Conversion Button for Qualified Leads */}
-          {canConvert && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => onConvert(lead.id)}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <ArrowRight className="h-4 w-4 mr-1" />
-              Convert to Tenant
-            </Button>
+          {lead.assigned_admin && (
+            <div className="text-sm">
+              <span className="text-muted-foreground">Assigned to: </span>
+              <span className="font-medium">{lead.assigned_admin.full_name}</span>
+            </div>
           )}
 
-          {/* Expand/Collapse */}
-          {onToggleExpanded && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleExpanded}
-              className="ml-auto"
-            >
-              {expanded ? 'Show Less' : 'Show More'}
-            </Button>
+          {lead.qualification_score > 0 && (
+            <div className="text-sm">
+              <span className="text-muted-foreground">Score: </span>
+              <span className="font-medium">{lead.qualification_score}/100</span>
+            </div>
           )}
-        </div>
 
-        {/* Expanded Content */}
-        {expanded && (
-          <div className="space-y-4 pt-4 border-t">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <LeadWorkflowGuide lead={lead} />
-              <LeadActivityTimeline leadId={lead.id} />
+          {lead.notes && (
+            <div className="text-sm">
+              <span className="text-muted-foreground">Notes: </span>
+              <span className="text-gray-700 line-clamp-2">{lead.notes}</span>
+            </div>
+          )}
+
+          {/* Tenant Information for Converted Leads */}
+          {lead.status === 'converted' && lead.converted_tenant_id && (
+            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-medium text-green-800">Converted to Tenant</span>
+              </div>
+              <div className="text-xs text-green-700 space-y-1">
+                <div>Tenant ID: {lead.converted_tenant_id.slice(0, 8)}...</div>
+                {lead.converted_at && (
+                  <div>Converted: {new Date(lead.converted_at).toLocaleDateString()}</div>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 h-7 text-xs bg-white hover:bg-green-50 border-green-300"
+                onClick={handleTenantInfoClick}
+              >
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Verify Tenant Status
+              </Button>
+            </div>
+          )}
+        </CardContent>
+
+        <CardFooter className="pt-3">
+          <div className="flex items-center justify-between w-full">
+            <Badge className={getStatusColor(lead.status)}>
+              {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
+            </Badge>
+            
+            <div className="flex items-center gap-2">
+              {lead.source && (
+                <Badge variant="outline" className="text-xs">
+                  {lead.source}
+                </Badge>
+              )}
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardFooter>
+      </Card>
+
+      <TenantVerificationModal
+        isOpen={showTenantVerification}
+        onClose={() => setShowTenantVerification(false)}
+        lead={lead}
+        onConversionSuccess={handleConversionSuccess}
+      />
+    </>
   );
 };
