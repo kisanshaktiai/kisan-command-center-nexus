@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,7 +29,8 @@ const DataPurgeManager: React.FC = () => {
     try {
       console.log(`Executing data purge with scope: ${purgeScope}`);
       
-      const { data, error } = await supabase.rpc('purge_app_data', {
+      // Use rpc with explicit typing since purge_app_data is a custom function
+      const { data, error } = await supabase.rpc('purge_app_data' as any, {
         p_scope: purgeScope
       });
 
@@ -41,7 +41,7 @@ const DataPurgeManager: React.FC = () => {
 
       if (data) {
         setLastPurgeResult(data as PurgeResult);
-        toast.success(`Successfully purged ${data.total_tables_truncated} tables`);
+        toast.success(`Successfully purged ${(data as PurgeResult).total_tables_truncated} tables`);
         console.log('Purge completed:', data);
       }
     } catch (error: any) {
