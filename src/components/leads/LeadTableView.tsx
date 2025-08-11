@@ -1,5 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -8,70 +12,120 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  ArrowUpDown, 
-  ArrowUp, 
-  ArrowDown, 
-  Eye, 
-  Edit, 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Search,
+  Filter,
+  Download,
   UserPlus,
-  Mail,
-  Phone,
-  Building,
-  Calendar,
-  Star,
-  Zap
+  Eye,
+  Edit,
+  ChevronDown,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Zap,
+  MoreHorizontal,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react';
+import { useLeads } from '@/hooks/useLeadManagement';
 import { ConvertLeadDialog } from './ConvertLeadDialog';
-import { LeadStatusSelect } from './LeadStatusSelect';
 import type { Lead } from '@/types/leads';
 
 interface LeadTableViewProps {
-  leads: Lead[];
-  isLoading: boolean;
-  selectedLeads: string[];
-  onSelectionChange: (leadIds: string[]) => void;
-  onRefresh: () => void;
+  onRefresh?: () => void;
 }
 
 type SortField = 'contact_name' | 'email' | 'organization_name' | 'status' | 'priority' | 'created_at' | 'qualification_score';
 type SortDirection = 'asc' | 'desc';
 
-const statusColors = {
-  new: 'bg-blue-100 text-blue-800 border-blue-200',
-  assigned: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  contacted: 'bg-purple-100 text-purple-800 border-purple-200',
-  qualified: 'bg-green-100 text-green-800 border-green-200',
-  converted: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  rejected: 'bg-red-100 text-red-800 border-red-200',
-} as const;
+const statusOptions = [
+  { value: 'all', label: 'All Status' },
+  { value: 'new', label: 'New', variant: 'secondary' as const },
+  { value: 'assigned', label: 'Assigned', variant: 'outline' as const },
+  { value: 'contacted', label: 'Contacted', variant: 'default' as const },
+  { value: 'qualified', label: 'Qualified', variant: 'default' as const },
+  { value: 'converted', label: 'Converted', variant: 'default' as const },
+  { value: 'rejected', label: 'Rejected', variant: 'destructive' as const },
+];
 
-const priorityColors = {
-  low: 'bg-gray-100 text-gray-700 border-gray-200',
-  medium: 'bg-blue-100 text-blue-700 border-blue-200',
-  high: 'bg-orange-100 text-orange-700 border-orange-200',
-  urgent: 'bg-red-100 text-red-700 border-red-200',
-} as const;
+const priorityOptions = [
+  { value: 'all', label: 'All Priority' },
+  { value: 'low', label: 'Low', variant: 'outline' as const },
+  { value: 'medium', label: 'Medium', variant: 'default' as const },
+  { value: 'high', label: 'High', variant: 'default' as const },
+  { value: 'urgent', label: 'Urgent', variant: 'destructive' as const },
+];
 
-export const LeadTableView: React.FC<LeadTableViewProps> = ({
-  leads,
-  isLoading,
-  selectedLeads,
-  onSelectionChange,
-  onRefresh
-}) => {
+const getStatusIcon = (status: Lead['status']) => {
+  switch (status) {
+    case 'new': return <Clock className="h-3 w-3" />;
+    case 'assigned': return <UserPlus className="h-3 w-3" />;
+    case 'contacted': return <Eye className="h-3 w-3" />;
+    case 'qualified': return <CheckCircle2 className="h-3 w-3" />;
+    case 'converted': return <CheckCircle2 className="h-3 w-3" />;
+    case 'rejected': return <XCircle className="h-3 w-3" />;
+    default: return <AlertTriangle className="h-3 w-3" />;
+  }
+};
+
+const getStatusColor = (status: Lead['status']) => {
+  switch (status) {
+    case 'new': return 'bg-blue-100 text-blue-800 border-blue-200';
+    case 'assigned': return 'bg-purple-100 text-purple-800 border-purple-200';
+    case 'contacted': return 'bg-orange-100 text-orange-800 border-orange-200';
+    case 'qualified': return 'bg-green-100 text-green-800 border-green-200';
+    case 'converted': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
+    default: return 'bg-gray-100 text-gray-800 border-gray-200';
+  }
+};
+
+const getPriorityColor = (priority: Lead['priority']) => {
+  switch (priority) {
+    case 'low': return 'bg-gray-100 text-gray-600 border-gray-200';
+    case 'medium': return 'bg-blue-100 text-blue-700 border-blue-200';
+    case 'high': return 'bg-orange-100 text-orange-700 border-orange-200';
+    case 'urgent': return 'bg-red-100 text-red-700 border-red-200';
+    default: return 'bg-gray-100 text-gray-600 border-gray-200';
+  }
+};
+
+export const LeadTableView: React.FC<LeadTableViewProps> = ({ onRefresh }) => {
+  const { data: leads = [], isLoading, refetch } = useLeads();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [selectedLeadForConversion, setSelectedLeadForConversion] = useState<Lead | null>(null);
 
-  const sortedLeads = useMemo(() => {
-    if (!leads?.length) return [];
-    
-    return [...leads].sort((a, b) => {
+  // Filter and sort leads
+  const filteredAndSortedLeads = useMemo(() => {
+    let filtered = leads.filter((lead) => {
+      const matchesSearch = 
+        lead.contact_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (lead.organization_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
+      const matchesPriority = priorityFilter === 'all' || lead.priority === priorityFilter;
+      
+      return matchesSearch && matchesStatus && matchesPriority;
+    });
+
+    // Sort leads
+    filtered.sort((a, b) => {
       let aValue: any = a[sortField];
       let bValue: any = b[sortField];
       
@@ -80,14 +134,16 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({
         bValue = new Date(bValue).getTime();
       } else if (typeof aValue === 'string') {
         aValue = aValue.toLowerCase();
-        bValue = bValue?.toLowerCase() || '';
+        bValue = bValue.toLowerCase();
       }
       
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [leads, sortField, sortDirection]);
+
+    return filtered;
+  }, [leads, searchTerm, statusFilter, priorityFilter, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -98,299 +154,342 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({
     }
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      onSelectionChange(leads.map(lead => lead.id));
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
+    return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+  };
+
+  const handleSelectLead = (leadId: string) => {
+    setSelectedLeads(prev => 
+      prev.includes(leadId) 
+        ? prev.filter(id => id !== leadId)
+        : [...prev, leadId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedLeads.length === filteredAndSortedLeads.length) {
+      setSelectedLeads([]);
     } else {
-      onSelectionChange([]);
+      setSelectedLeads(filteredAndSortedLeads.map(lead => lead.id));
     }
   };
 
-  const handleSelectLead = (leadId: string, checked: boolean) => {
-    if (checked) {
-      onSelectionChange([...selectedLeads, leadId]);
-    } else {
-      onSelectionChange(selectedLeads.filter(id => id !== leadId));
-    }
-  };
+  const allSelected = selectedLeads.length === filteredAndSortedLeads.length && filteredAndSortedLeads.length > 0;
+  const someSelected = selectedLeads.length > 0 && selectedLeads.length < filteredAndSortedLeads.length;
 
   const handleConvertLead = (lead: Lead) => {
-    setSelectedLead(lead);
-    setShowConvertDialog(true);
+    setSelectedLeadForConversion(lead);
+    setConvertDialogOpen(true);
   };
 
-  const handleConvertSuccess = () => {
-    setShowConvertDialog(false);
-    setSelectedLead(null);
-    onRefresh();
+  const handleConversionSuccess = () => {
+    setConvertDialogOpen(false);
+    setSelectedLeadForConversion(null);
+    refetch();
+    onRefresh?.();
   };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const SortButton: React.FC<{ field: SortField; children: React.ReactNode }> = ({ field, children }) => (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="h-8 px-2 font-semibold text-gray-700 hover:bg-blue-50"
-      onClick={() => handleSort(field)}
-    >
-      {children}
-      {sortField === field ? (
-        sortDirection === 'asc' ? (
-          <ArrowUp className="ml-2 h-3 w-3" />
-        ) : (
-          <ArrowDown className="ml-2 h-3 w-3" />
-        )
-      ) : (
-        <ArrowUpDown className="ml-2 h-3 w-3 opacity-50" />
-      )}
-    </Button>
-  );
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-2xl shadow-xl border-0 overflow-hidden">
-        <div className="p-8">
-          <div className="animate-pulse space-y-4">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="flex space-x-4">
-                <div className="h-4 bg-gray-200 rounded w-8"></div>
-                <div className="h-4 bg-gray-200 rounded flex-1"></div>
-                <div className="h-4 bg-gray-200 rounded w-32"></div>
-                <div className="h-4 bg-gray-200 rounded w-24"></div>
-                <div className="h-4 bg-gray-200 rounded w-20"></div>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg text-gray-500">Loading leads...</div>
       </div>
     );
   }
 
-  const allSelected = leads.length > 0 && selectedLeads.length === leads.length;
-  const someSelected = selectedLeads.length > 0 && selectedLeads.length < leads.length;
-
   return (
-    <>
-      <div className="bg-white rounded-2xl shadow-xl border-0 overflow-hidden">
-        {/* Header with Bulk Actions */}
-        {selectedLeads.length > 0 && (
-          <div className="bg-blue-50 border-b border-blue-200 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-blue-700">
-                {selectedLeads.length} lead{selectedLeads.length > 1 ? 's' : ''} selected
-              </span>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send Email
-                </Button>
-                <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Bulk Assign
-                </Button>
-              </div>
-            </div>
+    <div className="space-y-6">
+      {/* Header and Controls */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 flex-1">
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search leads..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
-        )}
 
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-b border-gray-200 bg-gray-50/50">
-                <TableHead className="w-12 px-6 py-4">
-                  <Checkbox
-                    checked={allSelected}
-                    ref={(el) => {
-                      if (el) {
-                        const input = el.querySelector('input') as HTMLInputElement;
-                        if (input) {
-                          input.indeterminate = someSelected;
-                        }
-                      }
-                    }}
-                    onCheckedChange={handleSelectAll}
-                    className="border-2 border-gray-300"
-                  />
-                </TableHead>
-                <TableHead className="px-4 py-4">
-                  <SortButton field="contact_name">Contact</SortButton>
-                </TableHead>
-                <TableHead className="px-4 py-4">
-                  <SortButton field="organization_name">Organization</SortButton>
-                </TableHead>
-                <TableHead className="px-4 py-4">
-                  <SortButton field="status">Status</SortButton>
-                </TableHead>
-                <TableHead className="px-4 py-4">
-                  <SortButton field="priority">Priority</SortButton>
-                </TableHead>
-                <TableHead className="px-4 py-4">
-                  <SortButton field="qualification_score">Score</SortButton>
-                </TableHead>
-                <TableHead className="px-4 py-4">
-                  <SortButton field="created_at">Created</SortButton>
-                </TableHead>
-                <TableHead className="px-4 py-4 text-center">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedLeads.map((lead, index) => (
-                <TableRow 
-                  key={lead.id} 
-                  className={`border-b border-gray-100 hover:bg-blue-50/30 transition-colors duration-200 ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                  }`}
-                >
-                  <TableCell className="px-6 py-4">
-                    <Checkbox
-                      checked={selectedLeads.includes(lead.id)}
-                      onCheckedChange={(checked) => handleSelectLead(lead.id, checked as boolean)}
-                      className="border-2 border-gray-300"
-                    />
-                  </TableCell>
-                  
-                  <TableCell className="px-4 py-4">
-                    <div className="space-y-1">
-                      <div className="font-semibold text-gray-900">{lead.contact_name}</div>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Mail className="h-3 w-3 mr-1" />
-                        {lead.email}
-                      </div>
-                      {lead.phone && (
-                        <div className="flex items-center text-sm text-gray-500">
-                          <Phone className="h-3 w-3 mr-1" />
-                          {lead.phone}
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
+          {/* Filters */}
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="h-4 w-4" />
+                  Status
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {statusOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => setStatusFilter(option.value)}
+                    className={statusFilter === option.value ? 'bg-blue-50' : ''}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-                  <TableCell className="px-4 py-4">
-                    {lead.organization_name ? (
-                      <div className="flex items-center">
-                        <Building className="h-4 w-4 mr-2 text-gray-400" />
-                        <span className="font-medium text-gray-900">{lead.organization_name}</span>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 text-sm">No organization</span>
-                    )}
-                  </TableCell>
-
-                  <TableCell className="px-4 py-4">
-                    <LeadStatusSelect 
-                      lead={lead} 
-                      onStatusChange={() => onRefresh()}
-                    />
-                  </TableCell>
-
-                  <TableCell className="px-4 py-4">
-                    <Badge className={`${priorityColors[lead.priority]} font-medium border`}>
-                      {lead.priority.toUpperCase()}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell className="px-4 py-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center">
-                        <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                        <span className="font-semibold text-gray-900">
-                          {lead.qualification_score}
-                        </span>
-                      </div>
-                      {lead.qualification_score >= 80 && (
-                        <div className="relative group">
-                          <Zap className="h-4 w-4 text-green-500" />
-                          <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
-                            High quality lead
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="px-4 py-4">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {formatDate(lead.created_at)}
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="px-4 py-4">
-                    <div className="flex items-center justify-center space-x-1">
-                      <div className="relative group">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 hover:bg-blue-100"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
-                          View Details
-                        </div>
-                      </div>
-                      <div className="relative group">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 hover:bg-blue-100"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
-                          Edit Lead
-                        </div>
-                      </div>
-                      {lead.status === 'qualified' && (
-                        <div className="relative group">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleConvertLead(lead)}
-                            className="h-8 px-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 text-xs font-medium"
-                          >
-                            <UserPlus className="h-3 w-3 mr-1" />
-                            Convert
-                          </Button>
-                          <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
-                            Convert to Tenant
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="h-4 w-4" />
+                  Priority
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {priorityOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => setPriorityFilter(option.value)}
+                    className={priorityFilter === option.value ? 'bg-blue-50' : ''}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
-        {leads.length === 0 && (
-          <div className="p-12 text-center">
-            <div className="space-y-4">
-              <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto flex items-center justify-center">
-                <Building className="h-8 w-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">No leads found</h3>
-              <p className="text-gray-500">Try adjusting your filters or create a new lead.</p>
-            </div>
+        {/* Actions */}
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-2">
+            <Download className="h-4 w-4" />
+            Export
+          </Button>
+          {selectedLeads.length > 0 && (
+            <Button variant="default" size="sm" className="gap-2">
+              <UserPlus className="h-4 w-4" />
+              Bulk Actions ({selectedLeads.length})
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-lg border shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-b">
+              <TableHead className="w-12 px-4">
+                <Checkbox
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) {
+                      const input = el.querySelector('input') as HTMLInputElement;
+                      if (input) {
+                        input.indeterminate = someSelected;
+                      }
+                    }
+                  }}
+                  onCheckedChange={handleSelectAll}
+                  className="border-2 border-gray-300"
+                />
+              </TableHead>
+              <TableHead className="px-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('contact_name')}
+                  className="h-auto p-0 font-semibold text-left justify-start gap-2"
+                >
+                  Contact
+                  {getSortIcon('contact_name')}
+                </Button>
+              </TableHead>
+              <TableHead className="px-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('organization_name')}
+                  className="h-auto p-0 font-semibold text-left justify-start gap-2"
+                >
+                  Organization
+                  {getSortIcon('organization_name')}
+                </Button>
+              </TableHead>
+              <TableHead className="px-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('status')}
+                  className="h-auto p-0 font-semibold text-left justify-start gap-2"
+                >
+                  Status
+                  {getSortIcon('status')}
+                </Button>
+              </TableHead>
+              <TableHead className="px-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('priority')}
+                  className="h-auto p-0 font-semibold text-left justify-start gap-2"
+                >
+                  Priority
+                  {getSortIcon('priority')}
+                </Button>
+              </TableHead>
+              <TableHead className="px-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('qualification_score')}
+                  className="h-auto p-0 font-semibold text-left justify-start gap-2"
+                >
+                  Score
+                  {getSortIcon('qualification_score')}
+                </Button>
+              </TableHead>
+              <TableHead className="px-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('created_at')}
+                  className="h-auto p-0 font-semibold text-left justify-start gap-2"
+                >
+                  Created
+                  {getSortIcon('created_at')}
+                </Button>
+              </TableHead>
+              <TableHead className="px-4 text-center">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredAndSortedLeads.map((lead) => (
+              <TableRow key={lead.id} className="hover:bg-gray-50">
+                <TableCell className="px-4 py-4">
+                  <Checkbox
+                    checked={selectedLeads.includes(lead.id)}
+                    onCheckedChange={() => handleSelectLead(lead.id)}
+                    className="border-2 border-gray-300"
+                  />
+                </TableCell>
+
+                <TableCell className="px-4 py-4">
+                  <div className="space-y-1">
+                    <div className="font-medium text-gray-900">{lead.contact_name}</div>
+                    <div className="text-sm text-gray-500">{lead.email}</div>
+                    {lead.phone && (
+                      <div className="text-sm text-gray-500">{lead.phone}</div>
+                    )}
+                  </div>
+                </TableCell>
+
+                <TableCell className="px-4 py-4">
+                  <div className="font-medium text-gray-900">
+                    {lead.organization_name || 'N/A'}
+                  </div>
+                </TableCell>
+
+                <TableCell className="px-4 py-4">
+                  <Badge variant="outline" className={`${getStatusColor(lead.status)} gap-1`}>
+                    {getStatusIcon(lead.status)}
+                    {lead.status}
+                  </Badge>
+                </TableCell>
+
+                <TableCell className="px-4 py-4">
+                  <Badge variant="outline" className={getPriorityColor(lead.priority)}>
+                    {lead.priority}
+                  </Badge>
+                </TableCell>
+
+                <TableCell className="px-4 py-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm font-medium">
+                          {lead.qualification_score}%
+                        </span>
+                      </div>
+                    </div>
+                    {lead.qualification_score >= 80 && (
+                      <div className="relative group">
+                        <Zap className="h-4 w-4 text-green-500" />
+                        <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                          High quality lead
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TableCell>
+
+                <TableCell className="px-4 py-4">
+                  <div className="text-sm text-gray-600">
+                    {new Date(lead.created_at).toLocaleDateString()}
+                  </div>
+                </TableCell>
+
+                <TableCell className="px-4 py-4">
+                  <div className="flex items-center justify-center space-x-1">
+                    <div className="relative group">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 hover:bg-blue-100"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                        View Details
+                      </div>
+                    </div>
+                    <div className="relative group">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 hover:bg-blue-100"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                        Edit Lead
+                      </div>
+                    </div>
+                    {lead.status === 'qualified' && (
+                      <div className="relative group">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleConvertLead(lead)}
+                          className="h-8 px-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 text-xs font-medium"
+                        >
+                          <UserPlus className="h-3 w-3 mr-1" />
+                          Convert
+                        </Button>
+                        <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                          Convert to Tenant
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
+        {filteredAndSortedLeads.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-gray-500">No leads found matching your criteria.</div>
           </div>
         )}
       </div>
 
+      {/* Convert Lead Dialog */}
       <ConvertLeadDialog
-        isOpen={showConvertDialog}
-        onClose={() => setShowConvertDialog(false)}
-        lead={selectedLead}
-        onSuccess={handleConvertSuccess}
+        isOpen={convertDialogOpen}
+        onClose={() => {
+          setConvertDialogOpen(false);
+          setSelectedLeadForConversion(null);
+        }}
+        lead={selectedLeadForConversion}
+        onSuccess={handleConversionSuccess}
       />
-    </>
+    </div>
   );
 };
