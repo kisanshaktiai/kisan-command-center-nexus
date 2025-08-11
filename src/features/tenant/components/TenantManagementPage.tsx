@@ -5,10 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw } from 'lucide-react';
 import { TenantViewControls } from '@/components/tenant/page-sections/TenantViewControls';
 import { TenantViewRenderer } from './TenantViewRenderer';
-import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
 import { TenantDetailsCompact } from '@/components/tenant/TenantDetailsCompact';
 import { TenantEditModal } from '@/components/tenant/TenantEditModal';
-import { TenantForm } from '@/components/tenant/TenantForm';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
 import { useTenantPageState } from '../hooks/useTenantPageState';
 
@@ -106,8 +104,7 @@ const TenantManagementPage: React.FC = () => {
         setFilterStatus={setFilterStatus}
         viewPreferences={viewPreferences}
         setViewPreferences={setViewPreferences}
-        onCreateTenant={() => {/* TODO: Implement create modal */}}
-        tenantCount={tenants.length}
+        totalCount={tenants.length}
       />
 
       {/* Tenant Grid/List */}
@@ -159,21 +156,20 @@ const TenantManagementPage: React.FC = () => {
         isOpen={isEditModalOpen}
         onClose={closeEditModal}
         onSave={handleSaveTenant}
-        isLoading={isSubmitting}
       />
 
       {/* Creation Success Modal */}
       {creationSuccess && (
         <TenantCreationSuccess
-          isOpen={!!creationSuccess}
-          onClose={clearCreationSuccess}
           tenantName={creationSuccess.tenantName}
           adminEmail={creationSuccess.adminEmail}
           hasEmailSent={creationSuccess.hasEmailSent}
+          onClose={clearCreationSuccess}
         />
       )}
     </div>
   );
 };
 
+export { TenantManagementPage };
 export default TenantManagementPage;

@@ -49,8 +49,10 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
     try {
       setUserStatus('checking');
       
-      // Check if user exists in auth.users
-      const { data: users, error } = await supabase.auth.admin.listUsers();
+      // Check if user exists in auth.users using the service role
+      const { data, error } = await supabase.functions.invoke('check-user-exists', {
+        body: { email: tenant.owner_email }
+      });
       
       if (error) {
         console.error('Error checking users:', error);
@@ -58,11 +60,9 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
         return;
       }
 
-      const existingUser = users.users?.find(user => user.email === tenant.owner_email);
-      
-      if (existingUser) {
-        setUserId(existingUser.id);
-        setUserEmail(existingUser.email);
+      if (data?.userExists && data?.user) {
+        setUserId(data.user.id);
+        setUserEmail(data.user.email || tenant.owner_email);
         setUserStatus('found');
       } else {
         setUserStatus('not_found');

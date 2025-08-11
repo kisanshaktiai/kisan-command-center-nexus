@@ -1,6 +1,6 @@
 
 // Components
-export { TenantManagementPage } from './components/TenantManagementPage';
+export { default as TenantManagementPage } from './components/TenantManagementPage';
 export { TenantManagementHeader } from './components/TenantManagementHeader';
 export { TenantViewControls } from './components/TenantViewControls';
 export { TenantViewRenderer } from './components/TenantViewRenderer';
