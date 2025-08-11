@@ -1,373 +1,368 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { Tenant } from '@/types/tenant';
 import { 
   Building2, 
   Mail, 
   Phone, 
+  Calendar, 
   Users, 
-  Database,
-  UserPlus,
+  Package, 
+  HardDrive, 
+  Zap,
   CheckCircle,
-  Loader2,
-  AlertCircle,
-  UserCheck,
-  RefreshCw
+  XCircle,
+  UserPlus,
+  Search,
+  Loader2
 } from 'lucide-react';
-import { Tenant } from '@/types/tenant';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 interface TenantDetailsCompactProps {
-  tenant: Tenant | null;
+  tenant: Tenant;
   isOpen: boolean;
   onClose: () => void;
 }
+
+type UserStatus = 'checking' | 'found' | 'not_found' | 'registering' | 'registered' | 'error';
 
 export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
   tenant,
   isOpen,
   onClose,
 }) => {
-  const [userStatus, setUserStatus] = useState<'idle' | 'checking' | 'found' | 'not_found' | 'registering' | 'registered'>('idle');
+  const [userStatus, setUserStatus] = useState<UserStatus>('checking');
   const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (tenant && isOpen) {
-      setUserStatus('idle');
-      setUserId(null);
-      setUserEmail(null);
+  React.useEffect(() => {
+    if (isOpen && tenant) {
+      checkUserExists();
     }
-  }, [tenant, isOpen]);
+  }, [isOpen, tenant]);
 
-  const handleCheckUserExists = async () => {
+  const checkUserExists = async () => {
     if (!tenant?.owner_email) {
-      toast.error('No email address found for this tenant');
+      setUserStatus('error');
       return;
     }
 
+    setUserStatus('checking');
+    
     try {
-      setUserStatus('checking');
-      
       const { data, error } = await supabase.functions.invoke('check-user-exists', {
         body: { email: tenant.owner_email }
       });
-      
+
       if (error) {
-        console.error('Error checking users:', error);
-        setUserStatus('not_found');
-        toast.error('Failed to check user existence');
+        console.error('Error checking user:', error);
+        setUserStatus('error');
+        toast.error('Failed to check user status');
         return;
       }
 
-      if (data?.userExists && data?.user) {
-        setUserId(data.user.id);
-        setUserEmail(data.user.email || tenant.owner_email);
+      if (data?.exists) {
         setUserStatus('found');
-        toast.success('User found in authentication system');
+        setUserId(data.user_id);
       } else {
         setUserStatus('not_found');
-        toast.warning('User not found in authentication system');
+        setUserId(null);
       }
     } catch (error) {
-      console.error('Error checking user existence:', error);
-      setUserStatus('not_found');
-      toast.error('Failed to check user existence');
+      console.error('Error checking user:', error);
+      setUserStatus('error');
+      toast.error('Failed to check user status');
     }
   };
 
-  const handleRegisterUser = async () => {
+  const createUserAccount = async () => {
     if (!tenant?.owner_email || !tenant?.owner_name) {
-      toast.error('Missing required information for user registration');
+      toast.error('Missing user information');
       return;
     }
 
-    try {
-      setUserStatus('registering');
+    setUserStatus('registering');
 
+    try {
       const { data, error } = await supabase.functions.invoke('register-user-with-welcome', {
         body: {
           email: tenant.owner_email,
-          fullName: tenant.owner_name,
-          tenantId: tenant.id,
-          sendWelcomeEmail: true,
-          welcomeEmailData: {
-            tenantName: tenant.name,
-            loginUrl: `${window.location.origin}/auth`,
-            customMessage: `Welcome to ${tenant.name}! Your tenant account has been activated.`
-          }
+          full_name: tenant.owner_name,
+          tenant_id: tenant.id,
+          auto_confirm: true
         }
       });
 
       if (error) {
-        throw error;
+        console.error('Error creating user:', error);
+        setUserStatus('not_found');
+        toast.error('Failed to create user account');
+        return;
       }
 
-      if (data?.success) {
-        setUserId(data.userId);
-        setUserEmail(data.email);
-        setUserStatus('registered');
-        toast.success('User registered successfully and welcome email sent!');
-      } else {
-        throw new Error(data?.error || 'Failed to register user');
-      }
+      setUserStatus('registered');
+      setUserId(data?.user_id || null);
+      toast.success('User account created successfully');
     } catch (error) {
-      console.error('Error registering user:', error);
+      console.error('Error creating user:', error);
       setUserStatus('not_found');
-      toast.error('Failed to register user: ' + (error as Error).message);
+      toast.error('Failed to create user account');
     }
   };
 
-  if (!tenant) return null;
-
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+    switch (status) {
       case 'active': return 'bg-green-500';
       case 'trial': return 'bg-blue-500';
       case 'suspended': return 'bg-yellow-500';
-      case 'cancelled': return 'bg-red-500';
+      case 'inactive': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
   };
 
-  const getSubscriptionBadgeVariant = (plan: string) => {
-    switch (plan) {
-      case 'AI_Enterprise': return 'default';
-      case 'Shakti_Growth': return 'secondary';
-      case 'Kisan_Basic': return 'outline';
-      default: return 'outline';
-    }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   const getUserStatusIcon = () => {
     switch (userStatus) {
       case 'checking':
-        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
+        return <Loader2 className="h-4 w-4 animate-spin text-gray-500" />;
       case 'found':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'registered':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'not_found':
+        return <XCircle className="h-4 w-4 text-red-500" />;
       case 'registering':
         return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
-      case 'not_found':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      case 'error':
+        return <XCircle className="h-4 w-4 text-gray-500" />;
       default:
-        return <UserCheck className="h-4 w-4 text-gray-400" />;
+        return null;
     }
   };
 
-  const getEmailStatusColor = () => {
+  const getUserStatusText = () => {
     switch (userStatus) {
+      case 'checking':
+        return 'Checking user status...';
       case 'found':
+        return 'User account exists';
       case 'registered':
-        return 'text-green-600 bg-green-50';
+        return 'User account created';
       case 'not_found':
-        return 'text-red-600 bg-red-50';
+        return 'No user account found';
+      case 'registering':
+        return 'Creating user account...';
+      case 'error':
+        return 'Error checking user status';
       default:
-        return 'text-gray-600 bg-gray-50';
+        return 'Unknown status';
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl p-0">
-        <DialogHeader className="px-4 py-2 border-b bg-muted/30">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <DialogTitle className="text-base font-semibold">
-                {tenant.name}
-              </DialogTitle>
-              <div className="flex items-center gap-2 mt-0.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${getStatusColor(tenant.status)}`} />
-                <span className="text-xs text-muted-foreground capitalize">
-                  {tenant.status}
-                </span>
-                <Badge variant={getSubscriptionBadgeVariant(tenant.subscription_plan)} className="text-xs h-5">
-                  {tenant.subscription_plan.replace('_', ' ')}
-                </Badge>
-              </div>
-            </div>
-          </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            {tenant.name}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="p-4 space-y-4">
-          {/* Owner Information with User Status */}
-          <div>
-            <h3 className="font-medium mb-3 flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Owner Information
-              {/* User Status Indicator */}
-              <div className="ml-auto flex items-center gap-1">
-                {getUserStatusIcon()}
-                <span className="text-xs">
-                  {userStatus === 'found' ? 'Verified' : 
-                   userStatus === 'registered' ? 'Just Created' :
-                   userStatus === 'not_found' ? 'Not Found' :
-                   userStatus === 'checking' ? 'Checking...' :
-                   userStatus === 'registering' ? 'Creating...' :
-                   'Unverified'}
-                </span>
-              </div>
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">Name:</span>
-                <p className="font-medium">{tenant.owner_name || 'Not provided'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Email:</span>
+        <div className="space-y-4">
+          {/* Basic Info */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center justify-between">
+                Basic Information
+                <Badge className={`${getStatusColor(tenant.status)} text-white`}>
+                  {tenant.status}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                 <div className="flex items-center gap-2">
-                  {getUserStatusIcon()}
-                  <p className={`font-medium px-2 py-1 rounded-md text-xs ${getEmailStatusColor()}`}>
-                    {tenant.owner_email || 'Not provided'}
-                  </p>
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">Type:</span>
+                  <span>{tenant.type}</span>
                 </div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Phone:</span>
-                <p className="font-medium">{tenant.owner_phone || 'Not provided'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Auth Status:</span>
                 <div className="flex items-center gap-2">
-                  {getUserStatusIcon()}
-                  <span className="font-medium capitalize text-xs">
-                    {userStatus === 'found' ? 'Registered' : 
-                     userStatus === 'registered' ? 'Just Registered' :
-                     userStatus === 'not_found' ? 'Not Registered' :
-                     userStatus === 'checking' ? 'Checking...' :
-                     userStatus === 'registering' ? 'Registering...' :
-                     'Unknown'}
-                  </span>
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">Plan:</span>
+                  <span>{tenant.subscription_plan}</span>
                 </div>
-              </div>
-            </div>
-            
-            {/* User ID Display */}
-            {(userStatus === 'found' || userStatus === 'registered') && userId && (
-              <div className="mt-3 p-2 bg-muted/50 rounded-md">
-                <span className="text-sm text-muted-foreground">User ID:</span>
-                <p className="font-mono text-xs break-all">{userId}</p>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="mt-3 flex gap-2">
-              {/* Check User Button */}
-              <Button 
-                onClick={handleCheckUserExists}
-                size="sm"
-                variant="outline"
-                disabled={userStatus === 'checking' || userStatus === 'registering' || !tenant.owner_email}
-              >
-                {userStatus === 'checking' ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Checking...
-                  </>
-                ) : (
-                  <>
-                    <UserCheck className="h-4 w-4 mr-2" />
-                    Check User Status
-                  </>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">Owner:</span>
+                  <span>{tenant.owner_name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">Email:</span>
+                  <span>{tenant.owner_email}</span>
+                </div>
+                {tenant.owner_phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Phone:</span>
+                    <span>{tenant.owner_phone}</span>
+                  </div>
                 )}
-              </Button>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">Created:</span>
+                  <span>{formatDate(tenant.created_at)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-              {/* Register User Button - Only show when user not found */}
-              {userStatus === 'not_found' && tenant.owner_email && (
-                <Button 
-                  onClick={handleRegisterUser}
-                  size="sm"
-                  disabled={userStatus === 'registering'}
-                >
-                  {userStatus === 'registering' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Create User Account
-                    </>
+          {/* User Authentication Status */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">User Authentication Status</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {getUserStatusIcon()}
+                  <span className="text-sm">{getUserStatusText()}</span>
+                  {userId && (
+                    <Badge variant="outline" className="text-xs">
+                      ID: {userId.slice(0, 8)}...
+                    </Badge>
                   )}
-                </Button>
-              )}
-
-              {/* Refresh Status Button - Show when user found/registered */}
-              {(userStatus === 'found' || userStatus === 'registered') && (
-                <Button 
-                  onClick={handleCheckUserExists}
-                  size="sm"
-                  variant="ghost"
-                  disabled={userStatus === 'checking'}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Plan Limits */}
-          <div>
-            <h3 className="font-medium mb-3 flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              Plan Limits
-            </h3>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">Farmers:</span>
-                <p className="font-bold">{tenant.max_farmers?.toLocaleString() || 'Unlimited'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Dealers:</span>
-                <p className="font-bold">{tenant.max_dealers?.toLocaleString() || 'Unlimited'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Storage:</span>
-                <p className="font-bold">{tenant.max_storage_gb || 'Unlimited'} GB</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">API Calls/Day:</span>
-                <p className="font-bold">{tenant.max_api_calls_per_day?.toLocaleString() || 'Unlimited'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Domain Info */}
-          {(tenant.subdomain || tenant.custom_domain) && (
-            <>
-              <Separator />
-              <div>
-                <h3 className="font-medium mb-3">Domain Configuration</h3>
-                <div className="space-y-2 text-sm">
-                  {tenant.subdomain && (
-                    <div>
-                      <span className="text-muted-foreground">Subdomain:</span>
-                      <p className="font-mono bg-muted px-2 py-1 rounded text-xs">
-                        {tenant.subdomain}
-                      </p>
-                    </div>
-                  )}
-                  {tenant.custom_domain && (
-                    <div>
-                      <span className="text-muted-foreground">Custom Domain:</span>
-                      <p className="font-mono bg-muted px-2 py-1 rounded text-xs">
-                        {tenant.custom_domain}
-                      </p>
-                    </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={checkUserExists}
+                    disabled={userStatus === 'checking'}
+                  >
+                    <Search className="h-4 w-4 mr-1" />
+                    Check Status
+                  </Button>
+                  {(userStatus === 'not_found' || userStatus === 'error') && (
+                    <Button
+                      size="sm"
+                      onClick={createUserAccount}
+                      disabled={userStatus === 'registering'}
+                    >
+                      {userStatus === 'registering' ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <UserPlus className="h-4 w-4 mr-1" />
+                      )}
+                      Create User
+                    </Button>
                   )}
                 </div>
               </div>
-            </>
+              
+              {(userStatus === 'found' || userStatus === 'registered') && userId && (
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    User account is properly set up and linked to this tenant.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Limits & Usage */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Resource Limits</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <Users className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                  <div className="font-medium">{tenant.max_farmers?.toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">Farmers</div>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <Building2 className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                  <div className="font-medium">{tenant.max_dealers?.toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">Dealers</div>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <HardDrive className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                  <div className="font-medium">{tenant.max_storage_gb}GB</div>
+                  <div className="text-xs text-muted-foreground">Storage</div>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <Zap className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                  <div className="font-medium">{tenant.max_api_calls_per_day?.toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">API Calls/Day</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Subscription Details */}
+          {tenant.subscription_start_date && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Subscription Details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="font-medium">Started:</span>
+                    <span className="ml-2">{formatDate(tenant.subscription_start_date)}</span>
+                  </div>
+                  {tenant.subscription_end_date && (
+                    <div>
+                      <span className="font-medium">Ends:</span>
+                      <span className="ml-2">{formatDate(tenant.subscription_end_date)}</span>
+                    </div>
+                  )}
+                  {tenant.trial_ends_at && (
+                    <div>
+                      <span className="font-medium">Trial Ends:</span>
+                      <span className="ml-2">{formatDate(tenant.trial_ends_at)}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Metadata */}
+          {tenant.metadata && Object.keys(tenant.metadata).length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Additional Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  {Object.entries(tenant.metadata).map(([key, value]) => (
+                    <div key={key} className="flex justify-between">
+                      <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span>
+                      <span className="text-muted-foreground">
+                        {typeof value === 'string' ? value : JSON.stringify(value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       </DialogContent>

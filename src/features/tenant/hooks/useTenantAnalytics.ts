@@ -21,28 +21,38 @@ export const useTenantAnalytics = ({
 
   const fetchTenantMetrics = useCallback(async (tenantId: string): Promise<TenantMetrics | null> => {
     try {
-      const { data, error } = await supabase.functions.invoke('tenant-real-time-metrics', {
-        body: { tenantId }
-      });
+      // Fix: Use GET request with query parameter instead of POST with body
+      const response = await fetch(
+        `${supabase.supabaseUrl}/functions/v1/tenant-real-time-metrics?tenant_id=${tenantId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${supabase.supabaseKey}`,
+            'apikey': supabase.supabaseKey,
+          }
+        }
+      );
 
-      if (error) {
-        console.error(`Error fetching metrics for tenant ${tenantId}:`, error);
+      if (!response.ok) {
+        console.error(`Error fetching metrics for tenant ${tenantId}:`, response.status, response.statusText);
         return null;
       }
+
+      const data = await response.json();
 
       if (!data) return null;
 
       return {
         usageMetrics: {
           farmers: {
-            current: data.usage?.farmers || 0,
-            limit: data.limits?.farmers || 1000,
-            percentage: data.usage?.farmers ? (data.usage.farmers / (data.limits?.farmers || 1000)) * 100 : 0
+            current: data.capacity_status?.farmers_usage?.current || 0,
+            limit: data.capacity_status?.farmers_usage?.limit || 1000,
+            percentage: data.capacity_status?.farmers_usage?.percentage || 0
           },
           dealers: {
-            current: data.usage?.dealers || 0,
-            limit: data.limits?.dealers || 50,
-            percentage: data.usage?.dealers ? (data.usage.dealers / (data.limits?.dealers || 50)) * 100 : 0
+            current: data.capacity_status?.dealers_usage?.current || 0,
+            limit: data.capacity_status?.dealers_usage?.limit || 50,
+            percentage: data.capacity_status?.dealers_usage?.percentage || 0
           },
           products: {
             current: data.usage?.products || 0,
@@ -50,14 +60,14 @@ export const useTenantAnalytics = ({
             percentage: data.usage?.products ? (data.usage.products / (data.limits?.products || 100)) * 100 : 0
           },
           storage: {
-            current: data.usage?.storage || 0,
-            limit: data.limits?.storage || 10,
-            percentage: data.usage?.storage ? (data.usage.storage / (data.limits?.storage || 10)) * 100 : 0
+            current: data.capacity_status?.storage_usage?.current || 0,
+            limit: data.capacity_status?.storage_usage?.limit || 10,
+            percentage: data.capacity_status?.storage_usage?.percentage || 0
           },
           apiCalls: {
-            current: data.usage?.api_calls || 0,
-            limit: data.limits?.api_calls || 10000,
-            percentage: data.usage?.api_calls ? (data.usage.api_calls / (data.limits?.api_calls || 10000)) * 100 : 0
+            current: data.capacity_status?.api_usage?.current || 0,
+            limit: data.capacity_status?.api_usage?.limit || 10000,
+            percentage: data.capacity_status?.api_usage?.percentage || 0
           }
         },
         growthTrends: {
@@ -65,8 +75,8 @@ export const useTenantAnalytics = ({
           revenue: data.trends?.revenue || [1000, 1200, 1500, 1800, 2100, 2400, 2700],
           apiUsage: data.trends?.apiUsage || [100, 150, 200, 250, 300, 350, 400]
         },
-        healthScore: data.healthScore || Math.floor(Math.random() * 40) + 60,
-        lastActivityDate: data.lastActivity || new Date().toISOString()
+        healthScore: data.health_score || Math.floor(Math.random() * 40) + 60,
+        lastActivityDate: data.last_activity || new Date().toISOString()
       };
     } catch (error) {
       console.error(`Error fetching metrics for tenant ${tenantId}:`, error);
