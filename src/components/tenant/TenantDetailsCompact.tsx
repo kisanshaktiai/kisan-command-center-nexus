@@ -13,7 +13,9 @@ import {
   UserPlus,
   CheckCircle,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  UserCheck,
+  RefreshCw
 } from 'lucide-react';
 import { Tenant } from '@/types/tenant';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,26 +32,27 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [userStatus, setUserStatus] = useState<'checking' | 'found' | 'not_found' | 'registering' | 'registered'>('checking');
+  const [userStatus, setUserStatus] = useState<'idle' | 'checking' | 'found' | 'not_found' | 'registering' | 'registered'>('idle');
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (tenant && isOpen) {
-      checkUserExists();
+      setUserStatus('idle');
+      setUserId(null);
+      setUserEmail(null);
     }
   }, [tenant, isOpen]);
 
-  const checkUserExists = async () => {
+  const handleCheckUserExists = async () => {
     if (!tenant?.owner_email) {
-      setUserStatus('not_found');
+      toast.error('No email address found for this tenant');
       return;
     }
 
     try {
       setUserStatus('checking');
       
-      // Check if user exists in auth.users using the service role
       const { data, error } = await supabase.functions.invoke('check-user-exists', {
         body: { email: tenant.owner_email }
       });
@@ -57,6 +60,7 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
       if (error) {
         console.error('Error checking users:', error);
         setUserStatus('not_found');
+        toast.error('Failed to check user existence');
         return;
       }
 
@@ -64,12 +68,15 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
         setUserId(data.user.id);
         setUserEmail(data.user.email || tenant.owner_email);
         setUserStatus('found');
+        toast.success('User found in authentication system');
       } else {
         setUserStatus('not_found');
+        toast.warning('User not found in authentication system');
       }
     } catch (error) {
       console.error('Error checking user existence:', error);
       setUserStatus('not_found');
+      toast.error('Failed to check user existence');
     }
   };
 
@@ -105,11 +112,6 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
         setUserEmail(data.email);
         setUserStatus('registered');
         toast.success('User registered successfully and welcome email sent!');
-        
-        // Optionally update tenant status to active if it was trial
-        if (tenant.status === 'trial') {
-          // You might want to call a function to update tenant status here
-        }
       } else {
         throw new Error(data?.error || 'Failed to register user');
       }
@@ -154,7 +156,19 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
       case 'not_found':
         return <AlertCircle className="h-4 w-4 text-red-500" />;
       default:
-        return null;
+        return <UserCheck className="h-4 w-4 text-gray-400" />;
+    }
+  };
+
+  const getEmailStatusColor = () => {
+    switch (userStatus) {
+      case 'found':
+      case 'registered':
+        return 'text-green-600 bg-green-50';
+      case 'not_found':
+        return 'text-red-600 bg-red-50';
+      default:
+        return 'text-gray-600 bg-gray-50';
     }
   };
 
@@ -195,14 +209,19 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
               </div>
               <div>
                 <span className="text-muted-foreground">Email:</span>
-                <p className="font-medium">{tenant.owner_email || 'Not provided'}</p>
+                <div className="flex items-center gap-2">
+                  {getUserStatusIcon()}
+                  <p className={`font-medium px-2 py-1 rounded-md ${getEmailStatusColor()}`}>
+                    {tenant.owner_email || 'Not provided'}
+                  </p>
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Phone:</span>
                 <p className="font-medium">{tenant.owner_phone || 'Not provided'}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">User Status:</span>
+                <span className="text-muted-foreground">Auth Status:</span>
                 <div className="flex items-center gap-2">
                   {getUserStatusIcon()}
                   <span className="font-medium capitalize">
@@ -210,7 +229,8 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
                      userStatus === 'registered' ? 'Just Registered' :
                      userStatus === 'not_found' ? 'Not Registered' :
                      userStatus === 'checking' ? 'Checking...' :
-                     'Registering...'}
+                     userStatus === 'registering' ? 'Registering...' :
+                     'Unknown'}
                   </span>
                 </div>
               </div>
@@ -224,19 +244,61 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
               </div>
             )}
 
-            {/* Register User Button */}
-            {userStatus === 'not_found' && tenant.owner_email && (
-              <div className="mt-3">
+            {/* Action Buttons */}
+            <div className="mt-3 flex gap-2">
+              {/* Check User Button */}
+              <Button 
+                onClick={handleCheckUserExists}
+                size="sm"
+                variant="outline"
+                disabled={userStatus === 'checking' || userStatus === 'registering' || !tenant.owner_email}
+              >
+                {userStatus === 'checking' ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="h-4 w-4 mr-2" />
+                    Check User Status
+                  </>
+                )}
+              </Button>
+
+              {/* Register User Button */}
+              {userStatus === 'not_found' && tenant.owner_email && (
                 <Button 
                   onClick={handleRegisterUser}
                   size="sm"
-                  className="w-full"
+                  disabled={userStatus === 'registering'}
                 >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Register User & Send Welcome Email
+                  {userStatus === 'registering' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Registering...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Create User Account
+                    </>
+                  )}
                 </Button>
-              </div>
-            )}
+              )}
+
+              {/* Refresh Status Button */}
+              {(userStatus === 'found' || userStatus === 'registered') && (
+                <Button 
+                  onClick={handleCheckUserExists}
+                  size="sm"
+                  variant="ghost"
+                  disabled={userStatus === 'checking'}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
 
           <Separator />
