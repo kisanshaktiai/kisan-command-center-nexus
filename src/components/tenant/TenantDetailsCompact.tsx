@@ -175,19 +175,19 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-2xl p-0">
-        <DialogHeader className="px-4 py-3 border-b bg-muted/30">
-          <div className="flex items-center gap-3">
-            <Building2 className="h-5 w-5 text-muted-foreground" />
+        <DialogHeader className="px-4 py-2 border-b bg-muted/30">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
             <div>
-              <DialogTitle className="text-lg font-semibold">
+              <DialogTitle className="text-base font-semibold">
                 {tenant.name}
               </DialogTitle>
-              <div className="flex items-center gap-2 mt-1">
-                <div className={`w-2 h-2 rounded-full ${getStatusColor(tenant.status)}`} />
-                <span className="text-sm text-muted-foreground capitalize">
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className={`w-1.5 h-1.5 rounded-full ${getStatusColor(tenant.status)}`} />
+                <span className="text-xs text-muted-foreground capitalize">
                   {tenant.status}
                 </span>
-                <Badge variant={getSubscriptionBadgeVariant(tenant.subscription_plan)} className="text-xs">
+                <Badge variant={getSubscriptionBadgeVariant(tenant.subscription_plan)} className="text-xs h-5">
                   {tenant.subscription_plan.replace('_', ' ')}
                 </Badge>
               </div>
@@ -196,12 +196,25 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
         </DialogHeader>
 
         <div className="p-4 space-y-4">
-          {/* Owner Information */}
+          {/* Owner Information with User Status */}
           <div>
             <h3 className="font-medium mb-3 flex items-center gap-2">
               <Users className="h-4 w-4" />
               Owner Information
+              {/* User Status Indicator */}
+              <div className="ml-auto flex items-center gap-1">
+                {getUserStatusIcon()}
+                <span className="text-xs">
+                  {userStatus === 'found' ? 'Verified' : 
+                   userStatus === 'registered' ? 'Just Created' :
+                   userStatus === 'not_found' ? 'Not Found' :
+                   userStatus === 'checking' ? 'Checking...' :
+                   userStatus === 'registering' ? 'Creating...' :
+                   'Unverified'}
+                </span>
+              </div>
             </h3>
+            
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="text-muted-foreground">Name:</span>
@@ -211,7 +224,7 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
                 <span className="text-muted-foreground">Email:</span>
                 <div className="flex items-center gap-2">
                   {getUserStatusIcon()}
-                  <p className={`font-medium px-2 py-1 rounded-md ${getEmailStatusColor()}`}>
+                  <p className={`font-medium px-2 py-1 rounded-md text-xs ${getEmailStatusColor()}`}>
                     {tenant.owner_email || 'Not provided'}
                   </p>
                 </div>
@@ -224,7 +237,7 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
                 <span className="text-muted-foreground">Auth Status:</span>
                 <div className="flex items-center gap-2">
                   {getUserStatusIcon()}
-                  <span className="font-medium capitalize">
+                  <span className="font-medium capitalize text-xs">
                     {userStatus === 'found' ? 'Registered' : 
                      userStatus === 'registered' ? 'Just Registered' :
                      userStatus === 'not_found' ? 'Not Registered' :
@@ -266,7 +279,7 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
                 )}
               </Button>
 
-              {/* Register User Button */}
+              {/* Register User Button - Only show when user not found */}
               {userStatus === 'not_found' && tenant.owner_email && (
                 <Button 
                   onClick={handleRegisterUser}
@@ -276,7 +289,7 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
                   {userStatus === 'registering' ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Registering...
+                      Creating...
                     </>
                   ) : (
                     <>
@@ -287,7 +300,7 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
                 </Button>
               )}
 
-              {/* Refresh Status Button */}
+              {/* Refresh Status Button - Show when user found/registered */}
               {(userStatus === 'found' || userStatus === 'registered') && (
                 <Button 
                   onClick={handleCheckUserExists}
@@ -303,7 +316,7 @@ export const TenantDetailsCompact: React.FC<TenantDetailsCompactProps> = ({
 
           <Separator />
 
-          {/* Limits Overview */}
+          {/* Plan Limits */}
           <div>
             <h3 className="font-medium mb-3 flex items-center gap-2">
               <Database className="h-4 w-4" />
