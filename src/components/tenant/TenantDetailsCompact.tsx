@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Tenant } from '@/types/tenant';
 import { User } from '@supabase/supabase-js';
@@ -98,7 +99,7 @@ export const TenantDetailsCompact = ({ tenant, onRefresh, isOpen, onClose }: Ten
   const handleToggleStatus = async () => {
     setIsToggling(true);
     try {
-      const newStatus = tenant.status === 'active' ? 'inactive' : 'active';
+      const newStatus = tenant.status === 'active' ? 'suspended' : 'active';
       
       const { error } = await supabase
         .from('tenants')
@@ -140,7 +141,7 @@ export const TenantDetailsCompact = ({ tenant, onRefresh, isOpen, onClose }: Ten
                 {tenant.status === 'active' ? (
                   <>
                     <ToggleLeft className="h-4 w-4 mr-2" />
-                    Deactivate
+                    Suspend
                   </>
                 ) : (
                   <>
