@@ -30,18 +30,20 @@ import {
   ArrowUp,
   ArrowDown,
   Zap,
-  MoreHorizontal,
   CheckCircle2,
   XCircle,
   Clock,
   AlertTriangle,
 } from 'lucide-react';
-import { useLeads } from '@/hooks/useLeadManagement';
 import { ConvertLeadDialog } from './ConvertLeadDialog';
 import type { Lead } from '@/types/leads';
 
 interface LeadTableViewProps {
-  onRefresh?: () => void;
+  leads: Lead[];
+  isLoading: boolean;
+  selectedLeads: string[];
+  onSelectionChange: (selectedLeads: string[]) => void;
+  onRefresh: () => void;
 }
 
 type SortField = 'contact_name' | 'email' | 'organization_name' | 'status' | 'priority' | 'created_at' | 'qualification_score';
@@ -99,14 +101,18 @@ const getPriorityColor = (priority: Lead['priority']) => {
   }
 };
 
-export const LeadTableView: React.FC<LeadTableViewProps> = ({ onRefresh }) => {
-  const { data: leads = [], isLoading, refetch } = useLeads();
+export const LeadTableView: React.FC<LeadTableViewProps> = ({ 
+  leads, 
+  isLoading, 
+  selectedLeads, 
+  onSelectionChange, 
+  onRefresh 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [selectedLeadForConversion, setSelectedLeadForConversion] = useState<Lead | null>(null);
 
@@ -160,18 +166,17 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({ onRefresh }) => {
   };
 
   const handleSelectLead = (leadId: string) => {
-    setSelectedLeads(prev => 
-      prev.includes(leadId) 
-        ? prev.filter(id => id !== leadId)
-        : [...prev, leadId]
-    );
+    const newSelection = selectedLeads.includes(leadId) 
+      ? selectedLeads.filter(id => id !== leadId)
+      : [...selectedLeads, leadId];
+    onSelectionChange(newSelection);
   };
 
   const handleSelectAll = () => {
     if (selectedLeads.length === filteredAndSortedLeads.length) {
-      setSelectedLeads([]);
+      onSelectionChange([]);
     } else {
-      setSelectedLeads(filteredAndSortedLeads.map(lead => lead.id));
+      onSelectionChange(filteredAndSortedLeads.map(lead => lead.id));
     }
   };
 
@@ -186,8 +191,7 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({ onRefresh }) => {
   const handleConversionSuccess = () => {
     setConvertDialogOpen(false);
     setSelectedLeadForConversion(null);
-    refetch();
-    onRefresh?.();
+    onRefresh();
   };
 
   if (isLoading) {
@@ -410,7 +414,7 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({ onRefresh }) => {
                     {lead.qualification_score >= 80 && (
                       <div className="relative group">
                         <Zap className="h-4 w-4 text-green-500" />
-                        <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                        <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap z-10">
                           High quality lead
                         </div>
                       </div>
@@ -434,7 +438,7 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({ onRefresh }) => {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                      <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap z-10">
                         View Details
                       </div>
                     </div>
@@ -446,7 +450,7 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({ onRefresh }) => {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                      <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap z-10">
                         Edit Lead
                       </div>
                     </div>
@@ -461,7 +465,7 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({ onRefresh }) => {
                           <UserPlus className="h-3 w-3 mr-1" />
                           Convert
                         </Button>
-                        <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                        <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap z-10">
                           Convert to Tenant
                         </div>
                       </div>
