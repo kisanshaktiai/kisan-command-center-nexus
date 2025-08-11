@@ -1,16 +1,17 @@
 
-import React from 'react';
-import { FixedSizeList as List } from 'react-window';
+import React, { memo } from 'react';
+import { FixedSizeList } from 'react-window';
+import { Draggable } from '@hello-pangea/dnd';
 import { CompactLeadCard } from './CompactLeadCard';
 import type { Lead } from '@/types/leads';
 
-interface VirtualizedKanbanColumnProps {
-  leads: Lead[];
+export interface VirtualizedKanbanColumnProps {
   title: string;
+  leads: Lead[];
+  selectedLeads: string[];
   onSelectionChange?: (leadIds: string[]) => void;
-  selectedLeads?: string[];
-  height?: number;
-  itemHeight?: number;
+  onReassign: (lead: Lead) => void;
+  onConvert: (lead: Lead) => void;
 }
 
 interface LeadItemProps {
@@ -25,76 +26,86 @@ interface LeadItemProps {
   };
 }
 
-const LeadItem: React.FC<LeadItemProps> = ({ index, style, data }) => {
+const LeadItem = memo<LeadItemProps>(({ index, style, data }) => {
   const { leads, selectedLeads, onSelectionChange, onReassign, onConvert } = data;
   const lead = leads[index];
 
+  if (!lead) return null;
+
+  const isSelected = selectedLeads.includes(lead.id);
+
+  const handleSelect = () => {
+    if (!onSelectionChange) return;
+    
+    if (isSelected) {
+      onSelectionChange(selectedLeads.filter(id => id !== lead.id));
+    } else {
+      onSelectionChange([...selectedLeads, lead.id]);
+    }
+  };
+
   return (
-    <div style={{ ...style, padding: '4px 0' }}>
-      <CompactLeadCard
-        lead={lead}
-        onReassign={() => onReassign(lead)}
-        onConvert={() => onConvert(lead)}
-        isSelected={selectedLeads.includes(lead.id)}
-        onSelect={() => {
-          if (onSelectionChange) {
-            const newSelection = selectedLeads.includes(lead.id)
-              ? selectedLeads.filter(id => id !== lead.id)
-              : [...selectedLeads, lead.id];
-            onSelectionChange(newSelection);
-          }
-        }}
-      />
+    <div style={style} className="px-2 py-1">
+      <Draggable draggableId={lead.id} index={index}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            className={`transform transition-transform ${
+              snapshot.isDragging ? 'rotate-2 scale-105' : ''
+            }`}
+          >
+            <CompactLeadCard
+              lead={lead}
+              isSelected={isSelected}
+              onSelect={handleSelect}
+              onReassign={onReassign}
+              onConvert={onConvert}
+            />
+          </div>
+        )}
+      </Draggable>
     </div>
   );
-};
+});
 
-export const VirtualizedKanbanColumn: React.FC<VirtualizedKanbanColumnProps> = ({
-  leads,
+LeadItem.displayName = 'LeadItem';
+
+export const VirtualizedKanbanColumn = memo<VirtualizedKanbanColumnProps>(({
   title,
+  leads,
+  selectedLeads,
   onSelectionChange,
-  selectedLeads = [],
-  height = 600,
-  itemHeight = 120,
+  onReassign,
+  onConvert
 }) => {
-  // Stable handlers that don't change UI design
-  const handleReassign = (lead: Lead) => {
-    console.log('Reassign lead:', lead.id);
-    // This will be handled by parent components through proper event bubbling
-  };
-
-  const handleConvert = (lead: Lead) => {
-    console.log('Convert lead:', lead.id);
-    // This will be handled by parent components through proper event bubbling
-  };
-
   const itemData = {
     leads,
     selectedLeads,
     onSelectionChange,
-    onReassign: handleReassign,
-    onConvert: handleConvert,
+    onReassign,
+    onConvert
   };
 
+  if (leads.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+        No leads in {title.toLowerCase()}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-3 border-b">
-        <h3 className="font-medium text-sm text-foreground">{title}</h3>
-        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-          {leads.length}
-        </span>
-      </div>
-      
-      <div className="flex-1 overflow-hidden">
-        <List
-          height={height}
-          itemCount={leads.length}
-          itemSize={itemHeight}
-          itemData={itemData}
-        >
-          {LeadItem}
-        </List>
-      </div>
-    </div>
+    <FixedSizeList
+      children={LeadItem}
+      height={400}
+      width="100%"
+      itemCount={leads.length}
+      itemSize={120}
+      itemData={itemData}
+    />
   );
-};
+});
+
+VirtualizedKanbanColumn.displayName = 'VirtualizedKanbanColumn';
