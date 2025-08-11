@@ -30,6 +30,9 @@ const LeadRow: React.FC<LeadRowProps> = ({ index, style, data }) => {
     <div style={{ ...style, padding: '4px 0' }}>
       <CompactLeadCard
         lead={lead}
+        // Provide required handlers to satisfy the component's props
+        onReassign={() => {}}
+        onConvert={() => {}}
         isSelected={selectedLeads.includes(lead.id)}
         onSelect={() => {
           if (onSelectionChange) {
@@ -78,3 +81,4 @@ export const VirtualizedKanbanColumn: React.FC<VirtualizedKanbanColumnProps> = (
     </List>
   );
 };
+
