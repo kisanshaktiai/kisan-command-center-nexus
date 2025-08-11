@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +29,7 @@ import {
 import { useLeads } from '@/hooks/useLeadManagement';
 import { useLeadAnalytics } from '@/hooks/useEnhancedLeadManagement';
 import { DraggableLeadKanban } from './DraggableLeadKanban';
+import { LeadTableView } from './LeadTableView';
 import { LeadAnalyticsDashboard } from './LeadAnalyticsDashboard';
 import { CreateLeadDialog } from './CreateLeadDialog';
 import { LeadImportDialog } from './LeadImportDialog';
@@ -393,22 +393,13 @@ export const WorldClassLeadManagement: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="table" className="mt-8">
-            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-2xl">
-              <CardContent className="p-12 text-center">
-                <div className="relative">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur opacity-25"></div>
-                  <Clock className="relative h-16 w-16 text-gray-400 mx-auto mb-6" />
-                </div>
-                <h3 className="text-2xl font-bold mb-3 text-gray-800">Table View Coming Soon</h3>
-                <p className="text-gray-600 text-lg">Advanced table view with sorting, filtering, and bulk actions.</p>
-                <div className="mt-6">
-                  <Badge variant="outline" className="px-4 py-2">
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Next Release
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
+            <LeadTableView
+              leads={filteredLeads}
+              isLoading={isLoading}
+              selectedLeads={selectedLeads}
+              onSelectionChange={setSelectedLeads}
+              onRefresh={() => refetch()}
+            />
           </TabsContent>
 
           <TabsContent value="analytics" className="mt-8">
