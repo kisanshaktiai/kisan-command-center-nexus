@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -55,7 +54,7 @@ export const LeadAssignmentDialog: React.FC<LeadAssignmentDialogProps> = ({
 
     reassignMutation.mutate({
       leadId,
-      newAdminId: selectedAdmin,
+      adminId: selectedAdmin,
       reason: reason.trim() || undefined,
     }, {
       onSuccess: () => {
