@@ -1,9 +1,10 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,94 +15,102 @@ import {
   CheckCircle, 
   TrendingUp, 
   XCircle,
-  Zap,
+  Search,
+  ChevronDown,
+  ChevronRight,
   Settings,
-  BarChart3
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { VirtualizedKanbanColumn } from './VirtualizedKanbanColumn';
-import { LeadCard } from './EnhancedLeadCard';
-import { LeadAssignmentDialog } from './LeadAssignmentDialog';
-import { ConvertLeadDialog } from './ConvertLeadDialog';
-import { BulkLeadActions } from './BulkLeadActions';
-import { useUpdateLeadStatus } from '@/hooks/useLeadManagement';
+import { CompactLeadCard } from './CompactLeadCard';
+import { EnhancedLeadCard } from './EnhancedLeadCard';
 import type { Lead } from '@/types/leads';
 
 interface DraggableLeadKanbanProps {
   leads: Lead[];
-  isLoading: boolean;
-  selectedLeads: string[];
-  onSelectionChange: (leadIds: string[]) => void;
+  onStatusChange: (leadId: string, newStatus: Lead['status']) => void;
+  className?: string;
+  isLoading?: boolean;
+  selectedLeads?: string[];
+  onSelectionChange?: (leadIds: string[]) => void;
   onRefresh?: () => void;
 }
 
-const statusConfig = {
-  new: {
-    title: 'New Leads',
-    icon: Users,
-    color: 'bg-blue-500',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
-    textColor: 'text-blue-900'
-  },
-  assigned: {
-    title: 'Assigned',
-    icon: UserPlus,
-    color: 'bg-purple-500',
-    bgColor: 'bg-purple-50',
-    borderColor: 'border-purple-200',
-    textColor: 'text-purple-900'
-  },
-  contacted: {
-    title: 'Contacted',
-    icon: Clock,
-    color: 'bg-yellow-500',
-    bgColor: 'bg-yellow-50',
-    borderColor: 'border-yellow-200',
-    textColor: 'text-yellow-900'
-  },
-  qualified: {
-    title: 'Qualified',
-    icon: TrendingUp,
-    color: 'bg-green-500',
-    bgColor: 'bg-green-50',
-    borderColor: 'border-green-200',
-    textColor: 'text-green-900'
-  },
-  converted: {
-    title: 'Converted',
-    icon: CheckCircle,
-    color: 'bg-emerald-500',
-    bgColor: 'bg-emerald-50',
-    borderColor: 'border-emerald-200',
-    textColor: 'text-emerald-900'
-  },
-  rejected: {
-    title: 'Rejected',
-    icon: XCircle,
-    color: 'bg-red-500',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-200',
-    textColor: 'text-red-900'
-  }
-};
-
 export const DraggableLeadKanban: React.FC<DraggableLeadKanbanProps> = ({
   leads,
-  isLoading,
-  selectedLeads,
+  onStatusChange,
+  className = '',
+  isLoading = false,
+  selectedLeads = [],
   onSelectionChange,
   onRefresh
 }) => {
-  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
-  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
-  const [selectedLeadForAction, setSelectedLeadForAction] = useState<string | null>(null);
-  const [expandedLeads, setExpandedLeads] = useState<Set<string>>(new Set());
   const [compactMode, setCompactMode] = useState(false);
-  const [searchableColumns, setSearchableColumns] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
+  const [columnSearches, setColumnSearches] = useState<Record<string, string>>({});
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({
+    new: 50,
+    assigned: 50,
+    contacted: 50,
+    qualified: 50,
+    converted: 50,
+    rejected: 50
+  });
 
-  const updateStatus = useUpdateLeadStatus();
+  const statusConfig = {
+    new: {
+      title: 'New Leads',
+      icon: Users,
+      color: 'bg-blue-500',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      textColor: 'text-blue-900'
+    },
+    assigned: {
+      title: 'Assigned',
+      icon: UserPlus,
+      color: 'bg-purple-500',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200',
+      textColor: 'text-purple-900'
+    },
+    contacted: {
+      title: 'Contacted',
+      icon: Clock,
+      color: 'bg-yellow-500',
+      bgColor: 'bg-yellow-50',
+      borderColor: 'border-yellow-200',
+      textColor: 'text-yellow-900'
+    },
+    qualified: {
+      title: 'Qualified',
+      icon: TrendingUp,
+      color: 'bg-green-500',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      textColor: 'text-green-900'
+    },
+    converted: {
+      title: 'Converted',
+      icon: CheckCircle,
+      color: 'bg-emerald-500',
+      bgColor: 'bg-emerald-50',
+      borderColor: 'border-emerald-200',
+      textColor: 'text-emerald-900'
+    },
+    rejected: {
+      title: 'Rejected',
+      icon: XCircle,
+      color: 'bg-red-500',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200',
+      textColor: 'text-red-900'
+    }
+  };
 
-  // Group leads by status
+  // Group leads by status with search filtering
   const leadsByStatus = useMemo(() => {
     const grouped: Record<Lead['status'], Lead[]> = {
       new: [],
@@ -113,68 +122,56 @@ export const DraggableLeadKanban: React.FC<DraggableLeadKanbanProps> = ({
     };
 
     leads.forEach(lead => {
-      grouped[lead.status].push(lead);
+      const search = columnSearches[lead.status]?.toLowerCase() || '';
+      const matchesSearch = !search || 
+        lead.contact_name.toLowerCase().includes(search) ||
+        lead.email.toLowerCase().includes(search) ||
+        (lead.organization_name && lead.organization_name.toLowerCase().includes(search));
+      
+      if (matchesSearch) {
+        grouped[lead.status].push(lead);
+      }
     });
 
     return grouped;
-  }, [leads]);
+  }, [leads, columnSearches]);
 
-  const handleReassignLead = (leadId: string) => {
-    setSelectedLeadForAction(leadId);
-    setAssignmentDialogOpen(true);
-  };
-
-  const handleConvertLead = (leadId: string) => {
-    setSelectedLeadForAction(leadId);
-    setConvertDialogOpen(true);
-  };
-
-  const handleToggleExpanded = (leadId: string) => {
-    const newExpanded = new Set(expandedLeads);
-    if (newExpanded.has(leadId)) {
-      newExpanded.delete(leadId);
-    } else {
-      newExpanded.add(leadId);
-    }
-    setExpandedLeads(newExpanded);
-  };
-
-  const handleLeadSelection = (leadId: string) => {
-    if (selectedLeads.includes(leadId)) {
-      onSelectionChange(selectedLeads.filter(id => id !== leadId));
-    } else {
-      onSelectionChange([...selectedLeads, leadId]);
-    }
-  };
-
-  const handleDragEnd = async (result: DropResult) => {
+  const handleDragEnd = useCallback((result: DropResult) => {
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
     const newStatus = destination.droppableId as Lead['status'];
-    const leadId = draggableId;
+    onStatusChange(draggableId, newStatus);
+  }, [onStatusChange]);
 
-    try {
-      await updateStatus.mutateAsync({
-        leadId,
-        status: newStatus,
-        notes: `Status updated to ${newStatus} via drag and drop`
-      });
-      onRefresh?.();
-    } catch (error) {
-      console.error('Failed to update lead status:', error);
+  const toggleColumnCollapse = (status: string) => {
+    const newCollapsed = new Set(collapsedColumns);
+    if (newCollapsed.has(status)) {
+      newCollapsed.delete(status);
+    } else {
+      newCollapsed.add(status);
     }
+    setCollapsedColumns(newCollapsed);
   };
 
-  const selectedLead = selectedLeadForAction ? leads.find(l => l.id === selectedLeadForAction) : null;
+  const updateColumnSearch = (status: string, search: string) => {
+    setColumnSearches(prev => ({ ...prev, [status]: search }));
+  };
+
+  const loadMoreInColumn = (status: string) => {
+    setVisibleCounts(prev => ({
+      ...prev,
+      [status]: prev[status] + 50
+    }));
+  };
 
   if (isLoading) {
     return (
-      <div className="flex gap-6 overflow-x-auto pb-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 ${className}`}>
         {Object.keys(statusConfig).map((status) => (
-          <Card key={status} className="w-80 h-96 flex-shrink-0">
+          <Card key={status} className="h-96">
             <CardHeader className="pb-3">
               <div className="animate-pulse bg-gray-200 h-6 rounded"></div>
             </CardHeader>
@@ -191,142 +188,140 @@ export const DraggableLeadKanban: React.FC<DraggableLeadKanbanProps> = ({
     );
   }
 
-  const shouldUseVirtualization = leads.length > 100;
-
   return (
-    <>
-      <div className="space-y-6">
-        {/* Performance Controls */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Performance Settings</h3>
-              <p className="text-sm text-gray-600">
-                Optimize display for {leads.length.toLocaleString()} leads
-              </p>
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center space-x-2">
-                <Switch 
-                  id="compact-mode" 
-                  checked={compactMode} 
-                  onCheckedChange={setCompactMode}
-                />
-                <Label htmlFor="compact-mode" className="flex items-center gap-2">
-                  <Zap className="h-4 w-4" />
-                  Compact Mode
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch 
-                  id="searchable-columns" 
-                  checked={searchableColumns} 
-                  onCheckedChange={setSearchableColumns}
-                />
-                <Label htmlFor="searchable-columns" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Column Search
-                </Label>
-              </div>
-              <Badge variant="outline" className="flex items-center gap-2">
-                <BarChart3 className="h-3 w-3" />
-                {shouldUseVirtualization ? 'Virtualized' : 'Standard'}
-              </Badge>
-            </div>
+    <div className={`space-y-4 ${className}`}>
+      {/* Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="compact-mode"
+              checked={compactMode}
+              onCheckedChange={setCompactMode}
+            />
+            <Label htmlFor="compact-mode">Compact Mode (Performance)</Label>
           </div>
-        </Card>
+          <Badge variant="outline">
+            Total: {leads.length} leads
+          </Badge>
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowSettings(!showSettings)}
+        >
+          <Settings className="h-4 w-4 mr-2" />
+          {showSettings ? 'Hide' : 'Show'} Settings
+        </Button>
+      </div>
 
-        {/* Bulk Actions */}
-        {selectedLeads.length > 0 && (
-          <BulkLeadActions
-            selectedCount={selectedLeads.length}
-            onAutoAssign={() => {}}
-            onCalculateScore={() => {}}
-            onClearSelection={() => onSelectionChange([])}
-          />
-        )}
+      {/* Performance tip */}
+      {leads.length > 500 && !compactMode && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <p className="text-sm text-yellow-800">
+            💡 Performance tip: Enable Compact Mode for better performance with {leads.length} leads
+          </p>
+        </div>
+      )}
 
-        {/* Kanban Board */}
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-6 overflow-x-auto pb-6">
-            {Object.entries(statusConfig).map(([status, config]) => {
-              const statusLeads = leadsByStatus[status as Lead['status']];
+      {/* Drag and Drop Context */}
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          {Object.entries(statusConfig).map(([status, config]) => {
+            const statusLeads = leadsByStatus[status as Lead['status']];
+            const IconComponent = config.icon;
+            const isCollapsed = collapsedColumns.has(status);
+            const visibleLeads = compactMode ? statusLeads : statusLeads.slice(0, visibleCounts[status]);
+            const hasMore = !compactMode && statusLeads.length > visibleCounts[status];
 
-              if (shouldUseVirtualization || compactMode) {
-                return (
-                  <VirtualizedKanbanColumn
-                    key={status}
-                    title={config.title}
-                    icon={config.icon}
-                    color={config.color}
-                    bgColor={config.bgColor}
-                    borderColor={config.borderColor}
-                    textColor={config.textColor}
-                    leads={statusLeads}
-                    onReassign={handleReassignLead}
-                    onConvert={handleConvertLead}
-                    selectedLeads={selectedLeads}
-                    onLeadSelection={handleLeadSelection}
-                    expandedLeads={expandedLeads}
-                    onToggleExpanded={handleToggleExpanded}
-                    onRefresh={onRefresh}
-                    compactMode={compactMode}
-                    searchable={searchableColumns}
-                  />
-                );
-              }
-
-              return (
-                <Droppable key={status} droppableId={status}>
-                  {(provided, snapshot) => (
-                    <Card 
-                      className={`${config.borderColor} border-2 w-80 flex-shrink-0 flex flex-col min-h-[400px] ${
-                        snapshot.isDraggingOver ? 'bg-gray-50' : ''
-                      }`}
-                    >
-                      <CardHeader className={`${config.bgColor} pb-4`}>
-                        <CardTitle className={`flex items-center justify-between ${config.textColor}`}>
-                          <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-lg ${config.color} text-white`}>
-                              <config.icon className="h-4 w-4" />
-                            </div>
-                            <div>
-                              <div className="font-bold text-sm">{config.title}</div>
-                              <div className="text-xs opacity-70">
-                                {statusLeads.length} lead{statusLeads.length !== 1 ? 's' : ''}
-                              </div>
-                            </div>
-                          </div>
-                          <Badge variant="secondary" className="ml-2">
-                            {statusLeads.length}
-                          </Badge>
-                        </CardTitle>
-                      </CardHeader>
-
-                      <CardContent className="flex-1 p-4">
-                        <ScrollArea 
-                          className="h-full"
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
+            return (
+              <Card key={status} className={`${config.borderColor} border-2 min-h-[400px] flex flex-col`}>
+                <CardHeader className={`${config.bgColor} pb-4`}>
+                  <CardTitle className={`${config.textColor}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleColumnCollapse(status)}
+                          className="p-1"
                         >
-                          <div className="space-y-3">
-                            {statusLeads.map((lead, index) => (
+                          {isCollapsed ? (
+                            <ChevronRight className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <div className={`p-2 rounded-lg ${config.color} text-white`}>
+                          <IconComponent className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm">{config.title}</div>
+                          <div className="text-xs opacity-70">
+                            {statusLeads.length} lead{statusLeads.length !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="ml-2">
+                        {statusLeads.length}
+                      </Badge>
+                    </div>
+                  </CardTitle>
+                  
+                  {!isCollapsed && showSettings && (
+                    <div className="mt-2">
+                      <Input
+                        placeholder={`Search in ${config.title.toLowerCase()}...`}
+                        value={columnSearches[status] || ''}
+                        onChange={(e) => updateColumnSearch(status, e.target.value)}
+                        className="h-8"
+                      />
+                    </div>
+                  )}
+                </CardHeader>
+
+                {!isCollapsed && (
+                  <CardContent className="flex-1 p-4">
+                    {compactMode ? (
+                      <VirtualizedKanbanColumn
+                        leads={statusLeads}
+                        status={status as Lead['status']}
+                        onStatusChange={onStatusChange}
+                        selectedLeads={selectedLeads}
+                        onSelectionChange={onSelectionChange}
+                      />
+                    ) : (
+                      <Droppable droppableId={status}>
+                        {(provided, snapshot) => (
+                          <div
+                            {...provided.droppableProps}
+                            ref={provided.innerRef}
+                            className={`space-y-3 min-h-[200px] ${
+                              snapshot.isDraggingOver ? 'bg-blue-50 rounded-lg p-2' : ''
+                            }`}
+                          >
+                            {visibleLeads.map((lead, index) => (
                               <Draggable key={lead.id} draggableId={lead.id} index={index}>
                                 {(provided, snapshot) => (
                                   <div
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
                                     {...provided.dragHandleProps}
-                                    className={`${snapshot.isDragging ? 'rotate-2 scale-105' : ''} transition-transform`}
+                                    className={snapshot.isDragging ? 'rotate-2 scale-105' : ''}
                                   >
-                                    <LeadCard
+                                    <EnhancedLeadCard
                                       lead={lead}
-                                      onReassign={handleReassignLead}
-                                      onConvert={handleConvertLead}
+                                      onReassign={() => {}}
+                                      onConvert={() => {}}
                                       isSelected={selectedLeads.includes(lead.id)}
-                                      onSelect={() => handleLeadSelection(lead.id)}
-                                      expanded={expandedLeads.has(lead.id)}
-                                      onToggleExpanded={() => handleToggleExpanded(lead.id)}
+                                      onSelect={() => onSelectionChange?.(
+                                        selectedLeads.includes(lead.id)
+                                          ? selectedLeads.filter(id => id !== lead.id)
+                                          : [...selectedLeads, lead.id]
+                                      )}
+                                      expanded={false}
+                                      onToggleExpanded={() => {}}
                                       onRefresh={onRefresh}
                                     />
                                   </div>
@@ -335,49 +330,34 @@ export const DraggableLeadKanban: React.FC<DraggableLeadKanbanProps> = ({
                             ))}
                             {provided.placeholder}
                             
+                            {hasMore && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => loadMoreInColumn(status)}
+                                className="w-full"
+                              >
+                                Load More ({statusLeads.length - visibleCounts[status]} remaining)
+                              </Button>
+                            )}
+                            
                             {statusLeads.length === 0 && (
                               <div className="text-center py-8 text-gray-500">
                                 <div className="text-4xl mb-2">📋</div>
-                                <p className="text-sm">No leads in this status</p>
-                                <p className="text-xs text-gray-400 mt-1">Drag leads here</p>
+                                <p className="text-sm">No leads</p>
                               </div>
                             )}
                           </div>
-                        </ScrollArea>
-                      </CardContent>
-                    </Card>
-                  )}
-                </Droppable>
-              );
-            })}
-          </div>
-        </DragDropContext>
-      </div>
-
-      {/* Dialogs */}
-      <LeadAssignmentDialog
-        open={assignmentDialogOpen}
-        onClose={() => {
-          setAssignmentDialogOpen(false);
-          setSelectedLeadForAction(null);
-        }}
-        leadId={selectedLeadForAction}
-        leadName={selectedLead?.contact_name}
-      />
-
-      <ConvertLeadDialog
-        isOpen={convertDialogOpen}
-        onClose={() => {
-          setConvertDialogOpen(false);
-          setSelectedLeadForAction(null);
-        }}
-        lead={selectedLead}
-        onSuccess={() => {
-          setConvertDialogOpen(false);
-          setSelectedLeadForAction(null);
-          onRefresh?.();
-        }}
-      />
-    </>
+                        )}
+                      </Droppable>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      </DragDropContext>
+    </div>
   );
 };

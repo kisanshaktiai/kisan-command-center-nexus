@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,6 @@ import {
   AlertTriangle 
 } from 'lucide-react';
 import { useLeads, useUpdateLeadStatus } from '@/hooks/useLeadManagement';
-import { DataTableViewOptions } from '@/components/data-table/data-table-view-options';
 import { DraggableLeadKanban } from '@/components/leads/DraggableLeadKanban';
 import {
   DropdownMenu,
@@ -38,7 +38,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { MoreHorizontal } from 'lucide-react';
 import { ConvertLeadDialog } from '@/components/leads/ConvertLeadDialog';
-import { LeadDetailsDialog } from '@/components/leads/LeadDetailsDialog';
 import { TenantVerificationModal } from '@/components/leads/TenantVerificationModal';
 import { useToast } from "@/hooks/use-toast"
 import { useEnhancedLeads } from '@/hooks/useEnhancedLeadManagement';
@@ -55,7 +54,7 @@ export const WorldClassLeadManagement: React.FC = () => {
   const { toast } = useToast()
 
   const { data: leads = [], isLoading, isError } = useEnhancedLeads();
-  const { mutate: updateLeadStatus, isLoading: isUpdatingStatus } = useUpdateLeadStatus();
+  const { mutate: updateLeadStatus, isPending: isUpdatingStatus } = useUpdateLeadStatus();
 
   // Add validation watcher
   const { hasInvalidConversions } = useLeadValidationWatcher(leads);
@@ -102,7 +101,6 @@ export const WorldClassLeadManagement: React.FC = () => {
         return (
           <DraggableLeadKanban
             leads={leads}
-            onLeadSelect={setSelectedLead}
             onStatusChange={handleStatusChange}
             className="min-h-[600px]"
           />
@@ -184,13 +182,6 @@ export const WorldClassLeadManagement: React.FC = () => {
       </div>
 
       {/* Dialogs and Modals */}
-      <LeadDetailsDialog
-        isOpen={!!selectedLead}
-        onClose={() => setSelectedLead(null)}
-        lead={selectedLead}
-        onConvertToTenant={() => setIsConvertDialogOpen(true)}
-      />
-
       <ConvertLeadDialog
         lead={selectedLead}
         isOpen={isConvertDialogOpen}

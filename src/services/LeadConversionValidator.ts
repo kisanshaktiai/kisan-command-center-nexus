@@ -144,8 +144,14 @@ export class LeadConversionValidator {
       const validLeads: Lead[] = [];
       const invalidLeads: Array<{ lead: Lead; validation: ConversionValidationResult }> = [];
 
-      // Validate each converted lead
-      for (const lead of convertedLeads || []) {
+      // Validate each converted lead - cast database leads to proper Lead type
+      for (const dbLead of convertedLeads || []) {
+        // Cast the database lead to proper Lead type
+        const lead: Lead = {
+          ...dbLead,
+          status: dbLead.status as Lead['status'], // Type assertion for status
+        };
+        
         const validation = await this.validateConvertedLead(lead);
         
         if (validation.isValid) {
