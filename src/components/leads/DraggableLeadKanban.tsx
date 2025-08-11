@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +23,7 @@ import {
 } from 'lucide-react';
 import { VirtualizedKanbanColumn } from './VirtualizedKanbanColumn';
 import { CompactLeadCard } from './CompactLeadCard';
-import { EnhancedLeadCard } from './EnhancedLeadCard';
+import { LeadCard as EnhancedLeadCard } from './EnhancedLeadCard';
 import type { Lead } from '@/types/leads';
 
 interface DraggableLeadKanbanProps {
@@ -110,7 +109,6 @@ export const DraggableLeadKanban: React.FC<DraggableLeadKanbanProps> = ({
     }
   };
 
-  // Group leads by status with search filtering
   const leadsByStatus = useMemo(() => {
     const grouped: Record<Lead['status'], Lead[]> = {
       new: [],
@@ -286,7 +284,6 @@ export const DraggableLeadKanban: React.FC<DraggableLeadKanbanProps> = ({
                     {compactMode ? (
                       <VirtualizedKanbanColumn
                         leads={statusLeads}
-                        status={status as Lead['status']}
                         onStatusChange={onStatusChange}
                         selectedLeads={selectedLeads}
                         onSelectionChange={onSelectionChange}

@@ -146,10 +146,16 @@ export class LeadConversionValidator {
 
       // Validate each converted lead - cast database leads to proper Lead type
       for (const dbLead of convertedLeads || []) {
-        // Cast the database lead to proper Lead type
+        // Cast the database lead to proper Lead type with type assertions
         const lead: Lead = {
           ...dbLead,
-          status: dbLead.status as Lead['status'], // Type assertion for status
+          status: dbLead.status as Lead['status'],
+          priority: (dbLead.priority as Lead['priority']) || 'medium',
+          qualification_score: dbLead.qualification_score || 0,
+          created_at: dbLead.created_at || new Date().toISOString(),
+          updated_at: dbLead.updated_at || new Date().toISOString(),
+          contact_name: dbLead.contact_name || '',
+          email: dbLead.email || ''
         };
         
         const validation = await this.validateConvertedLead(lead);

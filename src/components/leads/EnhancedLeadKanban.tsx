@@ -29,6 +29,7 @@ interface EnhancedLeadKanbanProps {
   onSelectionChange: (leadIds: string[]) => void;
   onRefresh?: () => void;
   enableDragAndDrop?: boolean;
+  onStatusChange: (leadId: string, newStatus: Lead['status']) => void;
 }
 
 export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
@@ -37,13 +38,15 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
   selectedLeads,
   onSelectionChange,
   onRefresh,
-  enableDragAndDrop = true
+  enableDragAndDrop = true,
+  onStatusChange
 }) => {
   // If drag and drop is enabled and we have leads, use the enhanced version
   if (enableDragAndDrop) {
     return (
       <DraggableLeadKanban
         leads={leads}
+        onStatusChange={onStatusChange}
         isLoading={isLoading}
         selectedLeads={selectedLeads}
         onSelectionChange={onSelectionChange}
