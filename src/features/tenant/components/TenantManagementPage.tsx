@@ -144,11 +144,12 @@ const TenantManagementPage: React.FC = () => {
         />
       )}
 
-      {/* Modals - Use Compact Details Modal */}
+      {/* Modals - Use Compact Details Modal with proper props */}
       <TenantDetailsCompact
         tenant={detailsTenant}
         isOpen={isDetailsModalOpen}
         onClose={closeDetailsModal}
+        onRefresh={refreshMetrics}
       />
 
       <TenantEditModal

@@ -6,29 +6,47 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, UserPlus, Mail, Loader2, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { authenticationService } from '@/services/AuthenticationService';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface TenantDetailsCompactProps {
-  tenant: Tenant;
-  onRefresh: () => void;
+  tenant: Tenant | null;
+  onRefresh?: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export const TenantDetailsCompact = ({ tenant, onRefresh }: TenantDetailsCompactProps) => {
+export const TenantDetailsCompact = ({ tenant, onRefresh, isOpen, onClose }: TenantDetailsCompactProps) => {
   const { user } = useAuth();
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
 
-  // Fix: Get actual user status from auth state - userStatus should include more states
+  // If no tenant is provided, don't render anything
+  if (!tenant) {
+    return null;
+  }
+
+  // Get user status from auth state - simplified approach
   const userStatus = user?.user_metadata?.status || 'not_found';
   
   useEffect(() => {
     const fetchAdminUser = async () => {
       try {
-        const adminUser = await authenticationService.getAdminUserForTenant(tenant.id);
-        setUserProfile(adminUser);
+        // Use Supabase functions to get admin user for tenant
+        const { data, error } = await supabase.functions.invoke('get-tenant-admin', {
+          body: { tenantId: tenant.id }
+        });
+        
+        if (error) {
+          console.error('Failed to fetch admin user:', error);
+          setUserProfile(null);
+          return;
+        }
+        
+        setUserProfile(data?.user || null);
       } catch (error) {
         console.error('Failed to fetch admin user:', error);
         setUserProfile(null);
@@ -41,10 +59,17 @@ export const TenantDetailsCompact = ({ tenant, onRefresh }: TenantDetailsCompact
   const handleCreateUser = async () => {
     setIsCreatingUser(true);
     try {
-      const newUser = await authenticationService.createTenantAdminUser(tenant.id);
-      setUserProfile(newUser);
+      const { data, error } = await supabase.functions.invoke('create-tenant-admin', {
+        body: { tenantId: tenant.id }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      setUserProfile(data?.user || null);
       toast.success('Admin user created successfully!');
-      onRefresh();
+      onRefresh?.();
     } catch (error) {
       console.error('Failed to create user:', error);
       toast.error('Failed to create admin user');
@@ -55,7 +80,14 @@ export const TenantDetailsCompact = ({ tenant, onRefresh }: TenantDetailsCompact
 
   const handleSendInvite = async () => {
     try {
-      await authenticationService.sendAdminInvite(tenant.id);
+      const { error } = await supabase.functions.invoke('send-admin-invite', {
+        body: { tenantId: tenant.id }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
       toast.success('Invite sent successfully!');
     } catch (error) {
       console.error('Failed to send invite:', error);
@@ -67,9 +99,18 @@ export const TenantDetailsCompact = ({ tenant, onRefresh }: TenantDetailsCompact
     setIsToggling(true);
     try {
       const newStatus = tenant.status === 'active' ? 'inactive' : 'active';
-      await authenticationService.updateTenantStatus(tenant.id, newStatus);
+      
+      const { error } = await supabase
+        .from('tenants')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', tenant.id);
+      
+      if (error) {
+        throw error;
+      }
+      
       toast.success(`Tenant status updated to ${newStatus}`);
-      onRefresh();
+      onRefresh?.();
     } catch (error) {
       console.error('Failed to toggle status:', error);
       toast.error('Failed to toggle tenant status');
@@ -78,7 +119,7 @@ export const TenantDetailsCompact = ({ tenant, onRefresh }: TenantDetailsCompact
     }
   };
 
-  return (
+  const content = (
     <Card className="w-full">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
@@ -137,13 +178,12 @@ export const TenantDetailsCompact = ({ tenant, onRefresh }: TenantDetailsCompact
         <div className="border-t pt-4">
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-medium text-sm">Admin User</h4>
-            {/* Fix: Update the condition to handle the actual user status types */}
-            {(!user || userStatus === 'not_found' || userStatus === 'error') && (
+            {(!userProfile || userStatus === 'not_found' || userStatus === 'error') && (
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleCreateUser}
-                disabled={isCreatingUser || userStatus === 'registering'}
+                disabled={isCreatingUser}
                 className="text-xs"
               >
                 {isCreatingUser ? (
@@ -206,4 +246,21 @@ export const TenantDetailsCompact = ({ tenant, onRefresh }: TenantDetailsCompact
       </CardContent>
     </Card>
   );
+
+  // If isOpen and onClose are provided, render as a modal
+  if (isOpen !== undefined && onClose) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Tenant Details</DialogTitle>
+          </DialogHeader>
+          {content}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Otherwise render as a standalone component
+  return content;
 };
