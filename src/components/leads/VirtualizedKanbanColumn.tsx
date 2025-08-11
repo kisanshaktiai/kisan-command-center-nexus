@@ -6,7 +6,6 @@ import type { Lead } from '@/types/leads';
 
 interface VirtualizedKanbanColumnProps {
   leads: Lead[];
-  onStatusChange: (leadId: string, newStatus: Lead['status']) => void;
   selectedLeads: string[];
   onSelectionChange?: (leadIds: string[]) => void;
 }
@@ -16,14 +15,13 @@ interface LeadRowProps {
   style: React.CSSProperties;
   data: {
     leads: Lead[];
-    onStatusChange: (leadId: string, newStatus: Lead['status']) => void;
     selectedLeads: string[];
     onSelectionChange?: (leadIds: string[]) => void;
   };
 }
 
 const LeadRow: React.FC<LeadRowProps> = ({ index, style, data }) => {
-  const { leads, onStatusChange, selectedLeads, onSelectionChange } = data;
+  const { leads, selectedLeads, onSelectionChange } = data;
   const lead = leads[index];
 
   if (!lead) return null;
@@ -32,7 +30,6 @@ const LeadRow: React.FC<LeadRowProps> = ({ index, style, data }) => {
     <div style={{ ...style, padding: '4px 0' }}>
       <CompactLeadCard
         lead={lead}
-        onStatusChange={onStatusChange}
         isSelected={selectedLeads.includes(lead.id)}
         onSelect={() => {
           if (onSelectionChange) {
@@ -49,16 +46,14 @@ const LeadRow: React.FC<LeadRowProps> = ({ index, style, data }) => {
 
 export const VirtualizedKanbanColumn: React.FC<VirtualizedKanbanColumnProps> = ({
   leads,
-  onStatusChange,
   selectedLeads,
   onSelectionChange
 }) => {
   const itemData = useMemo(() => ({
     leads,
-    onStatusChange,
     selectedLeads,
     onSelectionChange
-  }), [leads, onStatusChange, selectedLeads, onSelectionChange]);
+  }), [leads, selectedLeads, onSelectionChange]);
 
   const height = Math.min(leads.length * 120, 600); // Max 600px height
 

@@ -284,7 +284,6 @@ export const DraggableLeadKanban: React.FC<DraggableLeadKanbanProps> = ({
                     {compactMode ? (
                       <VirtualizedKanbanColumn
                         leads={statusLeads}
-                        onStatusChange={onStatusChange}
                         selectedLeads={selectedLeads}
                         onSelectionChange={onSelectionChange}
                       />

@@ -1,6 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import type { Lead } from '@/types/leads';
+import type { Lead, CustomFieldValue } from '@/types/leads';
 
 export interface ConversionValidationResult {
   isValid: boolean;
@@ -131,7 +130,6 @@ export class LeadConversionValidator {
     invalidLeads: Array<{ lead: Lead; validation: ConversionValidationResult }>;
   }> {
     try {
-      // Get all converted leads
       const { data: convertedLeads, error } = await supabase
         .from('leads')
         .select('*')
@@ -144,22 +142,24 @@ export class LeadConversionValidator {
       const validLeads: Lead[] = [];
       const invalidLeads: Array<{ lead: Lead; validation: ConversionValidationResult }> = [];
 
-      // Validate each converted lead - cast database leads to proper Lead type
       for (const dbLead of convertedLeads || []) {
-        // Cast the database lead to proper Lead type with type assertions
         const lead: Lead = {
           ...dbLead,
-          status: dbLead.status as Lead['status'],
-          priority: (dbLead.priority as Lead['priority']) || 'medium',
-          qualification_score: dbLead.qualification_score || 0,
-          created_at: dbLead.created_at || new Date().toISOString(),
-          updated_at: dbLead.updated_at || new Date().toISOString(),
-          contact_name: dbLead.contact_name || '',
-          email: dbLead.email || ''
+          status: (dbLead.status as Lead['status']) ?? 'new',
+          priority: (dbLead.priority as Lead['priority']) ?? 'medium',
+          qualification_score: dbLead.qualification_score ?? 0,
+          created_at: dbLead.created_at ?? new Date().toISOString(),
+          updated_at: dbLead.updated_at ?? new Date().toISOString(),
+          contact_name: dbLead.contact_name ?? '',
+          email: dbLead.email ?? '',
+          // Coerce custom_fields from Json to the expected type
+          custom_fields: Array.isArray(dbLead.custom_fields)
+            ? (dbLead.custom_fields as unknown as CustomFieldValue[])
+            : undefined,
         };
-        
+
         const validation = await this.validateConvertedLead(lead);
-        
+
         if (validation.isValid) {
           validLeads.push(lead);
         } else {
