@@ -38,19 +38,14 @@ export class SecurityHeadersService {
   }
 
   /**
-   * Apply security headers to fetch requests
+   * Apply appropriate headers to fetch requests (excludes response-only headers)
    */
   public applyToFetchRequest(headers: Headers): Headers {
     const securityHeaders = new Headers(headers);
 
-    if (this.config.contentSecurityPolicy) {
-      securityHeaders.set('Content-Security-Policy', this.config.contentSecurityPolicy);
-    }
-
-    if (this.config.xFrameOptions) {
-      securityHeaders.set('X-Frame-Options', this.config.xFrameOptions);
-    }
-
+    // Only apply headers that are appropriate for outgoing requests
+    // Strict-Transport-Security is a response-only header and should not be sent in requests
+    
     if (this.config.xContentTypeOptions) {
       securityHeaders.set('X-Content-Type-Options', this.config.xContentTypeOptions);
     }
@@ -59,19 +54,14 @@ export class SecurityHeadersService {
       securityHeaders.set('Referrer-Policy', this.config.referrerPolicy);
     }
 
-    if (this.config.permissionsPolicy) {
-      securityHeaders.set('Permissions-Policy', this.config.permissionsPolicy);
-    }
-
-    if (this.config.strictTransportSecurity) {
-      securityHeaders.set('Strict-Transport-Security', this.config.strictTransportSecurity);
-    }
+    // Note: CSP, X-Frame-Options, Permissions-Policy, and HSTS are typically response headers
+    // and should not be sent in outgoing requests to avoid CORS issues
 
     return securityHeaders;
   }
 
   /**
-   * Get security headers as object
+   * Get security headers as object (for server responses)
    */
   public getHeadersObject(): Record<string, string> {
     const headers: Record<string, string> = {};
@@ -117,10 +107,12 @@ export class SecurityHeadersService {
 export const initializeSecurityHeaders = () => {
   const securityService = SecurityHeadersService.getInstance();
   
-  // Apply to all fetch requests
+  // Apply minimal security headers to outgoing requests to avoid CORS issues
   const originalFetch = window.fetch;
   window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const headers = new Headers(init?.headers);
+    
+    // Only apply request-appropriate headers to avoid CORS preflight issues
     const secureHeaders = securityService.applyToFetchRequest(headers);
     
     return originalFetch(input, {
