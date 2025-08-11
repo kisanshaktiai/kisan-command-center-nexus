@@ -10,8 +10,8 @@ export interface VirtualizedKanbanColumnProps {
   leads: Lead[];
   selectedLeads: string[];
   onSelectionChange?: (leadIds: string[]) => void;
-  onReassign: (lead: Lead) => void;
-  onConvert: (lead: Lead) => void;
+  onReassign: (leadId: string) => void;
+  onConvert: (leadId: string) => void;
 }
 
 interface LeadItemProps {
@@ -21,8 +21,8 @@ interface LeadItemProps {
     leads: Lead[];
     selectedLeads: string[];
     onSelectionChange?: (leadIds: string[]) => void;
-    onReassign: (lead: Lead) => void;
-    onConvert: (lead: Lead) => void;
+    onReassign: (leadId: string) => void;
+    onConvert: (leadId: string) => void;
   };
 }
 
@@ -60,8 +60,8 @@ const LeadItem = memo<LeadItemProps>(({ index, style, data }) => {
               lead={lead}
               isSelected={isSelected}
               onSelect={handleSelect}
-              onReassign={onReassign}
-              onConvert={onConvert}
+              onReassign={() => onReassign(lead.id)}
+              onConvert={() => onConvert(lead.id)}
             />
           </div>
         )}

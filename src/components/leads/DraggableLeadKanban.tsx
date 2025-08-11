@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo } from 'react';
 import { DragDropContext, Droppable, DropResult } from '@hello-pangea/dnd';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,28 +12,35 @@ import type { Lead } from '@/types/leads';
 interface DraggableLeadKanbanProps {
   leads: Lead[];
   onStatusChange: (leadId: string, newStatus: Lead['status']) => void;
+  isLoading?: boolean;
+  selectedLeads?: string[];
+  onSelectionChange?: (leadIds: string[]) => void;
+  onRefresh?: () => void;
   className?: string;
 }
 
 export const DraggableLeadKanban: React.FC<DraggableLeadKanbanProps> = ({
   leads,
   onStatusChange,
+  isLoading = false,
+  selectedLeads = [],
+  onSelectionChange,
+  onRefresh,
   className = ""
 }) => {
-  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   const handleSelectionChange = useCallback((leadIds: string[]) => {
-    setSelectedLeads(leadIds);
-  }, []);
+    onSelectionChange?.(leadIds);
+  }, [onSelectionChange]);
 
-  const handleReassign = useCallback((lead: Lead) => {
-    console.log('Reassign lead:', lead.id);
+  const handleReassign = useCallback((leadId: string) => {
+    console.log('Reassign lead:', leadId);
     // TODO: Implement reassignment logic
   }, []);
 
-  const handleConvert = useCallback((lead: Lead) => {
-    console.log('Convert lead:', lead.id);
+  const handleConvert = useCallback((leadId: string) => {
+    console.log('Convert lead:', leadId);
     // TODO: Implement conversion logic
   }, []);
 
@@ -119,6 +127,37 @@ export const DraggableLeadKanban: React.FC<DraggableLeadKanbanProps> = ({
       count: groupedLeads.rejected.length
     }
   ];
+
+  if (isLoading) {
+    return (
+      <div className={`flex flex-col h-full ${className}`}>
+        <div className="flex items-center gap-4 p-4 border-b">
+          <div className="animate-pulse bg-gray-200 h-10 w-80 rounded"></div>
+          <div className="animate-pulse bg-gray-200 h-10 w-20 rounded"></div>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <div className="flex gap-4 p-4 h-full overflow-x-auto">
+            {columns.map((column) => (
+              <div key={column.id} className="flex-shrink-0 w-80">
+                <Card className={`h-full ${column.color}`}>
+                  <CardHeader className="pb-3">
+                    <div className="animate-pulse bg-gray-200 h-6 rounded"></div>
+                  </CardHeader>
+                  <CardContent className="pt-0 h-full">
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="animate-pulse bg-gray-100 h-32 rounded"></div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
