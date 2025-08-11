@@ -208,7 +208,12 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({
                   <Checkbox
                     checked={allSelected}
                     ref={(el) => {
-                      if (el) el.indeterminate = someSelected;
+                      if (el) {
+                        const input = el.querySelector('input') as HTMLInputElement;
+                        if (input) {
+                          input.indeterminate = someSelected;
+                        }
+                      }
                     }}
                     onCheckedChange={handleSelectAll}
                     className="border-2 border-gray-300"
@@ -300,7 +305,12 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({
                         </span>
                       </div>
                       {lead.qualification_score >= 80 && (
-                        <Zap className="h-4 w-4 text-green-500" title="High quality lead" />
+                        <div className="relative group">
+                          <Zap className="h-4 w-4 text-green-500" />
+                          <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                            High quality lead
+                          </div>
+                        </div>
                       )}
                     </div>
                   </TableCell>
@@ -314,33 +324,45 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({
 
                   <TableCell className="px-4 py-4">
                     <div className="flex items-center justify-center space-x-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 hover:bg-blue-100"
-                        title="View Details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 hover:bg-blue-100"
-                        title="Edit Lead"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      {lead.status === 'qualified' && (
+                      <div className="relative group">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleConvertLead(lead)}
-                          className="h-8 px-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 text-xs font-medium"
-                          title="Convert to Tenant"
+                          className="h-8 w-8 p-0 hover:bg-blue-100"
                         >
-                          <UserPlus className="h-3 w-3 mr-1" />
-                          Convert
+                          <Eye className="h-4 w-4" />
                         </Button>
+                        <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                          View Details
+                        </div>
+                      </div>
+                      <div className="relative group">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-blue-100"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                          Edit Lead
+                        </div>
+                      </div>
+                      {lead.status === 'qualified' && (
+                        <div className="relative group">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleConvertLead(lead)}
+                            className="h-8 px-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 text-xs font-medium"
+                          >
+                            <UserPlus className="h-3 w-3 mr-1" />
+                            Convert
+                          </Button>
+                          <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded px-2 py-1 -top-8 -left-4 whitespace-nowrap">
+                            Convert to Tenant
+                          </div>
+                        </div>
                       )}
                     </div>
                   </TableCell>
