@@ -18,7 +18,7 @@ import type { Lead } from '@/types/leads';
 interface ConvertLeadDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  lead: Lead;
+  lead: Lead | null;
   onSuccess: () => void;
 }
 
@@ -29,10 +29,10 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   onSuccess,
 }) => {
   const [isConverting, setIsConverting] = useState(false);
-  const [tenantName, setTenantName] = useState(lead.organization_name || `${lead.contact_name} Organization`);
+  const [tenantName, setTenantName] = useState(lead?.organization_name || (lead ? `${lead.contact_name} Organization` : ''));
   const [tenantSlug, setTenantSlug] = useState('');
-  const [adminName, setAdminName] = useState(lead.contact_name);
-  const [adminEmail, setAdminEmail] = useState(lead.email);
+  const [adminName, setAdminName] = useState(lead?.contact_name || '');
+  const [adminEmail, setAdminEmail] = useState(lead?.email || '');
   const [subscriptionPlan, setSubscriptionPlan] = useState('Kisan_Basic');
 
   const { convertToTenant } = useLeadService();
@@ -46,7 +46,21 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
     }
   }, [tenantName]);
 
+  // Update form fields when lead changes
+  React.useEffect(() => {
+    if (lead) {
+      setTenantName(lead.organization_name || `${lead.contact_name} Organization`);
+      setAdminName(lead.contact_name);
+      setAdminEmail(lead.email);
+    }
+  }, [lead]);
+
   const handleConvert = async () => {
+    if (!lead) {
+      showError('No lead selected for conversion');
+      return;
+    }
+
     if (!tenantName.trim() || !tenantSlug.trim() || !adminEmail.trim() || !adminName.trim()) {
       showError('Please fill in all required fields');
       return;
@@ -85,6 +99,11 @@ export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
       setIsConverting(false);
     }
   };
+
+  // Don't render if no lead is provided
+  if (!lead) {
+    return null;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
