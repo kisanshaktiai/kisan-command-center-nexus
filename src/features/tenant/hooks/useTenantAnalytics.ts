@@ -21,14 +21,17 @@ export const useTenantAnalytics = ({
 
   const fetchTenantMetrics = useCallback(async (tenantId: string): Promise<TenantMetrics | null> => {
     try {
-      // Fix: Use GET request with query parameter instead of POST with body
+      // Use the configured Supabase URL and key from the client
+      const SUPABASE_URL = "https://qfklkkzxemsbeniyugiz.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFma2xra3p4ZW1zYmVuaXl1Z2l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjcxNjUsImV4cCI6MjA2ODAwMzE2NX0.dUnGp7wbwYom1FPbn_4EGf3PWjgmr8mXwL2w2SdYOh4";
+      
       const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/tenant-real-time-metrics?tenant_id=${tenantId}`,
+        `${SUPABASE_URL}/functions/v1/tenant-real-time-metrics?tenant_id=${tenantId}`,
         {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${supabase.supabaseKey}`,
-            'apikey': supabase.supabaseKey,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'apikey': SUPABASE_ANON_KEY,
           }
         }
       );
