@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ import {
 } from 'lucide-react';
 import { useLeads } from '@/hooks/useLeadManagement';
 import { useLeadAnalytics } from '@/hooks/useEnhancedLeadManagement';
-import { EnhancedLeadKanban } from './EnhancedLeadKanban';
+import { DraggableLeadKanban } from './DraggableLeadKanban';
 import { LeadAnalyticsDashboard } from './LeadAnalyticsDashboard';
 import { CreateLeadDialog } from './CreateLeadDialog';
 import { LeadImportDialog } from './LeadImportDialog';
@@ -382,7 +383,7 @@ export const WorldClassLeadManagement: React.FC = () => {
           </TabsList>
 
           <TabsContent value="kanban" className="mt-8">
-            <EnhancedLeadKanban 
+            <DraggableLeadKanban 
               leads={filteredLeads}
               isLoading={isLoading}
               selectedLeads={selectedLeads}

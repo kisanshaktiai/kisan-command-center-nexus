@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { LeadCard } from './EnhancedLeadCard';
 import { LeadAssignmentDialog } from './LeadAssignmentDialog';
 import { ConvertLeadDialog } from './ConvertLeadDialog';
 import { BulkLeadActions } from './BulkLeadActions';
+import { DraggableLeadKanban } from './DraggableLeadKanban';
 import type { Lead } from '@/types/leads';
 
 interface EnhancedLeadKanbanProps {
@@ -26,70 +28,86 @@ interface EnhancedLeadKanbanProps {
   selectedLeads: string[];
   onSelectionChange: (leadIds: string[]) => void;
   onRefresh?: () => void;
+  enableDragAndDrop?: boolean;
 }
-
-const statusConfig = {
-  new: {
-    title: 'New Leads',
-    icon: Users,
-    color: 'bg-blue-500',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
-    textColor: 'text-blue-900'
-  },
-  assigned: {
-    title: 'Assigned',
-    icon: UserPlus,
-    color: 'bg-purple-500',
-    bgColor: 'bg-purple-50',
-    borderColor: 'border-purple-200',
-    textColor: 'text-purple-900'
-  },
-  contacted: {
-    title: 'Contacted',
-    icon: Clock,
-    color: 'bg-yellow-500',
-    bgColor: 'bg-yellow-50',
-    borderColor: 'border-yellow-200',
-    textColor: 'text-yellow-900'
-  },
-  qualified: {
-    title: 'Qualified',
-    icon: TrendingUp,
-    color: 'bg-green-500',
-    bgColor: 'bg-green-50',
-    borderColor: 'border-green-200',
-    textColor: 'text-green-900'
-  },
-  converted: {
-    title: 'Converted',
-    icon: CheckCircle,
-    color: 'bg-emerald-500',
-    bgColor: 'bg-emerald-50',
-    borderColor: 'border-emerald-200',
-    textColor: 'text-emerald-900'
-  },
-  rejected: {
-    title: 'Rejected',
-    icon: XCircle,
-    color: 'bg-red-500',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-200',
-    textColor: 'text-red-900'
-  }
-};
 
 export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
   leads,
   isLoading,
   selectedLeads,
   onSelectionChange,
-  onRefresh
+  onRefresh,
+  enableDragAndDrop = true
 }) => {
+  // If drag and drop is enabled and we have leads, use the enhanced version
+  if (enableDragAndDrop) {
+    return (
+      <DraggableLeadKanban
+        leads={leads}
+        isLoading={isLoading}
+        selectedLeads={selectedLeads}
+        onSelectionChange={onSelectionChange}
+        onRefresh={onRefresh}
+      />
+    );
+  }
+
+  // Fallback to original implementation for backward compatibility
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [selectedLeadForAction, setSelectedLeadForAction] = useState<string | null>(null);
   const [expandedLeads, setExpandedLeads] = useState<Set<string>>(new Set());
+
+  const statusConfig = {
+    new: {
+      title: 'New Leads',
+      icon: Users,
+      color: 'bg-blue-500',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      textColor: 'text-blue-900'
+    },
+    assigned: {
+      title: 'Assigned',
+      icon: UserPlus,
+      color: 'bg-purple-500',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200',
+      textColor: 'text-purple-900'
+    },
+    contacted: {
+      title: 'Contacted',
+      icon: Clock,
+      color: 'bg-yellow-500',
+      bgColor: 'bg-yellow-50',
+      borderColor: 'border-yellow-200',
+      textColor: 'text-yellow-900'
+    },
+    qualified: {
+      title: 'Qualified',
+      icon: TrendingUp,
+      color: 'bg-green-500',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      textColor: 'text-green-900'
+    },
+    converted: {
+      title: 'Converted',
+      icon: CheckCircle,
+      color: 'bg-emerald-500',
+      bgColor: 'bg-emerald-50',
+      borderColor: 'border-emerald-200',
+      textColor: 'text-emerald-900'
+    },
+    rejected: {
+      title: 'Rejected',
+      icon: XCircle,
+      color: 'bg-red-500',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200',
+      textColor: 'text-red-900'
+    }
+  };
 
   // Group leads by status
   const leadsByStatus = useMemo(() => {
