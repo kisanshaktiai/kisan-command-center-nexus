@@ -1,5 +1,3 @@
-
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -28,6 +26,7 @@ interface ConversionResponse {
   tempPassword?: string;
   isRecovery?: boolean;
   userTenantCreated?: boolean;
+  tenant_id?: string;
 }
 
 serve(async (req) => {
@@ -66,7 +65,7 @@ serve(async (req) => {
       });
     }
 
-    // Validate subscription plan enum - convert to proper enum format
+    // Validate subscription plan enum
     const validPlans = ['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'Custom_Enterprise'];
     const normalizedPlan = validPlans.includes(subscriptionPlan) ? subscriptionPlan : 'Kisan_Basic';
 
@@ -115,14 +114,13 @@ serve(async (req) => {
     if (!conversionResult.success) {
       console.error('Conversion failed:', conversionResult);
       
-      // Map specific error codes to appropriate HTTP status codes
       let statusCode = 400;
       switch (conversionResult.code) {
         case 'LEAD_NOT_FOUND':
           statusCode = 404;
           break;
         case 'LEAD_NOT_QUALIFIED':
-          statusCode = 422; // Unprocessable Entity
+          statusCode = 422;
           break;
         case 'LEAD_ALREADY_CONVERTED':
         case 'SLUG_CONFLICT':
@@ -255,7 +253,6 @@ serve(async (req) => {
     } catch (error) {
       console.error('Error in user/relationship creation:', error);
       
-      // Return error since user access is critical
       const response: ConversionResponse = {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to set up user access',
@@ -323,11 +320,12 @@ serve(async (req) => {
       }
     }
 
-    // Return comprehensive success response
+    // Return comprehensive success response with both tenant_id and tenantId for compatibility
     const response: ConversionResponse = {
       success: true,
       message: conversionResult.message || 'Lead converted to tenant successfully',
       tenantId: tenantId,
+      tenant_id: tenantId, // Add for backward compatibility
       userId: userId,
       tenantSlug: tenantSlug,
       tempPassword: isRecovery && tempPassword === 'recovery-no-password' ? undefined : tempPassword,
@@ -356,4 +354,3 @@ serve(async (req) => {
     });
   }
 });
-

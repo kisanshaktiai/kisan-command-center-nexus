@@ -253,11 +253,20 @@ export class LeadService extends BaseService {
           leadId: convertData.leadId,
           tenantName: convertData.tenantName,
           tenantSlug: convertData.tenantSlug,
-          subscriptionPlan: convertData.subscriptionPlan
+          subscriptionPlan: convertData.subscriptionPlan,
+          adminEmail: convertData.adminEmail,
+          adminName: convertData.adminName
         });
 
         const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
-          body: convertData,
+          body: {
+            leadId: convertData.leadId,
+            tenantName: convertData.tenantName,
+            tenantSlug: convertData.tenantSlug,
+            subscriptionPlan: convertData.subscriptionPlan || 'Kisan_Basic',
+            adminEmail: convertData.adminEmail,
+            adminName: convertData.adminName
+          },
         });
 
         if (error) {
@@ -285,8 +294,16 @@ export class LeadService extends BaseService {
           throw new Error(errorMessage);
         }
 
-        console.log('LeadService: Successfully converted lead to tenant:', data.tenant_id);
-        return { success: true, data };
+        console.log('LeadService: Successfully converted lead to tenant:', data);
+        
+        // Normalize the response to ensure both tenantId and tenant_id are available
+        const normalizedData = {
+          ...data,
+          tenantId: data.tenantId || data.tenant_id,
+          tenant_id: data.tenant_id || data.tenantId
+        };
+
+        return { success: true, data: normalizedData };
 
       } catch (error) {
         console.error(`LeadService: Unexpected error converting lead (attempt ${attempt}):`, error);
