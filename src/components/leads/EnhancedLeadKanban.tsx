@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -232,6 +231,7 @@ export const EnhancedLeadKanban: React.FC<EnhancedLeadKanbanProps> = ({
                           expanded={expandedLeads.has(lead.id)}
                           onToggleExpanded={() => handleToggleExpanded(lead.id)}
                           onRefresh={onRefresh}
+                          showConvertButton={status === 'converted'}
                         />
                       ))}
                       

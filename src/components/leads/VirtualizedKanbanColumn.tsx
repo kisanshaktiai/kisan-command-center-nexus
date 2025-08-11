@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FixedSizeList as List } from 'react-window';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +27,7 @@ interface VirtualizedKanbanColumnProps {
   onRefresh?: () => void;
   compactMode?: boolean;
   searchable?: boolean;
+  status?: Lead['status'];
 }
 
 export const VirtualizedKanbanColumn: React.FC<VirtualizedKanbanColumnProps> = ({
@@ -46,7 +46,8 @@ export const VirtualizedKanbanColumn: React.FC<VirtualizedKanbanColumnProps> = (
   onToggleExpanded,
   onRefresh,
   compactMode = false,
-  searchable = false
+  searchable = false,
+  status
 }) => {
   const [columnSearch, setColumnSearch] = React.useState('');
   const [isCollapsed, setIsCollapsed] = React.useState(false);
@@ -86,12 +87,13 @@ export const VirtualizedKanbanColumn: React.FC<VirtualizedKanbanColumnProps> = (
               expanded={expandedLeads.has(lead.id)}
               onToggleExpanded={() => onToggleExpanded(lead.id)}
               onRefresh={onRefresh}
+              showConvertButton={status === 'converted'}
             />
           </div>
         )}
       </div>
     );
-  }, [filteredLeads, compactMode, onReassign, onConvert, selectedLeads, onLeadSelection, expandedLeads, onToggleExpanded, onRefresh]);
+  }, [filteredLeads, compactMode, onReassign, onConvert, selectedLeads, onLeadSelection, expandedLeads, onToggleExpanded, onRefresh, status]);
 
   if (isHidden) {
     return (
@@ -206,6 +208,7 @@ export const VirtualizedKanbanColumn: React.FC<VirtualizedKanbanColumnProps> = (
                     expanded={expandedLeads.has(lead.id)}
                     onToggleExpanded={() => onToggleExpanded(lead.id)}
                     onRefresh={onRefresh}
+                    showConvertButton={status === 'converted'}
                   />
                 ))}
               </div>

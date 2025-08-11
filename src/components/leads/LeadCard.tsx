@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +14,8 @@ import {
   Edit,
   UserPlus,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TenantVerificationModal } from './TenantVerificationModal';
+import { ConvertLeadDialog } from './ConvertLeadDialog';
 import type { Lead } from '@/types/leads';
 
 interface LeadCardProps {
@@ -32,6 +33,7 @@ interface LeadCardProps {
   onEdit?: (lead: Lead) => void;
   onConvert?: (lead: Lead) => void;
   onRefresh?: () => void;
+  showConvertButton?: boolean;
 }
 
 export const LeadCard: React.FC<LeadCardProps> = ({
@@ -39,9 +41,11 @@ export const LeadCard: React.FC<LeadCardProps> = ({
   onViewDetails,
   onEdit,
   onConvert,
-  onRefresh
+  onRefresh,
+  showConvertButton = false
 }) => {
   const [showTenantVerification, setShowTenantVerification] = useState(false);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
 
   const getStatusColor = (status: Lead['status']) => {
     switch (status) {
@@ -87,6 +91,11 @@ export const LeadCard: React.FC<LeadCardProps> = ({
   const handleConversionSuccess = () => {
     onRefresh?.();
     setShowTenantVerification(false);
+    setShowConvertDialog(false);
+  };
+
+  const handleConvertClick = () => {
+    setShowConvertDialog(true);
   };
 
   return (
@@ -189,15 +198,28 @@ export const LeadCard: React.FC<LeadCardProps> = ({
                   <div>Converted: {new Date(lead.converted_at).toLocaleDateString()}</div>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2 h-7 text-xs bg-white hover:bg-green-50 border-green-300"
-                onClick={handleTenantInfoClick}
-              >
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                Verify Tenant Status
-              </Button>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs bg-white hover:bg-green-50 border-green-300"
+                  onClick={handleTenantInfoClick}
+                >
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  Verify Tenant Status
+                </Button>
+                {showConvertButton && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs bg-white hover:bg-blue-50 border-blue-300 text-blue-700"
+                    onClick={handleConvertClick}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Convert Again
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
@@ -224,6 +246,13 @@ export const LeadCard: React.FC<LeadCardProps> = ({
         onClose={() => setShowTenantVerification(false)}
         lead={lead}
         onConversionSuccess={handleConversionSuccess}
+      />
+
+      <ConvertLeadDialog
+        isOpen={showConvertDialog}
+        onClose={() => setShowConvertDialog(false)}
+        lead={lead}
+        onSuccess={handleConversionSuccess}
       />
     </>
   );
