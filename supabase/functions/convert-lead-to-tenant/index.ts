@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -66,8 +67,74 @@ serve(async (req) => {
     }
 
     // Validate subscription plan enum
-    const validPlans = ['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'Custom_Enterprise'];
+    const validPlans = ['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'custom'];
     const normalizedPlan = validPlans.includes(subscriptionPlan) ? subscriptionPlan : 'Kisan_Basic';
+
+    // Pre-conversion validation: Check if lead exists and is qualified
+    const { data: leadData, error: leadFetchError } = await supabase
+      .from('leads')
+      .select('id, status, contact_name, email, converted_tenant_id')
+      .eq('id', leadId)
+      .single();
+
+    if (leadFetchError || !leadData) {
+      console.error('Lead fetch error:', leadFetchError);
+      const response: ConversionResponse = {
+        success: false,
+        error: 'Lead not found',
+        code: 'LEAD_NOT_FOUND'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (leadData.status !== 'qualified') {
+      console.error('Lead not qualified:', leadData.status);
+      const response: ConversionResponse = {
+        success: false,
+        error: `Lead must be qualified before conversion. Current status: ${leadData.status}`,
+        code: 'LEAD_NOT_QUALIFIED'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (leadData.converted_tenant_id) {
+      console.error('Lead already converted:', leadData.converted_tenant_id);
+      const response: ConversionResponse = {
+        success: false,
+        error: 'Lead has already been converted to a tenant',
+        code: 'LEAD_ALREADY_CONVERTED'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check if tenant slug is already taken
+    const { data: existingTenant, error: slugCheckError } = await supabase
+      .from('tenants')
+      .select('id, slug')
+      .eq('slug', tenantSlug)
+      .single();
+
+    if (existingTenant && !slugCheckError) {
+      console.error('Tenant slug already exists:', tenantSlug);
+      const response: ConversionResponse = {
+        success: false,
+        error: `Tenant slug '${tenantSlug}' is already taken`,
+        code: 'SLUG_CONFLICT'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     console.log('Calling enhanced conversion function...');
     const { data: conversionResult, error: conversionError } = await supabase.rpc(
@@ -149,6 +216,58 @@ serve(async (req) => {
     const isRecovery = conversionResult.is_recovery || false;
 
     console.log('Tenant created successfully:', tenantId, isRecovery ? '(recovery)' : '(new)');
+
+    // Post-conversion verification: Ensure tenant was created
+    const { data: createdTenant, error: tenantVerifyError } = await supabase
+      .from('tenants')
+      .select('id, name, slug, status')
+      .eq('id', tenantId)
+      .single();
+
+    if (tenantVerifyError || !createdTenant) {
+      console.error('Tenant verification failed:', tenantVerifyError);
+      
+      // Attempt to rollback lead status
+      await supabase
+        .from('leads')
+        .update({ 
+          status: 'qualified', 
+          converted_tenant_id: null, 
+          converted_at: null 
+        })
+        .eq('id', leadId);
+
+      const response: ConversionResponse = {
+        success: false,
+        error: 'Tenant creation verification failed',
+        code: 'TENANT_VERIFICATION_FAILED'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Verify lead status was updated correctly
+    const { data: updatedLead, error: leadVerifyError } = await supabase
+      .from('leads')
+      .select('id, status, converted_tenant_id, converted_at')
+      .eq('id', leadId)
+      .single();
+
+    if (leadVerifyError || !updatedLead || updatedLead.status !== 'converted' || updatedLead.converted_tenant_id !== tenantId) {
+      console.error('Lead status verification failed:', leadVerifyError, updatedLead);
+      
+      const response: ConversionResponse = {
+        success: false,
+        error: 'Lead status verification failed',
+        code: 'LEAD_STATUS_VERIFICATION_FAILED'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     // Always ensure user account and user-tenant relationship exist
     let userId: string | undefined;

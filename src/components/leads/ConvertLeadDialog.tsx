@@ -1,182 +1,150 @@
 
 import React, { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { useLeadService } from '@/hooks/useLeadService';
-import { useNotifications } from '@/hooks/useNotifications';
-import type { Lead } from '@/types/leads';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useConvertLeadToTenant } from '@/hooks/useConvertLeadToTenant';
+import { Lead } from '@/types/leads';
 
 interface ConvertLeadDialogProps {
   isOpen: boolean;
   onClose: () => void;
   lead: Lead | null;
-  onSuccess: () => void;
+  onSuccess?: () => void;
 }
 
 export const ConvertLeadDialog: React.FC<ConvertLeadDialogProps> = ({
   isOpen,
   onClose,
   lead,
-  onSuccess,
+  onSuccess
 }) => {
-  const [isConverting, setIsConverting] = useState(false);
-  const [tenantName, setTenantName] = useState(lead?.organization_name || (lead ? `${lead.contact_name} Organization` : ''));
+  const [tenantName, setTenantName] = useState('');
   const [tenantSlug, setTenantSlug] = useState('');
-  const [adminName, setAdminName] = useState(lead?.contact_name || '');
-  const [adminEmail, setAdminEmail] = useState(lead?.email || '');
   const [subscriptionPlan, setSubscriptionPlan] = useState('Kisan_Basic');
+  
+  const convertMutation = useConvertLeadToTenant();
 
-  const { convertToTenant } = useLeadService();
-  const { showSuccess, showError } = useNotifications();
-
-  // Generate slug from tenant name
-  React.useEffect(() => {
-    if (tenantName) {
-      const slug = tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
-      setTenantSlug(slug);
-    }
-  }, [tenantName]);
-
-  // Update form fields when lead changes
+  // Initialize form when lead changes
   React.useEffect(() => {
     if (lead) {
-      setTenantName(lead.organization_name || `${lead.contact_name} Organization`);
-      setAdminName(lead.contact_name);
-      setAdminEmail(lead.email);
+      const defaultName = lead.organization_name || `${lead.contact_name} Organization`;
+      setTenantName(defaultName);
+      setTenantSlug(defaultName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'));
     }
   }, [lead]);
 
-  const handleConvert = async () => {
-    if (!lead) {
-      showError('No lead selected for conversion');
-      return;
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!lead) return;
 
-    if (!tenantName.trim() || !tenantSlug.trim() || !adminEmail.trim() || !adminName.trim()) {
-      showError('Please fill in all required fields');
-      return;
-    }
-
-    setIsConverting(true);
+    console.log('ConvertLeadDialog: Starting conversion for lead:', lead.id);
+    
     try {
-      console.log('Converting lead with data:', {
+      const result = await convertMutation.mutateAsync({
         leadId: lead.id,
         tenantName,
         tenantSlug,
         subscriptionPlan,
-        adminEmail,
-        adminName
+        adminEmail: lead.email,
+        adminName: lead.contact_name,
       });
 
-      const result = await convertToTenant({
-        leadId: lead.id,
-        tenantName,
-        tenantSlug,
-        subscriptionPlan,
-        adminEmail,
-        adminName,
-      });
-
-      if (result) {
-        showSuccess('Lead converted to tenant successfully! Welcome email sent.');
-        onSuccess();
-      } else {
-        throw new Error('Conversion failed');
-      }
+      console.log('ConvertLeadDialog: Conversion completed:', result);
+      
+      // Close dialog and trigger success callback
+      onClose();
+      onSuccess?.();
+      
+      // Reset form
+      setTenantName('');
+      setTenantSlug('');
+      setSubscriptionPlan('Kisan_Basic');
+      
     } catch (error) {
-      console.error('Conversion error:', error);
-      showError(error instanceof Error ? error.message : 'Failed to convert lead');
-    } finally {
-      setIsConverting(false);
+      console.error('ConvertLeadDialog: Conversion failed:', error);
+      // Error is already handled by the mutation's onError
     }
   };
 
-  // Don't render if no lead is provided
-  if (!lead) {
-    return null;
-  }
+  const handleClose = () => {
+    onClose();
+    setTenantName('');
+    setTenantSlug('');
+    setSubscriptionPlan('Kisan_Basic');
+  };
+
+  if (!lead) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Convert Lead to Tenant</DialogTitle>
+          <DialogDescription>
+            Convert {lead.contact_name} from {lead.organization_name || 'their organization'} into a tenant account.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="tenantName">Organization Name *</Label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="tenantName">Tenant Name</Label>
             <Input
               id="tenantName"
               value={tenantName}
               onChange={(e) => setTenantName(e.target.value)}
-              placeholder="Enter organization name"
+              placeholder="Enter tenant name"
+              required
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="tenantSlug">Tenant Slug *</Label>
+          <div className="space-y-2">
+            <Label htmlFor="tenantSlug">Tenant Slug</Label>
             <Input
               id="tenantSlug"
               value={tenantSlug}
-              onChange={(e) => setTenantSlug(e.target.value)}
-              placeholder="auto-generated-slug"
+              onChange={(e) => setTenantSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+              placeholder="Enter tenant slug"
+              required
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="adminName">Admin Name *</Label>
-            <Input
-              id="adminName"
-              value={adminName}
-              onChange={(e) => setAdminName(e.target.value)}
-              placeholder="Enter admin name"
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="adminEmail">Admin Email *</Label>
-            <Input
-              id="adminEmail"
-              type="email"
-              value={adminEmail}
-              onChange={(e) => setAdminEmail(e.target.value)}
-              placeholder="Enter admin email"
-            />
-          </div>
-
-          <div className="grid gap-2">
+          <div className="space-y-2">
             <Label htmlFor="subscriptionPlan">Subscription Plan</Label>
-            <select
-              id="subscriptionPlan"
-              value={subscriptionPlan}
-              onChange={(e) => setSubscriptionPlan(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <option value="Kisan_Basic">Kisan Basic</option>
-              <option value="Shakti_Growth">Shakti Growth</option>
-              <option value="AI_Enterprise">AI Enterprise</option>
-            </select>
+            <Select value={subscriptionPlan} onValueChange={setSubscriptionPlan}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Kisan_Basic">Kisan – Starter</SelectItem>
+                <SelectItem value="Shakti_Growth">Shakti – Growth</SelectItem>
+                <SelectItem value="AI_Enterprise">AI – Enterprise</SelectItem>
+                <SelectItem value="custom">Custom Plan</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isConverting}>
-            Cancel
-          </Button>
-          <Button onClick={handleConvert} disabled={isConverting}>
-            {isConverting ? 'Converting...' : 'Convert to Tenant'}
-          </Button>
-        </DialogFooter>
+          <div className="bg-gray-50 p-3 rounded-md text-sm">
+            <p><strong>Contact:</strong> {lead.contact_name}</p>
+            <p><strong>Email:</strong> {lead.email}</p>
+            {lead.organization_name && <p><strong>Organization:</strong> {lead.organization_name}</p>}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={convertMutation.isPending || !tenantName.trim() || !tenantSlug.trim()}
+            >
+              {convertMutation.isPending ? 'Converting...' : 'Convert to Tenant'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

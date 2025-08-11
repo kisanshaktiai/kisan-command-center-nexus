@@ -258,6 +258,29 @@ export class LeadService extends BaseService {
           adminName: convertData.adminName
         });
 
+        // First, verify the lead exists and is qualified
+        const { data: leadCheck, error: leadError } = await supabase
+          .from('leads')
+          .select('id, status, contact_name, email, converted_tenant_id')
+          .eq('id', convertData.leadId)
+          .single();
+
+        if (leadError || !leadCheck) {
+          console.error('LeadService: Lead not found:', leadError);
+          throw new Error('Lead not found');
+        }
+
+        if (leadCheck.status !== 'qualified') {
+          console.error('LeadService: Lead not qualified:', leadCheck.status);
+          throw new Error('Lead must be qualified before conversion');
+        }
+
+        if (leadCheck.converted_tenant_id) {
+          console.error('LeadService: Lead already converted:', leadCheck.converted_tenant_id);
+          throw new Error('Lead has already been converted to a tenant');
+        }
+
+        // Call the edge function for conversion
         const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
           body: {
             leadId: convertData.leadId,
@@ -295,6 +318,42 @@ export class LeadService extends BaseService {
         }
 
         console.log('LeadService: Successfully converted lead to tenant:', data);
+        
+        // Verify the conversion actually created a tenant
+        if (data.tenant_id || data.tenantId) {
+          const tenantId = data.tenant_id || data.tenantId;
+          const { data: tenantCheck, error: tenantError } = await supabase
+            .from('tenants')
+            .select('id, name, slug')
+            .eq('id', tenantId)
+            .single();
+
+          if (tenantError || !tenantCheck) {
+            console.error('LeadService: Tenant verification failed:', tenantError);
+            throw new Error('Tenant creation verification failed');
+          }
+
+          console.log('LeadService: Tenant verified:', tenantCheck);
+        }
+
+        // Verify the lead status was updated
+        const { data: leadVerify, error: verifyError } = await supabase
+          .from('leads')
+          .select('id, status, converted_tenant_id, converted_at')
+          .eq('id', convertData.leadId)
+          .single();
+
+        if (verifyError || !leadVerify) {
+          console.error('LeadService: Lead verification failed:', verifyError);
+          throw new Error('Lead status verification failed');
+        }
+
+        if (leadVerify.status !== 'converted' || !leadVerify.converted_tenant_id) {
+          console.error('LeadService: Lead status not properly updated:', leadVerify);
+          throw new Error('Lead conversion status not properly updated');
+        }
+
+        console.log('LeadService: Lead status verified:', leadVerify);
         
         // Normalize the response to ensure both tenantId and tenant_id are available
         const normalizedData = {
