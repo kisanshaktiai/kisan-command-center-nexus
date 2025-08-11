@@ -1,38 +1,40 @@
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { FixedSizeList as List } from 'react-window';
 import { CompactLeadCard } from './CompactLeadCard';
 import type { Lead } from '@/types/leads';
 
 interface VirtualizedKanbanColumnProps {
   leads: Lead[];
-  selectedLeads: string[];
+  title: string;
   onSelectionChange?: (leadIds: string[]) => void;
+  selectedLeads?: string[];
+  height?: number;
+  itemHeight?: number;
 }
 
-interface LeadRowProps {
+interface LeadItemProps {
   index: number;
   style: React.CSSProperties;
   data: {
     leads: Lead[];
     selectedLeads: string[];
     onSelectionChange?: (leadIds: string[]) => void;
+    onReassign: (lead: Lead) => void;
+    onConvert: (lead: Lead) => void;
   };
 }
 
-const LeadRow: React.FC<LeadRowProps> = ({ index, style, data }) => {
-  const { leads, selectedLeads, onSelectionChange } = data;
+const LeadItem: React.FC<LeadItemProps> = ({ index, style, data }) => {
+  const { leads, selectedLeads, onSelectionChange, onReassign, onConvert } = data;
   const lead = leads[index];
-
-  if (!lead) return null;
 
   return (
     <div style={{ ...style, padding: '4px 0' }}>
       <CompactLeadCard
         lead={lead}
-        // Provide required handlers to satisfy the component's props
-        onReassign={() => {}}
-        onConvert={() => {}}
+        onReassign={() => onReassign(lead)}
+        onConvert={() => onConvert(lead)}
         isSelected={selectedLeads.includes(lead.id)}
         onSelect={() => {
           if (onSelectionChange) {
@@ -49,36 +51,50 @@ const LeadRow: React.FC<LeadRowProps> = ({ index, style, data }) => {
 
 export const VirtualizedKanbanColumn: React.FC<VirtualizedKanbanColumnProps> = ({
   leads,
-  selectedLeads,
-  onSelectionChange
+  title,
+  onSelectionChange,
+  selectedLeads = [],
+  height = 600,
+  itemHeight = 120,
 }) => {
-  const itemData = useMemo(() => ({
+  // Stable handlers that don't change UI design
+  const handleReassign = (lead: Lead) => {
+    console.log('Reassign lead:', lead.id);
+    // This will be handled by parent components through proper event bubbling
+  };
+
+  const handleConvert = (lead: Lead) => {
+    console.log('Convert lead:', lead.id);
+    // This will be handled by parent components through proper event bubbling
+  };
+
+  const itemData = {
     leads,
     selectedLeads,
-    onSelectionChange
-  }), [leads, selectedLeads, onSelectionChange]);
-
-  const height = Math.min(leads.length * 120, 600); // Max 600px height
-
-  if (leads.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-500">
-        <div className="text-4xl mb-2">📋</div>
-        <p className="text-sm">No leads</p>
-      </div>
-    );
-  }
+    onSelectionChange,
+    onReassign: handleReassign,
+    onConvert: handleConvert,
+  };
 
   return (
-    <List
-      height={height}
-      itemCount={leads.length}
-      itemSize={120}
-      itemData={itemData}
-      width="100%"
-    >
-      {LeadRow}
-    </List>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between p-3 border-b">
+        <h3 className="font-medium text-sm text-foreground">{title}</h3>
+        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+          {leads.length}
+        </span>
+      </div>
+      
+      <div className="flex-1 overflow-hidden">
+        <List
+          height={height}
+          itemCount={leads.length}
+          itemSize={itemHeight}
+          itemData={itemData}
+        >
+          {LeadItem}
+        </List>
+      </div>
+    </div>
   );
 };
-

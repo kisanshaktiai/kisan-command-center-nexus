@@ -1,5 +1,4 @@
 
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -23,6 +22,7 @@ interface ConversionResponse {
   error?: string;
   code?: string;
   tenantId?: string;
+  tenant_id?: string; // Keep both for compatibility
   userId?: string;
   tenantSlug?: string;
   tempPassword?: string;
@@ -66,7 +66,7 @@ serve(async (req) => {
       });
     }
 
-    // Validate subscription plan enum - convert to proper enum format
+    // Validate subscription plan enum
     const validPlans = ['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'Custom_Enterprise'];
     const normalizedPlan = validPlans.includes(subscriptionPlan) ? subscriptionPlan : 'Kisan_Basic';
 
@@ -115,14 +115,13 @@ serve(async (req) => {
     if (!conversionResult.success) {
       console.error('Conversion failed:', conversionResult);
       
-      // Map specific error codes to appropriate HTTP status codes
       let statusCode = 400;
       switch (conversionResult.code) {
         case 'LEAD_NOT_FOUND':
           statusCode = 404;
           break;
         case 'LEAD_NOT_QUALIFIED':
-          statusCode = 422; // Unprocessable Entity
+          statusCode = 422;
           break;
         case 'LEAD_ALREADY_CONVERTED':
         case 'SLUG_CONFLICT':
@@ -201,9 +200,8 @@ serve(async (req) => {
         }
       }
 
-      // CRITICAL: Always ensure user_tenants relationship exists
+      // Ensure user_tenants relationship exists
       if (userId) {
-        // Check if relationship already exists
         const { data: existingRelation, error: relationCheckError } = await supabase
           .from('user_tenants')
           .select('id')
@@ -212,7 +210,6 @@ serve(async (req) => {
           .single();
 
         if (!existingRelation && !relationCheckError) {
-          // Create user_tenants relationship
           console.log('Creating user-tenant relationship...');
           const { error: tenantUserError } = await supabase
             .from('user_tenants')
@@ -255,7 +252,6 @@ serve(async (req) => {
     } catch (error) {
       console.error('Error in user/relationship creation:', error);
       
-      // Return error since user access is critical
       const response: ConversionResponse = {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to set up user access',
@@ -267,7 +263,7 @@ serve(async (req) => {
       });
     }
 
-    // Send welcome email only for new conversions (not recovery)
+    // Send welcome email only for new conversions
     if (!isRecovery && tempPassword !== 'recovery-no-password') {
       try {
         const loginUrl = `${Deno.env.get('SITE_URL') || 'https://yourapp.com'}/auth`;
@@ -323,11 +319,12 @@ serve(async (req) => {
       }
     }
 
-    // Return comprehensive success response
+    // Return comprehensive success response with both tenantId and tenant_id for compatibility
     const response: ConversionResponse = {
       success: true,
       message: conversionResult.message || 'Lead converted to tenant successfully',
       tenantId: tenantId,
+      tenant_id: tenantId, // Include both for compatibility
       userId: userId,
       tenantSlug: tenantSlug,
       tempPassword: isRecovery && tempPassword === 'recovery-no-password' ? undefined : tempPassword,
@@ -356,4 +353,3 @@ serve(async (req) => {
     });
   }
 });
-

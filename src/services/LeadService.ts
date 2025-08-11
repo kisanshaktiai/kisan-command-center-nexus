@@ -45,8 +45,11 @@ interface ConvertToTenantData {
 interface ConversionResult {
   success: boolean;
   tenant_id?: string;
+  tenantId?: string; // Normalized response
   tempPassword?: string;
   message?: string;
+  isRecovery?: boolean;
+  userTenantCreated?: boolean;
 }
 
 // Database row type for leads table
@@ -59,7 +62,7 @@ interface LeadRow {
   organization_type?: string;
   assigned_to?: string;
   assigned_at?: string;
-  status: string; // Database returns string, we'll cast to proper type
+  status: string;
   priority: string;
   source?: string;
   qualification_score: number;
@@ -121,7 +124,6 @@ export class LeadService extends BaseService {
     try {
       console.log('LeadService: Creating lead with data:', leadData);
 
-      // Prepare data for database with proper defaults
       const insertData = {
         contact_name: leadData.contact_name,
         email: leadData.email,
@@ -285,8 +287,14 @@ export class LeadService extends BaseService {
           throw new Error(errorMessage);
         }
 
-        console.log('LeadService: Successfully converted lead to tenant:', data.tenant_id);
-        return { success: true, data };
+        // Normalize the response to include both tenantId and tenant_id for compatibility
+        const normalizedData: ConversionResult = {
+          ...data,
+          tenantId: data.tenantId || data.tenant_id, // Ensure tenantId is always available
+        };
+
+        console.log('LeadService: Successfully converted lead to tenant:', normalizedData.tenantId);
+        return { success: true, data: normalizedData };
 
       } catch (error) {
         console.error(`LeadService: Unexpected error converting lead (attempt ${attempt}):`, error);
