@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,6 +35,8 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { ConvertLeadDialog } from './ConvertLeadDialog';
+import { LeadDetailsModal } from './LeadDetailsModal';
+import { EditLeadModal } from './EditLeadModal';
 import type { Lead } from '@/types/leads';
 
 interface LeadTableViewProps {
@@ -115,6 +116,10 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [selectedLeadForConversion, setSelectedLeadForConversion] = useState<Lead | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedLeadForDetails, setSelectedLeadForDetails] = useState<Lead | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedLeadForEdit, setSelectedLeadForEdit] = useState<Lead | null>(null);
 
   // Filter and sort leads
   const filteredAndSortedLeads = useMemo(() => {
@@ -188,9 +193,25 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({
     setConvertDialogOpen(true);
   };
 
+  const handleViewDetails = (lead: Lead) => {
+    setSelectedLeadForDetails(lead);
+    setDetailsModalOpen(true);
+  };
+
+  const handleEditLead = (lead: Lead) => {
+    setSelectedLeadForEdit(lead);
+    setEditModalOpen(true);
+  };
+
   const handleConversionSuccess = () => {
     setConvertDialogOpen(false);
     setSelectedLeadForConversion(null);
+    onRefresh();
+  };
+
+  const handleEditSuccess = () => {
+    setEditModalOpen(false);
+    setSelectedLeadForEdit(null);
     onRefresh();
   };
 
@@ -434,6 +455,7 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => handleViewDetails(lead)}
                         className="h-8 w-8 p-0 hover:bg-blue-100"
                       >
                         <Eye className="h-4 w-4" />
@@ -446,6 +468,7 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => handleEditLead(lead)}
                         className="h-8 w-8 p-0 hover:bg-blue-100"
                       >
                         <Edit className="h-4 w-4" />
@@ -493,6 +516,27 @@ export const LeadTableView: React.FC<LeadTableViewProps> = ({
         }}
         lead={selectedLeadForConversion}
         onSuccess={handleConversionSuccess}
+      />
+
+      {/* Lead Details Modal */}
+      <LeadDetailsModal
+        isOpen={detailsModalOpen}
+        onClose={() => {
+          setDetailsModalOpen(false);
+          setSelectedLeadForDetails(null);
+        }}
+        lead={selectedLeadForDetails}
+      />
+
+      {/* Edit Lead Modal */}
+      <EditLeadModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedLeadForEdit(null);
+        }}
+        lead={selectedLeadForEdit}
+        onSuccess={handleEditSuccess}
       />
     </div>
   );
