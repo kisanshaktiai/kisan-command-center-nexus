@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw } from 'lucide-react';
 import { TenantViewControls } from '@/components/tenant/page-sections/TenantViewControls';
 import { TenantViewRenderer } from './TenantViewRenderer';
-import { TenantDetailsCompact } from '@/components/tenant/TenantDetailsCompact';
+import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
 import { TenantEditModal } from '@/components/tenant/TenantEditModal';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
 import { useTenantPageState } from '../hooks/useTenantPageState';
@@ -27,10 +27,9 @@ const TenantManagementPage: React.FC = () => {
     creationSuccess,
     clearCreationSuccess,
 
-    // Details modal - use compact version
+    // Details modal - use enhanced modal
     detailsTenant,
     isDetailsModalOpen,
-    detailsFormattedData,
 
     // Edit modal
     editingTenant,
@@ -83,7 +82,7 @@ const TenantManagementPage: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tenant Management</h1>
           <p className="text-muted-foreground">
-            Manage and monitor all tenant organizations
+            Manage and monitor all tenant organizations with world-class user experience
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -144,12 +143,12 @@ const TenantManagementPage: React.FC = () => {
         />
       )}
 
-      {/* Modals - Use Compact Details Modal with proper props */}
-      <TenantDetailsCompact
+      {/* Enhanced Details Modal */}
+      <TenantDetailsModal
         tenant={detailsTenant}
         isOpen={isDetailsModalOpen}
         onClose={closeDetailsModal}
-        onRefresh={refreshMetrics}
+        onEdit={handleDetailsEdit}
       />
 
       <TenantEditModal

@@ -1,300 +1,417 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { Tenant } from '@/types/tenant';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Building2, 
+  User, 
   Mail, 
   Phone, 
   MapPin, 
   Calendar, 
+  CreditCard, 
+  Building, 
   Users, 
-  Zap, 
-  Database, 
+  Package, 
+  HardDrive,
   Activity,
-  Edit,
-  X
+  UserPlus,
+  KeyRound,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  RefreshCw
 } from 'lucide-react';
-import { Tenant } from '@/types/tenant';
-import { TenantEmailActions } from './TenantEmailActions';
+import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
 
 interface TenantDetailsModalProps {
   tenant: Tenant | null;
   isOpen: boolean;
   onClose: () => void;
-  onEdit: (tenant: Tenant) => void;
+  onEdit?: (tenant: Tenant) => void;
 }
 
 export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
   tenant,
   isOpen,
   onClose,
-  onEdit,
+  onEdit
 }) => {
+  const [userStatus, setUserStatus] = useState<'checking' | 'found' | 'not_found' | 'error'>('checking');
+  const [userInfo, setUserInfo] = useState<any>(null);
+  
+  const {
+    isCheckingUser,
+    isCreatingUser,
+    isSendingReset,
+    checkUserExists,
+    createAdminUser,
+    sendPasswordReset
+  } = useTenantUserManagement();
+
+  // Check user existence when modal opens with tenant
+  useEffect(() => {
+    if (tenant?.owner_email && isOpen) {
+      checkUser();
+    }
+  }, [tenant?.owner_email, isOpen]);
+
+  const checkUser = async () => {
+    if (!tenant?.owner_email) return;
+    
+    setUserStatus('checking');
+    const result = await checkUserExists(tenant.owner_email);
+    
+    if (result?.error) {
+      setUserStatus('error');
+    } else if (result?.userExists) {
+      setUserStatus('found');
+      setUserInfo(result.user);
+    } else {
+      setUserStatus('not_found');
+      setUserInfo(null);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!tenant?.owner_email || !tenant?.owner_name) return;
+    
+    const result = await createAdminUser(
+      tenant.owner_email, 
+      tenant.owner_name, 
+      tenant.id
+    );
+    
+    if (result?.success) {
+      // Refresh user status after successful creation
+      setTimeout(() => checkUser(), 1000);
+    }
+  };
+
+  const handleSendReset = async () => {
+    if (!tenant?.owner_email) return;
+    await sendPasswordReset(tenant.owner_email);
+  };
+
   if (!tenant) return null;
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active': return 'bg-green-500';
-      case 'trial': return 'bg-blue-500';
-      case 'suspended': return 'bg-yellow-500';
-      case 'cancelled': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
+  const getStatusBadge = (status: string) => {
+    const variants = {
+      active: 'default',
+      trial: 'secondary', 
+      suspended: 'destructive',
+      cancelled: 'outline',
+      archived: 'outline'
+    } as const;
+    
+    return <Badge variant={variants[status as keyof typeof variants] || 'outline'}>{status}</Badge>;
   };
 
-  const getSubscriptionBadgeVariant = (plan: string) => {
-    switch (plan) {
-      case 'AI_Enterprise': return 'default';
-      case 'Shakti_Growth': return 'secondary';
-      case 'Kisan_Basic': return 'outline';
-      default: return 'outline';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return new Date(dateString).toLocaleDateString();
   };
 
-  const formatBusinessAddress = (address: any) => {
-    if (!address || typeof address !== 'object') return 'Not provided';
-    
-    const parts = [
-      address.street,
-      address.city,
-      address.state,
-      address.postal_code,
-      address.country
-    ].filter(Boolean);
-    
-    return parts.length > 0 ? parts.join(', ') : 'Not provided';
+  const UserStatusSection = () => {
+    if (!tenant.owner_email) {
+      return (
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <p className="text-sm text-gray-600">No admin email configured for this tenant</p>
+        </div>
+      );
+    }
+
+    const isLoading = isCheckingUser || isCreatingUser || isSendingReset;
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium text-sm flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Admin User Status
+          </h4>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={checkUser}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-3 w-3 ${isCheckingUser ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {userStatus === 'checking' && (
+          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            <span className="text-sm text-blue-700">Checking user status...</span>
+          </div>
+        )}
+
+        {userStatus === 'found' && userInfo && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-700">Admin user found in authentication system</span>
+            </div>
+            
+            <div className="flex items-center space-x-4 p-3 border rounded-lg">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={`https://avatar.vercel.sh/${userInfo.email}.png`} />
+                <AvatarFallback>{userInfo.email?.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <p className="text-sm font-medium">{tenant.owner_name || userInfo.email}</p>
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  {userInfo.email}
+                </p>
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Created: {formatDate(userInfo.created_at)}
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSendReset}
+              disabled={isSendingReset}
+              className="w-full"
+            >
+              {isSendingReset ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                  Sending Reset Email...
+                </>
+              ) : (
+                <>
+                  <KeyRound className="h-3 w-3 mr-2" />
+                  Send Password Reset
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {userStatus === 'not_found' && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg">
+              <XCircle className="h-4 w-4 text-orange-600" />
+              <span className="text-sm text-orange-700">No admin user found for {tenant.owner_email}</span>
+            </div>
+            
+            <Button
+              onClick={handleCreateUser}
+              disabled={isCreatingUser}
+              className="w-full"
+            >
+              {isCreatingUser ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                  Creating Admin User...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-3 w-3 mr-2" />
+                  Create Admin User & Send Welcome Email
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {userStatus === 'error' && (
+          <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg">
+            <XCircle className="h-4 w-4 text-red-600" />
+            <span className="text-sm text-red-700">Error checking user status. Please try again.</span>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-        <DialogHeader className="px-6 py-4 border-b">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Building2 className="h-6 w-6 text-muted-foreground" />
-              <div>
-                <DialogTitle className="text-xl font-bold">
-                  {tenant.name}
-                </DialogTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className={`w-2 h-2 rounded-full ${getStatusColor(tenant.status)}`} />
-                  <span className="text-sm text-muted-foreground capitalize">
-                    {tenant.status}
-                  </span>
-                  <Badge variant={getSubscriptionBadgeVariant(tenant.subscription_plan)}>
-                    {tenant.subscription_plan.replace('_', ' ')}
-                  </Badge>
-                </div>
-              </div>
+            <DialogTitle className="text-xl font-semibold">{tenant.name}</DialogTitle>
+            <div className="flex items-center gap-2">
+              {getStatusBadge(tenant.status)}
+              {onEdit && (
+                <Button variant="outline" size="sm" onClick={() => onEdit(tenant)}>
+                  Edit Tenant
+                </Button>
+              )}
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 p-6">
-          <div className="space-y-6">
-            {/* Basic Information */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-sm text-muted-foreground">Tenant Name</span>
-                    <p className="font-medium">{tenant.name}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Slug</span>
-                    <p className="font-mono text-sm bg-muted px-2 py-1 rounded">
-                      {tenant.slug}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Type</span>
-                    <p className="capitalize">{tenant.type?.replace('_', ' ')}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Status</span>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${getStatusColor(tenant.status)}`} />
-                      <span className="capitalize">{tenant.status}</span>
-                    </div>
-                  </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Basic Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building className="h-4 w-4" />
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Organization Name</p>
+                  <p className="text-sm">{tenant.name}</p>
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-sm text-muted-foreground">Created</span>
-                    <p>{formatDate(tenant.created_at)}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Last Updated</span>
-                    <p>{formatDate(tenant.updated_at)}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Subscription Plan</span>
-                    <Badge variant={getSubscriptionBadgeVariant(tenant.subscription_plan)} className="mt-1">
-                      {tenant.subscription_plan.replace('_', ' ')}
-                    </Badge>
-                  </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Slug</p>
+                  <p className="text-sm font-mono">{tenant.slug}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Type</p>
+                  <p className="text-sm capitalize">{tenant.type.replace('_', ' ')}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Created</p>
+                  <p className="text-sm">{formatDate(tenant.created_at)}</p>
                 </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            <Separator />
+          {/* Admin User Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Admin User Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <UserStatusSection />
+            </CardContent>
+          </Card>
 
-            {/* Contact Information */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Mail className="h-4 w-4" />
-                      Owner Email
-                    </span>
-                    <p className="font-medium">{tenant.owner_email || 'Not provided'}</p>
+          {/* Owner Information */}
+          {(tenant.owner_name || tenant.owner_email || tenant.owner_phone) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Owner Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {tenant.owner_name && (
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm">{tenant.owner_name}</span>
                   </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Owner Name
-                    </span>
-                    <p className="font-medium">{tenant.owner_name || 'Not provided'}</p>
+                )}
+                {tenant.owner_email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm">{tenant.owner_email}</span>
                   </div>
+                )}
+                {tenant.owner_phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm">{tenant.owner_phone}</span>
+                  </div>
+                )}
+                {tenant.business_address && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm">
+                      {typeof tenant.business_address === 'string' 
+                        ? tenant.business_address 
+                        : Object.values(tenant.business_address).filter(Boolean).join(', ')
+                      }
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Subscription Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                Subscription Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-xs font-medium text-gray-500">Plan</p>
+                <p className="text-sm font-medium">{tenant.subscription_plan.replace('_', ' ')}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Start Date</p>
+                  <p className="text-sm">{formatDate(tenant.subscription_start_date)}</p>
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      Phone
-                    </span>
-                    <p className="font-medium">{tenant.owner_phone || 'Not provided'}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      Business Address
-                    </span>
-                    <p className="font-medium text-sm leading-relaxed">
-                      {formatBusinessAddress(tenant.business_address)}
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">End Date</p>
+                  <p className="text-sm">{formatDate(tenant.subscription_end_date)}</p>
                 </div>
               </div>
-            </div>
+              {tenant.trial_ends_at && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Trial Ends</p>
+                  <p className="text-sm">{formatDate(tenant.trial_ends_at)}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            <Separator />
-
-            {/* Subscription & Limits */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Subscription & Limits</h3>
+          {/* Resource Limits */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Resource Limits & Usage
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-1">
-                  <span className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Max Farmers
-                  </span>
-                  <p className="font-bold text-lg">{tenant.max_farmers?.toLocaleString() || 'Unlimited'}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Max Dealers
-                  </span>
-                  <p className="font-bold text-lg">{tenant.max_dealers?.toLocaleString() || 'Unlimited'}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Database className="h-4 w-4" />
-                    Storage (GB)
-                  </span>
-                  <p className="font-bold text-lg">{tenant.max_storage_gb || 'Unlimited'}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Zap className="h-4 w-4" />
-                    API Calls/Day
-                  </span>
-                  <p className="font-bold text-lg">{tenant.max_api_calls_per_day?.toLocaleString() || 'Unlimited'}</p>
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Domain Information */}
-            {(tenant.subdomain || tenant.custom_domain) && (
-              <>
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Domain Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {tenant.subdomain && (
-                      <div>
-                        <span className="text-sm text-muted-foreground">Subdomain</span>
-                        <p className="font-mono text-sm bg-muted px-2 py-1 rounded">
-                          {tenant.subdomain}
-                        </p>
-                      </div>
-                    )}
-                    {tenant.custom_domain && (
-                      <div>
-                        <span className="text-sm text-muted-foreground">Custom Domain</span>
-                        <p className="font-mono text-sm bg-muted px-2 py-1 rounded">
-                          {tenant.custom_domain}
-                        </p>
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-blue-500" />
+                    <span className="text-xs font-medium">Farmers</span>
                   </div>
+                  <p className="text-sm">0 / {tenant.max_farmers?.toLocaleString() || 'Unlimited'}</p>
                 </div>
-                <Separator />
-              </>
-            )}
-
-            {/* Additional Metadata */}
-            {tenant.metadata && Object.keys(tenant.metadata).length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Additional Information</h3>
-                <div className="bg-muted p-4 rounded-lg">
-                  <pre className="text-sm whitespace-pre-wrap overflow-auto">
-                    {JSON.stringify(tenant.metadata, null, 2)}
-                  </pre>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Building className="h-4 w-4 text-green-500" />
+                    <span className="text-xs font-medium">Dealers</span>
+                  </div>
+                  <p className="text-sm">0 / {tenant.max_dealers?.toLocaleString() || 'Unlimited'}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-purple-500" />
+                    <span className="text-xs font-medium">Products</span>
+                  </div>
+                  <p className="text-sm">0 / {tenant.max_products?.toLocaleString() || 'Unlimited'}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="h-4 w-4 text-orange-500" />
+                    <span className="text-xs font-medium">Storage</span>
+                  </div>
+                  <p className="text-sm">0 GB / {tenant.max_storage_gb || 'Unlimited'} GB</p>
                 </div>
               </div>
-            )}
-          </div>
-        </ScrollArea>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between px-6 py-4 border-t bg-muted/50">
-          <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              Last activity: {formatDate(tenant.updated_at)}
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <TenantEmailActions tenant={tenant} />
-            <Button variant="outline" onClick={() => onEdit(tenant)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Tenant
-            </Button>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </DialogContent>
     </Dialog>
