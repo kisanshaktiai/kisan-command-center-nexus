@@ -4,12 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from './useNotifications';
 
 interface UserExistsResult {
-  userExists: boolean;
-  user: {
-    id: string;
-    email: string;
-    created_at: string;
-  } | null;
+  exists: boolean;
+  isAdmin?: boolean;
+  userId?: string;
+  userStatus?: string;
   error?: string;
 }
 
@@ -40,21 +38,73 @@ export const useTenantUserManagement = () => {
 
       if (error) {
         console.error('Error checking user:', error);
-        return { userExists: false, user: null, error: error.message };
+        return { exists: false, error: error.message };
       }
 
-      return data;
+      return {
+        exists: data?.exists || false,
+        isAdmin: data?.isAdmin || false,
+        userId: data?.userId,
+        userStatus: data?.userStatus,
+        error: data?.error
+      };
     } catch (error) {
       console.error('Failed to check user:', error);
       return { 
-        userExists: false, 
-        user: null, 
+        exists: false, 
         error: error instanceof Error ? error.message : 'Failed to check user'
       };
     } finally {
       setIsCheckingUser(false);
     }
   }, []);
+
+  const createTenantAsUser = useCallback(async (
+    email: string, 
+    fullName: string, 
+    tenantId?: string
+  ): Promise<CreateUserResult | null> => {
+    if (!email || !fullName) return null;
+    
+    setIsCreatingUser(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('register-user-with-welcome', {
+        body: {
+          email,
+          fullName,
+          tenantId,
+          role: 'tenant_user',
+          sendWelcomeEmail: true,
+          welcomeEmailData: {
+            tenantName: 'Your Organization',
+            loginUrl: `${window.location.origin}/auth`,
+            customMessage: 'You have been added as a user for your organization.'
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Error creating user:', error);
+        showError('Failed to create user');
+        return { success: false, error: error.message };
+      }
+
+      if (data?.success) {
+        showSuccess('User created successfully!');
+        return data;
+      } else {
+        showError(data?.error || 'Failed to create user');
+        return { success: false, error: data?.error };
+      }
+    } catch (error) {
+      console.error('Failed to create user:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create user';
+      showError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsCreatingUser(false);
+    }
+  }, [showSuccess, showError]);
 
   const createAdminUser = useCallback(async (
     email: string, 
@@ -137,6 +187,7 @@ export const useTenantUserManagement = () => {
     
     // Actions
     checkUserExists,
+    createTenantAsUser,
     createAdminUser,
     sendPasswordReset
   };
