@@ -52,14 +52,8 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
                   tenant={tenant}
                   formattedData={formattedData}
                   size="large"
-                  onEdit={(e) => {
-                    e.stopPropagation();
-                    onEdit(tenant);
-                  }}
-                  onDelete={(e) => {
-                    e.stopPropagation();
-                    onDelete(tenant.id);
-                  }}
+                  onEdit={() => onEdit(tenant)}
+                  onDelete={() => onDelete(tenant.id)}
                   onViewDetails={() => onViewDetails(tenant)}
                   metrics={tenantMetrics[tenant.id]}
                 />
@@ -94,14 +88,8 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
                   tenant={tenant}
                   formattedData={formattedData}
                   size="analytics"
-                  onEdit={(e) => {
-                    e.stopPropagation();
-                    onEdit(tenant);
-                  }}
-                  onDelete={(e) => {
-                    e.stopPropagation();
-                    onDelete(tenant.id);
-                  }}
+                  onEdit={() => onEdit(tenant)}
+                  onDelete={() => onDelete(tenant.id)}
                   onViewDetails={() => onViewDetails(tenant)}
                   metrics={tenantMetrics[tenant.id]}
                   showAnalytics={true}
@@ -128,14 +116,8 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
                   tenant={tenant}
                   formattedData={formattedData}
                   size="small"
-                  onEdit={(e) => {
-                    e.stopPropagation();
-                    onEdit(tenant);
-                  }}
-                  onDelete={(e) => {
-                    e.stopPropagation();
-                    onDelete(tenant.id);
-                  }}
+                  onEdit={() => onEdit(tenant)}
+                  onDelete={() => onDelete(tenant.id)}
                   onViewDetails={() => onViewDetails(tenant)}
                   metrics={tenantMetrics[tenant.id]}
                 />
