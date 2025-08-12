@@ -8,21 +8,38 @@ import { TenantContextProvider } from '@/contexts/TenantContextProvider';
 import { Toaster } from 'sonner';
 import { setTenantIdGetter } from '@/services/ApiFactory';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 3,
-      refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+// Create optimized query client with performance settings
+const createOptimizedQueryClient = () => {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        gcTime: 10 * 60 * 1000, // 10 minutes (previously cacheTime)
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
+        retry: (failureCount, error) => {
+          // Only retry on network errors
+          if (failureCount < 3 && error instanceof Error) {
+            return error.message.includes('network') || error.message.includes('fetch');
+          }
+          return false;
+        },
+      },
+      mutations: {
+        retry: 1,
+      },
     },
-  },
-});
+  });
+};
 
 interface AppProvidersProps {
   children: React.ReactNode;
 }
 
 export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
+  // Create query client instance only once
+  const [queryClient] = React.useState(() => createOptimizedQueryClient());
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -30,7 +47,7 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
           <TenantContextProvider>
             {children}
             <Toaster position="top-right" />
-            <ReactQueryDevtools initialIsOpen={false} />
+            {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
           </TenantContextProvider>
         </TenantProvider>
       </AuthProvider>
