@@ -1,5 +1,6 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,11 +8,24 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
+    // Create Supabase client with service role key for admin operations
+    const supabaseServiceRole = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
     const { email } = await req.json()
 
     if (!email) {
@@ -24,30 +38,13 @@ serve(async (req) => {
       )
     }
 
-    // Create service role client
-    const supabaseServiceUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    // Check if user exists in auth.users
+    const { data: authUsers, error: authError } = await supabaseServiceRole.auth.admin.listUsers()
     
-    // Check if user exists in auth.users using the admin API
-    const { data: { users }, error } = await fetch(
-      `${supabaseServiceUrl}/auth/v1/admin/users`,
-      {
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'Content-Type': 'application/json',
-          'apikey': supabaseServiceKey
-        }
-      }
-    ).then(res => res.json())
-
-    if (error) {
-      console.error('Error fetching users:', error)
+    if (authError) {
+      console.error('Error fetching auth users:', authError)
       return new Response(
-        JSON.stringify({ 
-          userExists: false, 
-          user: null,
-          error: 'Failed to check user existence' 
-        }),
+        JSON.stringify({ error: 'Failed to check user status' }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -55,17 +52,46 @@ serve(async (req) => {
       )
     }
 
-    // Find user by email
-    const existingUser = users?.find((user: any) => user.email === email)
+    const userExists = authUsers.users.some(user => user.email === email)
+
+    if (!userExists) {
+      return new Response(
+        JSON.stringify({ exists: false }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Get the user by email
+    const existingUser = authUsers.users.find(user => user.email === email)
+    
+    if (!existingUser) {
+      return new Response(
+        JSON.stringify({ exists: false }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Check if user is an admin
+    const { data: adminData, error: adminError } = await supabaseServiceRole
+      .from('admin_users')
+      .select('*')
+      .eq('id', existingUser.id)
+      .single()
+
+    const isAdmin = !adminError && adminData
 
     return new Response(
-      JSON.stringify({
-        userExists: !!existingUser,
-        user: existingUser ? {
-          id: existingUser.id,
-          email: existingUser.email,
-          created_at: existingUser.created_at
-        } : null
+      JSON.stringify({ 
+        exists: true, 
+        isAdmin,
+        userId: existingUser.id,
+        userStatus: existingUser.email_confirmed_at ? 'confirmed' : 'pending'
       }),
       { 
         status: 200, 
@@ -76,11 +102,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in check-user-exists function:', error)
     return new Response(
-      JSON.stringify({ 
-        userExists: false, 
-        user: null,
-        error: error.message 
-      }),
+      JSON.stringify({ error: 'Internal server error' }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
