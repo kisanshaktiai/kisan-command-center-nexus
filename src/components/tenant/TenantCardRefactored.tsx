@@ -34,6 +34,7 @@ interface TenantCardRefacturedProps {
   onViewDetails: () => void;
   metrics?: TenantMetrics;
   showAnalytics?: boolean;
+  onCardClick?: () => void;
 }
 
 export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
@@ -44,7 +45,8 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
   onDelete,
   onViewDetails,
   metrics,
-  showAnalytics = false
+  showAnalytics = false,
+  onCardClick
 }) => {
   const isSuspended = tenant.status === 'suspended';
   
@@ -72,6 +74,15 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
         : 'Are you sure you want to suspend this tenant? This action can be reversed.'
     )) {
       onDelete(); // This now handles suspension/reactivation
+    }
+  };
+
+  const handleCardClick = () => {
+    console.log('TenantCardRefactored: Card clicked for tenant:', tenant.id);
+    if (onCardClick) {
+      onCardClick();
+    } else {
+      onViewDetails();
     }
   };
 
@@ -114,7 +125,18 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
 
   if (size === 'large') {
     return (
-      <Card className="h-full">
+      <Card 
+        className="h-full cursor-pointer hover:shadow-md transition-shadow duration-200" 
+        onClick={handleCardClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleCardClick();
+          }
+        }}
+      >
         <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
           <div className="space-y-1 flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -169,7 +191,18 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
   }
 
   return (
-    <Card className="h-full">
+    <Card 
+      className="h-full cursor-pointer hover:shadow-md transition-shadow duration-200" 
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="space-y-1 flex-1 min-w-0">

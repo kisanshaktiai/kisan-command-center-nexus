@@ -43,21 +43,17 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
           {tenants.map((tenant, index) => {
             const formattedData = formattedTenants[index];
             return (
-              <div 
+              <TenantCardRefactored
                 key={tenant.id}
-                className="cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-lg"
-                onClick={() => onViewDetails(tenant)}
-              >
-                <TenantCardRefactored
-                  tenant={tenant}
-                  formattedData={formattedData}
-                  size="large"
-                  onEdit={() => onEdit(tenant)}
-                  onDelete={() => onDelete(tenant.id)}
-                  onViewDetails={() => onViewDetails(tenant)}
-                  metrics={tenantMetrics[tenant.id]}
-                />
-              </div>
+                tenant={tenant}
+                formattedData={formattedData}
+                size="large"
+                onEdit={() => onEdit(tenant)}
+                onDelete={() => onDelete(tenant.id)}
+                onViewDetails={() => onViewDetails(tenant)}
+                onCardClick={() => onViewDetails(tenant)}
+                metrics={tenantMetrics[tenant.id]}
+              />
             );
           })}
         </div>
@@ -79,22 +75,18 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
           {tenants.map((tenant, index) => {
             const formattedData = formattedTenants[index];
             return (
-              <div 
+              <TenantCardRefactored
                 key={tenant.id}
-                className="cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-lg"
-                onClick={() => onViewDetails(tenant)}
-              >
-                <TenantCardRefactored
-                  tenant={tenant}
-                  formattedData={formattedData}
-                  size="analytics"
-                  onEdit={() => onEdit(tenant)}
-                  onDelete={() => onDelete(tenant.id)}
-                  onViewDetails={() => onViewDetails(tenant)}
-                  metrics={tenantMetrics[tenant.id]}
-                  showAnalytics={true}
-                />
-              </div>
+                tenant={tenant}
+                formattedData={formattedData}
+                size="analytics"
+                onEdit={() => onEdit(tenant)}
+                onDelete={() => onDelete(tenant.id)}
+                onViewDetails={() => onViewDetails(tenant)}
+                onCardClick={() => onViewDetails(tenant)}
+                metrics={tenantMetrics[tenant.id]}
+                showAnalytics={true}
+              />
             );
           })}
         </div>
@@ -107,21 +99,17 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
           {tenants.map((tenant, index) => {
             const formattedData = formattedTenants[index];
             return (
-              <div 
+              <TenantCardRefactored
                 key={tenant.id}
-                className="cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-lg rounded-lg"
-                onClick={() => onViewDetails(tenant)}
-              >
-                <TenantCardRefactored
-                  tenant={tenant}
-                  formattedData={formattedData}
-                  size="small"
-                  onEdit={() => onEdit(tenant)}
-                  onDelete={() => onDelete(tenant.id)}
-                  onViewDetails={() => onViewDetails(tenant)}
-                  metrics={tenantMetrics[tenant.id]}
-                />
-              </div>
+                tenant={tenant}
+                formattedData={formattedData}
+                size="small"
+                onEdit={() => onEdit(tenant)}
+                onDelete={() => onDelete(tenant.id)}
+                onViewDetails={() => onViewDetails(tenant)}
+                onCardClick={() => onViewDetails(tenant)}
+                metrics={tenantMetrics[tenant.id]}
+              />
             );
           })}
         </div>
