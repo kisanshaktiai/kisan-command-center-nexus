@@ -1,5 +1,5 @@
 
-import React, { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
@@ -31,8 +31,8 @@ interface OptimizedQueryProviderProps {
   children: ReactNode;
 }
 
-export const OptimizedQueryProvider: React.FC<OptimizedQueryProviderProps> = ({ children }) => {
-  const [queryClient] = React.useState(() => createOptimizedQueryClient());
+export const OptimizedQueryProvider = ({ children }: OptimizedQueryProviderProps) => {
+  const [queryClient] = useState(() => createOptimizedQueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>
