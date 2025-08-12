@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -38,7 +38,7 @@ interface AppProvidersProps {
 
 export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
   // Create query client instance only once
-  const [queryClient] = React.useState(() => createOptimizedQueryClient());
+  const [queryClient] = useState(() => createOptimizedQueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>
