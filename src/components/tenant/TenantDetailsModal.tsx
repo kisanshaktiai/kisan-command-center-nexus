@@ -68,9 +68,15 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
     
     if (result?.error) {
       setUserStatus('error');
-    } else if (result?.userExists) {
+    } else if (result?.exists) {
       setUserStatus('found');
-      setUserInfo(result.user);
+      setUserInfo({
+        email: tenant.owner_email,
+        userId: result.userId,
+        created_at: new Date().toISOString(), // We don't have this info from the result
+        isAdmin: result.isAdmin,
+        userStatus: result.userStatus
+      });
     } else {
       setUserStatus('not_found');
       setUserInfo(null);
