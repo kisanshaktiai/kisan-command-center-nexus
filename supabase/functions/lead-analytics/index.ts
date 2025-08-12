@@ -28,6 +28,7 @@ serve(async (req) => {
     )
 
     const { type, dateRange, filters } = await req.json() as AnalyticsRequest;
+    console.log('Processing analytics request:', { type, dateRange, filters });
 
     switch (type) {
       case 'conversion_funnel':
@@ -55,16 +56,25 @@ serve(async (req) => {
 });
 
 async function getConversionFunnel(supabase: any, dateRange?: any) {
-  const query = supabase
+  console.log('Fetching conversion funnel data...');
+  
+  let query = supabase
     .from('leads')
-    .select('status, created_at');
+    .select('status, created_at, qualification_score');
 
   if (dateRange) {
-    query.gte('created_at', dateRange.start)
-         .lte('created_at', dateRange.end);
+    query = query.gte('created_at', dateRange.start)
+                 .lte('created_at', dateRange.end);
   }
 
-  const { data: leads } = await query;
+  const { data: leads, error } = await query;
+  
+  if (error) {
+    console.error('Error fetching leads:', error);
+    throw new Error('Failed to fetch leads data');
+  }
+
+  console.log(`Found ${leads?.length || 0} leads`);
 
   const funnel = {
     new: leads?.filter(l => l.status === 'new').length || 0,
@@ -83,13 +93,18 @@ async function getConversionFunnel(supabase: any, dateRange?: any) {
     qualified_to_converted: funnel.qualified > 0 ? (funnel.converted / funnel.qualified) * 100 : 0,
   };
 
+  const result = { funnel, conversions, total };
+  console.log('Conversion funnel result:', result);
+
   return new Response(
-    JSON.stringify({ funnel, conversions, total }),
+    JSON.stringify(result),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }
 
 async function getLeadPerformance(supabase: any, dateRange?: any, filters?: any) {
+  console.log('Fetching lead performance data...');
+  
   let query = supabase
     .from('leads')
     .select('*, lead_activities(*)');
@@ -99,15 +114,25 @@ async function getLeadPerformance(supabase: any, dateRange?: any, filters?: any)
                  .lte('created_at', dateRange.end);
   }
 
-  const { data: leads } = await query;
+  const { data: leads, error } = await query;
+  
+  if (error) {
+    console.error('Error fetching lead performance:', error);
+    throw new Error('Failed to fetch lead performance data');
+  }
+
+  console.log(`Processing performance for ${leads?.length || 0} leads`);
 
   const performance = {
     totalLeads: leads?.length || 0,
-    avgScore: leads?.reduce((sum, lead) => sum + (lead.lead_score || 0), 0) / (leads?.length || 1),
+    avgScore: leads?.length > 0 ? 
+      leads.reduce((sum, lead) => sum + (lead.qualification_score || 0), 0) / leads.length : 0,
     avgTimeToContact: calculateAvgTimeToContact(leads || []),
     avgTimeToConversion: calculateAvgTimeToConversion(leads || []),
     topPerformers: getTopPerformingLeads(leads || []),
   };
+
+  console.log('Lead performance result:', performance);
 
   return new Response(
     JSON.stringify(performance),
@@ -116,6 +141,8 @@ async function getLeadPerformance(supabase: any, dateRange?: any, filters?: any)
 }
 
 async function getSourceEffectiveness(supabase: any, dateRange?: any) {
+  console.log('Fetching source effectiveness data...');
+  
   let query = supabase
     .from('leads')
     .select('source, status, qualification_score');
@@ -125,9 +152,16 @@ async function getSourceEffectiveness(supabase: any, dateRange?: any) {
                  .lte('created_at', dateRange.end);
   }
 
-  const { data: leads } = await query;
+  const { data: leads, error } = await query;
+  
+  if (error) {
+    console.error('Error fetching source effectiveness:', error);
+    throw new Error('Failed to fetch source effectiveness data');
+  }
 
-  const sourceStats = {};
+  console.log(`Processing source effectiveness for ${leads?.length || 0} leads`);
+
+  const sourceStats: Record<string, any> = {};
   
   leads?.forEach(lead => {
     const source = lead.source || 'unknown';
@@ -151,10 +185,12 @@ async function getSourceEffectiveness(supabase: any, dateRange?: any) {
   // Calculate averages and conversion rates
   Object.keys(sourceStats).forEach(source => {
     const stats = sourceStats[source];
-    stats.avgScore = stats.totalScore / stats.total;
-    stats.conversionRate = (stats.converted / stats.total) * 100;
+    stats.avgScore = stats.total > 0 ? stats.totalScore / stats.total : 0;
+    stats.conversionRate = stats.total > 0 ? (stats.converted / stats.total) * 100 : 0;
     delete stats.totalScore; // Remove intermediate calculation
   });
+
+  console.log('Source effectiveness result:', sourceStats);
 
   return new Response(
     JSON.stringify(sourceStats),
@@ -163,6 +199,8 @@ async function getSourceEffectiveness(supabase: any, dateRange?: any) {
 }
 
 async function getTeamPerformance(supabase: any, dateRange?: any) {
+  console.log('Fetching team performance data...');
+  
   let query = supabase
     .from('leads')
     .select('assigned_to, status, qualification_score, assigned_at, converted_at');
@@ -172,15 +210,28 @@ async function getTeamPerformance(supabase: any, dateRange?: any) {
                  .lte('created_at', dateRange.end);
   }
 
-  const { data: leads } = await query;
+  const { data: leads, error: leadsError } = await query;
+  
+  if (leadsError) {
+    console.error('Error fetching leads for team performance:', leadsError);
+    throw new Error('Failed to fetch leads data');
+  }
 
   // Get admin users
-  const { data: admins } = await supabase
+  const { data: admins, error: adminsError } = await supabase
     .from('admin_users')
     .select('id, full_name, email');
 
-  const teamStats = {};
+  if (adminsError) {
+    console.error('Error fetching admin users:', adminsError);
+    // Continue without admin data, just use IDs
+  }
 
+  console.log(`Processing team performance for ${leads?.length || 0} leads and ${admins?.length || 0} admins`);
+
+  const teamStats: Record<string, any> = {};
+
+  // Initialize stats for all admins
   admins?.forEach(admin => {
     teamStats[admin.id] = {
       name: admin.full_name || admin.email,
@@ -192,6 +243,7 @@ async function getTeamPerformance(supabase: any, dateRange?: any) {
     };
   });
 
+  // Process leads
   leads?.forEach(lead => {
     if (lead.assigned_to && teamStats[lead.assigned_to]) {
       const stats = teamStats[lead.assigned_to];
@@ -213,6 +265,8 @@ async function getTeamPerformance(supabase: any, dateRange?: any) {
     }
     delete stats.totalScore;
   });
+
+  console.log('Team performance result:', teamStats);
 
   return new Response(
     JSON.stringify(teamStats),
@@ -254,13 +308,13 @@ function calculateAvgTimeToConversion(leads: any[]): number {
 
 function getTopPerformingLeads(leads: any[]): any[] {
   return leads
-    .sort((a, b) => (b.lead_score || 0) - (a.lead_score || 0))
+    .sort((a, b) => (b.qualification_score || 0) - (a.qualification_score || 0))
     .slice(0, 5)
     .map(lead => ({
       id: lead.id,
       name: lead.contact_name,
       organization: lead.organization_name,
-      score: lead.lead_score,
+      score: lead.qualification_score,
       status: lead.status
     }));
 }
