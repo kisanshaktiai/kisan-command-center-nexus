@@ -6,7 +6,6 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { TenantProvider } from '@/context/TenantContext';
 import { TenantContextProvider } from '@/contexts/TenantContextProvider';
 import { Toaster } from 'sonner';
-import { setTenantIdGetter } from '@/services/ApiFactory';
 
 // Create optimized query client with performance settings
 const createOptimizedQueryClient = () => {
@@ -37,8 +36,8 @@ interface AppProvidersProps {
 }
 
 export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
-  // Create query client instance only once
-  const [queryClient] = useState(() => createOptimizedQueryClient());
+  // Create query client instance only once using React.useState to avoid import issues
+  const [queryClient] = React.useState(() => createOptimizedQueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>
