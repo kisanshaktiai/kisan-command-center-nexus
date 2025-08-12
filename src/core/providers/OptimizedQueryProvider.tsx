@@ -1,8 +1,8 @@
 
+import React from 'react';
 import { ReactNode, useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider, QueryErrorResetBoundary } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 // Tenant-aware query client with enhanced retry logic
@@ -61,10 +61,8 @@ interface OptimizedQueryProviderProps {
 }
 
 export const OptimizedQueryProvider = ({ children }: OptimizedQueryProviderProps) => {
-  const { user, isAuthenticated } = useAuth();
-  const tenantId = user?.id || null; // Using user ID as tenant identifier
-  
-  const [queryClient] = useState(() => createOptimizedQueryClient(tenantId));
+  // Create a default query client without tenant ID initially
+  const [queryClient] = useState(() => createOptimizedQueryClient(null));
 
   // Error handler for query errors
   const handleQueryError = (error: Error) => {
