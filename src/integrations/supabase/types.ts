@@ -8032,6 +8032,26 @@ export type Database = {
         }
         Returns: number
       }
+      get_user_tenant_relationships: {
+        Args: {
+          p_include_inactive?: boolean
+          p_tenant_id?: string
+          p_user_id?: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          is_active: boolean
+          metadata: Json
+          role: Database["public"]["Enums"]["user_role"]
+          tenant_id: string
+          tenant_name: string
+          tenant_slug: string
+          updated_at: string
+          user_email: string
+          user_id: string
+        }[]
+      }
       gettransactionid: {
         Args: Record<PropertyKey, never>
         Returns: unknown
@@ -8165,6 +8185,17 @@ export type Database = {
       longtransactionsenabled: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      manage_user_tenant_relationship: {
+        Args: {
+          p_is_active?: boolean
+          p_metadata?: Json
+          p_operation?: string
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_tenant_id: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       mark_invitation_accepted: {
         Args: { token: string }
