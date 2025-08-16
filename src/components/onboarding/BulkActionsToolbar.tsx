@@ -2,123 +2,71 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { 
-  CheckCheck, 
-  X, 
-  SelectAll, 
-  Undo2, 
-  Square, 
-  CheckSquare 
-} from 'lucide-react';
+import { CheckSquare, X, RotateCcw } from 'lucide-react';
 
 interface BulkActionsToolbarProps {
-  selectedCount: number;
-  totalCount: number;
-  onSelectAll: () => void;
-  onDeselectAll: () => void;
+  selectedSteps: string[];
   onBulkApprove: () => void;
   onBulkReject: () => void;
-  canUndo: boolean;
   onUndo: () => void;
-  isProcessing: boolean;
+  canUndo: boolean;
+  isLoading: boolean;
 }
 
 export const BulkActionsToolbar: React.FC<BulkActionsToolbarProps> = ({
-  selectedCount,
-  totalCount,
-  onSelectAll,
-  onDeselectAll,
+  selectedSteps,
   onBulkApprove,
   onBulkReject,
-  canUndo,
   onUndo,
-  isProcessing
+  canUndo,
+  isLoading,
 }) => {
-  const allSelected = selectedCount === totalCount;
-  const someSelected = selectedCount > 0;
+  if (selectedSteps.length === 0 && !canUndo) {
+    return null;
+  }
 
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={allSelected ? onDeselectAll : onSelectAll}
-              disabled={isProcessing}
-              className="p-1 h-8 w-8"
-              aria-label={allSelected ? 'Deselect all steps' : 'Select all steps'}
-            >
-              {allSelected ? (
-                <CheckSquare className="h-4 w-4" />
-              ) : (
-                <Square className="h-4 w-4" />
-              )}
-            </Button>
-            
-            <span className="text-sm text-muted-foreground">
-              {selectedCount > 0 ? (
-                <>
-                  <Badge variant="secondary" className="mr-2">
-                    {selectedCount}
-                  </Badge>
-                  of {totalCount} steps selected
-                </>
-              ) : (
-                `${totalCount} steps available`
-              )}
-            </span>
-          </div>
-
-          {someSelected && (
-            <>
-              <Separator orientation="vertical" className="h-4" />
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={onBulkApprove}
-                  disabled={isProcessing}
-                  className="h-8"
-                >
-                  <CheckCheck className="h-3 w-3 mr-1" />
-                  Approve Selected
-                </Button>
-                
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={onBulkReject}
-                  disabled={isProcessing}
-                  className="h-8"
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Reject Selected
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {canUndo && (
+    <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border">
+      {selectedSteps.length > 0 && (
+        <>
+          <Badge variant="secondary" className="mr-2">
+            {selectedSteps.length} selected
+          </Badge>
+          
           <Button
             size="sm"
-            variant="outline"
-            onClick={onUndo}
-            disabled={isProcessing}
-            className="h-8"
+            onClick={onBulkApprove}
+            disabled={isLoading}
+            className="gap-1"
           >
-            <Undo2 className="h-3 w-3 mr-1" />
-            Undo Last Action
+            <CheckSquare className="h-4 w-4" />
+            Bulk Approve
           </Button>
-        )}
-      </div>
-
-      {isProcessing && (
-        <div className="mt-2 text-xs text-muted-foreground">
-          Processing bulk action...
-        </div>
+          
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={onBulkReject}
+            disabled={isLoading}
+            className="gap-1"
+          >
+            <X className="h-4 w-4" />
+            Bulk Reject
+          </Button>
+        </>
+      )}
+      
+      {canUndo && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onUndo}
+          disabled={isLoading}
+          className="gap-1 ml-auto"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Undo Last Action
+        </Button>
       )}
     </div>
   );
