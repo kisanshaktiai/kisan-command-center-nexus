@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { OnboardingContextType, OnboardingWorkflow, OnboardingStep, OnboardingStepTemplate, OnboardingFormData } from '@/types/onboarding';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useTenantContext } from '@/hooks/useTenantContext';
 
 interface OnboardingState {
   workflow: OnboardingWorkflow | null;
@@ -119,7 +118,19 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
         .eq('is_active', true)
         .order('step_order');
       if (error) throw error;
-      return data;
+      return data.map(template => ({
+        id: template.id,
+        step_name: template.step_name,
+        step_order: template.step_number,
+        step_type: 'form',
+        schema_config: template.validation_schema as Record<string, any> || {},
+        default_data: template.default_data as Record<string, any> || {},
+        validation_rules: template.validation_schema as Record<string, any> || {},
+        is_required: template.is_required,
+        is_active: true,
+        help_text: template.help_text,
+        estimated_time_minutes: 30
+      }));
     }
   });
 
@@ -173,14 +184,19 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
       const formData: OnboardingFormData = {};
       workflowData.steps.forEach((step: OnboardingStep) => {
         if (step.step_data && Object.keys(step.step_data).length > 0) {
-          formData[step.step_name.toLowerCase().replace(/\s+/g, '') as keyof OnboardingFormData] = step.step_data;
+          const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '') as keyof OnboardingFormData;
+          formData[stepKey] = step.step_data;
         }
       });
       
       // Set current step based on workflow progress
       const currentStep = Math.max(0, workflowData.workflow.current_step - 1);
       dispatch({ type: 'SET_CURRENT_STEP', payload: currentStep });
-      dispatch({ type: 'UPDATE_FORM_DATA', payload: { stepName: 'initial', data: formData } });
+      
+      // Update form data for each step key
+      Object.keys(formData).forEach(stepKey => {
+        dispatch({ type: 'UPDATE_FORM_DATA', payload: { stepName: stepKey, data: formData[stepKey as keyof OnboardingFormData] } });
+      });
     }
   }, [workflowData]);
 
@@ -226,7 +242,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
   const saveCurrentStep = useCallback(async () => {
     const currentStep = state.steps[state.currentStepIndex];
     const stepName = currentStep?.step_name.toLowerCase().replace(/\s+/g, '');
-    const stepData = state.formData[stepName as keyof OnboardingFormData];
+    const stepData = stepName ? state.formData[stepName as keyof OnboardingFormData] : {};
     
     if (currentStep && stepData) {
       dispatch({ type: 'SET_SAVING', payload: true });

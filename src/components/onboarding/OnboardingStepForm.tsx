@@ -8,7 +8,6 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, HelpCircle } from 'lucide-react';
@@ -76,8 +75,8 @@ export const OnboardingStepForm: React.FC<OnboardingStepFormProps> = ({ step, st
     }
   };
 
-  const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '') as keyof typeof formData;
-  const currentData = formData[stepKey] || {};
+  const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '');
+  const currentData = formData[stepKey as keyof typeof formData] || {};
   
   const form = useForm({
     resolver: zodResolver(getSchema()),
@@ -123,7 +122,7 @@ export const OnboardingStepForm: React.FC<OnboardingStepFormProps> = ({ step, st
             <FormItem>
               <FormLabel className="flex items-center gap-2">
                 GST Number *
-                <HelpCircle className="w-4 h-4 text-gray-400" title="Enter your 15-digit GST identification number" />
+                <HelpCircle className="w-4 h-4 text-gray-400" />
               </FormLabel>
               <FormControl>
                 <Input placeholder="22AAAAA0000A1Z5" {...field} />
@@ -143,7 +142,7 @@ export const OnboardingStepForm: React.FC<OnboardingStepFormProps> = ({ step, st
             <FormItem>
               <FormLabel className="flex items-center gap-2">
                 PAN Number *
-                <HelpCircle className="w-4 h-4 text-gray-400" title="Enter your 10-character PAN number" />
+                <HelpCircle className="w-4 h-4 text-gray-400" />
               </FormLabel>
               <FormControl>
                 <Input placeholder="ABCDE1234F" {...field} />

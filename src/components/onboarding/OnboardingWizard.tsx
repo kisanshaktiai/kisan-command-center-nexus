@@ -21,14 +21,14 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { OnboardingStepForm } from './OnboardingStepForm';
 import { OnboardingSummary } from './OnboardingSummary';
 import { cn } from '@/lib/utils';
-import { useRouter } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 interface OnboardingWizardProps {
   className?: string;
 }
 
 export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ className }) => {
-  const router = useRouter();
+  const navigate = useNavigate();
   const {
     workflow,
     steps,
@@ -111,7 +111,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ className })
   const handleComplete = async () => {
     try {
       await completeOnboarding();
-      router.push('/dashboard');
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error completing onboarding:', error);
     }

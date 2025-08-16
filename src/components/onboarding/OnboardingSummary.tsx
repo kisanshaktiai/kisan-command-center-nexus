@@ -33,8 +33,8 @@ export const OnboardingSummary: React.FC<OnboardingSummaryProps> = ({ onEdit, on
   };
 
   const renderStepSummary = (step: any, stepIndex: number) => {
-    const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '') as keyof typeof formData;
-    const data = formData[stepKey] || {};
+    const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '');
+    const data = formData[stepKey as keyof typeof formData] || {};
 
     if (Object.keys(data).length === 0) {
       return (
@@ -55,31 +55,32 @@ export const OnboardingSummary: React.FC<OnboardingSummaryProps> = ({ onEdit, on
 
     switch (stepKey) {
       case 'businessverification':
+        const businessData = data as any;
         return (
           <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-gray-500">Company Name</p>
-                <p className="text-base">{data.companyName || 'Not provided'}</p>
+                <p className="text-base">{businessData?.companyName || 'Not provided'}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">GST Number</p>
-                <p className="text-base font-mono">{data.gstNumber || 'Not provided'}</p>
+                <p className="text-base font-mono">{businessData?.gstNumber || 'Not provided'}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">PAN Number</p>
-                <p className="text-base font-mono">{data.panNumber || 'Not provided'}</p>
+                <p className="text-base font-mono">{businessData?.panNumber || 'Not provided'}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Documents</p>
                 <div className="flex flex-wrap gap-2 mt-1">
-                  {data.registrationCertificate && (
+                  {businessData?.registrationCertificate && (
                     <Badge variant="outline">Registration Certificate</Badge>
                   )}
-                  {data.addressProof && (
+                  {businessData?.addressProof && (
                     <Badge variant="outline">Address Proof</Badge>
                   )}
-                  {!data.registrationCertificate && !data.addressProof && (
+                  {!businessData?.registrationCertificate && !businessData?.addressProof && (
                     <span className="text-sm text-gray-500">No documents uploaded</span>
                   )}
                 </div>
@@ -89,27 +90,28 @@ export const OnboardingSummary: React.FC<OnboardingSummaryProps> = ({ onEdit, on
         );
 
       case 'planselection':
+        const planData = data as any;
         return (
           <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-gray-500">Selected Plan</p>
                 <p className="text-base">
-                  {data.planType?.replace('_', ' ') || 'Not selected'}
+                  {planData?.planType?.replace('_', ' ') || 'Not selected'}
                 </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Billing Cycle</p>
                 <p className="text-base capitalize">
-                  {data.billingCycle || 'Not selected'}
+                  {planData?.billingCycle || 'Not selected'}
                 </p>
               </div>
             </div>
-            {data.addOns && data.addOns.length > 0 && (
+            {planData?.addOns && planData.addOns.length > 0 && (
               <div>
                 <p className="text-sm font-medium text-gray-500 mb-2">Add-ons</p>
                 <div className="flex flex-wrap gap-2">
-                  {data.addOns.map((addon: string, index: number) => (
+                  {planData.addOns.map((addon: string, index: number) => (
                     <Badge key={index} variant="secondary">{addon}</Badge>
                   ))}
                 </div>
@@ -119,48 +121,49 @@ export const OnboardingSummary: React.FC<OnboardingSummaryProps> = ({ onEdit, on
         );
 
       case 'branding':
+        const brandingData = data as any;
         return (
           <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-gray-500">Primary Color</p>
                 <div className="flex items-center space-x-2 mt-1">
-                  {data.primaryColor && (
+                  {brandingData?.primaryColor && (
                     <div
                       className="w-6 h-6 rounded border"
-                      style={{ backgroundColor: data.primaryColor }}
+                      style={{ backgroundColor: brandingData.primaryColor }}
                     ></div>
                   )}
                   <p className="text-base font-mono">
-                    {data.primaryColor || 'Not set'}
+                    {brandingData?.primaryColor || 'Not set'}
                   </p>
                 </div>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Secondary Color</p>
                 <div className="flex items-center space-x-2 mt-1">
-                  {data.secondaryColor && (
+                  {brandingData?.secondaryColor && (
                     <div
                       className="w-6 h-6 rounded border"
-                      style={{ backgroundColor: data.secondaryColor }}
+                      style={{ backgroundColor: brandingData.secondaryColor }}
                     ></div>
                   )}
                   <p className="text-base font-mono">
-                    {data.secondaryColor || 'Not set'}
+                    {brandingData?.secondaryColor || 'Not set'}
                   </p>
                 </div>
               </div>
             </div>
-            {data.companyDescription && (
+            {brandingData?.companyDescription && (
               <div>
                 <p className="text-sm font-medium text-gray-500">Company Description</p>
-                <p className="text-base text-gray-700 mt-1">"{data.companyDescription}"</p>
+                <p className="text-base text-gray-700 mt-1">"{brandingData.companyDescription}"</p>
               </div>
             )}
             <div>
               <p className="text-sm font-medium text-gray-500">Logo</p>
               <p className="text-base">
-                {data.logo ? 'Logo uploaded' : 'No logo uploaded'}
+                {brandingData?.logo ? 'Logo uploaded' : 'No logo uploaded'}
               </p>
             </div>
           </div>

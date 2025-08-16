@@ -40,30 +40,30 @@ export interface OnboardingStepTemplate {
 }
 
 export interface OnboardingFormData {
-  businessVerification?: {
-    companyName: string;
-    gstNumber: string;
-    panNumber: string;
-    registrationCertificate: File | null;
-    addressProof: File | null;
+  businessverification?: {
+    companyName?: string;
+    gstNumber?: string;
+    panNumber?: string;
+    registrationCertificate?: File | null;
+    addressProof?: File | null;
   };
-  planSelection?: {
-    planType: 'Kisan_Basic' | 'Shakti_Growth' | 'AI_Enterprise';
-    billingCycle: 'monthly' | 'quarterly' | 'annually';
-    addOns: string[];
+  planselection?: {
+    planType?: 'Kisan_Basic' | 'Shakti_Growth' | 'AI_Enterprise';
+    billingCycle?: 'monthly' | 'quarterly' | 'annually';
+    addOns?: string[];
   };
   branding?: {
-    logo: File | null;
-    primaryColor: string;
-    secondaryColor: string;
-    companyDescription: string;
+    logo?: File | null;
+    primaryColor?: string;
+    secondaryColor?: string;
+    companyDescription?: string;
   };
-  featureToggles?: {
-    enabledFeatures: string[];
-    permissions: Record<string, boolean>;
+  featuretoggles?: {
+    enabledFeatures?: string[];
+    permissions?: Record<string, boolean>;
   };
-  teamInvites?: {
-    invites: Array<{
+  teaminvites?: {
+    invites?: Array<{
       email: string;
       role: string;
       name: string;

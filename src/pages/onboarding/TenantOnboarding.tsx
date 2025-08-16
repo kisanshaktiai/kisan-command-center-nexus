@@ -10,14 +10,14 @@ import { AlertCircle, ArrowLeft } from 'lucide-react';
 
 export const TenantOnboarding: React.FC = () => {
   const navigate = useNavigate();
-  const { currentTenant, isLoading: tenantLoading } = useTenantContext();
+  const { tenant, isLoading: tenantLoading } = useTenantContext();
 
   useEffect(() => {
     // Redirect if no tenant is selected
-    if (!tenantLoading && !currentTenant) {
+    if (!tenantLoading && !tenant) {
       navigate('/dashboard');
     }
-  }, [currentTenant, tenantLoading, navigate]);
+  }, [tenant, tenantLoading, navigate]);
 
   if (tenantLoading) {
     return (
@@ -30,7 +30,7 @@ export const TenantOnboarding: React.FC = () => {
     );
   }
 
-  if (!currentTenant) {
+  if (!tenant) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-6">
         <div className="max-w-md w-full">
@@ -55,7 +55,7 @@ export const TenantOnboarding: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <OnboardingProvider tenantId={currentTenant.id}>
+      <OnboardingProvider tenantId={tenant.id}>
         <div className="container mx-auto">
           <OnboardingWizard />
         </div>

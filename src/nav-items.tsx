@@ -1,13 +1,32 @@
-// This file is deprecated and no longer used for routing
-// The actual navigation is handled by SuperAdminSidebar.tsx
-// Keeping this file for potential future reference but it's not actively used
 
-export const navItems = [];
+import { HomeIcon, Users, Building2, Settings, BarChart3, Mail } from "lucide-react";
+import Index from "./pages/Index";
+import SuperAdmin from "./pages/SuperAdmin";
+import TenantOnboarding from "./pages/onboarding/TenantOnboarding";
 
-// Add the onboarding route
-export const onboardingNavItem = {
-  title: "Onboarding",
-  to: "/onboarding",
-  icon: <User className="h-4 w-4" />,
-  page: <TenantOnboarding />,
-};
+/**
+ * Central place for defining the navigation structure of our app.
+ * iconVariant prop controls the icon style:
+ * - "outline" (default): For regular nav items
+ * - "solid": For active/selected nav items
+ */
+export const navItems = [
+  {
+    title: "Home",
+    to: "/",
+    icon: HomeIcon,
+    page: <Index />,
+  },
+  {
+    title: "Super Admin",
+    to: "/super-admin",
+    icon: Settings,
+    page: <SuperAdmin />,
+  },
+  {
+    title: "Tenant Onboarding",
+    to: "/onboarding",
+    icon: Building2,
+    page: <TenantOnboarding />,
+  },
+];
