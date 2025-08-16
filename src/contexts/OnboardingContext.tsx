@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,7 +5,7 @@ import {
   OnboardingContextType, 
   OnboardingWorkflow, 
   OnboardingStep, 
-  OnboardingStepTemplate, 
+  OnboardingStepTemplate,
   OnboardingFormData 
 } from '@/types/onboarding';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -110,32 +109,35 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
     enabled: !!tenantId
   });
 
-  // Fetch step templates
+  // Fetch step templates with simplified typing
+  const fetchTemplates = async (): Promise<OnboardingStepTemplate[]> => {
+    const { data, error } = await supabase
+      .from('onboarding_step_templates')
+      .select('*')
+      .eq('is_active', true)
+      .order('step_order');
+    
+    if (error) throw error;
+    
+    // Transform the data to match our interface
+    return data.map(template => ({
+      id: template.id,
+      step_name: template.step_name,
+      step_order: template.step_number,
+      step_type: 'form',
+      schema_config: template.validation_schema || {},
+      default_data: template.default_data || {},
+      validation_rules: template.validation_schema || {},
+      is_required: template.is_required,
+      is_active: true,
+      help_text: template.help_text,
+      estimated_time_minutes: 30
+    }));
+  };
+
   const { data: templates } = useQuery({
     queryKey: ['onboarding-templates'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('onboarding_step_templates')
-        .select('*')
-        .eq('is_active', true)
-        .order('step_order');
-      if (error) throw error;
-      
-      // Transform the data to match our interface
-      return data.map(template => ({
-        id: template.id,
-        step_name: template.step_name,
-        step_order: template.step_number,
-        step_type: 'form',
-        schema_config: template.validation_schema || {},
-        default_data: template.default_data || {},
-        validation_rules: template.validation_schema || {},
-        is_required: template.is_required,
-        is_active: true,
-        help_text: template.help_text,
-        estimated_time_minutes: 30
-      })) as OnboardingStepTemplate[];
-    }
+    queryFn: fetchTemplates
   });
 
   // Update step mutation
