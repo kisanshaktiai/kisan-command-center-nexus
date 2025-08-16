@@ -1,14 +1,7 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthStore } from '@/lib/stores/authStore';
-import { AuthState, TenantData } from '@/types/auth';
+import { AuthState, TenantData, AdminStatusResult } from '@/types/auth';
 import { ServiceResult } from '@/services/BaseService';
-
-interface AdminStatusResult {
-  is_admin: boolean;
-  role: string;
-  is_active: boolean;
-}
 
 class UnifiedAuthService {
   private initialized = false;
@@ -102,7 +95,8 @@ class UnifiedAuthService {
     try {
       console.log('UnifiedAuth: Checking admin status for user:', userId);
       
-      const { data, error } = await supabase.rpc('check_user_admin_status', {
+      // Use type assertion for our custom function
+      const { data, error } = await (supabase.rpc as any)('check_user_admin_status', {
         user_uuid: userId
       });
 
@@ -111,8 +105,9 @@ class UnifiedAuthService {
         return { is_admin: false, role: '', is_active: false };
       }
 
-      if (data && data.length > 0) {
-        const result = data[0];
+      // Handle the response data structure properly
+      if (Array.isArray(data) && data.length > 0) {
+        const result = data[0] as AdminStatusResult;
         console.log('UnifiedAuth: Admin status result:', result);
         return {
           is_admin: result.is_admin || false,

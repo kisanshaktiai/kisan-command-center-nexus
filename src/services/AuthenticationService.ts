@@ -1,17 +1,10 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { AuthState, TenantData } from '@/types/auth';
+import { AuthState, TenantData, AdminStatusResult } from '@/types/auth';
 
 interface ServiceResult<T> {
   success: boolean;
   data?: T;
   error?: string;
-}
-
-interface AdminStatusResult {
-  is_admin: boolean;
-  role: string;
-  is_active: boolean;
 }
 
 class AuthenticationService {
@@ -31,7 +24,8 @@ class AuthenticationService {
     try {
       console.log('AuthenticationService: Checking admin status for user:', userId);
       
-      const { data, error } = await supabase.rpc('check_user_admin_status', {
+      // Use type assertion to tell TypeScript about our custom function
+      const { data, error } = await (supabase.rpc as any)('check_user_admin_status', {
         user_uuid: userId
       });
 
@@ -40,8 +34,9 @@ class AuthenticationService {
         return { is_admin: false, role: '', is_active: false };
       }
 
-      if (data && data.length > 0) {
-        const result = data[0];
+      // Handle the response data structure properly
+      if (Array.isArray(data) && data.length > 0) {
+        const result = data[0] as AdminStatusResult;
         console.log('AuthenticationService: Admin status result:', result);
         return {
           is_admin: result.is_admin || false,
@@ -203,8 +198,8 @@ class AuthenticationService {
     try {
       console.log('AuthenticationService: Bootstrap super admin creation for:', email);
 
-      // Check if bootstrap is needed
-      const { data: bootstrapNeeded, error: bootstrapError } = await supabase.rpc('bootstrap_is_needed');
+      // Check if bootstrap is needed using type assertion
+      const { data: bootstrapNeeded, error: bootstrapError } = await (supabase.rpc as any)('bootstrap_is_needed');
       
       if (bootstrapError) {
         console.error('AuthenticationService: Error checking bootstrap status:', bootstrapError);
@@ -254,8 +249,8 @@ class AuthenticationService {
         return { success: false, error: 'Failed to create admin record' };
       }
 
-      // Mark bootstrap as completed
-      const { error: configError } = await supabase.rpc('complete_bootstrap');
+      // Mark bootstrap as completed using type assertion
+      const { error: configError } = await (supabase.rpc as any)('complete_bootstrap');
       
       if (configError) {
         console.warn('AuthenticationService: Failed to mark bootstrap complete:', configError);
@@ -340,7 +335,8 @@ class AuthenticationService {
     try {
       console.log('AuthenticationService: Checking bootstrap status...');
       
-      const { data, error } = await supabase.rpc('bootstrap_is_needed');
+      // Use type assertion for our custom function
+      const { data, error } = await (supabase.rpc as any)('bootstrap_is_needed');
       
       if (error) {
         console.error('AuthenticationService: Bootstrap check error:', error);
