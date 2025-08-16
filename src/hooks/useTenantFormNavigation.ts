@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { TenantFormData } from '@/types/tenant';
 
@@ -39,7 +38,7 @@ export const useTenantFormNavigation = (
         } else if (isCheckingEmail) {
           errors.push('Checking email availability...');
         } else if (emailExists === true) {
-          errors.push('Administrator email already exists. Please use a different email.');
+          errors.push('Administrator email already exists. Please use a different email address.');
         }
       }
     }
