@@ -7304,13 +7304,11 @@ export type Database = {
         Returns: string
       }
       advance_onboarding_step: {
-        Args:
-          | {
-              p_new_status: Database["public"]["Enums"]["onboarding_step_status"]
-              p_step_data?: Json
-              p_step_id: string
-            }
-          | { p_new_status: string; p_step_data?: Json; p_step_id: string }
+        Args: {
+          p_new_status: Database["public"]["Enums"]["onboarding_step_status"]
+          p_step_data?: Json
+          p_step_id: string
+        }
         Returns: Json
       }
       archive_tenant_data: {
@@ -8040,10 +8038,6 @@ export type Database = {
       get_onboarding_template: {
         Args: { subscription_plan: string; tenant_type: string }
         Returns: Json
-      }
-      get_or_create_onboarding_workflow: {
-        Args: { p_tenant_id: string }
-        Returns: string
       }
       get_proj4_from_srid: {
         Args: { "": number }

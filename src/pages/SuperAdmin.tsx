@@ -4,8 +4,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
 import { SuperAdminHeader } from '@/components/super-admin/SuperAdminHeader';
 import { SuperAdminSidebar } from '@/components/super-admin/SuperAdminSidebar';
-import { OnboardingProvider } from '@/contexts/OnboardingContext';
-import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
 import Overview from './super-admin/Overview';
 import TenantManagement from './super-admin/TenantManagement';
 import LeadManagement from './super-admin/LeadManagement';
@@ -23,7 +21,6 @@ import { useAuth } from '@/contexts/AuthContext';
 const SuperAdmin = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const { user, isLoading } = useAuth();
 
   // Get current admin user data
@@ -45,24 +42,6 @@ const SuperAdmin = () => {
     enabled: !!user,
   });
 
-  // Check if onboarding is needed
-  const { data: onboardingStatus } = useQuery({
-    queryKey: ['onboarding-status', adminUser?.id],
-    queryFn: async () => {
-      if (!adminUser?.id) return null;
-      
-      const { data, error } = await supabase
-        .from('onboarding_workflows')
-        .select('status')
-        .eq('admin_id', adminUser.id)
-        .eq('status', 'completed')
-        .single();
-
-      return { needsOnboarding: !data };
-    },
-    enabled: !!adminUser?.id,
-  });
-
   // Show loading state
   if (isLoading || isAdminLoading) {
     return (
@@ -81,18 +60,7 @@ const SuperAdmin = () => {
     );
   }
 
-  // Show onboarding if needed or explicitly requested
-  if ((onboardingStatus?.needsOnboarding && !showOnboarding) || showOnboarding) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-        <OnboardingProvider tenantId={null} adminId={adminUser.id}>
-          <OnboardingWizard onComplete={() => setShowOnboarding(false)} />
-        </OnboardingProvider>
-      </div>
-    );
-  }
-
-  // Show admin dashboard when authenticated and onboarding is complete
+  // Show admin dashboard when authenticated
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <SuperAdminSidebar 
@@ -109,7 +77,6 @@ const SuperAdmin = () => {
           setSidebarOpen={setSidebarOpen}
           adminUser={adminUser}
           sidebarOpen={sidebarOpen}
-          onShowOnboarding={() => setShowOnboarding(true)}
         />
         
         <main className="flex-1 p-8">
