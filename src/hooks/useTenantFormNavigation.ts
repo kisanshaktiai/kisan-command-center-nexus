@@ -11,8 +11,10 @@ export const useTenantFormNavigation = (
   isEditing: boolean,
   isSlugValid: boolean,
   isSlugChecking: boolean,
-  emailExists?: boolean | null,
-  isCheckingEmail?: boolean
+  emailValidationState?: {
+    isValidating: boolean;
+    emailExists: boolean | null;
+  }
 ) => {
   const [currentTab, setCurrentTab] = useState('basic');
 
@@ -35,9 +37,9 @@ export const useTenantFormNavigation = (
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.owner_email)) {
           errors.push('Valid administrator email is required');
-        } else if (isCheckingEmail) {
+        } else if (emailValidationState?.isValidating) {
           errors.push('Checking email availability...');
-        } else if (emailExists === true) {
+        } else if (emailValidationState?.emailExists === true) {
           errors.push('Administrator email already exists. Please use a different email address.');
         }
       }
@@ -47,7 +49,7 @@ export const useTenantFormNavigation = (
       isValid: errors.length === 0,
       errors
     };
-  }, [formData, isEditing, isSlugValid, isSlugChecking, emailExists, isCheckingEmail]);
+  }, [formData, isEditing, isSlugValid, isSlugChecking, emailValidationState]);
 
   const validateBusinessTab = useCallback((): TabValidation => {
     const errors: string[] = [];

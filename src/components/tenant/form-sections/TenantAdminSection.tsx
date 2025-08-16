@@ -1,11 +1,11 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, XCircle, Loader2, Mail, User, AlertTriangle } from 'lucide-react';
 import { TenantFormData } from '@/types/tenant';
-import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
+import { useAdminEmailValidation } from '@/hooks/useAdminEmailValidation';
 
 interface TenantAdminSectionProps {
   formData: TenantFormData;
@@ -16,9 +16,7 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
   formData,
   onFieldChange
 }) => {
-  const { checkUserExists, isCheckingUser } = useTenantUserManagement();
-  const [emailExists, setEmailExists] = useState<boolean | null>(null);
-  const [emailCheckError, setEmailCheckError] = useState<string | null>(null);
+  const { isValidating, validationResult, validateAdminEmail, clearValidation } = useAdminEmailValidation();
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,61 +24,50 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
   };
 
   const handleEmailBlur = async () => {
-    const email = formData.owner_email;
+    const email = formData.owner_email?.trim();
     
-    if (!email || !validateEmail(email)) {
-      setEmailExists(null);
-      setEmailCheckError(null);
+    if (!email) {
+      clearValidation();
       return;
     }
 
-    setEmailCheckError(null);
+    if (!validateEmail(email)) {
+      return; // Let the basic validation handle this
+    }
 
-    try {
-      console.log('TenantAdminSection: Checking email exists for:', email);
-      
-      const result = await checkUserExists(email);
-      
-      if (result) {
-        console.log('TenantAdminSection: Check user exists response:', result);
-        
-        if (result.exists === true) {
-          setEmailExists(true);
-          setEmailCheckError('This email already has a user account');
-        } else {
-          setEmailExists(false);
-          setEmailCheckError(null);
-        }
-      } else {
-        setEmailCheckError('Failed to check email availability');
-        setEmailExists(null);
-      }
-    } catch (error) {
-      console.error('TenantAdminSection: Exception checking email:', error);
-      setEmailCheckError('Failed to check email availability');
-      setEmailExists(null);
+    await validateAdminEmail(email);
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onFieldChange('owner_email', e.target.value);
+    // Clear validation when user starts typing
+    if (validationResult) {
+      clearValidation();
     }
   };
 
   const getEmailValidationIcon = () => {
     if (!formData.owner_email) return null;
-    if (isCheckingUser) return <Loader2 className="w-4 h-4 animate-spin text-gray-500" />;
+    if (isValidating) return <Loader2 className="w-4 h-4 animate-spin text-gray-500" />;
     if (!validateEmail(formData.owner_email)) return <XCircle className="w-4 h-4 text-red-500" />;
-    if (emailExists === true) return <XCircle className="w-4 h-4 text-red-500" />;
-    if (emailExists === false) return <CheckCircle className="w-4 h-4 text-green-500" />;
+    if (validationResult?.exists === true) return <XCircle className="w-4 h-4 text-red-500" />;
+    if (validationResult?.exists === false && validationResult?.valid === true) return <CheckCircle className="w-4 h-4 text-green-500" />;
     return null;
   };
 
   const getEmailErrorMessage = () => {
     if (!formData.owner_email) return null;
     if (!validateEmail(formData.owner_email)) return 'Please enter a valid email address';
-    if (emailCheckError) return emailCheckError;
-    if (emailExists === true) return 'This email already has an account. Please use a different email address.';
+    if (validationResult?.error && !validationResult?.exists) return validationResult.error;
+    if (validationResult?.exists === true) return validationResult.message || 'This email already has an account. Please use a different email address.';
     return null;
   };
 
   const getEmailSuccessMessage = () => {
-    if (formData.owner_email && validateEmail(formData.owner_email) && emailExists === false) {
+    if (formData.owner_email && 
+        validateEmail(formData.owner_email) && 
+        validationResult?.valid === true && 
+        validationResult?.exists === false) {
       return 'Email is available';
     }
     return null;
@@ -124,7 +111,7 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
                 id="owner_email"
                 type="email"
                 value={formData.owner_email || ''}
-                onChange={(e) => onFieldChange('owner_email', e.target.value)}
+                onChange={handleEmailChange}
                 onBlur={handleEmailBlur}
                 placeholder="admin@example.com"
                 required
@@ -146,7 +133,7 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
             {getEmailSuccessMessage() && (
               <p className="text-sm text-green-600">{getEmailSuccessMessage()}</p>
             )}
-            {!getEmailErrorMessage() && !getEmailSuccessMessage() && !isCheckingUser && (
+            {!getEmailErrorMessage() && !getEmailSuccessMessage() && !isValidating && (
               <p className="text-xs text-muted-foreground">Welcome email with login credentials will be sent here</p>
             )}
           </div>
