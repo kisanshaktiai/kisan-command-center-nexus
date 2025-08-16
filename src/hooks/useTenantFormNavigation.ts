@@ -11,7 +11,9 @@ export const useTenantFormNavigation = (
   formData: TenantFormData,
   isEditing: boolean,
   isSlugValid: boolean,
-  isSlugChecking: boolean
+  isSlugChecking: boolean,
+  emailExists?: boolean | null,
+  isCheckingEmail?: boolean
 ) => {
   const [currentTab, setCurrentTab] = useState('basic');
 
@@ -28,11 +30,17 @@ export const useTenantFormNavigation = (
     // For new tenants, require admin details
     if (!isEditing) {
       if (!formData.owner_name?.trim()) errors.push('Administrator name is required');
-      if (!formData.owner_email?.trim()) errors.push('Administrator email is required');
-      
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (formData.owner_email && !emailRegex.test(formData.owner_email)) {
-        errors.push('Valid administrator email is required');
+      if (!formData.owner_email?.trim()) {
+        errors.push('Administrator email is required');
+      } else {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.owner_email)) {
+          errors.push('Valid administrator email is required');
+        } else if (isCheckingEmail) {
+          errors.push('Checking email availability...');
+        } else if (emailExists === true) {
+          errors.push('Administrator email already exists. Please use a different email.');
+        }
       }
     }
 
@@ -40,7 +48,7 @@ export const useTenantFormNavigation = (
       isValid: errors.length === 0,
       errors
     };
-  }, [formData, isEditing, isSlugValid, isSlugChecking]);
+  }, [formData, isEditing, isSlugValid, isSlugChecking, emailExists, isCheckingEmail]);
 
   const validateBusinessTab = useCallback((): TabValidation => {
     const errors: string[] = [];
@@ -93,7 +101,7 @@ export const useTenantFormNavigation = (
   const tabs = [
     { id: 'basic', label: 'Basic Info', validation: getTabValidation('basic') },
     { id: 'business', label: 'Business Details', validation: getTabValidation('business') },
-    { id: 'limits', label: 'Limits & Features', validation: getTabValidation('limits') },
+    { id: 'limits', label: 'Limits & Features', validation: getTabValidation('limits') },  
     { id: 'branding', label: 'Branding', validation: getTabValidation('branding') }
   ];
 
