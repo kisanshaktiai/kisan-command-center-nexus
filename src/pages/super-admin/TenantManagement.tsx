@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw } from 'lucide-react';
 import { TenantViewControls } from '@/components/tenant/page-sections/TenantViewControls';
@@ -8,6 +8,8 @@ import { TenantViewRenderer } from '@/features/tenant/components/TenantViewRende
 import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
 import { TenantEditModal } from '@/components/tenant/TenantEditModal';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
+import { TenantOverviewMetrics } from '@/components/tenant/TenantOverviewMetrics';
+import { EnhancedTenantManagementHeader } from '@/components/tenant/EnhancedTenantManagementHeader';
 import { useTenantPageState } from '@/features/tenant/hooks/useTenantPageState';
 
 const TenantManagement: React.FC = () => {
@@ -61,6 +63,12 @@ const TenantManagement: React.FC = () => {
     return false;
   };
 
+  const handleRefresh = () => {
+    refreshMetrics();
+    // Force re-fetch of tenants data
+    window.location.reload();
+  };
+
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -77,21 +85,18 @@ const TenantManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Tenant Management</h1>
-          <p className="text-muted-foreground">
-            Manage and monitor all tenant organizations with world-class user experience
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={refreshMetrics} variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-        </div>
-      </div>
+      {/* Enhanced Header with Create Button */}
+      <EnhancedTenantManagementHeader
+        onCreateTenant={handleCreateTenant}
+        onRefresh={handleRefresh}
+        isSubmitting={isSubmitting}
+      />
+
+      {/* Overview Metrics Cards */}
+      <TenantOverviewMetrics 
+        tenants={tenants}
+        isLoading={isLoading}
+      />
 
       {/* Controls */}
       <TenantViewControls
@@ -124,7 +129,7 @@ const TenantManagement: React.FC = () => {
                   ? 'Try adjusting your filters to see more results.'
                   : 'Get started by creating your first tenant organization.'}
               </p>
-              <Button>
+              <Button onClick={() => handleCreateTenant}>
                 <Plus className="w-4 h-4 mr-2" />
                 Create First Tenant
               </Button>

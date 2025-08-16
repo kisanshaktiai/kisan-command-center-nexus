@@ -4,143 +4,63 @@ project_id = "qfklkkzxemsbeniyugiz"
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "storage", "graphql_public"]
+schemas = ["public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
-[auth]
+[db]
+port = 54322
+
+[db.pooler]
+enabled = false
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+ip_version = "ipv4"
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1:54321"
+
+[inbucket]
 enabled = true
 port = 54324
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://localhost:3000"]
+options.web_port = 9000
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["https://qfklkkzxemsbeniyugiz.supabase.co/auth/v1/callback"]
 jwt_expiry = 3600
 enable_signup = true
 enable_anonymous_sign_ins = false
-enable_email_confirmations = false
-enable_phone_confirmations = false
-enable_email_autoconfirm = true
-enable_phone_autoconfirm = false
 
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
-secure_email_change_enabled = true
-enable_reauthentication = true
 
 [auth.sms]
 enable_signup = false
 enable_confirmations = false
-test_otp = "123456"
 
-[auth.external.apple]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.azure]
-enabled = false
-client_id = ""
-secret = ""
-url = ""
-
-[auth.external.bitbucket]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.discord]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.facebook]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.github]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.gitlab]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.google]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.keycloak]
-enabled = false
-client_id = ""
-secret = ""
-url = ""
-
-[auth.external.linkedin]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.notion]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.twitch]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.twitter]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.slack]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.spotify]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.workos]
-enabled = false
-client_id = ""
-secret = ""
-
-[auth.external.zoom]
-enabled = false
-client_id = ""
-secret = ""
-
-[db]
-port = 54322
-shadow_port = 54320
-major_version = 15
-
-[functions.assign-admin-role]
-verify_jwt = false
-
-[functions.send-admin-invite]
-verify_jwt = false
-
-[functions.verify-admin-invite]
-verify_jwt = false
-
-[functions.create-super-admin]
-verify_jwt = false
-
-[functions.convert-lead-to-tenant]
-verify_jwt = false
-
-[storage]
+[edge_functions]
 enabled = true
-port = 54323
-file_size_limit = "50MiB"
+
+[functions.create-tenant-with-admin]
+verify_jwt = true
+
+[functions.manage-user-tenant]
+verify_jwt = true
+
+[functions.tenant-real-time-metrics]
+verify_jwt = true
