@@ -34,46 +34,25 @@ export default function Auth() {
   }, [user, isAdmin, isLoading, hasRedirected]);
 
   useEffect(() => {
-    // Always check bootstrap status when component mounts
     checkBootstrapStatus();
-  }, []); // Remove dependencies to ensure this only runs once
+  }, []); // Only run once on mount
 
   const checkBootstrapStatus = async () => {
     try {
-      console.log('Auth.tsx: Checking bootstrap status...');
+      console.log('Auth.tsx: Starting comprehensive bootstrap status check...');
       setBootstrapError(null);
       setCheckingBootstrap(true);
       
-      // First, let's check if there are any existing super admins
-      const { data: existingSuperAdmins, error: adminError } = await supabase
-        .from('admin_users')
-        .select('id, email, role, is_active')
-        .eq('role', 'super_admin')
-        .eq('is_active', true)
-        .limit(1);
-
-      if (adminError) {
-        console.error('Auth.tsx: Error checking existing admins:', adminError);
-      }
-
-      console.log('Auth.tsx: Existing super admins:', existingSuperAdmins);
-
-      // Check bootstrap completion flag
+      // Use the improved bootstrap check from AuthenticationService
       const isCompleted = await authenticationService.isBootstrapCompleted();
-      console.log('Auth.tsx: Bootstrap completed:', isCompleted);
+      console.log('Auth.tsx: Bootstrap completed (from service):', isCompleted);
       
-      // If we have super admins OR bootstrap is marked complete, no bootstrap needed
-      const hasExistingAdmins = existingSuperAdmins && existingSuperAdmins.length > 0;
-      const bootstrapNotNeeded = isCompleted || hasExistingAdmins;
-      
-      console.log('Auth.tsx: Has existing admins:', hasExistingAdmins, 'Bootstrap not needed:', bootstrapNotNeeded);
-      
-      setNeedsBootstrap(!bootstrapNotNeeded);
+      setNeedsBootstrap(!isCompleted);
     } catch (error) {
       console.error('Auth.tsx: Error checking bootstrap status:', error);
       setBootstrapError('Failed to check system status. Please refresh the page.');
-      // Default to showing normal auth if we can't determine bootstrap status
-      setNeedsBootstrap(false);
+      // Default to showing bootstrap if we can't determine status
+      setNeedsBootstrap(true);
     } finally {
       setCheckingBootstrap(false);
     }
@@ -116,7 +95,7 @@ export default function Auth() {
   // Show bootstrap setup if system needs initialization and no authenticated user
   if (needsBootstrap && !user) {
     console.log('Auth.tsx: Showing bootstrap setup');
-    return <BootstrapSetup />;
+    return <BootstrapSetup onBootstrapComplete={checkBootstrapStatus} />;
   }
 
   // Show normal admin auth for non-authenticated users when bootstrap is complete

@@ -1,6 +1,4 @@
-
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,9 +9,14 @@ import { Loader2, Crown, Eye, EyeOff, CheckCircle, AlertTriangle } from 'lucide-
 import { toast } from 'sonner';
 import { useAuthenticationService } from '@/hooks/useAuthenticationService';
 import { AuthErrorBoundary } from './AuthErrorBoundary';
+import { authenticationService } from '@/services/AuthenticationService';
 import { supabase } from '@/integrations/supabase/client';
 
-export const BootstrapSetup: React.FC = () => {
+interface BootstrapSetupProps {
+  onBootstrapComplete?: () => void;
+}
+
+export const BootstrapSetup: React.FC<BootstrapSetupProps> = ({ onBootstrapComplete }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -24,18 +27,30 @@ export const BootstrapSetup: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isCheckingExisting, setIsCheckingExisting] = useState(true);
   const [existingAdmins, setExistingAdmins] = useState<any[]>([]);
-  const navigate = useNavigate();
+  const [bootstrapInconsistent, setBootstrapInconsistent] = useState(false);
   
   const { bootstrapSuperAdmin, isLoading, error, clearError } = useAuthenticationService();
 
-  // Check for existing admins on component mount
+  // Check for existing admins and bootstrap state on component mount
   useEffect(() => {
-    checkExistingAdmins();
+    checkSystemState();
   }, []);
 
-  const checkExistingAdmins = async () => {
+  const checkSystemState = async () => {
     try {
       setIsCheckingExisting(true);
+      
+      // Check comprehensive bootstrap status first
+      const isCompleted = await authenticationService.isBootstrapCompleted();
+      console.log('BootstrapSetup: Bootstrap status from service:', isCompleted);
+      
+      if (isCompleted) {
+        console.log('BootstrapSetup: Bootstrap completed, should not show this component');
+        onBootstrapComplete?.();
+        return;
+      }
+
+      // Check for any existing admins to show appropriate message
       const { data: adminUsers, error } = await supabase
         .from('admin_users')
         .select('id, email, full_name, role, is_active, created_at')
@@ -43,18 +58,26 @@ export const BootstrapSetup: React.FC = () => {
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Error checking existing admins:', error);
+        console.error('BootstrapSetup: Error checking existing admins:', error);
       } else {
         setExistingAdmins(adminUsers || []);
         
-        // If admins exist, show warning
+        // If admins exist but bootstrap check says incomplete, this is inconsistent
         if (adminUsers && adminUsers.length > 0) {
-          console.log('BootstrapSetup: Found existing admins:', adminUsers);
-          toast.warning('System already has administrator accounts. Please use the login form instead.');
+          console.warn('BootstrapSetup: Inconsistent state - admins exist but bootstrap incomplete');
+          setBootstrapInconsistent(true);
+          toast.warning('System state inconsistency detected. Refreshing...');
+          
+          // Try to fix the inconsistency by re-checking
+          setTimeout(() => {
+            onBootstrapComplete?.();
+          }, 2000);
+          return;
         }
       }
     } catch (error) {
-      console.error('Error checking existing admins:', error);
+      console.error('BootstrapSetup: Error checking system state:', error);
+      toast.error('Failed to check system state');
     } finally {
       setIsCheckingExisting(false);
     }
@@ -68,16 +91,7 @@ export const BootstrapSetup: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // If admins already exist, redirect to login
-    if (existingAdmins.length > 0) {
-      toast.error('System is already initialized. Redirecting to login...');
-      setTimeout(() => {
-        window.location.href = '/auth';
-      }, 2000);
-      return;
-    }
-    
-    // Enhanced client-side validation to match server requirements
+    // Enhanced client-side validation
     if (!formData.email || !formData.password || !formData.fullName || !formData.confirmPassword) {
       toast.error('Please fill in all required fields');
       return;
@@ -112,7 +126,7 @@ export const BootstrapSetup: React.FC = () => {
       return;
     }
 
-    // Password validation - enhanced requirements
+    // Password validation
     if (formData.password.length < 8) {
       toast.error('Password must be at least 8 characters');
       return;
@@ -141,26 +155,21 @@ export const BootstrapSetup: React.FC = () => {
       trimmedName,
       (authState) => {
         toast.success('Super Admin account created successfully!');
-        console.log('Bootstrap completed, navigating to super-admin');
+        console.log('BootstrapSetup: Bootstrap completed, triggering callback');
         setTimeout(() => {
+          onBootstrapComplete?.();
           window.location.href = '/super-admin';
         }, 500);
       },
       (error) => {
-        console.error('Bootstrap error:', error);
-        // Enhanced error handling for different error types
-        if (error.includes('rate limit') || error.includes('Too many')) {
+        console.error('BootstrapSetup: Bootstrap error:', error);
+        if (error.includes('already initialized') || error.includes('already exists')) {
+          toast.error('System is already initialized. Refreshing...');
+          setTimeout(() => {
+            onBootstrapComplete?.();
+          }, 2000);
+        } else if (error.includes('rate limit') || error.includes('Too many')) {
           toast.error('Too many attempts. Please wait before trying again.');
-        } else if (error.includes('already initialized') || error.includes('already exists') || error.includes('already has a super admin')) {
-          toast.error('System is already initialized. Please use the login form.');
-          setTimeout(() => {
-            window.location.href = '/auth';
-          }, 2000);
-        } else if (error.includes('Invalid') && error.includes('token')) {
-          toast.error('Security validation failed. Please refresh and try again.');
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
         } else {
           toast.error(error || 'Failed to create admin account');
         }
@@ -168,7 +177,7 @@ export const BootstrapSetup: React.FC = () => {
     );
   };
 
-  // Show loading state while checking for existing admins
+  // Show loading state while checking system state
   if (isCheckingExisting) {
     return (
       <AuthErrorBoundary>
@@ -178,6 +187,45 @@ export const BootstrapSetup: React.FC = () => {
               <Loader2 className="w-8 h-8 animate-spin mb-4" />
               <div className="text-lg font-medium mb-2">Checking system status...</div>
               <div className="text-sm text-muted-foreground">Please wait</div>
+            </CardContent>
+          </Card>
+        </div>
+      </AuthErrorBoundary>
+    );
+  }
+
+  // Show inconsistency warning
+  if (bootstrapInconsistent) {
+    return (
+      <AuthErrorBoundary>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="space-y-4 text-center">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-bold">System State Inconsistency</CardTitle>
+                <CardDescription>
+                  Detecting and resolving system configuration issues...
+                </CardDescription>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  The system is resolving configuration inconsistencies. You will be redirected automatically.
+                </AlertDescription>
+              </Alert>
+              
+              <Button
+                onClick={() => onBootstrapComplete?.()}
+                className="w-full"
+              >
+                Continue to Login
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -223,7 +271,7 @@ export const BootstrapSetup: React.FC = () => {
               </div>
               
               <Button
-                onClick={() => window.location.href = '/auth'}
+                onClick={() => onBootstrapComplete?.()}
                 className="w-full"
               >
                 Go to Login

@@ -13,6 +13,7 @@ interface BootstrapStatus {
   isCompleted: boolean;
   hasAdminUsers: boolean;
   systemReady: boolean;
+  isConsistent: boolean;
 }
 
 /**
@@ -34,16 +35,16 @@ export class BootstrapService extends BaseService {
   }
 
   /**
-   * Check if system bootstrap is completed - FIXED VERSION
+   * Comprehensive bootstrap status check that handles inconsistencies
    */
   async checkBootstrapStatus(): Promise<ServiceResult<BootstrapStatus>> {
     return this.executeOperation(async () => {
-      console.log('BootstrapService: Checking bootstrap status...');
+      console.log('BootstrapService: Starting comprehensive bootstrap status check...');
 
-      // Check system config for bootstrap completion
+      // Use AuthenticationService for consistent checking
       const isCompleted = await authenticationService.isBootstrapCompleted();
 
-      // Check if any admin users exist
+      // Also check directly for admin users to validate consistency
       const { data: adminUsers, error: adminError } = await supabase
         .from('admin_users')
         .select('id, role, is_active')
@@ -56,22 +57,22 @@ export class BootstrapService extends BaseService {
 
       const hasAdminUsers = adminUsers && adminUsers.length > 0;
       
-      // If we have admin users but bootstrap isn't marked complete, mark it complete
-      if (hasAdminUsers && !isCompleted) {
-        console.log('BootstrapService: Found admin users but bootstrap not complete, marking complete...');
-        try {
-          await (supabase.rpc as any)('complete_bootstrap');
-        } catch (error) {
-          console.warn('BootstrapService: Failed to mark bootstrap complete:', error);
-        }
-      }
+      // Check for consistency
+      const isConsistent = isCompleted === hasAdminUsers;
+      
+      console.log('BootstrapService: Status check results:', {
+        isCompleted,
+        hasAdminUsers,
+        isConsistent
+      });
 
-      const systemReady = isCompleted || Boolean(hasAdminUsers);
+      const systemReady = isCompleted && hasAdminUsers;
 
       return {
-        isCompleted: systemReady,
+        isCompleted,
         hasAdminUsers: Boolean(hasAdminUsers),
-        systemReady
+        systemReady,
+        isConsistent
       };
     }, 'checkBootstrapStatus');
   }
@@ -94,9 +95,9 @@ export class BootstrapService extends BaseService {
         throw new Error('Full name is required');
       }
 
-      // Check if bootstrap is already completed
-      const statusResult = await this.checkBootstrapStatus();
-      if (statusResult.success && statusResult.data?.isCompleted) {
+      // Check if bootstrap is already completed using comprehensive check
+      const isCompleted = await authenticationService.isBootstrapCompleted();
+      if (isCompleted) {
         throw new Error('System is already initialized');
       }
 
@@ -141,6 +142,61 @@ export class BootstrapService extends BaseService {
     }
 
     return errors;
+  }
+
+  /**
+   * Fix inconsistent bootstrap state
+   */
+  async fixInconsistentState(): Promise<ServiceResult<void>> {
+    return this.executeOperation(async () => {
+      console.log('BootstrapService: Fixing inconsistent bootstrap state...');
+
+      const statusResult = await this.checkBootstrapStatus();
+      if (!statusResult.success || !statusResult.data) {
+        throw new Error('Could not check bootstrap status');
+      }
+
+      const { isCompleted, hasAdminUsers, isConsistent } = statusResult.data;
+
+      if (isConsistent) {
+        console.log('BootstrapService: State is already consistent');
+        return;
+      }
+
+      // If we have admins but config says incomplete, mark as complete
+      if (hasAdminUsers && !isCompleted) {
+        console.log('BootstrapService: Found admins, marking bootstrap complete');
+        
+        const { error } = await supabase
+          .from('system_config')
+          .upsert({
+            config_key: 'bootstrap_completed',
+            config_value: 'true'
+          });
+
+        if (error) {
+          throw new Error(`Failed to mark bootstrap complete: ${error.message}`);
+        }
+      }
+      
+      // If config says complete but no admins, mark as incomplete
+      if (isCompleted && !hasAdminUsers) {
+        console.log('BootstrapService: No admins found, marking bootstrap incomplete');
+        
+        const { error } = await supabase
+          .from('system_config')
+          .upsert({
+            config_key: 'bootstrap_completed',
+            config_value: 'false'
+          });
+
+        if (error) {
+          throw new Error(`Failed to mark bootstrap incomplete: ${error.message}`);
+        }
+      }
+
+      console.log('BootstrapService: Inconsistent state fixed');
+    }, 'fixInconsistentState');
   }
 
   /**
