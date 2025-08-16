@@ -37,13 +37,13 @@ export interface UserTenantStatus {
 
 export class UserTenantService {
   /**
-   * Create or update a user-tenant relationship
+   * Create or update a user-tenant relationship using the global manage-user-tenant function
    */
   static async manageUserTenantRelationship(
     request: ManageUserTenantRequest
   ): Promise<UserTenantResponse> {
     try {
-      console.log('UserTenantService: Managing user-tenant relationship:', request);
+      console.log('UserTenantService: Managing user-tenant relationship via global function:', request);
 
       const { data, error } = await supabase.functions.invoke('manage-user-tenant', {
         body: request,
@@ -62,7 +62,7 @@ export class UserTenantService {
         };
       }
 
-      console.log('UserTenantService: Successfully managed relationship:', data);
+      console.log('UserTenantService: Successfully managed relationship via global function:', data);
       return data as UserTenantResponse;
 
     } catch (error: any) {
@@ -181,14 +181,14 @@ export class UserTenantService {
   }
 
   /**
-   * Ensure user-tenant record exists with correct role
+   * Ensure user-tenant record exists with correct role using global function
    * This will create the relationship if user exists but relationship is missing
    */
   static async ensureUserTenantRecord(
     userId: string,
     tenantId: string
   ): Promise<UserTenantResponse> {
-    console.log('UserTenantService: Ensuring user-tenant record for:', { userId, tenantId });
+    console.log('UserTenantService: Ensuring user-tenant record via global function for:', { userId, tenantId });
     
     return this.manageUserTenantRelationship({
       user_id: userId,
@@ -197,7 +197,8 @@ export class UserTenantService {
       is_active: true,
       metadata: {
         created_via: 'manual_fix',
-        fixed_at: new Date().toISOString()
+        fixed_at: new Date().toISOString(),
+        source: 'tenant_user_creator'
       },
       operation: 'upsert'
     });

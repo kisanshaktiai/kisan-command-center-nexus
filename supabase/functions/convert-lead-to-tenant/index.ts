@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -287,83 +288,45 @@ serve(async (req) => {
       userId = registrationData.userId;
       console.log('User registered successfully:', userId, registrationData.isNewUser ? '(new user)' : '(existing user)');
 
-      // CRITICAL FIX: Ensure user-tenant relationship exists with proper error handling
+      // Use the global manage-user-tenant function to create the relationship
       if (userId) {
-        console.log('Creating/verifying user-tenant relationship for userId:', userId, 'tenantId:', tenantId);
+        console.log('Creating user-tenant relationship using global manage-user-tenant function...');
         
-        // First check if the relationship already exists
-        const { data: existingRelation, error: relationCheckError } = await supabase
-          .from('user_tenants')
-          .select('id, role, is_active')
-          .eq('user_id', userId)
-          .eq('tenant_id', tenantId)
-          .maybeSingle();
-
-        if (relationCheckError) {
-          console.error('Error checking existing user-tenant relationship:', relationCheckError);
-          throw new Error(`Failed to check user-tenant relationship: ${relationCheckError.message}`);
-        }
-
-        if (existingRelation) {
-          console.log('Existing user-tenant relationship found:', existingRelation);
-          
-          // Update the existing relationship to ensure correct role and status
-          if (existingRelation.role !== 'tenant_admin' || !existingRelation.is_active) {
-            console.log('Updating existing user-tenant relationship to tenant_admin role');
-            const { error: updateError } = await supabase
-              .from('user_tenants')
-              .update({
-                role: 'tenant_admin',
-                is_active: true,
-                updated_at: new Date().toISOString()
-              })
-              .eq('user_id', userId)
-              .eq('tenant_id', tenantId);
-
-            if (updateError) {
-              console.error('Failed to update user-tenant relationship:', updateError);
-              throw new Error(`Failed to update user-tenant relationship: ${updateError.message}`);
-            }
+        const relationshipResponse = await supabase.functions.invoke('manage-user-tenant', {
+          body: {
+            user_id: userId,
+            tenant_id: tenantId,
+            role: 'tenant_admin',
+            is_active: true,
+            metadata: {
+              created_via: 'lead_conversion',
+              converted_from_lead: leadId,
+              conversion_date: new Date().toISOString(),
+              admin_email: adminEmail,
+              admin_name: adminName
+            },
+            operation: 'upsert'
+          },
+          headers: {
+            'authorization': req.headers.get('authorization') || '',
+            'x-request-id': `lead-conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            'x-correlation-id': `lead-${leadId}-tenant-${tenantId}`
           }
-          userTenantCreated = true;
-        } else {
-          console.log('Creating new user-tenant relationship');
-          const { data: insertedRelation, error: tenantUserError } = await supabase
-            .from('user_tenants')
-            .insert({
-              user_id: userId,
-              tenant_id: tenantId,
-              role: 'tenant_admin',
-              is_active: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .select()
-            .single();
+        });
 
-          if (tenantUserError) {
-            console.error('Failed to create tenant user relationship:', tenantUserError);
-            throw new Error(`Failed to create user-tenant relationship: ${tenantUserError.message}`);
-          } else {
-            userTenantCreated = true;
-            console.log('Created user-tenant relationship successfully:', insertedRelation);
-          }
+        if (relationshipResponse.error) {
+          console.error('User-tenant relationship creation failed:', relationshipResponse.error);
+          throw new Error(`Failed to create user-tenant relationship: ${relationshipResponse.error.message}`);
         }
 
-        // Verify the relationship was created/updated successfully
-        const { data: verifyRelation, error: verifyError } = await supabase
-          .from('user_tenants')
-          .select('id, role, is_active, created_at, updated_at')
-          .eq('user_id', userId)
-          .eq('tenant_id', tenantId)
-          .single();
-
-        if (verifyError || !verifyRelation) {
-          console.error('User-tenant relationship verification failed:', verifyError);
-          throw new Error('Failed to verify user-tenant relationship creation');
+        const relationshipData = relationshipResponse.data;
+        if (!relationshipData.success) {
+          console.error('User-tenant relationship creation failed:', relationshipData.error);
+          throw new Error(`Failed to create user-tenant relationship: ${relationshipData.error}`);
         }
 
-        console.log('User-tenant relationship verified successfully:', verifyRelation);
+        userTenantCreated = true;
+        console.log('User-tenant relationship created successfully via global function:', relationshipData);
       }
 
     } catch (error) {
@@ -404,7 +367,7 @@ serve(async (req) => {
     // Return comprehensive success response
     const response: ConversionResponse = {
       success: true,
-      message: conversionResult.message || 'Lead converted to tenant successfully with user registration and relationship creation',
+      message: 'Lead converted to tenant successfully with user registration and relationship creation via global function',
       tenantId: tenantId,
       tenant_id: tenantId,
       userId: userId,
@@ -414,7 +377,7 @@ serve(async (req) => {
       userTenantCreated: userTenantCreated
     };
 
-    console.log('Conversion completed successfully with user registration and tenant relationship');
+    console.log('Conversion completed successfully using global manage-user-tenant function');
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
