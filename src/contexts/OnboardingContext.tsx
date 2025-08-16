@@ -174,7 +174,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
     }
   });
 
-  // Initialize data when loaded
+  // Load data when fetched
   useEffect(() => {
     if (workflowData) {
       dispatch({ type: 'SET_WORKFLOW', payload: workflowData.workflow });
@@ -184,8 +184,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
       const formData: OnboardingFormData = {};
       workflowData.steps.forEach((step: OnboardingStep) => {
         if (step.step_data && Object.keys(step.step_data).length > 0) {
-          const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '') as keyof OnboardingFormData;
-          formData[stepKey] = step.step_data;
+          const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '');
+          formData[stepKey as keyof OnboardingFormData] = step.step_data;
         }
       });
       
@@ -193,9 +193,15 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
       const currentStep = Math.max(0, workflowData.workflow.current_step - 1);
       dispatch({ type: 'SET_CURRENT_STEP', payload: currentStep });
       
-      // Update form data for each step key
+      // Update form data
       Object.keys(formData).forEach(stepKey => {
-        dispatch({ type: 'UPDATE_FORM_DATA', payload: { stepName: stepKey, data: formData[stepKey as keyof OnboardingFormData] } });
+        dispatch({ 
+          type: 'UPDATE_FORM_DATA', 
+          payload: { 
+            stepName: stepKey, 
+            data: formData[stepKey as keyof OnboardingFormData] 
+          } 
+        });
       });
     }
   }, [workflowData]);
