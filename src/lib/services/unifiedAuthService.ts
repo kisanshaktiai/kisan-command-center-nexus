@@ -4,6 +4,12 @@ import { useAuthStore } from '@/lib/stores/authStore';
 import { AuthState, TenantData } from '@/types/auth';
 import { ServiceResult } from '@/services/BaseService';
 
+interface AdminStatusResult {
+  is_admin: boolean;
+  role: string;
+  is_active: boolean;
+}
+
 class UnifiedAuthService {
   private initialized = false;
   private initializing = false;
@@ -92,47 +98,56 @@ class UnifiedAuthService {
     }
   }
 
+  private async checkAdminStatus(userId: string): Promise<AdminStatusResult> {
+    try {
+      console.log('UnifiedAuth: Checking admin status for user:', userId);
+      
+      const { data, error } = await supabase.rpc('check_user_admin_status', {
+        user_uuid: userId
+      });
+
+      if (error) {
+        console.error('UnifiedAuth: Error checking admin status:', error);
+        return { is_admin: false, role: '', is_active: false };
+      }
+
+      if (data && data.length > 0) {
+        const result = data[0];
+        console.log('UnifiedAuth: Admin status result:', result);
+        return {
+          is_admin: result.is_admin || false,
+          role: result.role || '',
+          is_active: result.is_active || false
+        };
+      }
+
+      return { is_admin: false, role: '', is_active: false };
+    } catch (error) {
+      console.error('UnifiedAuth: Exception checking admin status:', error);
+      return { is_admin: false, role: '', is_active: false };
+    }
+  }
+
   private async loadUserProfile(userId: string): Promise<void> {
     try {
       console.log('UnifiedAuth: Loading user profile for:', userId);
       
-      // Check if user is an admin with timeout
-      const adminQueryTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Admin query timeout')), 5000);
-      });
-
-      const adminQuery = supabase
-        .from('admin_users')
-        .select('role, is_active')
-        .eq('id', userId)
-        .single();
-
-      const { data: adminData, error: adminError } = await Promise.race([
-        adminQuery,
-        adminQueryTimeout
-      ]) as any;
-
-      if (adminError && adminError.code !== 'PGRST116') {
-        console.warn('UnifiedAuth: Error checking admin status:', adminError);
-      }
+      // Check admin status using the new secure function
+      const adminStatus = await this.checkAdminStatus(userId);
 
       const { setAuthState } = useAuthStore.getState();
       
-      if (adminData?.is_active) {
-        console.log('UnifiedAuth: User is active admin with role:', adminData.role);
-        setAuthState({
-          isAdmin: true,
-          isSuperAdmin: adminData.role === 'super_admin',
-          adminRole: adminData.role
-        });
-      } else {
-        console.log('UnifiedAuth: User is not an admin');
-        setAuthState({
-          isAdmin: false,
-          isSuperAdmin: false,
-          adminRole: null
-        });
-      }
+      console.log('UnifiedAuth: Setting admin status:', {
+        isAdmin: adminStatus.is_admin && adminStatus.is_active,
+        isSuperAdmin: adminStatus.is_admin && adminStatus.is_active && adminStatus.role === 'super_admin',
+        adminRole: adminStatus.is_admin && adminStatus.is_active ? adminStatus.role : null
+      });
+
+      setAuthState({
+        isAdmin: adminStatus.is_admin && adminStatus.is_active,
+        isSuperAdmin: adminStatus.is_admin && adminStatus.is_active && adminStatus.role === 'super_admin',
+        adminRole: adminStatus.is_admin && adminStatus.is_active ? adminStatus.role : null
+      });
     } catch (error) {
       console.error('UnifiedAuth: Failed to load user profile:', error);
       // Set default non-admin state on profile load failure
