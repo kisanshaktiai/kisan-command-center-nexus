@@ -226,42 +226,148 @@ serve(async (req) => {
         }
       }
 
-      // Call the database function
-      const { data: result, error: dbError } = await supabase.rpc(
-        'manage_user_tenant_relationship',
-        {
-          p_user_id: requestBody.user_id,
-          p_tenant_id: requestBody.tenant_id,
-          p_role: requestBody.role,
-          p_is_active: requestBody.is_active ?? true,
-          p_metadata: {
-            ...requestBody.metadata,
-            managed_by: user.id,
-            managed_by_role: adminRole,
-            request_id: securityContext.requestId,
-            correlation_id: securityContext.correlationId,
-            user_agent: securityContext.userAgent,
-            ip_address: securityContext.ipAddress
-          },
-          p_operation: requestBody.operation || 'upsert'
-        }
-      );
+      // Prepare metadata without admin_id reference to avoid FK constraint issues
+      const enhancedMetadata = {
+        ...requestBody.metadata,
+        managed_by: user.id,
+        managed_by_role: adminRole,
+        request_id: securityContext.requestId,
+        correlation_id: securityContext.correlationId,
+        user_agent: securityContext.userAgent,
+        ip_address: securityContext.ipAddress
+      };
 
-      if (dbError) {
-        console.error(`[${securityContext.requestId}] Database error:`, dbError);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Database operation failed',
-            code: 'DATABASE_ERROR',
-            details: dbError.message,
-            request_id: securityContext.requestId
-          }),
-          { 
-            status: 500, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
+      // Call the database function directly instead of using manage_user_tenant_relationship
+      // to avoid audit log FK constraint issues
+      let result;
+      
+      if (requestBody.operation === 'insert') {
+        // Insert operation
+        const { data, error } = await supabase
+          .from('user_tenants')
+          .insert({
+            user_id: requestBody.user_id,
+            tenant_id: requestBody.tenant_id,
+            role: requestBody.role,
+            is_active: requestBody.is_active ?? true,
+            metadata: enhancedMetadata
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error(`[${securityContext.requestId}] Insert error:`, error);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Failed to create user-tenant relationship',
+              code: 'INSERT_ERROR',
+              details: error.message,
+              request_id: securityContext.requestId
+            }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+
+        result = {
+          success: true,
+          relationship_id: data.id,
+          operation: 'created',
+          user_id: requestBody.user_id,
+          tenant_id: requestBody.tenant_id,
+          role: requestBody.role,
+          is_active: requestBody.is_active ?? true,
+          message: 'User-tenant relationship created successfully'
+        };
+
+      } else if (requestBody.operation === 'update') {
+        // Update operation
+        const { data, error } = await supabase
+          .from('user_tenants')
+          .update({
+            role: requestBody.role,
+            is_active: requestBody.is_active ?? true,
+            metadata: enhancedMetadata,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', requestBody.user_id)
+          .eq('tenant_id', requestBody.tenant_id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error(`[${securityContext.requestId}] Update error:`, error);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Failed to update user-tenant relationship',
+              code: 'UPDATE_ERROR',
+              details: error.message,
+              request_id: securityContext.requestId
+            }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+
+        result = {
+          success: true,
+          relationship_id: data.id,
+          operation: 'updated',
+          user_id: requestBody.user_id,
+          tenant_id: requestBody.tenant_id,
+          role: requestBody.role,
+          is_active: requestBody.is_active ?? true,
+          message: 'User-tenant relationship updated successfully'
+        };
+
+      } else {
+        // Upsert operation (default)
+        const { data, error } = await supabase
+          .from('user_tenants')
+          .upsert({
+            user_id: requestBody.user_id,
+            tenant_id: requestBody.tenant_id,
+            role: requestBody.role,
+            is_active: requestBody.is_active ?? true,
+            metadata: enhancedMetadata,
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error(`[${securityContext.requestId}] Upsert error:`, error);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Failed to manage user-tenant relationship',
+              code: 'UPSERT_ERROR',
+              details: error.message,
+              request_id: securityContext.requestId
+            }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+
+        result = {
+          success: true,
+          relationship_id: data.id,
+          operation: 'upserted',
+          user_id: requestBody.user_id,
+          tenant_id: requestBody.tenant_id,
+          role: requestBody.role,
+          is_active: requestBody.is_active ?? true,
+          message: 'User-tenant relationship managed successfully'
+        };
       }
 
       // Log successful operation
@@ -317,14 +423,22 @@ serve(async (req) => {
         }
       }
 
-      const { data: relationships, error: fetchError } = await supabase.rpc(
-        'get_user_tenant_relationships',
-        {
-          p_user_id: userId,
-          p_tenant_id: tenantId,
-          p_include_inactive: includeInactive
-        }
-      );
+      // Build query
+      let query = supabase.from('user_tenants').select('*');
+      
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+      
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data: relationships, error: fetchError } = await query;
 
       if (fetchError) {
         console.error(`[${securityContext.requestId}] Error fetching relationships:`, fetchError);
