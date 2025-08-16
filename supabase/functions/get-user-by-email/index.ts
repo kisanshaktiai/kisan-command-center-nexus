@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
+import { handleError } from '../_shared/errorHandler.ts'
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -28,10 +29,7 @@ serve(async (req) => {
 
     if (error) {
       console.error('Error fetching users:', error);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch users' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return handleError(error, 500);
     }
 
     const user = users.users.find(u => u.email === user_email);
@@ -55,9 +53,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Unexpected error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return handleError(error);
   }
 });

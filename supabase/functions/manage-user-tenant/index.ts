@@ -1,7 +1,7 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
+import { handleError } from '../_shared/errorHandler.ts'
 
 interface ManageUserTenantRequest {
   user_id: string;
@@ -371,17 +371,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Unexpected error in manage-user-tenant function:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: 'Internal server error',
-        code: 'INTERNAL_ERROR',
-        message: error instanceof Error ? error.message : 'Unknown error occurred'
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return handleError(error);
   }
 });
