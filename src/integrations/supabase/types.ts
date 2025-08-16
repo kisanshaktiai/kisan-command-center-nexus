@@ -7452,6 +7452,10 @@ export type Database = {
         Args: { user_email: string; user_id: string; user_name: string }
         Returns: boolean
       }
+      complete_bootstrap_safely: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       convert_lead_to_tenant: {
         Args: {
           p_admin_email?: string
@@ -8011,6 +8015,10 @@ export type Database = {
           name: string
         }[]
       }
+      get_bootstrap_status: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       get_current_admin_role: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -8042,6 +8050,10 @@ export type Database = {
           temp_celsius: number
           wind_speed_kmh: number
         }
+        Returns: number
+      }
+      get_super_admin_count: {
+        Args: Record<PropertyKey, never>
         Returns: number
       }
       get_user_tenant_relationships: {

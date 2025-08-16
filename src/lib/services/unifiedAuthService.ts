@@ -3,10 +3,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { AuthState, TenantData, AdminStatusResult } from '@/types/auth';
 import { ServiceResult } from '@/services/BaseService';
+import { authenticationService } from '@/services/AuthenticationService';
 
 class UnifiedAuthService {
+  private static instance: UnifiedAuthService;
   private initialized = false;
   private initializing = false;
+
+  static getInstance(): UnifiedAuthService {
+    if (!UnifiedAuthService.instance) {
+      UnifiedAuthService.instance = new UnifiedAuthService();
+    }
+    return UnifiedAuthService.instance;
+  }
 
   async initialize(): Promise<void> {
     if (this.initialized || this.initializing) {
@@ -25,11 +34,11 @@ class UnifiedAuthService {
 
       // Add timeout to prevent hanging
       const timeoutId = setTimeout(() => {
-        console.error('UnifiedAuth: Initialization timeout after 10 seconds');
+        console.error('UnifiedAuth: Initialization timeout after 15 seconds');
         setError('Authentication initialization timeout');
         setLoading(false);
         this.initializing = false;
-      }, 10000);
+      }, 15000);
 
       // Get initial session with error handling
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -78,7 +87,7 @@ class UnifiedAuthService {
             console.error('UnifiedAuth: Error handling auth state change:', error);
             setError('Authentication state update failed');
           }
-        }, 100); // 100ms debounce
+        }, 100);
       });
 
       this.initialized = true;
@@ -92,48 +101,12 @@ class UnifiedAuthService {
     }
   }
 
-  private async checkAdminStatus(userId: string): Promise<AdminStatusResult> {
-    try {
-      console.log('UnifiedAuth: Checking admin status for user:', userId);
-      
-      // Query the admin_users table directly instead of using RPC
-      const { data, error } = await supabase
-        .from('admin_users')
-        .select('id, role, is_active')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        console.error('UnifiedAuth: Error checking admin status:', error);
-        // If error is "not found", user is simply not an admin
-        if (error.code === 'PGRST116') {
-          return { is_admin: false, role: '', is_active: false };
-        }
-        return { is_admin: false, role: '', is_active: false };
-      }
-
-      if (data) {
-        console.log('UnifiedAuth: Admin status result:', data);
-        return {
-          is_admin: true,
-          role: data.role || '',
-          is_active: data.is_active || false
-        };
-      }
-
-      return { is_admin: false, role: '', is_active: false };
-    } catch (error) {
-      console.error('UnifiedAuth: Exception checking admin status:', error);
-      return { is_admin: false, role: '', is_active: false };
-    }
-  }
-
   private async loadUserProfile(userId: string): Promise<void> {
     try {
       console.log('UnifiedAuth: Loading user profile for:', userId);
       
-      // Check admin status using direct database query
-      const adminStatus = await this.checkAdminStatus(userId);
+      // Use AuthenticationService for admin status check
+      const adminStatus = await authenticationService.checkAdminStatus(userId);
 
       const { setAuthState } = useAuthStore.getState();
       
@@ -219,4 +192,4 @@ class UnifiedAuthService {
   }
 }
 
-export const unifiedAuthService = new UnifiedAuthService();
+export const unifiedAuthService = UnifiedAuthService.getInstance();

@@ -14,10 +14,11 @@ interface BootstrapStatus {
   hasAdminUsers: boolean;
   systemReady: boolean;
   isConsistent: boolean;
+  details?: any;
 }
 
 /**
- * Bootstrap Service
+ * Bootstrap Service - Enhanced with new database functions
  * Handles system initialization and bootstrap checking
  */
 export class BootstrapService extends BaseService {
@@ -35,44 +36,40 @@ export class BootstrapService extends BaseService {
   }
 
   /**
-   * Comprehensive bootstrap status check that handles inconsistencies
+   * Comprehensive bootstrap status check using new database function
    */
   async checkBootstrapStatus(): Promise<ServiceResult<BootstrapStatus>> {
     return this.executeOperation(async () => {
       console.log('BootstrapService: Starting comprehensive bootstrap status check...');
 
-      // Use AuthenticationService for consistent checking
-      const isCompleted = await authenticationService.isBootstrapCompleted();
+      // Use the new database function for consistent checking
+      const { data, error } = await supabase.rpc('get_bootstrap_status');
 
-      // Also check directly for admin users to validate consistency
-      const { data: adminUsers, error: adminError } = await supabase
-        .from('admin_users')
-        .select('id, role, is_active')
-        .eq('is_active', true)
-        .limit(1);
-
-      if (adminError) {
-        console.warn('BootstrapService: Error checking admin users:', adminError);
+      if (error) {
+        console.error('BootstrapService: Error checking bootstrap status:', error);
+        throw new Error(`Failed to check bootstrap status: ${error.message}`);
       }
 
-      const hasAdminUsers = adminUsers && adminUsers.length > 0;
-      
-      // Check for consistency
-      const isConsistent = isCompleted === hasAdminUsers;
-      
-      console.log('BootstrapService: Status check results:', {
+      console.log('BootstrapService: Bootstrap status from database:', data);
+
+      const isCompleted = data?.completed === true;
+      const hasAdminUsers = (data?.super_admin_count || 0) > 0;
+      const systemReady = isCompleted && hasAdminUsers;
+      const isConsistent = true; // The database function handles consistency
+
+      console.log('BootstrapService: Processed status:', {
         isCompleted,
         hasAdminUsers,
+        systemReady,
         isConsistent
       });
 
-      const systemReady = isCompleted && hasAdminUsers;
-
       return {
         isCompleted,
-        hasAdminUsers: Boolean(hasAdminUsers),
+        hasAdminUsers,
         systemReady,
-        isConsistent
+        isConsistent,
+        details: data
       };
     }, 'checkBootstrapStatus');
   }
@@ -95,7 +92,7 @@ export class BootstrapService extends BaseService {
         throw new Error('Full name is required');
       }
 
-      // Check if bootstrap is already completed using comprehensive check
+      // Check if bootstrap is already completed
       const isCompleted = await authenticationService.isBootstrapCompleted();
       if (isCompleted) {
         throw new Error('System is already initialized');
@@ -139,97 +136,72 @@ export class BootstrapService extends BaseService {
       errors.push('Password is required');
     } else if (data.password.length < 8) {
       errors.push('Password must be at least 8 characters long');
+    } else {
+      // Enhanced password validation
+      const passwordValidation = this.validatePasswordStrength(data.password);
+      if (!passwordValidation.isValid) {
+        errors.push(...passwordValidation.errors);
+      }
     }
 
     return errors;
   }
 
   /**
-   * Fix inconsistent bootstrap state
+   * Enhanced password validation
+   */
+  private validatePasswordStrength(password: string): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!/(?=.*[a-z])/.test(password)) {
+      errors.push('Password must contain at least one lowercase letter');
+    }
+    if (!/(?=.*[A-Z])/.test(password)) {
+      errors.push('Password must contain at least one uppercase letter');
+    }
+    if (!/(?=.*\d)/.test(password)) {
+      errors.push('Password must contain at least one number');
+    }
+    if (!/(?=.*[@$!%*?&])/.test(password)) {
+      errors.push('Password should contain at least one special character');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Fix inconsistent bootstrap state using new database function
    */
   async fixInconsistentState(): Promise<ServiceResult<void>> {
     return this.executeOperation(async () => {
       console.log('BootstrapService: Fixing inconsistent bootstrap state...');
 
-      const statusResult = await this.checkBootstrapStatus();
-      if (!statusResult.success || !statusResult.data) {
-        throw new Error('Could not check bootstrap status');
+      const { data, error } = await supabase.rpc('complete_bootstrap_safely');
+
+      if (error) {
+        throw new Error(`Failed to fix bootstrap state: ${error.message}`);
       }
 
-      const { isCompleted, hasAdminUsers, isConsistent } = statusResult.data;
-
-      if (isConsistent) {
-        console.log('BootstrapService: State is already consistent');
-        return;
-      }
-
-      // If we have admins but config says incomplete, mark as complete
-      if (hasAdminUsers && !isCompleted) {
-        console.log('BootstrapService: Found admins, marking bootstrap complete');
-        
-        const { error } = await supabase
-          .from('system_config')
-          .upsert({
-            config_key: 'bootstrap_completed',
-            config_value: 'true'
-          });
-
-        if (error) {
-          throw new Error(`Failed to mark bootstrap complete: ${error.message}`);
-        }
-      }
-      
-      // If config says complete but no admins, mark as incomplete
-      if (isCompleted && !hasAdminUsers) {
-        console.log('BootstrapService: No admins found, marking bootstrap incomplete');
-        
-        const { error } = await supabase
-          .from('system_config')
-          .upsert({
-            config_key: 'bootstrap_completed',
-            config_value: 'false'
-          });
-
-        if (error) {
-          throw new Error(`Failed to mark bootstrap incomplete: ${error.message}`);
-        }
-      }
-
-      console.log('BootstrapService: Inconsistent state fixed');
+      console.log('BootstrapService: Bootstrap state fixed:', data);
     }, 'fixInconsistentState');
   }
 
   /**
-   * Cleanup incomplete bootstrap state
+   * Get detailed bootstrap information
    */
-  async cleanupBootstrapState(): Promise<ServiceResult<void>> {
+  async getBootstrapInfo(): Promise<ServiceResult<any>> {
     return this.executeOperation(async () => {
-      console.log('BootstrapService: Cleaning up bootstrap state...');
-
-      // Call the cleanup function
-      const { error } = await supabase.rpc('cleanup_bootstrap_state');
+      const { data, error } = await supabase.rpc('get_bootstrap_status');
 
       if (error) {
-        throw new Error(`Failed to cleanup bootstrap state: ${error.message}`);
+        throw new Error(`Failed to get bootstrap info: ${error.message}`);
       }
 
-      console.log('BootstrapService: Bootstrap state cleaned up successfully');
-    }, 'cleanupBootstrapState');
-  }
-
-  /**
-   * Verify admin user setup
-   */
-  async verifyAdminUserSetup(): Promise<ServiceResult<any[]>> {
-    return this.executeOperation(async () => {
-      const { data, error } = await supabase.rpc('verify_admin_user_setup');
-
-      if (error) {
-        throw new Error(`Failed to verify admin setup: ${error.message}`);
-      }
-
-      return data || [];
-    }, 'verifyAdminUserSetup');
+      return data;
+    }, 'getBootstrapInfo');
   }
 }
 

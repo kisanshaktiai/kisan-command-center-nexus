@@ -1,425 +1,299 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Label } from '@/components/ui/label';
-import { PasswordStrength, validatePassword } from '@/components/ui/password-strength';
-import { Loader2, Crown, Eye, EyeOff, CheckCircle, AlertTriangle } from 'lucide-react';
-import { toast } from 'sonner';
-import { useAuthenticationService } from '@/hooks/useAuthenticationService';
-import { AuthErrorBoundary } from './AuthErrorBoundary';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Loader2, Shield, CheckCircle, AlertCircle, Rocket } from 'lucide-react';
 import { authenticationService } from '@/services/AuthenticationService';
-import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+const bootstrapSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/(?=.*[a-z])/, 'Password must contain at least one lowercase letter')
+    .regex(/(?=.*[A-Z])/, 'Password must contain at least one uppercase letter')
+    .regex(/(?=.*\d)/, 'Password must contain at least one number'),
+  confirmPassword: z.string(),
+  fullName: z.string().min(2, 'Full name must be at least 2 characters')
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type BootstrapFormData = z.infer<typeof bootstrapSchema>;
 
 interface BootstrapSetupProps {
-  onBootstrapComplete?: () => void;
+  onBootstrapComplete: () => void;
 }
 
 export const BootstrapSetup: React.FC<BootstrapSetupProps> = ({ onBootstrapComplete }) => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    fullName: ''
+  const [isCreating, setIsCreating] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+
+  const form = useForm<BootstrapFormData>({
+    resolver: zodResolver(bootstrapSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+      fullName: ''
+    }
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isCheckingExisting, setIsCheckingExisting] = useState(true);
-  const [existingAdmins, setExistingAdmins] = useState<any[]>([]);
-  const [bootstrapInconsistent, setBootstrapInconsistent] = useState(false);
-  
-  const { bootstrapSuperAdmin, isLoading, error, clearError } = useAuthenticationService();
 
-  // Check for existing admins and bootstrap state on component mount
-  useEffect(() => {
-    checkSystemState();
-  }, []);
-
-  const checkSystemState = async () => {
+  const onSubmit = async (data: BootstrapFormData) => {
     try {
-      setIsCheckingExisting(true);
+      setIsCreating(true);
+      setCurrentStep(1);
       
-      // Check comprehensive bootstrap status first
-      const isCompleted = await authenticationService.isBootstrapCompleted();
-      console.log('BootstrapSetup: Bootstrap status from service:', isCompleted);
+      console.log('BootstrapSetup: Starting super admin creation...');
       
-      if (isCompleted) {
-        console.log('BootstrapSetup: Bootstrap completed, should not show this component');
-        onBootstrapComplete?.();
-        return;
-      }
+      // Simulate progress steps for better UX
+      setTimeout(() => setCurrentStep(2), 1000);
+      setTimeout(() => setCurrentStep(3), 2000);
+      
+      const result = await authenticationService.bootstrapSuperAdmin(
+        data.email,
+        data.password,
+        data.fullName
+      );
 
-      // Check for any existing admins to show appropriate message
-      const { data: adminUsers, error } = await supabase
-        .from('admin_users')
-        .select('id, email, full_name, role, is_active, created_at')
-        .eq('is_active', true)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('BootstrapSetup: Error checking existing admins:', error);
-      } else {
-        setExistingAdmins(adminUsers || []);
+      if (result.success) {
+        setCurrentStep(4);
+        toast.success('System initialized successfully!', {
+          description: 'Welcome to your admin portal. You will be redirected shortly.',
+        });
         
-        // If admins exist but bootstrap check says incomplete, this is inconsistent
-        if (adminUsers && adminUsers.length > 0) {
-          console.warn('BootstrapSetup: Inconsistent state - admins exist but bootstrap incomplete');
-          setBootstrapInconsistent(true);
-          toast.warning('System state inconsistency detected. Refreshing...');
-          
-          // Try to fix the inconsistency by re-checking
-          setTimeout(() => {
-            onBootstrapComplete?.();
-          }, 2000);
-          return;
-        }
+        // Wait a bit before completing to show success state
+        setTimeout(() => {
+          onBootstrapComplete();
+        }, 2000);
+      } else {
+        console.error('BootstrapSetup: Creation failed:', result.error);
+        toast.error('System initialization failed', {
+          description: result.error || 'Please try again or contact support.',
+        });
+        setCurrentStep(0);
       }
     } catch (error) {
-      console.error('BootstrapSetup: Error checking system state:', error);
-      toast.error('Failed to check system state');
+      console.error('BootstrapSetup: Exception during creation:', error);
+      toast.error('An unexpected error occurred', {
+        description: 'Please refresh the page and try again.',
+      });
+      setCurrentStep(0);
     } finally {
-      setIsCheckingExisting(false);
+      setIsCreating(false);
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    clearError();
-  };
+  const steps = [
+    { icon: Shield, label: 'Creating Admin Account', description: 'Setting up your super admin credentials' },
+    { icon: Loader2, label: 'Configuring Security', description: 'Applying enterprise-grade security policies' },
+    { icon: Rocket, label: 'Initializing System', description: 'Preparing your admin dashboard' },  
+    { icon: CheckCircle, label: 'Bootstrap Complete', description: 'Welcome to your admin portal!' }
+  ];
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  if (isCreating) {
+    const CurrentIcon = steps[currentStep]?.icon || Loader2;
+    const isSpinning = currentStep < 3;
     
-    // Enhanced client-side validation
-    if (!formData.email || !formData.password || !formData.fullName || !formData.confirmPassword) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
-
-    if (formData.email.length > 254) {
-      toast.error('Email address is too long');
-      return;
-    }
-
-    // Full name validation
-    const trimmedName = formData.fullName.trim();
-    if (trimmedName.length < 2) {
-      toast.error('Full name must be at least 2 characters');
-      return;
-    }
-
-    if (trimmedName.length > 100) {
-      toast.error('Full name is too long');
-      return;
-    }
-
-    if (!/^[a-zA-Z\s\-']+$/.test(trimmedName)) {
-      toast.error('Full name contains invalid characters');
-      return;
-    }
-
-    // Password validation
-    if (formData.password.length < 8) {
-      toast.error('Password must be at least 8 characters');
-      return;
-    }
-
-    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      toast.error('Password must contain at least one uppercase letter, one lowercase letter, and one number');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
-    const passwordValidation = validatePassword(formData.password);
-    if (!passwordValidation.isValid) {
-      toast.error(passwordValidation.errors[0]);
-      return;
-    }
-
-    // Call service layer with sanitized inputs
-    await bootstrapSuperAdmin(
-      formData.email.trim().toLowerCase(),
-      formData.password,
-      trimmedName,
-      (authState) => {
-        toast.success('Super Admin account created successfully!');
-        console.log('BootstrapSetup: Bootstrap completed, triggering callback');
-        setTimeout(() => {
-          onBootstrapComplete?.();
-          window.location.href = '/super-admin';
-        }, 500);
-      },
-      (error) => {
-        console.error('BootstrapSetup: Bootstrap error:', error);
-        if (error.includes('already initialized') || error.includes('already exists')) {
-          toast.error('System is already initialized. Refreshing...');
-          setTimeout(() => {
-            onBootstrapComplete?.();
-          }, 2000);
-        } else if (error.includes('rate limit') || error.includes('Too many')) {
-          toast.error('Too many attempts. Please wait before trying again.');
-        } else {
-          toast.error(error || 'Failed to create admin account');
-        }
-      }
-    );
-  };
-
-  // Show loading state while checking system state
-  if (isCheckingExisting) {
     return (
-      <AuthErrorBoundary>
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
-          <Card className="w-full max-w-md">
-            <CardContent className="flex flex-col items-center justify-center p-8">
-              <Loader2 className="w-8 h-8 animate-spin mb-4" />
-              <div className="text-lg font-medium mb-2">Checking system status...</div>
-              <div className="text-sm text-muted-foreground">Please wait</div>
-            </CardContent>
-          </Card>
-        </div>
-      </AuthErrorBoundary>
-    );
-  }
-
-  // Show inconsistency warning
-  if (bootstrapInconsistent) {
-    return (
-      <AuthErrorBoundary>
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader className="space-y-4 text-center">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-                <AlertTriangle className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl font-bold">System State Inconsistency</CardTitle>
-                <CardDescription>
-                  Detecting and resolving system configuration issues...
-                </CardDescription>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="space-y-4">
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  The system is resolving configuration inconsistencies. You will be redirected automatically.
-                </AlertDescription>
-              </Alert>
-              
-              <Button
-                onClick={() => onBootstrapComplete?.()}
-                className="w-full"
-              >
-                Continue to Login
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </AuthErrorBoundary>
-    );
-  }
-
-  // Show warning if admins already exist
-  if (existingAdmins.length > 0) {
-    return (
-      <AuthErrorBoundary>
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader className="space-y-4 text-center">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-                <AlertTriangle className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl font-bold">System Already Initialized</CardTitle>
-                <CardDescription>
-                  This system already has administrator accounts configured
-                </CardDescription>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="space-y-4">
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  Found {existingAdmins.length} existing administrator account{existingAdmins.length > 1 ? 's' : ''}. 
-                  Please use the login form to access the system.
-                </AlertDescription>
-              </Alert>
-
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm">Existing Administrators:</h4>
-                {existingAdmins.map((admin) => (
-                  <div key={admin.id} className="p-2 bg-muted rounded text-sm">
-                    <div className="font-medium">{admin.full_name}</div>
-                    <div className="text-muted-foreground">{admin.email} - {admin.role}</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-8 text-center">
+            <div className="flex items-center justify-center mb-6">
+              <div className="relative">
+                <CurrentIcon 
+                  className={`h-12 w-12 text-primary ${isSpinning ? 'animate-spin' : ''}`} 
+                />
+                {currentStep === 3 && (
+                  <div className="absolute inset-0 animate-ping">
+                    <CheckCircle className="h-12 w-12 text-primary opacity-75" />
                   </div>
-                ))}
+                )}
               </div>
-              
-              <Button
-                onClick={() => onBootstrapComplete?.()}
-                className="w-full"
-              >
-                Go to Login
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </AuthErrorBoundary>
+            </div>
+            
+            <h3 className="text-xl font-semibold mb-2 text-foreground">
+              {steps[currentStep]?.label}
+            </h3>
+            
+            <p className="text-sm text-muted-foreground mb-6">
+              {steps[currentStep]?.description}
+            </p>
+            
+            <div className="space-y-2">
+              {steps.map((step, index) => (
+                <div 
+                  key={index}
+                  className={`flex items-center text-sm transition-colors ${
+                    index <= currentStep 
+                      ? 'text-primary' 
+                      : 'text-muted-foreground/50'
+                  }`}
+                >
+                  <div className={`w-2 h-2 rounded-full mr-3 transition-colors ${
+                    index < currentStep 
+                      ? 'bg-primary' 
+                      : index === currentStep 
+                        ? 'bg-primary animate-pulse' 
+                        : 'bg-muted-foreground/30'
+                  }`} />
+                  {step.label}
+                  {index < currentStep && (
+                    <CheckCircle className="h-3 w-3 ml-auto text-primary" />
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-6 text-xs text-muted-foreground">
+              Please do not close this window
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <AuthErrorBoundary>
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-4 text-center">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-              <Crown className="w-8 h-8 text-white" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center pb-4">
+          <div className="flex items-center justify-center mb-4">
+            <div className="p-3 bg-primary/10 rounded-full">
+              <Shield className="h-8 w-8 text-primary" />
             </div>
-            <div>
-              <CardTitle className="text-2xl font-bold">System Bootstrap</CardTitle>
-              <CardDescription>
-                Create the first Super Admin account to initialize the system
-              </CardDescription>
+          </div>
+          <CardTitle className="text-2xl font-bold">System Bootstrap</CardTitle>
+          <CardDescription className="text-base">
+            Initialize your admin portal by creating the first super administrator account
+          </CardDescription>
+        </CardHeader>
+        
+        <CardContent className="space-y-6">
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start">
+              <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium text-blue-900 mb-1">One-time Setup</p>
+                <p className="text-blue-700">
+                  This process creates your first admin account and cannot be repeated. 
+                  Choose your credentials carefully.
+                </p>
+              </div>
             </div>
-          </CardHeader>
-          
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  value={formData.fullName}
-                  onChange={(e) => handleInputChange('fullName', e.target.value)}
-                  placeholder="Enter your full name"
-                  disabled={isLoading}
-                  required
-                />
-              </div>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  placeholder="admin@yourcompany.com"
-                  disabled={isLoading}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={formData.password}
-                    onChange={(e) => handleInputChange('password', e.target.value)}
-                    placeholder="Create a strong password"
-                    disabled={isLoading}
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter your full name" 
+                        {...field}
+                        className="transition-all"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              {formData.password && (
-                <PasswordStrength password={formData.password} />
-              )}
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="email" 
+                        placeholder="admin@yourcompany.com" 
+                        {...field}
+                        className="transition-all"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={formData.confirmPassword}
-                    onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                    placeholder="Confirm your password"
-                    disabled={isLoading}
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    disabled={isLoading}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="password" 
+                        placeholder="Create a strong password" 
+                        {...field}
+                        className="transition-all"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="password" 
+                        placeholder="Confirm your password" 
+                        {...field}
+                        className="transition-all"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button 
+                type="submit" 
+                className="w-full h-11 text-base font-medium"
+                disabled={isCreating}
               >
-                {isLoading ? (
+                {isCreating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Super Admin...
+                    Initializing System...
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Initialize System
+                    <Shield className="mr-2 h-4 w-4" />
+                    Initialize Admin Portal
                   </>
                 )}
               </Button>
-
-              <div className="text-center text-sm text-muted-foreground">
-                This will create the first administrator account and complete the system setup.
-              </div>
             </form>
-          </CardContent>
-        </Card>
-      </div>
-    </AuthErrorBoundary>
+          </Form>
+
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground">
+              By creating this account, you agree to our security policies and 
+              will have full administrative privileges.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };

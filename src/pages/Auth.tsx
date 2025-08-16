@@ -5,8 +5,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
 import { BootstrapSetup } from '@/components/auth/BootstrapSetup';
 import { authenticationService } from '@/services/AuthenticationService';
-import { supabase } from '@/integrations/supabase/client';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Shield, AlertCircle } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export default function Auth() {
   const { user, isLoading, isAdmin } = useAuth();
@@ -14,6 +15,7 @@ export default function Auth() {
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [hasRedirected, setHasRedirected] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   console.log('Auth.tsx: Render state:', { 
     user: user?.id, 
@@ -22,7 +24,8 @@ export default function Auth() {
     needsBootstrap, 
     checkingBootstrap,
     bootstrapError,
-    hasRedirected
+    hasRedirected,
+    retryCount
   });
 
   // Prevent infinite redirect loops
@@ -48,14 +51,31 @@ export default function Auth() {
       console.log('Auth.tsx: Bootstrap completed (from service):', isCompleted);
       
       setNeedsBootstrap(!isCompleted);
+      setRetryCount(0); // Reset retry count on successful check
     } catch (error) {
       console.error('Auth.tsx: Error checking bootstrap status:', error);
-      setBootstrapError('Failed to check system status. Please refresh the page.');
-      // Default to showing bootstrap if we can't determine status
-      setNeedsBootstrap(true);
+      setBootstrapError(
+        retryCount >= 2 
+          ? 'Unable to connect to the system. Please check your connection and try again.'
+          : 'Failed to check system status. Retrying...'
+      );
+      // Auto-retry up to 3 times
+      if (retryCount < 3) {
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          checkBootstrapStatus();
+        }, 2000 * (retryCount + 1)); // Exponential backoff
+      } else {
+        setNeedsBootstrap(true); // Default to showing bootstrap if we can't determine status
+      }
     } finally {
       setCheckingBootstrap(false);
     }
+  };
+
+  const handleRetry = () => {
+    setRetryCount(0);
+    checkBootstrapStatus();
   };
 
   // Redirect authenticated admin users
@@ -68,26 +88,45 @@ export default function Auth() {
   if (isLoading || checkingBootstrap) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
-        <div className="text-center max-w-md mx-auto p-8">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin mb-4" />
-          <div className="text-lg font-medium mb-2">
-            {isLoading ? 'Initializing authentication...' : 'Checking system status...'}
-          </div>
-          {bootstrapError && (
-            <div className="text-red-600 text-sm mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-              {bootstrapError}
-              <button 
-                onClick={checkBootstrapStatus}
-                className="block mx-auto mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 rounded text-xs"
-              >
-                Retry
-              </button>
+        <Card className="w-full max-w-md mx-auto">
+          <CardContent className="p-8 text-center">
+            <div className="flex items-center justify-center mb-4">
+              <Shield className="h-8 w-8 text-primary mr-2" />
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          )}
-          <div className="text-sm text-muted-foreground mt-4">
-            This may take a few moments
-          </div>
-        </div>
+            <div className="text-lg font-semibold mb-2 text-foreground">
+              {isLoading ? 'Initializing Authentication' : 'Checking System Status'}
+            </div>
+            <div className="text-sm text-muted-foreground mb-4">
+              {isLoading 
+                ? 'Setting up secure connection...' 
+                : 'Verifying system configuration...'
+              }
+            </div>
+            {bootstrapError && (
+              <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <div className="flex items-center justify-center mb-2">
+                  <AlertCircle className="h-4 w-4 text-destructive mr-2" />
+                  <span className="text-sm font-medium text-destructive">Connection Issue</span>
+                </div>
+                <p className="text-xs text-destructive/80 mb-3">{bootstrapError}</p>
+                {retryCount >= 2 && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleRetry}
+                    className="w-full"
+                  >
+                    Retry Connection
+                  </Button>
+                )}
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground mt-4">
+              Powered by Advanced Security Architecture
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

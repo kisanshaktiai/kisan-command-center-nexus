@@ -25,7 +25,6 @@ class AuthenticationService {
     try {
       console.log('AuthenticationService: Checking admin status for user:', userId);
       
-      // Query the admin_users table directly
       const { data, error } = await supabase
         .from('admin_users')
         .select('id, role, is_active')
@@ -34,7 +33,6 @@ class AuthenticationService {
 
       if (error) {
         console.error('AuthenticationService: Error checking admin status:', error);
-        // If error is "not found", user is simply not an admin
         if (error.code === 'PGRST116') {
           return { is_admin: false, role: '', is_active: false };
         }
@@ -58,82 +56,27 @@ class AuthenticationService {
   }
 
   /**
-   * Comprehensive bootstrap status check that handles edge cases
+   * Comprehensive bootstrap status check using new database function
    */
   async isBootstrapCompleted(): Promise<boolean> {
     try {
-      console.log('AuthenticationService: Checking comprehensive bootstrap status...');
+      console.log('AuthenticationService: Checking bootstrap status with new function...');
       
-      // Check for existing active super admins first (most reliable indicator)
-      const { data: superAdmins, error: adminError } = await supabase
-        .from('admin_users')
-        .select('id')
-        .eq('role', 'super_admin')
-        .eq('is_active', true)
-        .limit(1);
-
-      if (adminError) {
-        console.error('AuthenticationService: Error checking super admins:', adminError);
-      }
-
-      const hasSuperAdmin = superAdmins && superAdmins.length > 0;
-      console.log('AuthenticationService: Has active super admin:', hasSuperAdmin);
-
-      // If we have a super admin, bootstrap is definitely complete
-      if (hasSuperAdmin) {
-        // Ensure system config reflects this
-        try {
-          await supabase
-            .from('system_config')
-            .upsert({
-              config_key: 'bootstrap_completed',
-              config_value: 'true'
-            });
-        } catch (configError) {
-          console.warn('AuthenticationService: Could not update bootstrap config:', configError);
-        }
-        return true;
-      }
-
-      // Check system config as secondary indicator
-      const { data: configData, error: configError } = await supabase
-        .from('system_config')
-        .select('config_value')
-        .eq('config_key', 'bootstrap_completed')
-        .single();
-
-      if (configError && configError.code !== 'PGRST116') {
-        console.error('AuthenticationService: Error checking system config:', configError);
-      }
-
-      const configValue = configData?.config_value;
-      const configCompleted = configValue === true || configValue === 'true';
-
-      console.log('AuthenticationService: Config completed:', configCompleted);
-
-      // If config says complete but no super admin exists, this is an inconsistent state
-      if (configCompleted && !hasSuperAdmin) {
-        console.warn('AuthenticationService: Inconsistent state - config complete but no super admin. Resetting bootstrap status.');
-        
-        // Reset the bootstrap status since we have no admins
-        try {
-          await supabase
-            .from('system_config')
-            .upsert({
-              config_key: 'bootstrap_completed',
-              config_value: 'false'
-            });
-        } catch (resetError) {
-          console.error('AuthenticationService: Could not reset bootstrap config:', resetError);
-        }
-        
+      const { data, error } = await supabase.rpc('get_bootstrap_status');
+      
+      if (error) {
+        console.error('AuthenticationService: Error checking bootstrap status:', error);
         return false;
       }
 
-      return configCompleted;
+      console.log('AuthenticationService: Bootstrap status response:', data);
+      
+      const isCompleted = data?.completed === true;
+      console.log('AuthenticationService: Bootstrap completed:', isCompleted);
+      
+      return isCompleted;
     } catch (error) {
       console.error('AuthenticationService: Bootstrap check exception:', error);
-      // On error, assume bootstrap needed to be safe
       return false;
     }
   }
@@ -228,13 +171,13 @@ class AuthenticationService {
   }
 
   /**
-   * Bootstrap super admin creation with comprehensive validation
+   * Bootstrap super admin creation with enhanced validation
    */
   async bootstrapSuperAdmin(email: string, password: string, fullName: string): Promise<ServiceResult<AuthState>> {
     try {
       console.log('AuthenticationService: Starting bootstrap super admin creation for:', email);
 
-      // First do a comprehensive bootstrap check
+      // Check bootstrap status first
       const bootstrapCompleted = await this.isBootstrapCompleted();
       
       if (bootstrapCompleted) {
@@ -252,8 +195,7 @@ class AuthenticationService {
           data: {
             full_name: fullName,
             registration_type: 'bootstrap'
-          },
-          emailRedirectTo: `${window.location.origin}/auth`
+          }
         }
       });
 
@@ -284,17 +226,14 @@ class AuthenticationService {
         return { success: false, error: 'Failed to create admin record' };
       }
 
-      // Mark bootstrap as completed
-      const { error: configError } = await supabase
-        .from('system_config')
-        .upsert({
-          config_key: 'bootstrap_completed',
-          config_value: 'true'
-        });
+      // Complete bootstrap using the new function
+      const { data: bootstrapResult, error: bootstrapError } = await supabase.rpc('complete_bootstrap_safely');
       
-      if (configError) {
-        console.warn('AuthenticationService: Failed to mark bootstrap complete:', configError);
+      if (bootstrapError) {
+        console.warn('AuthenticationService: Bootstrap completion warning:', bootstrapError);
       }
+
+      console.log('AuthenticationService: Bootstrap completion result:', bootstrapResult);
 
       const authState: AuthState = {
         user: authData.user,
@@ -314,56 +253,6 @@ class AuthenticationService {
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Bootstrap failed' 
-      };
-    }
-  }
-
-  /**
-   * Sign in regular user
-   */
-  async signInUser(email: string, password: string): Promise<ServiceResult<AuthState>> {
-    try {
-      console.log('AuthenticationService: User sign in attempt for:', email);
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        console.error('AuthenticationService: User sign in error:', error);
-        return { success: false, error: error.message };
-      }
-
-      if (!data.user || !data.session) {
-        return { success: false, error: 'Invalid credentials' };
-      }
-
-      // Check admin status (users can also be admins)
-      const adminStatus = await this.checkAdminStatus(data.user.id);
-
-      const authState: AuthState = {
-        user: data.user,
-        session: data.session,
-        isAuthenticated: true,
-        isAdmin: adminStatus.is_admin && adminStatus.is_active,
-        isSuperAdmin: adminStatus.is_admin && adminStatus.is_active && adminStatus.role === 'super_admin',
-        adminRole: adminStatus.is_admin && adminStatus.is_active ? adminStatus.role : null,
-        profile: null
-      };
-
-      console.log('AuthenticationService: User sign in successful:', {
-        userId: data.user.id,
-        isAdmin: authState.isAdmin,
-        role: authState.adminRole
-      });
-
-      return { success: true, data: authState };
-    } catch (error) {
-      console.error('AuthenticationService: User sign in exception:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'User sign in failed' 
       };
     }
   }
