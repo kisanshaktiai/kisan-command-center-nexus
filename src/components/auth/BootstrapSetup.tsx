@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { PasswordStrength, validatePassword } from '@/components/ui/password-strength';
-import { Loader2, Crown, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Loader2, Crown, Eye, EyeOff, CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthenticationService } from '@/hooks/useAuthenticationService';
 import { AuthErrorBoundary } from './AuthErrorBoundary';
+import { supabase } from '@/integrations/supabase/client';
 
 export const BootstrapSetup: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -20,9 +22,43 @@ export const BootstrapSetup: React.FC = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isCheckingExisting, setIsCheckingExisting] = useState(true);
+  const [existingAdmins, setExistingAdmins] = useState<any[]>([]);
   const navigate = useNavigate();
   
   const { bootstrapSuperAdmin, isLoading, error, clearError } = useAuthenticationService();
+
+  // Check for existing admins on component mount
+  useEffect(() => {
+    checkExistingAdmins();
+  }, []);
+
+  const checkExistingAdmins = async () => {
+    try {
+      setIsCheckingExisting(true);
+      const { data: adminUsers, error } = await supabase
+        .from('admin_users')
+        .select('id, email, full_name, role, is_active, created_at')
+        .eq('is_active', true)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error checking existing admins:', error);
+      } else {
+        setExistingAdmins(adminUsers || []);
+        
+        // If admins exist, show warning
+        if (adminUsers && adminUsers.length > 0) {
+          console.log('BootstrapSetup: Found existing admins:', adminUsers);
+          toast.warning('System already has administrator accounts. Please use the login form instead.');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing admins:', error);
+    } finally {
+      setIsCheckingExisting(false);
+    }
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -31,6 +67,15 @@ export const BootstrapSetup: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // If admins already exist, redirect to login
+    if (existingAdmins.length > 0) {
+      toast.error('System is already initialized. Redirecting to login...');
+      setTimeout(() => {
+        window.location.href = '/auth';
+      }, 2000);
+      return;
+    }
     
     // Enhanced client-side validation to match server requirements
     if (!formData.email || !formData.password || !formData.fullName || !formData.confirmPassword) {
@@ -106,7 +151,7 @@ export const BootstrapSetup: React.FC = () => {
         // Enhanced error handling for different error types
         if (error.includes('rate limit') || error.includes('Too many')) {
           toast.error('Too many attempts. Please wait before trying again.');
-        } else if (error.includes('already initialized') || error.includes('already exists')) {
+        } else if (error.includes('already initialized') || error.includes('already exists') || error.includes('already has a super admin')) {
           toast.error('System is already initialized. Please use the login form.');
           setTimeout(() => {
             window.location.href = '/auth';
@@ -122,6 +167,73 @@ export const BootstrapSetup: React.FC = () => {
       }
     );
   };
+
+  // Show loading state while checking for existing admins
+  if (isCheckingExisting) {
+    return (
+      <AuthErrorBoundary>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
+          <Card className="w-full max-w-md">
+            <CardContent className="flex flex-col items-center justify-center p-8">
+              <Loader2 className="w-8 h-8 animate-spin mb-4" />
+              <div className="text-lg font-medium mb-2">Checking system status...</div>
+              <div className="text-sm text-muted-foreground">Please wait</div>
+            </CardContent>
+          </Card>
+        </div>
+      </AuthErrorBoundary>
+    );
+  }
+
+  // Show warning if admins already exist
+  if (existingAdmins.length > 0) {
+    return (
+      <AuthErrorBoundary>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="space-y-4 text-center">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-bold">System Already Initialized</CardTitle>
+                <CardDescription>
+                  This system already has administrator accounts configured
+                </CardDescription>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Found {existingAdmins.length} existing administrator account{existingAdmins.length > 1 ? 's' : ''}. 
+                  Please use the login form to access the system.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm">Existing Administrators:</h4>
+                {existingAdmins.map((admin) => (
+                  <div key={admin.id} className="p-2 bg-muted rounded text-sm">
+                    <div className="font-medium">{admin.full_name}</div>
+                    <div className="text-muted-foreground">{admin.email} - {admin.role}</div>
+                  </div>
+                ))}
+              </div>
+              
+              <Button
+                onClick={() => window.location.href = '/auth'}
+                className="w-full"
+              >
+                Go to Login
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AuthErrorBoundary>
+    );
+  }
 
   return (
     <AuthErrorBoundary>

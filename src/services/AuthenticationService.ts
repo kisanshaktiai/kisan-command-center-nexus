@@ -198,7 +198,7 @@ class AuthenticationService {
     try {
       console.log('AuthenticationService: Bootstrap super admin creation for:', email);
 
-      // Check if bootstrap is needed using type assertion
+      // First check if bootstrap is actually needed
       const { data: bootstrapNeeded, error: bootstrapError } = await (supabase.rpc as any)('bootstrap_is_needed');
       
       if (bootstrapError) {
@@ -207,6 +207,33 @@ class AuthenticationService {
       }
 
       if (!bootstrapNeeded) {
+        console.log('AuthenticationService: Bootstrap not needed, checking existing admin...');
+        
+        // Check if user already exists and is an admin
+        const { data: existingUser } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (existingUser?.user) {
+          const adminStatus = await this.checkAdminStatus(existingUser.user.id);
+          if (adminStatus.is_admin && adminStatus.is_active) {
+            console.log('AuthenticationService: User is already an admin, signing them in');
+            return {
+              success: true,
+              data: {
+                user: existingUser.user,
+                session: existingUser.session,
+                isAuthenticated: true,
+                isAdmin: true,
+                isSuperAdmin: adminStatus.role === 'super_admin',
+                adminRole: adminStatus.role,
+                profile: null
+              }
+            };
+          }
+        }
+        
         return { success: false, error: 'System already has a super admin' };
       }
 
@@ -340,16 +367,18 @@ class AuthenticationService {
       
       if (error) {
         console.error('AuthenticationService: Bootstrap check error:', error);
-        return false; // Assume not completed if we can't check
+        // If we can't check, assume bootstrap is completed to prevent getting stuck
+        return true;
       }
 
       const isCompleted = !data; // bootstrap_is_needed returns true if bootstrap needed
-      console.log('AuthenticationService: Bootstrap flag found - completed:', isCompleted);
+      console.log('AuthenticationService: Bootstrap needed:', data, 'Completed:', isCompleted);
       
       return isCompleted;
     } catch (error) {
       console.error('AuthenticationService: Bootstrap check exception:', error);
-      return false;
+      // If we can't check, assume bootstrap is completed to prevent getting stuck
+      return true;
     }
   }
 

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { BaseService, ServiceResult } from './BaseService';
 import { authenticationService } from './AuthenticationService';
@@ -33,7 +34,7 @@ export class BootstrapService extends BaseService {
   }
 
   /**
-   * Check if system bootstrap is completed
+   * Check if system bootstrap is completed - FIXED VERSION
    */
   async checkBootstrapStatus(): Promise<ServiceResult<BootstrapStatus>> {
     return this.executeOperation(async () => {
@@ -54,11 +55,23 @@ export class BootstrapService extends BaseService {
       }
 
       const hasAdminUsers = adminUsers && adminUsers.length > 0;
+      
+      // If we have admin users but bootstrap isn't marked complete, mark it complete
+      if (hasAdminUsers && !isCompleted) {
+        console.log('BootstrapService: Found admin users but bootstrap not complete, marking complete...');
+        try {
+          await (supabase.rpc as any)('complete_bootstrap');
+        } catch (error) {
+          console.warn('BootstrapService: Failed to mark bootstrap complete:', error);
+        }
+      }
+
+      const systemReady = isCompleted || Boolean(hasAdminUsers);
 
       return {
-        isCompleted,
+        isCompleted: systemReady,
         hasAdminUsers: Boolean(hasAdminUsers),
-        systemReady: isCompleted && Boolean(hasAdminUsers)
+        systemReady
       };
     }, 'checkBootstrapStatus');
   }
