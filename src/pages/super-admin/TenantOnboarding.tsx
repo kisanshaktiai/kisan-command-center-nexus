@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { CheckCircle, Clock, AlertCircle, Play, Pause, RotateCcw, RefreshCw } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Play, Pause, RotateCcw, RefreshCw, Wand2 } from 'lucide-react';
+import { TenantOnboardingWizard } from '@/components/onboarding/TenantOnboardingWizard';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -79,6 +80,9 @@ export default function TenantOnboarding() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<OnboardingWorkflow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string>('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
+  const [wizardTenantId, setWizardTenantId] = useState<string>('');
+  const [wizardWorkflowId, setWizardWorkflowId] = useState<string>('');
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useNotifications();
 
@@ -319,24 +323,51 @@ export default function TenantOnboarding() {
     showSuccess('Tenant list refreshed');
   };
 
+  const handleStartOnboarding = (tenantId: string) => {
+    setWizardTenantId(tenantId);
+    setShowWizard(true);
+    
+    // If there's an existing workflow, pass it to the wizard
+    const existingWorkflow = workflows.find(w => w.tenant_id === tenantId);
+    if (existingWorkflow) {
+      setWizardWorkflowId(existingWorkflow.id);
+    }
+  };
+
+  const handleCreateAndStartOnboarding = async () => {
+    if (!selectedTenant) return;
+    
+    try {
+      const result = await createWorkflowMutation.mutateAsync(selectedTenant);
+      if (result) {
+        setShowCreateDialog(false);
+        setSelectedTenant('');
+        // Start the wizard immediately after creating workflow
+        handleStartOnboarding(selectedTenant);
+      }
+    } catch (error) {
+      console.error('Error creating workflow:', error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Tenant Onboarding</h1>
-          <p className="text-muted-foreground">Manage tenant onboarding workflows and progress</p>
+          <p className="text-muted-foreground">Manage tenant onboarding workflows with our world-class wizard</p>
         </div>
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
             <Button>
-              <Play className="w-4 h-4 mr-2" />
-              Start Onboarding
+              <Wand2 className="w-4 h-4 mr-2" />
+              Start Smart Onboarding
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Start New Onboarding</DialogTitle>
-              <DialogDescription>Select a tenant to begin the onboarding process</DialogDescription>
+              <DialogTitle>Start Enhanced Onboarding</DialogTitle>
+              <DialogDescription>Select a tenant to begin the comprehensive onboarding experience</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -380,12 +411,22 @@ export default function TenantOnboarding() {
                       </option>
                     ))}
                   </select>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <h4 className="font-medium text-sm text-blue-900">Enhanced Onboarding Features:</h4>
+                    <ul className="text-xs text-blue-800 mt-1 space-y-1">
+                      <li>• Interactive step-by-step wizard</li>
+                      <li>• Real-time validation and verification</li>
+                      <li>• Smart automation and integrations</li>
+                      <li>• Professional branding setup</li>
+                      <li>• Complete team and billing configuration</li>
+                    </ul>
+                  </div>
                   <Button
-                    onClick={() => selectedTenant && createWorkflowMutation.mutate(selectedTenant)}
+                    onClick={handleCreateAndStartOnboarding}
                     disabled={!selectedTenant || createWorkflowMutation.isPending}
                     className="w-full"
                   >
-                    {createWorkflowMutation.isPending ? 'Creating...' : 'Start Onboarding'}
+                    {createWorkflowMutation.isPending ? 'Starting...' : 'Start Enhanced Onboarding'}
                   </Button>
                 </>
               )}
@@ -393,6 +434,20 @@ export default function TenantOnboarding() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Enhanced Onboarding Wizard */}
+      <TenantOnboardingWizard
+        isOpen={showWizard}
+        onClose={() => {
+          setShowWizard(false);
+          setWizardTenantId('');
+          setWizardWorkflowId('');
+          // Refresh data after wizard closes
+          refetchWorkflows();
+        }}
+        tenantId={wizardTenantId}
+        workflowId={wizardWorkflowId}
+      />
 
       <Tabs defaultValue="active" className="space-y-4">
         <TabsList>
@@ -409,25 +464,30 @@ export default function TenantOnboarding() {
               {workflows.filter(w => w.status !== 'completed').length === 0 ? (
                 <Card>
                   <CardContent className="text-center py-8">
-                    <p className="text-muted-foreground">No active workflows found</p>
+                    <Wand2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground mb-4">No active workflows found</p>
                     <Button 
                       variant="outline" 
                       onClick={() => setShowCreateDialog(true)}
-                      className="mt-4"
+                      className="mr-2"
                     >
-                      <Play className="w-4 h-4 mr-2" />
-                      Start New Onboarding
+                      <Wand2 className="w-4 h-4 mr-2" />
+                      Start Enhanced Onboarding
                     </Button>
                   </CardContent>
                 </Card>
               ) : (
                 workflows.filter(w => w.status !== 'completed').map((workflow) => (
-                  <Card key={workflow.id} className="cursor-pointer hover:shadow-md transition-shadow" 
-                        onClick={() => setSelectedWorkflow(workflow)}>
+                  <Card key={workflow.id} className="hover:shadow-md transition-shadow">
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div>
-                          <CardTitle>{workflow.tenants?.name || 'Unknown Tenant'}</CardTitle>
+                          <CardTitle className="flex items-center gap-2">
+                            {workflow.tenants?.name || 'Unknown Tenant'}
+                            <Badge variant="secondary" className="text-xs">
+                              Enhanced
+                            </Badge>
+                          </CardTitle>
                           <CardDescription>
                             Started {new Date(workflow.started_at).toLocaleDateString()} • 
                             {workflow.tenants?.type} • {workflow.tenants?.subscription_plan}
@@ -439,12 +499,40 @@ export default function TenantOnboarding() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Progress</span>
-                          <span>{workflow.current_step}/{workflow.total_steps} steps</span>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>Progress</span>
+                            <span>{workflow.current_step}/{workflow.total_steps} steps</span>
+                          </div>
+                          <Progress value={calculateProgress(workflow)} className="h-2" />
                         </div>
-                        <Progress value={calculateProgress(workflow)} className="h-2" />
+                        
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleStartOnboarding(workflow.tenant_id)}
+                          >
+                            <Wand2 className="w-4 h-4 mr-2" />
+                            Open Wizard
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedWorkflow(workflow)}
+                          >
+                            View Details
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => restartWorkflowMutation.mutate(workflow.tenant_id)}
+                            disabled={restartWorkflowMutation.isPending}
+                          >
+                            <RotateCcw className="w-4 h-4 mr-2" />
+                            Restart
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
