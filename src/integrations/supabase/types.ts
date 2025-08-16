@@ -7408,6 +7408,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      check_registration_status: {
+        Args: { p_email?: string; p_token?: string }
+        Returns: Json
+      }
       check_slug_availability: {
         Args: { p_slug: string } | { p_slug: string; p_tenant_id?: string }
         Returns: Json
@@ -7415,6 +7419,10 @@ export type Database = {
       cleanup_bootstrap_state: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      cleanup_expired_registrations: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       cleanup_expired_sessions: {
         Args: Record<PropertyKey, never>
@@ -9609,6 +9617,10 @@ export type Database = {
           is_valid: boolean
           role: string
         }[]
+      }
+      validate_registration_token_secure: {
+        Args: { p_token: string }
+        Returns: Json
       }
       verify_admin_user_setup: {
         Args: Record<PropertyKey, never>
