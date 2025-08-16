@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, XCircle, Loader2, Mail, User, AlertTriangle } from 'lucide-react';
 import { TenantFormData } from '@/types/tenant';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
 
 interface TenantAdminSectionProps {
   formData: TenantFormData;
@@ -16,8 +16,8 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
   formData,
   onFieldChange
 }) => {
+  const { checkUserExists, isCheckingUser } = useTenantUserManagement();
   const [emailExists, setEmailExists] = useState<boolean | null>(null);
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [emailCheckError, setEmailCheckError] = useState<string | null>(null);
 
   const validateEmail = (email: string) => {
@@ -25,61 +25,46 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
     return emailRegex.test(email);
   };
 
-  const checkEmailExists = async (email: string) => {
+  const handleEmailBlur = async () => {
+    const email = formData.owner_email;
+    
     if (!email || !validateEmail(email)) {
       setEmailExists(null);
       setEmailCheckError(null);
       return;
     }
 
-    setIsCheckingEmail(true);
     setEmailCheckError(null);
 
     try {
       console.log('TenantAdminSection: Checking email exists for:', email);
       
-      // Call the check-user-exists edge function
-      const { data, error } = await supabase.functions.invoke('check-user-exists', {
-        body: { email }
-      });
-
-      if (error) {
-        console.error('TenantAdminSection: Error calling check-user-exists:', error);
+      const result = await checkUserExists(email);
+      
+      if (result) {
+        console.log('TenantAdminSection: Check user exists response:', result);
+        
+        if (result.exists === true) {
+          setEmailExists(true);
+          setEmailCheckError('This email already has a user account');
+        } else {
+          setEmailExists(false);
+          setEmailCheckError(null);
+        }
+      } else {
         setEmailCheckError('Failed to check email availability');
         setEmailExists(null);
-        return;
-      }
-
-      console.log('TenantAdminSection: Check user exists response:', data);
-
-      if (data?.exists === true) {
-        setEmailExists(true);
-        setEmailCheckError('This email already has a user account');
-      } else {
-        setEmailExists(false);
-        setEmailCheckError(null);
       }
     } catch (error) {
       console.error('TenantAdminSection: Exception checking email:', error);
       setEmailCheckError('Failed to check email availability');
       setEmailExists(null);
-    } finally {
-      setIsCheckingEmail(false);
     }
   };
 
-  // Check if email exists when email changes
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      checkEmailExists(formData.owner_email || '');
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [formData.owner_email]);
-
   const getEmailValidationIcon = () => {
     if (!formData.owner_email) return null;
-    if (isCheckingEmail) return <Loader2 className="w-4 h-4 animate-spin text-gray-500" />;
+    if (isCheckingUser) return <Loader2 className="w-4 h-4 animate-spin text-gray-500" />;
     if (!validateEmail(formData.owner_email)) return <XCircle className="w-4 h-4 text-red-500" />;
     if (emailExists === true) return <XCircle className="w-4 h-4 text-red-500" />;
     if (emailExists === false) return <CheckCircle className="w-4 h-4 text-green-500" />;
@@ -140,6 +125,7 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
                 type="email"
                 value={formData.owner_email || ''}
                 onChange={(e) => onFieldChange('owner_email', e.target.value)}
+                onBlur={handleEmailBlur}
                 placeholder="admin@example.com"
                 required
                 className={`pr-10 ${
@@ -160,7 +146,7 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
             {getEmailSuccessMessage() && (
               <p className="text-sm text-green-600">{getEmailSuccessMessage()}</p>
             )}
-            {!getEmailErrorMessage() && !getEmailSuccessMessage() && !isCheckingEmail && (
+            {!getEmailErrorMessage() && !getEmailSuccessMessage() && !isCheckingUser && (
               <p className="text-xs text-muted-foreground">Welcome email with login credentials will be sent here</p>
             )}
           </div>
