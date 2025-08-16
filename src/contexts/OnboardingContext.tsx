@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -89,6 +88,18 @@ function onboardingReducer(state: OnboardingState, action: OnboardingAction): On
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
 
+// Define the database template type explicitly to avoid type inference issues
+interface DatabaseTemplate {
+  id: string;
+  step_name: string;
+  step_number: number | null;
+  validation_schema: any;
+  default_data: any;
+  is_required: boolean | null;
+  help_text: string | null;
+  is_active: boolean;
+}
+
 export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId: string }> = ({
   children,
   tenantId
@@ -110,25 +121,25 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
     enabled: !!tenantId
   });
 
-  // Simplified templates query without complex type inference
-  const { data: templatesData } = useQuery({
+  // Fetch templates with explicit typing to prevent type inference issues
+  const { data: templatesRawData } = useQuery<DatabaseTemplate[]>({
     queryKey: ['onboarding-templates'],
-    queryFn: async () => {
+    queryFn: async (): Promise<DatabaseTemplate[]> => {
       const { data, error } = await supabase
         .from('onboarding_step_templates')
-        .select('*')
+        .select('id, step_name, step_number, validation_schema, default_data, is_required, help_text, is_active')
         .eq('is_active', true)
         .order('step_order');
       
       if (error) throw error;
-      return data;
+      return data as DatabaseTemplate[];
     }
   });
 
   // Transform templates data separately to avoid type inference issues
   useEffect(() => {
-    if (templatesData) {
-      const transformedTemplates: OnboardingStepTemplate[] = templatesData.map(template => ({
+    if (templatesRawData) {
+      const transformedTemplates: OnboardingStepTemplate[] = templatesRawData.map((template: DatabaseTemplate) => ({
         id: template.id,
         step_name: template.step_name,
         step_order: template.step_number || 0,
@@ -150,7 +161,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
 
       dispatch({ type: 'SET_TEMPLATES', payload: transformedTemplates });
     }
-  }, [templatesData]);
+  }, [templatesRawData]);
 
   // Update step mutation
   const updateStepMutation = useMutation({
