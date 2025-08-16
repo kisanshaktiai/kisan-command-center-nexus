@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -436,7 +435,8 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
       </Dialog>
 
       <TenantUserCreator
-        tenant={tenant}
+        tenantId={tenant?.id}
+        tenantName={tenant?.name}
         isOpen={showUserCreator}
         onClose={() => setShowUserCreator(false)}
       />
