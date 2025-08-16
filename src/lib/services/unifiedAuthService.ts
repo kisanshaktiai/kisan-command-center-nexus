@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { AuthState, TenantData, AdminStatusResult } from '@/types/auth';
@@ -95,24 +96,28 @@ class UnifiedAuthService {
     try {
       console.log('UnifiedAuth: Checking admin status for user:', userId);
       
-      // Use type assertion for our custom function
-      const { data, error } = await (supabase.rpc as any)('check_user_admin_status', {
-        user_uuid: userId
-      });
+      // Query the admin_users table directly instead of using RPC
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('id, role, is_active')
+        .eq('id', userId)
+        .single();
 
       if (error) {
         console.error('UnifiedAuth: Error checking admin status:', error);
+        // If error is "not found", user is simply not an admin
+        if (error.code === 'PGRST116') {
+          return { is_admin: false, role: '', is_active: false };
+        }
         return { is_admin: false, role: '', is_active: false };
       }
 
-      // Handle the response data structure properly
-      if (Array.isArray(data) && data.length > 0) {
-        const result = data[0] as AdminStatusResult;
-        console.log('UnifiedAuth: Admin status result:', result);
+      if (data) {
+        console.log('UnifiedAuth: Admin status result:', data);
         return {
-          is_admin: result.is_admin || false,
-          role: result.role || '',
-          is_active: result.is_active || false
+          is_admin: true,
+          role: data.role || '',
+          is_active: data.is_active || false
         };
       }
 
@@ -127,7 +132,7 @@ class UnifiedAuthService {
     try {
       console.log('UnifiedAuth: Loading user profile for:', userId);
       
-      // Check admin status using the new secure function
+      // Check admin status using direct database query
       const adminStatus = await this.checkAdminStatus(userId);
 
       const { setAuthState } = useAuthStore.getState();

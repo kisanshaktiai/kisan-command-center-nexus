@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { AuthState, TenantData, AdminStatusResult } from '@/types/auth';
 
@@ -18,30 +19,34 @@ class AuthenticationService {
   }
 
   /**
-   * Check admin status using the new secure function
+   * Check admin status by querying the admin_users table directly
    */
   async checkAdminStatus(userId: string): Promise<AdminStatusResult> {
     try {
       console.log('AuthenticationService: Checking admin status for user:', userId);
       
-      // Use type assertion to tell TypeScript about our custom function
-      const { data, error } = await (supabase.rpc as any)('check_user_admin_status', {
-        user_uuid: userId
-      });
+      // Query the admin_users table directly instead of using RPC
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('id, role, is_active')
+        .eq('id', userId)
+        .single();
 
       if (error) {
         console.error('AuthenticationService: Error checking admin status:', error);
+        // If error is "not found", user is simply not an admin
+        if (error.code === 'PGRST116') {
+          return { is_admin: false, role: '', is_active: false };
+        }
         return { is_admin: false, role: '', is_active: false };
       }
 
-      // Handle the response data structure properly
-      if (Array.isArray(data) && data.length > 0) {
-        const result = data[0] as AdminStatusResult;
-        console.log('AuthenticationService: Admin status result:', result);
+      if (data) {
+        console.log('AuthenticationService: Admin status result:', data);
         return {
-          is_admin: result.is_admin || false,
-          role: result.role || '',
-          is_active: result.is_active || false
+          is_admin: true,
+          role: data.role || '',
+          is_active: data.is_active || false
         };
       }
 
@@ -198,18 +203,23 @@ class AuthenticationService {
     try {
       console.log('AuthenticationService: Bootstrap super admin creation for:', email);
 
-      // First check if bootstrap is actually needed
-      const { data: bootstrapNeeded, error: bootstrapError } = await (supabase.rpc as any)('bootstrap_is_needed');
-      
-      if (bootstrapError) {
-        console.error('AuthenticationService: Error checking bootstrap status:', bootstrapError);
-        return { success: false, error: 'Failed to verify bootstrap status' };
+      // First check if bootstrap is actually needed by checking for existing super admins
+      const { data: existingSuperAdmins, error: checkError } = await supabase
+        .from('admin_users')
+        .select('id, email, role, is_active')
+        .eq('role', 'super_admin')
+        .eq('is_active', true)
+        .limit(1);
+
+      if (checkError) {
+        console.error('AuthenticationService: Error checking existing super admins:', checkError);
+        return { success: false, error: 'Failed to verify super admin status' };
       }
 
-      if (!bootstrapNeeded) {
-        console.log('AuthenticationService: Bootstrap not needed, checking existing admin...');
+      if (existingSuperAdmins && existingSuperAdmins.length > 0) {
+        console.log('AuthenticationService: Super admin already exists, checking if this user is that admin...');
         
-        // Check if user already exists and is an admin
+        // Check if the current user trying to bootstrap is already the super admin
         const { data: existingUser } = await supabase.auth.signInWithPassword({
           email,
           password
@@ -217,8 +227,8 @@ class AuthenticationService {
 
         if (existingUser?.user) {
           const adminStatus = await this.checkAdminStatus(existingUser.user.id);
-          if (adminStatus.is_admin && adminStatus.is_active) {
-            console.log('AuthenticationService: User is already an admin, signing them in');
+          if (adminStatus.is_admin && adminStatus.is_active && adminStatus.role === 'super_admin') {
+            console.log('AuthenticationService: User is already the super admin, signing them in');
             return {
               success: true,
               data: {
@@ -226,8 +236,8 @@ class AuthenticationService {
                 session: existingUser.session,
                 isAuthenticated: true,
                 isAdmin: true,
-                isSuperAdmin: adminStatus.role === 'super_admin',
-                adminRole: adminStatus.role,
+                isSuperAdmin: true,
+                adminRole: 'super_admin',
                 profile: null
               }
             };
@@ -276,8 +286,13 @@ class AuthenticationService {
         return { success: false, error: 'Failed to create admin record' };
       }
 
-      // Mark bootstrap as completed using type assertion
-      const { error: configError } = await (supabase.rpc as any)('complete_bootstrap');
+      // Mark bootstrap as completed
+      const { error: configError } = await supabase
+        .from('system_config')
+        .upsert({
+          config_key: 'bootstrap_completed',
+          config_value: 'true'
+        });
       
       if (configError) {
         console.warn('AuthenticationService: Failed to mark bootstrap complete:', configError);
@@ -362,17 +377,26 @@ class AuthenticationService {
     try {
       console.log('AuthenticationService: Checking bootstrap status...');
       
-      // Use type assertion for our custom function
-      const { data, error } = await (supabase.rpc as any)('bootstrap_is_needed');
-      
-      if (error) {
-        console.error('AuthenticationService: Bootstrap check error:', error);
-        // If we can't check, assume bootstrap is completed to prevent getting stuck
-        return true;
-      }
+      // Check both system config and existing super admins
+      const [configResult, adminResult] = await Promise.all([
+        supabase
+          .from('system_config')
+          .select('config_value')
+          .eq('config_key', 'bootstrap_completed')
+          .single(),
+        supabase
+          .from('admin_users')
+          .select('id')
+          .eq('role', 'super_admin')
+          .eq('is_active', true)
+          .limit(1)
+      ]);
 
-      const isCompleted = !data; // bootstrap_is_needed returns true if bootstrap needed
-      console.log('AuthenticationService: Bootstrap needed:', data, 'Completed:', isCompleted);
+      const hasConfig = configResult.data?.config_value === 'true';
+      const hasSuperAdmin = adminResult.data && adminResult.data.length > 0;
+      
+      const isCompleted = hasConfig || hasSuperAdmin;
+      console.log('AuthenticationService: Bootstrap status - hasConfig:', hasConfig, 'hasSuperAdmin:', hasSuperAdmin, 'isCompleted:', isCompleted);
       
       return isCompleted;
     } catch (error) {
