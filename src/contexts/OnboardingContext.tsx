@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -109,36 +110,47 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
     enabled: !!tenantId
   });
 
-  // Fetch step templates with simplified typing
-  const fetchTemplates = async (): Promise<OnboardingStepTemplate[]> => {
-    const { data, error } = await supabase
-      .from('onboarding_step_templates')
-      .select('*')
-      .eq('is_active', true)
-      .order('step_order');
-    
-    if (error) throw error;
-    
-    // Transform the data to match our interface
-    return data.map(template => ({
-      id: template.id,
-      step_name: template.step_name,
-      step_order: template.step_number,
-      step_type: 'form',
-      schema_config: template.validation_schema || {},
-      default_data: template.default_data || {},
-      validation_rules: template.validation_schema || {},
-      is_required: template.is_required,
-      is_active: true,
-      help_text: template.help_text,
-      estimated_time_minutes: 30
-    }));
-  };
-
-  const { data: templates } = useQuery({
+  // Simplified templates query without complex type inference
+  const { data: templatesData } = useQuery({
     queryKey: ['onboarding-templates'],
-    queryFn: fetchTemplates
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('onboarding_step_templates')
+        .select('*')
+        .eq('is_active', true)
+        .order('step_order');
+      
+      if (error) throw error;
+      return data;
+    }
   });
+
+  // Transform templates data separately to avoid type inference issues
+  useEffect(() => {
+    if (templatesData) {
+      const transformedTemplates: OnboardingStepTemplate[] = templatesData.map(template => ({
+        id: template.id,
+        step_name: template.step_name,
+        step_order: template.step_number || 0,
+        step_type: 'form',
+        schema_config: (typeof template.validation_schema === 'object' && template.validation_schema !== null) 
+          ? template.validation_schema as Record<string, any>
+          : {},
+        default_data: (typeof template.default_data === 'object' && template.default_data !== null)
+          ? template.default_data as Record<string, any>
+          : {},
+        validation_rules: (typeof template.validation_schema === 'object' && template.validation_schema !== null)
+          ? template.validation_schema as Record<string, any>
+          : {},
+        is_required: template.is_required || false,
+        is_active: true,
+        help_text: template.help_text || undefined,
+        estimated_time_minutes: 30
+      }));
+
+      dispatch({ type: 'SET_TEMPLATES', payload: transformedTemplates });
+    }
+  }, [templatesData]);
 
   // Update step mutation
   const updateStepMutation = useMutation({
@@ -187,7 +199,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
       dispatch({ type: 'SET_STEPS', payload: workflowData.steps });
       
       // Load existing form data from steps
-      const formData: any = {};
+      const formData: Record<string, any> = {};
       workflowData.steps.forEach((step: OnboardingStep) => {
         if (step.step_data && Object.keys(step.step_data).length > 0) {
           const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '');
@@ -211,12 +223,6 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
       });
     }
   }, [workflowData]);
-
-  useEffect(() => {
-    if (templates) {
-      dispatch({ type: 'SET_TEMPLATES', payload: templates });
-    }
-  }, [templates]);
 
   // Actions
   const goToStep = useCallback((stepIndex: number) => {
