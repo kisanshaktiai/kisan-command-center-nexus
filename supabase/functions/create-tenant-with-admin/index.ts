@@ -186,7 +186,7 @@ serve(async (req) => {
       user_metadata: {
         full_name: requestBody.owner_name,
         tenant_id: tenant.id,
-        role: 'tenant_owner',
+        role: 'tenant_admin',
         created_via: 'tenant_creation',
         correlation_id: correlationId
       }
@@ -219,7 +219,7 @@ serve(async (req) => {
       body: {
         user_id: adminUserData.user.id,
         tenant_id: tenant.id,
-        role: 'tenant_owner',
+        role: 'tenant_admin',
         is_active: true,
         metadata: {
           created_via: 'tenant_creation',

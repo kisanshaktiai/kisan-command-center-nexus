@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from './useNotifications';
+import { UserTenantService, UserTenantStatus } from '@/services/UserTenantService';
 
 interface UserExistsResult {
   exists: boolean;
@@ -25,6 +26,8 @@ export const useTenantUserManagement = () => {
   const [isCheckingUser, setIsCheckingUser] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isSendingReset, setIsSendingReset] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [isFixingRelationship, setIsFixingRelationship] = useState(false);
   const { showSuccess, showError } = useNotifications();
 
   const checkUserExists = useCallback(async (email: string): Promise<UserExistsResult | null> => {
@@ -58,6 +61,50 @@ export const useTenantUserManagement = () => {
       setIsCheckingUser(false);
     }
   }, []);
+
+  const checkUserTenantStatus = useCallback(async (
+    email: string, 
+    tenantId: string
+  ): Promise<UserTenantStatus | null> => {
+    if (!email || !tenantId) return null;
+    
+    setIsCheckingStatus(true);
+    try {
+      const status = await UserTenantService.checkUserTenantStatus(email, tenantId);
+      return status;
+    } catch (error) {
+      console.error('Failed to check user-tenant status:', error);
+      return null;
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  }, []);
+
+  const ensureUserTenantRecord = useCallback(async (
+    userId: string,
+    tenantId: string
+  ): Promise<boolean> => {
+    if (!userId || !tenantId) return false;
+    
+    setIsFixingRelationship(true);
+    try {
+      const result = await UserTenantService.ensureUserTenantRecord(userId, tenantId);
+      
+      if (result.success) {
+        showSuccess('User-tenant relationship created successfully');
+        return true;
+      } else {
+        showError(result.error || 'Failed to create user-tenant relationship');
+        return false;
+      }
+    } catch (error) {
+      console.error('Failed to ensure user-tenant record:', error);
+      showError('Failed to create user-tenant relationship');
+      return false;
+    } finally {
+      setIsFixingRelationship(false);
+    }
+  }, [showSuccess, showError]);
 
   const createTenantAsUser = useCallback(async (
     email: string, 
@@ -184,9 +231,13 @@ export const useTenantUserManagement = () => {
     isCheckingUser,
     isCreatingUser,
     isSendingReset,
+    isCheckingStatus,
+    isFixingRelationship,
     
     // Actions
     checkUserExists,
+    checkUserTenantStatus,
+    ensureUserTenantRecord,
     createTenantAsUser,
     createAdminUser,
     sendPasswordReset

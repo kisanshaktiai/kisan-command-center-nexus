@@ -24,9 +24,13 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle,
+  Shield,
+  Database
 } from 'lucide-react';
 import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
+import { UserTenantStatus } from '@/services/UserTenantService';
 
 interface TenantDetailsModalProps {
   tenant: Tenant | null;
@@ -43,17 +47,22 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
 }) => {
   const [userStatus, setUserStatus] = useState<'checking' | 'found' | 'not_found' | 'error'>('checking');
   const [userInfo, setUserInfo] = useState<any>(null);
+  const [tenantStatus, setTenantStatus] = useState<UserTenantStatus | null>(null);
   
   const {
     isCheckingUser,
     isCreatingUser,
     isSendingReset,
+    isCheckingStatus,
+    isFixingRelationship,
     checkUserExists,
+    checkUserTenantStatus,
+    ensureUserTenantRecord,
     createAdminUser,
     sendPasswordReset
   } = useTenantUserManagement();
 
-  // Check user existence when modal opens with tenant
+  // Check user existence and tenant status when modal opens with tenant
   useEffect(() => {
     if (tenant?.owner_email && isOpen) {
       checkUser();
@@ -64,6 +73,8 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
     if (!tenant?.owner_email) return;
     
     setUserStatus('checking');
+    
+    // Check auth.users first
     const result = await checkUserExists(tenant.owner_email);
     
     if (result?.error) {
@@ -73,13 +84,20 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
       setUserInfo({
         email: tenant.owner_email,
         userId: result.userId,
-        created_at: new Date().toISOString(), // We don't have this info from the result
+        created_at: new Date().toISOString(),
         isAdmin: result.isAdmin,
         userStatus: result.userStatus
       });
+      
+      // Then check user_tenants table
+      if (result.userId && tenant.id) {
+        const tenantStatusResult = await checkUserTenantStatus(tenant.owner_email, tenant.id);
+        setTenantStatus(tenantStatusResult);
+      }
     } else {
       setUserStatus('not_found');
       setUserInfo(null);
+      setTenantStatus(null);
     }
   };
 
@@ -94,6 +112,16 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
     
     if (result?.success) {
       // Refresh user status after successful creation
+      setTimeout(() => checkUser(), 1000);
+    }
+  };
+
+  const handleFixRelationship = async () => {
+    if (!userInfo?.userId || !tenant?.id) return;
+    
+    const success = await ensureUserTenantRecord(userInfo.userId, tenant.id);
+    if (success) {
+      // Refresh status after fixing
       setTimeout(() => checkUser(), 1000);
     }
   };
@@ -131,14 +159,14 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
       );
     }
 
-    const isLoading = isCheckingUser || isCreatingUser || isSendingReset;
+    const isLoading = isCheckingUser || isCreatingUser || isSendingReset || isCheckingStatus || isFixingRelationship;
 
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h4 className="font-medium text-sm flex items-center gap-2">
             <User className="h-4 w-4" />
-            Admin User Status
+            Admin User Management
           </h4>
           <Button
             variant="ghost"
@@ -146,7 +174,7 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
             onClick={checkUser}
             disabled={isLoading}
           >
-            <RefreshCw className={`h-3 w-3 ${isCheckingUser ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3 w-3 ${isCheckingUser || isCheckingStatus ? 'animate-spin' : ''}`} />
           </Button>
         </div>
 
@@ -158,12 +186,84 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
         )}
 
         {userStatus === 'found' && userInfo && (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Auth Status */}
             <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
               <CheckCircle className="h-4 w-4 text-green-600" />
-              <span className="text-sm text-green-700">Admin user found in authentication system</span>
+              <Shield className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-700">User found in authentication system</span>
             </div>
+
+            {/* Tenant Relationship Status */}
+            {tenantStatus && (
+              <div className="space-y-3">
+                <div className={`flex items-center gap-2 p-3 rounded-lg ${
+                  tenantStatus.tenantRelationshipExists && tenantStatus.roleMatches
+                    ? 'bg-green-50'
+                    : 'bg-orange-50'
+                }`}>
+                  {tenantStatus.tenantRelationshipExists && tenantStatus.roleMatches ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <Database className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-700">
+                        User-tenant relationship configured correctly (Role: {tenantStatus.currentRole})
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 text-orange-600" />
+                      <Database className="h-4 w-4 text-orange-600" />
+                      <span className="text-sm text-orange-700">
+                        User-tenant relationship needs attention
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Issues */}
+                {tenantStatus.issues.length > 0 && (
+                  <div className="bg-red-50 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <XCircle className="h-4 w-4 text-red-600" />
+                      <span className="text-sm font-medium text-red-700">Issues Found:</span>
+                    </div>
+                    <ul className="text-xs text-red-600 space-y-1 ml-6">
+                      {tenantStatus.issues.map((issue, index) => (
+                        <li key={index}>• {issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Fix Actions */}
+                {(!tenantStatus.tenantRelationshipExists || !tenantStatus.roleMatches) && userInfo.userId && (
+                  <Button
+                    onClick={handleFixRelationship}
+                    disabled={isFixingRelationship}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    {isFixingRelationship ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                        Fixing Relationship...
+                      </>
+                    ) : (
+                      <>
+                        <Database className="h-3 w-3 mr-2" />
+                        {!tenantStatus.tenantRelationshipExists 
+                          ? 'Create User-Tenant Relationship' 
+                          : 'Fix Role Mismatch'}
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            )}
             
+            {/* User Details */}
             <div className="flex items-center space-x-4 p-3 border rounded-lg">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={`https://avatar.vercel.sh/${userInfo.email}.png`} />
@@ -175,13 +275,25 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
                   <Mail className="h-3 w-3" />
                   {userInfo.email}
                 </p>
-                <p className="text-xs text-gray-500 flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  Created: {formatDate(userInfo.created_at)}
-                </p>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                    <Shield className="h-3 w-3" />
+                    Auth: ✓
+                  </p>
+                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                    <Database className="h-3 w-3" />
+                    Tenant: {tenantStatus?.tenantRelationshipExists ? '✓' : '✗'}
+                  </p>
+                  {tenantStatus?.currentRole && (
+                    <Badge variant="outline" className="text-xs">
+                      {tenantStatus.currentRole}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
 
+            {/* Password Reset Action */}
             <Button
               variant="outline"
               size="sm"
