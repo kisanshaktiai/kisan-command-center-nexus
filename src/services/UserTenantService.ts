@@ -33,6 +33,8 @@ export interface UserTenantStatus {
   expectedRole: string;
   userId?: string;
   issues: string[];
+  relationshipId?: string;
+  isActive?: boolean;
 }
 
 export interface AuthUser {
@@ -40,6 +42,14 @@ export interface AuthUser {
   email: string;
   created_at: string;
   email_confirmed_at?: string;
+}
+
+export interface TenantRelationshipStatus {
+  hasRelationship: boolean;
+  isValid: boolean;
+  relationship?: any;
+  userId?: string;
+  issues: string[];
 }
 
 export class UserTenantService {
@@ -106,60 +116,144 @@ export class UserTenantService {
   }
 
   /**
-   * Check comprehensive user-tenant status
+   * Enhanced method to check and ensure tenant relationship
+   * This prioritizes user_tenants table checking first
    */
-  static async checkUserTenantStatus(
+  static async checkAndEnsureTenantRelationship(
     email: string,
     tenantId: string
-  ): Promise<UserTenantStatus> {
+  ): Promise<TenantRelationshipStatus> {
     try {
-      // Use the edge function to check auth.users table
+      console.log('UserTenantService: Checking and ensuring tenant relationship for:', email, tenantId);
+
+      // Step 1: First get user ID from auth.users via edge function
       const { data: authResponse, error: authError } = await supabase.functions.invoke('get-user-by-email', {
         body: { user_email: email }
       });
 
       if (authError) {
         console.error('Error checking auth user:', authError);
+        return {
+          hasRelationship: false,
+          isValid: false,
+          issues: ['Failed to check user authentication status']
+        };
       }
 
       const authUsers = authResponse as AuthUser[];
       const authUser = authUsers && authUsers.length > 0 ? authUsers[0] : null;
 
-      // Check user_tenants table if user exists
-      let tenantRelationship = null;
-      if (authUser) {
-        const { data: relationship, error: relationshipError } = await supabase
-          .from('user_tenants')
-          .select('*')
-          .eq('user_id', authUser.id)
-          .eq('tenant_id', tenantId)
-          .single();
+      if (!authUser) {
+        return {
+          hasRelationship: false,
+          isValid: false,
+          issues: ['User not found in authentication system']
+        };
+      }
 
-        if (!relationshipError) {
-          tenantRelationship = relationship;
+      // Step 2: Check if user_tenants relationship exists
+      const { data: existingRelationship, error: relationshipError } = await supabase
+        .from('user_tenants')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (relationshipError && relationshipError.code !== 'PGRST116') {
+        console.error('Error checking user_tenants relationship:', relationshipError);
+        return {
+          hasRelationship: false,
+          isValid: false,
+          userId: authUser.id,
+          issues: ['Error checking tenant relationship']
+        };
+      }
+
+      // Step 3: If relationship exists, validate it
+      if (existingRelationship) {
+        const isValid = existingRelationship.role === 'tenant_admin' && existingRelationship.is_active;
+        const issues = [];
+
+        if (existingRelationship.role !== 'tenant_admin') {
+          issues.push(`Incorrect role: expected tenant_admin, found ${existingRelationship.role}`);
         }
+        if (!existingRelationship.is_active) {
+          issues.push('Relationship is inactive');
+        }
+
+        return {
+          hasRelationship: true,
+          isValid,
+          relationship: existingRelationship,
+          userId: authUser.id,
+          issues
+        };
       }
 
-      const expectedRole = 'tenant_admin';
-      const authExists = !!authUser;
-      const tenantRelationshipExists = !!tenantRelationship;
-      const roleMatches = tenantRelationship?.role === expectedRole;
+      // Step 4: If no relationship exists, create one
+      console.log('UserTenantService: Creating missing tenant relationship for user:', authUser.id);
+      
+      const createResult = await this.manageUserTenantRelationship({
+        user_id: authUser.id,
+        tenant_id: tenantId,
+        role: 'tenant_admin',
+        is_active: true,
+        metadata: {
+          created_via: 'auto_ensure',
+          auto_created: true,
+          created_at: new Date().toISOString()
+        },
+        operation: 'insert'
+      });
 
-      const issues = [];
-      if (!authExists) issues.push('User not found in authentication system');
-      if (authExists && !tenantRelationshipExists) issues.push('User-tenant relationship missing');
-      if (tenantRelationshipExists && !roleMatches) {
-        issues.push(`Role mismatch: expected ${expectedRole}, found ${tenantRelationship.role}`);
+      if (createResult.success) {
+        return {
+          hasRelationship: true,
+          isValid: true,
+          userId: authUser.id,
+          issues: []
+        };
+      } else {
+        return {
+          hasRelationship: false,
+          isValid: false,
+          userId: authUser.id,
+          issues: [createResult.error || 'Failed to create tenant relationship']
+        };
       }
 
+    } catch (error: any) {
+      console.error('UserTenantService: Error in checkAndEnsureTenantRelationship:', error);
       return {
-        authExists,
-        tenantRelationshipExists,
-        roleMatches,
-        currentRole: tenantRelationship?.role,
-        expectedRole,
-        userId: authUser?.id,
-        issues
+        hasRelationship: false,
+        isValid: false,
+        issues: ['Unexpected error occurred while checking tenant relationship']
+      };
+    }
+  }
+
+  /**
+   * Check comprehensive user-tenant status (legacy method, now uses enhanced logic)
+   */
+  static async checkUserTenantStatus(
+    email: string,
+    tenantId: string
+  ): Promise<UserTenantStatus> {
+    try {
+      // Use the enhanced method for primary checking
+      const relationshipStatus = await this.checkAndEnsureTenantRelationship(email, tenantId);
+
+      // Convert to legacy format for backward compatibility
+      return {
+        authExists: !!relationshipStatus.userId,
+        tenantRelationshipExists: relationshipStatus.hasRelationship,
+        roleMatches: relationshipStatus.isValid,
+        currentRole: relationshipStatus.relationship?.role,
+        expectedRole: 'tenant_admin',
+        userId: relationshipStatus.userId,
+        relationshipId: relationshipStatus.relationship?.id,
+        isActive: relationshipStatus.relationship?.is_active,
+        issues: relationshipStatus.issues
       };
     } catch (error) {
       console.error('Error checking user-tenant status:', error);

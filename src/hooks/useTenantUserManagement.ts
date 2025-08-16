@@ -1,8 +1,7 @@
-
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from './useNotifications';
-import { UserTenantService, UserTenantStatus } from '@/services/UserTenantService';
+import { UserTenantService, UserTenantStatus, TenantRelationshipStatus } from '@/services/UserTenantService';
 
 interface UserExistsResult {
   exists: boolean;
@@ -28,6 +27,7 @@ export const useTenantUserManagement = () => {
   const [isSendingReset, setIsSendingReset] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [isFixingRelationship, setIsFixingRelationship] = useState(false);
+  const [isEnsuringRelationship, setIsEnsuringRelationship] = useState(false);
   const { showSuccess, showError } = useNotifications();
 
   const checkUserExists = useCallback(async (email: string): Promise<UserExistsResult | null> => {
@@ -61,6 +61,37 @@ export const useTenantUserManagement = () => {
       setIsCheckingUser(false);
     }
   }, []);
+
+  /**
+   * Enhanced method that checks and ensures tenant relationship
+   */
+  const checkAndEnsureTenantRelationship = useCallback(async (
+    email: string, 
+    tenantId: string
+  ): Promise<TenantRelationshipStatus | null> => {
+    if (!email || !tenantId) return null;
+    
+    setIsEnsuringRelationship(true);
+    try {
+      const status = await UserTenantService.checkAndEnsureTenantRelationship(email, tenantId);
+      
+      if (status.hasRelationship && status.isValid) {
+        showSuccess('Tenant relationship validated successfully');
+      } else if (status.hasRelationship && !status.isValid) {
+        showError(`Tenant relationship has issues: ${status.issues.join(', ')}`);
+      } else if (!status.hasRelationship) {
+        showError(`No tenant relationship found: ${status.issues.join(', ')}`);
+      }
+      
+      return status;
+    } catch (error) {
+      console.error('Failed to check and ensure tenant relationship:', error);
+      showError('Failed to check tenant relationship');
+      return null;
+    } finally {
+      setIsEnsuringRelationship(false);
+    }
+  }, [showSuccess, showError]);
 
   const checkUserTenantStatus = useCallback(async (
     email: string, 
@@ -233,10 +264,12 @@ export const useTenantUserManagement = () => {
     isSendingReset,
     isCheckingStatus,
     isFixingRelationship,
+    isEnsuringRelationship,
     
     // Actions
     checkUserExists,
     checkUserTenantStatus,
+    checkAndEnsureTenantRelationship,
     ensureUserTenantRecord,
     createTenantAsUser,
     createAdminUser,
