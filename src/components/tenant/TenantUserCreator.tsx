@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +15,7 @@ export const TenantUserCreator: React.FC = () => {
   const [userStatus, setUserStatus] = useState<any>(null);
   const [tenantStatus, setTenantStatus] = useState<any>(null);
   
-  const { currentTenant } = useTenantContext();
+  const { tenant } = useTenantContext();
   const {
     isCheckingUser,
     isCreatingUser,
@@ -31,9 +30,9 @@ export const TenantUserCreator: React.FC = () => {
   } = useTenantUserManagement();
 
   const handleCheckStatus = async () => {
-    if (!email || !currentTenant?.id) return;
+    if (!email || !tenant?.id) return;
 
-    console.log('TenantUserCreator: Checking status for:', { email, tenantId: currentTenant.id });
+    console.log('TenantUserCreator: Checking status for:', { email, tenantId: tenant.id });
 
     // Check auth.users table
     const authStatus = await checkUserExists(email);
@@ -41,15 +40,15 @@ export const TenantUserCreator: React.FC = () => {
     setUserStatus(authStatus);
 
     // Check user_tenants table
-    const relationshipStatus = await checkUserTenantStatus(email, currentTenant.id);
+    const relationshipStatus = await checkUserTenantStatus(email, tenant.id);
     console.log('TenantUserCreator: Relationship status result:', relationshipStatus);
     setTenantStatus(relationshipStatus);
   };
 
   const handleFixRelationship = async () => {
-    if (!userStatus?.userId || !currentTenant?.id) return;
+    if (!userStatus?.userId || !tenant?.id) return;
 
-    const success = await ensureUserTenantRecord(userStatus.userId, currentTenant.id);
+    const success = await ensureUserTenantRecord(userStatus.userId, tenant.id);
     if (success) {
       // Refresh status after fixing
       await handleCheckStatus();
@@ -57,11 +56,11 @@ export const TenantUserCreator: React.FC = () => {
   };
 
   const handleCreateUser = async (role: 'tenant_user' | 'tenant_admin') => {
-    if (!email || !fullName || !currentTenant?.id) return;
+    if (!email || !fullName || !tenant?.id) return;
 
     const success = role === 'tenant_admin' 
-      ? await createAdminUser(email, fullName, currentTenant.id)
-      : await createTenantAsUser(email, fullName, currentTenant.id);
+      ? await createAdminUser(email, fullName, tenant.id)
+      : await createTenantAsUser(email, fullName, tenant.id);
 
     if (success) {
       // Clear form and refresh status
