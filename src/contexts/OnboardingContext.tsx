@@ -1,343 +1,402 @@
-
-
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  OnboardingContextType, 
-  OnboardingWorkflow, 
-  OnboardingStep, 
-  OnboardingStepTemplate,
-  OnboardingFormData 
-} from '@/types/onboarding';
-import { useNotifications } from '@/hooks/useNotifications';
+import { toast } from 'sonner';
 
-interface OnboardingState {
+// Define types for onboarding workflow and steps
+export interface OnboardingWorkflow {
+  id: string;
+  tenant_id?: string;
+  admin_id?: string;
+  current_step: number;
+  total_steps: number;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  started_at: string;
+  completed_at?: string;
+  metadata?: any;
+}
+
+export interface OnboardingStep {
+  id: string;
+  workflow_id: string;
+  step_number: number;
+  step_name: string;
+  step_status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  step_data: any;
+  validation_errors: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+interface OnboardingContextType {
   workflow: OnboardingWorkflow | null;
   steps: OnboardingStep[];
-  templates: OnboardingStepTemplate[];
   currentStepIndex: number;
-  formData: OnboardingFormData;
   isLoading: boolean;
   isSaving: boolean;
   error: string | null;
-  validationErrors: Record<string, string[]>;
-}
-
-type OnboardingAction =
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_SAVING'; payload: boolean }
-  | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'SET_WORKFLOW'; payload: OnboardingWorkflow | null }
-  | { type: 'SET_STEPS'; payload: OnboardingStep[] }
-  | { type: 'SET_TEMPLATES'; payload: OnboardingStepTemplate[] }
-  | { type: 'SET_CURRENT_STEP'; payload: number }
-  | { type: 'UPDATE_FORM_DATA'; payload: { stepName: string; data: any } }
-  | { type: 'SET_VALIDATION_ERRORS'; payload: Record<string, string[]> }
-  | { type: 'UPDATE_STEP'; payload: OnboardingStep }
-  | { type: 'RESET' };
-
-const initialState: OnboardingState = {
-  workflow: null,
-  steps: [],
-  templates: [],
-  currentStepIndex: 0,
-  formData: {},
-  isLoading: false,
-  isSaving: false,
-  error: null,
-  validationErrors: {}
-};
-
-function onboardingReducer(state: OnboardingState, action: OnboardingAction): OnboardingState {
-  switch (action.type) {
-    case 'SET_LOADING':
-      return { ...state, isLoading: action.payload };
-    case 'SET_SAVING':
-      return { ...state, isSaving: action.payload };
-    case 'SET_ERROR':
-      return { ...state, error: action.payload };
-    case 'SET_WORKFLOW':
-      return { ...state, workflow: action.payload };
-    case 'SET_STEPS':
-      return { ...state, steps: action.payload };
-    case 'SET_TEMPLATES':
-      return { ...state, templates: action.payload };
-    case 'SET_CURRENT_STEP':
-      return { ...state, currentStepIndex: action.payload };
-    case 'UPDATE_FORM_DATA':
-      const newFormData = { ...state.formData };
-      newFormData[action.payload.stepName] = {
-        ...(newFormData[action.payload.stepName] || {}),
-        ...action.payload.data
-      };
-      return { ...state, formData: newFormData };
-    case 'SET_VALIDATION_ERRORS':
-      return { ...state, validationErrors: action.payload };
-    case 'UPDATE_STEP':
-      return {
-        ...state,
-        steps: state.steps.map(step =>
-          step.id === action.payload.id ? action.payload : step
-        )
-      };
-    case 'RESET':
-      return initialState;
-    default:
-      return state;
-  }
+  goToStep: (index: number) => void;
+  goToNextStep: () => void;
+  goToPreviousStep: () => void;
+  saveCurrentStep: () => Promise<void>;
+  completeOnboarding: () => Promise<void>;
+  retryFailedStep: () => Promise<void>;
+  updateStepData: (data: any) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
 
-export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId: string }> = ({
-  children,
-  tenantId
+export const useOnboarding = () => {
+  const context = useContext(OnboardingContext);
+  if (!context) {
+    throw new Error('useOnboarding must be used within an OnboardingProvider');
+  }
+  return context;
+};
+
+interface OnboardingProviderProps {
+  children: React.ReactNode;
+  tenantId?: string | null;
+  adminId?: string;
+}
+
+export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ 
+  children, 
+  tenantId,
+  adminId 
 }) => {
-  const [state, dispatch] = useReducer(onboardingReducer, initialState);
-  const queryClient = useQueryClient();
-  const { showSuccess, showError } = useNotifications();
+  const [workflow, setWorkflow] = useState<OnboardingWorkflow | null>(null);
+  const [steps, setSteps] = useState<OnboardingStep[]>([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch workflow and steps
-  const { data: workflowData } = useQuery({
-    queryKey: ['onboarding-workflow', tenantId],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('get-onboarding-workflow', {
-        body: { tenantId }
-      });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!tenantId
-  });
-
-  // Create default templates since the table might not exist
-  useEffect(() => {
-    // Set default templates if none exist
-    const defaultTemplates: OnboardingStepTemplate[] = [
-      {
-        id: 'business-verification',
-        step_name: 'Business Verification',
-        step_order: 1,
-        step_type: 'form',
-        schema_config: {},
-        default_data: {},
-        validation_rules: {},
-        is_required: true,
-        is_active: true,
-        help_text: 'Verify your business details and documents',
-        estimated_time_minutes: 30
-      },
-      {
-        id: 'plan-selection',
-        step_name: 'Plan Selection',
-        step_order: 2,
-        step_type: 'form',
-        schema_config: {},
-        default_data: {},
-        validation_rules: {},
-        is_required: true,
-        is_active: true,
-        help_text: 'Choose your subscription plan',
-        estimated_time_minutes: 15
-      },
-      {
-        id: 'branding',
-        step_name: 'Branding',
-        step_order: 3,
-        step_type: 'form',
-        schema_config: {},
-        default_data: {},
-        validation_rules: {},
-        is_required: false,
-        is_active: true,
-        help_text: 'Customize your brand appearance',
-        estimated_time_minutes: 20
-      },
-      {
-        id: 'feature-toggles',
-        step_name: 'Feature Configuration',
-        step_order: 4,
-        step_type: 'form',
-        schema_config: {},
-        default_data: {},
-        validation_rules: {},
-        is_required: true,
-        is_active: true,
-        help_text: 'Configure available features',
-        estimated_time_minutes: 25
-      },
-      {
-        id: 'team-invites',
-        step_name: 'Team Setup',
-        step_order: 5,
-        step_type: 'form',
-        schema_config: {},
-        default_data: {},
-        validation_rules: {},
-        is_required: false,
-        is_active: true,
-        help_text: 'Invite team members',
-        estimated_time_minutes: 15
-      }
-    ];
-
-    dispatch({ type: 'SET_TEMPLATES', payload: defaultTemplates });
-  }, []);
-
-  // Update step mutation
-  const updateStepMutation = useMutation({
-    mutationFn: async ({ stepId, data, status }: { stepId: string; data: any; status?: string }) => {
-      const { data: result, error } = await supabase.functions.invoke('update-onboarding-step', {
-        body: { stepId, stepData: data, status }
-      });
-      if (error) throw error;
-      return result;
-    },
-    onSuccess: (result) => {
-      if (result.step) {
-        dispatch({ type: 'UPDATE_STEP', payload: result.step });
-      }
-      showSuccess('Progress saved automatically');
-    },
-    onError: (error: any) => {
-      showError('Failed to save progress', { description: error.message });
-    }
-  });
-
-  // Complete onboarding mutation
-  const completeOnboardingMutation = useMutation({
-    mutationFn: async () => {
-      if (!state.workflow) throw new Error('No workflow found');
-      
-      const { data, error } = await supabase.functions.invoke('complete-onboarding', {
-        body: { workflowId: state.workflow.id }
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      showSuccess('Onboarding completed successfully!');
-      queryClient.invalidateQueries({ queryKey: ['onboarding-workflow'] });
-    },
-    onError: (error: any) => {
-      showError('Failed to complete onboarding', { description: error.message });
-    }
-  });
-
-  // Load data when fetched
-  useEffect(() => {
-    if (workflowData) {
-      dispatch({ type: 'SET_WORKFLOW', payload: workflowData.workflow });
-      dispatch({ type: 'SET_STEPS', payload: workflowData.steps });
-      
-      // Load existing form data from steps
-      const formData: Record<string, any> = {};
-      workflowData.steps.forEach((step: OnboardingStep) => {
-        if (step.step_data && Object.keys(step.step_data).length > 0) {
-          const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '');
-          formData[stepKey] = step.step_data;
+  // Use hardcoded templates based on context (admin vs tenant)
+  const getDefaultTemplates = useCallback(() => {
+    if (adminId) {
+      // Admin onboarding templates
+      return [
+        {
+          id: 'admin-setup',
+          step_name: 'Admin Setup',
+          step_number: 1,
+          validation_schema: {},
+          validation_rules: {},
+          default_data: {},
+          is_required: true,
+          help_text: 'Configure your admin account and preferences'
+        },
+        {
+          id: 'platform-config',
+          step_name: 'Platform Configuration', 
+          step_number: 2,
+          validation_schema: {},
+          validation_rules: {},
+          default_data: {},
+          is_required: true,
+          help_text: 'Set up platform-wide settings and configurations'
+        },
+        {
+          id: 'security-setup',
+          step_name: 'Security Setup',
+          step_number: 3,
+          validation_schema: {},
+          validation_rules: {},
+          default_data: {},
+          is_required: true,
+          help_text: 'Configure security policies and access controls'
         }
-      });
+      ];
+    } else {
+      // Tenant onboarding templates
+      return [
+        {
+          id: 'business-info',
+          step_name: 'Business Information',
+          step_number: 1,
+          validation_schema: {},
+          validation_rules: {},
+          default_data: {},
+          is_required: true,
+          help_text: 'Provide your business details and contact information'
+        },
+        {
+          id: 'subscription-plan',
+          step_name: 'Subscription Plan',
+          step_number: 2,
+          validation_schema: {},
+          validation_rules: {},
+          default_data: {},  
+          is_required: true,
+          help_text: 'Choose your subscription plan and features'
+        },
+        {
+          id: 'branding-setup',
+          step_name: 'Branding Setup',
+          step_number: 3,
+          validation_schema: {},
+          validation_rules: {},
+          default_data: {},
+          is_required: false,
+          help_text: 'Customize your brand colors, logo, and appearance'
+        }
+      ];
+    }
+  }, [adminId]);
+
+  const initializeOnboarding = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const templates = getDefaultTemplates();
       
-      // Set current step based on workflow progress
-      const currentStep = Math.max(0, workflowData.workflow.current_step - 1);
-      dispatch({ type: 'SET_CURRENT_STEP', payload: currentStep });
+      // Create workflow if it doesn't exist
+      let workflowData: OnboardingWorkflow;
       
-      // Update form data
-      Object.keys(formData).forEach(stepKey => {
-        dispatch({ 
-          type: 'UPDATE_FORM_DATA', 
-          payload: { 
-            stepName: stepKey, 
-            data: formData[stepKey] 
-          } 
-        });
-      });
-    }
-  }, [workflowData]);
+      if (adminId) {
+        // Admin workflow
+        const { data: existingWorkflow } = await supabase
+          .from('onboarding_workflows')
+          .select('*')
+          .eq('admin_id', adminId)
+          .eq('status', 'in_progress')
+          .single();
 
-  // Actions
-  const goToStep = useCallback((stepIndex: number) => {
-    if (stepIndex >= 0 && stepIndex < state.steps.length) {
-      dispatch({ type: 'SET_CURRENT_STEP', payload: stepIndex });
-    }
-  }, [state.steps.length]);
+        if (existingWorkflow) {
+          workflowData = existingWorkflow;
+        } else {
+          const { data: newWorkflow, error: workflowError } = await supabase
+            .from('onboarding_workflows')
+            .insert({
+              admin_id: adminId,
+              current_step: 1,
+              total_steps: templates.length,
+              status: 'in_progress',
+              started_at: new Date().toISOString(),
+              metadata: { type: 'admin' }
+            })
+            .select()
+            .single();
 
-  const goToNextStep = useCallback(() => {
-    if (state.currentStepIndex < state.steps.length - 1) {
-      dispatch({ type: 'SET_CURRENT_STEP', payload: state.currentStepIndex + 1 });
-    }
-  }, [state.currentStepIndex, state.steps.length]);
+          if (workflowError) throw workflowError;
+          workflowData = newWorkflow;
+        }
+      } else if (tenantId) {
+        // Tenant workflow
+        const { data: existingWorkflow } = await supabase
+          .from('onboarding_workflows')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'in_progress')
+          .single();
 
-  const goToPreviousStep = useCallback(() => {
-    if (state.currentStepIndex > 0) {
-      dispatch({ type: 'SET_CURRENT_STEP', payload: state.currentStepIndex - 1 });
-    }
-  }, [state.currentStepIndex]);
+        if (existingWorkflow) {
+          workflowData = existingWorkflow;
+        } else {
+          const { data: newWorkflow, error: workflowError } = await supabase
+            .from('onboarding_workflows')
+            .insert({
+              tenant_id: tenantId,
+              current_step: 1,
+              total_steps: templates.length,
+              status: 'in_progress',
+              started_at: new Date().toISOString(),
+              metadata: { type: 'tenant' }
+            })
+            .select()
+            .single();
 
-  const updateStepData = useCallback(async (stepName: string, data: any) => {
-    dispatch({ type: 'UPDATE_FORM_DATA', payload: { stepName, data } });
-    
-    // Auto-save after a delay
-    const currentStep = state.steps[state.currentStepIndex];
-    if (currentStep) {
-      await updateStepMutation.mutateAsync({
-        stepId: currentStep.id,
-        data,
-        status: 'in_progress'
-      });
-    }
-  }, [state.steps, state.currentStepIndex, updateStepMutation]);
-
-  const saveCurrentStep = useCallback(async () => {
-    const currentStep = state.steps[state.currentStepIndex];
-    const stepName = currentStep?.step_name.toLowerCase().replace(/\s+/g, '');
-    const stepData = stepName ? state.formData[stepName] : {};
-    
-    if (currentStep && stepData) {
-      dispatch({ type: 'SET_SAVING', payload: true });
-      try {
-        await updateStepMutation.mutateAsync({
-          stepId: currentStep.id,
-          data: stepData,
-          status: 'completed'
-        });
-      } finally {
-        dispatch({ type: 'SET_SAVING', payload: false });
+          if (workflowError) throw workflowError;
+          workflowData = newWorkflow;
+        }
+      } else {
+        throw new Error('Either tenantId or adminId must be provided');
       }
+
+      setWorkflow(workflowData);
+
+      // Get or create steps
+      const { data: existingSteps } = await supabase
+        .from('onboarding_steps')
+        .select('*')
+        .eq('workflow_id', workflowData.id)
+        .order('step_number');
+
+      if (existingSteps && existingSteps.length > 0) {
+        setSteps(existingSteps);
+        setCurrentStepIndex(Math.max(0, (workflowData.current_step || 1) - 1));
+      } else {
+        // Create steps from templates
+        const stepsToCreate = templates.map(template => ({
+          workflow_id: workflowData.id,
+          step_number: template.step_number,
+          step_name: template.step_name,
+          step_status: 'pending' as const,
+          step_data: template.default_data,
+          validation_errors: []
+        }));
+
+        const { data: createdSteps, error: stepsError } = await supabase
+          .from('onboarding_steps')
+          .insert(stepsToCreate)
+          .select();
+
+        if (stepsError) throw stepsError;
+        
+        setSteps(createdSteps);
+        setCurrentStepIndex(0);
+      }
+
+    } catch (error) {
+      console.error('Error initializing onboarding:', error);
+      setError(error instanceof Error ? error.message : 'Failed to initialize onboarding');
+    } finally {
+      setIsLoading(false);
     }
-  }, [state.steps, state.currentStepIndex, state.formData, updateStepMutation]);
+  }, [tenantId, adminId, getDefaultTemplates]);
 
-  const completeOnboarding = useCallback(async () => {
-    await completeOnboardingMutation.mutateAsync();
-  }, [completeOnboardingMutation]);
+  useEffect(() => {
+    initializeOnboarding();
+  }, [initializeOnboarding]);
 
-  const retryFailedStep = useCallback(async () => {
-    const currentStep = state.steps[state.currentStepIndex];
-    if (currentStep && currentStep.step_status === 'failed') {
-      await updateStepMutation.mutateAsync({
-        stepId: currentStep.id,
-        data: currentStep.step_data,
-        status: 'pending'
-      });
+  const goToStep = (index: number) => {
+    if (index >= 0 && index < steps.length) {
+      setCurrentStepIndex(index);
     }
-  }, [state.steps, state.currentStepIndex, updateStepMutation]);
+  };
 
-  const resetOnboarding = useCallback(() => {
-    dispatch({ type: 'RESET' });
-  }, []);
+  const goToNextStep = () => {
+    if (currentStepIndex < steps.length - 1) {
+      setCurrentStepIndex(currentStepIndex + 1);
+    }
+  };
+
+  const goToPreviousStep = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
+    }
+  };
+
+  const updateStepData = (data: any) => {
+    setSteps(prevSteps => 
+      prevSteps.map((step, index) => 
+        index === currentStepIndex 
+          ? { ...step, step_data: { ...step.step_data, ...data } }
+          : step
+      )
+    );
+  };
+
+  const saveCurrentStep = async () => {
+    if (!workflow || !steps[currentStepIndex]) return;
+
+    try {
+      setIsSaving(true);
+      const currentStep = steps[currentStepIndex];
+
+      const { error } = await supabase
+        .from('onboarding_steps')
+        .update({
+          step_data: currentStep.step_data,
+          step_status: 'in_progress',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentStep.id);
+
+      if (error) throw error;
+
+      toast.success('Progress saved');
+    } catch (error) {
+      console.error('Error saving step:', error);
+      toast.error('Failed to save progress');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const completeOnboarding = async () => {
+    if (!workflow) return;
+
+    try {
+      setIsSaving(true);
+
+      // Mark all steps as completed
+      const { error: stepsError } = await supabase
+        .from('onboarding_steps')
+        .update({ step_status: 'completed' })
+        .eq('workflow_id', workflow.id);
+
+      if (stepsError) throw stepsError;
+
+      // Mark workflow as completed
+      const { error: workflowError } = await supabase
+        .from('onboarding_workflows')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', workflow.id);
+
+      if (workflowError) throw workflowError;
+
+      toast.success('Onboarding completed successfully!');
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      toast.error('Failed to complete onboarding');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const retryFailedStep = async () => {
+    if (!steps[currentStepIndex]) return;
+
+    try {
+      setIsSaving(true);
+      const currentStep = steps[currentStepIndex];
+
+      const { error } = await supabase
+        .from('onboarding_steps')
+        .update({
+          step_status: 'pending',
+          validation_errors: []
+        })
+        .eq('id', currentStep.id);
+
+      if (error) throw error;
+
+      setSteps(prevSteps =>
+        prevSteps.map((step, index) =>
+          index === currentStepIndex
+            ? { ...step, step_status: 'pending', validation_errors: [] }
+            : step
+        )
+      );
+
+      toast.success('Step reset for retry');
+    } catch (error) {
+      console.error('Error retrying step:', error);
+      toast.error('Failed to retry step');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const contextValue: OnboardingContextType = {
-    ...state,
+    workflow,
+    steps,
+    currentStepIndex,
+    isLoading,
+    isSaving,
+    error,
     goToStep,
     goToNextStep,
     goToPreviousStep,
-    updateStepData,
     saveCurrentStep,
     completeOnboarding,
     retryFailedStep,
-    resetOnboarding
+    updateStepData
   };
 
   return (
@@ -346,12 +405,3 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
     </OnboardingContext.Provider>
   );
 };
-
-export const useOnboarding = () => {
-  const context = useContext(OnboardingContext);
-  if (context === undefined) {
-    throw new Error('useOnboarding must be used within an OnboardingProvider');
-  }
-  return context;
-};
-

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,14 +20,16 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { OnboardingStepForm } from './OnboardingStepForm';
 import { OnboardingSummary } from './OnboardingSummary';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
 
 interface OnboardingWizardProps {
   className?: string;
+  onComplete?: () => void;
 }
 
-export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ className }) => {
-  const navigate = useNavigate();
+export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ 
+  className,
+  onComplete 
+}) => {
   const {
     workflow,
     steps,
@@ -111,7 +112,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ className })
   const handleComplete = async () => {
     try {
       await completeOnboarding();
-      navigate('/dashboard');
+      if (onComplete) {
+        onComplete();
+      }
     } catch (error) {
       console.error('Error completing onboarding:', error);
     }
@@ -162,7 +165,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ className })
           Welcome to Your Platform Setup
         </h1>
         <p className="text-lg text-gray-600">
-          Let's get your organization set up in just a few steps
+          Let's get your account set up in just a few steps
         </p>
         
         {/* Progress Bar */}
