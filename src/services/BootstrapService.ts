@@ -17,6 +17,14 @@ interface BootstrapStatus {
   details?: any;
 }
 
+interface BootstrapStatusResponse {
+  completed: boolean;
+  needs_bootstrap: boolean;
+  super_admin_count: number;
+  config_completed: boolean;
+  status: string;
+}
+
 /**
  * Bootstrap Service - Enhanced with new database functions
  * Handles system initialization and bootstrap checking
@@ -52,8 +60,10 @@ export class BootstrapService extends BaseService {
 
       console.log('BootstrapService: Bootstrap status from database:', data);
 
-      const isCompleted = data?.completed === true;
-      const hasAdminUsers = (data?.super_admin_count || 0) > 0;
+      // Type assertion for the response
+      const response = data as BootstrapStatusResponse;
+      const isCompleted = response?.completed === true;
+      const hasAdminUsers = (response?.super_admin_count || 0) > 0;
       const systemReady = isCompleted && hasAdminUsers;
       const isConsistent = true; // The database function handles consistency
 
@@ -69,7 +79,7 @@ export class BootstrapService extends BaseService {
         hasAdminUsers,
         systemReady,
         isConsistent,
-        details: data
+        details: response
       };
     }, 'checkBootstrapStatus');
   }

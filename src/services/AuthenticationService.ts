@@ -8,6 +8,14 @@ interface ServiceResult<T> {
   error?: string;
 }
 
+interface BootstrapStatusResponse {
+  completed: boolean;
+  needs_bootstrap: boolean;
+  super_admin_count: number;
+  config_completed: boolean;
+  status: string;
+}
+
 class AuthenticationService {
   private static instance: AuthenticationService;
 
@@ -56,11 +64,11 @@ class AuthenticationService {
   }
 
   /**
-   * Comprehensive bootstrap status check using new database function
+   * Enhanced bootstrap status check using new database function
    */
   async isBootstrapCompleted(): Promise<boolean> {
     try {
-      console.log('AuthenticationService: Checking bootstrap status with new function...');
+      console.log('AuthenticationService: Checking bootstrap status with enhanced function...');
       
       const { data, error } = await supabase.rpc('get_bootstrap_status');
       
@@ -71,7 +79,10 @@ class AuthenticationService {
 
       console.log('AuthenticationService: Bootstrap status response:', data);
       
-      const isCompleted = data?.completed === true;
+      // Type assertion for the response
+      const response = data as BootstrapStatusResponse;
+      const isCompleted = response?.completed === true;
+      
       console.log('AuthenticationService: Bootstrap completed:', isCompleted);
       
       return isCompleted;
@@ -111,6 +122,49 @@ class AuthenticationService {
     } catch (error) {
       console.error('AuthenticationService: Error getting auth state:', error);
       return this.getDefaultAuthState();
+    }
+  }
+
+  /**
+   * Sign in regular user (non-admin)
+   */
+  async signInUser(email: string, password: string): Promise<ServiceResult<AuthState>> {
+    try {
+      console.log('AuthenticationService: User sign in attempt for:', email);
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        console.error('AuthenticationService: User sign in error:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (!data.user || !data.session) {
+        return { success: false, error: 'Invalid credentials' };
+      }
+
+      const authState: AuthState = {
+        user: data.user,
+        session: data.session,
+        isAuthenticated: true,
+        isAdmin: false,
+        isSuperAdmin: false,
+        adminRole: null,
+        profile: null
+      };
+
+      console.log('AuthenticationService: User sign in successful:', data.user.id);
+
+      return { success: true, data: authState };
+    } catch (error) {
+      console.error('AuthenticationService: User sign in exception:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'User sign in failed' 
+      };
     }
   }
 
