@@ -59,7 +59,7 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
     if (!formData.owner_email) return null;
     if (!validateEmail(formData.owner_email)) return 'Please enter a valid email address';
     if (validationResult?.error && !validationResult?.exists) return validationResult.error;
-    if (validationResult?.exists === true) return validationResult.message || 'This email already has an account. Please use a different email address.';
+    if (validationResult?.exists === true) return 'This email already has an account. Please use a different email address.';
     return null;
   };
 
