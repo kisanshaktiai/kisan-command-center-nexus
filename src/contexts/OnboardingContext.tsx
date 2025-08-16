@@ -65,16 +65,12 @@ function onboardingReducer(state: OnboardingState, action: OnboardingAction): On
     case 'SET_CURRENT_STEP':
       return { ...state, currentStepIndex: action.payload };
     case 'UPDATE_FORM_DATA':
-      return {
-        ...state,
-        formData: {
-          ...state.formData,
-          [action.payload.stepName]: {
-            ...(state.formData[action.payload.stepName] || {}),
-            ...action.payload.data
-          }
-        }
+      const newFormData = { ...state.formData };
+      newFormData[action.payload.stepName] = {
+        ...(newFormData[action.payload.stepName] || {}),
+        ...action.payload.data
       };
+      return { ...state, formData: newFormData };
     case 'SET_VALIDATION_ERRORS':
       return { ...state, validationErrors: action.payload };
     case 'UPDATE_STEP':
@@ -124,6 +120,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
         .eq('is_active', true)
         .order('step_order');
       if (error) throw error;
+      
+      // Transform the data to match our interface
       return data.map(template => ({
         id: template.id,
         step_name: template.step_name,
@@ -136,7 +134,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
         is_active: true,
         help_text: template.help_text,
         estimated_time_minutes: 30
-      }));
+      })) as OnboardingStepTemplate[];
     }
   });
 
@@ -187,7 +185,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
       dispatch({ type: 'SET_STEPS', payload: workflowData.steps });
       
       // Load existing form data from steps
-      const formData: OnboardingFormData = {};
+      const formData: any = {};
       workflowData.steps.forEach((step: OnboardingStep) => {
         if (step.step_data && Object.keys(step.step_data).length > 0) {
           const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '');

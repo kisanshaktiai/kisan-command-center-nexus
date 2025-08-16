@@ -7,7 +7,7 @@ export interface OnboardingWorkflow {
   status: 'in_progress' | 'completed' | 'failed';
   started_at: string;
   completed_at?: string;
-  metadata: Record<string, any>;
+  metadata: any;
   created_at: string;
   updated_at: string;
 }
@@ -18,7 +18,7 @@ export interface OnboardingStep {
   step_number: number;
   step_name: string;
   step_status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
-  step_data: Record<string, any>;
+  step_data: any;
   validation_errors: any[];
   completed_at?: string;
   created_at: string;
@@ -30,16 +30,16 @@ export interface OnboardingStepTemplate {
   step_name: string;
   step_order: number;
   step_type: string;
-  schema_config: Record<string, any>;
-  default_data: Record<string, any>;
-  validation_rules: Record<string, any>;
+  schema_config: any;
+  default_data: any;
+  validation_rules: any;
   is_required: boolean;
   is_active: boolean;
   help_text?: string;
   estimated_time_minutes?: number;
 }
 
-// Simplified form data structure
+// Form data interfaces
 export interface BusinessVerificationData {
   companyName?: string;
   gstNumber?: string;
@@ -74,6 +74,7 @@ export interface TeamInvitesData {
   }>;
 }
 
+// Simplified form data interface
 export interface OnboardingFormData {
   businessverification?: BusinessVerificationData;
   planselection?: PlanSelectionData;
