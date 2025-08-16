@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from './useNotifications';
@@ -43,6 +42,7 @@ export const useTenantUserManagement = () => {
 
       if (error) {
         console.error('useTenantUserManagement: Error checking user:', error);
+        showError('Error checking user existence');
         return { exists: false, error: error.message };
       }
 
@@ -57,20 +57,25 @@ export const useTenantUserManagement = () => {
       };
     } catch (error) {
       console.error('useTenantUserManagement: Failed to check user:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to check user';
+      showError(errorMessage);
       return { 
         exists: false, 
-        error: error instanceof Error ? error.message : 'Failed to check user'
+        error: errorMessage
       };
     } finally {
       setIsCheckingUser(false);
     }
-  }, []);
+  }, [showError]);
 
   const checkUserTenantStatus = useCallback(async (
     email: string, 
     tenantId: string
   ): Promise<UserTenantStatus | null> => {
-    if (!email || !tenantId) return null;
+    if (!email || !tenantId) {
+      showError('Email and tenant ID are required');
+      return null;
+    }
     
     setIsCheckingStatus(true);
     try {
@@ -79,20 +84,44 @@ export const useTenantUserManagement = () => {
       const status = await UserTenantService.checkUserTenantStatus(email, tenantId);
       console.log('useTenantUserManagement: User-tenant status result:', status);
       
+      // Check if there were any errors in the status check
+      if (status.issues.length > 0) {
+        const hasOnlyMissingRelationshipIssue = status.issues.length === 1 && 
+          status.issues[0] === 'User-tenant relationship missing' && 
+          status.authExists;
+        
+        if (!hasOnlyMissingRelationshipIssue) {
+          // Only show error for serious issues, not missing relationships
+          const errorIssues = status.issues.filter(issue => 
+            !issue.includes('User-tenant relationship missing') &&
+            !issue.includes('User not found in authentication system')
+          );
+          
+          if (errorIssues.length > 0) {
+            showError(`Status check issues: ${errorIssues.join(', ')}`);
+          }
+        }
+      }
+      
       return status;
     } catch (error) {
       console.error('useTenantUserManagement: Failed to check user-tenant status:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to check status';
+      showError(errorMessage);
       return null;
     } finally {
       setIsCheckingStatus(false);
     }
-  }, []);
+  }, [showError]);
 
   const ensureUserTenantRecord = useCallback(async (
     userId: string,
     tenantId: string
   ): Promise<boolean> => {
-    if (!userId || !tenantId) return false;
+    if (!userId || !tenantId) {
+      showError('User ID and tenant ID are required');
+      return false;
+    }
     
     setIsFixingRelationship(true);
     try {
@@ -111,7 +140,8 @@ export const useTenantUserManagement = () => {
       }
     } catch (error) {
       console.error('useTenantUserManagement: Failed to ensure user-tenant record:', error);
-      showError('Failed to create user-tenant relationship');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create user-tenant relationship';
+      showError(errorMessage);
       return false;
     } finally {
       setIsFixingRelationship(false);

@@ -108,13 +108,42 @@ export class UserTenantService {
     try {
       console.log('UserTenantService: Checking comprehensive status for:', { email, tenantId });
 
+      if (!email || !email.trim()) {
+        console.error('UserTenantService: Email is required');
+        return {
+          authExists: false,
+          tenantRelationshipExists: false,
+          roleMatches: false,
+          expectedRole: 'tenant_admin',
+          issues: ['Email is required']
+        };
+      }
+
+      if (!tenantId || !tenantId.trim()) {
+        console.error('UserTenantService: Tenant ID is required');
+        return {
+          authExists: false,
+          tenantRelationshipExists: false,
+          roleMatches: false,
+          expectedRole: 'tenant_admin',
+          issues: ['Tenant ID is required']
+        };
+      }
+
       // Check auth.users table using the get-user-by-email edge function
       const { data: authUserResponse, error: authError } = await supabase.functions.invoke('get-user-by-email', {
-        body: { user_email: email }
+        body: { user_email: email.trim() }
       });
 
       if (authError) {
         console.error('UserTenantService: Error checking auth user:', authError);
+        return {
+          authExists: false,
+          tenantRelationshipExists: false,
+          roleMatches: false,
+          expectedRole: 'tenant_admin',
+          issues: [`Error checking authentication: ${authError.message}`]
+        };
       }
 
       const authUser = authUserResponse && Array.isArray(authUserResponse) && authUserResponse.length > 0 ? authUserResponse[0] : null;
@@ -135,8 +164,19 @@ export class UserTenantService {
         if (!relationshipError) {
           tenantRelationship = relationship;
           console.log('UserTenantService: Found tenant relationship:', tenantRelationship);
+        } else if (relationshipError.code !== 'PGRST116') {
+          // PGRST116 means no rows returned, which is expected if no relationship exists
+          console.error('UserTenantService: Error checking tenant relationship:', relationshipError);
+          return {
+            authExists: !!authUser,
+            tenantRelationshipExists: false,
+            roleMatches: false,
+            expectedRole: 'tenant_admin',
+            userId: authUser?.id,
+            issues: [`Error checking tenant relationship: ${relationshipError.message}`]
+          };
         } else {
-          console.log('UserTenantService: No tenant relationship found:', relationshipError);
+          console.log('UserTenantService: No tenant relationship found (expected for new relationships)');
         }
       }
 
@@ -170,12 +210,13 @@ export class UserTenantService {
       return result;
     } catch (error) {
       console.error('UserTenantService: Error checking user-tenant status:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         authExists: false,
         tenantRelationshipExists: false,
         roleMatches: false,
         expectedRole: 'tenant_admin',
-        issues: ['Error checking status: ' + (error instanceof Error ? error.message : 'Unknown error')]
+        issues: [`Error checking status: ${errorMessage}`]
       };
     }
   }
