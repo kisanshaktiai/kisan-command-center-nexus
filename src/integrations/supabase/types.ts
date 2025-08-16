@@ -7404,6 +7404,10 @@ export type Database = {
         Args: { required_role?: string }
         Returns: boolean
       }
+      check_bootstrap_status: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       check_slug_availability: {
         Args: { p_slug: string } | { p_slug: string; p_tenant_id?: string }
         Returns: Json
@@ -8089,6 +8093,10 @@ export type Database = {
         Returns: boolean
       }
       is_bootstrap_completed: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_bootstrap_required: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
