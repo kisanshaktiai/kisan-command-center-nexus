@@ -35,14 +35,18 @@ export const useTenantUserManagement = () => {
     
     setIsCheckingUser(true);
     try {
+      console.log('useTenantUserManagement: Checking user exists for:', email);
+      
       const { data, error } = await supabase.functions.invoke('check-user-exists', {
         body: { email }
       });
 
       if (error) {
-        console.error('Error checking user:', error);
+        console.error('useTenantUserManagement: Error checking user:', error);
         return { exists: false, error: error.message };
       }
+
+      console.log('useTenantUserManagement: Check user exists response:', data);
 
       return {
         exists: data?.exists || false,
@@ -52,7 +56,7 @@ export const useTenantUserManagement = () => {
         error: data?.error
       };
     } catch (error) {
-      console.error('Failed to check user:', error);
+      console.error('useTenantUserManagement: Failed to check user:', error);
       return { 
         exists: false, 
         error: error instanceof Error ? error.message : 'Failed to check user'
@@ -70,10 +74,14 @@ export const useTenantUserManagement = () => {
     
     setIsCheckingStatus(true);
     try {
+      console.log('useTenantUserManagement: Checking user-tenant status for:', { email, tenantId });
+      
       const status = await UserTenantService.checkUserTenantStatus(email, tenantId);
+      console.log('useTenantUserManagement: User-tenant status result:', status);
+      
       return status;
     } catch (error) {
-      console.error('Failed to check user-tenant status:', error);
+      console.error('useTenantUserManagement: Failed to check user-tenant status:', error);
       return null;
     } finally {
       setIsCheckingStatus(false);
@@ -88,17 +96,21 @@ export const useTenantUserManagement = () => {
     
     setIsFixingRelationship(true);
     try {
+      console.log('useTenantUserManagement: Ensuring user-tenant record for:', { userId, tenantId });
+      
       const result = await UserTenantService.ensureUserTenantRecord(userId, tenantId);
       
       if (result.success) {
+        console.log('useTenantUserManagement: Successfully ensured user-tenant record:', result);
         showSuccess('User-tenant relationship created successfully');
         return true;
       } else {
+        console.error('useTenantUserManagement: Failed to ensure user-tenant record:', result.error);
         showError(result.error || 'Failed to create user-tenant relationship');
         return false;
       }
     } catch (error) {
-      console.error('Failed to ensure user-tenant record:', error);
+      console.error('useTenantUserManagement: Failed to ensure user-tenant record:', error);
       showError('Failed to create user-tenant relationship');
       return false;
     } finally {
@@ -115,6 +127,8 @@ export const useTenantUserManagement = () => {
     
     setIsCreatingUser(true);
     try {
+      console.log('useTenantUserManagement: Creating tenant user:', { email, fullName, tenantId });
+      
       const { data, error } = await supabase.functions.invoke('register-user-with-welcome', {
         body: {
           email,
@@ -131,20 +145,22 @@ export const useTenantUserManagement = () => {
       });
 
       if (error) {
-        console.error('Error creating user:', error);
+        console.error('useTenantUserManagement: Error creating user:', error);
         showError('Failed to create user');
         return { success: false, error: error.message };
       }
 
       if (data?.success) {
+        console.log('useTenantUserManagement: Successfully created user:', data);
         showSuccess('User created successfully!');
         return data;
       } else {
+        console.error('useTenantUserManagement: User creation failed:', data?.error);
         showError(data?.error || 'Failed to create user');
         return { success: false, error: data?.error };
       }
     } catch (error) {
-      console.error('Failed to create user:', error);
+      console.error('useTenantUserManagement: Failed to create user:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create user';
       showError(errorMessage);
       return { success: false, error: errorMessage };
@@ -162,6 +178,8 @@ export const useTenantUserManagement = () => {
     
     setIsCreatingUser(true);
     try {
+      console.log('useTenantUserManagement: Creating admin user:', { email, fullName, tenantId });
+      
       const { data, error } = await supabase.functions.invoke('register-user-with-welcome', {
         body: {
           email,
@@ -178,20 +196,22 @@ export const useTenantUserManagement = () => {
       });
 
       if (error) {
-        console.error('Error creating user:', error);
+        console.error('useTenantUserManagement: Error creating admin user:', error);
         showError('Failed to create admin user');
         return { success: false, error: error.message };
       }
 
       if (data?.success) {
+        console.log('useTenantUserManagement: Successfully created admin user:', data);
         showSuccess('Admin user created successfully!');
         return data;
       } else {
+        console.error('useTenantUserManagement: Admin user creation failed:', data?.error);
         showError(data?.error || 'Failed to create admin user');
         return { success: false, error: data?.error };
       }
     } catch (error) {
-      console.error('Failed to create user:', error);
+      console.error('useTenantUserManagement: Failed to create admin user:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create admin user';
       showError(errorMessage);
       return { success: false, error: errorMessage };
@@ -205,20 +225,23 @@ export const useTenantUserManagement = () => {
     
     setIsSendingReset(true);
     try {
+      console.log('useTenantUserManagement: Sending password reset for:', email);
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset-password`
       });
 
       if (error) {
-        console.error('Error sending password reset:', error);
+        console.error('useTenantUserManagement: Error sending password reset:', error);
         showError('Failed to send password reset email');
         return false;
       }
 
+      console.log('useTenantUserManagement: Successfully sent password reset');
       showSuccess('Password reset email sent successfully!');
       return true;
     } catch (error) {
-      console.error('Failed to send password reset:', error);
+      console.error('useTenantUserManagement: Failed to send password reset:', error);
       showError('Failed to send password reset email');
       return false;
     } finally {

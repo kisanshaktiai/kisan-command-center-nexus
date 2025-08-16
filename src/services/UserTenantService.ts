@@ -99,27 +99,32 @@ export class UserTenantService {
   }
 
   /**
-   * Check comprehensive user-tenant status
+   * Check comprehensive user-tenant status across both auth.users and user_tenants tables
    */
   static async checkUserTenantStatus(
     email: string,
     tenantId: string
   ): Promise<UserTenantStatus> {
     try {
+      console.log('UserTenantService: Checking comprehensive status for:', { email, tenantId });
+
       // Check auth.users table using the get-user-by-email edge function
       const { data: authUserResponse, error: authError } = await supabase.functions.invoke('get-user-by-email', {
         body: { user_email: email }
       });
 
       if (authError) {
-        console.error('Error checking auth user:', authError);
+        console.error('UserTenantService: Error checking auth user:', authError);
       }
 
       const authUser = authUserResponse && Array.isArray(authUserResponse) && authUserResponse.length > 0 ? authUserResponse[0] : null;
+      console.log('UserTenantService: Auth user result:', authUser);
 
       // Check user_tenants table if user exists
       let tenantRelationship = null;
       if (authUser) {
+        console.log('UserTenantService: Checking tenant relationship for user:', authUser.id);
+        
         const { data: relationship, error: relationshipError } = await supabase
           .from('user_tenants')
           .select('*')
@@ -129,6 +134,9 @@ export class UserTenantService {
 
         if (!relationshipError) {
           tenantRelationship = relationship;
+          console.log('UserTenantService: Found tenant relationship:', tenantRelationship);
+        } else {
+          console.log('UserTenantService: No tenant relationship found:', relationshipError);
         }
       }
 
@@ -138,13 +146,17 @@ export class UserTenantService {
       const roleMatches = tenantRelationship?.role === expectedRole;
 
       const issues = [];
-      if (!authExists) issues.push('User not found in authentication system');
-      if (authExists && !tenantRelationshipExists) issues.push('User-tenant relationship missing');
+      if (!authExists) {
+        issues.push('User not found in authentication system');
+      }
+      if (authExists && !tenantRelationshipExists) {
+        issues.push('User-tenant relationship missing');
+      }
       if (tenantRelationshipExists && !roleMatches) {
         issues.push(`Role mismatch: expected ${expectedRole}, found ${tenantRelationship.role}`);
       }
 
-      return {
+      const result = {
         authExists,
         tenantRelationshipExists,
         roleMatches,
@@ -153,25 +165,31 @@ export class UserTenantService {
         userId: authUser?.id,
         issues
       };
+
+      console.log('UserTenantService: Final status result:', result);
+      return result;
     } catch (error) {
-      console.error('Error checking user-tenant status:', error);
+      console.error('UserTenantService: Error checking user-tenant status:', error);
       return {
         authExists: false,
         tenantRelationshipExists: false,
         roleMatches: false,
         expectedRole: 'tenant_admin',
-        issues: ['Error checking status']
+        issues: ['Error checking status: ' + (error instanceof Error ? error.message : 'Unknown error')]
       };
     }
   }
 
   /**
    * Ensure user-tenant record exists with correct role
+   * This will create the relationship if user exists but relationship is missing
    */
   static async ensureUserTenantRecord(
     userId: string,
     tenantId: string
   ): Promise<UserTenantResponse> {
+    console.log('UserTenantService: Ensuring user-tenant record for:', { userId, tenantId });
+    
     return this.manageUserTenantRelationship({
       user_id: userId,
       tenant_id: tenantId,
