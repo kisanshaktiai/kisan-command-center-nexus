@@ -1,36 +1,32 @@
 
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import SuperAdmin from './pages/SuperAdmin';
-import Auth from './pages/Auth';
-import AuthCallback from './pages/auth/AuthCallback';
-import ResetPassword from './pages/auth/ResetPassword';
-import AdminRegister from './pages/AdminRegister';
-import OnboardPartner from './pages/OnboardPartner';
-import { AdminInviteRegistration } from '@/components/auth/AdminInviteRegistration';
-import Register from './pages/Register';
-import NotFound from './pages/NotFound';
-import AdminLeads from './pages/admin/AdminLeads';
-import { AppProviders } from './components/providers/AppProviders';
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { navItems } from "./nav-items";
+import Index from "./pages/Index";
+import TenantOnboarding from "./pages/onboarding/TenantOnboarding";
+
+const queryClient = new QueryClient();
 
 const App = () => (
-  <AppProviders>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to="/auth" replace />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/auth/reset-password" element={<ResetPassword />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/admin-register" element={<AdminRegister />} />
-        <Route path="/admin/leads" element={<AdminLeads />} />
-        <Route path="/onboard/:token" element={<OnboardPartner />} />
-        <Route path="/invite/:token" element={<AdminInviteRegistration />} />
-        <Route path="/super-admin/*" element={<SuperAdmin />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
-  </AppProviders>
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/onboarding" element={<TenantOnboarding />} />
+          {navItems.map(({ to, page }) => (
+            <Route key={to} path={to} element={page} />
+          ))}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
 );
 
 export default App;
