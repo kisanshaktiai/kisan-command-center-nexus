@@ -2,7 +2,13 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { OnboardingContextType, OnboardingWorkflow, OnboardingStep, OnboardingStepTemplate, OnboardingFormData } from '@/types/onboarding';
+import { 
+  OnboardingContextType, 
+  OnboardingWorkflow, 
+  OnboardingStep, 
+  OnboardingStepTemplate, 
+  OnboardingFormData 
+} from '@/types/onboarding';
 import { useNotifications } from '@/hooks/useNotifications';
 
 interface OnboardingState {
@@ -64,7 +70,7 @@ function onboardingReducer(state: OnboardingState, action: OnboardingAction): On
         formData: {
           ...state.formData,
           [action.payload.stepName]: {
-            ...state.formData[action.payload.stepName as keyof OnboardingFormData],
+            ...(state.formData[action.payload.stepName] || {}),
             ...action.payload.data
           }
         }
@@ -123,9 +129,9 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
         step_name: template.step_name,
         step_order: template.step_number,
         step_type: 'form',
-        schema_config: template.validation_schema as Record<string, any> || {},
-        default_data: template.default_data as Record<string, any> || {},
-        validation_rules: template.validation_schema as Record<string, any> || {},
+        schema_config: template.validation_schema || {},
+        default_data: template.default_data || {},
+        validation_rules: template.validation_schema || {},
         is_required: template.is_required,
         is_active: true,
         help_text: template.help_text,
@@ -185,7 +191,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
       workflowData.steps.forEach((step: OnboardingStep) => {
         if (step.step_data && Object.keys(step.step_data).length > 0) {
           const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '');
-          formData[stepKey as keyof OnboardingFormData] = step.step_data;
+          formData[stepKey] = step.step_data;
         }
       });
       
@@ -199,7 +205,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
           type: 'UPDATE_FORM_DATA', 
           payload: { 
             stepName: stepKey, 
-            data: formData[stepKey as keyof OnboardingFormData] 
+            data: formData[stepKey] 
           } 
         });
       });
@@ -248,7 +254,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode; tenantId:
   const saveCurrentStep = useCallback(async () => {
     const currentStep = state.steps[state.currentStepIndex];
     const stepName = currentStep?.step_name.toLowerCase().replace(/\s+/g, '');
-    const stepData = stepName ? state.formData[stepName as keyof OnboardingFormData] : {};
+    const stepData = stepName ? state.formData[stepName] : {};
     
     if (currentStep && stepData) {
       dispatch({ type: 'SET_SAVING', payload: true });

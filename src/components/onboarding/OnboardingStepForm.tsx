@@ -16,7 +16,6 @@ export const OnboardingStepForm: React.FC<OnboardingStepFormProps> = ({ step, st
   const { formData, updateStepData, validationErrors } = useOnboarding();
   
   const stepKey = step.step_name.toLowerCase().replace(/\s+/g, '');
-  const currentData = formData[stepKey as keyof typeof formData] || {};
 
   const handleDataChange = async (data: any) => {
     await updateStepData(stepKey, data);
@@ -25,23 +24,41 @@ export const OnboardingStepForm: React.FC<OnboardingStepFormProps> = ({ step, st
   const renderStepContent = () => {
     switch (stepKey) {
       case 'businessverification':
+        const businessData = (formData.businessverification || {}) as {
+          companyName?: string;
+          gstNumber?: string;
+          panNumber?: string;
+          registrationCertificate?: string;
+          addressProof?: string;
+        };
         return (
           <BusinessVerificationForm
-            data={currentData}
+            data={businessData}
             onDataChange={handleDataChange}
           />
         );
       case 'planselection':
+        const planData = (formData.planselection || {}) as {
+          planType?: 'Kisan_Basic' | 'Shakti_Growth' | 'AI_Enterprise';
+          billingCycle?: 'monthly' | 'quarterly' | 'annually';
+          addOns?: string[];
+        };
         return (
           <PlanSelectionForm
-            data={currentData}
+            data={planData}
             onDataChange={handleDataChange}
           />
         );
       case 'branding':
+        const brandingData = (formData.branding || {}) as {
+          logo?: string;
+          primaryColor?: string;
+          secondaryColor?: string;
+          companyDescription?: string;
+        };
         return (
           <BrandingForm
-            data={currentData}
+            data={brandingData}
             onDataChange={handleDataChange}
           />
         );

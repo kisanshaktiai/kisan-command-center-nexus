@@ -39,36 +39,48 @@ export interface OnboardingStepTemplate {
   estimated_time_minutes?: number;
 }
 
+// Simplified form data structure
+export interface BusinessVerificationData {
+  companyName?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  registrationCertificate?: string;
+  addressProof?: string;
+}
+
+export interface PlanSelectionData {
+  planType?: 'Kisan_Basic' | 'Shakti_Growth' | 'AI_Enterprise';
+  billingCycle?: 'monthly' | 'quarterly' | 'annually';
+  addOns?: string[];
+}
+
+export interface BrandingData {
+  logo?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  companyDescription?: string;
+}
+
+export interface FeatureTogglesData {
+  enabledFeatures?: string[];
+  permissions?: Record<string, boolean>;
+}
+
+export interface TeamInvitesData {
+  invites?: Array<{
+    email: string;
+    role: string;
+    name: string;
+  }>;
+}
+
 export interface OnboardingFormData {
-  businessverification?: {
-    companyName?: string;
-    gstNumber?: string;
-    panNumber?: string;
-    registrationCertificate?: File | null;
-    addressProof?: File | null;
-  };
-  planselection?: {
-    planType?: 'Kisan_Basic' | 'Shakti_Growth' | 'AI_Enterprise';
-    billingCycle?: 'monthly' | 'quarterly' | 'annually';
-    addOns?: string[];
-  };
-  branding?: {
-    logo?: File | null;
-    primaryColor?: string;
-    secondaryColor?: string;
-    companyDescription?: string;
-  };
-  featuretoggles?: {
-    enabledFeatures?: string[];
-    permissions?: Record<string, boolean>;
-  };
-  teaminvites?: {
-    invites?: Array<{
-      email: string;
-      role: string;
-      name: string;
-    }>;
-  };
+  businessverification?: BusinessVerificationData;
+  planselection?: PlanSelectionData;
+  branding?: BrandingData;
+  featuretoggles?: FeatureTogglesData;
+  teaminvites?: TeamInvitesData;
+  [key: string]: any;
 }
 
 export interface OnboardingContextType {
