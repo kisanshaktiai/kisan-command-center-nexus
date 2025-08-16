@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -288,45 +287,91 @@ serve(async (req) => {
       userId = registrationData.userId;
       console.log('User registered successfully:', userId, registrationData.isNewUser ? '(new user)' : '(existing user)');
 
-      // Ensure user-tenant relationship exists
+      // CRITICAL FIX: Ensure user-tenant relationship exists with proper error handling
       if (userId) {
+        console.log('Creating/verifying user-tenant relationship for userId:', userId, 'tenantId:', tenantId);
+        
+        // First check if the relationship already exists
         const { data: existingRelation, error: relationCheckError } = await supabase
           .from('user_tenants')
-          .select('id')
+          .select('id, role, is_active')
           .eq('user_id', userId)
           .eq('tenant_id', tenantId)
-          .single();
+          .maybeSingle();
 
-        if (!existingRelation && !relationCheckError) {
-          console.log('Creating user-tenant relationship...');
-          const { error: tenantUserError } = await supabase
+        if (relationCheckError) {
+          console.error('Error checking existing user-tenant relationship:', relationCheckError);
+          throw new Error(`Failed to check user-tenant relationship: ${relationCheckError.message}`);
+        }
+
+        if (existingRelation) {
+          console.log('Existing user-tenant relationship found:', existingRelation);
+          
+          // Update the existing relationship to ensure correct role and status
+          if (existingRelation.role !== 'tenant_admin' || !existingRelation.is_active) {
+            console.log('Updating existing user-tenant relationship to tenant_admin role');
+            const { error: updateError } = await supabase
+              .from('user_tenants')
+              .update({
+                role: 'tenant_admin',
+                is_active: true,
+                updated_at: new Date().toISOString()
+              })
+              .eq('user_id', userId)
+              .eq('tenant_id', tenantId);
+
+            if (updateError) {
+              console.error('Failed to update user-tenant relationship:', updateError);
+              throw new Error(`Failed to update user-tenant relationship: ${updateError.message}`);
+            }
+          }
+          userTenantCreated = true;
+        } else {
+          console.log('Creating new user-tenant relationship');
+          const { data: insertedRelation, error: tenantUserError } = await supabase
             .from('user_tenants')
             .insert({
               user_id: userId,
               tenant_id: tenantId,
               role: 'tenant_admin',
-              is_active: true
-            });
+              is_active: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
 
           if (tenantUserError) {
             console.error('Failed to create tenant user relationship:', tenantUserError);
             throw new Error(`Failed to create user-tenant relationship: ${tenantUserError.message}`);
           } else {
             userTenantCreated = true;
-            console.log('Created user-tenant relationship successfully');
+            console.log('Created user-tenant relationship successfully:', insertedRelation);
           }
-        } else if (existingRelation) {
-          console.log('User-tenant relationship already exists');
-          userTenantCreated = true;
         }
+
+        // Verify the relationship was created/updated successfully
+        const { data: verifyRelation, error: verifyError } = await supabase
+          .from('user_tenants')
+          .select('id, role, is_active, created_at, updated_at')
+          .eq('user_id', userId)
+          .eq('tenant_id', tenantId)
+          .single();
+
+        if (verifyError || !verifyRelation) {
+          console.error('User-tenant relationship verification failed:', verifyError);
+          throw new Error('Failed to verify user-tenant relationship creation');
+        }
+
+        console.log('User-tenant relationship verified successfully:', verifyRelation);
       }
 
     } catch (error) {
-      console.error('Error in user registration:', error);
+      console.error('Error in user registration or relationship creation:', error);
       
       const response: ConversionResponse = {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to register user',
+        error: error instanceof Error ? error.message : 'Failed to register user or create relationship',
         code: 'USER_REGISTRATION_ERROR'
       };
       return new Response(JSON.stringify(response), {
@@ -359,7 +404,7 @@ serve(async (req) => {
     // Return comprehensive success response
     const response: ConversionResponse = {
       success: true,
-      message: conversionResult.message || 'Lead converted to tenant successfully with user registration',
+      message: conversionResult.message || 'Lead converted to tenant successfully with user registration and relationship creation',
       tenantId: tenantId,
       tenant_id: tenantId,
       userId: userId,
@@ -369,7 +414,7 @@ serve(async (req) => {
       userTenantCreated: userTenantCreated
     };
 
-    console.log('Conversion completed successfully with user registration');
+    console.log('Conversion completed successfully with user registration and tenant relationship');
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
