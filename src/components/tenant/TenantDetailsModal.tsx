@@ -434,12 +434,25 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
         </DialogContent>
       </Dialog>
 
-      <TenantUserCreator
-        tenantId={tenant?.id}
-        tenantName={tenant?.name}
-        isOpen={showUserCreator}
-        onClose={() => setShowUserCreator(false)}
-      />
+      {/* User Creator Modal */}
+      <Dialog open={showUserCreator} onOpenChange={setShowUserCreator}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Tenant Users</DialogTitle>
+            <DialogDescription>
+              Add or manage users for {tenant?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <TenantUserCreator
+            tenantId={tenant?.id}
+            tenantName={tenant?.name}
+            onUserCreated={() => {
+              // Refresh relationship status when user is created
+              checkTenantRelationship();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
