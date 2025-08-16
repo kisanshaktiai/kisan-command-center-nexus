@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,7 +58,7 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
     if (!formData.owner_email) return null;
     if (!validateEmail(formData.owner_email)) return 'Please enter a valid email address';
     if (validationResult?.error && !validationResult?.exists) return validationResult.error;
-    if (validationResult?.exists === true) return 'This email already has an account. Please use a different email address.';
+    if (validationResult?.exists === true) return 'This email is already used by another tenant. Please use a different email address.';
     return null;
   };
 
@@ -158,8 +157,8 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
                 After tenant creation, we'll automatically:
               </p>
               <ul className="text-sm text-blue-700 mt-2 space-y-1 pl-4">
-                <li>• Check if the email already has an account</li>
-                <li>• Create a secure admin account (if needed)</li>
+                <li>• Check if the email is already used by another tenant</li>
+                <li>• Create a secure admin account (if email is available)</li>
                 <li>• Generate temporary login credentials (for new accounts)</li>
                 <li>• Send a branded welcome email with login instructions</li>
                 <li>• Provide password reset options for first-time access</li>

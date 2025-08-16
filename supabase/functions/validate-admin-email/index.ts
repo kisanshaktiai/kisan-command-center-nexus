@@ -47,16 +47,16 @@ serve(async (req) => {
     }
 
     const emailLower = rawEmail.toLowerCase();
-    console.log("🔎 Checking admin email existence:", emailLower);
+    console.log("🔎 Checking tenant owner email existence:", emailLower);
 
-    // Check if email exists in auth.users table (case-insensitive)
+    // Check if email exists in tenants.owner_email (case-insensitive)
     const { count, error } = await supabase
-      .from("auth.users")
+      .from("tenants")
       .select("id", { head: true, count: "exact" })
-      .ilike("email", emailLower);
+      .ilike("owner_email", emailLower);
 
     if (error) {
-      console.error("💥 Admin email existence check failed:", error);
+      console.error("💥 Tenant email existence check failed:", error);
       return new Response(
         JSON.stringify({ valid: false, error: "Email check failed" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -65,18 +65,18 @@ serve(async (req) => {
 
     const exists = (count ?? 0) > 0;
     if (exists) {
-      console.log("🚫 Email already exists in auth.users:", emailLower);
+      console.log("🚫 Email already exists as tenant owner:", emailLower);
       return new Response(
         JSON.stringify({ 
           valid: true, 
           exists: true, 
-          message: "This email already has a user account" 
+          message: "This email is already used by another tenant" 
         }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("✅ Admin email is available:", emailLower);
+    console.log("✅ Tenant owner email is available:", emailLower);
     return new Response(
       JSON.stringify({ valid: true, exists: false }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
