@@ -60,8 +60,8 @@ export class BootstrapService extends BaseService {
 
       console.log('BootstrapService: Bootstrap status from database:', data);
 
-      // Type assertion for the response
-      const response = data as BootstrapStatusResponse;
+      // Safe type assertion through unknown
+      const response = data as unknown as BootstrapStatusResponse;
       const isCompleted = response?.completed === true;
       const hasAdminUsers = (response?.super_admin_count || 0) > 0;
       const systemReady = isCompleted && hasAdminUsers;

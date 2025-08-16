@@ -79,8 +79,8 @@ class AuthenticationService {
 
       console.log('AuthenticationService: Bootstrap status response:', data);
       
-      // Type assertion for the response
-      const response = data as BootstrapStatusResponse;
+      // Safe type assertion through unknown
+      const response = data as unknown as BootstrapStatusResponse;
       const isCompleted = response?.completed === true;
       
       console.log('AuthenticationService: Bootstrap completed:', isCompleted);
