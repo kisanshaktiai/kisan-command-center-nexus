@@ -35,6 +35,13 @@ export interface UserTenantStatus {
   issues: string[];
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  created_at: string;
+  email_confirmed_at?: string;
+}
+
 export class UserTenantService {
   /**
    * Create or update a user-tenant relationship
@@ -106,22 +113,25 @@ export class UserTenantService {
     tenantId: string
   ): Promise<UserTenantStatus> {
     try {
-      // Check auth.users table
-      const { data: authUser, error: authError } = await supabase.rpc('get_user_by_email', {
-        user_email: email
+      // Use the edge function to check auth.users table
+      const { data: authResponse, error: authError } = await supabase.functions.invoke('get-user-by-email', {
+        body: { user_email: email }
       });
 
       if (authError) {
         console.error('Error checking auth user:', authError);
       }
 
+      const authUsers = authResponse as AuthUser[];
+      const authUser = authUsers && authUsers.length > 0 ? authUsers[0] : null;
+
       // Check user_tenants table if user exists
       let tenantRelationship = null;
-      if (authUser && authUser.length > 0) {
+      if (authUser) {
         const { data: relationship, error: relationshipError } = await supabase
           .from('user_tenants')
           .select('*')
-          .eq('user_id', authUser[0].id)
+          .eq('user_id', authUser.id)
           .eq('tenant_id', tenantId)
           .single();
 
@@ -131,7 +141,7 @@ export class UserTenantService {
       }
 
       const expectedRole = 'tenant_admin';
-      const authExists = authUser && authUser.length > 0;
+      const authExists = !!authUser;
       const tenantRelationshipExists = !!tenantRelationship;
       const roleMatches = tenantRelationship?.role === expectedRole;
 
@@ -148,7 +158,7 @@ export class UserTenantService {
         roleMatches,
         currentRole: tenantRelationship?.role,
         expectedRole,
-        userId: authUser?.[0]?.id,
+        userId: authUser?.id,
         issues
       };
     } catch (error) {
