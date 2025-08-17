@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -172,20 +171,15 @@ export const useOnboardingWorkflow = ({
         throw new Error(`Step ${stepNumber} not found`);
       }
 
-      const { data, error } = await supabase.functions.invoke('fix-advance-step', {
-        body: {
-          stepId: stepToUpdate.id,
-          newStatus: status,
-          stepData
-        }
+      // Use the database function with proper enum casting
+      const { error } = await supabase.rpc('advance_onboarding_step', {
+        p_step_id: stepToUpdate.id,
+        p_new_status: status as any, // Cast to enum type
+        p_step_data: stepData
       });
 
       if (error) {
         throw new Error(`Failed to update step: ${error.message}`);
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to update step');
       }
 
       setSteps(currentSteps => 

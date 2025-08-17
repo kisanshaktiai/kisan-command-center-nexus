@@ -269,9 +269,10 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
         throw new Error(`Step ${stepIndex + 1} not found in database`);
       }
 
+      // Use the database function with proper enum casting
       const { error } = await supabase.rpc('advance_onboarding_step', {
         p_step_id: targetStep.id,
-        p_new_status: status,
+        p_new_status: status as any, // Cast to enum type
         p_step_data: data
       });
 
