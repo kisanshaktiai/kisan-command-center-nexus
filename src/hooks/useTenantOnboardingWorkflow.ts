@@ -9,12 +9,12 @@ interface UseTenantOnboardingWorkflowOptions {
   autoCreate?: boolean;
 }
 
-interface InitializationState {
+// Global state to prevent multiple simultaneous initializations
+const globalInitState = new Map<string, {
   status: 'idle' | 'initializing' | 'completed' | 'error';
-  tenantId: string | null;
-  workflowId: string | null;
-  attemptCount: number;
-}
+  promise?: Promise<any>;
+  timestamp: number;
+}>();
 
 export const useTenantOnboardingWorkflow = ({
   tenantId,
@@ -28,137 +28,110 @@ export const useTenantOnboardingWorkflow = ({
   const [isRemoving, setIsRemoving] = useState(false);
   const { showSuccess, showError } = useNotifications();
 
-  // Atomic state management to prevent race conditions
-  const initStateRef = useRef<InitializationState>({
-    status: 'idle',
-    tenantId: null,
-    workflowId: null,
-    attemptCount: 0
-  });
+  // Create a unique key for this configuration
+  const configKey = `${tenantId}:${workflowId || 'auto'}`;
+  const initTimeoutRef = useRef<NodeJS.Timeout>();
+  const mountedRef = useRef(true);
 
-  const activeRequestRef = useRef<Promise<any> | null>(null);
+  const clearInitTimeout = useCallback(() => {
+    if (initTimeoutRef.current) {
+      clearTimeout(initTimeoutRef.current);
+      initTimeoutRef.current = undefined;
+    }
+  }, []);
+
+  const safeSetState = useCallback((updater: () => void) => {
+    if (mountedRef.current) {
+      updater();
+    }
+  }, []);
 
   const initializeWorkflow = useCallback(async (): Promise<void> => {
-    const currentState = initStateRef.current;
-    
-    // Prevent multiple simultaneous initializations
-    if (currentState.status === 'initializing') {
-      console.log('Initialization already in progress, skipping...');
-      return;
-    }
-
-    // Check if already initialized for this configuration
-    if (currentState.status === 'completed' && 
-        currentState.tenantId === tenantId &&
-        currentState.workflowId === workflowId) {
-      console.log('Already initialized for this configuration');
-      return;
-    }
-
     if (!tenantId) {
-      console.log('No tenant ID provided');
-      setError('Tenant ID is required');
+      safeSetState(() => setError('Tenant ID is required'));
       return;
     }
 
-    // Reset attempt count for new tenant/workflow combinations
-    if (currentState.tenantId !== tenantId || currentState.workflowId !== workflowId) {
-      initStateRef.current = {
-        ...currentState,
-        attemptCount: 0
-      };
-    }
+    const globalState = globalInitState.get(configKey);
+    const now = Date.now();
 
-    // Prevent excessive retry attempts
-    if (initStateRef.current.attemptCount >= 3) {
-      setError('Maximum initialization attempts reached. Please try refreshing the page.');
-      return;
-    }
-
-    // Update atomic state
-    initStateRef.current = {
-      ...initStateRef.current,
-      status: 'initializing',
-      tenantId,
-      workflowId: workflowId || null,
-      attemptCount: initStateRef.current.attemptCount + 1
-    };
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Request deduplication
-      if (activeRequestRef.current) {
-        console.log('Reusing active request...');
-        await activeRequestRef.current;
+    // Check if we're already initializing or have recent results
+    if (globalState) {
+      if (globalState.status === 'initializing' && globalState.promise) {
+        console.log('⏳ Reusing existing initialization promise');
+        try {
+          await globalState.promise;
+          return;
+        } catch (err) {
+          // Continue with new initialization if promise failed
+        }
+      }
+      
+      if (globalState.status === 'completed' && (now - globalState.timestamp) < 30000) {
+        console.log('✅ Using cached initialization results');
         return;
       }
+    }
 
+    // Set initializing state
+    globalInitState.set(configKey, {
+      status: 'initializing',
+      timestamp: now
+    });
+
+    safeSetState(() => {
+      setIsLoading(true);
+      setError(null);
+    });
+
+    try {
       let workflowResult: OnboardingWorkflow | null = null;
 
       if (workflowId) {
-        console.log('Loading existing workflow:', workflowId);
-        const loadRequest = onboardingService.loadWorkflow(workflowId);
-        activeRequestRef.current = loadRequest;
-        workflowResult = await loadRequest;
+        console.log('📂 Loading existing workflow:', workflowId);
+        workflowResult = await onboardingService.loadWorkflow(workflowId);
       } else if (autoCreate) {
-        console.log('Creating new workflow for tenant:', tenantId);
-        const createRequest = onboardingService.createWorkflow(tenantId);
-        activeRequestRef.current = createRequest;
-        workflowResult = await createRequest;
+        console.log('🚀 Creating new workflow for tenant:', tenantId);
+        workflowResult = await onboardingService.createWorkflow(tenantId);
       }
 
       if (workflowResult) {
-        console.log('Workflow loaded/created:', workflowResult.id);
-        setWorkflow(workflowResult);
+        console.log('✅ Workflow loaded/created:', workflowResult.id);
+        safeSetState(() => setWorkflow(workflowResult));
         
         // Load steps for the workflow
         const stepsResult = await onboardingService.loadSteps(workflowResult.id);
-        console.log('Steps loaded:', stepsResult.length);
-        setSteps(stepsResult);
+        console.log('📋 Steps loaded:', stepsResult.length);
+        safeSetState(() => setSteps(stepsResult));
         
         if (stepsResult.length > 0) {
           showSuccess(`Workflow initialized with ${stepsResult.length} steps`);
         }
 
         // Mark as successfully completed
-        initStateRef.current = {
-          ...initStateRef.current,
-          status: 'completed'
-        };
+        globalInitState.set(configKey, {
+          status: 'completed',
+          timestamp: now
+        });
       } else {
         throw new Error('No workflow was created or loaded');
       }
 
     } catch (error: any) {
-      console.error('Workflow initialization failed:', error);
+      console.error('❌ Workflow initialization failed:', error);
       
-      // Don't increment attempt count for certain types of errors
-      const shouldRetry = !error.message?.includes('Tenant not found') && 
-                         !error.message?.includes('function get_onboarding_template');
-      
-      if (!shouldRetry) {
-        initStateRef.current = {
-          ...initStateRef.current,
-          status: 'error',
-          attemptCount: 3 // Set to max to prevent further retries
-        };
-      } else {
-        initStateRef.current = {
-          ...initStateRef.current,
-          status: 'error'
-        };
-      }
+      globalInitState.set(configKey, {
+        status: 'error',
+        timestamp: now
+      });
       
       const errorMessage = error.message || 'Failed to initialize workflow';
-      setError(errorMessage);
+      safeSetState(() => setError(errorMessage));
       showError('Failed to initialize onboarding workflow: ' + errorMessage);
     } finally {
-      activeRequestRef.current = null;
-      setIsLoading(false);
+      safeSetState(() => setIsLoading(false));
     }
-  }, [tenantId, workflowId, autoCreate, showSuccess, showError]);
+  }, [tenantId, workflowId, autoCreate, showSuccess, showError, configKey, safeSetState]);
 
   const updateStepStatus = useCallback(async (
     stepNumber: number,
@@ -178,13 +151,15 @@ export const useTenantOnboardingWorkflow = ({
       await onboardingService.updateStepStatus(stepToUpdate.id, status, stepData);
 
       // Update local state
-      setSteps(currentSteps => 
-        currentSteps.map(step => 
-          step.step_number === stepNumber 
-            ? { ...step, step_status: status, step_data: { ...step.step_data, ...stepData } }
-            : step
-        )
-      );
+      safeSetState(() => {
+        setSteps(currentSteps => 
+          currentSteps.map(step => 
+            step.step_number === stepNumber 
+              ? { ...step, step_status: status, step_data: { ...step.step_data, ...stepData } }
+              : step
+          )
+        );
+      });
 
       showSuccess(`Step ${stepNumber} ${status === 'completed' ? 'completed' : 'updated'}`);
     } catch (error: any) {
@@ -192,7 +167,7 @@ export const useTenantOnboardingWorkflow = ({
       showError('Failed to update step status');
       throw error;
     }
-  }, [workflow?.id, steps, showSuccess, showError]);
+  }, [workflow?.id, steps, showSuccess, showError, safeSetState]);
 
   const removeWorkflow = useCallback(async (): Promise<void> => {
     if (!workflow?.id) {
@@ -200,20 +175,17 @@ export const useTenantOnboardingWorkflow = ({
     }
 
     try {
-      setIsRemoving(true);
+      safeSetState(() => setIsRemoving(true));
       await onboardingService.removeWorkflow(workflow.id);
       
       // Clear local state
-      setWorkflow(null);
-      setSteps([]);
+      safeSetState(() => {
+        setWorkflow(null);
+        setSteps([]);
+      });
       
-      // Reset initialization state
-      initStateRef.current = {
-        status: 'idle',
-        tenantId: null,
-        workflowId: null,
-        attemptCount: 0
-      };
+      // Clear global state
+      globalInitState.delete(configKey);
       
       showSuccess('Workflow removed successfully');
     } catch (error: any) {
@@ -221,52 +193,57 @@ export const useTenantOnboardingWorkflow = ({
       showError('Failed to remove workflow: ' + (error.message || 'Unknown error'));
       throw error;
     } finally {
-      setIsRemoving(false);
+      safeSetState(() => setIsRemoving(false));
     }
-  }, [workflow?.id, showSuccess, showError]);
+  }, [workflow?.id, showSuccess, showError, configKey, safeSetState]);
 
-  const retryInitialization = useCallback(async () => {
-    console.log('Retrying initialization...');
+  const retryInitialization = useCallback(() => {
+    console.log('🔄 Retrying initialization...');
     
-    // Reset the initialization state completely
-    initStateRef.current = {
-      status: 'idle',
-      tenantId: null,
-      workflowId: null,
-      attemptCount: 0
-    };
+    // Clear global state
+    globalInitState.delete(configKey);
     
-    setError(null);
-    setWorkflow(null);
-    setSteps([]);
-    setIsLoading(true);
+    safeSetState(() => {
+      setError(null);
+      setWorkflow(null);
+      setSteps([]);
+      setIsLoading(true);
+    });
     
-    // Small delay to ensure state is reset
-    setTimeout(() => {
+    // Debounced retry
+    clearInitTimeout();
+    initTimeoutRef.current = setTimeout(() => {
       initializeWorkflow();
-    }, 100);
-  }, [initializeWorkflow]);
+    }, 500);
+  }, [configKey, initializeWorkflow, clearInitTimeout, safeSetState]);
 
-  // Single effect with proper dependency management
+  // Single effect with proper cleanup
   useEffect(() => {
-    const currentState = initStateRef.current;
+    mountedRef.current = true;
     
-    if (tenantId && 
-        (currentState.status === 'idle' || 
-         currentState.tenantId !== tenantId ||
-         currentState.workflowId !== workflowId)) {
+    if (tenantId) {
+      console.log('🎯 Starting workflow initialization for:', { tenantId, workflowId });
       
-      console.log('Starting workflow initialization for:', { tenantId, workflowId });
-      initializeWorkflow();
+      // Debounced initialization to prevent rapid calls
+      clearInitTimeout();
+      initTimeoutRef.current = setTimeout(() => {
+        initializeWorkflow();
+      }, 100);
     }
 
     return () => {
-      if (activeRequestRef.current) {
-        console.log('Cleaning up active request');
-        activeRequestRef.current = null;
-      }
+      mountedRef.current = false;
+      clearInitTimeout();
     };
-  }, [tenantId, workflowId, initializeWorkflow]);
+  }, [tenantId, workflowId]); // Stable dependencies only
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      clearInitTimeout();
+    };
+  }, [clearInitTimeout]);
 
   return {
     workflow,

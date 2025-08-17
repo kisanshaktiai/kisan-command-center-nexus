@@ -113,7 +113,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     enabled: !!tenantId
   });
 
-  // Computed values
+  // Memoized computations to prevent unnecessary re-renders
   const currentStep = useMemo(() => {
     return steps[state.currentStepIndex] || null;
   }, [steps, state.currentStepIndex]);
@@ -147,15 +147,15 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     return state.currentStepIndex > 0;
   }, [state.currentStepIndex]);
 
-  // Actions
+  // Stable action callbacks
   const goToStep = useCallback((index: number) => {
-    if (index >= 0 && index < steps.length) {
+    if (index >= 0 && index < steps.length && index !== state.currentStepIndex) {
       dispatch({ type: 'SET_TRANSITIONING', payload: true });
       setTimeout(() => {
         dispatch({ type: 'SET_CURRENT_STEP', payload: index });
       }, 150);
     }
-  }, [steps.length]);
+  }, [steps.length, state.currentStepIndex]);
 
   const nextStep = useCallback(() => {
     if (canGoNext) {
@@ -223,7 +223,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     await removeWorkflowHook();
   }, [removeWorkflowHook]);
 
-  // Fix the error type handling with proper type checking
+  // Handle error conversion properly
   const errorMessage = useMemo(() => {
     const getErrorMessage = (error: unknown): string | null => {
       if (!error) return null;
@@ -237,7 +237,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     return getErrorMessage(workflowError) || getErrorMessage(tenantError);
   }, [workflowError, tenantError]);
 
-  const contextValue: OnboardingContextValue = {
+  const contextValue: OnboardingContextValue = useMemo(() => ({
     state,
     steps,
     currentStep,
@@ -257,7 +257,28 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     canGoPrevious,
     totalEstimatedTime,
     remainingTime
-  };
+  }), [
+    state,
+    steps,
+    currentStep,
+    tenantInfo,
+    workflowLoading,
+    tenantLoading,
+    errorMessage,
+    isRemoving,
+    goToStep,
+    nextStep,
+    previousStep,
+    updateStepData,
+    completeStep,
+    validateStep,
+    removeWorkflow,
+    progress,
+    canGoNext,
+    canGoPrevious,
+    totalEstimatedTime,
+    remainingTime
+  ]);
 
   return (
     <OnboardingContext.Provider value={contextValue}>

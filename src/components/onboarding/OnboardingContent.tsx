@@ -7,6 +7,7 @@ import { OnboardingStepContent } from './OnboardingStepContent';
 import { OnboardingFooter } from './OnboardingFooter';
 import { OnboardingLoadingState } from './OnboardingLoadingState';
 import { OnboardingErrorState } from './OnboardingErrorState';
+import { OnboardingErrorBoundary } from './OnboardingErrorBoundary';
 
 export const OnboardingContent: React.FC = () => {
   const { isLoading, error, steps } = useOnboarding();
@@ -24,18 +25,20 @@ export const OnboardingContent: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-1 overflow-hidden">
-      <OnboardingSidebar />
-      
-      <div className="flex-1 flex flex-col">
-        <OnboardingHeader />
+    <OnboardingErrorBoundary>
+      <div className="flex flex-1 overflow-hidden">
+        <OnboardingSidebar />
         
-        <div className="flex-1 overflow-y-auto">
-          <OnboardingStepContent />
+        <div className="flex-1 flex flex-col">
+          <OnboardingHeader />
+          
+          <div className="flex-1 overflow-y-auto">
+            <OnboardingStepContent />
+          </div>
+          
+          <OnboardingFooter />
         </div>
-        
-        <OnboardingFooter />
       </div>
-    </div>
+    </OnboardingErrorBoundary>
   );
 };

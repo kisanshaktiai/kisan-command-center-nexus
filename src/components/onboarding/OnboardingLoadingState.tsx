@@ -1,24 +1,23 @@
 
 import React from 'react';
-import { Sparkles } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 export const OnboardingLoadingState: React.FC = () => {
   return (
-    <div className="flex items-center justify-center py-16">
-      <div className="text-center space-y-6">
+    <div className="flex items-center justify-center min-h-[500px]">
+      <div className="text-center space-y-4">
         <div className="relative">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary mx-auto"></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Sparkles className="w-6 h-6 text-primary animate-pulse" />
-          </div>
+          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+          <div className="absolute inset-0 w-12 h-12 border-4 border-primary/20 rounded-full mx-auto"></div>
         </div>
         <div className="space-y-2">
-          <p className="text-lg font-medium">
-            Initializing Your Onboarding Experience
-          </p>
+          <h3 className="text-lg font-semibold">Loading Onboarding</h3>
           <p className="text-sm text-muted-foreground">
-            Setting up your world-class tenant onboarding workflow...
+            Setting up your onboarding workflow...
           </p>
+        </div>
+        <div className="w-64 h-2 bg-muted rounded-full mx-auto overflow-hidden">
+          <div className="h-full bg-primary rounded-full animate-pulse w-1/3"></div>
         </div>
       </div>
     </div>
