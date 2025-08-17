@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
@@ -18,7 +17,7 @@ interface OnboardingStep {
   id: string;
   title: string;
   description: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
   component: React.ComponentType<any>;
   isRequired: boolean;
 }
@@ -92,7 +91,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
     }
   ];
 
-  const [stepsState, setStepsState] = useState(steps);
+  const [stepsState, setStepsState] = useState<OnboardingStep[]>(steps);
 
   useEffect(() => {
     if (isOpen && workflowId) {
@@ -116,7 +115,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
           const dbStep = data.find(s => s.step_number === index + 1);
           return {
             ...step,
-            status: dbStep?.step_status || 'pending'
+            status: (dbStep?.step_status as OnboardingStep['status']) || 'pending'
           };
         });
         setStepsState(updatedSteps);
@@ -135,7 +134,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
     }
   };
 
-  const updateStepStatus = async (stepIndex: number, status: string, data: any = {}) => {
+  const updateStepStatus = async (stepIndex: number, status: OnboardingStep['status'], data: any = {}) => {
     try {
       if (!workflowId) return;
 
@@ -149,7 +148,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
 
       // Update local state
       const updatedSteps = [...stepsState];
-      updatedSteps[stepIndex] = { ...updatedSteps[stepIndex], status: status as any };
+      updatedSteps[stepIndex] = { ...updatedSteps[stepIndex], status };
       setStepsState(updatedSteps);
 
       // Update step data
@@ -196,7 +195,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: OnboardingStep['status']) => {
     switch (status) {
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-green-500" />;

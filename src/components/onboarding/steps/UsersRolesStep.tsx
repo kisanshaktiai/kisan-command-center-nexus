@@ -6,19 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, Mail, CheckCircle, Clock, UserPlus } from 'lucide-react';
+import { Users, Mail, UserPlus, Trash2, Shield, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
-
-interface User {
-  id?: string;
-  name: string;
-  email: string;
-  role: string;
-  status: 'pending' | 'invited' | 'active';
-  invitedAt?: string;
-}
 
 interface UsersRolesStepProps {
   tenantId: string;
@@ -27,26 +17,37 @@ interface UsersRolesStepProps {
   onDataChange: (data: any) => void;
 }
 
+interface UserInvite {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  status: 'pending' | 'sent' | 'accepted';
+}
+
 export const UsersRolesStep: React.FC<UsersRolesStepProps> = ({
   tenantId,
   onComplete,
   data,
   onDataChange
 }) => {
-  const [users, setUsers] = useState<User[]>(data.users || []);
+  const [userInvites, setUserInvites] = useState<UserInvite[]>(data.userInvites || []);
+  const [existingUsers, setExistingUsers] = useState([]);
   const [newUser, setNewUser] = useState({
-    name: '',
     email: '',
-    role: 'user'
+    firstName: '',
+    lastName: '',
+    role: 'tenant_user'
   });
-  const [isInviting, setIsInviting] = useState(false);
+  const [isSendingInvites, setIsSendingInvites] = useState(false);
   const { showSuccess, showError } = useNotifications();
 
-  const roleOptions = [
+  const roles = [
     { value: 'tenant_admin', label: 'Admin', description: 'Full access to tenant management' },
-    { value: 'manager', label: 'Manager', description: 'Manage users and content' },
-    { value: 'user', label: 'User', description: 'Standard user access' },
-    { value: 'viewer', label: 'Viewer', description: 'Read-only access' }
+    { value: 'tenant_user', label: 'User', description: 'Standard user access' },
+    { value: 'farmer', label: 'Farmer', description: 'Farmer-specific features' },
+    { value: 'dealer', label: 'Dealer', description: 'Dealer-specific features' }
   ];
 
   useEffect(() => {
@@ -55,168 +56,131 @@ export const UsersRolesStep: React.FC<UsersRolesStepProps> = ({
 
   const loadExistingUsers = async () => {
     try {
-      const { data: existingUsers, error } = await supabase
+      const { data: users, error } = await supabase
         .from('user_tenants')
         .select(`
-          id,
-          role,
-          is_active,
-          created_at,
+          *,
           user_profiles(full_name, email)
         `)
         .eq('tenant_id', tenantId);
 
       if (error) throw error;
-
-      const formattedUsers = existingUsers?.map(user => ({
-        id: user.id,
-        name: user.user_profiles?.full_name || 'Unknown',
-        email: user.user_profiles?.email || '',
-        role: user.role,
-        status: user.is_active ? 'active' : 'pending' as any
-      })) || [];
-
-      setUsers(prev => [...formattedUsers, ...prev.filter(u => !u.id)]);
+      
+      // Filter out any items that don't have user_profiles data
+      const validUsers = users.filter(user => user.user_profiles);
+      setExistingUsers(validUsers);
     } catch (error) {
       console.error('Error loading existing users:', error);
     }
   };
 
-  const handleAddUser = () => {
-    if (!newUser.name || !newUser.email) {
-      showError('Please fill in all fields');
+  const addUserInvite = () => {
+    if (!newUser.email || !newUser.firstName) {
+      showError('Please fill in required fields');
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newUser.email)) {
-      showError('Please enter a valid email address');
-      return;
-    }
-
-    if (users.some(u => u.email === newUser.email)) {
-      showError('User with this email already exists');
-      return;
-    }
-
-    const user: User = {
+    const invite: UserInvite = {
+      id: Date.now().toString(),
       ...newUser,
       status: 'pending'
     };
 
-    const updatedUsers = [...users, user];
-    setUsers(updatedUsers);
-    onDataChange({ ...data, users: updatedUsers });
+    const updatedInvites = [...userInvites, invite];
+    setUserInvites(updatedInvites);
+    
+    const newData = { ...data, userInvites: updatedInvites };
+    onDataChange(newData);
 
-    setNewUser({ name: '', email: '', role: 'user' });
+    // Reset form
+    setNewUser({
+      email: '',
+      firstName: '',
+      lastName: '',
+      role: 'tenant_user'
+    });
   };
 
-  const handleRemoveUser = (index: number) => {
-    const updatedUsers = users.filter((_, i) => i !== index);
-    setUsers(updatedUsers);
-    onDataChange({ ...data, users: updatedUsers });
+  const removeUserInvite = (id: string) => {
+    const updatedInvites = userInvites.filter(invite => invite.id !== id);
+    setUserInvites(updatedInvites);
+    
+    const newData = { ...data, userInvites: updatedInvites };
+    onDataChange(newData);
   };
 
-  const handleRoleChange = (index: number, newRole: string) => {
-    const updatedUsers = [...users];
-    updatedUsers[index] = { ...updatedUsers[index], role: newRole };
-    setUsers(updatedUsers);
-    onDataChange({ ...data, users: updatedUsers });
-  };
-
-  const sendInvite = async (user: User, index: number) => {
+  const sendInvites = async () => {
     try {
-      setIsInviting(true);
+      setIsSendingInvites(true);
 
-      // Create invitation record
-      const { data: invitation, error: inviteError } = await supabase
-        .from('user_invitations')
-        .insert({
-          tenant_id: tenantId,
-          email: user.email,
-          role: user.role,
-          invited_by: (await supabase.auth.getUser()).data.user?.id,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-          invitation_token: crypto.randomUUID()
-        })
-        .select()
-        .single();
+      for (const invite of userInvites) {
+        if (invite.status === 'pending') {
+          // Call edge function to send invitation
+          const { error } = await supabase.functions.invoke('send-user-invite', {
+            body: {
+              tenantId,
+              email: invite.email,
+              firstName: invite.firstName,
+              lastName: invite.lastName,
+              role: invite.role
+            }
+          });
 
-      if (inviteError) throw inviteError;
+          if (error) throw error;
 
-      // Send invitation email via edge function
-      const { error: emailError } = await supabase.functions.invoke('send-user-invitation', {
-        body: {
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          tenantId: tenantId,
-          invitationToken: invitation.invitation_token
+          // Update invite status
+          invite.status = 'sent';
         }
-      });
+      }
 
-      if (emailError) throw emailError;
+      setUserInvites([...userInvites]);
+      const newData = { ...data, userInvites, invitesSent: true };
+      onDataChange(newData);
 
-      // Update user status
-      const updatedUsers = [...users];
-      updatedUsers[index] = { 
-        ...updatedUsers[index], 
-        status: 'invited',
-        invitedAt: new Date().toISOString()
-      };
-      setUsers(updatedUsers);
-      onDataChange({ ...data, users: updatedUsers });
-
-      showSuccess(`Invitation sent to ${user.email}`);
+      showSuccess('User invitations sent successfully');
     } catch (error) {
-      console.error('Error sending invitation:', error);
-      showError('Failed to send invitation');
+      console.error('Error sending invites:', error);
+      showError('Failed to send some invitations');
     } finally {
-      setIsInviting(false);
+      setIsSendingInvites(false);
     }
   };
 
   const handleSubmit = async () => {
     try {
-      if (users.length === 0) {
-        showError('Please add at least one user');
-        return;
-      }
+      const stepData = {
+        userInvites,
+        totalUsers: existingUsers.length + userInvites.length,
+        invitesSent: userInvites.some(invite => invite.status === 'sent'),
+        completedAt: new Date().toISOString()
+      };
 
-      // Send invitations to all pending users
-      const pendingUsers = users.filter(u => u.status === 'pending');
-      
-      for (let i = 0; i < pendingUsers.length; i++) {
-        const userIndex = users.findIndex(u => u.email === pendingUsers[i].email);
-        await sendInvite(pendingUsers[i], userIndex);
-      }
-
-      showSuccess('User setup completed successfully');
-      onComplete({ users });
+      showSuccess('Users and roles configuration completed');
+      onComplete(stepData);
     } catch (error) {
-      console.error('Error completing user setup:', error);
-      showError('Failed to complete user setup');
+      console.error('Error completing users step:', error);
+      showError('Failed to complete users configuration');
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'invited':
-        return <Mail className="w-4 h-4 text-blue-500" />;
-      default:
-        return <Clock className="w-4 h-4 text-orange-500" />;
-    }
+  const getRoleBadgeVariant = (role: string) => {
+    const variants: Record<string, any> = {
+      'tenant_admin': 'default',
+      'tenant_user': 'secondary',
+      'farmer': 'outline',
+      'dealer': 'outline'
+    };
+    return variants[role] || 'secondary';
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, any> = {
-      'active': 'default',
-      'invited': 'secondary',
-      'pending': 'outline'
+    const variants = {
+      'pending': { variant: 'outline' as const, text: 'Pending' },
+      'sent': { variant: 'secondary' as const, text: 'Sent' },
+      'accepted': { variant: 'default' as const, text: 'Accepted' }
     };
-    return <Badge variant={variants[status] || 'outline'}>{status}</Badge>;
+    const config = variants[status as keyof typeof variants] || variants.pending;
+    return <Badge variant={config.variant}>{config.text}</Badge>;
   };
 
   return (
@@ -224,50 +188,93 @@ export const UsersRolesStep: React.FC<UsersRolesStepProps> = ({
       <div>
         <h3 className="text-lg font-semibold">Users & Roles Setup</h3>
         <p className="text-muted-foreground">
-          Add team members and assign roles for your organization
+          Invite team members and configure their roles and permissions
         </p>
       </div>
+
+      {existingUsers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Existing Users
+            </CardTitle>
+            <CardDescription>
+              Users already associated with this tenant
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {existingUsers.map((user: any) => (
+                <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-4 h-4 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium text-sm">{user.user_profiles?.full_name || 'Unknown User'}</p>
+                      <p className="text-xs text-muted-foreground">{user.user_profiles?.email || 'No email'}</p>
+                    </div>
+                  </div>
+                  <Badge variant={getRoleBadgeVariant(user.role)}>
+                    {roles.find(r => r.value === user.role)?.label || user.role}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserPlus className="w-5 h-5" />
-            Add New User
+            Invite New Users
           </CardTitle>
-          <CardDescription>Invite team members to join your organization</CardDescription>
+          <CardDescription>
+            Add team members who will have access to this tenant
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <Label htmlFor="userName">Name</Label>
+              <Label htmlFor="firstName">First Name *</Label>
               <Input
-                id="userName"
-                value={newUser.name}
-                onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter full name"
+                id="firstName"
+                value={newUser.firstName}
+                onChange={(e) => setNewUser(prev => ({ ...prev, firstName: e.target.value }))}
+                placeholder="John"
               />
             </div>
             <div>
-              <Label htmlFor="userEmail">Email</Label>
+              <Label htmlFor="lastName">Last Name</Label>
               <Input
-                id="userEmail"
+                id="lastName"
+                value={newUser.lastName}
+                onChange={(e) => setNewUser(prev => ({ ...prev, lastName: e.target.value }))}
+                placeholder="Doe"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
                 type="email"
                 value={newUser.email}
                 onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="Enter email address"
+                placeholder="john@example.com"
               />
             </div>
             <div>
-              <Label htmlFor="userRole">Role</Label>
+              <Label htmlFor="role">Role</Label>
               <Select
                 value={newUser.role}
                 onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {roleOptions.map((role) => (
+                  {roles.map((role) => (
                     <SelectItem key={role.value} value={role.value}>
                       <div>
                         <div className="font-medium">{role.label}</div>
@@ -278,132 +285,76 @@ export const UsersRolesStep: React.FC<UsersRolesStepProps> = ({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end">
-              <Button onClick={handleAddUser} className="w-full">
-                <Plus className="w-4 h-4 mr-2" />
-                Add User
-              </Button>
-            </div>
           </div>
+
+          <Button onClick={addUserInvite} className="w-full">
+            <UserPlus className="w-4 h-4 mr-2" />
+            Add User Invitation
+          </Button>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Team Members</CardTitle>
-          <CardDescription>
-            Manage your team members and their roles
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {users.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <UserPlus className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No users added yet</p>
-              <p className="text-sm">Add team members using the form above</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      {user.id ? (
-                        <Select
-                          value={user.role}
-                          onValueChange={(value) => handleRoleChange(index, value)}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {roleOptions.map((role) => (
-                              <SelectItem key={role.value} value={role.value}>
-                                {role.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Badge variant="outline">
-                          {roleOptions.find(r => r.value === user.role)?.label || user.role}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(user.status)}
-                        {getStatusBadge(user.status)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {user.status === 'pending' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => sendInvite(user, index)}
-                            disabled={isInviting}
-                          >
-                            <Mail className="w-4 h-4 mr-1" />
-                            Invite
-                          </Button>
-                        )}
-                        {!user.id && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleRemoveUser(index)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Role Permissions</CardTitle>
-          <CardDescription>Understanding different role capabilities</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {roleOptions.map((role) => (
-              <div key={role.value} className="p-4 border rounded-lg">
-                <h4 className="font-medium text-sm">{role.label}</h4>
-                <p className="text-xs text-muted-foreground mt-1">{role.description}</p>
-                <div className="mt-2">
-                  <Badge variant="outline" className="text-xs">
-                    {users.filter(u => u.role === role.value).length} assigned
-                  </Badge>
+      {userInvites.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5" />
+              Pending Invitations
+            </CardTitle>
+            <CardDescription>
+              Users who will be invited to join this tenant
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {userInvites.map((invite) => (
+                <div key={invite.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium text-sm">
+                        {invite.firstName} {invite.lastName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{invite.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getRoleBadgeVariant(invite.role)}>
+                      {roles.find(r => r.value === invite.role)?.label}
+                    </Badge>
+                    {getStatusBadge(invite.status)}
+                    {invite.status === 'pending' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeUserInvite(invite.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            {userInvites.some(invite => invite.status === 'pending') && (
+              <div className="mt-4 pt-4 border-t">
+                <Button
+                  onClick={sendInvites}
+                  disabled={isSendingInvites}
+                  className="w-full"
+                >
+                  {isSendingInvites ? 'Sending Invitations...' : 'Send All Invitations'}
+                </Button>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex justify-end">
-        <Button onClick={handleSubmit} disabled={isInviting || users.length === 0}>
-          {isInviting ? 'Sending Invitations...' : 'Complete User Setup'}
+        <Button onClick={handleSubmit}>
+          Complete Users & Roles Setup
         </Button>
       </div>
     </div>
