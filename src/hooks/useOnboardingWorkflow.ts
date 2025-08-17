@@ -32,16 +32,16 @@ export const useOnboardingWorkflow = ({
 
   const createWorkflow = async () => {
     try {
-      console.log('Creating database template-based workflow for tenant:', tenantId);
+      console.log('Creating workflow for tenant:', tenantId);
       
       const { data, error } = await supabase.functions.invoke('start-onboarding-workflow', {
         body: { tenantId, forceNew: false }
       });
 
-      console.log('Template-based edge function response:', { data, error });
+      console.log('Edge function response:', { data, error });
 
       if (error) {
-        console.error('Template-based edge function error:', error);
+        console.error('Edge function error:', error);
         throw new Error(`Edge function error: ${error.message || 'Unknown error'}`);
       }
 
@@ -53,40 +53,26 @@ export const useOnboardingWorkflow = ({
           current_step: data.current_step,
           total_steps: data.total_steps
         };
-        console.log('Database template-based workflow created successfully:', newWorkflow);
-        console.log('Steps created:', data.steps_created);
+        console.log('Workflow created successfully:', newWorkflow);
         
         setWorkflow(newWorkflow);
-        showSuccess(`Onboarding workflow initialized with ${data.steps_created} steps from database templates`);
+        showSuccess(`Onboarding workflow initialized with ${data.steps_created} steps`);
         return newWorkflow;
       } else {
-        console.error('Template-based edge function returned unsuccessful response:', data);
-        const errorMessage = data?.error || 'Failed to create workflow from database templates';
+        console.error('Edge function returned unsuccessful response:', data);
+        const errorMessage = data?.error || 'Failed to create workflow';
         throw new Error(errorMessage);
       }
     } catch (error: any) {
-      console.error('Error creating database template-based workflow:', error);
-      let userFriendlyError = 'Failed to initialize template-based workflow';
-      
-      if (error.message?.includes('step templates')) {
-        userFriendlyError = 'No onboarding templates found in database. Please contact support.';
-      } else if (error.message?.includes('Tenant not found')) {
-        userFriendlyError = 'Tenant not found. Please check tenant configuration.';
-      } else if (error.message?.includes('database')) {
-        userFriendlyError = 'Database error occurred. Please try again or contact support.';
-      } else if (error.message?.includes('Failed to create onboarding steps')) {
-        userFriendlyError = 'Failed to create onboarding steps from templates. Please try again.';
-      }
-      
-      setError(userFriendlyError);
-      showError(userFriendlyError);
+      console.error('Error creating workflow:', error);
+      setError(error.message || 'Failed to initialize workflow');
       throw error;
     }
   };
 
   const loadWorkflow = async (workflowId: string) => {
     try {
-      console.log('Loading template-based workflow:', workflowId);
+      console.log('Loading workflow:', workflowId);
       
       const { data, error } = await supabase
         .from('onboarding_workflows')
@@ -95,11 +81,11 @@ export const useOnboardingWorkflow = ({
         .single();
 
       if (error) {
-        console.error('Error loading template-based workflow:', error);
+        console.error('Error loading workflow:', error);
         throw error;
       }
 
-      console.log('Template-based workflow loaded successfully:', data);
+      console.log('Workflow loaded successfully:', data);
       
       // Verify workflow has steps
       const { data: steps, error: stepsError } = await supabase
@@ -111,7 +97,6 @@ export const useOnboardingWorkflow = ({
         console.error('Error checking workflow steps:', stepsError);
       } else if (!steps || steps.length === 0) {
         console.log('Workflow has no steps, will attempt to recreate');
-        // Try to recreate workflow with steps
         return await createWorkflow();
       } else {
         console.log('Workflow has', steps.length, 'steps');
@@ -120,15 +105,13 @@ export const useOnboardingWorkflow = ({
       setWorkflow(data);
       return data;
     } catch (error: any) {
-      console.error('Error loading template-based workflow:', error);
-      setError(error.message);
+      console.error('Error loading workflow:', error);
       throw error;
     }
   };
 
   const initializeWorkflow = async () => {
     if (initializationAttempted.current || !tenantId) {
-      console.log('Template-based initialization skipped - already attempted or no tenantId');
       return;
     }
 
@@ -139,22 +122,22 @@ export const useOnboardingWorkflow = ({
       setError(null);
       retryCount.current = 0;
 
-      console.log('Initializing database template-based workflow for tenant:', tenantId, 'with workflowId:', workflowId);
+      console.log('Initializing workflow for tenant:', tenantId, 'with workflowId:', workflowId);
+
+      // Add a small delay to prevent race conditions
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       if (workflowId) {
-        // Load existing workflow
         await loadWorkflow(workflowId);
       } else if (autoCreate) {
-        // Create new workflow from database templates
         await createWorkflow();
       } else {
-        // No workflow ID and auto-create disabled
-        console.log('No template-based workflow to load or create');
+        console.log('No workflow to load or create');
         setWorkflow(null);
       }
     } catch (error: any) {
-      console.error('Database template-based workflow initialization failed:', error);
-      // Don't throw here, let component handle the error state
+      console.error('Workflow initialization failed:', error);
+      setError(error.message || 'Failed to initialize workflow');
     } finally {
       setIsLoading(false);
     }
@@ -162,11 +145,11 @@ export const useOnboardingWorkflow = ({
 
   const retryInitialization = async () => {
     if (retryCount.current >= maxRetries) {
-      setError('Maximum retry attempts reached. Please check if onboarding templates exist in the database and try again.');
+      setError('Maximum retry attempts reached. Please try again later.');
       return;
     }
 
-    console.log('Retrying database template-based initialization, attempt:', retryCount.current + 1);
+    console.log('Retrying initialization, attempt:', retryCount.current + 1);
     retryCount.current++;
     initializationAttempted.current = false;
     setError(null);
@@ -174,27 +157,28 @@ export const useOnboardingWorkflow = ({
     try {
       await initializeWorkflow();
     } catch (error: any) {
-      console.error(`Template-based retry ${retryCount.current} failed:`, error);
+      console.error(`Retry ${retryCount.current} failed:`, error);
       if (retryCount.current >= maxRetries) {
-        setError('Failed to initialize template-based workflow after multiple attempts. Please ensure onboarding templates exist in the database.');
+        setError('Failed to initialize workflow after multiple attempts.');
       }
     }
   };
 
   useEffect(() => {
     if (tenantId && !initializationAttempted.current) {
-      console.log('Effect triggered - initializing database template-based workflow');
+      console.log('Effect triggered - initializing workflow');
       initializeWorkflow();
     }
   }, [tenantId, workflowId]);
 
   // Reset when tenantId or workflowId changes
   useEffect(() => {
-    console.log('Template-based onboarding dependencies changed - resetting state');
+    console.log('Dependencies changed - resetting state');
     initializationAttempted.current = false;
     retryCount.current = 0;
     setWorkflow(null);
     setError(null);
+    setIsLoading(true);
   }, [tenantId, workflowId]);
 
   return {

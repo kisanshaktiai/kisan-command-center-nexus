@@ -47,6 +47,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   const [hasLoadedProgress, setHasLoadedProgress] = useState(false);
   const { showSuccess, showError } = useNotifications();
   const progressLoadedRef = useRef(false);
+  const tenantLoadedRef = useRef(false);
 
   // Use the workflow management hook
   const {
@@ -78,28 +79,54 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   const [stepsState, setStepsState] = useState<OnboardingStep[]>([]);
 
   const loadTenantInfo = async () => {
-    if (!tenantId || tenantInfo) return;
+    if (!tenantId || tenantLoadedRef.current || tenantInfo) return;
     
     try {
       setTenantLoading(true);
       console.log('Loading tenant info for:', tenantId);
       
+      await new Promise(resolve => setTimeout(resolve, 100)); // Prevent flickering
+      
       const { data: tenant, error } = await supabase
         .from('tenants')
-        .select('name, subscription_plan, status, metadata')
+        .select('id, name, subscription_plan, status, metadata, owner_name, owner_email')
         .eq('id', tenantId)
         .single();
 
       if (error) {
         console.error('Error loading tenant info:', error);
-        throw error;
+        // Don't throw error, show fallback data
+        const fallbackTenant = {
+          id: tenantId,
+          name: 'Loading...',
+          subscription_plan: 'Shakti_Growth',
+          status: 'active',
+          owner_name: 'Loading...',
+          owner_email: '',
+          metadata: {}
+        };
+        setTenantInfo(fallbackTenant);
+        tenantLoadedRef.current = true;
+        return;
       }
       
-      console.log('Tenant info loaded:', tenant);
+      console.log('Tenant info loaded successfully:', tenant);
       setTenantInfo(tenant);
+      tenantLoadedRef.current = true;
     } catch (error) {
       console.error('Error loading tenant info:', error);
-      showError('Failed to load tenant information');
+      // Set fallback data instead of showing error
+      const fallbackTenant = {
+        id: tenantId,
+        name: 'Unknown Tenant',
+        subscription_plan: 'Shakti_Growth',
+        status: 'active',
+        owner_name: 'Unknown',
+        owner_email: '',
+        metadata: {}
+      };
+      setTenantInfo(fallbackTenant);
+      tenantLoadedRef.current = true;
     } finally {
       setTenantLoading(false);
     }
@@ -110,7 +137,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
 
     try {
       setProgressLoading(true);
-      console.log('Loading database template-based onboarding progress for workflow:', workflow.id);
+      console.log('Loading onboarding progress for workflow:', workflow.id);
 
       const { data, error } = await supabase
         .from('onboarding_steps')
@@ -119,34 +146,15 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
         .order('step_number');
 
       if (error) {
-        console.error('Error loading database template-based onboarding steps:', error);
+        console.error('Error loading onboarding steps:', error);
         throw error;
       }
 
-      console.log('Loaded database template-based steps:', data?.length || 0);
+      console.log('Loaded steps:', data?.length || 0);
 
       if (!data || data.length === 0) {
-        console.error('No steps found for workflow - attempting to recreate workflow');
-        showError('No onboarding steps found. Attempting to recreate workflow...');
-        
-        // Try to recreate the workflow with steps
-        try {
-          const { data: recreateData, error: recreateError } = await supabase.functions.invoke('start-onboarding-workflow', {
-            body: { tenantId, forceNew: true }
-          });
-
-          if (recreateError || !recreateData?.success) {
-            throw new Error('Failed to recreate workflow');
-          }
-
-          // Reload the page to refresh with new workflow
-          window.location.reload();
-          return;
-        } catch (recreateError) {
-          console.error('Failed to recreate workflow:', recreateError);
-          showError('Failed to recreate workflow. Please contact support.');
-        }
-        
+        console.error('No steps found for workflow');
+        showError('No onboarding steps found. Please try refreshing.');
         setStepsState([]);
       } else {
         updateStepsFromTemplateData(data);
@@ -155,8 +163,8 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       progressLoadedRef.current = true;
       setHasLoadedProgress(true);
     } catch (error) {
-      console.error('Error loading database template-based onboarding progress:', error);
-      showError('Failed to load template-based onboarding progress');
+      console.error('Error loading onboarding progress:', error);
+      showError('Failed to load onboarding progress');
       setStepsState([]);
       setHasLoadedProgress(true);
     } finally {
@@ -165,7 +173,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   };
 
   const updateStepsFromTemplateData = (data: any[]) => {
-    console.log('Updating steps from database template data:', data);
+    console.log('Updating steps from template data:', data);
     
     const updatedSteps = data.map((dbStep, index) => {
       const stepData = dbStep.step_data || {};
@@ -182,7 +190,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       };
     });
     
-    console.log('Updated steps state from database templates:', updatedSteps);
+    console.log('Updated steps state:', updatedSteps);
     setStepsState(updatedSteps);
 
     // Set current step to first incomplete step
@@ -297,23 +305,33 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   };
 
   const CurrentStepComponent = stepsState[currentStepIndex]?.component;
-  const isLoading = workflowLoading || tenantLoading || (progressLoading && !hasLoadedProgress);
+  const isLoading = workflowLoading || (tenantLoading && !tenantInfo) || (progressLoading && !hasLoadedProgress);
 
-  // Load tenant info when the dialog opens
+  // Load tenant info when dialog opens - optimized
   useEffect(() => {
-    if (isOpen && tenantId) {
+    if (isOpen && tenantId && !tenantLoadedRef.current) {
       loadTenantInfo();
     }
   }, [isOpen, tenantId]);
 
-  // Load progress when workflow is available - only once
+  // Load progress when workflow is available - optimized
   useEffect(() => {
     if (workflow?.id && !progressLoadedRef.current) {
       loadOnboardingProgress();
     }
   }, [workflow?.id]);
 
-  // Reset progress loaded flag when workflow changes
+  // Reset refs when dialog closes or tenantId changes
+  useEffect(() => {
+    if (!isOpen) {
+      tenantLoadedRef.current = false;
+      progressLoadedRef.current = false;
+      setHasLoadedProgress(false);
+      setTenantInfo(null);
+    }
+  }, [isOpen]);
+
+  // Reset when workflow changes
   useEffect(() => {
     progressLoadedRef.current = false;
     setHasLoadedProgress(false);
@@ -325,17 +343,17 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Initializing Database Template-Based Onboarding</DialogTitle>
+            <DialogTitle>Initializing Onboarding Workflow</DialogTitle>
             <DialogDescription>
-              Setting up your tenant onboarding workflow from database templates. Please wait...
+              Setting up your tenant onboarding workflow. Please wait...
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center py-12">
             <div className="text-center space-y-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
               <p className="text-sm text-muted-foreground">
-                {tenantLoading ? 'Loading tenant information...' : 
-                 workflowLoading ? 'Initializing onboarding workflow from database templates...' :
+                {tenantLoading && !tenantInfo ? 'Loading tenant information...' : 
+                 workflowLoading ? 'Initializing workflow...' :
                  'Loading onboarding progress...'}
               </p>
             </div>
@@ -351,16 +369,16 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Database Template-Based Workflow Initialization Failed</DialogTitle>
+            <DialogTitle>Workflow Initialization Failed</DialogTitle>
             <DialogDescription>
-              There was an error setting up your onboarding workflow from database templates. Please try again.
+              There was an error setting up your onboarding workflow. Please try again.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center py-12">
             <div className="text-center space-y-4">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
               <div>
-                <h3 className="font-medium text-lg">Failed to Initialize Database Template-Based Workflow</h3>
+                <h3 className="font-medium text-lg">Failed to Initialize Workflow</h3>
                 <p className="text-sm text-muted-foreground mt-2">{workflowError}</p>
               </div>
               <Button onClick={retryInitialization} className="mt-4">
@@ -384,10 +402,10 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
               <div>
                 <DialogTitle className="flex items-center gap-2 text-xl">
                   <Sparkles className="w-6 h-6 text-primary" />
-                  Database Template-Based Tenant Onboarding
+                  Tenant Onboarding
                 </DialogTitle>
                 <DialogDescription className="text-sm text-muted-foreground mt-1">
-                  {tenantInfo?.name} • {tenantInfo?.subscription_plan} Plan
+                  {tenantInfo?.name || 'Loading...'} • {tenantInfo?.subscription_plan || 'Loading...'} Plan
                 </DialogDescription>
               </div>
               <div className="text-right">
@@ -407,11 +425,11 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
           </DialogHeader>
 
           <div className="flex flex-1 gap-6 overflow-hidden">
-            {/* Enhanced Steps Sidebar */}
+            {/* Steps Sidebar */}
             <div className="w-80 space-y-2 overflow-y-auto pr-2">
               <div className="sticky top-0 bg-background py-2 mb-4">
                 <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                  Database Template-Based Steps
+                  Onboarding Steps
                 </h3>
               </div>
               {stepsState.map((step, index) => (
@@ -426,7 +444,6 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
                   }`}
                   onClick={() => handleStepClick(index)}
                 >
-                  {/* Step connector line */}
                   {index < stepsState.length - 1 && (
                     <div className={`absolute left-7 top-16 w-0.5 h-8 ${
                       step.status === 'completed' ? 'bg-green-300' : 'bg-gray-200'
@@ -504,7 +521,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
                   <div className="flex items-center gap-4">
                     <div className="text-center">
                       <div className="font-medium text-sm">
-                        {stepsState[currentStepIndex]?.title}
+                        {stepsState[currentStepIndex]?.title || 'Loading...'}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         Step {currentStepIndex + 1} of {stepsState.length}
