@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -52,6 +52,17 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
   const [progressLoading, setProgressLoading] = useState(false);
   const { showSuccess, showError } = useNotifications();
 
+  // Refs to prevent multiple loading attempts
+  const progressLoadedRef = useRef<{
+    loaded: boolean;
+    workflowId: string | null;
+    inProgress: boolean;
+  }>({
+    loaded: false,
+    workflowId: null,
+    inProgress: false
+  });
+
   // Use optimized hooks with proper caching
   const {
     workflow,
@@ -73,7 +84,7 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
     enabled: isOpen && !!tenantId
   });
 
-  // Memoized component mapping
+  // Memoized component mapping to prevent recreating on every render
   const getStepComponent = useCallback((stepName: string) => {
     const componentMap: Record<string, React.ComponentType<any>> = {
       'Company Profile': CompanyProfileStep,
@@ -89,9 +100,26 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
   }, []);
 
   const loadOnboardingProgress = useCallback(async () => {
-    if (!workflow?.id) return;
+    if (!workflow?.id) {
+      console.log('No workflow ID available for loading progress');
+      return;
+    }
+
+    // Prevent multiple simultaneous loading attempts
+    if (progressLoadedRef.current.inProgress) {
+      console.log('Progress loading already in progress, skipping...');
+      return;
+    }
+
+    // Check if we've already loaded for this workflow
+    if (progressLoadedRef.current.loaded && 
+        progressLoadedRef.current.workflowId === workflow.id) {
+      console.log('Progress already loaded for this workflow, skipping...');
+      return;
+    }
 
     try {
+      progressLoadedRef.current.inProgress = true;
       setProgressLoading(true);
       console.log('Loading onboarding progress for workflow:', workflow.id);
 
@@ -135,21 +163,57 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
       if (firstIncomplete !== -1) {
         setCurrentStepIndex(firstIncomplete);
       }
+
+      // Mark as loaded for this workflow
+      progressLoadedRef.current.loaded = true;
+      progressLoadedRef.current.workflowId = workflow.id;
+
     } catch (error) {
       console.error('Error loading onboarding progress:', error);
       showError('Failed to load onboarding progress');
       setStepsState([]);
     } finally {
+      progressLoadedRef.current.inProgress = false;
       setProgressLoading(false);
     }
   }, [workflow?.id, getStepComponent, showError]);
 
-  // Load progress when workflow is available
+  // Load progress when workflow is available and we haven't loaded it yet
   useEffect(() => {
-    if (workflow?.id) {
+    if (workflow?.id && 
+        (!progressLoadedRef.current.loaded || 
+         progressLoadedRef.current.workflowId !== workflow.id) &&
+        !progressLoadedRef.current.inProgress) {
+      
+      console.log('Triggering progress load for workflow:', workflow.id);
       loadOnboardingProgress();
     }
   }, [workflow?.id, loadOnboardingProgress]);
+
+  // Reset progress loading state when workflow changes
+  useEffect(() => {
+    if (workflow?.id !== progressLoadedRef.current.workflowId) {
+      progressLoadedRef.current = {
+        loaded: false,
+        workflowId: null,
+        inProgress: false
+      };
+    }
+  }, [workflow?.id]);
+
+  // Cleanup when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      progressLoadedRef.current = {
+        loaded: false,
+        workflowId: null,
+        inProgress: false
+      };
+      setStepsState([]);
+      setCurrentStepIndex(0);
+      setStepData({});
+    }
+  }, [isOpen]);
 
   // Memoized calculations
   const currentProgress = useMemo(() => {

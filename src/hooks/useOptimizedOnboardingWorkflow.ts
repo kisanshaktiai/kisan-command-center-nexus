@@ -27,9 +27,17 @@ export const useOptimizedOnboardingWorkflow = ({
   const [error, setError] = useState<string | null>(null);
   const { showSuccess, showError } = useNotifications();
   
-  const initializationRef = useRef<{ attempted: boolean; promise: Promise<void> | null }>({
+  // Use refs to prevent multiple simultaneous initialization attempts
+  const initializationRef = useRef<{
+    attempted: boolean;
+    inProgress: boolean;
+    currentTenantId: string | null;
+    currentWorkflowId: string | null;
+  }>({
     attempted: false,
-    promise: null
+    inProgress: false,
+    currentTenantId: null,
+    currentWorkflowId: null
   });
 
   const createWorkflow = useCallback(async (): Promise<OnboardingWorkflow | null> => {
@@ -81,7 +89,7 @@ export const useOptimizedOnboardingWorkflow = ({
         throw error;
       }
 
-      // Verify workflow has steps
+      // Check if workflow has steps - but don't recreate automatically to avoid infinite loops
       const { data: steps, error: stepsError } = await supabase
         .from('onboarding_steps')
         .select('id')
@@ -90,8 +98,9 @@ export const useOptimizedOnboardingWorkflow = ({
       if (stepsError) {
         console.error('Error checking workflow steps:', stepsError);
       } else if (!steps || steps.length === 0) {
-        console.log('Workflow has no steps, recreating...');
-        return await createWorkflow();
+        console.log('Workflow has no steps - workflow may need recreation');
+        // Don't automatically recreate here to prevent infinite loops
+        // Let the component decide what to do
       }
 
       setWorkflow(data);
@@ -100,12 +109,30 @@ export const useOptimizedOnboardingWorkflow = ({
       console.error('Error loading workflow:', error);
       throw error;
     }
-  }, [createWorkflow]);
+  }, []);
 
   const initializeWorkflow = useCallback(async (): Promise<void> => {
-    if (!tenantId) return;
+    // Prevent multiple simultaneous initialization attempts
+    if (initializationRef.current.inProgress) {
+      console.log('Initialization already in progress, skipping...');
+      return;
+    }
+
+    // Check if we've already initialized for this tenant/workflow combination
+    if (initializationRef.current.attempted && 
+        initializationRef.current.currentTenantId === tenantId &&
+        initializationRef.current.currentWorkflowId === workflowId) {
+      console.log('Already attempted initialization for this configuration, skipping...');
+      return;
+    }
+
+    if (!tenantId) {
+      console.log('No tenant ID provided, skipping initialization');
+      return;
+    }
 
     try {
+      initializationRef.current.inProgress = true;
       setIsLoading(true);
       setError(null);
 
@@ -119,17 +146,30 @@ export const useOptimizedOnboardingWorkflow = ({
       } else {
         setWorkflow(null);
       }
+
+      // Mark as successfully attempted
+      initializationRef.current.attempted = true;
+      initializationRef.current.currentTenantId = tenantId;
+      initializationRef.current.currentWorkflowId = workflowId || null;
+
     } catch (error: any) {
       console.error('Workflow initialization failed:', error);
       setError(error.message || 'Failed to initialize workflow');
     } finally {
+      initializationRef.current.inProgress = false;
       setIsLoading(false);
     }
   }, [tenantId, workflowId, autoCreate, loadWorkflow, createWorkflow]);
 
   const retryInitialization = useCallback(async () => {
-    initializationRef.current.attempted = false;
-    initializationRef.current.promise = null;
+    // Reset initialization state
+    initializationRef.current = {
+      attempted: false,
+      inProgress: false,
+      currentTenantId: null,
+      currentWorkflowId: null
+    };
+    
     setError(null);
     setIsLoading(true);
     
@@ -142,19 +182,22 @@ export const useOptimizedOnboardingWorkflow = ({
   }, [initializeWorkflow]);
 
   useEffect(() => {
-    if (tenantId && !initializationRef.current.attempted) {
-      initializationRef.current.attempted = true;
+    // Only initialize if we haven't attempted for this configuration
+    if (tenantId && 
+        (!initializationRef.current.attempted || 
+         initializationRef.current.currentTenantId !== tenantId ||
+         initializationRef.current.currentWorkflowId !== workflowId) &&
+        !initializationRef.current.inProgress) {
       
-      if (!initializationRef.current.promise) {
-        initializationRef.current.promise = initializeWorkflow();
-      }
+      console.log('Starting workflow initialization for:', { tenantId, workflowId });
+      initializeWorkflow();
     }
 
     return () => {
-      // Cleanup on unmount or dependency change
-      if (initializationRef.current.promise) {
-        initializationRef.current.attempted = false;
-        initializationRef.current.promise = null;
+      // Cleanup function to cancel any in-progress operations
+      if (initializationRef.current.inProgress) {
+        console.log('Cleaning up workflow initialization');
+        initializationRef.current.inProgress = false;
       }
     };
   }, [tenantId, workflowId, initializeWorkflow]);
