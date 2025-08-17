@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
@@ -11,7 +12,7 @@ import { BillingPlanStep } from './steps/BillingPlanStep';
 import { DomainWhitelabelStep } from './steps/DomainWhitelabelStep';
 import { ReviewGoLiveStep } from './steps/ReviewGoLiveStep';
 import { useSimpleTenantData } from '@/hooks/useSimpleTenantData';
-import { useOnboardingWorkflow } from '@/hooks/useOnboardingWorkflow';
+import { useTenantOnboardingWorkflow } from '@/hooks/useTenantOnboardingWorkflow';
 import { OnboardingErrorBoundary } from './OnboardingErrorBoundary';
 
 interface ConsolidatedTenantOnboardingWizardProps {
@@ -115,7 +116,7 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     error: workflowError,
     updateStepStatus,
     retryInitialization
-  } = useOnboardingWorkflow({
+  } = useTenantOnboardingWorkflow({
     tenantId,
     workflowId: initialWorkflowId,
     autoCreate: true

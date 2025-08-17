@@ -12,7 +12,7 @@ import { BillingPlanStep } from './steps/BillingPlanStep';
 import { DomainWhitelabelStep } from './steps/DomainWhitelabelStep';
 import { ReviewGoLiveStep } from './steps/ReviewGoLiveStep';
 import { useSimpleTenantData } from '@/hooks/useSimpleTenantData';
-import { useOnboardingWorkflow } from '@/hooks/useOnboardingWorkflow';
+import { useTenantOnboardingWorkflow } from '@/hooks/useTenantOnboardingWorkflow';
 import { OnboardingErrorBoundary } from './OnboardingErrorBoundary';
 
 interface SimpleTenantOnboardingWizardProps {
@@ -87,7 +87,7 @@ export const SimpleTenantOnboardingWizard: React.FC<SimpleTenantOnboardingWizard
     error: workflowError,
     updateStepStatus,
     retryInitialization
-  } = useOnboardingWorkflow({
+  } = useTenantOnboardingWorkflow({
     tenantId,
     workflowId: initialWorkflowId,
     autoCreate: true

@@ -11,7 +11,7 @@ import { BillingPlanStep } from './steps/BillingPlanStep';
 import { DomainWhitelabelStep } from './steps/DomainWhitelabelStep';
 import { ReviewGoLiveStep } from './steps/ReviewGoLiveStep';
 import { useTenantData } from '@/hooks/useTenantData';
-import { useStabilizedOnboardingWorkflow } from '@/hooks/useStabilizedOnboardingWorkflow';
+import { useTenantOnboardingWorkflow } from '@/hooks/useTenantOnboardingWorkflow';
 import { OnboardingErrorBoundary } from './OnboardingErrorBoundary';
 import { useOnboardingMonitoring } from '@/hooks/useOnboardingMonitoring';
 
@@ -64,7 +64,7 @@ export const StabilizedTenantOnboardingWizard: React.FC<StabilizedTenantOnboardi
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [stepData, setStepData] = useState<Record<string, any>>({});
 
-  // Use stabilized hooks with proper error boundaries
+  // Use consolidated hooks
   const {
     workflow,
     steps,
@@ -73,7 +73,7 @@ export const StabilizedTenantOnboardingWizard: React.FC<StabilizedTenantOnboardi
     updateStepStatus,
     retryInitialization,
     normalizeStepName
-  } = useStabilizedOnboardingWorkflow({
+  } = useTenantOnboardingWorkflow({
     tenantId,
     workflowId: initialWorkflowId,
     autoCreate: true
