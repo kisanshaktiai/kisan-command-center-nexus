@@ -156,11 +156,13 @@ export const useUserTenantValidation = () => {
         })
       );
 
-      validations.forEach((validation) => {
+      validations.forEach((validation, index) => {
         if (validation.status === 'fulfilled') {
           results[validation.value.tenantId] = validation.value.result;
         } else {
-          results[validation.value || 'unknown'] = {
+          // Use the corresponding tenantId from the original array for rejected promises
+          const tenantId = tenantIds[index];
+          results[tenantId] = {
             userExistsInAuth: false,
             userTenantRelationshipExists: false,
             userRole: null,
