@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface OnboardingWorkflow {
@@ -25,6 +24,15 @@ export interface OnboardingTemplate {
   required: boolean;
   estimated_time: number;
   help_text?: string;
+}
+
+interface RemoveWorkflowResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+  workflow_id?: string;
+  steps_removed?: number;
+  code?: string;
 }
 
 class OnboardingService {
@@ -111,11 +119,14 @@ class OnboardingService {
       throw new Error(`Failed to remove workflow: ${error.message}`);
     }
 
-    if (data && !data.success) {
-      throw new Error(data.error || 'Failed to remove workflow');
+    // Type assertion since we know the structure of our RPC response
+    const response = data as RemoveWorkflowResponse;
+    
+    if (response && !response.success) {
+      throw new Error(response.error || 'Failed to remove workflow');
     }
 
-    console.log('✅ Workflow removed successfully:', data);
+    console.log('✅ Workflow removed successfully:', response);
   }
 
   normalizeStepName(stepName: string): string {
