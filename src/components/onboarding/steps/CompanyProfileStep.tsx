@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -94,7 +93,7 @@ export const CompanyProfileStep: React.FC<CompanyProfileStepProps> = ({
 
         if (tenantData) {
           // Parse business address if it's a JSON string
-          let businessAddress = {};
+          let businessAddress: any = {};
           if (tenantData.business_address) {
             if (typeof tenantData.business_address === 'string') {
               try {
@@ -109,7 +108,7 @@ export const CompanyProfileStep: React.FC<CompanyProfileStepProps> = ({
           }
 
           // Parse metadata for additional company profile data
-          let metadata = {};
+          let metadata: any = {};
           if (tenantData.metadata) {
             if (typeof tenantData.metadata === 'string') {
               try {
@@ -124,7 +123,7 @@ export const CompanyProfileStep: React.FC<CompanyProfileStepProps> = ({
           }
 
           // Extract company profile data from metadata if available
-          const companyProfileData = metadata.companyProfile || {};
+          const companyProfileData = metadata?.companyProfile || {};
 
           // Preload form with tenant data, prioritizing existing form data
           const preloadedData = {
@@ -133,10 +132,10 @@ export const CompanyProfileStep: React.FC<CompanyProfileStepProps> = ({
             gstNumber: data.gstNumber || companyProfileData.gstNumber || '',
             panNumber: data.panNumber || companyProfileData.panNumber || '',
             registrationNumber: data.registrationNumber || companyProfileData.registrationNumber || tenantData.business_registration || '',
-            address: data.address || companyProfileData.address || businessAddress.street || businessAddress.address || '',
-            city: data.city || companyProfileData.city || businessAddress.city || '',
-            state: data.state || companyProfileData.state || businessAddress.state || '',
-            pincode: data.pincode || companyProfileData.pincode || businessAddress.postal_code || businessAddress.pincode || '',
+            address: data.address || companyProfileData.address || businessAddress?.street || businessAddress?.address || '',
+            city: data.city || companyProfileData.city || businessAddress?.city || '',
+            state: data.state || companyProfileData.state || businessAddress?.state || '',
+            pincode: data.pincode || companyProfileData.pincode || businessAddress?.postal_code || businessAddress?.pincode || '',
             phone: data.phone || companyProfileData.phone || tenantData.owner_phone || '',
             email: data.email || companyProfileData.email || tenantData.owner_email || '',
             website: data.website || companyProfileData.website || '',
