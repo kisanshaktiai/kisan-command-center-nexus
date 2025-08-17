@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Building2, MapPin, Phone, Mail, FileText, CheckCircle } from 'lucide-react';
+import { Building2, MapPin, Phone, Mail, FileText, CheckCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -25,23 +25,24 @@ export const CompanyProfileStep: React.FC<CompanyProfileStepProps> = ({
   onDataChange
 }) => {
   const [formData, setFormData] = useState({
-    companyName: data.companyName || '',
-    businessType: data.businessType || '',
-    gstNumber: data.gstNumber || '',
-    panNumber: data.panNumber || '',
-    registrationNumber: data.registrationNumber || '',
-    address: data.address || '',
-    city: data.city || '',
-    state: data.state || '',
-    pincode: data.pincode || '',
-    phone: data.phone || '',
-    email: data.email || '',
-    website: data.website || '',
-    description: data.description || '',
+    companyName: '',
+    businessType: '',
+    gstNumber: '',
+    panNumber: '',
+    registrationNumber: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    phone: '',
+    email: '',
+    website: '',
+    description: '',
     ...data
   });
 
   const [isValidating, setIsValidating] = useState(false);
+  const [isLoadingTenantData, setIsLoadingTenantData] = useState(true);
   const [validationStatus, setValidationStatus] = useState<Record<string, 'valid' | 'invalid' | 'pending'>>({});
   const { showSuccess, showError } = useNotifications();
 
@@ -58,6 +59,104 @@ export const CompanyProfileStep: React.FC<CompanyProfileStepProps> = ({
     'NGO',
     'Other'
   ];
+
+  // Load tenant data on mount to preload form
+  useEffect(() => {
+    const loadTenantData = async () => {
+      if (!tenantId) {
+        setIsLoadingTenantData(false);
+        return;
+      }
+
+      try {
+        setIsLoadingTenantData(true);
+        
+        const { data: tenantData, error } = await supabase
+          .from('tenants')
+          .select(`
+            id,
+            name,
+            owner_name,
+            owner_email,
+            owner_phone,
+            business_registration,
+            business_address,
+            metadata
+          `)
+          .eq('id', tenantId)
+          .single();
+
+        if (error) {
+          console.error('Error loading tenant data:', error);
+          showError('Failed to load tenant information');
+          return;
+        }
+
+        if (tenantData) {
+          // Parse business address if it's a JSON string
+          let businessAddress = {};
+          if (tenantData.business_address) {
+            if (typeof tenantData.business_address === 'string') {
+              try {
+                businessAddress = JSON.parse(tenantData.business_address);
+              } catch (e) {
+                console.warn('Could not parse business_address:', e);
+                businessAddress = { address: tenantData.business_address };
+              }
+            } else if (typeof tenantData.business_address === 'object') {
+              businessAddress = tenantData.business_address;
+            }
+          }
+
+          // Parse metadata for additional company profile data
+          let metadata = {};
+          if (tenantData.metadata) {
+            if (typeof tenantData.metadata === 'string') {
+              try {
+                metadata = JSON.parse(tenantData.metadata);
+              } catch (e) {
+                console.warn('Could not parse metadata:', e);
+                metadata = {};
+              }
+            } else if (typeof tenantData.metadata === 'object') {
+              metadata = tenantData.metadata;
+            }
+          }
+
+          // Extract company profile data from metadata if available
+          const companyProfileData = metadata.companyProfile || {};
+
+          // Preload form with tenant data, prioritizing existing form data
+          const preloadedData = {
+            companyName: data.companyName || companyProfileData.companyName || tenantData.name || '',
+            businessType: data.businessType || companyProfileData.businessType || '',
+            gstNumber: data.gstNumber || companyProfileData.gstNumber || '',
+            panNumber: data.panNumber || companyProfileData.panNumber || '',
+            registrationNumber: data.registrationNumber || companyProfileData.registrationNumber || tenantData.business_registration || '',
+            address: data.address || companyProfileData.address || businessAddress.street || businessAddress.address || '',
+            city: data.city || companyProfileData.city || businessAddress.city || '',
+            state: data.state || companyProfileData.state || businessAddress.state || '',
+            pincode: data.pincode || companyProfileData.pincode || businessAddress.postal_code || businessAddress.pincode || '',
+            phone: data.phone || companyProfileData.phone || tenantData.owner_phone || '',
+            email: data.email || companyProfileData.email || tenantData.owner_email || '',
+            website: data.website || companyProfileData.website || '',
+            description: data.description || companyProfileData.description || '',
+            ...data // Keep any additional data passed in
+          };
+
+          setFormData(preloadedData);
+          onDataChange(preloadedData);
+        }
+      } catch (error) {
+        console.error('Error loading tenant data:', error);
+        showError('Failed to load tenant information');
+      } finally {
+        setIsLoadingTenantData(false);
+      }
+    };
+
+    loadTenantData();
+  }, [tenantId, showError]); // Don't include data and onDataChange to avoid infinite loops
 
   const handleInputChange = (field: string, value: string) => {
     const newData = { ...formData, [field]: value };
@@ -119,6 +218,16 @@ export const CompanyProfileStep: React.FC<CompanyProfileStepProps> = ({
         .from('tenants')
         .update({
           business_registration: formData.registrationNumber,
+          owner_name: formData.companyName,
+          owner_email: formData.email,
+          owner_phone: formData.phone,
+          business_address: {
+            street: formData.address,
+            city: formData.city,
+            state: formData.state,
+            postal_code: formData.pincode,
+            country: 'India'
+          },
           metadata: {
             ...existingMetadata,
             companyProfile: formData,
@@ -158,6 +267,15 @@ export const CompanyProfileStep: React.FC<CompanyProfileStepProps> = ({
       </Badge>
     );
   };
+
+  if (isLoadingTenantData) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin mr-2" />
+        <span>Loading tenant information...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
