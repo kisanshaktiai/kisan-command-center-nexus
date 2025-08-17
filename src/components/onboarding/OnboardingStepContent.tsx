@@ -100,7 +100,6 @@ export const OnboardingStepContent: React.FC = () => {
           data={stepData[currentStep.id] || {}}
           onDataChange={handleDataChange}
           onComplete={handleComplete}
-          step={currentStep}
         />
       </Suspense>
     </div>

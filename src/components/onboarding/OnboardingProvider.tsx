@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { useTenantOnboardingWorkflow } from '@/hooks/useTenantOnboardingWorkflow';
 import { useTenantData } from '@/hooks/useTenantData';
@@ -215,15 +214,18 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     }
   }, [steps, validateStep, updateStepStatus, updateStepData, canGoNext, nextStep]);
 
-  // Fix the error type handling
+  // Fix the error type handling with proper type checking
   const errorMessage = useMemo(() => {
-    if (workflowError) {
-      return workflowError instanceof Error ? workflowError.message : String(workflowError);
-    }
-    if (tenantError) {
-      return tenantError instanceof Error ? tenantError.message : String(tenantError);
-    }
-    return null;
+    const getErrorMessage = (error: unknown): string | null => {
+      if (!error) return null;
+      if (typeof error === 'string') return error;
+      if (error && typeof error === 'object' && 'message' in error) {
+        return String((error as { message: unknown }).message);
+      }
+      return String(error);
+    };
+
+    return getErrorMessage(workflowError) || getErrorMessage(tenantError);
   }, [workflowError, tenantError]);
 
   const contextValue: OnboardingContextValue = {
