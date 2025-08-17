@@ -20,9 +20,12 @@ interface UseTenantDataOptions {
   enabled?: boolean;
 }
 
+// Centralized query key factory for consistency
+const getTenantQueryKey = (tenantId: string) => ['tenant-data', tenantId];
+
 export const useTenantData = ({ tenantId, enabled = true }: UseTenantDataOptions) => {
   return useQuery({
-    queryKey: ['tenant-data', tenantId],
+    queryKey: getTenantQueryKey(tenantId),
     queryFn: async (): Promise<TenantData> => {
       if (!tenantId) {
         throw new Error('Tenant ID is required');
@@ -57,5 +60,11 @@ export const useTenantData = ({ tenantId, enabled = true }: UseTenantDataOptions
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 1,
     refetchOnWindowFocus: false,
+    // Add request deduplication
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 };
+
+// Export query key factory for external cache invalidation
+export { getTenantQueryKey };

@@ -17,6 +17,15 @@ interface UseOptimizedOnboardingWorkflowOptions {
   autoCreate?: boolean;
 }
 
+// Atomic state management using useReducer pattern
+type InitializationState = {
+  status: 'idle' | 'initializing' | 'completed' | 'error';
+  tenantId: string | null;
+  workflowId: string | null;
+  attemptCount: number;
+  lastError: string | null;
+};
+
 export const useOptimizedOnboardingWorkflow = ({
   tenantId,
   workflowId,
@@ -27,18 +36,17 @@ export const useOptimizedOnboardingWorkflow = ({
   const [error, setError] = useState<string | null>(null);
   const { showSuccess, showError } = useNotifications();
   
-  // Use refs to prevent multiple simultaneous initialization attempts
-  const initializationRef = useRef<{
-    attempted: boolean;
-    inProgress: boolean;
-    currentTenantId: string | null;
-    currentWorkflowId: string | null;
-  }>({
-    attempted: false,
-    inProgress: false,
-    currentTenantId: null,
-    currentWorkflowId: null
+  // Atomic initialization state to prevent race conditions
+  const initStateRef = useRef<InitializationState>({
+    status: 'idle',
+    tenantId: null,
+    workflowId: null,
+    attemptCount: 0,
+    lastError: null
   });
+
+  // Request tracking for deduplication
+  const activeRequestRef = useRef<Promise<OnboardingWorkflow | null> | null>(null);
 
   const createWorkflow = useCallback(async (): Promise<OnboardingWorkflow | null> => {
     try {
@@ -89,7 +97,7 @@ export const useOptimizedOnboardingWorkflow = ({
         throw error;
       }
 
-      // Check if workflow has steps - but don't recreate automatically to avoid infinite loops
+      // Check if workflow has steps - but don't auto-recreate to avoid infinite loops
       const { data: steps, error: stepsError } = await supabase
         .from('onboarding_steps')
         .select('id')
@@ -98,9 +106,8 @@ export const useOptimizedOnboardingWorkflow = ({
       if (stepsError) {
         console.error('Error checking workflow steps:', stepsError);
       } else if (!steps || steps.length === 0) {
-        console.log('Workflow has no steps - workflow may need recreation');
-        // Don't automatically recreate here to prevent infinite loops
-        // Let the component decide what to do
+        console.warn('Workflow has no steps - this may require manual intervention');
+        // Don't automatically recreate - let the UI handle this case
       }
 
       setWorkflow(data);
@@ -111,18 +118,21 @@ export const useOptimizedOnboardingWorkflow = ({
     }
   }, []);
 
+  // Atomic initialization with proper guards and cleanup
   const initializeWorkflow = useCallback(async (): Promise<void> => {
-    // Prevent multiple simultaneous initialization attempts
-    if (initializationRef.current.inProgress) {
+    const currentState = initStateRef.current;
+    
+    // Prevent multiple simultaneous initializations
+    if (currentState.status === 'initializing') {
       console.log('Initialization already in progress, skipping...');
       return;
     }
 
-    // Check if we've already initialized for this tenant/workflow combination
-    if (initializationRef.current.attempted && 
-        initializationRef.current.currentTenantId === tenantId &&
-        initializationRef.current.currentWorkflowId === workflowId) {
-      console.log('Already attempted initialization for this configuration, skipping...');
+    // Check if we've already initialized for this configuration
+    if (currentState.status === 'completed' && 
+        currentState.tenantId === tenantId &&
+        currentState.workflowId === workflowId) {
+      console.log('Already initialized for this configuration, skipping...');
       return;
     }
 
@@ -131,43 +141,78 @@ export const useOptimizedOnboardingWorkflow = ({
       return;
     }
 
+    // Prevent excessive retry attempts
+    if (currentState.attemptCount >= 3) {
+      console.log('Maximum initialization attempts reached');
+      setError('Maximum initialization attempts reached. Please refresh the page.');
+      return;
+    }
+
+    // Update atomic state
+    initStateRef.current = {
+      ...currentState,
+      status: 'initializing',
+      tenantId,
+      workflowId: workflowId || null,
+      attemptCount: currentState.attemptCount + 1
+    };
+
     try {
-      initializationRef.current.inProgress = true;
       setIsLoading(true);
       setError(null);
 
-      // Small delay to prevent race conditions
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      if (workflowId) {
-        await loadWorkflow(workflowId);
-      } else if (autoCreate) {
-        await createWorkflow();
-      } else {
-        setWorkflow(null);
+      // Request deduplication - reuse active request if it exists
+      if (activeRequestRef.current) {
+        console.log('Reusing active request...');
+        await activeRequestRef.current;
+        return;
       }
 
-      // Mark as successfully attempted
-      initializationRef.current.attempted = true;
-      initializationRef.current.currentTenantId = tenantId;
-      initializationRef.current.currentWorkflowId = workflowId || null;
+      // Create new request and store it for deduplication
+      let requestPromise: Promise<OnboardingWorkflow | null>;
+
+      if (workflowId) {
+        requestPromise = loadWorkflow(workflowId);
+      } else if (autoCreate) {
+        requestPromise = createWorkflow();
+      } else {
+        setWorkflow(null);
+        initStateRef.current.status = 'completed';
+        return;
+      }
+
+      activeRequestRef.current = requestPromise;
+      await requestPromise;
+
+      // Mark as successfully completed
+      initStateRef.current = {
+        ...initStateRef.current,
+        status: 'completed',
+        lastError: null
+      };
 
     } catch (error: any) {
       console.error('Workflow initialization failed:', error);
+      initStateRef.current = {
+        ...initStateRef.current,
+        status: 'error',
+        lastError: error.message || 'Failed to initialize workflow'
+      };
       setError(error.message || 'Failed to initialize workflow');
     } finally {
-      initializationRef.current.inProgress = false;
+      activeRequestRef.current = null;
       setIsLoading(false);
     }
   }, [tenantId, workflowId, autoCreate, loadWorkflow, createWorkflow]);
 
   const retryInitialization = useCallback(async () => {
-    // Reset initialization state
-    initializationRef.current = {
-      attempted: false,
-      inProgress: false,
-      currentTenantId: null,
-      currentWorkflowId: null
+    // Reset initialization state for retry
+    initStateRef.current = {
+      status: 'idle',
+      tenantId: null,
+      workflowId: null,
+      attemptCount: 0,
+      lastError: null
     };
     
     setError(null);
@@ -181,23 +226,25 @@ export const useOptimizedOnboardingWorkflow = ({
     }
   }, [initializeWorkflow]);
 
+  // Single effect with proper dependency management
   useEffect(() => {
-    // Only initialize if we haven't attempted for this configuration
+    const currentState = initStateRef.current;
+    
+    // Only initialize if configuration has changed or we haven't initialized yet
     if (tenantId && 
-        (!initializationRef.current.attempted || 
-         initializationRef.current.currentTenantId !== tenantId ||
-         initializationRef.current.currentWorkflowId !== workflowId) &&
-        !initializationRef.current.inProgress) {
+        (currentState.status === 'idle' || 
+         currentState.tenantId !== tenantId ||
+         currentState.workflowId !== workflowId)) {
       
       console.log('Starting workflow initialization for:', { tenantId, workflowId });
       initializeWorkflow();
     }
 
+    // Cleanup function
     return () => {
-      // Cleanup function to cancel any in-progress operations
-      if (initializationRef.current.inProgress) {
-        console.log('Cleaning up workflow initialization');
-        initializationRef.current.inProgress = false;
+      if (activeRequestRef.current) {
+        console.log('Cleaning up active request');
+        activeRequestRef.current = null;
       }
     };
   }, [tenantId, workflowId, initializeWorkflow]);

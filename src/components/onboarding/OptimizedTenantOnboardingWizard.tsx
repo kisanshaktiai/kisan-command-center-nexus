@@ -34,6 +34,17 @@ interface OptimizedTenantOnboardingWizardProps {
   workflowId?: string;
 }
 
+// Stable component mapping - moved outside to prevent recreation
+const STEP_COMPONENT_MAP: Record<string, React.ComponentType<any>> = {
+  'Company Profile': CompanyProfileStep,
+  'Branding & Design': EnhancedBrandingStep,
+  'Team & Permissions': EnhancedUsersRolesStep,
+  'Billing & Plan': BillingPlanStep,
+  'Domain & White-label': DomainWhitelabelStep,
+  'Domain & Branding': DomainWhitelabelStep,
+  'Review & Launch': ReviewGoLiveStep
+};
+
 // Helper function to safely extract properties from JSON data
 const safeGetJsonProperty = (obj: any, key: string, defaultValue: any = undefined) => {
   if (!obj || typeof obj !== 'object') return defaultValue;
@@ -52,15 +63,15 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
   const [progressLoading, setProgressLoading] = useState(false);
   const { showSuccess, showError } = useNotifications();
 
-  // Refs to prevent multiple loading attempts
-  const progressLoadedRef = useRef<{
+  // Progress loading state to prevent duplicate calls
+  const progressLoadStateRef = useRef<{
     loaded: boolean;
     workflowId: string | null;
-    inProgress: boolean;
+    loading: boolean;
   }>({
     loaded: false,
     workflowId: null,
-    inProgress: false
+    loading: false
   });
 
   // Use optimized hooks with proper caching
@@ -84,42 +95,40 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
     enabled: isOpen && !!tenantId
   });
 
-  // Memoized component mapping to prevent recreating on every render
+  // Stable component getter - memoized to prevent recreation
   const getStepComponent = useCallback((stepName: string) => {
-    const componentMap: Record<string, React.ComponentType<any>> = {
-      'Company Profile': CompanyProfileStep,
-      'Branding & Design': EnhancedBrandingStep,
-      'Team & Permissions': EnhancedUsersRolesStep,
-      'Billing & Plan': BillingPlanStep,
-      'Domain & White-label': DomainWhitelabelStep,
-      'Domain & Branding': DomainWhitelabelStep,
-      'Review & Launch': ReviewGoLiveStep
-    };
-    
-    return componentMap[stepName] || CompanyProfileStep;
+    return STEP_COMPONENT_MAP[stepName] || CompanyProfileStep;
   }, []);
 
+  // Optimized progress loading with proper guards
   const loadOnboardingProgress = useCallback(async () => {
     if (!workflow?.id) {
       console.log('No workflow ID available for loading progress');
       return;
     }
 
+    const currentState = progressLoadStateRef.current;
+
     // Prevent multiple simultaneous loading attempts
-    if (progressLoadedRef.current.inProgress) {
+    if (currentState.loading) {
       console.log('Progress loading already in progress, skipping...');
       return;
     }
 
     // Check if we've already loaded for this workflow
-    if (progressLoadedRef.current.loaded && 
-        progressLoadedRef.current.workflowId === workflow.id) {
+    if (currentState.loaded && currentState.workflowId === workflow.id) {
       console.log('Progress already loaded for this workflow, skipping...');
       return;
     }
 
     try {
-      progressLoadedRef.current.inProgress = true;
+      // Update state atomically
+      progressLoadStateRef.current = {
+        loaded: false,
+        workflowId: workflow.id,
+        loading: true
+      };
+
       setProgressLoading(true);
       console.log('Loading onboarding progress for workflow:', workflow.id);
 
@@ -165,55 +174,64 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
       }
 
       // Mark as loaded for this workflow
-      progressLoadedRef.current.loaded = true;
-      progressLoadedRef.current.workflowId = workflow.id;
+      progressLoadStateRef.current = {
+        loaded: true,
+        workflowId: workflow.id,
+        loading: false
+      };
 
     } catch (error) {
       console.error('Error loading onboarding progress:', error);
       showError('Failed to load onboarding progress');
       setStepsState([]);
+      
+      progressLoadStateRef.current = {
+        loaded: false,
+        workflowId: null,
+        loading: false
+      };
     } finally {
-      progressLoadedRef.current.inProgress = false;
       setProgressLoading(false);
     }
   }, [workflow?.id, getStepComponent, showError]);
 
-  // Load progress when workflow is available and we haven't loaded it yet
+  // Load progress when workflow is available - with proper dependency management
   useEffect(() => {
+    const currentState = progressLoadStateRef.current;
+    
     if (workflow?.id && 
-        (!progressLoadedRef.current.loaded || 
-         progressLoadedRef.current.workflowId !== workflow.id) &&
-        !progressLoadedRef.current.inProgress) {
+        (!currentState.loaded || currentState.workflowId !== workflow.id) &&
+        !currentState.loading) {
       
       console.log('Triggering progress load for workflow:', workflow.id);
       loadOnboardingProgress();
     }
   }, [workflow?.id, loadOnboardingProgress]);
 
-  // Reset progress loading state when workflow changes
-  useEffect(() => {
-    if (workflow?.id !== progressLoadedRef.current.workflowId) {
-      progressLoadedRef.current = {
-        loaded: false,
-        workflowId: null,
-        inProgress: false
-      };
-    }
-  }, [workflow?.id]);
-
-  // Cleanup when dialog closes
+  // Reset state when dialog closes or workflow changes
   useEffect(() => {
     if (!isOpen) {
-      progressLoadedRef.current = {
+      progressLoadStateRef.current = {
         loaded: false,
         workflowId: null,
-        inProgress: false
+        loading: false
       };
       setStepsState([]);
       setCurrentStepIndex(0);
       setStepData({});
     }
   }, [isOpen]);
+
+  // Reset progress state when workflow changes
+  useEffect(() => {
+    if (workflow?.id !== progressLoadStateRef.current.workflowId) {
+      progressLoadStateRef.current = {
+        loaded: false,
+        workflowId: null,
+        loading: false
+      };
+    }
+  }, [workflow?.id]);
 
   // Memoized calculations
   const currentProgress = useMemo(() => {
@@ -231,7 +249,6 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
     return remainingSteps.reduce((total, step) => total + step.estimatedTime, 0);
   }, [stepsState, currentStepIndex]);
 
-  // Memoized handlers
   const updateStepStatus = useCallback(async (stepIndex: number, status: OnboardingStep['status'], data: any = {}) => {
     if (!workflow?.id) return;
 
@@ -257,7 +274,6 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
 
       if (error) throw error;
 
-      // Update local state
       const updatedSteps = [...stepsState];
       updatedSteps[stepIndex] = { ...updatedSteps[stepIndex], status };
       setStepsState(updatedSteps);
