@@ -59,7 +59,7 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
     try {
       console.log('TenantUserCreator: Fixing relationship using global manage-user-tenant function');
       
-      const result = await UserTenantService.ensureUserTenantRecord(
+      const result = await UserTenantService.createUserTenantRelationship(
         statusCheckResult.userId,
         tenantId
       );
