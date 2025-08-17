@@ -97,7 +97,6 @@ export const OnboardingStepContent: React.FC = () => {
       <Suspense fallback={<StepContentSkeleton />}>
         <StepComponent
           tenantId={tenantInfo?.id || ''}
-          tenantInfo={tenantInfo}
           data={stepData[currentStep.id] || {}}
           onDataChange={handleDataChange}
           onComplete={handleComplete}

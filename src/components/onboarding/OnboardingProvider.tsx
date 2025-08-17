@@ -215,13 +215,24 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     }
   }, [steps, validateStep, updateStepStatus, updateStepData, canGoNext, nextStep]);
 
+  // Fix the error type handling
+  const errorMessage = useMemo(() => {
+    if (workflowError) {
+      return workflowError instanceof Error ? workflowError.message : String(workflowError);
+    }
+    if (tenantError) {
+      return tenantError instanceof Error ? tenantError.message : String(tenantError);
+    }
+    return null;
+  }, [workflowError, tenantError]);
+
   const contextValue: OnboardingContextValue = {
     state,
     steps,
     currentStep,
     tenantInfo,
     isLoading: workflowLoading || tenantLoading,
-    error: workflowError || tenantError,
+    error: errorMessage,
     goToStep,
     nextStep,
     previousStep,
