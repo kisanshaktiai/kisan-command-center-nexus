@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
@@ -111,7 +110,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
 
     try {
       setProgressLoading(true);
-      console.log('Loading template-based onboarding progress for workflow:', workflow.id);
+      console.log('Loading database template-based onboarding progress for workflow:', workflow.id);
 
       const { data, error } = await supabase
         .from('onboarding_steps')
@@ -120,15 +119,15 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
         .order('step_number');
 
       if (error) {
-        console.error('Error loading onboarding steps:', error);
+        console.error('Error loading database template-based onboarding steps:', error);
         throw error;
       }
 
-      console.log('Loaded template-based steps:', data?.length || 0);
+      console.log('Loaded database template-based steps:', data?.length || 0);
 
       if (!data || data.length === 0) {
-        console.error('No steps found for workflow - this should not happen with template-based system');
-        showError('No onboarding steps found. The template system may not be configured properly.');
+        console.error('No steps found for workflow - database templates may not be configured properly');
+        showError('No onboarding steps found. The database template system may not be configured properly.');
         setStepsState([]);
       } else {
         updateStepsFromTemplateData(data);
@@ -137,8 +136,8 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       progressLoadedRef.current = true;
       setHasLoadedProgress(true);
     } catch (error) {
-      console.error('Error loading template-based onboarding progress:', error);
-      showError('Failed to load onboarding progress');
+      console.error('Error loading database template-based onboarding progress:', error);
+      showError('Failed to load template-based onboarding progress');
       setStepsState([]);
       setHasLoadedProgress(true);
     } finally {
@@ -147,7 +146,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   };
 
   const updateStepsFromTemplateData = (data: any[]) => {
-    console.log('Updating steps from template data:', data);
+    console.log('Updating steps from database template data:', data);
     
     const updatedSteps = data.map((dbStep, index) => {
       const stepData = dbStep.step_data || {};
@@ -164,7 +163,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       };
     });
     
-    console.log('Updated steps state from templates:', updatedSteps);
+    console.log('Updated steps state from database templates:', updatedSteps);
     setStepsState(updatedSteps);
 
     // Set current step to first incomplete step
@@ -307,9 +306,9 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Initializing Template-Based Onboarding</DialogTitle>
+            <DialogTitle>Initializing Database Template-Based Onboarding</DialogTitle>
             <DialogDescription>
-              Setting up your tenant onboarding workflow from templates. Please wait...
+              Setting up your tenant onboarding workflow from database templates. Please wait...
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center py-12">
@@ -317,7 +316,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
               <p className="text-sm text-muted-foreground">
                 {tenantLoading ? 'Loading tenant information...' : 
-                 workflowLoading ? 'Initializing onboarding workflow from templates...' :
+                 workflowLoading ? 'Initializing onboarding workflow from database templates...' :
                  'Loading onboarding progress...'}
               </p>
             </div>
@@ -333,16 +332,16 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Template-Based Workflow Initialization Failed</DialogTitle>
+            <DialogTitle>Database Template-Based Workflow Initialization Failed</DialogTitle>
             <DialogDescription>
-              There was an error setting up your onboarding workflow from templates. Please try again.
+              There was an error setting up your onboarding workflow from database templates. Please try again.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center py-12">
             <div className="text-center space-y-4">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
               <div>
-                <h3 className="font-medium text-lg">Failed to Initialize Template-Based Workflow</h3>
+                <h3 className="font-medium text-lg">Failed to Initialize Database Template-Based Workflow</h3>
                 <p className="text-sm text-muted-foreground mt-2">{workflowError}</p>
               </div>
               <Button onClick={retryInitialization} className="mt-4">
@@ -366,7 +365,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
               <div>
                 <DialogTitle className="flex items-center gap-2 text-xl">
                   <Sparkles className="w-6 h-6 text-primary" />
-                  Template-Based Tenant Onboarding
+                  Database Template-Based Tenant Onboarding
                 </DialogTitle>
                 <DialogDescription className="text-sm text-muted-foreground mt-1">
                   {tenantInfo?.name} • {tenantInfo?.subscription_plan} Plan
@@ -393,7 +392,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
             <div className="w-80 space-y-2 overflow-y-auto pr-2">
               <div className="sticky top-0 bg-background py-2 mb-4">
                 <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                  Template-Based Steps
+                  Database Template-Based Steps
                 </h3>
               </div>
               {stepsState.map((step, index) => (

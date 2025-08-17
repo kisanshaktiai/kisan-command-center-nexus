@@ -25,7 +25,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { tenantId, forceNew = false }: StartWorkflowRequest = await req.json();
 
-    console.log('Starting onboarding workflow for tenant:', tenantId);
+    console.log('Starting template-based onboarding workflow for tenant:', tenantId);
 
     // Check if tenant exists
     const { data: tenant, error: tenantError } = await supabase
@@ -52,20 +52,19 @@ const handler = async (req: Request): Promise<Response> => {
         .single();
 
       if (existingWorkflow) {
-        console.log('Found existing workflow:', existingWorkflow.id);
+        console.log('Found existing template-based workflow:', existingWorkflow.id);
         workflow = existingWorkflow;
       }
     }
 
     // Create new workflow if needed
     if (!workflow) {
-      console.log('Creating new workflow for tenant:', tenantId);
+      console.log('Creating new template-based workflow for tenant:', tenantId);
       
-      // Get step templates for this tenant type/subscription plan
+      // Get step templates - FIXED: Removed the non-existent is_active filter
       const { data: stepTemplates, error: templatesError } = await supabase
         .from('onboarding_step_templates')
         .select('*')
-        .eq('is_active', true)
         .order('step_number', { ascending: true });
 
       if (templatesError) {
@@ -74,33 +73,34 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       if (!stepTemplates || stepTemplates.length === 0) {
-        console.error('No active step templates found');
-        throw new Error('No active onboarding step templates found');
+        console.error('No step templates found in database');
+        throw new Error('No onboarding step templates found in database');
       }
 
-      console.log('Found', stepTemplates.length, 'step templates');
+      console.log('Found', stepTemplates.length, 'step templates from database');
 
-      // Filter templates based on tenant subscription plan and type if needed
+      // Filter templates based on tenant subscription plan and type if template has these fields
       const filteredTemplates = stepTemplates.filter(template => {
         // If template has specific subscription plans, check if tenant plan matches
-        if (template.subscription_plans && template.subscription_plans.length > 0) {
-          return template.subscription_plans.includes(tenant.subscription_plan);
+        if (template.subscription_plans && Array.isArray(template.subscription_plans) && template.subscription_plans.length > 0) {
+          if (!template.subscription_plans.includes(tenant.subscription_plan)) {
+            return false;
+          }
         }
+        
         // If template has specific tenant types, check if tenant type matches
-        if (template.tenant_types && template.tenant_types.length > 0) {
-          return template.tenant_types.includes(tenant.type);
+        if (template.tenant_types && Array.isArray(template.tenant_types) && template.tenant_types.length > 0) {
+          if (!template.tenant_types.includes(tenant.type)) {
+            return false;
+          }
         }
-        // If no specific restrictions, include the template
+        
         return true;
       });
 
-      if (filteredTemplates.length === 0) {
-        console.log('No templates match tenant criteria, using all templates');
-        // Fall back to all templates if filtering results in empty set
-        filteredTemplates.push(...stepTemplates);
-      }
-
-      console.log('Using', filteredTemplates.length, 'filtered templates for tenant');
+      // Use all templates if filtering results in empty set
+      const templatesToUse = filteredTemplates.length > 0 ? filteredTemplates : stepTemplates;
+      console.log('Using', templatesToUse.length, 'filtered templates for tenant');
 
       const { data: newWorkflow, error: workflowError } = await supabase
         .from('onboarding_workflows')
@@ -108,37 +108,40 @@ const handler = async (req: Request): Promise<Response> => {
           tenant_id: tenantId,
           status: 'in_progress',
           current_step: 1,
-          total_steps: filteredTemplates.length,
+          total_steps: templatesToUse.length,
           metadata: {
             tenant_name: tenant.name,
             subscription_plan: tenant.subscription_plan,
             tenant_type: tenant.type,
-            created_by: req.headers.get('user-id') || 'system'
+            created_by: req.headers.get('user-id') || 'system',
+            template_source: 'database'
           }
         })
         .select()
         .single();
 
       if (workflowError) {
-        console.error('Failed to create workflow:', workflowError);
+        console.error('Failed to create template-based workflow:', workflowError);
         throw new Error(`Failed to create workflow: ${workflowError.message}`);
       }
 
       workflow = newWorkflow;
-      console.log('Successfully created workflow:', workflow.id);
+      console.log('Successfully created template-based workflow:', workflow.id);
 
-      // Create steps from templates
-      const steps = filteredTemplates.map(template => ({
+      // Create steps from database templates
+      const steps = templatesToUse.map(template => ({
         workflow_id: workflow.id,
         step_number: template.step_number,
         step_name: template.step_name,
         step_status: template.step_number === 1 ? 'in_progress' : 'pending',
         step_data: {
           estimated_time: template.estimated_time || 15,
-          is_required: template.is_required || true,
+          is_required: template.is_required !== false,
           help_text: template.help_text || '',
           default_data: template.default_data || {},
-          validation_schema: template.validation_schema || {}
+          validation_schema: template.validation_schema || {},
+          template_id: template.id,
+          template_version: template.version
         },
         validation_errors: null,
         completed_at: null,
@@ -146,7 +149,7 @@ const handler = async (req: Request): Promise<Response> => {
         updated_at: new Date().toISOString()
       }));
 
-      console.log('Creating', steps.length, 'steps for workflow:', workflow.id);
+      console.log('Creating', steps.length, 'steps from database templates for workflow:', workflow.id);
 
       const { data: createdSteps, error: stepsError } = await supabase
         .from('onboarding_steps')
@@ -154,7 +157,7 @@ const handler = async (req: Request): Promise<Response> => {
         .select();
 
       if (stepsError) {
-        console.error('Error creating steps from templates:', stepsError);
+        console.error('Error creating steps from database templates:', stepsError);
         
         // Rollback: Delete the workflow if step creation fails
         await supabase
@@ -165,7 +168,7 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error(`Failed to create onboarding steps from templates: ${stepsError.message}`);
       }
 
-      console.log('Successfully created', createdSteps?.length || 0, 'steps from templates');
+      console.log('Successfully created', createdSteps?.length || 0, 'steps from database templates');
     } else {
       // For existing workflows, verify steps exist
       const { data: existingSteps, error: stepsCheckError } = await supabase
@@ -176,7 +179,7 @@ const handler = async (req: Request): Promise<Response> => {
       if (stepsCheckError) {
         console.error('Error checking existing steps:', stepsCheckError);
       } else if (!existingSteps || existingSteps.length === 0) {
-        console.log('Existing workflow has no steps, cleaning up and creating new workflow');
+        console.log('Existing workflow has no steps, cleaning up and creating new template-based workflow');
         
         // Clean up orphaned workflow
         await supabase
@@ -187,11 +190,11 @@ const handler = async (req: Request): Promise<Response> => {
         // Recursively call to create new workflow
         return handler(req);
       } else {
-        console.log('Existing workflow has', existingSteps.length, 'steps');
+        console.log('Existing template-based workflow has', existingSteps.length, 'steps');
       }
     }
 
-    console.log('Onboarding workflow ready:', workflow.id);
+    console.log('Template-based onboarding workflow ready:', workflow.id);
 
     return new Response(
       JSON.stringify({
@@ -200,7 +203,8 @@ const handler = async (req: Request): Promise<Response> => {
         tenant_id: tenantId,
         status: workflow.status,
         current_step: workflow.current_step,
-        total_steps: workflow.total_steps
+        total_steps: workflow.total_steps,
+        template_source: 'database'
       }),
       {
         status: 200,
@@ -209,11 +213,12 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
   } catch (error: any) {
-    console.error('Error in start-onboarding-workflow function:', error);
+    console.error('Error in template-based start-onboarding-workflow function:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error.message,
+        template_source: 'database'
       }),
       {
         status: 500,
