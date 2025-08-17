@@ -56,22 +56,31 @@ export const useTenantOnboardingWorkflow = ({
 
     if (!tenantId) {
       console.log('No tenant ID provided');
+      setError('Tenant ID is required');
       return;
     }
 
+    // Reset attempt count for new tenant/workflow combinations
+    if (currentState.tenantId !== tenantId || currentState.workflowId !== workflowId) {
+      initStateRef.current = {
+        ...currentState,
+        attemptCount: 0
+      };
+    }
+
     // Prevent excessive retry attempts
-    if (currentState.attemptCount >= 3) {
-      setError('Maximum initialization attempts reached');
+    if (initStateRef.current.attemptCount >= 3) {
+      setError('Maximum initialization attempts reached. Please try refreshing the page.');
       return;
     }
 
     // Update atomic state
     initStateRef.current = {
-      ...currentState,
+      ...initStateRef.current,
       status: 'initializing',
       tenantId,
       workflowId: workflowId || null,
-      attemptCount: currentState.attemptCount + 1
+      attemptCount: initStateRef.current.attemptCount + 1
     };
 
     try {
@@ -88,39 +97,62 @@ export const useTenantOnboardingWorkflow = ({
       let workflowResult: OnboardingWorkflow | null = null;
 
       if (workflowId) {
+        console.log('Loading existing workflow:', workflowId);
         const loadRequest = onboardingService.loadWorkflow(workflowId);
         activeRequestRef.current = loadRequest;
         workflowResult = await loadRequest;
       } else if (autoCreate) {
+        console.log('Creating new workflow for tenant:', tenantId);
         const createRequest = onboardingService.createWorkflow(tenantId);
         activeRequestRef.current = createRequest;
         workflowResult = await createRequest;
       }
 
       if (workflowResult) {
+        console.log('Workflow loaded/created:', workflowResult.id);
         setWorkflow(workflowResult);
+        
+        // Load steps for the workflow
         const stepsResult = await onboardingService.loadSteps(workflowResult.id);
+        console.log('Steps loaded:', stepsResult.length);
         setSteps(stepsResult);
         
         if (stepsResult.length > 0) {
           showSuccess(`Workflow initialized with ${stepsResult.length} steps`);
         }
-      }
 
-      // Mark as successfully completed
-      initStateRef.current = {
-        ...initStateRef.current,
-        status: 'completed'
-      };
+        // Mark as successfully completed
+        initStateRef.current = {
+          ...initStateRef.current,
+          status: 'completed'
+        };
+      } else {
+        throw new Error('No workflow was created or loaded');
+      }
 
     } catch (error: any) {
       console.error('Workflow initialization failed:', error);
-      initStateRef.current = {
-        ...initStateRef.current,
-        status: 'error'
-      };
-      setError(error.message || 'Failed to initialize workflow');
-      showError('Failed to initialize onboarding workflow');
+      
+      // Don't increment attempt count for certain types of errors
+      const shouldRetry = !error.message?.includes('Tenant not found') && 
+                         !error.message?.includes('function get_onboarding_template');
+      
+      if (!shouldRetry) {
+        initStateRef.current = {
+          ...initStateRef.current,
+          status: 'error',
+          attemptCount: 3 // Set to max to prevent further retries
+        };
+      } else {
+        initStateRef.current = {
+          ...initStateRef.current,
+          status: 'error'
+        };
+      }
+      
+      const errorMessage = error.message || 'Failed to initialize workflow';
+      setError(errorMessage);
+      showError('Failed to initialize onboarding workflow: ' + errorMessage);
     } finally {
       activeRequestRef.current = null;
       setIsLoading(false);
@@ -162,6 +194,9 @@ export const useTenantOnboardingWorkflow = ({
   }, [workflow?.id, steps, showSuccess, showError]);
 
   const retryInitialization = useCallback(async () => {
+    console.log('Retrying initialization...');
+    
+    // Reset the initialization state completely
     initStateRef.current = {
       status: 'idle',
       tenantId: null,
@@ -170,9 +205,14 @@ export const useTenantOnboardingWorkflow = ({
     };
     
     setError(null);
+    setWorkflow(null);
+    setSteps([]);
     setIsLoading(true);
     
-    await initializeWorkflow();
+    // Small delay to ensure state is reset
+    setTimeout(() => {
+      initializeWorkflow();
+    }, 100);
   }, [initializeWorkflow]);
 
   // Single effect with proper dependency management
