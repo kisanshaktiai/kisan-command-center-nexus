@@ -48,8 +48,8 @@ export const useTenantData = ({ tenantId, enabled = true }: UseTenantDataOptions
         owner_email: tenant.owner_email || '',
         owner_phone: tenant.owner_phone || '',
         business_registration: tenant.business_registration || '',
-        business_address: tenant.business_address || '',
-        metadata: tenant.metadata || {}
+        business_address: typeof tenant.business_address === 'string' ? tenant.business_address : '',
+        metadata: typeof tenant.metadata === 'object' && tenant.metadata !== null ? tenant.metadata as Record<string, any> : {}
       };
     },
     enabled: enabled && !!tenantId,

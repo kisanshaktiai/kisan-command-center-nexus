@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
@@ -34,6 +33,12 @@ interface OptimizedTenantOnboardingWizardProps {
   tenantId: string;
   workflowId?: string;
 }
+
+// Helper function to safely extract properties from JSON data
+const safeGetJsonProperty = (obj: any, key: string, defaultValue: any = undefined) => {
+  if (!obj || typeof obj !== 'object') return defaultValue;
+  return obj[key] ?? defaultValue;
+};
 
 export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboardingWizardProps> = ({
   isOpen,
@@ -114,12 +119,12 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
         return {
           id: dbStep.step_name.toLowerCase().replace(/\s+/g, '_'),
           title: dbStep.step_name,
-          description: stepData.help_text || `Step ${dbStep.step_number} of the onboarding process`,
+          description: safeGetJsonProperty(stepData, 'help_text', `Step ${dbStep.step_number} of the onboarding process`),
           status: (dbStep.step_status as OnboardingStep['status']) || 'pending',
           component: getStepComponent(dbStep.step_name),
-          isRequired: stepData.is_required !== false,
-          estimatedTime: stepData.estimated_time || 15,
-          helpText: stepData.help_text
+          isRequired: safeGetJsonProperty(stepData, 'is_required', true),
+          estimatedTime: safeGetJsonProperty(stepData, 'estimated_time', 15),
+          helpText: safeGetJsonProperty(stepData, 'help_text')
         };
       });
       
