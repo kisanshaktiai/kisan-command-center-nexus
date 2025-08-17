@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -42,7 +42,10 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   const [stepData, setStepData] = useState<Record<string, any>>({});
   const [tenantInfo, setTenantInfo] = useState<any>(null);
   const [tenantLoading, setTenantLoading] = useState(false);
+  const [progressLoading, setProgressLoading] = useState(false);
+  const [hasLoadedProgress, setHasLoadedProgress] = useState(false);
   const { showSuccess, showError } = useNotifications();
+  const progressLoadedRef = useRef(false);
 
   // Use the workflow management hook
   const {
@@ -56,7 +59,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
     autoCreate: true
   });
 
-  const steps: OnboardingStep[] = [
+  const defaultSteps: OnboardingStep[] = [
     {
       id: 'company_profile',
       title: 'Company Profile',
@@ -113,10 +116,10 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
     }
   ];
 
-  const [stepsState, setStepsState] = useState<OnboardingStep[]>(steps);
+  const [stepsState, setStepsState] = useState<OnboardingStep[]>(defaultSteps);
 
   const loadTenantInfo = async () => {
-    if (!tenantId) return;
+    if (!tenantId || tenantInfo) return;
     
     try {
       setTenantLoading(true);
@@ -136,10 +139,50 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
     }
   };
 
+  const createFallbackSteps = async (workflowId: string) => {
+    try {
+      console.log('Creating fallback steps for workflow:', workflowId);
+      
+      const stepTemplates = [
+        { step_number: 1, step_name: 'Company Profile' },
+        { step_number: 2, step_name: 'Branding & Design' },
+        { step_number: 3, step_name: 'Team & Permissions' },
+        { step_number: 4, step_name: 'Billing & Plan' },
+        { step_number: 5, step_name: 'Domain & White-label' },
+        { step_number: 6, step_name: 'Review & Launch' }
+      ];
+
+      const steps = stepTemplates.map(template => ({
+        workflow_id: workflowId,
+        ...template,
+        step_status: template.step_number === 1 ? 'in_progress' : 'pending',
+        step_data: {
+          estimated_time: [15, 10, 20, 10, 15, 5][template.step_number - 1],
+          is_required: [true, false, true, true, false, true][template.step_number - 1]
+        }
+      }));
+
+      const { error } = await supabase
+        .from('onboarding_steps')
+        .insert(steps);
+
+      if (error) throw error;
+      
+      console.log('Successfully created fallback steps');
+      return true;
+    } catch (error) {
+      console.error('Error creating fallback steps:', error);
+      return false;
+    }
+  };
+
   const loadOnboardingProgress = async () => {
-    if (!workflow?.id) return;
+    if (!workflow?.id || progressLoadedRef.current) return;
 
     try {
+      setProgressLoading(true);
+      console.log('Loading onboarding progress for workflow:', workflow.id);
+
       const { data, error } = await supabase
         .from('onboarding_steps')
         .select('*')
@@ -148,25 +191,57 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        const updatedSteps = stepsState.map((step, index) => {
-          const dbStep = data.find(s => s.step_number === index + 1);
-          return {
-            ...step,
-            status: (dbStep?.step_status as OnboardingStep['status']) || 'pending'
-          };
-        });
-        setStepsState(updatedSteps);
+      if (!data || data.length === 0) {
+        console.log('No steps found, creating fallback steps');
+        const created = await createFallbackSteps(workflow.id);
+        if (created) {
+          // Retry loading after creating fallback steps
+          const { data: retryData, error: retryError } = await supabase
+            .from('onboarding_steps')
+            .select('*')
+            .eq('workflow_id', workflow.id)
+            .order('step_number');
 
-        // Set current step to first incomplete step
-        const firstIncomplete = updatedSteps.findIndex(s => s.status === 'pending' || s.status === 'in_progress');
-        if (firstIncomplete !== -1) {
-          setCurrentStepIndex(firstIncomplete);
+          if (!retryError && retryData && retryData.length > 0) {
+            updateStepsFromData(retryData);
+          } else {
+            // If still no data, use default steps
+            setStepsState(defaultSteps);
+          }
+        } else {
+          setStepsState(defaultSteps);
         }
+      } else {
+        updateStepsFromData(data);
       }
+
+      progressLoadedRef.current = true;
+      setHasLoadedProgress(true);
     } catch (error) {
       console.error('Error loading onboarding progress:', error);
       showError('Failed to load onboarding progress');
+      // Fallback to default steps on error
+      setStepsState(defaultSteps);
+      setHasLoadedProgress(true);
+    } finally {
+      setProgressLoading(false);
+    }
+  };
+
+  const updateStepsFromData = (data: any[]) => {
+    const updatedSteps = defaultSteps.map((step, index) => {
+      const dbStep = data.find(s => s.step_number === index + 1);
+      return {
+        ...step,
+        status: (dbStep?.step_status as OnboardingStep['status']) || 'pending'
+      };
+    });
+    setStepsState(updatedSteps);
+
+    // Set current step to first incomplete step
+    const firstIncomplete = updatedSteps.findIndex(s => s.status === 'pending' || s.status === 'in_progress');
+    if (firstIncomplete !== -1) {
+      setCurrentStepIndex(firstIncomplete);
     }
   };
 
@@ -189,7 +264,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       }
 
       const { error } = await supabase.rpc('advance_onboarding_step', {
-        p_step_id: targetStep.id, // Use the actual UUID from the database
+        p_step_id: targetStep.id,
         p_new_status: status,
         p_step_data: data
       });
@@ -204,29 +279,15 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       // Update step data
       setStepData(prev => ({
         ...prev,
-        [steps[stepIndex].id]: data
+        [defaultSteps[stepIndex].id]: data
       }));
 
-      showSuccess(`${steps[stepIndex].title} ${status === 'completed' ? 'completed' : 'updated'}`);
+      showSuccess(`${defaultSteps[stepIndex].title} ${status === 'completed' ? 'completed' : 'updated'}`);
     } catch (error) {
       console.error('Error updating step status:', error);
       showError('Failed to update step status');
     }
   };
-
-  // Load tenant info when the dialog opens
-  useEffect(() => {
-    if (isOpen && tenantId) {
-      loadTenantInfo();
-    }
-  }, [isOpen, tenantId]);
-
-  // Load progress when workflow is available
-  useEffect(() => {
-    if (workflow?.id) {
-      loadOnboardingProgress();
-    }
-  }, [workflow?.id]);
 
   const handleStepComplete = (data: any) => {
     updateStepStatus(currentStepIndex, 'completed', data);
@@ -287,9 +348,30 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   };
 
   const CurrentStepComponent = stepsState[currentStepIndex]?.component;
+  const isLoading = workflowLoading || tenantLoading || (progressLoading && !hasLoadedProgress);
+
+  // Load tenant info when the dialog opens
+  useEffect(() => {
+    if (isOpen && tenantId) {
+      loadTenantInfo();
+    }
+  }, [isOpen, tenantId]);
+
+  // Load progress when workflow is available - only once
+  useEffect(() => {
+    if (workflow?.id && !progressLoadedRef.current) {
+      loadOnboardingProgress();
+    }
+  }, [workflow?.id]);
+
+  // Reset progress loaded flag when workflow changes
+  useEffect(() => {
+    progressLoadedRef.current = false;
+    setHasLoadedProgress(false);
+  }, [workflow?.id]);
 
   // Show loading state
-  if (workflowLoading || tenantLoading) {
+  if (isLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
@@ -303,7 +385,9 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
             <div className="text-center space-y-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
               <p className="text-sm text-muted-foreground">
-                {tenantLoading ? 'Loading tenant information...' : 'Initializing onboarding workflow...'}
+                {tenantLoading ? 'Loading tenant information...' : 
+                 workflowLoading ? 'Initializing onboarding workflow...' :
+                 'Loading onboarding progress...'}
               </p>
             </div>
           </div>

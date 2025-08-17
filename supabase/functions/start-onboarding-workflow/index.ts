@@ -77,14 +77,14 @@ const handler = async (req: Request): Promise<Response> => {
 
       workflow = newWorkflow;
 
-      // Create initial steps
+      // Create initial steps - removed description field to match database schema
       const stepTemplates = [
-        { step_number: 1, step_name: 'Company Profile', description: 'Complete business information and verification' },
-        { step_number: 2, step_name: 'Branding & Design', description: 'Customize app appearance and branding' },
-        { step_number: 3, step_name: 'Team & Permissions', description: 'Invite team members and configure roles' },
-        { step_number: 4, step_name: 'Billing & Plan', description: 'Set up subscription and billing details' },
-        { step_number: 5, step_name: 'Domain & White-label', description: 'Configure custom domain and branding' },
-        { step_number: 6, step_name: 'Review & Launch', description: 'Final review and tenant activation' }
+        { step_number: 1, step_name: 'Company Profile' },
+        { step_number: 2, step_name: 'Branding & Design' },
+        { step_number: 3, step_name: 'Team & Permissions' },
+        { step_number: 4, step_name: 'Billing & Plan' },
+        { step_number: 5, step_name: 'Domain & White-label' },
+        { step_number: 6, step_name: 'Review & Launch' }
       ];
 
       const steps = stepTemplates.map(template => ({
@@ -103,8 +103,10 @@ const handler = async (req: Request): Promise<Response> => {
 
       if (stepsError) {
         console.error('Error creating steps:', stepsError);
-        // Continue anyway, steps can be created later
+        throw new Error(`Failed to create onboarding steps: ${stepsError.message}`);
       }
+
+      console.log('Successfully created workflow and steps');
     }
 
     console.log('Onboarding workflow ready:', workflow.id);

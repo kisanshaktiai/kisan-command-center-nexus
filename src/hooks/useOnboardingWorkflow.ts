@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -26,6 +26,9 @@ export const useOnboardingWorkflow = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { showSuccess, showError } = useNotifications();
+  const initializationAttempted = useRef(false);
+  const retryCount = useRef(0);
+  const maxRetries = 3;
 
   const createWorkflow = async () => {
     try {
@@ -79,15 +82,16 @@ export const useOnboardingWorkflow = ({
   };
 
   const initializeWorkflow = async () => {
-    if (!tenantId) {
-      setError('Tenant ID is required');
-      setIsLoading(false);
+    if (initializationAttempted.current || !tenantId) {
       return;
     }
+
+    initializationAttempted.current = true;
 
     try {
       setIsLoading(true);
       setError(null);
+      retryCount.current = 0;
 
       if (workflowId) {
         // Load existing workflow
@@ -107,12 +111,38 @@ export const useOnboardingWorkflow = ({
     }
   };
 
-  const retryInitialization = () => {
-    initializeWorkflow();
+  const retryInitialization = async () => {
+    if (retryCount.current >= maxRetries) {
+      setError('Maximum retry attempts reached. Please refresh the page and try again.');
+      return;
+    }
+
+    retryCount.current++;
+    initializationAttempted.current = false;
+    setError(null);
+    
+    try {
+      await initializeWorkflow();
+    } catch (error: any) {
+      console.error(`Retry ${retryCount.current} failed:`, error);
+      if (retryCount.current >= maxRetries) {
+        setError('Failed to initialize workflow after multiple attempts. Please refresh the page.');
+      }
+    }
   };
 
   useEffect(() => {
-    initializeWorkflow();
+    if (tenantId && !initializationAttempted.current) {
+      initializeWorkflow();
+    }
+  }, [tenantId, workflowId]);
+
+  // Reset when tenantId or workflowId changes
+  useEffect(() => {
+    initializationAttempted.current = false;
+    retryCount.current = 0;
+    setWorkflow(null);
+    setError(null);
   }, [tenantId, workflowId]);
 
   return {
