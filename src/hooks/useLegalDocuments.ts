@@ -106,7 +106,7 @@ export const useLegalDocuments = (tenantId?: string) => {
   const deleteDocumentMutation = useMutation({
     mutationFn: async (documentId: string) => {
       // Get document details first
-      const { data: document, error: fetchError } = await supabase
+      const { data: docData, error: fetchError } = await supabase
         .from('tenant_legal_documents')
         .select('file_url')
         .eq('id', documentId)
@@ -115,7 +115,7 @@ export const useLegalDocuments = (tenantId?: string) => {
       if (fetchError) throw fetchError;
 
       // Extract file path from URL
-      const urlParts = document.file_url.split('/');
+      const urlParts = docData.file_url.split('/');
       const filePath = urlParts.slice(-3).join('/'); // Get tenant_id/document_type/filename
 
       // Delete from storage
@@ -152,10 +152,10 @@ export const useLegalDocuments = (tenantId?: string) => {
   });
 
   // Download document
-  const downloadDocument = useCallback(async (document: LegalDocument) => {
+  const downloadDocument = useCallback(async (legalDocument: LegalDocument) => {
     try {
       // Extract file path from URL
-      const urlParts = document.file_url.split('/');
+      const urlParts = legalDocument.file_url.split('/');
       const filePath = urlParts.slice(-3).join('/');
 
       const { data, error } = await supabase.storage
@@ -164,14 +164,14 @@ export const useLegalDocuments = (tenantId?: string) => {
 
       if (error) throw error;
 
-      // Create download link
+      // Create download link using the global document object
       const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
+      const a = globalThis.document.createElement('a');
       a.href = url;
-      a.download = document.original_filename;
-      document.body.appendChild(a);
+      a.download = legalDocument.original_filename;
+      globalThis.document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      globalThis.document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error: any) {
       toast({
