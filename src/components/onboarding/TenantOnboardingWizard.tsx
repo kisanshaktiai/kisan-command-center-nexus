@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
@@ -23,6 +24,7 @@ interface OnboardingStep {
   component: React.ComponentType<any>;
   isRequired: boolean;
   estimatedTime: number;
+  helpText?: string;
 }
 
 interface TenantOnboardingWizardProps {
@@ -59,64 +61,22 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
     autoCreate: true
   });
 
-  const defaultSteps: OnboardingStep[] = [
-    {
-      id: 'company_profile',
-      title: 'Company Profile',
-      description: 'Business details and verification',
-      status: 'pending',
-      component: CompanyProfileStep,
-      isRequired: true,
-      estimatedTime: 15
-    },
-    {
-      id: 'branding',
-      title: 'Branding & Design',
-      description: 'Customize your app appearance',
-      status: 'pending',
-      component: EnhancedBrandingStep,
-      isRequired: false,
-      estimatedTime: 10
-    },
-    {
-      id: 'users_roles',
-      title: 'Team & Permissions',
-      description: 'Invite users and set up roles',
-      status: 'pending',
-      component: EnhancedUsersRolesStep,
-      isRequired: true,
-      estimatedTime: 20
-    },
-    {
-      id: 'billing_plan',
-      title: 'Billing & Plan',
-      description: 'Configure subscription and billing',
-      status: 'pending',
-      component: BillingPlanStep,
-      isRequired: true,
-      estimatedTime: 10
-    },
-    {
-      id: 'domain_whitelabel',
-      title: 'Domain & Branding',
-      description: 'Custom domain and white-label setup',
-      status: 'pending',
-      component: DomainWhitelabelStep,
-      isRequired: false,
-      estimatedTime: 15
-    },
-    {
-      id: 'review_golive',
-      title: 'Review & Launch',
-      description: 'Final review and go live',
-      status: 'pending',
-      component: ReviewGoLiveStep,
-      isRequired: true,
-      estimatedTime: 5
-    }
-  ];
+  // Component mapping for different step types
+  const getStepComponent = (stepName: string) => {
+    const componentMap: Record<string, React.ComponentType<any>> = {
+      'Company Profile': CompanyProfileStep,
+      'Branding & Design': EnhancedBrandingStep,
+      'Team & Permissions': EnhancedUsersRolesStep,
+      'Billing & Plan': BillingPlanStep,
+      'Domain & White-label': DomainWhitelabelStep,
+      'Domain & Branding': DomainWhitelabelStep,
+      'Review & Launch': ReviewGoLiveStep
+    };
+    
+    return componentMap[stepName] || CompanyProfileStep;
+  };
 
-  const [stepsState, setStepsState] = useState<OnboardingStep[]>(defaultSteps);
+  const [stepsState, setStepsState] = useState<OnboardingStep[]>([]);
 
   const loadTenantInfo = async () => {
     if (!tenantId || tenantInfo) return;
@@ -151,7 +111,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
 
     try {
       setProgressLoading(true);
-      console.log('Loading onboarding progress for workflow:', workflow.id);
+      console.log('Loading template-based onboarding progress for workflow:', workflow.id);
 
       const { data, error } = await supabase
         .from('onboarding_steps')
@@ -164,42 +124,47 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
         throw error;
       }
 
-      console.log('Loaded steps:', data?.length || 0);
+      console.log('Loaded template-based steps:', data?.length || 0);
 
       if (!data || data.length === 0) {
-        console.warn('No steps found for workflow, this should not happen with the new Edge Function');
-        // Fallback to default steps if no data exists
-        setStepsState(defaultSteps);
-        showError('No onboarding steps found. Please contact support.');
+        console.error('No steps found for workflow - this should not happen with template-based system');
+        showError('No onboarding steps found. The template system may not be configured properly.');
+        setStepsState([]);
       } else {
-        updateStepsFromData(data);
+        updateStepsFromTemplateData(data);
       }
 
       progressLoadedRef.current = true;
       setHasLoadedProgress(true);
     } catch (error) {
-      console.error('Error loading onboarding progress:', error);
+      console.error('Error loading template-based onboarding progress:', error);
       showError('Failed to load onboarding progress');
-      // Fallback to default steps on error
-      setStepsState(defaultSteps);
+      setStepsState([]);
       setHasLoadedProgress(true);
     } finally {
       setProgressLoading(false);
     }
   };
 
-  const updateStepsFromData = (data: any[]) => {
-    console.log('Updating steps from data:', data);
+  const updateStepsFromTemplateData = (data: any[]) => {
+    console.log('Updating steps from template data:', data);
     
-    const updatedSteps = defaultSteps.map((step, index) => {
-      const dbStep = data.find(s => s.step_number === index + 1);
+    const updatedSteps = data.map((dbStep, index) => {
+      const stepData = dbStep.step_data || {};
+      
       return {
-        ...step,
-        status: (dbStep?.step_status as OnboardingStep['status']) || 'pending'
+        id: dbStep.step_name.toLowerCase().replace(/\s+/g, '_'),
+        title: dbStep.step_name,
+        description: stepData.help_text || `Step ${dbStep.step_number} of the onboarding process`,
+        status: (dbStep.step_status as OnboardingStep['status']) || 'pending',
+        component: getStepComponent(dbStep.step_name),
+        isRequired: stepData.is_required !== false,
+        estimatedTime: stepData.estimated_time || 15,
+        helpText: stepData.help_text
       };
     });
     
-    console.log('Updated steps state:', updatedSteps);
+    console.log('Updated steps state from templates:', updatedSteps);
     setStepsState(updatedSteps);
 
     // Set current step to first incomplete step
@@ -244,10 +209,10 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       // Update step data
       setStepData(prev => ({
         ...prev,
-        [defaultSteps[stepIndex].id]: data
+        [stepsState[stepIndex].id]: data
       }));
 
-      showSuccess(`${defaultSteps[stepIndex].title} ${status === 'completed' ? 'completed' : 'updated'}`);
+      showSuccess(`${stepsState[stepIndex].title} ${status === 'completed' ? 'completed' : 'updated'}`);
     } catch (error) {
       console.error('Error updating step status:', error);
       showError('Failed to update step status');
@@ -299,6 +264,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   };
 
   const getCurrentProgress = () => {
+    if (stepsState.length === 0) return 0;
     const completedSteps = stepsState.filter(s => s.status === 'completed').length;
     return Math.round((completedSteps / stepsState.length) * 100);
   };
@@ -341,9 +307,9 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Initializing Onboarding</DialogTitle>
+            <DialogTitle>Initializing Template-Based Onboarding</DialogTitle>
             <DialogDescription>
-              Setting up your tenant onboarding workflow. Please wait...
+              Setting up your tenant onboarding workflow from templates. Please wait...
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center py-12">
@@ -351,7 +317,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
               <p className="text-sm text-muted-foreground">
                 {tenantLoading ? 'Loading tenant information...' : 
-                 workflowLoading ? 'Initializing onboarding workflow...' :
+                 workflowLoading ? 'Initializing onboarding workflow from templates...' :
                  'Loading onboarding progress...'}
               </p>
             </div>
@@ -367,16 +333,16 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Workflow Initialization Failed</DialogTitle>
+            <DialogTitle>Template-Based Workflow Initialization Failed</DialogTitle>
             <DialogDescription>
-              There was an error setting up your onboarding workflow. Please try again.
+              There was an error setting up your onboarding workflow from templates. Please try again.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center py-12">
             <div className="text-center space-y-4">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
               <div>
-                <h3 className="font-medium text-lg">Failed to Initialize Workflow</h3>
+                <h3 className="font-medium text-lg">Failed to Initialize Template-Based Workflow</h3>
                 <p className="text-sm text-muted-foreground mt-2">{workflowError}</p>
               </div>
               <Button onClick={retryInitialization} className="mt-4">
@@ -400,7 +366,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
               <div>
                 <DialogTitle className="flex items-center gap-2 text-xl">
                   <Sparkles className="w-6 h-6 text-primary" />
-                  Tenant Onboarding Wizard
+                  Template-Based Tenant Onboarding
                 </DialogTitle>
                 <DialogDescription className="text-sm text-muted-foreground mt-1">
                   {tenantInfo?.name} • {tenantInfo?.subscription_plan} Plan
@@ -427,7 +393,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
             <div className="w-80 space-y-2 overflow-y-auto pr-2">
               <div className="sticky top-0 bg-background py-2 mb-4">
                 <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                  Onboarding Steps
+                  Template-Based Steps
                 </h3>
               </div>
               {stepsState.map((step, index) => (
@@ -487,7 +453,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto">
                 <div className="max-w-4xl mx-auto p-6">
-                  {CurrentStepComponent && (
+                  {CurrentStepComponent && stepsState[currentStepIndex] && (
                     <CurrentStepComponent
                       tenantId={tenantId}
                       onComplete={handleStepComplete}
@@ -498,6 +464,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
                           [stepsState[currentStepIndex].id]: data
                         }));
                       }}
+                      helpText={stepsState[currentStepIndex].helpText}
                     />
                   )}
                 </div>

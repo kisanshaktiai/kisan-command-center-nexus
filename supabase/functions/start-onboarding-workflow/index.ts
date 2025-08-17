@@ -30,7 +30,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Check if tenant exists
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
-      .select('name, subscription_plan, status')
+      .select('name, subscription_plan, status, type')
       .eq('id', tenantId)
       .single();
 
@@ -39,7 +39,7 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Tenant not found');
     }
 
-    console.log('Tenant found:', tenant.name);
+    console.log('Tenant found:', tenant.name, 'Plan:', tenant.subscription_plan, 'Type:', tenant.type);
 
     // Check for existing workflow
     let workflow = null;
@@ -61,16 +61,58 @@ const handler = async (req: Request): Promise<Response> => {
     if (!workflow) {
       console.log('Creating new workflow for tenant:', tenantId);
       
+      // Get step templates for this tenant type/subscription plan
+      const { data: stepTemplates, error: templatesError } = await supabase
+        .from('onboarding_step_templates')
+        .select('*')
+        .eq('is_active', true)
+        .order('step_number', { ascending: true });
+
+      if (templatesError) {
+        console.error('Failed to fetch step templates:', templatesError);
+        throw new Error(`Failed to fetch step templates: ${templatesError.message}`);
+      }
+
+      if (!stepTemplates || stepTemplates.length === 0) {
+        console.error('No active step templates found');
+        throw new Error('No active onboarding step templates found');
+      }
+
+      console.log('Found', stepTemplates.length, 'step templates');
+
+      // Filter templates based on tenant subscription plan and type if needed
+      const filteredTemplates = stepTemplates.filter(template => {
+        // If template has specific subscription plans, check if tenant plan matches
+        if (template.subscription_plans && template.subscription_plans.length > 0) {
+          return template.subscription_plans.includes(tenant.subscription_plan);
+        }
+        // If template has specific tenant types, check if tenant type matches
+        if (template.tenant_types && template.tenant_types.length > 0) {
+          return template.tenant_types.includes(tenant.type);
+        }
+        // If no specific restrictions, include the template
+        return true;
+      });
+
+      if (filteredTemplates.length === 0) {
+        console.log('No templates match tenant criteria, using all templates');
+        // Fall back to all templates if filtering results in empty set
+        filteredTemplates.push(...stepTemplates);
+      }
+
+      console.log('Using', filteredTemplates.length, 'filtered templates for tenant');
+
       const { data: newWorkflow, error: workflowError } = await supabase
         .from('onboarding_workflows')
         .insert({
           tenant_id: tenantId,
           status: 'in_progress',
           current_step: 1,
-          total_steps: 6,
+          total_steps: filteredTemplates.length,
           metadata: {
             tenant_name: tenant.name,
             subscription_plan: tenant.subscription_plan,
+            tenant_type: tenant.type,
             created_by: req.headers.get('user-id') || 'system'
           }
         })
@@ -85,28 +127,26 @@ const handler = async (req: Request): Promise<Response> => {
       workflow = newWorkflow;
       console.log('Successfully created workflow:', workflow.id);
 
-      // Create initial steps with explicit structure matching database schema
-      const stepTemplates = [
-        { step_number: 1, step_name: 'Company Profile' },
-        { step_number: 2, step_name: 'Branding & Design' },
-        { step_number: 3, step_name: 'Team & Permissions' },
-        { step_number: 4, step_name: 'Billing & Plan' },
-        { step_number: 5, step_name: 'Domain & White-label' },
-        { step_number: 6, step_name: 'Review & Launch' }
-      ];
-
-      const steps = stepTemplates.map(template => ({
+      // Create steps from templates
+      const steps = filteredTemplates.map(template => ({
         workflow_id: workflow.id,
         step_number: template.step_number,
         step_name: template.step_name,
         step_status: template.step_number === 1 ? 'in_progress' : 'pending',
         step_data: {
-          estimated_time: [15, 10, 20, 10, 15, 5][template.step_number - 1],
-          is_required: [true, false, true, true, false, true][template.step_number - 1]
-        }
+          estimated_time: template.estimated_time || 15,
+          is_required: template.is_required || true,
+          help_text: template.help_text || '',
+          default_data: template.default_data || {},
+          validation_schema: template.validation_schema || {}
+        },
+        validation_errors: null,
+        completed_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }));
 
-      console.log('Creating steps for workflow:', workflow.id, 'Steps count:', steps.length);
+      console.log('Creating', steps.length, 'steps for workflow:', workflow.id);
 
       const { data: createdSteps, error: stepsError } = await supabase
         .from('onboarding_steps')
@@ -114,7 +154,7 @@ const handler = async (req: Request): Promise<Response> => {
         .select();
 
       if (stepsError) {
-        console.error('Error creating steps:', stepsError);
+        console.error('Error creating steps from templates:', stepsError);
         
         // Rollback: Delete the workflow if step creation fails
         await supabase
@@ -122,10 +162,10 @@ const handler = async (req: Request): Promise<Response> => {
           .delete()
           .eq('id', workflow.id);
         
-        throw new Error(`Failed to create onboarding steps: ${stepsError.message}`);
+        throw new Error(`Failed to create onboarding steps from templates: ${stepsError.message}`);
       }
 
-      console.log('Successfully created steps:', createdSteps?.length || 0);
+      console.log('Successfully created', createdSteps?.length || 0, 'steps from templates');
     } else {
       // For existing workflows, verify steps exist
       const { data: existingSteps, error: stepsCheckError } = await supabase

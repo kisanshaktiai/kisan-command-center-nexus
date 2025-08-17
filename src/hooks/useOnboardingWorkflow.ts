@@ -32,7 +32,7 @@ export const useOnboardingWorkflow = ({
 
   const createWorkflow = async () => {
     try {
-      console.log('Creating workflow for tenant:', tenantId);
+      console.log('Creating template-based workflow for tenant:', tenantId);
       
       const { data, error } = await supabase.functions.invoke('start-onboarding-workflow', {
         body: { tenantId, forceNew: false }
@@ -53,16 +53,16 @@ export const useOnboardingWorkflow = ({
           current_step: data.current_step,
           total_steps: data.total_steps
         };
-        console.log('Workflow created successfully:', newWorkflow);
+        console.log('Template-based workflow created successfully:', newWorkflow);
         setWorkflow(newWorkflow);
-        showSuccess('Onboarding workflow initialized');
+        showSuccess('Onboarding workflow initialized from templates');
         return newWorkflow;
       } else {
         console.error('Edge function returned unsuccessful response:', data);
-        throw new Error(data?.error || 'Failed to create workflow');
+        throw new Error(data?.error || 'Failed to create workflow from templates');
       }
     } catch (error: any) {
-      console.error('Error creating workflow:', error);
+      console.error('Error creating template-based workflow:', error);
       setError(error.message);
       showError('Failed to initialize workflow: ' + error.message);
       throw error;
@@ -107,13 +107,13 @@ export const useOnboardingWorkflow = ({
       setError(null);
       retryCount.current = 0;
 
-      console.log('Initializing workflow for tenant:', tenantId, 'with workflowId:', workflowId);
+      console.log('Initializing template-based workflow for tenant:', tenantId, 'with workflowId:', workflowId);
 
       if (workflowId) {
         // Load existing workflow
         await loadWorkflow(workflowId);
       } else if (autoCreate) {
-        // Create new workflow
+        // Create new workflow from templates
         await createWorkflow();
       } else {
         // No workflow ID and auto-create disabled
@@ -121,7 +121,7 @@ export const useOnboardingWorkflow = ({
         setWorkflow(null);
       }
     } catch (error: any) {
-      console.error('Workflow initialization failed:', error);
+      console.error('Template-based workflow initialization failed:', error);
       // Don't throw here, let component handle the error state
     } finally {
       setIsLoading(false);
@@ -134,7 +134,7 @@ export const useOnboardingWorkflow = ({
       return;
     }
 
-    console.log('Retrying initialization, attempt:', retryCount.current + 1);
+    console.log('Retrying template-based initialization, attempt:', retryCount.current + 1);
     retryCount.current++;
     initializationAttempted.current = false;
     setError(null);
@@ -151,7 +151,7 @@ export const useOnboardingWorkflow = ({
 
   useEffect(() => {
     if (tenantId && !initializationAttempted.current) {
-      console.log('Effect triggered - initializing workflow');
+      console.log('Effect triggered - initializing template-based workflow');
       initializeWorkflow();
     }
   }, [tenantId, workflowId]);
