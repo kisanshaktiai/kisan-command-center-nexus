@@ -70,7 +70,7 @@ const AdminRegister = () => {
           if (data.metadata) {
             setBranding({
               primaryColor: data.metadata.primaryColor || '#2563eb',
-              organizationName: data.metadata.organizationName || 'KisanShaktiAI',
+              appName: data.metadata.organizationName || 'KisanShaktiAI',
               logoUrl: data.metadata.appLogo
             });
           }
@@ -84,7 +84,7 @@ const AdminRegister = () => {
     };
 
     verifyInvite();
-  }, [token]);
+  }, [token, setBranding]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
