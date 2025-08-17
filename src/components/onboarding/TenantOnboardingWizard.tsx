@@ -1,12 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, AlertCircle, ArrowLeft, ArrowRight } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import { CompanyProfileStep } from './steps/CompanyProfileStep';
-import { BrandingStep } from './steps/BrandingStep';
-import { UsersRolesStep } from './steps/UsersRolesStep';
+import { EnhancedBrandingStep } from './steps/EnhancedBrandingStep';
+import { EnhancedUsersRolesStep } from './steps/EnhancedUsersRolesStep';
 import { BillingPlanStep } from './steps/BillingPlanStep';
 import { DomainWhitelabelStep } from './steps/DomainWhitelabelStep';
 import { ReviewGoLiveStep } from './steps/ReviewGoLiveStep';
@@ -20,6 +21,7 @@ interface OnboardingStep {
   status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
   component: React.ComponentType<any>;
   isRequired: boolean;
+  estimatedTime: number;
 }
 
 interface TenantOnboardingWizardProps {
@@ -38,6 +40,7 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [stepData, setStepData] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [tenantInfo, setTenantInfo] = useState<any>(null);
   const { showSuccess, showError } = useNotifications();
 
   const steps: OnboardingStep[] = [
@@ -47,57 +50,81 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       description: 'Business details and verification',
       status: 'pending',
       component: CompanyProfileStep,
-      isRequired: true
+      isRequired: true,
+      estimatedTime: 15
     },
     {
       id: 'branding',
-      title: 'Branding & Customization',
-      description: 'Logo, colors, and app customization',
+      title: 'Branding & Design',
+      description: 'Customize your app appearance',
       status: 'pending',
-      component: BrandingStep,
-      isRequired: false
+      component: EnhancedBrandingStep,
+      isRequired: false,
+      estimatedTime: 10
     },
     {
       id: 'users_roles',
-      title: 'Users & Roles',
-      description: 'Team setup and permissions',
+      title: 'Team & Permissions',
+      description: 'Invite users and set up roles',
       status: 'pending',
-      component: UsersRolesStep,
-      isRequired: true
+      component: EnhancedUsersRolesStep,
+      isRequired: true,
+      estimatedTime: 20
     },
     {
       id: 'billing_plan',
       title: 'Billing & Plan',
-      description: 'Subscription and payment setup',
+      description: 'Configure subscription and billing',
       status: 'pending',
       component: BillingPlanStep,
-      isRequired: true
+      isRequired: true,
+      estimatedTime: 10
     },
     {
       id: 'domain_whitelabel',
-      title: 'Domain & White-label',
-      description: 'Custom domain and branding',
+      title: 'Domain & Branding',
+      description: 'Custom domain and white-label setup',
       status: 'pending',
       component: DomainWhitelabelStep,
-      isRequired: false
+      isRequired: false,
+      estimatedTime: 15
     },
     {
       id: 'review_golive',
-      title: 'Review & Go Live',
-      description: 'Final review and activation',
+      title: 'Review & Launch',
+      description: 'Final review and go live',
       status: 'pending',
       component: ReviewGoLiveStep,
-      isRequired: true
+      isRequired: true,
+      estimatedTime: 5
     }
   ];
 
   const [stepsState, setStepsState] = useState<OnboardingStep[]>(steps);
 
   useEffect(() => {
-    if (isOpen && workflowId) {
-      loadOnboardingProgress();
+    if (isOpen && tenantId) {
+      loadTenantInfo();
+      if (workflowId) {
+        loadOnboardingProgress();
+      }
     }
-  }, [isOpen, workflowId]);
+  }, [isOpen, tenantId, workflowId]);
+
+  const loadTenantInfo = async () => {
+    try {
+      const { data: tenant, error } = await supabase
+        .from('tenants')
+        .select('name, subscription_plan, status, metadata')
+        .eq('id', tenantId)
+        .single();
+
+      if (error) throw error;
+      setTenantInfo(tenant);
+    } catch (error) {
+      console.error('Error loading tenant info:', error);
+    }
+  };
 
   const loadOnboardingProgress = async () => {
     try {
@@ -167,30 +194,30 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   const handleStepComplete = (data: any) => {
     updateStepStatus(currentStepIndex, 'completed', data);
     
-    // Auto-advance to next step
-    if (currentStepIndex < stepsState.length - 1) {
-      setTimeout(() => {
+    // Auto-advance to next step after a short delay
+    setTimeout(() => {
+      if (currentStepIndex < stepsState.length - 1) {
         setCurrentStepIndex(currentStepIndex + 1);
-      }, 1000);
-    }
+      }
+    }, 1000);
   };
 
-  const handleNext = () => {
+  const handleNextStep = () => {
     if (currentStepIndex < stepsState.length - 1) {
       setCurrentStepIndex(currentStepIndex + 1);
     }
   };
 
-  const handlePrevious = () => {
+  const handlePreviousStep = () => {
     if (currentStepIndex > 0) {
       setCurrentStepIndex(currentStepIndex - 1);
     }
   };
 
   const handleStepClick = (index: number) => {
-    // Allow navigation to completed steps or current step
+    // Allow navigation to completed steps or adjacent steps
     const step = stepsState[index];
-    if (step.status === 'completed' || index <= currentStepIndex) {
+    if (step.status === 'completed' || Math.abs(index - currentStepIndex) <= 1) {
       setCurrentStepIndex(index);
     }
   };
@@ -213,12 +240,21 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
     return Math.round((completedSteps / stepsState.length) * 100);
   };
 
+  const getTotalEstimatedTime = () => {
+    return stepsState.reduce((total, step) => total + step.estimatedTime, 0);
+  };
+
+  const getRemainingTime = () => {
+    const remainingSteps = stepsState.slice(currentStepIndex).filter(s => s.status !== 'completed');
+    return remainingSteps.reduce((total, step) => total + step.estimatedTime, 0);
+  };
+
   const CurrentStepComponent = stepsState[currentStepIndex]?.component;
 
   if (isLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
@@ -229,96 +265,148 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Tenant Onboarding Wizard</DialogTitle>
-          <div className="space-y-4">
-            <Progress value={getCurrentProgress()} className="w-full" />
-            <div className="text-sm text-muted-foreground">
-              Progress: {getCurrentProgress()}% complete
+      <DialogContent className="max-w-7xl max-h-[95vh] flex flex-col">
+        <DialogHeader className="border-b pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <Sparkles className="w-6 h-6 text-primary" />
+                Tenant Onboarding Wizard
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                {tenantInfo?.name} • {tenantInfo?.subscription_plan} Plan
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-medium">{getCurrentProgress()}% Complete</div>
+              <div className="text-xs text-muted-foreground">
+                ~{getRemainingTime()} minutes remaining
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Progress value={getCurrentProgress()} className="w-full h-2" />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Step {currentStepIndex + 1} of {stepsState.length}</span>
+              <span>Total time: ~{getTotalEstimatedTime()} minutes</span>
             </div>
           </div>
         </DialogHeader>
 
         <div className="flex flex-1 gap-6 overflow-hidden">
-          {/* Steps Sidebar */}
-          <div className="w-80 space-y-2 overflow-y-auto">
+          {/* Enhanced Steps Sidebar */}
+          <div className="w-80 space-y-2 overflow-y-auto pr-2">
+            <div className="sticky top-0 bg-background py-2 mb-4">
+              <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                Onboarding Steps
+              </h3>
+            </div>
             {stepsState.map((step, index) => (
               <div
                 key={step.id}
-                className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                className={`group relative p-4 rounded-xl border transition-all cursor-pointer ${
                   index === currentStepIndex
-                    ? 'border-primary bg-primary/5'
+                    ? 'border-primary bg-primary/5 shadow-sm'
                     : step.status === 'completed'
-                    ? 'border-green-200 bg-green-50 hover:bg-green-100'
-                    : 'border-gray-200 hover:bg-gray-50'
+                    ? 'border-green-200 bg-green-50/50 hover:bg-green-100/50'
+                    : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300'
                 }`}
                 onClick={() => handleStepClick(index)}
               >
+                {/* Step connector line */}
+                {index < stepsState.length - 1 && (
+                  <div className={`absolute left-7 top-16 w-0.5 h-8 ${
+                    step.status === 'completed' ? 'bg-green-300' : 'bg-gray-200'
+                  }`} />
+                )}
+                
                 <div className="flex items-start gap-3">
-                  {getStatusIcon(step.status)}
+                  <div className="relative">
+                    {getStatusIcon(step.status)}
+                    {index === currentStepIndex && (
+                      <div className="absolute -inset-1 rounded-full bg-primary/20 animate-pulse" />
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-sm">{step.title}</h4>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-medium text-sm truncate">{step.title}</h4>
                       {step.isRequired && (
                         <Badge variant="secondary" className="text-xs">Required</Badge>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
                       {step.description}
                     </p>
-                    <Badge 
-                      variant={step.status === 'completed' ? 'default' : 'outline'} 
-                      className="text-xs mt-2"
-                    >
-                      {step.status.replace('_', ' ')}
-                    </Badge>
+                    <div className="flex items-center justify-between">
+                      <Badge 
+                        variant={step.status === 'completed' ? 'default' : 'outline'} 
+                        className="text-xs"
+                      >
+                        {step.status.replace('_', ' ')}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        ~{step.estimatedTime}min
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Main Content */}
+          {/* Main Content Area */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto">
-              {CurrentStepComponent && (
-                <CurrentStepComponent
-                  tenantId={tenantId}
-                  onComplete={handleStepComplete}
-                  data={stepData[stepsState[currentStepIndex].id] || {}}
-                  onDataChange={(data: any) => {
-                    setStepData(prev => ({
-                      ...prev,
-                      [stepsState[currentStepIndex].id]: data
-                    }));
-                  }}
-                />
-              )}
+              <div className="max-w-4xl mx-auto p-6">
+                {CurrentStepComponent && (
+                  <CurrentStepComponent
+                    tenantId={tenantId}
+                    onComplete={handleStepComplete}
+                    data={stepData[stepsState[currentStepIndex].id] || {}}
+                    onDataChange={(data: any) => {
+                      setStepData(prev => ({
+                        ...prev,
+                        [stepsState[currentStepIndex].id]: data
+                      }));
+                    }}
+                  />
+                )}
+              </div>
             </div>
 
-            {/* Navigation */}
-            <div className="flex justify-between items-center pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={currentStepIndex === 0}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Previous
-              </Button>
+            {/* Navigation Footer */}
+            <div className="border-t bg-background/80 backdrop-blur-sm">
+              <div className="flex justify-between items-center p-6">
+                <Button
+                  variant="outline"
+                  onClick={handlePreviousStep}
+                  disabled={currentStepIndex === 0}
+                  className="flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Previous
+                </Button>
 
-              <div className="text-sm text-muted-foreground">
-                Step {currentStepIndex + 1} of {stepsState.length}
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <div className="font-medium text-sm">
+                      {stepsState[currentStepIndex]?.title}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Step {currentStepIndex + 1} of {stepsState.length}
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleNextStep}
+                  disabled={currentStepIndex === stepsState.length - 1}
+                  className="flex items-center gap-2"
+                >
+                  Next
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
               </div>
-
-              <Button
-                onClick={handleNext}
-                disabled={currentStepIndex === stepsState.length - 1}
-              >
-                Next
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
             </div>
           </div>
         </div>

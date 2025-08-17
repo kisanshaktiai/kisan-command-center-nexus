@@ -1,340 +1,119 @@
 
-# A string used to distinguish different Supabase projects on the same host. Defaults to the
-# working directory name when running `supabase init`.
 project_id = "qfklkkzxemsbeniyugiz"
 
 [api]
 enabled = true
-# Port to use for the API URL.
 port = 54321
-# Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
-# endpoints. public and storage are always included.
-schemas = ["public", "storage", "graphql_public"]
-# Extra schemas to add to the search_path of every request. public is always included.
+schemas = ["public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
-# The maximum number of rows to return from a table or view. Limits payload size
-# for accidental or malicious requests.
 max_rows = 1000
-
-[db]
-# Port to use for the local database URL.
-port = 54322
-# Port used by db diff command to initialize the shadow database.
-shadow_port = 54320
-# The database major version to use. This has to be the same as your remote database's. Run `SHOW
-# server_version_num;` on the remote database to check.
-major_version = 15
-
-[db.pooler]
-enabled = false
-# Port to use for the local connection pooler.
-port = 54329
-# Specifies when a server connection can be reused by other clients.
-# Configure one of the supported pooler modes: `transaction`, `session`.
-pool_mode = "transaction"
-# How many server connections to allow per user/database pair.
-default_pool_size = 20
-# Maximum number of client connections allowed.
-max_client_conn = 100
-
-[realtime]
-enabled = true
-# Bind realtime via either IPv4 or IPv6. (default: IPv4)
-# ip_version = "IPv6"
-# The maximum length in bytes of HTTP request headers. (default: 4096)
-# max_header_length = 4096
-
-[studio]
-enabled = true
-# Port to use for Supabase Studio.
-port = 54323
-# External URL of the API server that frontend connects to.
-api_url = "http://127.0.0.1:54321"
-# OpenAI API Key to use for Supabase AI.
-openai_api_key = "env(OPENAI_API_KEY)"
-
-# Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
-# are monitored, and you can view the emails that would have been sent from the web interface.
-[inbound_email]
-enabled = true
-port = 54324
-# Port for smtp server.
-smtp_port = 54325
-# Port for pop3 server.
-pop3_port = 54326
-
-[storage]
-enabled = true
-# The maximum file size allowed (e.g. "5MB", "500KB").
-file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
-# in emails.
-site_url = "http://127.0.0.1:3000"
-# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
-# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604800 (1 week).
+port = 54324
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://lovable.dev"]
 jwt_expiry = 3600
-# If disabled, the refresh token will never expire.
-enable_refresh_token_rotation = true
-# Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
-# Requires enable_refresh_token_rotation = true.
-refresh_token_reuse_interval = 10
-# Allow/disallow new user signups to your project.
 enable_signup = true
-# Allow/disallow anonymous sign-ins to your project.
-enable_anonymous_sign_ins = false
-# Allow/disallow testing manual linking of accounts
-enable_manual_linking = false
-
-[auth.email]
-# Allow/disallow new user signups via email to your project.
-enable_signup = true
-# If enabled, a user will be required to confirm any email change on both the old, and new email
-# addresses. If disabled, only the new email is required to confirm.
-double_confirm_changes = true
-# If enabled, users need to confirm their email address before signing in.
 enable_confirmations = false
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
-
-[auth.sms]
-# Allow/disallow new user signups via SMS to your project.
-enable_signup = true
-# If enabled, users need to confirm their phone number before signing in.
-enable_confirmations = true
-# Template for sending a confirmation message SMS.
-template = "Your confirmation code is {{ .Code }} ."
-
-# Use pre-defined map of phone number to OTP for testing.
-[auth.sms.test_otp]
-# 4152127777 = "123456"
-
-# Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
-[auth.sms.twilio]
-enabled = false
-account_sid = ""
-message_service_sid = ""
-# DO NOT commit your Twilio auth token to git. Use environment variable substitution instead:
-auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
-
-# Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
-# `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin`, `notion`, `twitch`,
-# `twitter`, `slack`, `spotify`, `workos`, `zoom`.
 [auth.external.apple]
 enabled = false
 client_id = ""
-# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
-secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
-# Overrides the default auth redirectUrl.
-redirect_uri = ""
-# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
-# or any other third-party OIDC providers.
-url = ""
+secret = ""
 
 [auth.external.azure]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_AZURE_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.bitbucket]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_BITBUCKET_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.discord]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_DISCORD_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.facebook]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_FACEBOOK_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.github]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.gitlab]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_GITLAB_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.google]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.keycloak]
 enabled = false
-client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_KEYCLOAK_SECRET)"
-redirect_uri = ""
 url = ""
+client_id = ""
+secret = ""
 
 [auth.external.linkedin]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_LINKEDIN_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.notion]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_NOTION_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.twitch]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_TWITCH_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.twitter]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_TWITTER_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.slack]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_SLACK_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.spotify]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_SPOTIFY_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
 [auth.external.workos]
 enabled = false
-client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_WORKOS_SECRET)"
-redirect_uri = ""
 url = ""
+client_id = ""
+secret = ""
 
 [auth.external.zoom]
 enabled = false
 client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_ZOOM_SECRET)"
-redirect_uri = ""
-url = ""
+secret = ""
 
-[edge_runtime]
+[db]
+port = 54322
+
+[functions.send-user-invite]
+verify_jwt = true
+
+[functions.start-onboarding-workflow]
+verify_jwt = true
+
+[storage]
 enabled = true
-# Configure one of the supported request policies: `oneshot`, `per_worker`.
-# Use `oneshot` for hot reload, or `per_worker` for load testing.
-policy = "oneshot"
-inspector_port = 8083
-
-[analytics]
-enabled = false
-port = 54327
-vector_port = 54328
-# Configure one of the supported backends: `postgres`, `bigquery`.
-backend = "postgres"
-
-# Configures Postgres storage backend
-[analytics.postgres]
-# The maximum number of log entries to store locally before sending to the remote database.
-# Large values can improve performance but increase memory usage. Defaults to 100.
-buffer_size = 100
-# How often to flush log entries from the local buffer to the remote database, in milliseconds.
-# Defaults to 2000.
-flush_interval_ms = 2000
-
-[functions.approve-admin]
-verify_jwt = false
-[functions.approve-admin-request]
-verify_jwt = false
-[functions.assign-admin-role]
-verify_jwt = false
-[functions.check-user-exists]
-verify_jwt = false
-[functions.collect-financial-metrics]
-verify_jwt = false
-[functions.collect-resource-metrics]
-verify_jwt = false
-[functions.collect-system-metrics]
-verify_jwt = false
-[functions.convert-lead-to-tenant]
-verify_jwt = false
-[functions.create-stripe-subscription]
-verify_jwt = false
-[functions.create-super-admin]
-verify_jwt = false
-[functions.create-tenant-with-admin]
-verify_jwt = false
-[functions.get-user-by-email]
-verify_jwt = false
-[functions.lead-analytics]
-verify_jwt = false
-[functions.lead-notifications]
-verify_jwt = false
-[functions.lead-processor]
-verify_jwt = false
-[functions.manage-user-tenant]
-verify_jwt = false
-[functions.process-subscription-renewals]
-verify_jwt = false
-[functions.register-user-with-welcome]
-verify_jwt = false
-[functions.request-admin-access]
-verify_jwt = false
-[functions.send-admin-invite]
-verify_jwt = false
-[functions.send-auth-email]
-verify_jwt = false
-[functions.send-email]
-verify_jwt = false
-[functions.simple-admin-request]
-verify_jwt = false
-[functions.stripe-webhook]
-verify_jwt = false
-[functions.tenant-activity-feed]
-verify_jwt = false
-[functions.tenant-analytics-data]
-verify_jwt = false
-[functions.tenant-conversion-email]
-verify_jwt = false
-[functions.tenant-default-branding]
-verify_jwt = false
-[functions.tenant-limits-quotas]
-verify_jwt = false
-[functions.tenant-real-time-metrics]
-verify_jwt = false
-[functions.tenant-settings-data]
-verify_jwt = false
-[functions.tenant-subscriptions-billing]
-verify_jwt = false
-[functions.verify-admin-invite]
-verify_jwt = false
+port = 54323
+file_size_limit = "50MiB"
