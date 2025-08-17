@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
@@ -34,18 +33,54 @@ interface WorldClassTenantOnboardingWizardProps {
   workflowId?: string;
 }
 
-// Stable component mapping for consistent rendering
+// Updated component mapping using database step names and variations
 const STEP_COMPONENT_MAP: Record<string, React.ComponentType<any>> = {
+  // Company Profile variations
   'Company Profile': CompanyProfileStep,
+  'company-profile': CompanyProfileStep,
+  'company_profile': CompanyProfileStep,
+  
+  // Branding variations
   'Branding & Design': EnhancedBrandingStep,
+  'Enhanced Branding': EnhancedBrandingStep,
+  'branding-design': EnhancedBrandingStep,
+  'branding_design': EnhancedBrandingStep,
+  'enhanced-branding': EnhancedBrandingStep,
+  'enhanced_branding': EnhancedBrandingStep,
+  
+  // Team & Permissions variations
   'Team & Permissions': EnhancedUsersRolesStep,
+  'Enhanced Users & Roles': EnhancedUsersRolesStep,
   'Users & Roles': EnhancedUsersRolesStep,
   'Team Setup': EnhancedUsersRolesStep,
   'User Management': EnhancedUsersRolesStep,
+  'team-permissions': EnhancedUsersRolesStep,
+  'team_permissions': EnhancedUsersRolesStep,
+  'users-roles': EnhancedUsersRolesStep,
+  'users_roles': EnhancedUsersRolesStep,
+  'enhanced-users-roles': EnhancedUsersRolesStep,
+  'enhanced_users_roles': EnhancedUsersRolesStep,
+  
+  // Billing variations
   'Billing & Plan': BillingPlanStep,
+  'billing-plan': BillingPlanStep,
+  'billing_plan': BillingPlanStep,
+  
+  // Domain variations
   'Domain & White-label': DomainWhitelabelStep,
   'Domain & Branding': DomainWhitelabelStep,
-  'Review & Launch': ReviewGoLiveStep
+  'domain-whitelabel': DomainWhitelabelStep,
+  'domain_whitelabel': DomainWhitelabelStep,
+  'domain-branding': DomainWhitelabelStep,
+  'domain_branding': DomainWhitelabelStep,
+  
+  // Review variations
+  'Review & Launch': ReviewGoLiveStep,
+  'Review & Go Live': ReviewGoLiveStep,
+  'review-launch': ReviewGoLiveStep,
+  'review_launch': ReviewGoLiveStep,
+  'review-go-live': ReviewGoLiveStep,
+  'review_go_live': ReviewGoLiveStep
 };
 
 const safeGetJsonProperty = (obj: any, key: string, defaultValue: any = undefined) => {
@@ -87,22 +122,51 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
   });
 
   const getStepComponent = useCallback((stepName: string) => {
-    return STEP_COMPONENT_MAP[stepName] || CompanyProfileStep;
+    console.log('🔍 Getting component for step:', stepName);
+    
+    // Try direct lookup first
+    let component = STEP_COMPONENT_MAP[stepName];
+    if (component) {
+      console.log('✅ Found direct match for:', stepName);
+      return component;
+    }
+    
+    // Try normalized lookup
+    const normalizedName = stepName.toLowerCase().replace(/\s+/g, '-');
+    component = STEP_COMPONENT_MAP[normalizedName];
+    if (component) {
+      console.log('✅ Found normalized match for:', stepName, '->', normalizedName);
+      return component;
+    }
+    
+    // Try underscore lookup
+    const underscoreName = stepName.toLowerCase().replace(/\s+/g, '_');
+    component = STEP_COMPONENT_MAP[underscoreName];
+    if (component) {
+      console.log('✅ Found underscore match for:', stepName, '->', underscoreName);
+      return component;
+    }
+    
+    console.warn('⚠️ No component found for step:', stepName, 'using CompanyProfileStep as fallback');
+    return CompanyProfileStep;
   }, []);
 
   // Transform database steps into UI steps
   useEffect(() => {
     if (steps.length > 0) {
-      console.log('Transforming steps:', steps);
+      console.log('🔄 Transforming steps:', steps);
       const transformedSteps = steps.map((dbStep) => {
         const stepData = dbStep.step_data || {};
+        const component = getStepComponent(dbStep.step_name);
+        
+        console.log(`📋 Step ${dbStep.step_number}: "${dbStep.step_name}" -> ${component.name}`);
         
         return {
           id: dbStep.step_name.toLowerCase().replace(/\s+/g, '_'),
           title: dbStep.step_name,
           description: safeGetJsonProperty(stepData, 'help_text', `Step ${dbStep.step_number} of the onboarding process`),
           status: (dbStep.step_status as OnboardingStep['status']) || 'pending',
-          component: getStepComponent(dbStep.step_name),
+          component,
           isRequired: safeGetJsonProperty(stepData, 'is_required', true),
           estimatedTime: safeGetJsonProperty(stepData, 'estimated_time', 15),
           helpText: safeGetJsonProperty(stepData, 'help_text'),
@@ -110,12 +174,13 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
         };
       });
       
-      console.log('Transformed steps:', transformedSteps);
+      console.log('✅ Transformed steps:', transformedSteps.map(s => `${s.dbStepNumber}: ${s.title} -> ${s.component.name}`));
       setStepsState(transformedSteps);
 
       // Set current step to first incomplete step
       const firstIncomplete = transformedSteps.findIndex(s => s.status === 'pending' || s.status === 'in_progress');
       if (firstIncomplete !== -1) {
+        console.log('🎯 Setting current step to first incomplete:', firstIncomplete);
         setCurrentStepIndex(firstIncomplete);
       }
     }
@@ -151,7 +216,7 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
     if (!currentStep) return;
 
     try {
-      console.log('Completing step:', currentStep.dbStepNumber, data);
+      console.log('✅ Completing step:', currentStep.dbStepNumber, data);
       await updateStepStatus(currentStep.dbStepNumber, 'completed', data);
       
       setTimeout(() => {
@@ -160,28 +225,44 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
         }
       }, 1000);
     } catch (error) {
-      console.error('Failed to complete step:', error);
+      console.error('❌ Failed to complete step:', error);
     }
   }, [currentStepIndex, stepsState, updateStepStatus]);
 
   const handleNextStep = useCallback(() => {
     if (currentStepIndex < stepsState.length - 1) {
-      setCurrentStepIndex(currentStepIndex + 1);
+      const newIndex = currentStepIndex + 1;
+      console.log('➡️ Moving to next step:', newIndex, stepsState[newIndex]?.title);
+      setCurrentStepIndex(newIndex);
     }
   }, [currentStepIndex, stepsState.length]);
 
   const handlePreviousStep = useCallback(() => {
     if (currentStepIndex > 0) {
-      setCurrentStepIndex(currentStepIndex - 1);
+      const newIndex = currentStepIndex - 1;
+      console.log('⬅️ Moving to previous step:', newIndex, stepsState[newIndex]?.title);
+      setCurrentStepIndex(newIndex);
     }
   }, [currentStepIndex]);
 
   const handleStepClick = useCallback((index: number) => {
     const step = stepsState[index];
     if (step && (step.status === 'completed' || Math.abs(index - currentStepIndex) <= 1)) {
+      console.log('🎯 Clicking to step:', index, step.title);
       setCurrentStepIndex(index);
     }
   }, [stepsState, currentStepIndex]);
+
+  const handleStepDataChange = useCallback((data: any) => {
+    const currentStep = stepsState[currentStepIndex];
+    if (!currentStep) return;
+    
+    console.log('📝 Step data changed for:', currentStep?.title, data);
+    setStepData(prev => ({
+      ...prev,
+      [currentStep.id]: data
+    }));
+  }, [currentStepIndex, stepsState]);
 
   const getStatusIcon = useCallback((status: OnboardingStep['status']) => {
     switch (status) {
@@ -202,6 +283,15 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
   // Get current step and component
   const currentStep = stepsState[currentStepIndex];
   const CurrentStepComponent = currentStep?.component;
+
+  // Debug current step
+  console.log('🎭 Current step rendering:', {
+    currentStepIndex,
+    currentStep: currentStep?.title,
+    CurrentStepComponent: CurrentStepComponent?.name,
+    stepsCount: stepsState.length,
+    tenantInfo: tenantInfo?.name
+  });
 
   // Loading state with elegant design
   if (isLoading) {
@@ -295,13 +385,6 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
       </Dialog>
     );
   }
-
-  console.log('Rendering wizard with:', {
-    currentStepIndex,
-    currentStep: currentStep?.title,
-    CurrentStepComponent: CurrentStepComponent?.name,
-    stepsCount: stepsState.length
-  });
 
   // Main world-class wizard interface
   return (
@@ -411,18 +494,13 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
               <div className="flex-1 overflow-y-auto">
                 <div className="max-w-5xl mx-auto p-8">
                   {CurrentStepComponent && currentStep ? (
-                    <div className="animate-in fade-in-50 duration-500" key={currentStep.id}>
+                    <div className="animate-in fade-in-50 duration-500" key={`${currentStep.id}-${currentStepIndex}`}>
                       <CurrentStepComponent
                         tenantId={tenantId}
+                        tenantInfo={tenantInfo}
                         onComplete={handleStepComplete}
                         data={stepData[currentStep.id] || {}}
-                        onDataChange={(data: any) => {
-                          console.log('Step data changed:', currentStep.id, data);
-                          setStepData(prev => ({
-                            ...prev,
-                            [currentStep.id]: data
-                          }));
-                        }}
+                        onDataChange={handleStepDataChange}
                         helpText={currentStep.helpText}
                       />
                     </div>
@@ -434,6 +512,9 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
                           <h3 className="font-medium text-lg">Step Component Not Found</h3>
                           <p className="text-sm text-muted-foreground mt-2">
                             Unable to load the component for step: {currentStep?.title || 'Unknown'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Component: {CurrentStepComponent?.name || 'None'}
                           </p>
                         </div>
                       </div>
