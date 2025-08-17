@@ -14,13 +14,13 @@ export const usePaymentGateways = () => {
     queryKey: ['payment-gateways'],
     queryFn: async (): Promise<PaymentGateway[]> => {
       const { data, error } = await supabase
-        .from('payment_gateways')
+        .from('payment_gateways' as any)
         .select('*')
         .eq('is_active', true)
         .order('display_name');
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as PaymentGateway[];
     }
   });
 
@@ -29,12 +29,12 @@ export const usePaymentGateways = () => {
     queryKey: ['tenant-payment-configs'],
     queryFn: async (): Promise<TenantPaymentConfig[]> => {
       const { data, error } = await supabase
-        .from('tenant_payment_configs')
+        .from('tenant_payment_configs' as any)
         .select('*')
         .order('created_at');
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as TenantPaymentConfig[];
     }
   });
 
@@ -42,7 +42,7 @@ export const usePaymentGateways = () => {
   const savePaymentConfig = useMutation({
     mutationFn: async (config: Partial<TenantPaymentConfig> & { tenant_id: string; gateway_type: PaymentGatewayType }) => {
       const { data, error } = await supabase
-        .from('tenant_payment_configs')
+        .from('tenant_payment_configs' as any)
         .upsert({
           tenant_id: config.tenant_id,
           gateway_type: config.gateway_type,
@@ -65,7 +65,7 @@ export const usePaymentGateways = () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-payment-configs'] });
       showSuccess('Payment gateway configuration saved successfully');
     },
-    onError: (error) => {
+    onError: (error: any) => {
       showError(`Failed to save payment configuration: ${error.message}`);
     }
   });
@@ -96,7 +96,7 @@ export const usePaymentGateways = () => {
       }
       queryClient.invalidateQueries({ queryKey: ['tenant-payment-configs'] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       showError(`Validation failed: ${error.message}`);
     }
   });
@@ -105,7 +105,7 @@ export const usePaymentGateways = () => {
   const deletePaymentConfig = useMutation({
     mutationFn: async (configId: string) => {
       const { error } = await supabase
-        .from('tenant_payment_configs')
+        .from('tenant_payment_configs' as any)
         .delete()
         .eq('id', configId);
 
@@ -115,7 +115,7 @@ export const usePaymentGateways = () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-payment-configs'] });
       showSuccess('Payment configuration deleted successfully');
     },
-    onError: (error) => {
+    onError: (error: any) => {
       showError(`Failed to delete configuration: ${error.message}`);
     }
   });
