@@ -15,12 +15,12 @@ import { useNotifications } from '@/hooks/useNotifications';
 interface UserInvitation {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
+  first_name?: string;
+  last_name?: string;
   role: string;
   status: string;
   created_at: string;
-  sent_at: string | null;
+  sent_at?: string | null;
   expires_at: string;
 }
 
@@ -98,14 +98,28 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
   const loadInvitations = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      const { data: rawInvitations, error } = await supabase
         .from('user_invitations')
         .select('*')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setInvitations(data || []);
+
+      // Map the raw data to our UserInvitation interface
+      const mappedInvitations: UserInvitation[] = (rawInvitations || []).map(invitation => ({
+        id: invitation.id,
+        email: invitation.email,
+        first_name: invitation.first_name || '',
+        last_name: invitation.last_name || '',
+        role: invitation.role || 'tenant_user',
+        status: invitation.status,
+        created_at: invitation.created_at,
+        sent_at: invitation.sent_at,
+        expires_at: invitation.expires_at
+      }));
+
+      setInvitations(mappedInvitations);
     } catch (error) {
       console.error('Error loading invitations:', error);
       showError('Failed to load user invitations');

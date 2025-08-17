@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Palette, Smartphone, Monitor, Upload, Wand2, Eye, Download } from 'lucide-react';
+import { Palette, Smartphone, Monitor, Upload, Wand2, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -55,38 +55,55 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
     ...data
   });
 
-  const [presets, setPresets] = useState<BrandingPreset[]>([]);
+  const [presets] = useState<BrandingPreset[]>([
+    {
+      id: '1',
+      name: 'Agriculture Green',
+      description: 'Fresh green theme perfect for agricultural businesses',
+      category: 'agriculture',
+      colors: {
+        primary: '#16a34a',
+        secondary: '#65a30d',
+        accent: '#84cc16',
+        background: '#f0fdf4',
+        text: '#166534'
+      },
+      fonts: { primary: 'Inter', secondary: 'Inter' }
+    },
+    {
+      id: '2',
+      name: 'Professional Blue',
+      description: 'Clean and professional blue theme for corporate use',
+      category: 'professional',
+      colors: {
+        primary: '#2563eb',
+        secondary: '#1d4ed8',
+        accent: '#3b82f6',
+        background: '#f8fafc',
+        text: '#1e293b'
+      },
+      fonts: { primary: 'Inter', secondary: 'Inter' }
+    },
+    {
+      id: '3',
+      name: 'Modern Purple',
+      description: 'Trendy purple theme for innovative companies',
+      category: 'modern',
+      colors: {
+        primary: '#7c3aed',
+        secondary: '#6d28d9',
+        accent: '#8b5cf6',
+        background: '#faf5ff',
+        text: '#581c87'
+      },
+      fonts: { primary: 'Inter', secondary: 'Inter' }
+    }
+  ]);
+
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
   const [isUploading, setIsUploading] = useState(false);
   const { showSuccess, showError } = useNotifications();
-
-  useEffect(() => {
-    loadBrandingPresets();
-  }, []);
-
-  const loadBrandingPresets = async () => {
-    try {
-      const { data: presetsData, error } = await supabase
-        .from('branding_presets')
-        .select('*')
-        .eq('is_system_preset', true)
-        .order('category, name');
-
-      if (error) throw error;
-
-      const formattedPresets = presetsData.map(preset => ({
-        ...preset,
-        colors: typeof preset.colors === 'string' ? JSON.parse(preset.colors) : preset.colors,
-        fonts: typeof preset.fonts === 'string' ? JSON.parse(preset.fonts) : preset.fonts,
-      }));
-
-      setPresets(formattedPresets);
-    } catch (error) {
-      console.error('Error loading presets:', error);
-      showError('Failed to load branding presets');
-    }
-  };
 
   const handlePresetSelect = (preset: BrandingPreset) => {
     const newBrandingData = {
@@ -105,11 +122,11 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
     showSuccess(`Applied ${preset.name} theme`);
   };
 
-  const handleColorChange = (colorKey: string, value: string) => {
+  const handleColorChange = (colorKey: string, value: string | boolean) => {
     const newData = { ...brandingData, [colorKey]: value };
     setBrandingData(newData);
     onDataChange(newData);
-    setSelectedPreset(null); // Clear preset selection when manually changing colors
+    setSelectedPreset(null);
   };
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,7 +166,6 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
 
   const handleSave = async () => {
     try {
-      // Update tenant branding
       const { error } = await supabase
         .from('tenant_branding')
         .upsert({
@@ -180,10 +196,8 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
 
   const renderMobilePreview = () => (
     <div className="relative mx-auto" style={{ width: '280px', height: '560px' }}>
-      {/* Phone Frame */}
       <div className="absolute inset-0 bg-gray-900 rounded-[2.5rem] p-2">
         <div className="relative w-full h-full bg-white rounded-[2rem] overflow-hidden shadow-inner">
-          {/* Status Bar */}
           <div className="h-6 bg-black flex items-center justify-between px-6 text-white text-xs">
             <span>9:41</span>
             <div className="flex gap-1">
@@ -192,9 +206,7 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
             </div>
           </div>
           
-          {/* App Content */}
           <div className="flex-1 p-4" style={{ backgroundColor: brandingData.background_color }}>
-            {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 {brandingData.logo_url ? (
@@ -214,7 +226,6 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
               <div className="w-8 h-8 rounded-full bg-gray-200"></div>
             </div>
 
-            {/* Dashboard Cards */}
             <div className="space-y-4">
               <div 
                 className="p-4 rounded-xl shadow-sm"
