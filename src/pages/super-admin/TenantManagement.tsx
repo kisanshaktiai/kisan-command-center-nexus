@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,7 @@ import { TenantEditModal } from '@/components/tenant/TenantEditModal';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
 import { TenantOverviewMetrics } from '@/components/tenant/TenantOverviewMetrics';
 import { EnhancedTenantManagementHeader } from '@/components/tenant/EnhancedTenantManagementHeader';
+import { BulkTenantValidation } from '@/components/tenant/BulkTenantValidation';
 import { useTenantPageState } from '@/features/tenant/hooks/useTenantPageState';
 
 const TenantManagement: React.FC = () => {
@@ -91,6 +91,16 @@ const TenantManagement: React.FC = () => {
         onRefresh={handleRefresh}
         isSubmitting={isSubmitting}
       />
+
+      {/* Bulk Tenant Validation */}
+      {tenants.length > 0 && (
+        <BulkTenantValidation 
+          tenants={tenants}
+          onValidationComplete={(results) => {
+            console.log('Bulk validation completed:', results);
+          }}
+        />
+      )}
 
       {/* Overview Metrics Cards */}
       <TenantOverviewMetrics 

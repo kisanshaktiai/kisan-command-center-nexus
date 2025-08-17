@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,8 @@ import {
 import { Tenant } from '@/types/tenant';
 import { TenantMetrics } from '@/types/tenantView';
 import { FormattedTenantData } from '@/services/TenantDisplayService';
+import { UserTenantStatusIndicator } from './UserTenantStatusIndicator';
+import { useUserTenantValidation } from '@/hooks/useUserTenantValidation';
 
 interface TenantCardRefacturedProps {
   tenant: Tenant;
@@ -48,13 +50,43 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
   showAnalytics = false,
   onCardClick
 }) => {
+  const { 
+    validateUserTenantAccess, 
+    createUserTenantRelationship, 
+    isValidating, 
+    isCreatingRelationship 
+  } = useUserTenantValidation();
+  
+  const [validationStatus, setValidationStatus] = useState(null);
+
+  useEffect(() => {
+    const validateAccess = async () => {
+      const status = await validateUserTenantAccess(tenant.id);
+      setValidationStatus(status);
+    };
+
+    validateAccess();
+  }, [tenant.id, validateUserTenantAccess]);
+
+  const handleCreateRelationship = async () => {
+    const success = await createUserTenantRelationship(tenant.id, 'tenant_admin');
+    if (success) {
+      // Re-validate after creating relationship
+      const status = await validateUserTenantAccess(tenant.id);
+      setValidationStatus(status);
+    }
+  };
+
   const isSuspended = tenant.status === 'suspended';
+  const canPerformActions = validationStatus?.isValid;
   
   const handleEdit = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('TenantCardRefactored: Edit clicked for tenant:', tenant.id);
-    onEdit();
+    if (canPerformActions) {
+      console.log('TenantCardRefactored: Edit clicked for tenant:', tenant.id);
+      onEdit();
+    }
   };
 
   const handleViewDetails = (e: React.MouseEvent) => {
@@ -67,6 +99,8 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
   const handleSuspendAction = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!canPerformActions) return;
+    
     console.log('TenantCardRefactored: Suspend action for tenant:', tenant.id);
     if (window.confirm(
       isSuspended 
@@ -98,13 +132,14 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
           <Eye className="mr-2 h-4 w-4" />
           View Details
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleEdit}>
+        <DropdownMenuItem onClick={handleEdit} disabled={!canPerformActions}>
           <Edit className="mr-2 h-4 w-4" />
           Edit Tenant
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem 
           onClick={handleSuspendAction}
+          disabled={!canPerformActions}
           className={isSuspended ? "text-green-600" : "text-orange-600"}
         >
           {isSuspended ? (
@@ -156,6 +191,18 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
         </CardHeader>
         
         <CardContent className="space-y-4">
+          {/* User-Tenant Validation Status */}
+          <div className="p-3 bg-muted/30 rounded-lg">
+            <UserTenantStatusIndicator
+              status={validationStatus}
+              isValidating={isValidating}
+              isCreatingRelationship={isCreatingRelationship}
+              onCreateRelationship={handleCreateRelationship}
+              showDetails={!validationStatus?.isValid}
+              compact={false}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
@@ -225,6 +272,18 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
             {formattedData.planDisplayName}
           </Badge>
         </div>
+
+        {/* Compact User-Tenant Status */}
+        <div className="mt-2 pt-2 border-t">
+          <UserTenantStatusIndicator
+            status={validationStatus}
+            isValidating={isValidating}
+            isCreatingRelationship={isCreatingRelationship}
+            onCreateRelationship={handleCreateRelationship}
+            showDetails={false}
+            compact={true}
+          />
+        </div>
       </CardHeader>
       
       <CardContent className="pt-0 space-y-3">
@@ -253,6 +312,20 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
           <div className="pt-2 border-t">
             <div className="text-xs text-muted-foreground">Health Score</div>
             <div className="text-sm font-semibold">{metrics.healthScore}/100</div>
+          </div>
+        )}
+
+        {/* Show detailed validation if there are issues */}
+        {validationStatus && !validationStatus.isValid && (
+          <div className="pt-2 border-t">
+            <UserTenantStatusIndicator
+              status={validationStatus}
+              isValidating={isValidating}
+              isCreatingRelationship={isCreatingRelationship}
+              onCreateRelationship={handleCreateRelationship}
+              showDetails={true}
+              compact={false}
+            />
           </div>
         )}
       </CardContent>

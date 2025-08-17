@@ -1,11 +1,13 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Building2, Edit, Trash2, Users, Calendar } from "lucide-react";
 import { tenantService } from "@/services/tenantService";
 import { Tenant } from "@/types/tenant";
+import { UserTenantStatusIndicator } from "./UserTenantStatusIndicator";
+import { useUserTenantValidation } from "@/hooks/useUserTenantValidation";
 
 interface TenantCardProps {
   tenant: Tenant;
@@ -20,6 +22,33 @@ export const TenantCard: React.FC<TenantCardProps> = ({
   onDelete,
   onViewDetails,
 }) => {
+  const { 
+    validateUserTenantAccess, 
+    createUserTenantRelationship, 
+    isValidating, 
+    isCreatingRelationship 
+  } = useUserTenantValidation();
+  
+  const [validationStatus, setValidationStatus] = useState(null);
+
+  useEffect(() => {
+    const validateAccess = async () => {
+      const status = await validateUserTenantAccess(tenant.id);
+      setValidationStatus(status);
+    };
+
+    validateAccess();
+  }, [tenant.id, validateUserTenantAccess]);
+
+  const handleCreateRelationship = async () => {
+    const success = await createUserTenantRelationship(tenant.id, 'tenant_admin');
+    if (success) {
+      // Re-validate after creating relationship
+      const status = await validateUserTenantAccess(tenant.id);
+      setValidationStatus(status);
+    }
+  };
+
   const handleCardClick = () => {
     if (onViewDetails) {
       onViewDetails(tenant);
@@ -47,6 +76,18 @@ export const TenantCard: React.FC<TenantCardProps> = ({
           <Badge variant={tenantService.getStatusBadgeVariant(tenant.status)}>
             {tenant.status?.toUpperCase()}
           </Badge>
+        </div>
+
+        {/* User-Tenant Validation Status */}
+        <div className="mt-3 pt-3 border-t">
+          <UserTenantStatusIndicator
+            status={validationStatus}
+            isValidating={isValidating}
+            isCreatingRelationship={isCreatingRelationship}
+            onCreateRelationship={handleCreateRelationship}
+            showDetails={!validationStatus?.isValid}
+            compact={false}
+          />
         </div>
       </CardHeader>
       
@@ -93,6 +134,7 @@ export const TenantCard: React.FC<TenantCardProps> = ({
                 e.stopPropagation();
                 onEdit(tenant);
               }}
+              disabled={!validationStatus?.isValid}
             >
               <Edit className="h-4 w-4 mr-1" />
               Edit
@@ -105,6 +147,7 @@ export const TenantCard: React.FC<TenantCardProps> = ({
                 onDelete(tenant.id);
               }}
               className="text-destructive hover:text-destructive"
+              disabled={!validationStatus?.isValid}
             >
               <Trash2 className="h-4 w-4 mr-1" />
               Delete
