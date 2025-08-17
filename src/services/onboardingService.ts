@@ -100,6 +100,24 @@ class OnboardingService {
     }
   }
 
+  async removeWorkflow(workflowId: string): Promise<void> {
+    console.log('🗑️ Removing workflow:', workflowId);
+    
+    const { data, error } = await supabase.rpc('remove_onboarding_workflow', {
+      p_workflow_id: workflowId
+    });
+
+    if (error) {
+      throw new Error(`Failed to remove workflow: ${error.message}`);
+    }
+
+    if (data && !data.success) {
+      throw new Error(data.error || 'Failed to remove workflow');
+    }
+
+    console.log('✅ Workflow removed successfully:', data);
+  }
+
   normalizeStepName(stepName: string): string {
     const STEP_NAME_MAPPING: Record<string, string> = {
       'Company Profile': 'company-profile',

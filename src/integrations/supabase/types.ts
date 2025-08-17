@@ -8521,6 +8521,10 @@ export type Database = {
         Args: { p_email: string; p_ip_address?: unknown }
         Returns: Json
       }
+      remove_onboarding_workflow: {
+        Args: { p_workflow_id: string }
+        Returns: Json
+      }
       send_admin_notification: {
         Args: {
           p_message: string

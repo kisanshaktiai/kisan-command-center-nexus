@@ -25,6 +25,7 @@ export const useTenantOnboardingWorkflow = ({
   const [steps, setSteps] = useState<OnboardingStep[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
   const { showSuccess, showError } = useNotifications();
 
   // Atomic state management to prevent race conditions
@@ -193,6 +194,37 @@ export const useTenantOnboardingWorkflow = ({
     }
   }, [workflow?.id, steps, showSuccess, showError]);
 
+  const removeWorkflow = useCallback(async (): Promise<void> => {
+    if (!workflow?.id) {
+      throw new Error('No workflow available to remove');
+    }
+
+    try {
+      setIsRemoving(true);
+      await onboardingService.removeWorkflow(workflow.id);
+      
+      // Clear local state
+      setWorkflow(null);
+      setSteps([]);
+      
+      // Reset initialization state
+      initStateRef.current = {
+        status: 'idle',
+        tenantId: null,
+        workflowId: null,
+        attemptCount: 0
+      };
+      
+      showSuccess('Workflow removed successfully');
+    } catch (error: any) {
+      console.error('Error removing workflow:', error);
+      showError('Failed to remove workflow: ' + (error.message || 'Unknown error'));
+      throw error;
+    } finally {
+      setIsRemoving(false);
+    }
+  }, [workflow?.id, showSuccess, showError]);
+
   const retryInitialization = useCallback(async () => {
     console.log('Retrying initialization...');
     
@@ -241,7 +273,9 @@ export const useTenantOnboardingWorkflow = ({
     steps,
     isLoading,
     error,
+    isRemoving,
     updateStepStatus,
+    removeWorkflow,
     retryInitialization,
     normalizeStepName: onboardingService.normalizeStepName
   };

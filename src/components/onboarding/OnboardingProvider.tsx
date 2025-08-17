@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { useTenantOnboardingWorkflow } from '@/hooks/useTenantOnboardingWorkflow';
 import { useTenantData } from '@/hooks/useTenantData';
@@ -55,6 +56,7 @@ interface OnboardingContextValue {
   tenantInfo: any;
   isLoading: boolean;
   error: string | null;
+  isRemoving: boolean;
   
   // Actions
   goToStep: (index: number) => void;
@@ -63,6 +65,7 @@ interface OnboardingContextValue {
   updateStepData: (stepId: string, data: any) => void;
   completeStep: (stepId: string, data: any) => Promise<void>;
   validateStep: (stepId: string) => boolean;
+  removeWorkflow: () => Promise<void>;
   
   // Computed
   progress: number;
@@ -92,7 +95,9 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     steps,
     isLoading: workflowLoading,
     error: workflowError,
-    updateStepStatus
+    isRemoving,
+    updateStepStatus,
+    removeWorkflow: removeWorkflowHook
   } = useTenantOnboardingWorkflow({
     tenantId,
     workflowId,
@@ -214,6 +219,10 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     }
   }, [steps, validateStep, updateStepStatus, updateStepData, canGoNext, nextStep]);
 
+  const removeWorkflow = useCallback(async () => {
+    await removeWorkflowHook();
+  }, [removeWorkflowHook]);
+
   // Fix the error type handling with proper type checking
   const errorMessage = useMemo(() => {
     const getErrorMessage = (error: unknown): string | null => {
@@ -235,12 +244,14 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     tenantInfo,
     isLoading: workflowLoading || tenantLoading,
     error: errorMessage,
+    isRemoving,
     goToStep,
     nextStep,
     previousStep,
     updateStepData,
     completeStep,
     validateStep,
+    removeWorkflow,
     progress,
     canGoNext,
     canGoPrevious,
