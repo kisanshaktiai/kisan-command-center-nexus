@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface OnboardingWorkflow {
@@ -119,8 +120,8 @@ class OnboardingService {
       throw new Error(`Failed to remove workflow: ${error.message}`);
     }
 
-    // Type assertion since we know the structure of our RPC response
-    const response = data as RemoveWorkflowResponse;
+    // Type assertion with proper conversion - first to unknown, then to our interface
+    const response = data as unknown as RemoveWorkflowResponse;
     
     if (response && !response.success) {
       throw new Error(response.error || 'Failed to remove workflow');
