@@ -126,8 +126,27 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       console.log('Loaded database template-based steps:', data?.length || 0);
 
       if (!data || data.length === 0) {
-        console.error('No steps found for workflow - database templates may not be configured properly');
-        showError('No onboarding steps found. The database template system may not be configured properly.');
+        console.error('No steps found for workflow - attempting to recreate workflow');
+        showError('No onboarding steps found. Attempting to recreate workflow...');
+        
+        // Try to recreate the workflow with steps
+        try {
+          const { data: recreateData, error: recreateError } = await supabase.functions.invoke('start-onboarding-workflow', {
+            body: { tenantId, forceNew: true }
+          });
+
+          if (recreateError || !recreateData?.success) {
+            throw new Error('Failed to recreate workflow');
+          }
+
+          // Reload the page to refresh with new workflow
+          window.location.reload();
+          return;
+        } catch (recreateError) {
+          console.error('Failed to recreate workflow:', recreateError);
+          showError('Failed to recreate workflow. Please contact support.');
+        }
+        
         setStepsState([]);
       } else {
         updateStepsFromTemplateData(data);

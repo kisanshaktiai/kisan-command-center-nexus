@@ -54,8 +54,10 @@ export const useOnboardingWorkflow = ({
           total_steps: data.total_steps
         };
         console.log('Database template-based workflow created successfully:', newWorkflow);
+        console.log('Steps created:', data.steps_created);
+        
         setWorkflow(newWorkflow);
-        showSuccess('Onboarding workflow initialized from database templates');
+        showSuccess(`Onboarding workflow initialized with ${data.steps_created} steps from database templates`);
         return newWorkflow;
       } else {
         console.error('Template-based edge function returned unsuccessful response:', data);
@@ -72,6 +74,8 @@ export const useOnboardingWorkflow = ({
         userFriendlyError = 'Tenant not found. Please check tenant configuration.';
       } else if (error.message?.includes('database')) {
         userFriendlyError = 'Database error occurred. Please try again or contact support.';
+      } else if (error.message?.includes('Failed to create onboarding steps')) {
+        userFriendlyError = 'Failed to create onboarding steps from templates. Please try again.';
       }
       
       setError(userFriendlyError);
@@ -96,6 +100,23 @@ export const useOnboardingWorkflow = ({
       }
 
       console.log('Template-based workflow loaded successfully:', data);
+      
+      // Verify workflow has steps
+      const { data: steps, error: stepsError } = await supabase
+        .from('onboarding_steps')
+        .select('id')
+        .eq('workflow_id', workflowId);
+
+      if (stepsError) {
+        console.error('Error checking workflow steps:', stepsError);
+      } else if (!steps || steps.length === 0) {
+        console.log('Workflow has no steps, will attempt to recreate');
+        // Try to recreate workflow with steps
+        return await createWorkflow();
+      } else {
+        console.log('Workflow has', steps.length, 'steps');
+      }
+
       setWorkflow(data);
       return data;
     } catch (error: any) {
@@ -169,7 +190,7 @@ export const useOnboardingWorkflow = ({
 
   // Reset when tenantId or workflowId changes
   useEffect(() => {
-    console.log('Template-based dependencies changed - resetting state');
+    console.log('Template-based onboarding dependencies changed - resetting state');
     initializationAttempted.current = false;
     retryCount.current = 0;
     setWorkflow(null);
