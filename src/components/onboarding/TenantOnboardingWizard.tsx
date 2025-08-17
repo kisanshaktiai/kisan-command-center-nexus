@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, AlertCircle, ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, ArrowLeft, ArrowRight, Sparkles, RefreshCw } from 'lucide-react';
 import { CompanyProfileStep } from './steps/CompanyProfileStep';
 import { EnhancedBrandingStep } from './steps/EnhancedBrandingStep';
 import { EnhancedUsersRolesStep } from './steps/EnhancedUsersRolesStep';
@@ -13,6 +13,7 @@ import { DomainWhitelabelStep } from './steps/DomainWhitelabelStep';
 import { ReviewGoLiveStep } from './steps/ReviewGoLiveStep';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useOnboardingWorkflow } from '@/hooks/useOnboardingWorkflow';
 
 interface OnboardingStep {
   id: string;
@@ -35,13 +36,25 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   isOpen,
   onClose,
   tenantId,
-  workflowId
+  workflowId: initialWorkflowId
 }) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [stepData, setStepData] = useState<Record<string, any>>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [tenantInfo, setTenantInfo] = useState<any>(null);
+  const [tenantLoading, setTenantLoading] = useState(false);
   const { showSuccess, showError } = useNotifications();
+
+  // Use the workflow management hook
+  const {
+    workflow,
+    isLoading: workflowLoading,
+    error: workflowError,
+    retryInitialization
+  } = useOnboardingWorkflow({
+    tenantId,
+    workflowId: initialWorkflowId,
+    autoCreate: true
+  });
 
   const steps: OnboardingStep[] = [
     {
@@ -102,17 +115,11 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
 
   const [stepsState, setStepsState] = useState<OnboardingStep[]>(steps);
 
-  useEffect(() => {
-    if (isOpen && tenantId) {
-      loadTenantInfo();
-      if (workflowId) {
-        loadOnboardingProgress();
-      }
-    }
-  }, [isOpen, tenantId, workflowId]);
-
   const loadTenantInfo = async () => {
+    if (!tenantId) return;
+    
     try {
+      setTenantLoading(true);
       const { data: tenant, error } = await supabase
         .from('tenants')
         .select('name, subscription_plan, status, metadata')
@@ -123,21 +130,25 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       setTenantInfo(tenant);
     } catch (error) {
       console.error('Error loading tenant info:', error);
+      showError('Failed to load tenant information');
+    } finally {
+      setTenantLoading(false);
     }
   };
 
   const loadOnboardingProgress = async () => {
+    if (!workflow?.id) return;
+
     try {
-      setIsLoading(true);
       const { data, error } = await supabase
         .from('onboarding_steps')
         .select('*')
-        .eq('workflow_id', workflowId)
+        .eq('workflow_id', workflow.id)
         .order('step_number');
 
       if (error) throw error;
 
-      if (data) {
+      if (data && data.length > 0) {
         const updatedSteps = stepsState.map((step, index) => {
           const dbStep = data.find(s => s.step_number === index + 1);
           return {
@@ -156,17 +167,29 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
     } catch (error) {
       console.error('Error loading onboarding progress:', error);
       showError('Failed to load onboarding progress');
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const updateStepStatus = async (stepIndex: number, status: OnboardingStep['status'], data: any = {}) => {
+    if (!workflow?.id) return;
+
     try {
-      if (!workflowId) return;
+      // Get the actual step ID from the database
+      const { data: dbSteps, error: stepsError } = await supabase
+        .from('onboarding_steps')
+        .select('id, step_number')
+        .eq('workflow_id', workflow.id)
+        .order('step_number');
+
+      if (stepsError) throw stepsError;
+
+      const targetStep = dbSteps?.find(s => s.step_number === stepIndex + 1);
+      if (!targetStep) {
+        throw new Error(`Step ${stepIndex + 1} not found in database`);
+      }
 
       const { error } = await supabase.rpc('advance_onboarding_step', {
-        p_step_id: `${workflowId}-${stepIndex + 1}`,
+        p_step_id: targetStep.id, // Use the actual UUID from the database
         p_new_status: status,
         p_step_data: data
       });
@@ -190,6 +213,20 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
       showError('Failed to update step status');
     }
   };
+
+  // Load tenant info when the dialog opens
+  useEffect(() => {
+    if (isOpen && tenantId) {
+      loadTenantInfo();
+    }
+  }, [isOpen, tenantId]);
+
+  // Load progress when workflow is available
+  useEffect(() => {
+    if (workflow?.id) {
+      loadOnboardingProgress();
+    }
+  }, [workflow?.id]);
 
   const handleStepComplete = (data: any) => {
     updateStepStatus(currentStepIndex, 'completed', data);
@@ -251,18 +288,48 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
 
   const CurrentStepComponent = stepsState[currentStepIndex]?.component;
 
-  if (isLoading) {
+  // Show loading state
+  if (workflowLoading || tenantLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-sm text-muted-foreground">
+                {tenantLoading ? 'Loading tenant information...' : 'Initializing onboarding workflow...'}
+              </p>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
     );
   }
 
+  // Show error state
+  if (workflowError) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
+              <div>
+                <h3 className="font-medium text-lg">Failed to Initialize Workflow</h3>
+                <p className="text-sm text-muted-foreground mt-2">{workflowError}</p>
+              </div>
+              <Button onClick={retryInitialization} className="mt-4">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Show main wizard interface
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-7xl max-h-[95vh] flex flex-col">
