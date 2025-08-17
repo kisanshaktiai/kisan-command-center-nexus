@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
 import { UserTenantService } from '@/services/UserTenantService';
 import { AlertTriangle, CheckCircle, XCircle, User, Mail, Shield, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface TenantUserCreatorProps {
   tenantId: string;
@@ -23,6 +24,7 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [statusCheckResult, setStatusCheckResult] = useState<any>(null);
+  const [isFixingRelationship, setIsFixingRelationship] = useState(false);
   
   const {
     checkUserExists,
@@ -32,8 +34,7 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
     isCheckingUser,
     isCreatingUser,
     isSendingReset,
-    isCheckingStatus,
-    isFixingRelationship
+    isCheckingStatus
   } = useTenantUserManagement();
 
   const handleCheckStatus = async () => {
@@ -54,10 +55,15 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
   };
 
   const handleFixRelationship = async () => {
-    if (!statusCheckResult?.userId) return;
+    if (!statusCheckResult?.userId) {
+      toast.error('No user ID available to fix relationship');
+      return;
+    }
     
+    setIsFixingRelationship(true);
     try {
       console.log('TenantUserCreator: Fixing relationship using global manage-user-tenant function');
+      toast.info('Creating user-tenant relationship...');
       
       const result = await UserTenantService.createUserTenantRelationship(
         statusCheckResult.userId,
@@ -65,11 +71,17 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
       );
       
       if (result) {
+        toast.success('User-tenant relationship created successfully');
         // Refresh status after fixing
         await handleCheckStatus();
+      } else {
+        toast.error('Failed to create user-tenant relationship');
       }
     } catch (error) {
       console.error('TenantUserCreator: Error fixing relationship:', error);
+      toast.error('Error occurred while fixing relationship');
+    } finally {
+      setIsFixingRelationship(false);
     }
   };
 
