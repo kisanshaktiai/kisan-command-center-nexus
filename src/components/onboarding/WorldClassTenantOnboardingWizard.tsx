@@ -24,6 +24,7 @@ interface OnboardingStep {
   isRequired: boolean;
   estimatedTime: number;
   helpText?: string;
+  dbStepNumber: number;
 }
 
 interface WorldClassTenantOnboardingWizardProps {
@@ -92,6 +93,7 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
   // Transform database steps into UI steps
   useEffect(() => {
     if (steps.length > 0) {
+      console.log('Transforming steps:', steps);
       const transformedSteps = steps.map((dbStep) => {
         const stepData = dbStep.step_data || {};
         
@@ -103,10 +105,12 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
           component: getStepComponent(dbStep.step_name),
           isRequired: safeGetJsonProperty(stepData, 'is_required', true),
           estimatedTime: safeGetJsonProperty(stepData, 'estimated_time', 15),
-          helpText: safeGetJsonProperty(stepData, 'help_text')
+          helpText: safeGetJsonProperty(stepData, 'help_text'),
+          dbStepNumber: dbStep.step_number
         };
       });
       
+      console.log('Transformed steps:', transformedSteps);
       setStepsState(transformedSteps);
 
       // Set current step to first incomplete step
@@ -142,15 +146,23 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
     return remainingSteps.reduce((total, step) => total + step.estimatedTime, 0);
   }, [stepsState, currentStepIndex]);
 
-  const handleStepComplete = useCallback((data: any) => {
-    updateStepStatus(currentStepIndex + 1, 'completed', data);
-    
-    setTimeout(() => {
-      if (currentStepIndex < stepsState.length - 1) {
-        setCurrentStepIndex(currentStepIndex + 1);
-      }
-    }, 1000);
-  }, [currentStepIndex, stepsState.length, updateStepStatus]);
+  const handleStepComplete = useCallback(async (data: any) => {
+    const currentStep = stepsState[currentStepIndex];
+    if (!currentStep) return;
+
+    try {
+      console.log('Completing step:', currentStep.dbStepNumber, data);
+      await updateStepStatus(currentStep.dbStepNumber, 'completed', data);
+      
+      setTimeout(() => {
+        if (currentStepIndex < stepsState.length - 1) {
+          setCurrentStepIndex(currentStepIndex + 1);
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to complete step:', error);
+    }
+  }, [currentStepIndex, stepsState, updateStepStatus]);
 
   const handleNextStep = useCallback(() => {
     if (currentStepIndex < stepsState.length - 1) {
@@ -166,7 +178,7 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
 
   const handleStepClick = useCallback((index: number) => {
     const step = stepsState[index];
-    if (step.status === 'completed' || Math.abs(index - currentStepIndex) <= 1) {
+    if (step && (step.status === 'completed' || Math.abs(index - currentStepIndex) <= 1)) {
       setCurrentStepIndex(index);
     }
   }, [stepsState, currentStepIndex]);
@@ -186,7 +198,10 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
 
   const isLoading = workflowLoading || tenantLoading;
   const hasError = workflowError || tenantError;
-  const CurrentStepComponent = stepsState[currentStepIndex]?.component;
+  
+  // Get current step and component
+  const currentStep = stepsState[currentStepIndex];
+  const CurrentStepComponent = currentStep?.component;
 
   // Loading state with elegant design
   if (isLoading) {
@@ -258,6 +273,35 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
       </Dialog>
     );
   }
+
+  // Show empty state if no steps
+  if (stepsState.length === 0) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>No Onboarding Steps Available</DialogTitle>
+            <DialogDescription>
+              No onboarding steps were found for this tenant.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-center py-12">
+            <Button onClick={retryInitialization}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry Loading Steps
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  console.log('Rendering wizard with:', {
+    currentStepIndex,
+    currentStep: currentStep?.title,
+    CurrentStepComponent: CurrentStepComponent?.name,
+    stepsCount: stepsState.length
+  });
 
   // Main world-class wizard interface
   return (
@@ -366,20 +410,33 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto">
                 <div className="max-w-5xl mx-auto p-8">
-                  {CurrentStepComponent && stepsState[currentStepIndex] && (
-                    <div className="animate-in fade-in-50 duration-500">
+                  {CurrentStepComponent && currentStep ? (
+                    <div className="animate-in fade-in-50 duration-500" key={currentStep.id}>
                       <CurrentStepComponent
                         tenantId={tenantId}
                         onComplete={handleStepComplete}
-                        data={stepData[stepsState[currentStepIndex].id] || {}}
+                        data={stepData[currentStep.id] || {}}
                         onDataChange={(data: any) => {
+                          console.log('Step data changed:', currentStep.id, data);
                           setStepData(prev => ({
                             ...prev,
-                            [stepsState[currentStepIndex].id]: data
+                            [currentStep.id]: data
                           }));
                         }}
-                        helpText={stepsState[currentStepIndex].helpText}
+                        helpText={currentStep.helpText}
                       />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center py-16">
+                      <div className="text-center space-y-4">
+                        <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto" />
+                        <div>
+                          <h3 className="font-medium text-lg">Step Component Not Found</h3>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Unable to load the component for step: {currentStep?.title || 'Unknown'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -401,7 +458,7 @@ export const WorldClassTenantOnboardingWizard: React.FC<WorldClassTenantOnboardi
                   <div className="flex items-center gap-6">
                     <div className="text-center">
                       <div className="font-semibold text-lg">
-                        {stepsState[currentStepIndex]?.title || 'Loading...'}
+                        {currentStep?.title || 'Loading...'}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         Step {currentStepIndex + 1} of {stepsState.length}
