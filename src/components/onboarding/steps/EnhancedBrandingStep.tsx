@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -129,12 +128,43 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
         text: '#064e3b'
       },
       fonts: { primary: 'Inter', secondary: 'Inter' }
+    },
+    {
+      id: '6',
+      name: 'Neo Glassmorphism',
+      description: '2025 trending glassmorphic design with vibrant gradients',
+      category: 'modern',
+      colors: {
+        primary: '#6366f1',
+        secondary: '#8b5cf6',
+        accent: '#06b6d4',
+        background: '#fafbff',
+        text: '#1e1b4b'
+      },
+      fonts: { primary: 'Inter', secondary: 'Inter' }
+    },
+    {
+      id: '7',
+      name: 'Organic Brutalism',
+      description: 'Bold 2025 design combining brutalism with organic curves',
+      category: 'modern',
+      colors: {
+        primary: '#dc2626',
+        secondary: '#ea580c',
+        accent: '#facc15',
+        background: '#fffef7',
+        text: '#1c1917'
+      },
+      fonts: { primary: 'Inter', secondary: 'Inter' }
     }
   ]);
 
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<{ logo: boolean; favicon: boolean }>({
+    logo: false,
+    favicon: false
+  });
   const { showSuccess, showError } = useNotifications();
 
   const handlePresetSelect = (preset: BrandingPreset) => {
@@ -161,49 +191,92 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
     setSelectedPreset(null);
   };
 
-  const handleFileUpload = async (file: File, type: 'logo' | 'favicon') => {
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      showError('Please upload a valid image file');
-      return;
+  const validateFile = (file: File, type: 'logo' | 'favicon'): string | null => {
+    // Check file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!allowedTypes.includes(file.type)) {
+      return 'Please upload a valid image file (JPEG, PNG, GIF, WebP, or SVG)';
     }
 
-    // Validate file size (5MB limit)
+    // Check file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
-      showError('File size must be less than 5MB');
+      return 'File size must be less than 5MB';
+    }
+
+    // Additional validation for favicon
+    if (type === 'favicon' && file.size > 1 * 1024 * 1024) {
+      return 'Favicon file size should be less than 1MB for optimal performance';
+    }
+
+    return null;
+  };
+
+  const handleFileUpload = async (file: File, type: 'logo' | 'favicon') => {
+    if (!file || !tenantId) return;
+
+    // Validate file
+    const validationError = validateFile(file, type);
+    if (validationError) {
+      showError(validationError);
       return;
     }
 
-    setIsUploading(true);
+    // Check authentication
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      showError('You must be logged in to upload files');
+      return;
+    }
+
+    setUploadingFiles(prev => ({ ...prev, [type]: true }));
+
     try {
+      // Generate unique filename with proper tenant prefix
       const fileExt = file.name.split('.').pop();
-      const fileName = `tenant-${tenantId}/${type}-${Date.now()}.${fileExt}`;
+      const timestamp = Date.now();
+      const fileName = `tenant-${tenantId}/${type}/${timestamp}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
       
-      const { error: uploadError } = await supabase.storage
+      console.log(`Uploading ${type} to:`, fileName);
+
+      // Upload to storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('tenant-assets')
-        .upload(fileName, file);
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (uploadError) {
         console.error(`Upload error for ${type}:`, uploadError);
-        throw uploadError;
+        throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
+      console.log(`Upload successful for ${type}:`, uploadData);
+
+      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('tenant-assets')
         .getPublicUrl(fileName);
 
+      if (!publicUrl) {
+        throw new Error('Failed to get public URL for uploaded file');
+      }
+
+      console.log(`Public URL for ${type}:`, publicUrl);
+
+      // Update state
       const fieldKey = type === 'logo' ? 'logo_url' : 'favicon_url';
       const newData = { ...brandingData, [fieldKey]: publicUrl };
       setBrandingData(newData);
       onDataChange(newData);
+      
       showSuccess(`${type === 'logo' ? 'Logo' : 'Favicon'} uploaded successfully`);
     } catch (error) {
       console.error(`Error uploading ${type}:`, error);
-      showError(`Failed to upload ${type}. Please try again.`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showError(`Failed to upload ${type}: ${errorMessage}`);
     } finally {
-      setIsUploading(false);
+      setUploadingFiles(prev => ({ ...prev, [type]: false }));
     }
   };
 
@@ -212,6 +285,8 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
     if (file) {
       handleFileUpload(file, 'logo');
     }
+    // Reset input value to allow re-uploading the same file
+    event.target.value = '';
   };
 
   const handleFaviconUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -219,6 +294,8 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
     if (file) {
       handleFileUpload(file, 'favicon');
     }
+    // Reset input value to allow re-uploading the same file
+    event.target.value = '';
   };
 
   const handleSave = async () => {
@@ -499,7 +576,7 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
                 {[
                   { key: 'primary_color', label: 'Primary Color', description: 'Main brand color for buttons and highlights' },
                   { key: 'secondary_color', label: 'Secondary Color', description: 'Supporting brand color' },
-                  { key: 'accent_color', label: 'Accent Color', description: 'For badges and special elements' },
+                  { key: 'accent_color', label: 'Accent Color', description: 'for badges and special elements' },
                   { key: 'background_color', label: 'Background Color', description: 'Main background color' },
                   { key: 'text_color', label: 'Text Color', description: 'Primary text color' },
                 ].map(({ key, label, description }) => (
@@ -558,11 +635,11 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
                       type="button"
                       variant="outline"
                       onClick={() => logoInputRef.current?.click()}
-                      disabled={isUploading}
+                      disabled={uploadingFiles.logo}
                       className="w-full"
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      {isUploading ? 'Uploading...' : 'Upload Logo'}
+                      {uploadingFiles.logo ? 'Uploading Logo...' : 'Upload Logo'}
                     </Button>
                     <input
                       ref={logoInputRef}
@@ -572,7 +649,7 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
                       className="hidden"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Recommended: 512x512px, PNG or JPG, max 5MB
+                      Recommended: 512x512px, PNG/JPG/SVG, max 5MB
                     </p>
                   </div>
                 </div>
@@ -598,11 +675,11 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
                       variant="outline"
                       size="sm"
                       onClick={() => faviconInputRef.current?.click()}
-                      disabled={isUploading}
+                      disabled={uploadingFiles.favicon}
                       className="w-full"
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      {isUploading ? 'Uploading...' : 'Upload Favicon'}
+                      {uploadingFiles.favicon ? 'Uploading Favicon...' : 'Upload Favicon'}
                     </Button>
                     <input
                       ref={faviconInputRef}
@@ -612,7 +689,7 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
                       className="hidden"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Recommended: 32x32px, PNG or JPG, max 5MB
+                      Recommended: 32x32px, PNG/ICO, max 1MB
                     </p>
                   </div>
                 </div>
@@ -690,8 +767,12 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
       </Tabs>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} className="min-w-32" disabled={isUploading}>
-          {isUploading ? 'Saving...' : 'Save Branding Settings'}
+        <Button 
+          onClick={handleSave} 
+          className="min-w-32" 
+          disabled={uploadingFiles.logo || uploadingFiles.favicon}
+        >
+          {(uploadingFiles.logo || uploadingFiles.favicon) ? 'Processing...' : 'Save Branding Settings'}
         </Button>
       </div>
     </div>
