@@ -5704,6 +5704,84 @@ export type Database = {
           },
         ]
       }
+      tenant_legal_documents: {
+        Row: {
+          created_at: string
+          document_name: string
+          document_type: Database["public"]["Enums"]["legal_document_type"]
+          expiry_date: string | null
+          file_size: number
+          file_url: string
+          id: string
+          is_required: boolean
+          metadata: Json | null
+          mime_type: string
+          original_filename: string
+          rejection_reason: string | null
+          tenant_id: string
+          updated_at: string
+          upload_order: number
+          verification_status: Database["public"]["Enums"]["verification_status"]
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_name: string
+          document_type: Database["public"]["Enums"]["legal_document_type"]
+          expiry_date?: string | null
+          file_size: number
+          file_url: string
+          id?: string
+          is_required?: boolean
+          metadata?: Json | null
+          mime_type?: string
+          original_filename: string
+          rejection_reason?: string | null
+          tenant_id: string
+          updated_at?: string
+          upload_order?: number
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_name?: string
+          document_type?: Database["public"]["Enums"]["legal_document_type"]
+          expiry_date?: string | null
+          file_size?: number
+          file_url?: string
+          id?: string
+          is_required?: boolean
+          metadata?: Json | null
+          mime_type?: string
+          original_filename?: string
+          rejection_reason?: string | null
+          tenant_id?: string
+          updated_at?: string
+          upload_order?: number
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_legal_documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_legal_documents_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_promos: {
         Row: {
           created_at: string | null
@@ -9674,6 +9752,15 @@ export type Database = {
         | "bn"
         | "ur"
         | "ne"
+      legal_document_type:
+        | "incorporation_certificate"
+        | "gst_certificate"
+        | "pan_card"
+        | "address_proof"
+        | "bank_statement"
+        | "trade_license"
+        | "msme_certificate"
+        | "other"
       metric_type: "system" | "usage" | "ai_model" | "financial" | "custom"
       onboarding_step_status:
         | "pending"
@@ -9727,6 +9814,12 @@ export type Database = {
         | "dealer"
         | "agent"
         | "farmer"
+      verification_status:
+        | "pending"
+        | "under_review"
+        | "approved"
+        | "rejected"
+        | "expired"
     }
     CompositeTypes: {
       geometry_dump: {
@@ -9886,6 +9979,16 @@ export const Constants = {
         "ur",
         "ne",
       ],
+      legal_document_type: [
+        "incorporation_certificate",
+        "gst_certificate",
+        "pan_card",
+        "address_proof",
+        "bank_statement",
+        "trade_license",
+        "msme_certificate",
+        "other",
+      ],
       metric_type: ["system", "usage", "ai_model", "financial", "custom"],
       onboarding_step_status: [
         "pending",
@@ -9945,6 +10048,13 @@ export const Constants = {
         "dealer",
         "agent",
         "farmer",
+      ],
+      verification_status: [
+        "pending",
+        "under_review",
+        "approved",
+        "rejected",
+        "expired",
       ],
     },
   },

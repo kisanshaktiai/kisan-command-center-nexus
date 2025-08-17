@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Building2, MapPin, Phone, Mail, FileText, CheckCircle, Loader2 } from 'lucide-react';
+import { Building2, MapPin, Phone, Mail, FileText, CheckCircle, Loader2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -267,6 +268,18 @@ export const CompanyProfileStep: React.FC<CompanyProfileStepProps> = ({
     );
   };
 
+  const isFormValid = () => {
+    return formData.companyName && 
+           formData.businessType && 
+           formData.registrationNumber &&
+           formData.address &&
+           formData.city &&
+           formData.state &&
+           formData.pincode &&
+           formData.phone &&
+           formData.email;
+  };
+
   if (isLoadingTenantData) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -479,9 +492,11 @@ export const CompanyProfileStep: React.FC<CompanyProfileStepProps> = ({
       <div className="flex justify-end">
         <Button 
           onClick={handleSubmit}
-          disabled={!formData.companyName || !formData.businessType || !formData.registrationNumber}
+          disabled={!isFormValid()}
+          className="min-w-[200px]"
         >
           Complete Company Profile
+          <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </div>
     </div>
