@@ -63,7 +63,7 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
     setUploadError(null);
 
     try {
-      // Create a unique filename
+      // Create a unique filename with proper folder structure
       const fileExt = file.name.split('.').pop();
       const fileName = `${tenantId}/logos/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
 
