@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
@@ -22,7 +21,35 @@ interface ConsolidatedTenantOnboardingWizardProps {
   workflowId?: string;
 }
 
+// Updated to use database step names as keys
 const STEP_COMPONENTS: Record<string, React.ComponentType<any>> = {
+  // Database step names (normalized)
+  'company_profile': CompanyProfileStep,
+  'company-profile': CompanyProfileStep,
+  'branding': EnhancedBrandingStep,
+  'branding_design': EnhancedBrandingStep,
+  'branding-design': EnhancedBrandingStep,
+  'enhanced_branding': EnhancedBrandingStep,
+  'enhanced-branding': EnhancedBrandingStep,
+  'team_permissions': EnhancedUsersRolesStep,
+  'team-permissions': EnhancedUsersRolesStep,
+  'users_roles': EnhancedUsersRolesStep,
+  'users-roles': EnhancedUsersRolesStep,
+  'enhanced_users_roles': EnhancedUsersRolesStep,
+  'enhanced-users-roles': EnhancedUsersRolesStep,
+  'billing_plan': BillingPlanStep,
+  'billing-plan': BillingPlanStep,
+  'billing': BillingPlanStep,
+  'domain_whitelabel': DomainWhitelabelStep,
+  'domain-whitelabel': DomainWhitelabelStep,
+  'domain_branding': DomainWhitelabelStep,
+  'domain-branding': DomainWhitelabelStep,
+  'review_launch': ReviewGoLiveStep,
+  'review-launch': ReviewGoLiveStep,
+  'review_go_live': ReviewGoLiveStep,
+  'review-go-live': ReviewGoLiveStep,
+  
+  // Display names (for backward compatibility)
   'Company Profile': CompanyProfileStep,
   'Branding & Design': EnhancedBrandingStep,
   'Enhanced Branding': EnhancedBrandingStep,
@@ -95,19 +122,53 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
   });
 
   const getStepComponent = useCallback((stepName: string) => {
-    return STEP_COMPONENTS[stepName] || CompanyProfileStep;
+    console.log('🔍 Looking for component for step name:', stepName);
+    
+    // Try exact match first
+    let component = STEP_COMPONENTS[stepName];
+    if (component) {
+      console.log('✅ Found exact match for:', stepName);
+      return component;
+    }
+
+    // Try normalized version
+    const normalized = normalizeStepName(stepName);
+    component = STEP_COMPONENTS[normalized];
+    if (component) {
+      console.log('✅ Found normalized match for:', stepName, '→', normalized);
+      return component;
+    }
+
+    // Try underscore version
+    const underscored = stepName.toLowerCase().replace(/\s+/g, '_');
+    component = STEP_COMPONENTS[underscored];
+    if (component) {
+      console.log('✅ Found underscore match for:', stepName, '→', underscored);
+      return component;
+    }
+
+    console.warn('❌ No component found for step:', stepName);
+    console.log('Available component keys:', Object.keys(STEP_COMPONENTS));
+    
+    // Fallback to CompanyProfileStep
+    return CompanyProfileStep;
   }, []);
 
   const transformedSteps = useMemo(() => {
+    console.log('🔄 Transforming steps:', steps);
+    
     return steps.map((dbStep) => {
       const stepData = dbStep.step_data || {};
+      const component = getStepComponent(dbStep.step_name);
+      
+      console.log('📋 Step:', dbStep.step_name, 'Component:', component?.name || 'undefined');
       
       return {
         id: normalizeStepName(dbStep.step_name),
         title: dbStep.step_name,
         description: safeGetProperty(stepData, 'help_text', `Step ${dbStep.step_number} of the onboarding process`),
         status: dbStep.step_status,
-        component: getStepComponent(dbStep.step_name),
+        component,
         isRequired: safeGetProperty(stepData, 'is_required', true),
         estimatedTime: safeGetProperty(stepData, 'estimated_time', 15),
         helpText: safeGetProperty(stepData, 'help_text'),
@@ -116,7 +177,6 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     });
   }, [steps, getStepComponent]);
 
-  // Memoized calculations to prevent unnecessary recalculations
   const currentProgress = useMemo(() => {
     if (transformedSteps.length === 0) return 0;
     const completedSteps = transformedSteps.filter(s => s.status === 'completed').length;
@@ -151,8 +211,11 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
   }, [currentStepIndex, transformedSteps, updateStepStatus]);
 
   const handleNextStep = useCallback(() => {
+    console.log('➡️ Next step clicked, current index:', currentStepIndex);
     if (currentStepIndex < transformedSteps.length - 1) {
-      setCurrentStepIndex(currentStepIndex + 1);
+      const newIndex = currentStepIndex + 1;
+      console.log('Moving to step index:', newIndex);
+      setCurrentStepIndex(newIndex);
     }
   }, [currentStepIndex, transformedSteps.length]);
 
@@ -196,7 +259,11 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
   const hasError = workflowError || tenantError;
   const CurrentStepComponent = transformedSteps[currentStepIndex]?.component;
 
-  // Show loading state
+  // Add debugging for current step
+  console.log('🎯 Current step index:', currentStepIndex);
+  console.log('🎯 Current step:', transformedSteps[currentStepIndex]);
+  console.log('🎯 Current component:', CurrentStepComponent?.name);
+
   if (isLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -220,7 +287,6 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     );
   }
 
-  // Show error state
   if (hasError) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -251,7 +317,6 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     );
   }
 
-  // Show empty state if no steps
   if (transformedSteps.length === 0) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -369,7 +434,7 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto">
                 <div className="max-w-4xl mx-auto p-6">
-                  {CurrentStepComponent && transformedSteps[currentStepIndex] && (
+                  {CurrentStepComponent && transformedSteps[currentStepIndex] ? (
                     <CurrentStepComponent
                       tenantId={tenantId}
                       onComplete={handleStepComplete}
@@ -378,6 +443,17 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
                       helpText={transformedSteps[currentStepIndex].helpText}
                       tenantInfo={tenantInfo}
                     />
+                  ) : (
+                    <div className="text-center py-12">
+                      <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium mb-2">Component Not Found</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        No component found for step: {transformedSteps[currentStepIndex]?.title || 'Unknown'}
+                      </p>
+                      <Button variant="outline" onClick={() => setCurrentStepIndex(0)}>
+                        Go to First Step
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
