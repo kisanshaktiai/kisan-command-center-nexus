@@ -11,7 +11,7 @@ interface SimpleTenantData {
   owner_email?: string;
   owner_phone?: string;
   business_registration?: string;
-  business_address?: string;
+  business_address?: any; // Changed from string to any to handle Json type
   metadata?: Record<string, any>;
 }
 
@@ -19,6 +19,31 @@ interface UseSimpleTenantDataOptions {
   tenantId: string;
   enabled?: boolean;
 }
+
+// Helper function to safely convert business_address to string
+const formatBusinessAddress = (address: any): string => {
+  if (!address) return '';
+  
+  if (typeof address === 'string') {
+    return address;
+  }
+  
+  if (typeof address === 'object') {
+    // If it's an object, try to format it as a readable address
+    const parts = [
+      address.street,
+      address.city,
+      address.state,
+      address.postal_code,
+      address.country
+    ].filter(Boolean);
+    
+    return parts.length > 0 ? parts.join(', ') : '';
+  }
+  
+  // For any other type, convert to string
+  return String(address);
+};
 
 export const useSimpleTenantData = ({ tenantId, enabled = true }: UseSimpleTenantDataOptions) => {
   return useQuery({
@@ -45,7 +70,7 @@ export const useSimpleTenantData = ({ tenantId, enabled = true }: UseSimpleTenan
           metadata
         `)
         .eq('id', tenantId)
-        .single();
+        .maybeSingle(); // Changed from single() to maybeSingle()
 
       if (error) {
         console.error('❌ Error fetching tenant:', error);
@@ -53,11 +78,25 @@ export const useSimpleTenantData = ({ tenantId, enabled = true }: UseSimpleTenan
       }
 
       if (!tenant) {
-        throw new Error('Tenant not found');
+        console.log('⚠️ No tenant found with ID:', tenantId);
+        return null;
       }
 
       console.log('✅ Successfully fetched tenant:', tenant.name);
-      return tenant;
+      
+      // Transform the data to handle type conversions
+      return {
+        id: tenant.id,
+        name: tenant.name,
+        subscription_plan: tenant.subscription_plan,
+        status: tenant.status,
+        owner_name: tenant.owner_name,
+        owner_email: tenant.owner_email,
+        owner_phone: tenant.owner_phone,
+        business_registration: tenant.business_registration,
+        business_address: formatBusinessAddress(tenant.business_address),
+        metadata: tenant.metadata as Record<string, any>
+      };
     },
     enabled: enabled && !!tenantId,
     staleTime: 5 * 60 * 1000, // 5 minutes
