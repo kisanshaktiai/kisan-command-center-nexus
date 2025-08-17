@@ -154,8 +154,9 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
 
       const steps = stepTemplates.map(template => ({
         workflow_id: workflowId,
-        ...template,
-        step_status: template.step_number === 1 ? 'in_progress' : 'pending',
+        step_number: template.step_number,
+        step_name: template.step_name,
+        step_status: (template.step_number === 1 ? 'in_progress' : 'pending') as 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed',
         step_data: {
           estimated_time: [15, 10, 20, 10, 15, 5][template.step_number - 1],
           is_required: [true, false, true, true, false, true][template.step_number - 1]
