@@ -300,6 +300,7 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
 
   const handleSave = async () => {
     try {
+      // Only save fields that exist in the tenant_branding table
       const { error } = await supabase
         .from('tenant_branding')
         .upsert({
@@ -312,11 +313,7 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
           background_color: brandingData.background_color,
           text_color: brandingData.text_color,
           font_family: brandingData.font_family,
-          custom_css: brandingData.custom_css,
-          settings: {
-            enable_dark_mode: brandingData.enable_dark_mode,
-            selected_preset: selectedPreset
-          }
+          custom_css: brandingData.custom_css
         });
 
       if (error) throw error;
