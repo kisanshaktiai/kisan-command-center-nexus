@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { CheckCircle, Clock, AlertCircle, Play, Pause, RotateCcw, RefreshCw, Wand2 } from 'lucide-react';
-import { OptimizedTenantOnboardingWizard } from '@/components/onboarding/OptimizedTenantOnboardingWizard';
+import { ConsolidatedTenantOnboardingWizard } from '@/components/onboarding/ConsolidatedTenantOnboardingWizard';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -435,8 +435,8 @@ export default function TenantOnboarding() {
         </Dialog>
       </div>
 
-      {/* Use Optimized Onboarding Wizard */}
-      <OptimizedTenantOnboardingWizard
+      {/* Use Consolidated Onboarding Wizard */}
+      <ConsolidatedTenantOnboardingWizard
         isOpen={showWizard}
         onClose={() => {
           setShowWizard(false);
