@@ -123,57 +123,26 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
     
     try {
       setTenantLoading(true);
+      console.log('Loading tenant info for:', tenantId);
+      
       const { data: tenant, error } = await supabase
         .from('tenants')
         .select('name, subscription_plan, status, metadata')
         .eq('id', tenantId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading tenant info:', error);
+        throw error;
+      }
+      
+      console.log('Tenant info loaded:', tenant);
       setTenantInfo(tenant);
     } catch (error) {
       console.error('Error loading tenant info:', error);
       showError('Failed to load tenant information');
     } finally {
       setTenantLoading(false);
-    }
-  };
-
-  const createFallbackSteps = async (workflowId: string) => {
-    try {
-      console.log('Creating fallback steps for workflow:', workflowId);
-      
-      const stepTemplates = [
-        { step_number: 1, step_name: 'Company Profile' },
-        { step_number: 2, step_name: 'Branding & Design' },
-        { step_number: 3, step_name: 'Team & Permissions' },
-        { step_number: 4, step_name: 'Billing & Plan' },
-        { step_number: 5, step_name: 'Domain & White-label' },
-        { step_number: 6, step_name: 'Review & Launch' }
-      ];
-
-      const steps = stepTemplates.map(template => ({
-        workflow_id: workflowId,
-        step_number: template.step_number,
-        step_name: template.step_name,
-        step_status: (template.step_number === 1 ? 'in_progress' : 'pending') as 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed',
-        step_data: {
-          estimated_time: [15, 10, 20, 10, 15, 5][template.step_number - 1],
-          is_required: [true, false, true, true, false, true][template.step_number - 1]
-        }
-      }));
-
-      const { error } = await supabase
-        .from('onboarding_steps')
-        .insert(steps);
-
-      if (error) throw error;
-      
-      console.log('Successfully created fallback steps');
-      return true;
-    } catch (error) {
-      console.error('Error creating fallback steps:', error);
-      return false;
     }
   };
 
@@ -190,28 +159,18 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
         .eq('workflow_id', workflow.id)
         .order('step_number');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading onboarding steps:', error);
+        throw error;
+      }
+
+      console.log('Loaded steps:', data?.length || 0);
 
       if (!data || data.length === 0) {
-        console.log('No steps found, creating fallback steps');
-        const created = await createFallbackSteps(workflow.id);
-        if (created) {
-          // Retry loading after creating fallback steps
-          const { data: retryData, error: retryError } = await supabase
-            .from('onboarding_steps')
-            .select('*')
-            .eq('workflow_id', workflow.id)
-            .order('step_number');
-
-          if (!retryError && retryData && retryData.length > 0) {
-            updateStepsFromData(retryData);
-          } else {
-            // If still no data, use default steps
-            setStepsState(defaultSteps);
-          }
-        } else {
-          setStepsState(defaultSteps);
-        }
+        console.warn('No steps found for workflow, this should not happen with the new Edge Function');
+        // Fallback to default steps if no data exists
+        setStepsState(defaultSteps);
+        showError('No onboarding steps found. Please contact support.');
       } else {
         updateStepsFromData(data);
       }
@@ -230,6 +189,8 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
   };
 
   const updateStepsFromData = (data: any[]) => {
+    console.log('Updating steps from data:', data);
+    
     const updatedSteps = defaultSteps.map((step, index) => {
       const dbStep = data.find(s => s.step_number === index + 1);
       return {
@@ -237,11 +198,14 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
         status: (dbStep?.step_status as OnboardingStep['status']) || 'pending'
       };
     });
+    
+    console.log('Updated steps state:', updatedSteps);
     setStepsState(updatedSteps);
 
     // Set current step to first incomplete step
     const firstIncomplete = updatedSteps.findIndex(s => s.status === 'pending' || s.status === 'in_progress');
     if (firstIncomplete !== -1) {
+      console.log('Setting current step to:', firstIncomplete);
       setCurrentStepIndex(firstIncomplete);
     }
   };

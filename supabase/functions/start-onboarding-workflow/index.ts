@@ -35,8 +35,11 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (tenantError || !tenant) {
+      console.error('Tenant not found:', tenantError);
       throw new Error('Tenant not found');
     }
+
+    console.log('Tenant found:', tenant.name);
 
     // Check for existing workflow
     let workflow = null;
@@ -49,12 +52,15 @@ const handler = async (req: Request): Promise<Response> => {
         .single();
 
       if (existingWorkflow) {
+        console.log('Found existing workflow:', existingWorkflow.id);
         workflow = existingWorkflow;
       }
     }
 
     // Create new workflow if needed
     if (!workflow) {
+      console.log('Creating new workflow for tenant:', tenantId);
+      
       const { data: newWorkflow, error: workflowError } = await supabase
         .from('onboarding_workflows')
         .insert({
@@ -72,12 +78,14 @@ const handler = async (req: Request): Promise<Response> => {
         .single();
 
       if (workflowError) {
+        console.error('Failed to create workflow:', workflowError);
         throw new Error(`Failed to create workflow: ${workflowError.message}`);
       }
 
       workflow = newWorkflow;
+      console.log('Successfully created workflow:', workflow.id);
 
-      // Create initial steps - removed description field to match database schema
+      // Create initial steps with explicit structure matching database schema
       const stepTemplates = [
         { step_number: 1, step_name: 'Company Profile' },
         { step_number: 2, step_name: 'Branding & Design' },
@@ -89,7 +97,8 @@ const handler = async (req: Request): Promise<Response> => {
 
       const steps = stepTemplates.map(template => ({
         workflow_id: workflow.id,
-        ...template,
+        step_number: template.step_number,
+        step_name: template.step_name,
         step_status: template.step_number === 1 ? 'in_progress' : 'pending',
         step_data: {
           estimated_time: [15, 10, 20, 10, 15, 5][template.step_number - 1],
@@ -97,16 +106,49 @@ const handler = async (req: Request): Promise<Response> => {
         }
       }));
 
-      const { error: stepsError } = await supabase
+      console.log('Creating steps for workflow:', workflow.id, 'Steps count:', steps.length);
+
+      const { data: createdSteps, error: stepsError } = await supabase
         .from('onboarding_steps')
-        .insert(steps);
+        .insert(steps)
+        .select();
 
       if (stepsError) {
         console.error('Error creating steps:', stepsError);
+        
+        // Rollback: Delete the workflow if step creation fails
+        await supabase
+          .from('onboarding_workflows')
+          .delete()
+          .eq('id', workflow.id);
+        
         throw new Error(`Failed to create onboarding steps: ${stepsError.message}`);
       }
 
-      console.log('Successfully created workflow and steps');
+      console.log('Successfully created steps:', createdSteps?.length || 0);
+    } else {
+      // For existing workflows, verify steps exist
+      const { data: existingSteps, error: stepsCheckError } = await supabase
+        .from('onboarding_steps')
+        .select('id')
+        .eq('workflow_id', workflow.id);
+
+      if (stepsCheckError) {
+        console.error('Error checking existing steps:', stepsCheckError);
+      } else if (!existingSteps || existingSteps.length === 0) {
+        console.log('Existing workflow has no steps, cleaning up and creating new workflow');
+        
+        // Clean up orphaned workflow
+        await supabase
+          .from('onboarding_workflows')
+          .delete()
+          .eq('id', workflow.id);
+        
+        // Recursively call to create new workflow
+        return handler(req);
+      } else {
+        console.log('Existing workflow has', existingSteps.length, 'steps');
+      }
     }
 
     console.log('Onboarding workflow ready:', workflow.id);
