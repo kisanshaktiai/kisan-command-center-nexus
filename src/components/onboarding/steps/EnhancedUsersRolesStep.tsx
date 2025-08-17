@@ -105,13 +105,13 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
 
       if (error) throw error;
 
-      // Map the raw data to our UserInvitation interface
+      // Map the raw data to our UserInvitation interface with proper fallbacks
       const mappedInvitations: UserInvitation[] = (rawInvitations || []).map(invitation => ({
         id: invitation.id,
         email: invitation.email,
-        first_name: invitation.first_name || '',
-        last_name: invitation.last_name || '',
-        role: invitation.role || 'tenant_user',
+        first_name: invitation.metadata?.first_name || '',
+        last_name: invitation.metadata?.last_name || '',
+        role: invitation.metadata?.role || 'tenant_user',
         status: invitation.status,
         created_at: invitation.created_at,
         sent_at: invitation.sent_at,
