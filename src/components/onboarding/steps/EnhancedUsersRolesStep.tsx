@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -106,17 +107,22 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
       if (error) throw error;
 
       // Map the raw data to our UserInvitation interface with proper fallbacks
-      const mappedInvitations: UserInvitation[] = (rawInvitations || []).map(invitation => ({
-        id: invitation.id,
-        email: invitation.email,
-        first_name: invitation.metadata?.first_name || '',
-        last_name: invitation.metadata?.last_name || '',
-        role: invitation.metadata?.role || 'tenant_user',
-        status: invitation.status,
-        created_at: invitation.created_at,
-        sent_at: invitation.sent_at,
-        expires_at: invitation.expires_at
-      }));
+      const mappedInvitations: UserInvitation[] = (rawInvitations || []).map(invitation => {
+        // Safely parse the metadata JSONB field
+        const metadata = invitation.metadata as any;
+        
+        return {
+          id: invitation.id,
+          email: invitation.email,
+          first_name: metadata?.first_name || '',
+          last_name: metadata?.last_name || '',
+          role: metadata?.role || 'tenant_user',
+          status: invitation.status,
+          created_at: invitation.created_at,
+          sent_at: invitation.sent_at,
+          expires_at: invitation.expires_at
+        };
+      });
 
       setInvitations(mappedInvitations);
     } catch (error) {
