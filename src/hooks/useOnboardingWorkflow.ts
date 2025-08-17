@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -9,6 +9,15 @@ interface OnboardingWorkflow {
   status: string;
   current_step: number;
   total_steps: number;
+}
+
+interface OnboardingStep {
+  id: string;
+  workflow_id: string;
+  step_number: number;
+  step_name: string;
+  step_status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
+  step_data: any;
 }
 
 interface UseOnboardingWorkflowOptions {
@@ -23,26 +32,21 @@ export const useOnboardingWorkflow = ({
   autoCreate = true
 }: UseOnboardingWorkflowOptions) => {
   const [workflow, setWorkflow] = useState<OnboardingWorkflow | null>(null);
+  const [steps, setSteps] = useState<OnboardingStep[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { showSuccess, showError } = useNotifications();
-  const initializationAttempted = useRef(false);
-  const retryCount = useRef(0);
-  const maxRetries = 3;
 
-  const createWorkflow = async () => {
+  const createWorkflow = useCallback(async (): Promise<OnboardingWorkflow | null> => {
     try {
-      console.log('Creating workflow for tenant:', tenantId);
+      console.log('🚀 Creating workflow for tenant:', tenantId);
       
       const { data, error } = await supabase.functions.invoke('start-onboarding-workflow', {
         body: { tenantId, forceNew: false }
       });
 
-      console.log('Edge function response:', { data, error });
-
       if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(`Edge function error: ${error.message || 'Unknown error'}`);
+        throw new Error(`Failed to create workflow: ${error.message}`);
       }
 
       if (data?.success) {
@@ -53,26 +57,23 @@ export const useOnboardingWorkflow = ({
           current_step: data.current_step,
           total_steps: data.total_steps
         };
-        console.log('Workflow created successfully:', newWorkflow);
         
         setWorkflow(newWorkflow);
-        showSuccess(`Onboarding workflow initialized with ${data.steps_created} steps`);
+        showSuccess(`Workflow initialized with ${data.steps_created} steps`);
         return newWorkflow;
       } else {
-        console.error('Edge function returned unsuccessful response:', data);
-        const errorMessage = data?.error || 'Failed to create workflow';
-        throw new Error(errorMessage);
+        throw new Error(data?.error || 'Failed to create workflow');
       }
     } catch (error: any) {
-      console.error('Error creating workflow:', error);
-      setError(error.message || 'Failed to initialize workflow');
+      console.error('❌ Error creating workflow:', error);
+      setError(error.message);
       throw error;
     }
-  };
+  }, [tenantId, showSuccess]);
 
-  const loadWorkflow = async (workflowId: string) => {
+  const loadWorkflow = useCallback(async (workflowId: string): Promise<OnboardingWorkflow | null> => {
     try {
-      console.log('Loading workflow:', workflowId);
+      console.log('📂 Loading workflow:', workflowId);
       
       const { data, error } = await supabase
         .from('onboarding_workflows')
@@ -81,111 +82,143 @@ export const useOnboardingWorkflow = ({
         .single();
 
       if (error) {
-        console.error('Error loading workflow:', error);
         throw error;
-      }
-
-      console.log('Workflow loaded successfully:', data);
-      
-      // Verify workflow has steps
-      const { data: steps, error: stepsError } = await supabase
-        .from('onboarding_steps')
-        .select('id')
-        .eq('workflow_id', workflowId);
-
-      if (stepsError) {
-        console.error('Error checking workflow steps:', stepsError);
-      } else if (!steps || steps.length === 0) {
-        console.log('Workflow has no steps, will attempt to recreate');
-        return await createWorkflow();
-      } else {
-        console.log('Workflow has', steps.length, 'steps');
       }
 
       setWorkflow(data);
       return data;
     } catch (error: any) {
-      console.error('Error loading workflow:', error);
+      console.error('❌ Error loading workflow:', error);
       throw error;
     }
-  };
+  }, []);
 
-  const initializeWorkflow = async () => {
-    if (initializationAttempted.current || !tenantId) {
+  const loadSteps = useCallback(async (workflowId: string): Promise<OnboardingStep[]> => {
+    try {
+      console.log('📋 Loading steps for workflow:', workflowId);
+      
+      const { data, error } = await supabase
+        .from('onboarding_steps')
+        .select('*')
+        .eq('workflow_id', workflowId)
+        .order('step_number');
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('⚠️ No steps found for workflow:', workflowId);
+        return [];
+      }
+
+      console.log('✅ Loaded steps:', data.length);
+      setSteps(data);
+      return data;
+    } catch (error: any) {
+      console.error('❌ Error loading steps:', error);
+      throw error;
+    }
+  }, []);
+
+  const initialize = useCallback(async () => {
+    if (!tenantId) {
+      console.log('❌ No tenant ID provided');
       return;
     }
-
-    initializationAttempted.current = true;
 
     try {
       setIsLoading(true);
       setError(null);
-      retryCount.current = 0;
 
-      console.log('Initializing workflow for tenant:', tenantId, 'with workflowId:', workflowId);
-
-      // Add a small delay to prevent race conditions
-      await new Promise(resolve => setTimeout(resolve, 100));
+      let workflowResult: OnboardingWorkflow | null = null;
 
       if (workflowId) {
-        await loadWorkflow(workflowId);
+        workflowResult = await loadWorkflow(workflowId);
       } else if (autoCreate) {
-        await createWorkflow();
-      } else {
-        console.log('No workflow to load or create');
-        setWorkflow(null);
+        workflowResult = await createWorkflow();
       }
+
+      if (workflowResult) {
+        await loadSteps(workflowResult.id);
+      }
+
     } catch (error: any) {
-      console.error('Workflow initialization failed:', error);
+      console.error('❌ Initialization failed:', error);
       setError(error.message || 'Failed to initialize workflow');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [tenantId, workflowId, autoCreate, loadWorkflow, createWorkflow, loadSteps]);
 
-  const retryInitialization = async () => {
-    if (retryCount.current >= maxRetries) {
-      setError('Maximum retry attempts reached. Please try again later.');
-      return;
-    }
-
-    console.log('Retrying initialization, attempt:', retryCount.current + 1);
-    retryCount.current++;
-    initializationAttempted.current = false;
-    setError(null);
-    
-    try {
-      await initializeWorkflow();
-    } catch (error: any) {
-      console.error(`Retry ${retryCount.current} failed:`, error);
-      if (retryCount.current >= maxRetries) {
-        setError('Failed to initialize workflow after multiple attempts.');
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (tenantId && !initializationAttempted.current) {
-      console.log('Effect triggered - initializing workflow');
-      initializeWorkflow();
-    }
-  }, [tenantId, workflowId]);
-
-  // Reset when tenantId or workflowId changes
-  useEffect(() => {
-    console.log('Dependencies changed - resetting state');
-    initializationAttempted.current = false;
-    retryCount.current = 0;
-    setWorkflow(null);
+  const retryInitialization = useCallback(async () => {
     setError(null);
     setIsLoading(true);
+    await initialize();
+  }, [initialize]);
+
+  const updateStepStatus = useCallback(async (
+    stepNumber: number,
+    status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed',
+    stepData: any = {}
+  ) => {
+    if (!workflow?.id) {
+      throw new Error('No workflow available');
+    }
+
+    try {
+      const stepToUpdate = steps.find(s => s.step_number === stepNumber);
+      if (!stepToUpdate) {
+        throw new Error(`Step ${stepNumber} not found`);
+      }
+
+      const { data, error } = await supabase.functions.invoke('fix-advance-step', {
+        body: {
+          stepId: stepToUpdate.id,
+          newStatus: status,
+          stepData
+        }
+      });
+
+      if (error) {
+        throw new Error(`Failed to update step: ${error.message}`);
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to update step');
+      }
+
+      setSteps(currentSteps => 
+        currentSteps.map(step => 
+          step.step_number === stepNumber 
+            ? { ...step, step_status: status, step_data: { ...step.step_data, ...stepData } }
+            : step
+        )
+      );
+
+      showSuccess(`Step ${stepNumber} updated successfully`);
+    } catch (error: any) {
+      console.error('❌ Error updating step:', error);
+      showError('Failed to update step status');
+      throw error;
+    }
+  }, [workflow?.id, steps, showSuccess, showError]);
+
+  useEffect(() => {
+    if (tenantId) {
+      console.log('🔄 Initializing workflow for tenant:', tenantId);
+      initialize();
+    } else {
+      setIsLoading(false);
+    }
   }, [tenantId, workflowId]);
 
   return {
     workflow,
+    steps,
     isLoading,
     error,
-    createWorkflow,
+    updateStepStatus,
     retryInitialization
   };
 };
