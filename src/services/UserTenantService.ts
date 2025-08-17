@@ -6,6 +6,8 @@ export interface UserTenantStatus {
   tenantRelationshipExists: boolean;
   roleMatches: boolean;
   expectedRole: string;
+  currentRole?: string;
+  userId?: string;
   issues: string[];
 }
 
@@ -17,12 +19,12 @@ export class UserTenantService {
     let authExists = false;
     let tenantRelationshipExists = false;
     let roleMatches = false;
+    let currentRole: string | undefined;
+    let userId: string | undefined;
     const expectedRole = 'tenant_admin';
 
     try {
-      // Check if user exists in auth.users using a direct query
-      // Since we can't query auth.users directly, we'll use the admin API through an edge function
-      // For now, let's assume the user exists if we get this far (they're authenticated)
+      // Get current authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -36,20 +38,11 @@ export class UserTenantService {
         };
       }
 
-      // Check if the target user exists by trying to find them in user_tenants
-      // This is an indirect way to check if they exist in auth
-      const { data: existingUserCheck, error: userCheckError } = await supabase
-        .from('user_tenants')
-        .select('user_id')
-        .eq('tenant_id', tenantId)
-        .limit(1);
+      // Set the user ID from the authenticated user
+      userId = user.id;
+      authExists = true;
 
-      if (userCheckError) {
-        console.error('UserTenantService: Error checking existing users:', userCheckError);
-        issues.push(`Error checking existing users: ${userCheckError.message}`);
-      }
-
-      // For super admins, we assume they can access any tenant
+      // Check if the current user is a super admin
       const { data: adminUser, error: adminError } = await supabase
         .from('admin_users')
         .select('role, is_active')
@@ -59,10 +52,7 @@ export class UserTenantService {
       const isSuperAdmin = !adminError && adminUser?.role === 'super_admin' && adminUser?.is_active;
 
       if (isSuperAdmin) {
-        // Super admins can access any tenant, so we'll create the relationship if it doesn't exist
-        authExists = true;
-        
-        // Check if relationship exists
+        // Super admins can access any tenant, check if relationship exists
         const { data: relationship, error: relationshipError } = await supabase
           .from('user_tenants')
           .select('role, is_active')
@@ -78,6 +68,7 @@ export class UserTenantService {
           issues.push(`Error checking relationship: ${relationshipError.message}`);
         } else {
           tenantRelationshipExists = relationship?.is_active || false;
+          currentRole = relationship?.role;
           roleMatches = relationship?.role === expectedRole || relationship?.role === 'tenant_owner';
           
           if (!relationship?.is_active) {
@@ -88,14 +79,43 @@ export class UserTenantService {
           }
         }
       } else {
-        // For non-super admins, we need to check if they have a valid relationship
-        issues.push('Authentication method not available for non-super admin users');
-        authExists = false;
+        // For non-super admins, check if they have the right email for user-tenant operations
+        // This is more complex as we need to validate based on the target email vs current user
+        if (user.email !== email) {
+          issues.push('Cannot manage user-tenant relationship for different email address');
+          authExists = false;
+        } else {
+          // Check their existing relationship with this tenant
+          const { data: relationship, error: relationshipError } = await supabase
+            .from('user_tenants')
+            .select('role, is_active')
+            .eq('user_id', user.id)
+            .eq('tenant_id', tenantId)
+            .single();
+
+          if (relationshipError && relationshipError.code === 'PGRST116') {
+            tenantRelationshipExists = false;
+            issues.push('User-tenant relationship missing');
+          } else if (relationshipError) {
+            issues.push(`Error checking relationship: ${relationshipError.message}`);
+          } else {
+            tenantRelationshipExists = relationship?.is_active || false;
+            currentRole = relationship?.role;
+            roleMatches = relationship?.role === expectedRole || relationship?.role === 'tenant_owner';
+            
+            if (!relationship?.is_active) {
+              issues.push('User-tenant relationship is inactive');
+            }
+            if (!roleMatches) {
+              issues.push(`Role mismatch: expected ${expectedRole}, got ${relationship?.role}`);
+            }
+          }
+        }
       }
 
     } catch (error) {
-      console.error('UserTenantService: Error checking auth user:', error);
-      issues.push(`Error checking authentication: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('UserTenantService: Error checking user-tenant status:', error);
+      issues.push(`Error checking status: ${error instanceof Error ? error.message : 'Unknown error'}`);
       authExists = false;
     }
 
@@ -104,6 +124,8 @@ export class UserTenantService {
       tenantRelationshipExists,
       roleMatches,
       expectedRole,
+      currentRole,
+      userId,
       issues
     };
   }
