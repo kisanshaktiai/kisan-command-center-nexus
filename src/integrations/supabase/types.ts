@@ -7618,6 +7618,10 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: string
       }
+      ensure_user_tenant_access: {
+        Args: { p_tenant_id: string; p_user_id?: string }
+        Returns: boolean
+      }
       equals: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
