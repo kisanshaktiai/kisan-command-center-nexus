@@ -18,10 +18,20 @@ export const useNotifications = () => {
     toast.warning(message);
   };
 
+  const showLoading = (message: string) => {
+    return toast.loading(message);
+  };
+
+  const dismiss = (toastId?: string | number) => {
+    toast.dismiss(toastId);
+  };
+
   return {
     showSuccess,
     showError,
     showInfo,
-    showWarning
+    showWarning,
+    showLoading,
+    dismiss
   };
 };

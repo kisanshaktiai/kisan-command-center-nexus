@@ -20,7 +20,7 @@ export const usePaymentGateways = () => {
         .order('display_name');
 
       if (error) throw error;
-      return (data || []) as PaymentGateway[];
+      return (data || []) as unknown as PaymentGateway[];
     }
   });
 
@@ -34,7 +34,7 @@ export const usePaymentGateways = () => {
         .order('created_at');
 
       if (error) throw error;
-      return (data || []) as TenantPaymentConfig[];
+      return (data || []) as unknown as TenantPaymentConfig[];
     }
   });
 
