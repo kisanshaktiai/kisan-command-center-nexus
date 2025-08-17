@@ -59,7 +59,6 @@ const handler = async (req: Request): Promise<Response> => {
         .from('onboarding_workflows')
         .insert({
           tenant_id: tenantId,
-          workflow_type: 'enhanced',
           status: 'in_progress',
           current_step: 1,
           total_steps: 6,
