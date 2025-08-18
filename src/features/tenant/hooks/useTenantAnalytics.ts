@@ -1,8 +1,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Tenant } from '@/types/tenant';
 import { TenantMetrics } from '@/types/tenantView';
+import { Tenant } from '@/types/tenant';
 
 interface UseTenantAnalyticsOptions {
   tenants: Tenant[];
@@ -12,154 +12,131 @@ interface UseTenantAnalyticsOptions {
 
 export const useTenantAnalytics = ({ 
   tenants, 
-  autoRefresh = false, 
+  autoRefresh = true, 
   refreshInterval = 30000 
 }: UseTenantAnalyticsOptions) => {
   const [tenantMetrics, setTenantMetrics] = useState<Record<string, TenantMetrics>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchMetricsForTenant = useCallback(async (tenantId: string): Promise<TenantMetrics | null> => {
+  const fetchTenantMetrics = useCallback(async (tenantId: string): Promise<TenantMetrics | null> => {
     try {
-      console.log('Fetching metrics for tenant:', tenantId);
+      // Use the configured Supabase URL and key from the client
+      const SUPABASE_URL = "https://qfklkkzxemsbeniyugiz.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFma2xra3p4ZW1zYmVuaXl1Z2l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjcxNjUsImV4cCI6MjA2ODAwMzE2NX0.dUnGp7wbwYom1FPbn_4EGf3PWjgmr8mXwL2w2SdYOh4";
       
-      // Send correct payload with tenant_id (not nested in body)
-      const { data, error } = await supabase.functions.invoke('tenant-real-time-metrics', {
-        body: { tenant_id: tenantId }
-      });
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/tenant-real-time-metrics?tenant_id=${tenantId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'apikey': SUPABASE_ANON_KEY,
+          }
+        }
+      );
 
-      if (error) {
-        console.warn(`Failed to fetch real metrics for tenant ${tenantId}:`, error);
-        // Generate fallback metrics
-        return generateFallbackMetrics();
+      if (!response.ok) {
+        console.error(`Error fetching metrics for tenant ${tenantId}:`, response.status, response.statusText);
+        return null;
       }
 
-      // Transform API response to TenantMetrics format
-      if (data && typeof data === 'object') {
-        const capacityStatus = data.capacity_status || {};
-        
-        return {
-          usageMetrics: {
-            farmers: capacityStatus.farmers_usage || { current: 50, limit: 1000, percentage: 5 },
-            dealers: capacityStatus.dealers_usage || { current: 10, limit: 50, percentage: 20 },
-            products: { current: Math.floor(Math.random() * 500) + 50, limit: 2000, percentage: Math.floor(Math.random() * 25) + 5 },
-            storage: capacityStatus.storage_usage || { current: 15, limit: 100, percentage: 15 },
-            apiCalls: capacityStatus.api_usage || { current: 2500, limit: 10000, percentage: 25 }
-          },
-          growthTrends: {
-            farmers: Array.from({ length: 7 }, () => Math.floor(Math.random() * 20) + 5),
-            revenue: Array.from({ length: 7 }, () => Math.floor(Math.random() * 5000) + 1000),
-            apiUsage: Array.from({ length: 7 }, () => Math.floor(Math.random() * 1000) + 100)
-          },
-          healthScore: data.status === 'fallback' ? 75 : Math.floor(Math.random() * 30) + 70,
-          lastActivityDate: new Date().toISOString()
-        };
-      }
+      const data = await response.json();
 
-      return generateFallbackMetrics();
-    } catch (networkError) {
-      console.warn(`Network error fetching metrics for tenant ${tenantId}:`, networkError);
-      return generateFallbackMetrics();
+      if (!data) return null;
+
+      return {
+        usageMetrics: {
+          farmers: {
+            current: data.capacity_status?.farmers_usage?.current || 0,
+            limit: data.capacity_status?.farmers_usage?.limit || 1000,
+            percentage: data.capacity_status?.farmers_usage?.percentage || 0
+          },
+          dealers: {
+            current: data.capacity_status?.dealers_usage?.current || 0,
+            limit: data.capacity_status?.dealers_usage?.limit || 50,
+            percentage: data.capacity_status?.dealers_usage?.percentage || 0
+          },
+          products: {
+            current: data.usage?.products || 0,
+            limit: data.limits?.products || 100,
+            percentage: data.usage?.products ? (data.usage.products / (data.limits?.products || 100)) * 100 : 0
+          },
+          storage: {
+            current: data.capacity_status?.storage_usage?.current || 0,
+            limit: data.capacity_status?.storage_usage?.limit || 10,
+            percentage: data.capacity_status?.storage_usage?.percentage || 0
+          },
+          apiCalls: {
+            current: data.capacity_status?.api_usage?.current || 0,
+            limit: data.capacity_status?.api_usage?.limit || 10000,
+            percentage: data.capacity_status?.api_usage?.percentage || 0
+          }
+        },
+        growthTrends: {
+          farmers: data.trends?.farmers || [10, 15, 25, 30, 45, 50, 65],
+          revenue: data.trends?.revenue || [1000, 1200, 1500, 1800, 2100, 2400, 2700],
+          apiUsage: data.trends?.apiUsage || [100, 150, 200, 250, 300, 350, 400]
+        },
+        healthScore: data.health_score || Math.floor(Math.random() * 40) + 60,
+        lastActivityDate: data.last_activity || new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`Error fetching metrics for tenant ${tenantId}:`, error);
+      return null;
     }
   }, []);
 
-  const generateFallbackMetrics = (): TenantMetrics => {
-    const farmersCount = Math.floor(Math.random() * 100) + 10;
-    const dealersCount = Math.floor(Math.random() * 20) + 5;
-    const productsCount = Math.floor(Math.random() * 500) + 50;
-    const storageUsed = Math.floor(Math.random() * 80) + 10;
-    const apiCallsCount = Math.floor(Math.random() * 5000) + 500;
-    
-    return {
-      usageMetrics: {
-        farmers: { 
-          current: farmersCount, 
-          limit: 500, 
-          percentage: Math.round((farmersCount / 500) * 100) 
-        },
-        dealers: { 
-          current: dealersCount, 
-          limit: 50, 
-          percentage: Math.round((dealersCount / 50) * 100) 
-        },
-        products: { 
-          current: productsCount, 
-          limit: 2000, 
-          percentage: Math.round((productsCount / 2000) * 100) 
-        },
-        storage: { 
-          current: storageUsed, 
-          limit: 100, 
-          percentage: storageUsed 
-        },
-        apiCalls: { 
-          current: apiCallsCount, 
-          limit: 10000, 
-          percentage: Math.round((apiCallsCount / 10000) * 100) 
-        }
-      },
-      growthTrends: {
-        farmers: Array.from({ length: 7 }, () => Math.floor(Math.random() * 20) + 5),
-        revenue: Array.from({ length: 7 }, () => Math.floor(Math.random() * 5000) + 1000),
-        apiUsage: Array.from({ length: 7 }, () => Math.floor(Math.random() * 1000) + 100)
-      },
-      healthScore: Math.floor(Math.random() * 30) + 70,
-      lastActivityDate: new Date().toISOString()
-    };
-  };
-
-  const refreshMetrics = useCallback(async () => {
-    if (!tenants.length) return;
+  const fetchAllMetrics = useCallback(async () => {
+    if (tenants.length === 0) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log('useTenantAnalytics: Refreshing metrics for', tenants.length, 'tenants');
-      
-      const metricsPromises = tenants.map(async (tenant) => {
-        const metrics = await fetchMetricsForTenant(tenant.id);
-        return { tenantId: tenant.id, metrics };
-      });
+      const metricsPromises = tenants.map(tenant => 
+        fetchTenantMetrics(tenant.id).then(metrics => ({ tenantId: tenant.id, metrics }))
+      );
 
       const results = await Promise.all(metricsPromises);
-      
       const newMetrics: Record<string, TenantMetrics> = {};
-      results.forEach(({ tenantId, metrics }) => {
-        if (metrics) {
-          newMetrics[tenantId] = metrics;
+
+      results.forEach(result => {
+        if (result.metrics) {
+          newMetrics[result.tenantId] = result.metrics;
         }
       });
 
       setTenantMetrics(newMetrics);
-      console.log('useTenantAnalytics: Successfully updated metrics for', Object.keys(newMetrics).length, 'tenants');
-    } catch (error) {
-      console.error('useTenantAnalytics: Error refreshing metrics:', error);
-      setError('Failed to refresh tenant metrics');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
     } finally {
       setIsLoading(false);
     }
-  }, [tenants, fetchMetricsForTenant]);
+  }, [tenants, fetchTenantMetrics]);
 
-  // Initial load
+  const refreshMetrics = useCallback(() => {
+    fetchAllMetrics();
+  }, [fetchAllMetrics]);
+
+  // Initial fetch
   useEffect(() => {
-    if (tenants.length > 0) {
-      refreshMetrics();
-    }
-  }, [tenants, refreshMetrics]);
+    fetchAllMetrics();
+  }, [fetchAllMetrics]);
 
   // Auto-refresh
   useEffect(() => {
-    if (!autoRefresh || !refreshInterval) return;
+    if (!autoRefresh || tenants.length === 0) return;
 
-    const interval = setInterval(refreshMetrics, refreshInterval);
+    const interval = setInterval(fetchAllMetrics, refreshInterval);
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, refreshMetrics]);
+  }, [autoRefresh, refreshInterval, fetchAllMetrics, tenants.length]);
 
   return {
     tenantMetrics,
     isLoading,
     error,
-    refreshMetrics
+    refreshMetrics,
+    fetchTenantMetrics
   };
 };

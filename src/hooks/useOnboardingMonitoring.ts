@@ -1,16 +1,7 @@
 
-import { useCallback, useRef, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
-interface OnboardingMetrics {
-  apiCalls: number;
-  errors: number;
-  lastError: string | null;
-  startTime: number;
-  isHealthy: boolean;
-  retryCount: number;
-}
-
-interface UseOnboardingMonitoringProps {
+interface MonitoringOptions {
   tenantId: string;
   workflowId?: string;
   isLoading: boolean;
@@ -22,54 +13,93 @@ export const useOnboardingMonitoring = ({
   workflowId,
   isLoading,
   error
-}: UseOnboardingMonitoringProps) => {
-  const metricsRef = useRef<OnboardingMetrics>({
-    apiCalls: 0,
-    errors: 0,
-    lastError: null,
-    startTime: Date.now(),
-    isHealthy: true,
-    retryCount: 0
+}: MonitoringOptions) => {
+  const renderCountRef = useRef(0);
+  const loadingStateChangesRef = useRef(0);
+  const errorStateChangesRef = useRef(0);
+  const lastStateRef = useRef({ isLoading: false, error: null });
+  const apiCallsRef = useRef(new Set<string>());
+  const startTimeRef = useRef(Date.now());
+
+  // Track renders
+  useEffect(() => {
+    renderCountRef.current += 1;
+    
+    if (renderCountRef.current > 10) {
+      console.warn('🚨 EXCESSIVE RENDERS DETECTED:', {
+        renderCount: renderCountRef.current,
+        tenantId,
+        workflowId,
+        timeSinceStart: Date.now() - startTimeRef.current
+      });
+    }
   });
 
-  const trackApiCall = useCallback((operation: string) => {
-    metricsRef.current.apiCalls++;
-    console.log(`🔄 API Call [${operation}] - Total: ${metricsRef.current.apiCalls}`);
-  }, []);
-
-  const trackError = useCallback((errorMessage: string) => {
-    metricsRef.current.errors++;
-    metricsRef.current.lastError = errorMessage;
-    metricsRef.current.isHealthy = false;
-    console.error(`❌ Error tracked: ${errorMessage}`);
-  }, []);
-
-  const trackRetry = useCallback(() => {
-    metricsRef.current.retryCount++;
-    console.log(`🔄 Retry attempt: ${metricsRef.current.retryCount}`);
-  }, []);
-
-  const getPerformanceSummary = useCallback(() => {
-    const duration = Date.now() - metricsRef.current.startTime;
-    return {
-      ...metricsRef.current,
-      duration,
-      avgApiCallsPerMinute: metricsRef.current.apiCalls / (duration / 60000),
-      isHealthy: metricsRef.current.errors < 3 && metricsRef.current.apiCalls < 20
-    };
-  }, []);
-
-  // Track errors from props
+  // Track loading state changes
   useEffect(() => {
-    if (error) {
-      trackError(error);
+    if (lastStateRef.current.isLoading !== isLoading) {
+      loadingStateChangesRef.current += 1;
+      lastStateRef.current.isLoading = isLoading;
+      
+      console.log('🔄 LOADING STATE CHANGE:', {
+        isLoading,
+        changeCount: loadingStateChangesRef.current,
+        renderCount: renderCountRef.current
+      });
+
+      if (loadingStateChangesRef.current > 5) {
+        console.warn('🚨 EXCESSIVE LOADING STATE CHANGES:', {
+          changeCount: loadingStateChangesRef.current,
+          possibleInfiniteLoop: true
+        });
+      }
     }
-  }, [error, trackError]);
+  }, [isLoading]);
+
+  // Track error state changes
+  useEffect(() => {
+    if (lastStateRef.current.error !== error) {
+      errorStateChangesRef.current += 1;
+      lastStateRef.current.error = error;
+      
+      if (error) {
+        console.error('❌ ERROR STATE CHANGE:', {
+          error,
+          changeCount: errorStateChangesRef.current,
+          renderCount: renderCountRef.current
+        });
+      }
+    }
+  }, [error]);
+
+  // Track API calls to detect duplicates
+  const trackApiCall = (callId: string) => {
+    if (apiCallsRef.current.has(callId)) {
+      console.warn('🚨 DUPLICATE API CALL DETECTED:', {
+        callId,
+        totalCalls: apiCallsRef.current.size,
+        renderCount: renderCountRef.current
+      });
+    } else {
+      apiCallsRef.current.add(callId);
+      console.log('📡 API CALL TRACKED:', callId);
+    }
+  };
+
+  // Performance summary
+  const getPerformanceSummary = () => {
+    return {
+      totalRenders: renderCountRef.current,
+      loadingStateChanges: loadingStateChangesRef.current,
+      errorStateChanges: errorStateChangesRef.current,
+      uniqueApiCalls: apiCallsRef.current.size,
+      timeSinceStart: Date.now() - startTimeRef.current,
+      isHealthy: renderCountRef.current < 10 && loadingStateChangesRef.current < 5
+    };
+  };
 
   return {
     trackApiCall,
-    trackError,
-    trackRetry,
     getPerformanceSummary
   };
 };

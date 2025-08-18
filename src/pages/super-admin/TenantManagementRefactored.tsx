@@ -1,16 +1,10 @@
 
 import React from 'react';
-import { AdminRegistrationsTable } from '@/components/admin/AdminRegistrationsTable';
 import TenantManagementPage from '@/features/tenant/components/TenantManagementPage';
 
-// This page now includes both tenant management and admin registrations
+// This page now simply imports the refactored component
 const TenantManagementRefactored: React.FC = () => {
-  return (
-    <div className="space-y-6">
-      <AdminRegistrationsTable />
-      <TenantManagementPage />
-    </div>
-  );
+  return <TenantManagementPage />;
 };
 
 export default TenantManagementRefactored;

@@ -1,209 +1,354 @@
 
 import React, { useState, useEffect } from 'react';
+import { Tenant } from '@/types/tenant';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tenant } from '@/types/tenant';
-import { TenantDisplayService } from '@/services/TenantDisplayService';
 import { 
-  Edit3, 
-  Calendar, 
+  User, 
   Mail, 
   Phone, 
+  MapPin, 
+  Calendar, 
+  CreditCard, 
   Building, 
-  Globe, 
   Users, 
-  Database,
-  Settings,
-  FileText,
+  Package, 
+  HardDrive,
+  Activity,
+  UserPlus,
+  KeyRound,
+  Loader2,
   CheckCircle,
-  Shield,
-  UserCheck,
+  XCircle,
+  RefreshCw,
   AlertTriangle,
-  Loader2
+  Shield,
+  Database
 } from 'lucide-react';
+import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
+import { UserTenantStatus } from '@/services/UserTenantService';
 
 interface TenantDetailsModalProps {
   tenant: Tenant | null;
   isOpen: boolean;
   onClose: () => void;
-  onEdit: (tenant: Tenant) => void;
-  validationResult?: any;
-  isValidatingAccess?: boolean;
+  onEdit?: (tenant: Tenant) => void;
 }
 
 export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
   tenant,
   isOpen,
   onClose,
-  onEdit,
-  validationResult,
-  isValidatingAccess = false
+  onEdit
 }) => {
-  const [activeTab, setActiveTab] = useState<'details' | 'access-status'>('details');
+  const [userStatus, setUserStatus] = useState<'checking' | 'found' | 'not_found' | 'error'>('checking');
+  const [userInfo, setUserInfo] = useState<any>(null);
+  const [tenantStatus, setTenantStatus] = useState<UserTenantStatus | null>(null);
+  
+  const {
+    isCheckingUser,
+    isCreatingUser,
+    isSendingReset,
+    isCheckingStatus,
+    isFixingRelationship,
+    checkUserExists,
+    checkUserTenantStatus,
+    ensureUserTenantRecord,
+    createAdminUser,
+    sendPasswordReset
+  } = useTenantUserManagement();
 
-  // Auto-switch to access status tab if there are validation results
+  // Check user existence and tenant status when modal opens with tenant
   useEffect(() => {
-    if (validationResult && !validationResult.hasAccess) {
-      setActiveTab('access-status');
+    if (tenant?.owner_email && isOpen) {
+      checkUser();
     }
-  }, [validationResult]);
+  }, [tenant?.owner_email, isOpen]);
+
+  const checkUser = async () => {
+    if (!tenant?.owner_email) return;
+    
+    setUserStatus('checking');
+    
+    // Check auth.users first
+    const result = await checkUserExists(tenant.owner_email);
+    
+    if (result?.error) {
+      setUserStatus('error');
+    } else if (result?.exists) {
+      setUserStatus('found');
+      setUserInfo({
+        email: tenant.owner_email,
+        userId: result.userId,
+        created_at: new Date().toISOString(),
+        isAdmin: result.isAdmin,
+        userStatus: result.userStatus
+      });
+      
+      // Then check user_tenants table
+      if (result.userId && tenant.id) {
+        const tenantStatusResult = await checkUserTenantStatus(tenant.owner_email, tenant.id);
+        setTenantStatus(tenantStatusResult);
+      }
+    } else {
+      setUserStatus('not_found');
+      setUserInfo(null);
+      setTenantStatus(null);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!tenant?.owner_email || !tenant?.owner_name) return;
+    
+    const result = await createAdminUser(
+      tenant.owner_email, 
+      tenant.owner_name, 
+      tenant.id
+    );
+    
+    if (result?.success) {
+      // Refresh user status after successful creation
+      setTimeout(() => checkUser(), 1000);
+    }
+  };
+
+  const handleFixRelationship = async () => {
+    if (!userInfo?.userId || !tenant?.id) return;
+    
+    const success = await ensureUserTenantRecord(userInfo.userId, tenant.id);
+    if (success) {
+      // Refresh status after fixing
+      setTimeout(() => checkUser(), 1000);
+    }
+  };
+
+  const handleSendReset = async () => {
+    if (!tenant?.owner_email) return;
+    await sendPasswordReset(tenant.owner_email);
+  };
 
   if (!tenant) return null;
 
-  const formattedData = TenantDisplayService.formatTenantForDisplay(tenant);
-
-  const handleEditClick = () => {
-    onEdit(tenant);
-    onClose();
+  const getStatusBadge = (status: string) => {
+    const variants = {
+      active: 'default',
+      trial: 'secondary', 
+      suspended: 'destructive',
+      cancelled: 'outline',
+      archived: 'outline'
+    } as const;
+    
+    return <Badge variant={variants[status as keyof typeof variants] || 'outline'}>{status}</Badge>;
   };
 
-  const tabs = [
-    { id: 'details', label: 'Details', icon: FileText },
-    { id: 'access-status', label: 'Access Status', icon: Shield }
-  ];
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Not set';
+    return new Date(dateString).toLocaleDateString();
+  };
 
-  const getAccessStatusDisplay = () => {
-    if (isValidatingAccess) {
+  const UserStatusSection = () => {
+    if (!tenant.owner_email) {
       return (
-        <div className="flex items-center justify-center py-8">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-            <p className="text-muted-foreground">Validating system access...</p>
-          </div>
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <p className="text-sm text-gray-600">No admin email configured for this tenant</p>
         </div>
       );
     }
 
-    if (!validationResult) {
-      return (
-        <div className="flex items-center justify-center py-8">
-          <div className="text-center">
-            <Shield className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">Access validation not completed</p>
-          </div>
-        </div>
-      );
-    }
+    const isLoading = isCheckingUser || isCreatingUser || isSendingReset || isCheckingStatus || isFixingRelationship;
 
     return (
-      <div className="space-y-6">
-        {/* Overall Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {validationResult.hasAccess ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <AlertTriangle className="h-5 w-5 text-orange-600" />
-              )}
-              Access Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {validationResult.hasAccess ? (
-              <Alert className="border-green-200 bg-green-50">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">
-                  <div className="space-y-2">
-                    <p className="font-medium">✅ Complete System Access Verified</p>
-                    <p className="text-sm">{validationResult.message}</p>
-                    {validationResult.isAutoCreated && (
-                      <p className="text-xs p-2 bg-blue-50 rounded border border-blue-200 text-blue-800">
-                        🔗 System automatically created the required tenant connection for seamless access.
-                      </p>
-                    )}
-                  </div>
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <p className="font-medium">❌ System Access Issues Detected</p>
-                    <p className="text-sm">{validationResult.message}</p>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium text-sm flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Admin User Management
+          </h4>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={checkUser}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-3 w-3 ${isCheckingUser || isCheckingStatus ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
 
-        {/* System Components Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              System Components
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Auth Status */}
-              <div className="text-center p-4 border rounded-lg bg-background">
-                <div className="flex items-center justify-center mb-2">
-                  <Shield className="w-8 h-8 text-green-600" />
-                </div>
-                <div className="text-sm font-medium mb-1">Authentication</div>
-                <div className="text-xs text-muted-foreground">
-                  ✅ User authenticated
-                </div>
-              </div>
+        {userStatus === 'checking' && (
+          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            <span className="text-sm text-blue-700">Checking user status...</span>
+          </div>
+        )}
 
-              {/* Tenant Status */}
-              <div className="text-center p-4 border rounded-lg bg-background">
-                <div className="flex items-center justify-center mb-2">
-                  <Building className="w-8 h-8 text-green-600" />
-                </div>
-                <div className="text-sm font-medium mb-1">Tenant Record</div>
-                <div className="text-xs text-muted-foreground">
-                  ✅ {validationResult.tenant?.name || 'Tenant exists'}
-                </div>
-              </div>
+        {userStatus === 'found' && userInfo && (
+          <div className="space-y-4">
+            {/* Auth Status */}
+            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <Shield className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-700">User found in authentication system</span>
+            </div>
 
-              {/* User-Tenant Link Status */}
-              <div className="text-center p-4 border rounded-lg bg-background">
-                <div className="flex items-center justify-center mb-2">
-                  {validationResult.relationship ? (
-                    <UserCheck className="w-8 h-8 text-green-600" />
-                  ) : (
-                    <Users className="w-8 h-8 text-red-600" />
-                  )}
-                </div>
-                <div className="text-sm font-medium mb-1">User-Tenant Link</div>
-                <div className="text-xs text-muted-foreground">
-                  {validationResult.relationship ? (
+            {/* Tenant Relationship Status */}
+            {tenantStatus && (
+              <div className="space-y-3">
+                <div className={`flex items-center gap-2 p-3 rounded-lg ${
+                  tenantStatus.tenantRelationshipExists && tenantStatus.roleMatches
+                    ? 'bg-green-50'
+                    : 'bg-orange-50'
+                }`}>
+                  {tenantStatus.tenantRelationshipExists && tenantStatus.roleMatches ? (
                     <>
-                      ✅ Connected
-                      {validationResult.isAutoCreated && (
-                        <div className="mt-1 text-blue-600">
-                          🔗 Auto-created
-                        </div>
-                      )}
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <Database className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-700">
+                        User-tenant relationship configured correctly (Role: {tenantStatus.currentRole})
+                      </span>
                     </>
                   ) : (
-                    '❌ Not connected'
+                    <>
+                      <AlertTriangle className="h-4 w-4 text-orange-600" />
+                      <Database className="h-4 w-4 text-orange-600" />
+                      <span className="text-sm text-orange-700">
+                        User-tenant relationship needs attention
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Issues */}
+                {tenantStatus.issues.length > 0 && (
+                  <div className="bg-red-50 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <XCircle className="h-4 w-4 text-red-600" />
+                      <span className="text-sm font-medium text-red-700">Issues Found:</span>
+                    </div>
+                    <ul className="text-xs text-red-600 space-y-1 ml-6">
+                      {tenantStatus.issues.map((issue, index) => (
+                        <li key={index}>• {issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Fix Actions */}
+                {(!tenantStatus.tenantRelationshipExists || !tenantStatus.roleMatches) && userInfo.userId && (
+                  <Button
+                    onClick={handleFixRelationship}
+                    disabled={isFixingRelationship}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    {isFixingRelationship ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                        Fixing Relationship...
+                      </>
+                    ) : (
+                      <>
+                        <Database className="h-3 w-3 mr-2" />
+                        {!tenantStatus.tenantRelationshipExists 
+                          ? 'Create User-Tenant Relationship' 
+                          : 'Fix Role Mismatch'}
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            )}
+            
+            {/* User Details */}
+            <div className="flex items-center space-x-4 p-3 border rounded-lg">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={`https://avatar.vercel.sh/${userInfo.email}.png`} />
+                <AvatarFallback>{userInfo.email?.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <p className="text-sm font-medium">{tenant.owner_name || userInfo.email}</p>
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  {userInfo.email}
+                </p>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                    <Shield className="h-3 w-3" />
+                    Auth: ✓
+                  </p>
+                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                    <Database className="h-3 w-3" />
+                    Tenant: {tenantStatus?.tenantRelationshipExists ? '✓' : '✗'}
+                  </p>
+                  {tenantStatus?.currentRole && (
+                    <Badge variant="outline" className="text-xs">
+                      {tenantStatus.currentRole}
+                    </Badge>
                   )}
                 </div>
               </div>
             </div>
 
-            {validationResult.relationship && (
-              <div className="mt-4 p-3 bg-muted/30 rounded-lg">
-                <div className="text-sm">
-                  <strong>Current Role:</strong> {validationResult.relationship.role}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  <strong>Status:</strong> {validationResult.relationship.is_active ? 'Active' : 'Inactive'}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            {/* Password Reset Action */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSendReset}
+              disabled={isSendingReset}
+              className="w-full"
+            >
+              {isSendingReset ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                  Sending Reset Email...
+                </>
+              ) : (
+                <>
+                  <KeyRound className="h-3 w-3 mr-2" />
+                  Send Password Reset
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {userStatus === 'not_found' && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg">
+              <XCircle className="h-4 w-4 text-orange-600" />
+              <span className="text-sm text-orange-700">No admin user found for {tenant.owner_email}</span>
+            </div>
+            
+            <Button
+              onClick={handleCreateUser}
+              disabled={isCreatingUser}
+              className="w-full"
+            >
+              {isCreatingUser ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                  Creating Admin User...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-3 w-3 mr-2" />
+                  Create Admin User & Send Welcome Email
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {userStatus === 'error' && (
+          <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg">
+            <XCircle className="h-4 w-4 text-red-600" />
+            <span className="text-sm text-red-700">Error checking user status. Please try again.</span>
+          </div>
+        )}
       </div>
     );
   };
@@ -213,179 +358,178 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-              <Building className="h-6 w-6" />
-              {tenant.name}
-            </DialogTitle>
+            <DialogTitle className="text-xl font-semibold">{tenant.name}</DialogTitle>
             <div className="flex items-center gap-2">
-              <Badge variant={formattedData.statusBadgeVariant as any}>
-                {formattedData.displayStatus}
-              </Badge>
-              <Badge variant={formattedData.planBadgeVariant as any}>
-                {formattedData.planDisplayName}
-              </Badge>
-              {validationResult?.hasAccess && (
-                <Badge className="bg-green-100 text-green-800 border-green-200">
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Access Verified
-                </Badge>
+              {getStatusBadge(tenant.status)}
+              {onEdit && (
+                <Button variant="outline" size="sm" onClick={() => onEdit(tenant)}>
+                  Edit Tenant
+                </Button>
               )}
             </div>
           </div>
         </DialogHeader>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-border">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-                {tab.id === 'access-status' && isValidatingAccess && (
-                  <Loader2 className="h-3 w-3 animate-spin ml-1" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Tab Content */}
-        <div className="mt-6">
-          {activeTab === 'details' && (
-            <div className="space-y-6">
-              {/* Basic Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="h-5 w-5" />
-                    Basic Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-medium text-foreground mb-3">Organization Details</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Building className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          <strong>Name:</strong> {tenant.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Globe className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          <strong>Slug:</strong> {tenant.slug}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          <strong>Type:</strong> {formattedData.displayType}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium text-foreground mb-3">Contact Information</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          <strong>Email:</strong> {formattedData.ownerEmail}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          <strong>Phone:</strong> {formattedData.ownerPhone}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          <strong>Owner:</strong> {formattedData.ownerName}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Subscription & Limits */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Database className="h-5 w-5" />
-                    Subscription & Limits
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-2xl font-bold text-primary">{formattedData.limitsDisplay.farmers}</div>
-                      <div className="text-xs text-muted-foreground">Max Farmers</div>
-                    </div>
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-2xl font-bold text-primary">{formattedData.limitsDisplay.dealers}</div>
-                      <div className="text-xs text-muted-foreground">Max Dealers</div>
-                    </div>
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-2xl font-bold text-primary">{formattedData.limitsDisplay.storage}</div>
-                      <div className="text-xs text-muted-foreground">Storage</div>
-                    </div>
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-2xl font-bold text-primary">{formattedData.limitsDisplay.apiCalls}</div>
-                      <div className="text-xs text-muted-foreground">API Calls/Day</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Timestamps */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Timeline
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <strong className="text-sm">Created:</strong>
-                    <p className="text-sm text-muted-foreground">{formattedData.formattedCreatedAt}</p>
-                  </div>
-                  <div>
-                    <strong className="text-sm">Last Updated:</strong>
-                    <p className="text-sm text-muted-foreground">{formattedData.formattedUpdatedAt}</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Separator />
-
-              <div className="flex justify-end gap-3">
-                <Button variant="outline" onClick={onClose}>
-                  Close
-                </Button>
-                <Button onClick={handleEditClick} className="flex items-center gap-2">
-                  <Edit3 className="h-4 w-4" />
-                  Edit Tenant
-                </Button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Basic Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building className="h-4 w-4" />
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Organization Name</p>
+                  <p className="text-sm">{tenant.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Slug</p>
+                  <p className="text-sm font-mono">{tenant.slug}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Type</p>
+                  <p className="text-sm capitalize">{tenant.type.replace('_', ' ')}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Created</p>
+                  <p className="text-sm">{formatDate(tenant.created_at)}</p>
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
+
+          {/* Admin User Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Admin User Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <UserStatusSection />
+            </CardContent>
+          </Card>
+
+          {/* Owner Information */}
+          {(tenant.owner_name || tenant.owner_email || tenant.owner_phone) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Owner Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {tenant.owner_name && (
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm">{tenant.owner_name}</span>
+                  </div>
+                )}
+                {tenant.owner_email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm">{tenant.owner_email}</span>
+                  </div>
+                )}
+                {tenant.owner_phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm">{tenant.owner_phone}</span>
+                  </div>
+                )}
+                {tenant.business_address && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm">
+                      {typeof tenant.business_address === 'string' 
+                        ? tenant.business_address 
+                        : Object.values(tenant.business_address).filter(Boolean).join(', ')
+                      }
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
-          {activeTab === 'access-status' && getAccessStatusDisplay()}
+          {/* Subscription Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                Subscription Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-xs font-medium text-gray-500">Plan</p>
+                <p className="text-sm font-medium">{tenant.subscription_plan.replace('_', ' ')}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Start Date</p>
+                  <p className="text-sm">{formatDate(tenant.subscription_start_date)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">End Date</p>
+                  <p className="text-sm">{formatDate(tenant.subscription_end_date)}</p>
+                </div>
+              </div>
+              {tenant.trial_ends_at && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Trial Ends</p>
+                  <p className="text-sm">{formatDate(tenant.trial_ends_at)}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Resource Limits */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Resource Limits & Usage
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-blue-500" />
+                    <span className="text-xs font-medium">Farmers</span>
+                  </div>
+                  <p className="text-sm">0 / {tenant.max_farmers?.toLocaleString() || 'Unlimited'}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Building className="h-4 w-4 text-green-500" />
+                    <span className="text-xs font-medium">Dealers</span>
+                  </div>
+                  <p className="text-sm">0 / {tenant.max_dealers?.toLocaleString() || 'Unlimited'}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-purple-500" />
+                    <span className="text-xs font-medium">Products</span>
+                  </div>
+                  <p className="text-sm">0 / {tenant.max_products?.toLocaleString() || 'Unlimited'}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="h-4 w-4 text-orange-500" />
+                    <span className="text-xs font-medium">Storage</span>
+                  </div>
+                  <p className="text-sm">0 GB / {tenant.max_storage_gb || 'Unlimited'} GB</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </DialogContent>
     </Dialog>

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { CheckCircle, Clock, AlertCircle, Play, Pause, RotateCcw, RefreshCw, Wand2 } from 'lucide-react';
-import { WorldClassTenantOnboardingWizard } from '@/components/onboarding/WorldClassTenantOnboardingWizard';
+import { ConsolidatedTenantOnboardingWizard } from '@/components/onboarding/ConsolidatedTenantOnboardingWizard';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -50,6 +50,17 @@ interface AvailableTenant {
   subscription_plan: string;
 }
 
+interface OnboardingStatusResponse {
+  workflow_exists: boolean;
+  workflow_status?: string;
+  current_step?: number;
+  total_steps?: number;
+  progress_percentage?: number;
+  next_pending_step?: any;
+  workflow_id?: string;
+  steps?: OnboardingStep[];
+}
+
 type StepStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
 
 interface RpcResponse {
@@ -60,6 +71,7 @@ interface RpcResponse {
   workflow_updated?: boolean;
 }
 
+// Type guard to check if response is a valid RpcResponse
 function isRpcResponse(data: any): data is RpcResponse {
   return data && typeof data === 'object' && typeof data.success === 'boolean';
 }
@@ -120,6 +132,7 @@ export default function TenantOnboarding() {
   const { data: availableTenants = [], isLoading: tenantsLoading, refetch: refetchTenants } = useQuery({
     queryKey: ['available-tenants'],
     queryFn: async () => {
+      // Use direct query instead of RPC to avoid TypeScript issues
       const { data, error } = await supabase
         .from('tenants')
         .select('id, name, status, subscription_plan')
@@ -143,6 +156,7 @@ export default function TenantOnboarding() {
   // Create onboarding workflow mutation
   const createWorkflowMutation = useMutation({
     mutationFn: async (tenantId: string) => {
+      // Validate tenantId
       if (!tenantId || tenantId.trim() === '') {
         throw new Error('Invalid tenant ID provided');
       }
@@ -180,6 +194,7 @@ export default function TenantOnboarding() {
   // Restart workflow mutation
   const restartWorkflowMutation = useMutation({
     mutationFn: async (tenantId: string) => {
+      // Validate tenantId
       if (!tenantId || tenantId.trim() === '') {
         throw new Error('Invalid tenant ID provided');
       }
@@ -213,9 +228,10 @@ export default function TenantOnboarding() {
     }
   });
 
-  // Update step status mutation
+  // Update step status mutation with corrected types
   const updateStepMutation = useMutation({
     mutationFn: async ({ stepId, status, stepData = {} }: { stepId: string; status: StepStatus; stepData?: Record<string, any> }) => {
+      // Validate inputs
       if (!stepId || stepId.trim() === '') {
         throw new Error('Invalid step ID provided');
       }
@@ -224,13 +240,15 @@ export default function TenantOnboarding() {
         throw new Error('Invalid status provided');
       }
 
+      // Ensure stepData is a valid JSON object
       const validStepData = stepData && typeof stepData === 'object' ? stepData : {};
 
       console.log('Updating step:', { stepId, status, stepData: validStepData });
 
+      // Call the RPC function
       const { data, error } = await supabase.rpc('advance_onboarding_step', {
         p_step_id: stepId,
-        p_new_status: status,
+        p_new_status: status, // Now properly typed as StepStatus
         p_step_data: validStepData
       });
       
@@ -239,11 +257,13 @@ export default function TenantOnboarding() {
         throw new Error(`Failed to update step: ${error.message}`);
       }
 
+      // Safe type conversion with type guard
       if (!isRpcResponse(data)) {
         console.error('Unexpected response format:', data);
         throw new Error('Unexpected response format from server');
       }
       
+      // Check if the function returned an error in the data
       if (data.success === false) {
         throw new Error(data.error || 'Unknown error occurred');
       }
@@ -307,6 +327,7 @@ export default function TenantOnboarding() {
     setWizardTenantId(tenantId);
     setShowWizard(true);
     
+    // If there's an existing workflow, pass it to the wizard
     const existingWorkflow = workflows.find(w => w.tenant_id === tenantId);
     if (existingWorkflow) {
       setWizardWorkflowId(existingWorkflow.id);
@@ -321,6 +342,7 @@ export default function TenantOnboarding() {
       if (result) {
         setShowCreateDialog(false);
         setSelectedTenant('');
+        // Start the wizard immediately after creating workflow
         handleStartOnboarding(selectedTenant);
       }
     } catch (error) {
@@ -332,20 +354,20 @@ export default function TenantOnboarding() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">World-Class Tenant Onboarding</h1>
-          <p className="text-muted-foreground">Manage tenant onboarding workflows with our premium experience</p>
+          <h1 className="text-3xl font-bold">Tenant Onboarding</h1>
+          <p className="text-muted-foreground">Manage tenant onboarding workflows with our world-class wizard</p>
         </div>
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
-            <Button size="lg" className="px-6">
-              <Wand2 className="w-5 h-5 mr-2" />
-              Start Premium Onboarding
+            <Button>
+              <Wand2 className="w-4 h-4 mr-2" />
+              Start Smart Onboarding
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Start World-Class Onboarding</DialogTitle>
-              <DialogDescription>Select a tenant to begin the premium onboarding experience</DialogDescription>
+              <DialogTitle>Start Enhanced Onboarding</DialogTitle>
+              <DialogDescription>Select a tenant to begin the comprehensive onboarding experience</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -389,24 +411,22 @@ export default function TenantOnboarding() {
                       </option>
                     ))}
                   </select>
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-sm text-blue-900 mb-2">Premium Onboarding Features:</h4>
-                    <ul className="text-xs text-blue-800 space-y-1">
-                      <li>• World-class interactive wizard experience</li>
-                      <li>• Real-time validation and smart assistance</li>
-                      <li>• Automated integrations and configurations</li>
-                      <li>• Professional branding and customization</li>
-                      <li>• Complete team and billing setup</li>
-                      <li>• Enterprise-grade security and compliance</li>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <h4 className="font-medium text-sm text-blue-900">Enhanced Onboarding Features:</h4>
+                    <ul className="text-xs text-blue-800 mt-1 space-y-1">
+                      <li>• Interactive step-by-step wizard</li>
+                      <li>• Real-time validation and verification</li>
+                      <li>• Smart automation and integrations</li>
+                      <li>• Professional branding setup</li>
+                      <li>• Complete team and billing configuration</li>
                     </ul>
                   </div>
                   <Button
                     onClick={handleCreateAndStartOnboarding}
                     disabled={!selectedTenant || createWorkflowMutation.isPending}
                     className="w-full"
-                    size="lg"
                   >
-                    {createWorkflowMutation.isPending ? 'Starting...' : 'Start Premium Onboarding'}
+                    {createWorkflowMutation.isPending ? 'Starting...' : 'Start Enhanced Onboarding'}
                   </Button>
                 </>
               )}
@@ -415,13 +435,14 @@ export default function TenantOnboarding() {
         </Dialog>
       </div>
 
-      {/* Use World-Class Onboarding Wizard */}
-      <WorldClassTenantOnboardingWizard
+      {/* Use Consolidated Onboarding Wizard */}
+      <ConsolidatedTenantOnboardingWizard
         isOpen={showWizard}
         onClose={() => {
           setShowWizard(false);
           setWizardTenantId('');
           setWizardWorkflowId('');
+          // Refresh data after wizard closes
           refetchWorkflows();
         }}
         tenantId={wizardTenantId}
@@ -451,7 +472,7 @@ export default function TenantOnboarding() {
                       className="mr-2"
                     >
                       <Wand2 className="w-4 h-4 mr-2" />
-                      Start Premium Onboarding
+                      Start Enhanced Onboarding
                     </Button>
                   </CardContent>
                 </Card>
@@ -464,7 +485,7 @@ export default function TenantOnboarding() {
                           <CardTitle className="flex items-center gap-2">
                             {workflow.tenants?.name || 'Unknown Tenant'}
                             <Badge variant="secondary" className="text-xs">
-                              Premium
+                              Enhanced
                             </Badge>
                           </CardTitle>
                           <CardDescription>

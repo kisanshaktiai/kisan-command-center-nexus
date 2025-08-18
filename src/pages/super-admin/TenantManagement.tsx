@@ -10,7 +10,6 @@ import { TenantEditModal } from '@/components/tenant/TenantEditModal';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
 import { TenantOverviewMetrics } from '@/components/tenant/TenantOverviewMetrics';
 import { EnhancedTenantManagementHeader } from '@/components/tenant/EnhancedTenantManagementHeader';
-import { BulkTenantValidation } from '@/components/tenant/BulkTenantValidation';
 import { useTenantPageState } from '@/features/tenant/hooks/useTenantPageState';
 
 const TenantManagement: React.FC = () => {
@@ -25,10 +24,6 @@ const TenantManagement: React.FC = () => {
     // Analytics
     tenantMetrics,
     refreshMetrics,
-
-    // Auto-validation
-    isValidatingAccess,
-    validationResults,
 
     // Success state
     creationSuccess,
@@ -88,9 +83,6 @@ const TenantManagement: React.FC = () => {
     );
   }
 
-  // Get validation result for the details tenant
-  const detailsTenantValidation = detailsTenant ? validationResults[detailsTenant.id] : undefined;
-
   return (
     <div className="space-y-6">
       {/* Enhanced Header with Create Button */}
@@ -99,16 +91,6 @@ const TenantManagement: React.FC = () => {
         onRefresh={handleRefresh}
         isSubmitting={isSubmitting}
       />
-
-      {/* Bulk Tenant Validation */}
-      {tenants.length > 0 && (
-        <BulkTenantValidation 
-          tenants={tenants}
-          onValidationComplete={(results) => {
-            console.log('Bulk validation completed:', results);
-          }}
-        />
-      )}
 
       {/* Overview Metrics Cards */}
       <TenantOverviewMetrics 
@@ -166,14 +148,12 @@ const TenantManagement: React.FC = () => {
         />
       )}
 
-      {/* Enhanced Details Modal with Auto-Validation Results */}
+      {/* Enhanced Details Modal with Admin User Management */}
       <TenantDetailsModal
         tenant={detailsTenant}
         isOpen={isDetailsModalOpen}
         onClose={closeDetailsModal}
         onEdit={handleDetailsEdit}
-        validationResult={detailsTenantValidation}
-        isValidatingAccess={isValidatingAccess}
       />
 
       <TenantEditModal
