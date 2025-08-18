@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,10 @@ import {
   Loader2,
   Mail,
   UserPlus,
-  Settings
+  Settings,
+  Info,
+  Database,
+  Shield
 } from 'lucide-react';
 import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
 import { supabase } from '@/integrations/supabase/client';
@@ -147,7 +151,7 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
       return (
         <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
           <CheckCircle className="w-3 h-3 mr-1" />
-          Ready
+          Complete Setup
         </Badge>
       );
     }
@@ -156,7 +160,7 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
       return (
         <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
           <AlertTriangle className="w-3 h-3 mr-1" />
-          Needs Relationship
+          Missing Tenant Link
         </Badge>
       );
     }
@@ -165,7 +169,7 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
       return (
         <Badge variant="destructive">
           <XCircle className="w-3 h-3 mr-1" />
-          Not Found
+          User Not Created
         </Badge>
       );
     }
@@ -173,7 +177,7 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
     return (
       <Badge variant="secondary">
         <AlertTriangle className="w-3 h-3 mr-1" />
-        Issues Found
+        Setup Incomplete
       </Badge>
     );
   };
@@ -183,18 +187,53 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <UserPlus className="w-5 h-5" />
-          Tenant User Management
+          Tenant User Setup & Verification
         </CardTitle>
         <CardDescription>
-          Create and manage users for this tenant organization
+          Ensure users have complete access by verifying their setup across all required systems
         </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-6">
+        {/* Information Alert */}
+        <Alert className="border-blue-200 bg-blue-50">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            <div className="space-y-2">
+              <p className="font-medium">Why check user status?</p>
+              <p className="text-sm">
+                For complete tenant access, users need records in three systems:
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <Shield className="w-3 h-3" />
+                  <span>Supabase Auth</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <Database className="w-3 h-3" />
+                  <span>Tenant Record</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <UserCheck className="w-3 h-3" />
+                  <span>User-Tenant Link</span>
+                </div>
+              </div>
+              <p className="text-xs">
+                Enter an email to verify their setup and automatically fix any missing connections.
+              </p>
+            </div>
+          </AlertDescription>
+        </Alert>
+
         {/* User Check Section */}
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
+            <Label htmlFor="email" className="text-base font-medium">
+              Email Address to Verify
+            </Label>
+            <p className="text-sm text-muted-foreground mb-2">
+              Check if this user has complete access to the tenant system
+            </p>
             <div className="flex gap-2">
               <Input
                 id="email"
@@ -212,7 +251,7 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
                 {isCheckingStatus ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  'Check User'
+                  'Verify Setup'
                 )}
               </Button>
             </div>
@@ -220,35 +259,57 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
 
           {/* Status Display */}
           {userStatus && (
-            <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+            <div className="border rounded-lg p-4 space-y-4 bg-muted/20">
               <div className="flex items-center justify-between">
-                <span className="font-medium">User Status</span>
+                <span className="font-medium">System Verification Results</span>
                 {getStatusBadge()}
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  {userStatus.authExists ? (
-                    <UserCheck className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <UserX className="w-4 h-4 text-red-600" />
-                  )}
-                  <span>Auth Account: {userStatus.authExists ? 'Found' : 'Not Found'}</span>
+              {/* Detailed Status Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-3 border rounded-lg bg-background">
+                  <div className="flex items-center justify-center mb-2">
+                    {userStatus.authExists ? (
+                      <Shield className="w-8 h-8 text-green-600" />
+                    ) : (
+                      <Shield className="w-8 h-8 text-red-600" />
+                    )}
+                  </div>
+                  <div className="text-sm font-medium mb-1">Supabase Auth</div>
+                  <div className="text-xs text-muted-foreground">
+                    {userStatus.authExists ? 'Account exists' : 'No account found'}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {userStatus.tenantRelationshipExists ? (
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <XCircle className="w-4 h-4 text-red-600" />
-                  )}
-                  <span>Tenant Access: {userStatus.tenantRelationshipExists ? 'Active' : 'Missing'}</span>
+                <div className="text-center p-3 border rounded-lg bg-background">
+                  <div className="flex items-center justify-center mb-2">
+                    <Database className="w-8 h-8 text-green-600" />
+                  </div>
+                  <div className="text-sm font-medium mb-1">Tenant Record</div>
+                  <div className="text-xs text-muted-foreground">
+                    System managed
+                  </div>
+                </div>
+
+                <div className="text-center p-3 border rounded-lg bg-background">
+                  <div className="flex items-center justify-center mb-2">
+                    {userStatus.tenantRelationshipExists ? (
+                      <UserCheck className="w-8 h-8 text-green-600" />
+                    ) : (
+                      <UserX className="w-8 h-8 text-red-600" />
+                    )}
+                  </div>
+                  <div className="text-sm font-medium mb-1">User-Tenant Link</div>
+                  <div className="text-xs text-muted-foreground">
+                    {userStatus.tenantRelationshipExists ? 'Connected' : 'Not linked'}
+                  </div>
                 </div>
               </div>
 
               {userStatus.currentRole && (
-                <div className="text-sm">
-                  <span className="font-medium">Current Role:</span> {userStatus.currentRole}
+                <div className="text-sm p-2 bg-blue-50 rounded border border-blue-200">
+                  <span className="font-medium text-blue-800">Current Role:</span> 
+                  <span className="text-blue-700 ml-1">{userStatus.currentRole}</span>
                 </div>
               )}
 
@@ -257,8 +318,9 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
                     <div className="space-y-1">
+                      <p className="font-medium">Issues found:</p>
                       {userStatus.issues.map((issue, index) => (
-                        <div key={index} className="text-sm">{issue}</div>
+                        <div key={index} className="text-sm">• {issue}</div>
                       ))}
                     </div>
                   </AlertDescription>
@@ -266,7 +328,7 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-2 border-t">
                 {userStatus.authExists && !userStatus.tenantRelationshipExists && userStatus.userId && (
                   <Button
                     size="sm"
@@ -276,12 +338,12 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
                     {isFixingRelationship ? (
                       <>
                         <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        Fixing...
+                        Connecting...
                       </>
                     ) : (
                       <>
                         <Settings className="w-3 h-3 mr-1" />
-                        Fix Relationship
+                        Connect to Tenant
                       </>
                     )}
                   </Button>
@@ -315,7 +377,18 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
         {/* Create New User Section */}
         {userStatus && !userStatus.authExists && (
           <div className="border-t pt-6 space-y-4">
-            <h3 className="text-lg font-medium">Create New User</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <UserPlus className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-medium">Create Complete User Setup</h3>
+            </div>
+            
+            <Alert className="border-green-200 bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                This will create a complete user setup including authentication account, 
+                tenant permissions, and all necessary connections automatically.
+              </AlertDescription>
+            </Alert>
             
             <div className="space-y-4">
               <div className="space-y-2">
@@ -336,12 +409,12 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
                 {isCreatingUser ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating User...
+                    Creating Complete Setup...
                   </>
                 ) : (
                   <>
                     <UserPlus className="w-4 h-4 mr-2" />
-                    Create Admin User
+                    Create Complete User Setup
                   </>
                 )}
               </Button>
