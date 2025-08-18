@@ -1,5 +1,5 @@
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
@@ -44,14 +44,49 @@ serve(async (req) => {
   }
 
   try {
-    const { tenant_id } = await req.json();
-
-    if (!tenant_id) {
-      return new Response(JSON.stringify({ error: 'Tenant ID is required' }), {
+    // Validate request body format
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error('Invalid JSON in request body:', parseError);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid JSON format in request body',
+        details: 'Request body must be valid JSON'
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
     }
+
+    const { tenant_id } = requestBody;
+
+    // Validate tenant_id parameter
+    if (!tenant_id) {
+      console.error('Missing tenant_id in request body:', requestBody);
+      return new Response(JSON.stringify({ 
+        error: 'tenant_id is required',
+        details: 'Request body must include tenant_id field'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
+
+    // Validate tenant_id format (should be UUID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(tenant_id)) {
+      console.error('Invalid tenant_id format:', tenant_id);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid tenant_id format',
+        details: 'tenant_id must be a valid UUID'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
+
+    console.log('Processing metrics request for tenant:', tenant_id);
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -60,14 +95,29 @@ serve(async (req) => {
     );
 
     // Get tenant limits
-    const { data: tenant } = await supabaseClient
+    const { data: tenant, error: tenantError } = await supabaseClient
       .from('tenants')
       .select('max_farmers, max_dealers, max_storage_gb, max_api_calls_per_day')
       .eq('id', tenant_id)
       .single();
 
+    if (tenantError) {
+      console.error('Database error fetching tenant:', tenantError);
+      return new Response(JSON.stringify({ 
+        error: 'Database error',
+        details: tenantError.message
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
+
     if (!tenant) {
-      return new Response(JSON.stringify({ error: 'Tenant not found' }), {
+      console.error('Tenant not found:', tenant_id);
+      return new Response(JSON.stringify({ 
+        error: 'Tenant not found',
+        details: `No tenant found with ID: ${tenant_id}`
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 404,
       });
@@ -171,15 +221,18 @@ serve(async (req) => {
       }
     };
 
+    console.log('Successfully generated metrics for tenant:', tenant_id);
+
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
   } catch (error) {
-    console.error('Error in tenant-real-time-metrics:', error);
+    console.error('Unexpected error in tenant-real-time-metrics:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error.message 
+      details: error.message,
+      stack: error.stack
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

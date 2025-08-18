@@ -16,6 +16,7 @@ interface TenantMetricsCardProps {
   hasError: boolean;
   retryCount: number;
   onRetry: () => void;
+  errorMessage?: string;
 }
 
 export const TenantMetricsCard: React.FC<TenantMetricsCardProps> = ({
@@ -24,7 +25,8 @@ export const TenantMetricsCard: React.FC<TenantMetricsCardProps> = ({
   isLoading,
   hasError,
   retryCount,
-  onRetry
+  onRetry,
+  errorMessage
 }) => {
   const renderMetricRow = (label: string, current: number, limit: number, percentage: number) => (
     <div className="space-y-2">
@@ -58,6 +60,22 @@ export const TenantMetricsCard: React.FC<TenantMetricsCardProps> = ({
       </div>
     </div>
   );
+
+  const getErrorMessage = () => {
+    if (errorMessage?.includes('tenant_id is required')) {
+      return 'Invalid request format. Please retry.';
+    }
+    if (errorMessage?.includes('Tenant not found')) {
+      return 'Tenant configuration error. Contact support.';
+    }
+    if (errorMessage?.includes('Invalid tenant_id format')) {
+      return 'Invalid tenant ID format. Contact support.';
+    }
+    if (errorMessage?.includes('Database error')) {
+      return 'Database connection issue. Please retry.';
+    }
+    return 'Metrics unavailable. Please retry.';
+  };
 
   if (isLoading) {
     return (
@@ -118,7 +136,7 @@ export const TenantMetricsCard: React.FC<TenantMetricsCardProps> = ({
           <Alert variant="destructive" className="mb-4">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Metrics unavailable. Please retry.
+              {getErrorMessage()}
               {retryCount > 0 && (
                 <span className="text-xs block mt-1">
                   Failed attempts: {retryCount}

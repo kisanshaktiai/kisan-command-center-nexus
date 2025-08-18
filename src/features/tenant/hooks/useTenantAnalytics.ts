@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { TenantMetrics } from '@/types/tenantView';
@@ -20,25 +19,50 @@ export const useTenantAnalytics = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState<Record<string, number>>({});
+  const [errorMessages, setErrorMessages] = useState<Record<string, string>>({});
   const { showError } = useNotifications();
 
   const fetchTenantMetrics = useCallback(async (tenantId: string): Promise<TenantMetrics | null> => {
     try {
       console.log(`Fetching metrics for tenant: ${tenantId}`);
       
+      // Send tenant_id directly in JSON body format
       const { data, error } = await supabase.functions.invoke('tenant-real-time-metrics', {
         body: { tenant_id: tenantId }
       });
 
       if (error) {
         console.error(`Error fetching metrics for tenant ${tenantId}:`, error);
+        
+        // Store specific error message for this tenant
+        setErrorMessages(prev => ({
+          ...prev,
+          [tenantId]: error.message || 'Failed to fetch metrics'
+        }));
+        
+        // Increment retry count for this tenant
+        setRetryCount(prev => ({
+          ...prev,
+          [tenantId]: (prev[tenantId] || 0) + 1
+        }));
+        
         return null;
       }
 
       if (!data) {
         console.warn(`No data received for tenant ${tenantId}`);
+        setErrorMessages(prev => ({
+          ...prev,
+          [tenantId]: 'No data received from server'
+        }));
         return null;
       }
+
+      // Clear error message for successful fetch
+      setErrorMessages(prev => {
+        const { [tenantId]: _, ...rest } = prev;
+        return rest;
+      });
 
       return {
         usageMetrics: {
@@ -78,6 +102,12 @@ export const useTenantAnalytics = ({
       };
     } catch (error) {
       console.error(`Error fetching metrics for tenant ${tenantId}:`, error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch metrics';
+      setErrorMessages(prev => ({
+        ...prev,
+        [tenantId]: errorMessage
+      }));
       
       // Increment retry count for this tenant
       setRetryCount(prev => ({
@@ -129,6 +159,7 @@ export const useTenantAnalytics = ({
 
   const refreshMetrics = useCallback(() => {
     setRetryCount({}); // Reset retry counts
+    setErrorMessages({}); // Reset error messages
     fetchAllMetrics();
   }, [fetchAllMetrics]);
 
@@ -165,6 +196,7 @@ export const useTenantAnalytics = ({
     isLoading,
     error,
     retryCount,
+    errorMessages,
     refreshMetrics,
     fetchTenantMetrics,
     retryTenantMetrics
