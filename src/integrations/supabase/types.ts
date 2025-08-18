@@ -6373,6 +6373,7 @@ export type Database = {
           is_active: boolean | null
           is_primary: boolean | null
           joined_at: string | null
+          metadata: Json | null
           permissions: Json | null
           role: Database["public"]["Enums"]["user_role"]
           tenant_id: string | null
@@ -6390,6 +6391,7 @@ export type Database = {
           is_active?: boolean | null
           is_primary?: boolean | null
           joined_at?: string | null
+          metadata?: Json | null
           permissions?: Json | null
           role: Database["public"]["Enums"]["user_role"]
           tenant_id?: string | null
@@ -6407,6 +6409,7 @@ export type Database = {
           is_active?: boolean | null
           is_primary?: boolean | null
           joined_at?: string | null
+          metadata?: Json | null
           permissions?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
           tenant_id?: string | null
