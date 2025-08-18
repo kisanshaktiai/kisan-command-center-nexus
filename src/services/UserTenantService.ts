@@ -11,6 +11,12 @@ export interface UserTenantStatus {
   issues: string[];
 }
 
+interface RPCResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+}
+
 export class UserTenantService {
   static async checkUserTenantStatus(email: string, tenantId: string): Promise<UserTenantStatus> {
     console.log('UserTenantService: Checking comprehensive status for:', { email, tenantId });
@@ -153,7 +159,8 @@ export class UserTenantService {
         return false;
       }
 
-      if (data?.success) {
+      const result = data as RPCResponse;
+      if (result?.success) {
         console.log('UserTenantService: Relationship created successfully:', data);
         return true;
       } else {

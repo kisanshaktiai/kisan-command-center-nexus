@@ -25,6 +25,12 @@ interface TenantUserCreatorProps {
   onUserCreated?: () => void;
 }
 
+interface RPCResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+}
+
 export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
   tenantId,
   onUserCreated
@@ -74,7 +80,8 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
         return false;
       }
 
-      return data?.success || false;
+      const result = data as RPCResponse;
+      return result?.success || false;
     } catch (error) {
       console.error('Unexpected error in createUserTenantRelationship:', error);
       return false;

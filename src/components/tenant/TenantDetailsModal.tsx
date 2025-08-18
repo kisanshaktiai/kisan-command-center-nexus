@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -260,8 +259,7 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
               </div>
               
               <TenantUserCreator 
-                tenantId={tenant.id} 
-                tenantName={tenant.name}
+                tenantId={tenant.id}
               />
             </div>
           )}
