@@ -134,8 +134,11 @@ export const useTenantUserManagement = () => {
         showSuccess('User-tenant relationship created successfully');
         return true;
       } else {
-        console.error('useTenantUserManagement: Failed to ensure user-tenant record:', result.error);
-        showError(result.error || 'Failed to create user-tenant relationship');
+        console.error('useTenantUserManagement: Failed to ensure user-tenant record:', result);
+        // Show more detailed error message from the enhanced error handling
+        const errorMessage = result.error || 'Failed to create user-tenant relationship';
+        const detailedMessage = result.code ? `${errorMessage} (${result.code})` : errorMessage;
+        showError(detailedMessage);
         return false;
       }
     } catch (error) {

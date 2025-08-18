@@ -1,7 +1,7 @@
-
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { tenantApiService } from '@/services/api/TenantApiService';
 import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant } from '@/types/tenant';
+import { UserTenantService } from '@/services/UserTenantService';
 import { supabase } from '@/integrations/supabase/client';
 
 // Type for RPC response
@@ -36,17 +36,74 @@ export class TenantManagementService extends BaseService {
   }
 
   async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
-    // Validate tenant data before creation
-    const validationResult = await this.validateTenantData(data);
-    if (!validationResult.success) {
-      return {
-        success: false,
-        error: validationResult.error,
-        data: null
-      } as ServiceResult<Tenant>;
-    }
+    return this.executeOperation(
+      async () => {
+        // Validate tenant data before creation
+        const validationResult = await this.validateTenantData(data);
+        if (!validationResult.success) {
+          throw new Error(validationResult.error || 'Validation failed');
+        }
 
-    return tenantApiService.createTenant(data);
+        // Create the tenant first
+        const tenantResult = await tenantApiService.createTenant(data);
+        if (!tenantResult.success) {
+          throw new Error(tenantResult.error || 'Failed to create tenant');
+        }
+
+        const tenant = tenantResult.data!;
+
+        // If owner_email is provided, create the user-tenant relationship
+        if (data.owner_email && data.owner_name) {
+          console.log('TenantManagementService: Creating tenant admin relationship for:', {
+            tenantId: tenant.id,
+            ownerEmail: data.owner_email,
+            ownerName: data.owner_name
+          });
+
+          try {
+            // First check if user exists in auth
+            const { data: authUsers, error: authError } = await supabase.functions.invoke('get-user-by-email', {
+              body: { user_email: data.owner_email }
+            });
+
+            if (authError) {
+              console.warn('TenantManagementService: Could not check user existence:', authError);
+            } else if (authUsers && Array.isArray(authUsers) && authUsers.length > 0) {
+              const authUser = authUsers[0];
+              console.log('TenantManagementService: Found existing user, creating tenant relationship');
+
+              // Create user-tenant relationship using the corrected service
+              const relationshipResult = await UserTenantService.createTenantAdminRelationship(
+                authUser.id,
+                tenant.id,
+                {
+                  created_via: 'tenant_creation',
+                  owner_email: data.owner_email,
+                  owner_name: data.owner_name
+                }
+              );
+
+              if (!relationshipResult.success) {
+                console.error('TenantManagementService: Failed to create tenant admin relationship:', relationshipResult.error);
+                // Don't fail tenant creation, just log the warning
+                console.warn('TenantManagementService: Tenant created but admin relationship failed. Manual setup may be required.');
+              } else {
+                console.log('TenantManagementService: Successfully created tenant admin relationship');
+              }
+            } else {
+              console.log('TenantManagementService: User does not exist in auth, tenant created without initial admin relationship');
+            }
+          } catch (relationshipError) {
+            console.error('TenantManagementService: Error creating tenant admin relationship:', relationshipError);
+            // Don't fail tenant creation, just log the warning
+            console.warn('TenantManagementService: Tenant created but admin relationship setup failed. Manual setup may be required.');
+          }
+        }
+
+        return tenant;
+      },
+      'createTenant'
+    );
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {

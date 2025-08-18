@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface ManageUserTenantRequest {
   user_id: string;
   tenant_id: string;
-  role: 'super_admin' | 'platform_admin' | 'tenant_admin' | 'tenant_user' | 'farmer' | 'dealer';
+  role: 'super_admin' | 'platform_admin' | 'tenant_admin' | 'tenant_owner' | 'tenant_user' | 'farmer' | 'dealer';
   is_active?: boolean;
   metadata?: Record<string, any>;
   operation?: 'insert' | 'update' | 'upsert';
@@ -44,6 +44,17 @@ export class UserTenantService {
   ): Promise<UserTenantResponse> {
     try {
       console.log('UserTenantService: Managing user-tenant relationship via global function:', request);
+
+      // Validate role is one of the allowed enum values
+      const validRoles = ['super_admin', 'platform_admin', 'tenant_admin', 'tenant_owner', 'tenant_user', 'farmer', 'dealer'];
+      if (!validRoles.includes(request.role)) {
+        console.error('UserTenantService: Invalid role provided:', request.role);
+        return {
+          success: false,
+          error: `Invalid role: ${request.role}. Must be one of: ${validRoles.join(', ')}`,
+          code: 'INVALID_ROLE'
+        };
+      }
 
       const { data, error } = await supabase.functions.invoke('manage-user-tenant', {
         body: request,
@@ -86,7 +97,7 @@ export class UserTenantService {
     return this.manageUserTenantRelationship({
       user_id: userId,
       tenant_id: tenantId,
-      role: 'tenant_admin',
+      role: 'tenant_admin', // Use valid enum value
       is_active: true,
       metadata: {
         ...metadata,
@@ -234,7 +245,7 @@ export class UserTenantService {
     return this.manageUserTenantRelationship({
       user_id: userId,
       tenant_id: tenantId,
-      role: 'tenant_admin',
+      role: 'tenant_admin', // Use valid enum value
       is_active: true,
       metadata: {
         created_via: 'manual_fix',
