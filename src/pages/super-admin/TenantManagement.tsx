@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,10 @@ const TenantManagement: React.FC = () => {
     // Analytics
     tenantMetrics,
     refreshMetrics,
+
+    // Auto-validation
+    isValidatingAccess,
+    validationResults,
 
     // Success state
     creationSuccess,
@@ -82,6 +87,9 @@ const TenantManagement: React.FC = () => {
       </div>
     );
   }
+
+  // Get validation result for the details tenant
+  const detailsTenantValidation = detailsTenant ? validationResults[detailsTenant.id] : undefined;
 
   return (
     <div className="space-y-6">
@@ -158,12 +166,14 @@ const TenantManagement: React.FC = () => {
         />
       )}
 
-      {/* Enhanced Details Modal with Admin User Management */}
+      {/* Enhanced Details Modal with Auto-Validation Results */}
       <TenantDetailsModal
         tenant={detailsTenant}
         isOpen={isDetailsModalOpen}
         onClose={closeDetailsModal}
         onEdit={handleDetailsEdit}
+        validationResult={detailsTenantValidation}
+        isValidatingAccess={isValidatingAccess}
       />
 
       <TenantEditModal

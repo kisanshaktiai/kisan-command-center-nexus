@@ -4,6 +4,7 @@ import { TenantViewPreferences } from '@/types/tenantView';
 import { useTenantData } from './useTenantData';
 import { useTenantManagement } from './useTenantManagement';
 import { useTenantAnalytics } from './useTenantAnalytics';
+import { useAutoTenantValidation } from '@/hooks/useAutoTenantValidation';
 import { TenantDisplayService, FormattedTenantData } from '@/services/TenantDisplayService';
 import { Tenant, UpdateTenantDTO } from '@/types/tenant';
 
@@ -36,6 +37,9 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
     autoRefresh: true,
     refreshInterval: 30000 
   });
+
+  // Auto-validation integration
+  const { validateTenantAccess, isValidating: isValidatingAccess, validationResults } = useAutoTenantValidation();
   
   const [viewPreferences, setViewPreferences] = useState<TenantViewPreferences>({
     mode: 'small-cards',
@@ -48,7 +52,7 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
   const [filterType, setFilterType] = useState(options.initialFilters?.type || '');
   const [filterStatus, setFilterStatus] = useState(options.initialFilters?.status || '');
 
-  // Modal states - fixed state management
+  // Modal states
   const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
@@ -60,12 +64,20 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
   // Format details tenant for display
   const detailsFormattedData = detailsTenant ? TenantDisplayService.formatTenantForDisplay(detailsTenant) : null;
 
-  // Enhanced action handlers
-  const handleViewDetails = (tenant: Tenant) => {
+  // Enhanced action handlers with auto-validation
+  const handleViewDetails = async (tenant: Tenant) => {
     console.log('useTenantPageState: Opening details for tenant:', tenant.id);
+    
+    // Start auto-validation in background
+    const validationPromise = validateTenantAccess(tenant.id);
+    
+    // Open modal immediately (don't wait for validation)
     setDetailsTenant(tenant);
     setIsDetailsModalOpen(true);
     refreshMetrics();
+
+    // Validation will complete in background and update the UI
+    await validationPromise;
   };
 
   const handleDetailsEdit = (tenant: Tenant) => {
@@ -117,6 +129,10 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
     tenantMetrics,
     refreshMetrics,
 
+    // Auto-validation
+    isValidatingAccess,
+    validationResults,
+
     // Success state
     creationSuccess,
     clearCreationSuccess,
@@ -126,7 +142,7 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
     isDetailsModalOpen,
     detailsFormattedData,
 
-    // Edit modal - ensure these are returned
+    // Edit modal
     editingTenant,
     isEditModalOpen,
 
