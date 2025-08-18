@@ -1,31 +1,39 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  UserCheck, 
+  UserX, 
+  CheckCircle, 
+  XCircle, 
+  AlertTriangle, 
+  Loader2,
+  Mail,
+  UserPlus,
+  Settings
+} from 'lucide-react';
 import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
-import { UserTenantService } from '@/services/UserTenantService';
-import { AlertTriangle, CheckCircle, XCircle, User, Mail, Shield, RefreshCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface TenantUserCreatorProps {
   tenantId: string;
-  tenantName: string;
+  onUserCreated?: () => void;
 }
 
-export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({ 
-  tenantId, 
-  tenantName 
+export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
+  tenantId,
+  onUserCreated
 }) => {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
-  const [statusCheckResult, setStatusCheckResult] = useState<any>(null);
+  const [userStatus, setUserStatus] = useState<any>(null);
   const [isFixingRelationship, setIsFixingRelationship] = useState(false);
-  
+
   const {
     checkUserExists,
     checkUserTenantStatus,
@@ -37,274 +45,256 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
     isCheckingStatus
   } = useTenantUserManagement();
 
-  const handleCheckStatus = async () => {
-    if (!email) return;
-    
+  const handleCheckUser = async () => {
+    if (!email.trim()) {
+      toast.error('Please enter an email address');
+      return;
+    }
+
     const status = await checkUserTenantStatus(email, tenantId);
-    setStatusCheckResult(status);
+    setUserStatus(status);
   };
 
-  const handleCreateUser = async () => {
-    if (!email || !fullName) return;
-    
-    const result = await createAdminUser(email, fullName, tenantId);
-    if (result?.success) {
-      // Refresh status after creation
-      await handleCheckStatus();
+  const createUserTenantRelationship = async (userId: string, tenantId: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.rpc('manage_user_tenant_relationship', {
+        p_user_id: userId,
+        p_tenant_id: tenantId,
+        p_role: 'tenant_admin',
+        p_is_active: true,
+        p_metadata: {
+          created_via: 'tenant_user_creator',
+          created_at: new Date().toISOString()
+        },
+        p_operation: 'upsert'
+      });
+
+      if (error) {
+        console.error('Error calling manage_user_tenant_relationship:', error);
+        return false;
+      }
+
+      return data?.success || false;
+    } catch (error) {
+      console.error('Unexpected error in createUserTenantRelationship:', error);
+      return false;
     }
   };
 
   const handleFixRelationship = async () => {
-    if (!statusCheckResult?.userId) {
+    if (!userStatus?.userId) {
       toast.error('No user ID available to fix relationship');
       return;
     }
-    
+
     setIsFixingRelationship(true);
     try {
-      console.log('TenantUserCreator: Fixing relationship using global manage-user-tenant function');
       toast.info('Creating user-tenant relationship...');
       
-      const result = await UserTenantService.createUserTenantRelationship(
-        statusCheckResult.userId,
-        tenantId
-      );
+      const success = await createUserTenantRelationship(userStatus.userId, tenantId);
       
-      if (result) {
+      if (success) {
         toast.success('User-tenant relationship created successfully');
-        // Refresh status after fixing
-        await handleCheckStatus();
+        // Refresh the status
+        await handleCheckUser();
+        onUserCreated?.();
       } else {
         toast.error('Failed to create user-tenant relationship');
       }
     } catch (error) {
-      console.error('TenantUserCreator: Error fixing relationship:', error);
-      toast.error('Error occurred while fixing relationship');
+      console.error('Error fixing relationship:', error);
+      toast.error('An error occurred while fixing the relationship');
     } finally {
       setIsFixingRelationship(false);
     }
   };
 
-  const handleSendPasswordReset = async () => {
-    if (!email) return;
+  const handleCreateUser = async () => {
+    if (!email.trim() || !fullName.trim()) {
+      toast.error('Please fill in both email and full name');
+      return;
+    }
+
+    const result = await createAdminUser(email, fullName, tenantId);
+    if (result?.success) {
+      setEmail('');
+      setFullName('');
+      setUserStatus(null);
+      onUserCreated?.();
+    }
+  };
+
+  const handleSendReset = async () => {
+    if (!email.trim()) {
+      toast.error('Please enter an email address');
+      return;
+    }
+
     await sendPasswordReset(email);
   };
 
-  const getStatusColor = (status: any) => {
-    if (!status) return 'gray';
-    
-    const allGood = status.authExists && status.tenantRelationshipExists && status.roleMatches;
-    if (allGood) return 'green';
-    
-    if (status.authExists && !status.tenantRelationshipExists) return 'yellow';
-    if (!status.authExists) return 'red';
-    
-    return 'gray';
-  };
+  const getStatusBadge = () => {
+    if (!userStatus) return null;
 
-  const getStatusIcon = (status: any) => {
-    if (!status) return <User className="h-4 w-4" />;
-    
-    const allGood = status.authExists && status.tenantRelationshipExists && status.roleMatches;
-    if (allGood) return <CheckCircle className="h-4 w-4 text-green-600" />;
-    
-    if (status.authExists && !status.tenantRelationshipExists) return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
-    if (!status.authExists) return <XCircle className="h-4 w-4 text-red-600" />;
-    
-    return <User className="h-4 w-4" />;
+    if (userStatus.authExists && userStatus.tenantRelationshipExists && userStatus.roleMatches) {
+      return (
+        <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+          <CheckCircle className="w-3 h-3 mr-1" />
+          Ready
+        </Badge>
+      );
+    }
+
+    if (userStatus.authExists && !userStatus.tenantRelationshipExists) {
+      return (
+        <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
+          <AlertTriangle className="w-3 h-3 mr-1" />
+          Needs Relationship
+        </Badge>
+      );
+    }
+
+    if (!userStatus.authExists) {
+      return (
+        <Badge variant="destructive">
+          <XCircle className="w-3 h-3 mr-1" />
+          Not Found
+        </Badge>
+      );
+    }
+
+    return (
+      <Badge variant="secondary">
+        <AlertTriangle className="w-3 h-3 mr-1" />
+        Issues Found
+      </Badge>
+    );
   };
 
   return (
     <Card className="w-full max-w-2xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
-          Tenant Admin User Management
+          <UserPlus className="w-5 h-5" />
+          Tenant User Management
         </CardTitle>
         <CardDescription>
-          Create or manage admin users for <strong>{tenantName}</strong>
+          Create and manage users for this tenant organization
         </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-6">
-        {/* Input Section */}
+        {/* User Check Section */}
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email Address</Label>
+            <div className="flex gap-2">
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@example.com"
+                placeholder="user@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="flex-1"
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="John Doe"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-              />
+              <Button
+                onClick={handleCheckUser}
+                disabled={isCheckingStatus || !email.trim()}
+                variant="outline"
+              >
+                {isCheckingStatus ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  'Check User'
+                )}
+              </Button>
             </div>
           </div>
-          
-          <Button 
-            onClick={handleCheckStatus}
-            disabled={!email || isCheckingStatus}
-            variant="outline"
-            className="w-full"
-          >
-            {isCheckingStatus ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Checking Status...
-              </>
-            ) : (
-              <>
-                <User className="h-4 w-4 mr-2" />
-                Check User Status
-              </>
-            )}
-          </Button>
-        </div>
 
-        {/* Status Display */}
-        {statusCheckResult && (
-          <>
-            <Separator />
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                {getStatusIcon(statusCheckResult)}
-                <h4 className="font-medium">User Status Check Results</h4>
-                <Badge variant={getStatusColor(statusCheckResult) === 'green' ? 'default' : 
-                              getStatusColor(statusCheckResult) === 'yellow' ? 'secondary' : 'destructive'}>
-                  {getStatusColor(statusCheckResult) === 'green' ? 'All Good' :
-                   getStatusColor(statusCheckResult) === 'yellow' ? 'Needs Fix' : 'Missing'}
-                </Badge>
+          {/* Status Display */}
+          {userStatus && (
+            <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">User Status</span>
+                {getStatusBadge()}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-3 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Mail className="h-4 w-4" />
-                    <span className="text-sm font-medium">Auth Account</span>
-                  </div>
-                  <Badge variant={statusCheckResult.authExists ? 'default' : 'destructive'}>
-                    {statusCheckResult.authExists ? 'Exists' : 'Missing'}
-                  </Badge>
-                  {statusCheckResult.userId && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      ID: {statusCheckResult.userId.slice(0, 8)}...
-                    </p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  {userStatus.authExists ? (
+                    <UserCheck className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <UserX className="w-4 h-4 text-red-600" />
                   )}
+                  <span>Auth Account: {userStatus.authExists ? 'Found' : 'Not Found'}</span>
                 </div>
 
-                <div className="p-3 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Shield className="h-4 w-4" />
-                    <span className="text-sm font-medium">Tenant Relationship</span>
-                  </div>
-                  <Badge variant={statusCheckResult.tenantRelationshipExists ? 'default' : 'destructive'}>
-                    {statusCheckResult.tenantRelationshipExists ? 'Exists' : 'Missing'}
-                  </Badge>
-                </div>
-
-                <div className="p-3 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    <User className="h-4 w-4" />
-                    <span className="text-sm font-medium">Role</span>
-                  </div>
-                  <Badge variant={statusCheckResult.roleMatches ? 'default' : 'secondary'}>
-                    {statusCheckResult.currentRole || statusCheckResult.expectedRole}
-                  </Badge>
+                <div className="flex items-center gap-2">
+                  {userStatus.tenantRelationshipExists ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-red-600" />
+                  )}
+                  <span>Tenant Access: {userStatus.tenantRelationshipExists ? 'Active' : 'Missing'}</span>
                 </div>
               </div>
 
-              {statusCheckResult.issues.length > 0 && (
+              {userStatus.currentRole && (
+                <div className="text-sm">
+                  <span className="font-medium">Current Role:</span> {userStatus.currentRole}
+                </div>
+              )}
+
+              {userStatus.issues.length > 0 && (
                 <Alert>
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>Issues found:</strong>
-                    <ul className="list-disc list-inside mt-1">
-                      {statusCheckResult.issues.map((issue: string, index: number) => (
-                        <li key={index} className="text-sm">{issue}</li>
+                    <div className="space-y-1">
+                      {userStatus.issues.map((issue, index) => (
+                        <div key={index} className="text-sm">{issue}</div>
                       ))}
-                    </ul>
+                    </div>
                   </AlertDescription>
                 </Alert>
               )}
-            </div>
-          </>
-        )}
 
-        {/* Action Buttons */}
-        {statusCheckResult && (
-          <>
-            <Separator />
-            <div className="space-y-3">
-              <h4 className="font-medium">Available Actions</h4>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {!statusCheckResult.authExists && (
-                  <Button 
-                    onClick={handleCreateUser}
-                    disabled={!email || !fullName || isCreatingUser}
-                    className="w-full"
-                  >
-                    {isCreatingUser ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <User className="h-4 w-4 mr-2" />
-                        Create Admin User
-                      </>
-                    )}
-                  </Button>
-                )}
-
-                {statusCheckResult.authExists && !statusCheckResult.tenantRelationshipExists && (
-                  <Button 
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                {userStatus.authExists && !userStatus.tenantRelationshipExists && userStatus.userId && (
+                  <Button
+                    size="sm"
                     onClick={handleFixRelationship}
                     disabled={isFixingRelationship}
-                    variant="outline"
-                    className="w-full"
                   >
                     {isFixingRelationship ? (
                       <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                         Fixing...
                       </>
                     ) : (
                       <>
-                        <Shield className="h-4 w-4 mr-2" />
+                        <Settings className="w-3 h-3 mr-1" />
                         Fix Relationship
                       </>
                     )}
                   </Button>
                 )}
 
-                {statusCheckResult.authExists && (
-                  <Button 
-                    onClick={handleSendPasswordReset}
-                    disabled={isSendingReset}
+                {userStatus.authExists && (
+                  <Button
+                    size="sm"
                     variant="outline"
-                    className="w-full"
+                    onClick={handleSendReset}
+                    disabled={isSendingReset}
                   >
                     {isSendingReset ? (
                       <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                         Sending...
                       </>
                     ) : (
                       <>
-                        <Mail className="h-4 w-4 mr-2" />
+                        <Mail className="w-3 h-3 mr-1" />
                         Send Password Reset
                       </>
                     )}
@@ -312,7 +302,44 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
                 )}
               </div>
             </div>
-          </>
+          )}
+        </div>
+
+        {/* Create New User Section */}
+        {userStatus && !userStatus.authExists && (
+          <div className="border-t pt-6 space-y-4">
+            <h3 className="text-lg font-medium">Create New User</h3>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  placeholder="John Doe"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+
+              <Button
+                onClick={handleCreateUser}
+                disabled={isCreatingUser || !email.trim() || !fullName.trim()}
+                className="w-full"
+              >
+                {isCreatingUser ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating User...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Create Admin User
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>

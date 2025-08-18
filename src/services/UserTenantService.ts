@@ -34,7 +34,8 @@ export class UserTenantService {
           tenantRelationshipExists: false,
           roleMatches: false,
           expectedRole,
-          issues
+          issues,
+          userId
         };
       }
 
@@ -134,18 +135,17 @@ export class UserTenantService {
     try {
       console.log('UserTenantService: Creating user-tenant relationship:', { userId, tenantId, role });
 
-      const { data, error } = await supabase.functions.invoke('manage-user-tenant', {
-        body: {
-          user_id: userId,
-          tenant_id: tenantId,
-          role,
-          is_active: true,
-          metadata: {
-            created_via: 'user_tenant_service',
-            created_at: new Date().toISOString()
-          },
-          operation: 'upsert'
-        }
+      // Use the manage_user_tenant_relationship function which handles the logic properly
+      const { data, error } = await supabase.rpc('manage_user_tenant_relationship', {
+        p_user_id: userId,
+        p_tenant_id: tenantId,
+        p_role: role,
+        p_is_active: true,
+        p_metadata: {
+          created_via: 'user_tenant_service',
+          created_at: new Date().toISOString()
+        },
+        p_operation: 'upsert'
       });
 
       if (error) {
@@ -153,7 +153,13 @@ export class UserTenantService {
         return false;
       }
 
-      return data?.success || false;
+      if (data?.success) {
+        console.log('UserTenantService: Relationship created successfully:', data);
+        return true;
+      } else {
+        console.error('UserTenantService: Function returned failure:', data);
+        return false;
+      }
     } catch (error) {
       console.error('UserTenantService: Unexpected error creating relationship:', error);
       return false;
