@@ -8240,6 +8240,10 @@ export type Database = {
         Args: { _tenant_id: string }
         Returns: boolean
       }
+      is_user_tenant_admin: {
+        Args: { target_tenant_id: string }
+        Returns: boolean
+      }
       json: {
         Args: { "": unknown }
         Returns: Json
