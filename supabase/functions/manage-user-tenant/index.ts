@@ -24,6 +24,7 @@ serve(async (req) => {
   }
 
   try {
+    // Initialize Supabase client with service role key for admin operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -39,9 +40,79 @@ serve(async (req) => {
     const requestId = req.headers.get('x-request-id') || `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const correlationId = req.headers.get('x-correlation-id') || `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    console.log(`[${requestId}] manage-user-tenant: Processing request`);
+    console.log(`[${requestId}] manage-user-tenant: Processing ${req.method} request`);
 
-    // Parse request body
+    if (req.method === 'GET') {
+      // Handle GET requests for fetching relationships
+      const url = new URL(req.url);
+      const userId = url.searchParams.get('user_id');
+      const tenantId = url.searchParams.get('tenant_id');
+      const includeInactive = url.searchParams.get('include_inactive') === 'true';
+
+      let query = supabaseClient
+        .from('user_tenants')
+        .select('*');
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error(`[${requestId}] manage-user-tenant: Database query error:`, error);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Database query error: ${error.message}`,
+            code: 'DATABASE_ERROR',
+            request_id: requestId
+          }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: data,
+          request_id: requestId,
+          correlation_id: correlationId
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (req.method !== 'POST') {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Method not allowed',
+          code: 'METHOD_NOT_ALLOWED',
+          request_id: requestId
+        }),
+        { 
+          status: 405, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Parse request body for POST requests
     let requestBody: ManageUserTenantRequest;
     try {
       requestBody = await req.json();
