@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
 interface RealTimeMetricsResponse {
@@ -43,10 +44,9 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const tenantId = url.searchParams.get('tenant_id');
+    const { tenant_id } = await req.json();
 
-    if (!tenantId) {
+    if (!tenant_id) {
       return new Response(JSON.stringify({ error: 'Tenant ID is required' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
@@ -63,7 +63,7 @@ serve(async (req) => {
     const { data: tenant } = await supabaseClient
       .from('tenants')
       .select('max_farmers, max_dealers, max_storage_gb, max_api_calls_per_day')
-      .eq('id', tenantId)
+      .eq('id', tenant_id)
       .single();
 
     if (!tenant) {
@@ -78,12 +78,12 @@ serve(async (req) => {
     const { data: recentApiLogs } = await supabaseClient
       .from('api_logs')
       .select('status_code, response_time_ms')
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', tenant_id)
       .gte('created_at', oneHourAgo.toISOString());
 
     // Get current usage from limits-quotas function
     const limitsResponse = await supabaseClient.functions.invoke('tenant-limits-quotas', {
-      body: { tenantId }
+      body: { tenantId: tenant_id }
     });
 
     const currentUsage = limitsResponse.data || {

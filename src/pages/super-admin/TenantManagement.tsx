@@ -10,7 +10,10 @@ import { TenantEditModal } from '@/components/tenant/TenantEditModal';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
 import { TenantOverviewMetrics } from '@/components/tenant/TenantOverviewMetrics';
 import { EnhancedTenantManagementHeader } from '@/components/tenant/EnhancedTenantManagementHeader';
+import { TenantMetricsCard } from '@/features/tenant/components/TenantMetricsCard';
 import { useTenantPageState } from '@/features/tenant/hooks/useTenantPageState';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 const TenantManagement: React.FC = () => {
   const {
@@ -73,7 +76,12 @@ const TenantManagement: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <p className="text-red-600 mb-4">Error loading tenants: {error.message}</p>
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Error loading tenants: {error.message}
+            </AlertDescription>
+          </Alert>
           <Button onClick={() => window.location.reload()}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Retry
