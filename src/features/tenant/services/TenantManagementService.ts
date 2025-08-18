@@ -1,3 +1,4 @@
+
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { tenantApiService } from '@/services/api/TenantApiService';
 import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant } from '@/types/tenant';
@@ -44,63 +45,65 @@ export class TenantManagementService extends BaseService {
           throw new Error(validationResult.error || 'Validation failed');
         }
 
-        // Create the tenant first
-        const tenantResult = await tenantApiService.createTenant(data);
-        if (!tenantResult.success) {
-          throw new Error(tenantResult.error || 'Failed to create tenant');
-        }
+        console.log('TenantManagementService: Creating tenant via edge function with data:', {
+          name: data.name,
+          slug: data.slug,
+          owner_email: data.owner_email,
+          owner_name: data.owner_name
+        });
 
-        const tenant = tenantResult.data!;
-
-        // If owner_email is provided, create the user-tenant relationship
-        if (data.owner_email && data.owner_name) {
-          console.log('TenantManagementService: Creating tenant admin relationship for:', {
-            tenantId: tenant.id,
-            ownerEmail: data.owner_email,
-            ownerName: data.owner_name
-          });
-
-          try {
-            // First check if user exists in auth
-            const { data: authUsers, error: authError } = await supabase.functions.invoke('get-user-by-email', {
-              body: { user_email: data.owner_email }
-            });
-
-            if (authError) {
-              console.warn('TenantManagementService: Could not check user existence:', authError);
-            } else if (authUsers && Array.isArray(authUsers) && authUsers.length > 0) {
-              const authUser = authUsers[0];
-              console.log('TenantManagementService: Found existing user, creating tenant relationship');
-
-              // Create user-tenant relationship using the corrected service
-              const relationshipResult = await UserTenantService.createTenantAdminRelationship(
-                authUser.id,
-                tenant.id,
-                {
-                  created_via: 'tenant_creation',
-                  owner_email: data.owner_email,
-                  owner_name: data.owner_name
-                }
-              );
-
-              if (!relationshipResult.success) {
-                console.error('TenantManagementService: Failed to create tenant admin relationship:', relationshipResult.error);
-                // Don't fail tenant creation, just log the warning
-                console.warn('TenantManagementService: Tenant created but admin relationship failed. Manual setup may be required.');
-              } else {
-                console.log('TenantManagementService: Successfully created tenant admin relationship');
-              }
-            } else {
-              console.log('TenantManagementService: User does not exist in auth, tenant created without initial admin relationship');
-            }
-          } catch (relationshipError) {
-            console.error('TenantManagementService: Error creating tenant admin relationship:', relationshipError);
-            // Don't fail tenant creation, just log the warning
-            console.warn('TenantManagementService: Tenant created but admin relationship setup failed. Manual setup may be required.');
+        // Use the create-tenant-with-admin edge function for complete tenant setup
+        const { data: response, error } = await supabase.functions.invoke('create-tenant-with-admin', {
+          body: {
+            name: data.name,
+            slug: data.slug,
+            type: data.type || 'agri_company',
+            status: data.status || 'trial',
+            subscription_plan: data.subscription_plan || 'Kisan_Basic',
+            owner_email: data.owner_email,
+            owner_name: data.owner_name,
+            owner_phone: data.owner_phone,
+            business_registration: data.business_registration,
+            business_address: data.business_address,
+            established_date: data.established_date,
+            subscription_start_date: data.subscription_start_date,
+            subscription_end_date: data.subscription_end_date,
+            trial_ends_at: data.trial_ends_at,
+            max_farmers: data.max_farmers || 1000,
+            max_dealers: data.max_dealers || 50,
+            max_products: data.max_products || 100,
+            max_storage_gb: data.max_storage_gb || 10,
+            max_api_calls_per_day: data.max_api_calls_per_day || 10000,
+            subdomain: data.subdomain,
+            custom_domain: data.custom_domain,
+            metadata: data.metadata || {}
+          },
+          headers: {
+            'x-request-id': `tenant-create-${Date.now()}`,
+            'x-correlation-id': `tenant-create-corr-${Date.now()}`,
+            'idempotency-key': `tenant-create-${data.slug}-${Date.now()}`
           }
+        });
+
+        if (error) {
+          console.error('TenantManagementService: Edge function error:', error);
+          throw new Error(error.message || 'Failed to create tenant');
         }
 
-        return tenant;
+        if (!response?.success) {
+          console.error('TenantManagementService: Edge function returned error:', response);
+          throw new Error(response?.error || 'Failed to create tenant');
+        }
+
+        console.log('TenantManagementService: Tenant created successfully via edge function:', response);
+
+        // Fetch the created tenant to return proper Tenant object
+        const tenantResult = await this.getTenantById(response.tenant_id);
+        if (!tenantResult.success) {
+          throw new Error('Failed to fetch created tenant details');
+        }
+
+        return tenantResult.data!;
       },
       'createTenant'
     );

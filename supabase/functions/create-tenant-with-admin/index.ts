@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -130,7 +129,7 @@ serve(async (req) => {
       .insert({
         name: requestBody.name,
         slug: requestBody.slug,
-        type: requestBody.type || 'startup',
+        type: requestBody.type || 'agri_company',
         status: requestBody.status || 'trial',
         subscription_plan: requestBody.subscription_plan || 'Kisan_Basic',
         owner_email: requestBody.owner_email,
@@ -214,31 +213,29 @@ serve(async (req) => {
 
     console.log(`[${requestId}] Admin user created:`, adminUserData.user.id);
 
-    // Step 3: Call manage-user-tenant function to create the relationship
-    const { data: relationshipData, error: relationshipError } = await supabase.functions.invoke('manage-user-tenant', {
-      body: {
-        user_id: adminUserData.user.id,
-        tenant_id: tenant.id,
-        role: 'tenant_admin',
-        is_active: true,
-        metadata: {
+    // Step 3: Create user-tenant relationship using the database function directly
+    console.log(`[${requestId}] Creating user-tenant relationship for tenant admin`);
+    
+    const { data: relationshipData, error: relationshipError } = await supabase.rpc(
+      'manage_user_tenant_relationship',
+      {
+        p_user_id: adminUserData.user.id,
+        p_tenant_id: tenant.id,
+        p_role: 'tenant_admin', // Use the correct enum value
+        p_is_active: true,
+        p_metadata: {
           created_via: 'tenant_creation',
           auto_assigned: true,
           created_by: user.id,
           correlation_id: correlationId,
           created_at: new Date().toISOString()
         },
-        operation: 'insert'
-      },
-      headers: {
-        'x-request-id': requestId,
-        'x-correlation-id': correlationId,
-        'authorization': req.headers.get('authorization') || ''
+        p_operation: 'insert'
       }
-    });
+    );
 
     if (relationshipError || !relationshipData?.success) {
-      console.error(`[${requestId}] Error creating user-tenant relationship:`, relationshipError);
+      console.error(`[${requestId}] Error creating user-tenant relationship:`, relationshipError || relationshipData);
       
       // Rollback - delete tenant and user
       await supabase.from('tenants').delete().eq('id', tenant.id);
@@ -258,7 +255,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] User-tenant relationship created:`, relationshipData);
+    console.log(`[${requestId}] User-tenant relationship created successfully:`, relationshipData);
 
     // Step 4: Send welcome email (optional - you can implement this later)
     let emailSent = false;

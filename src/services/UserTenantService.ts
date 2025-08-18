@@ -37,13 +37,13 @@ export interface UserTenantStatus {
 
 export class UserTenantService {
   /**
-   * Create or update a user-tenant relationship using the global manage-user-tenant function
+   * Create or update a user-tenant relationship using the database function directly
    */
   static async manageUserTenantRelationship(
     request: ManageUserTenantRequest
   ): Promise<UserTenantResponse> {
     try {
-      console.log('UserTenantService: Managing user-tenant relationship via global function:', request);
+      console.log('UserTenantService: Managing user-tenant relationship via database function:', request);
 
       // Validate role is one of the allowed enum values
       const validRoles = ['super_admin', 'platform_admin', 'tenant_admin', 'tenant_owner', 'tenant_user', 'farmer', 'dealer'];
@@ -56,24 +56,35 @@ export class UserTenantService {
         };
       }
 
-      const { data, error } = await supabase.functions.invoke('manage-user-tenant', {
-        body: request,
-        headers: {
-          'x-request-id': `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          'x-correlation-id': `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        }
+      // Call the database function directly instead of the edge function
+      const { data, error } = await supabase.rpc('manage_user_tenant_relationship', {
+        p_user_id: request.user_id,
+        p_tenant_id: request.tenant_id,
+        p_role: request.role,
+        p_is_active: request.is_active ?? true,
+        p_metadata: request.metadata || {},
+        p_operation: request.operation || 'upsert'
       });
 
       if (error) {
-        console.error('UserTenantService: Edge function error:', error);
+        console.error('UserTenantService: Database function error:', error);
         return {
           success: false,
           error: error.message || 'Failed to manage user-tenant relationship',
-          code: 'EDGE_FUNCTION_ERROR'
+          code: 'DATABASE_FUNCTION_ERROR'
         };
       }
 
-      console.log('UserTenantService: Successfully managed relationship via global function:', data);
+      if (!data?.success) {
+        console.error('UserTenantService: Database function returned error:', data);
+        return {
+          success: false,
+          error: data?.error || 'Failed to manage user-tenant relationship',
+          code: data?.code || 'OPERATION_FAILED'
+        };
+      }
+
+      console.log('UserTenantService: Successfully managed relationship via database function:', data);
       return data as UserTenantResponse;
 
     } catch (error: any) {
@@ -97,7 +108,7 @@ export class UserTenantService {
     return this.manageUserTenantRelationship({
       user_id: userId,
       tenant_id: tenantId,
-      role: 'tenant_admin', // Use valid enum value
+      role: 'tenant_admin', // Use the correct enum value
       is_active: true,
       metadata: {
         ...metadata,
