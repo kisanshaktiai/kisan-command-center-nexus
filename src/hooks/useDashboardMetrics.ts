@@ -1,6 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAdminRegistrations } from './useAdminRegistrations';
 
 interface DashboardMetrics {
   totalTenants: number;
@@ -14,6 +15,8 @@ interface DashboardMetrics {
 }
 
 export const useDashboardMetrics = () => {
+  const { data: registrations, error: registrationsError } = useAdminRegistrations();
+  
   return useQuery({
     queryKey: ['dashboard-metrics'],
     queryFn: async (): Promise<DashboardMetrics> => {
@@ -48,7 +51,6 @@ export const useDashboardMetrics = () => {
             .select('id, status')
             .eq('status', 'active'),
           
-          // Use correct column names for financial_analytics table
           supabase
             .from('financial_analytics')
             .select('amount, metric_type, period_start, period_end, created_at')
@@ -92,7 +94,9 @@ export const useDashboardMetrics = () => {
         const totalApiCalls = apiLogs.length;
         const monthlyRevenue = financial.reduce((sum, f) => sum + (f.amount || 0), 0);
         const activeSubscriptions = subscriptions.length;
-        const pendingApprovals = Math.floor(Math.random() * 5);
+        
+        // Use registrations count for pending approvals, with fallback
+        const pendingApprovals = registrations?.filter(r => r.status === 'pending').length || 0;
 
         return {
           totalTenants,
