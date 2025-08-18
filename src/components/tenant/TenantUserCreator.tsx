@@ -80,7 +80,7 @@ export const TenantUserCreator: React.FC<TenantUserCreatorProps> = ({
         return false;
       }
 
-      const result = data as RPCResponse;
+      const result = data as unknown as RPCResponse;
       return result?.success || false;
     } catch (error) {
       console.error('Unexpected error in createUserTenantRelationship:', error);

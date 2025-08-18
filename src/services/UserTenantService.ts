@@ -159,7 +159,7 @@ export class UserTenantService {
         return false;
       }
 
-      const result = data as RPCResponse;
+      const result = data as unknown as RPCResponse;
       if (result?.success) {
         console.log('UserTenantService: Relationship created successfully:', data);
         return true;
