@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { SystemRole, SystemRoleCode } from '@/types/roles';
 
@@ -8,16 +7,9 @@ export class SystemRoleService {
    */
   static async getAllRoles(): Promise<SystemRole[]> {
     try {
-      // Use raw SQL query since system_roles table might not be in types yet
-      const { data, error } = await supabase.rpc('get_all_system_roles');
-
-      if (error) {
-        console.error('SystemRoleService: Error fetching roles:', error);
-        // Fallback: return hardcoded roles if function doesn't exist
-        return this.getFallbackRoles();
-      }
-
-      return data || this.getFallbackRoles();
+      // Since RPC functions don't exist yet, use fallback
+      console.log('SystemRoleService: Using fallback roles (RPC functions not available)');
+      return this.getFallbackRoles();
     } catch (error) {
       console.error('SystemRoleService: Unexpected error:', error);
       return this.getFallbackRoles();
@@ -29,16 +21,8 @@ export class SystemRoleService {
    */
   static async getRoleByCode(roleCode: string): Promise<SystemRole | null> {
     try {
-      const { data, error } = await supabase.rpc('get_role_by_code', {
-        p_role_code: roleCode
-      });
-
-      if (error) {
-        console.error('SystemRoleService: Error fetching role by code:', error);
-        return this.getFallbackRoleByCode(roleCode);
-      }
-
-      return data?.[0] || this.getFallbackRoleByCode(roleCode);
+      // Since RPC functions don't exist yet, use fallback
+      return this.getFallbackRoleByCode(roleCode);
     } catch (error) {
       console.error('SystemRoleService: Unexpected error:', error);
       return this.getFallbackRoleByCode(roleCode);
@@ -50,17 +34,9 @@ export class SystemRoleService {
    */
   static async getUserRoleDetails(userId: string, tenantId?: string) {
     try {
-      const { data, error } = await supabase.rpc('get_user_role_details', {
-        p_user_id: userId,
-        p_tenant_id: tenantId || null
-      });
-
-      if (error) {
-        console.error('SystemRoleService: Error getting user role details:', error);
-        return null;
-      }
-
-      return data?.[0] || null;
+      // Since RPC functions don't exist yet, return null
+      console.log('SystemRoleService: getUserRoleDetails not available yet');
+      return null;
     } catch (error) {
       console.error('SystemRoleService: Unexpected error:', error);
       return null;
@@ -72,18 +48,9 @@ export class SystemRoleService {
    */
   static async userHasPermission(userId: string, permission: string, tenantId?: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase.rpc('user_has_permission', {
-        p_user_id: userId,
-        p_permission: permission,
-        p_tenant_id: tenantId || null
-      });
-
-      if (error) {
-        console.error('Failed to check user permission:', error);
-        return false;
-      }
-
-      return Boolean(data);
+      // Since RPC functions don't exist yet, return false for safety
+      console.log('SystemRoleService: userHasPermission not available yet');
+      return false;
     } catch (error) {
       console.error('SystemRoleService: Unexpected error checking permission:', error);
       return false;

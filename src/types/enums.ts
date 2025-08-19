@@ -40,3 +40,27 @@ export enum Permission {
   API_WRITE = 'api:write',
   API_ADMIN = 'api:admin'
 }
+
+// Tenant-related enums
+export enum TenantType {
+  AGRI_COMPANY = 'agri_company',
+  COOPERATIVE = 'cooperative',
+  GOVERNMENT = 'government',
+  NGO = 'ngo',
+  RESEARCH = 'research',
+  INDIVIDUAL = 'individual'
+}
+
+export enum TenantStatus {
+  ACTIVE = 'active',
+  TRIAL = 'trial',
+  SUSPENDED = 'suspended',
+  CANCELLED = 'cancelled',
+  ARCHIVED = 'archived'
+}
+
+export enum SubscriptionPlan {
+  KISAN_BASIC = 'Kisan_Basic',
+  SHAKTI_GROWTH = 'Shakti_Growth',
+  AI_ENTERPRISE = 'AI_Enterprise'
+}

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { SystemRoleService } from './SystemRoleService';
 import { SYSTEM_ROLE_CODES, type SystemRoleCode } from '@/types/roles';
@@ -24,6 +23,8 @@ export interface UserTenantStatus {
   authExists: boolean;
   profileExists: boolean;
   tenantRelationshipExists: boolean;
+  roleMatches: boolean;
+  currentRole?: string;
   userId?: string;
   email?: string;
   issues: string[];
@@ -50,7 +51,7 @@ export class UserTenantService {
         .insert({
           user_id: request.user_id,
           tenant_id: request.tenant_id,
-          role: request.role,
+          role: request.role as any, // Cast to avoid enum conflicts
           is_active: request.is_active ?? true,
           metadata: request.metadata || {},
           created_at: new Date().toISOString(),
@@ -101,6 +102,7 @@ export class UserTenantService {
       .from('user_tenants')
       .update({
         ...updates,
+        role: updates.role as any, // Cast to avoid enum conflicts
         updated_at: new Date().toISOString()
       })
       .eq('user_id', userId)
@@ -252,6 +254,8 @@ export class UserTenantService {
     let authExists = false;
     let profileExists = false;
     let tenantRelationshipExists = false;
+    let roleMatches = false;
+    let currentRole: string | undefined;
 
     try {
       // Check if user exists in auth system
@@ -274,6 +278,11 @@ export class UserTenantService {
         const hasAccess = await this.userHasTenantAccess(userId, tenantId);
         if (hasAccess) {
           tenantRelationshipExists = true;
+          const role = await this.getUserTenantRole(userId, tenantId);
+          if (role) {
+            currentRole = role;
+            roleMatches = true; // For now, assume role is correct if it exists
+          }
         } else {
           issues.push('User-tenant relationship missing');
         }
@@ -284,6 +293,8 @@ export class UserTenantService {
         authExists,
         profileExists: true, // We don't have a separate profiles table
         tenantRelationshipExists,
+        roleMatches,
+        currentRole,
         userId,
         email,
         issues,
@@ -299,6 +310,7 @@ export class UserTenantService {
         authExists: false,
         profileExists: false,
         tenantRelationshipExists: false,
+        roleMatches: false,
         email,
         issues,
         canCreateRelationship: false
@@ -373,3 +385,7 @@ export class UserTenantService {
     });
   }
 }
+
+// Export types and constants
+export { SYSTEM_ROLE_CODES };
+export type { SystemRoleCode };

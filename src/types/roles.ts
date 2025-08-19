@@ -72,16 +72,18 @@ export const PERMISSION_CATEGORIES = {
 
 // Helper function to check if a role is system level
 export const isSystemRole = (roleCode: string): boolean => {
-  return [SYSTEM_ROLE_CODES.SUPER_ADMIN, SYSTEM_ROLE_CODES.PLATFORM_ADMIN].includes(roleCode as SystemRoleCode);
+  const systemRoles = [SYSTEM_ROLE_CODES.SUPER_ADMIN, SYSTEM_ROLE_CODES.PLATFORM_ADMIN];
+  return systemRoles.includes(roleCode as SystemRoleCode);
 };
 
 // Helper function to check if a role is tenant level
 export const isTenantRole = (roleCode: string): boolean => {
-  return [
+  const tenantRoles = [
     SYSTEM_ROLE_CODES.TENANT_OWNER,
     SYSTEM_ROLE_CODES.TENANT_ADMIN,
     SYSTEM_ROLE_CODES.TENANT_MANAGER
-  ].includes(roleCode as SystemRoleCode);
+  ];
+  return tenantRoles.includes(roleCode as SystemRoleCode);
 };
 
 // Helper function to get role level

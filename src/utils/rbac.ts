@@ -138,4 +138,4 @@ export class RBACService {
 export { Permission };
 // Export SystemRoleCode as Role for compatibility
 export type Role = SystemRoleCode;
-export { SystemRoleCode as UserRole };
+export type { SystemRoleCode as UserRole };
