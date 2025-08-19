@@ -296,7 +296,7 @@ export const StabilizedTenantOnboardingWizard: React.FC<StabilizedTenantOnboardi
                   Tenant Onboarding
                 </DialogTitle>
                 <DialogDescription className="text-sm text-muted-foreground mt-1">
-                  {tenantInfo?.name || 'Loading...'} • {tenantInfo?.subscription_plan || 'Loading...'} Plan
+                  {Array.isArray(tenantInfo) ? 'Loading...' : (tenantInfo?.name || 'Loading...')} • {Array.isArray(tenantInfo) ? 'Loading...' : (tenantInfo?.subscription_plan || 'Loading...')} Plan
                 </DialogDescription>
               </div>
               <div className="text-right">

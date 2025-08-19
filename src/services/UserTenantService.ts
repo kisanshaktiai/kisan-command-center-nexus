@@ -23,6 +23,20 @@ interface UpdateUserTenantData {
   employee_id?: string;
 }
 
+export interface UserTenantStatus {
+  id: string;
+  user_id: string;
+  tenant_id: string;
+  role_code: string;
+  is_active: boolean;
+  is_primary: boolean;
+  department?: string;
+  designation?: string;
+  employee_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export class UserTenantService extends BaseService {
   private static instance: UserTenantService;
 
@@ -35,6 +49,14 @@ export class UserTenantService extends BaseService {
       UserTenantService.instance = new UserTenantService();
     }
     return UserTenantService.instance;
+  }
+
+  async ensureUserTenantRecord(userId: string, tenantId: string, roleCode: string): Promise<ServiceResult<any>> {
+    return this.createUserTenant({
+      user_id: userId,
+      tenant_id: tenantId,
+      role_code: roleCode
+    });
   }
 
   async createUserTenant(data: CreateUserTenantData): Promise<ServiceResult<any>> {
@@ -68,18 +90,20 @@ export class UserTenantService extends BaseService {
 
         if (existingRelation) {
           // Update existing relationship
+          const updateData: any = {
+            role_code: roleCode,
+            is_active: true,
+            is_primary: data.is_primary || false,
+            invited_by: data.invited_by,
+            department: data.department,
+            designation: data.designation,
+            employee_id: data.employee_id,
+            updated_at: new Date().toISOString()
+          };
+
           const { data: updated, error: updateError } = await supabase
             .from('user_tenants')
-            .update({
-              role_code: roleCode,
-              is_active: true,
-              is_primary: data.is_primary || false,
-              invited_by: data.invited_by,
-              department: data.department,
-              designation: data.designation,
-              employee_id: data.employee_id,
-              updated_at: new Date().toISOString()
-            })
+            .update(updateData)
             .eq('id', existingRelation.id)
             .select()
             .single();
@@ -88,20 +112,22 @@ export class UserTenantService extends BaseService {
           return updated;
         } else {
           // Create new relationship
+          const insertData: any = {
+            user_id: data.user_id,
+            tenant_id: data.tenant_id,
+            role_code: roleCode,
+            is_active: true,
+            is_primary: data.is_primary || false,
+            invited_by: data.invited_by,
+            department: data.department,
+            designation: data.designation,
+            employee_id: data.employee_id,
+            joined_at: new Date().toISOString()
+          };
+
           const { data: created, error: createError } = await supabase
             .from('user_tenants')
-            .insert({
-              user_id: data.user_id,
-              tenant_id: data.tenant_id,
-              role_code: roleCode,
-              is_active: true,
-              is_primary: data.is_primary || false,
-              invited_by: data.invited_by,
-              department: data.department,
-              designation: data.designation,
-              employee_id: data.employee_id,
-              joined_at: new Date().toISOString()
-            })
+            .insert(insertData)
             .select()
             .single();
 

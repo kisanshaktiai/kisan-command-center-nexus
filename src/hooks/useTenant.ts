@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { isTenant } from '@/lib/supabase-helpers';
-import { Tenant, createTenantID } from '@/types/tenant';
+import { Tenant, createTenantID, convertDatabaseTenant } from '@/types/tenant';
 import { SubscriptionPlan, TenantType, TenantStatus } from '@/types/enums';
 
 interface TenantContextType {
@@ -51,51 +51,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw tenantsError;
           }
 
-          // Transform the data to match our Tenant interface with TenantID
-          const transformedTenants = allTenants?.map(tenant => ({
-            ...tenant,
-            id: createTenantID(tenant.id),
-            type: tenant.type as TenantType,
-            status: tenant.status as TenantStatus,
-            subscription_plan: tenant.subscription_plan as SubscriptionPlan,
-            metadata: (tenant.metadata as Record<string, any>) || {}
-          })) || [];
-
+          // Transform the data using convertDatabaseTenant
+          const transformedTenants = allTenants?.map(convertDatabaseTenant) || [];
           return transformedTenants;
         } else {
           // Regular users can only access their assigned tenants
-          // Fix the query to be more explicit about the relationship
           const { data: userTenants, error: userTenantsError } = await supabase
             .from('user_tenants')
             .select(`
               tenant_id,
-              tenants!user_tenants_tenant_id_fkey (
-                id,
-                name,
-                slug,
-                type,
-                subscription_plan,
-                status,
-                created_at,
-                updated_at,
-                owner_name,
-                owner_email,
-                owner_phone,
-                business_registration,
-                business_address,
-                established_date,
-                subscription_start_date,
-                subscription_end_date,
-                trial_ends_at,
-                max_farmers,
-                max_dealers,
-                max_products,
-                max_storage_gb,
-                max_api_calls_per_day,
-                subdomain,
-                custom_domain,
-                metadata
-              )
+              tenants!user_tenants_tenant_id_fkey (*)
             `)
             .eq('user_id', user.id)
             .eq('is_active', true);
@@ -105,19 +70,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw userTenantsError;
           }
 
-          // Transform the data to match our Tenant interface with TenantID
+          // Transform the data using convertDatabaseTenant
           const transformedTenants = userTenants?.map(ut => {
             const tenant = ut.tenants;
             if (!tenant) return null;
-            
-            return {
-              ...tenant,
-              id: createTenantID(tenant.id),
-              type: tenant.type as TenantType,
-              status: tenant.status as TenantStatus,
-              subscription_plan: tenant.subscription_plan as SubscriptionPlan,
-              metadata: (tenant.metadata as Record<string, any>) || {}
-            };
+            return convertDatabaseTenant(tenant);
           }).filter(Boolean) || [];
 
           return transformedTenants as Tenant[];

@@ -1,9 +1,9 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { convertDatabaseTenant, Tenant } from '@/types/tenant';
 
 interface UseTenantDataOptions {
+  tenantId?: string;
   filters?: {
     search?: string;
     type?: string;
@@ -13,13 +13,38 @@ interface UseTenantDataOptions {
 }
 
 export const useTenantData = (options: UseTenantDataOptions = {}) => {
-  const { filters = {}, enabled = true } = options;
+  const { tenantId, filters = {}, enabled = true } = options;
 
   return useQuery({
-    queryKey: ['tenant-data', filters],
-    queryFn: async (): Promise<Tenant[]> => {
-      console.log('Loading tenant data with filters:', filters);
+    queryKey: ['tenant-data', tenantId, filters],
+    queryFn: async (): Promise<Tenant | Tenant[]> => {
+      console.log('Loading tenant data with filters:', filters, 'tenantId:', tenantId);
 
+      // If tenantId is provided, fetch single tenant
+      if (tenantId) {
+        const { data, error } = await supabase
+          .from('tenants')
+          .select(`
+            *,
+            tenant_branding (*),
+            tenant_features (*)
+          `)
+          .eq('id', tenantId)
+          .single();
+
+        if (error) {
+          console.error('Error loading tenant:', error);
+          throw new Error(`Failed to load tenant: ${error.message}`);
+        }
+
+        if (!data) {
+          throw new Error('Tenant not found');
+        }
+
+        return convertDatabaseTenant(data);
+      }
+
+      // Otherwise fetch all tenants with filters
       let query = supabase
         .from('tenants')
         .select(`
@@ -34,10 +59,12 @@ export const useTenantData = (options: UseTenantDataOptions = {}) => {
         query = query.or(`name.ilike.%${filters.search}%,owner_email.ilike.%${filters.search}%`);
       }
       if (filters.type && filters.type !== 'all') {
-        query = query.eq('type', filters.type);
+        // Convert filter to valid enum value
+        query = query.eq('type', filters.type as any);
       }
       if (filters.status && filters.status !== 'all') {
-        query = query.eq('status', filters.status);
+        // Convert filter to valid enum value
+        query = query.eq('status', filters.status as any);
       }
 
       const { data, error } = await query;

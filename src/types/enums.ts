@@ -9,7 +9,7 @@ export enum TenantType {
   SUGAR_FACTORY = 'sugar_factory',
   GOVERNMENT = 'government',
   INSURANCE = 'insurance',
-  OTHER = 'other'
+  NGO = 'ngo' // Changed from OTHER to NGO to match database
 }
 
 export enum TenantStatus {

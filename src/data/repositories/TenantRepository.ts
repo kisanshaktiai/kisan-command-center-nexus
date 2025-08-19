@@ -61,11 +61,17 @@ export class TenantRepository extends BaseService {
       subscriptionPlan = 'custom'; // Map to database value
     }
 
+    // Map tenant type to database value
+    let tenantType = tenantData.type || 'ngo'; // Default to ngo instead of other
+    if (tenantType === 'other') {
+      tenantType = 'ngo'; // Map other to ngo for database compatibility
+    }
+
     // Ensure we only pass valid database fields
     const dbData = {
       name: tenantData.name,
       slug: tenantData.slug,
-      type: tenantData.type || 'other',
+      type: tenantType as any,
       status: tenantData.status || 'trial',
       subscription_plan: subscriptionPlan,
       owner_name: tenantData.owner_name,
@@ -103,7 +109,13 @@ export class TenantRepository extends BaseService {
     
     if (tenantData.name !== undefined) dbData.name = tenantData.name;
     if (tenantData.slug !== undefined) dbData.slug = tenantData.slug;
-    if (tenantData.type !== undefined) dbData.type = tenantData.type;
+    if (tenantData.type !== undefined) {
+      let type = tenantData.type;
+      if (type === 'other') {
+        type = 'ngo'; // Map other to ngo for database compatibility
+      }
+      dbData.type = type;
+    }
     if (tenantData.status !== undefined) dbData.status = tenantData.status;
     if (tenantData.subscription_plan !== undefined) {
       // Map enum values to database values

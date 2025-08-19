@@ -1,12 +1,12 @@
 
 import React from 'react';
 import { useTenantPageState } from '../hooks/useTenantPageState';
-import TenantFilters from '@/components/tenant/TenantFilters';
-import TenantCreateDialog from '@/components/tenant/TenantCreateDialog';
+import { TenantFilters } from '@/components/tenant/TenantFilters';
+import { TenantCreateDialog } from '@/components/tenant/TenantCreateDialog';
 import TenantEditModal from '@/components/tenant/TenantEditModal';
-import TenantDetailsModal from '@/components/tenant/TenantDetailsModal';
-import TenantListView from '@/components/tenant/TenantListView';
-import TenantGridView from '@/components/tenant/TenantGridView';
+import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
+import { TenantListView } from '@/components/tenant/TenantListView';
+import { TenantGridView } from '@/components/tenant/TenantGridView';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 
