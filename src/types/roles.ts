@@ -1,3 +1,4 @@
+
 // Centralized role system types
 export interface SystemRole {
   id: string;
@@ -76,12 +77,9 @@ export const isSystemRole = (roleCode: string): boolean => {
 
 // Helper function to check if a role is tenant level
 export const isTenantRole = (roleCode: string): boolean => {
-  const tenantRoles = [
-    SYSTEM_ROLE_CODES.TENANT_OWNER,
-    SYSTEM_ROLE_CODES.TENANT_ADMIN,
-    SYSTEM_ROLE_CODES.TENANT_MANAGER
-  ];
-  return tenantRoles.includes(roleCode as SystemRoleCode);
+  return roleCode === SYSTEM_ROLE_CODES.TENANT_OWNER ||
+         roleCode === SYSTEM_ROLE_CODES.TENANT_ADMIN ||
+         roleCode === SYSTEM_ROLE_CODES.TENANT_MANAGER;
 };
 
 // Helper function to get role level
