@@ -76,12 +76,12 @@ export const isSystemRole = (roleCode: string): boolean => {
 
 // Helper function to check if a role is tenant level
 export const isTenantRole = (roleCode: string): boolean => {
-  const tenantRoleCodes = [
+  const tenantRoles = [
     SYSTEM_ROLE_CODES.TENANT_OWNER,
     SYSTEM_ROLE_CODES.TENANT_ADMIN,
     SYSTEM_ROLE_CODES.TENANT_MANAGER
   ];
-  return tenantRoleCodes.includes(roleCode as SystemRoleCode);
+  return tenantRoles.includes(roleCode);
 };
 
 // Helper function to get role level
