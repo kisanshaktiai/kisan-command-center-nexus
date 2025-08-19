@@ -5,20 +5,33 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-request-id, x-correlation-id, idempotency-key',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
 }
+
+// System role codes from the centralized system
+const SYSTEM_ROLE_CODES = {
+  SUPER_ADMIN: 'super_admin',
+  PLATFORM_ADMIN: 'platform_admin',
+  TENANT_OWNER: 'tenant_owner',
+  TENANT_ADMIN: 'tenant_admin',
+  TENANT_MANAGER: 'tenant_manager',
+  DEALER: 'dealer',
+  AGENT: 'agent',
+  FARMER: 'farmer',
+  TENANT_USER: 'tenant_user'
+} as const;
 
 interface CreateTenantRequest {
   name: string;
   slug: string;
-  type: string;
+  type?: string;
   status?: string;
   subscription_plan?: string;
   owner_email: string;
   owner_name: string;
   owner_phone?: string;
   business_registration?: string;
-  business_address?: any;
+  business_address?: Record<string, any>;
   established_date?: string;
   subscription_start_date?: string;
   subscription_end_date?: string;
@@ -30,106 +43,62 @@ interface CreateTenantRequest {
   max_api_calls_per_day?: number;
   subdomain?: string;
   custom_domain?: string;
-  metadata?: any;
+  metadata?: Record<string, any>;
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    }
-  );
-
   try {
+    // Initialize Supabase client with service role key for admin operations
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
+    // Get request headers for logging
     const requestId = req.headers.get('x-request-id') || `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const correlationId = req.headers.get('x-correlation-id') || `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const idempotencyKey = req.headers.get('idempotency-key');
 
-    console.log(`[${requestId}] Starting tenant creation with admin user`);
+    console.log(`[${requestId}] create-tenant-with-admin: Processing request with correlation ID: ${correlationId}`);
 
-    // Get current user from authorization header
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      console.error(`[${requestId}] No authorization header found`);
+    if (req.method !== 'POST') {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Authorization required',
-          code: 'UNAUTHORIZED'
+          error: 'Method not allowed',
+          code: 'METHOD_NOT_ALLOWED',
+          request_id: requestId
         }),
         { 
-          status: 401, 
+          status: 405, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    console.log(`[${requestId}] Validating user token`);
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      console.error(`[${requestId}] Auth error:`, userError);
+    // Parse request body
+    let requestBody: CreateTenantRequest;
+    try {
+      requestBody = await req.json();
+    } catch (error) {
+      console.error(`[${requestId}] create-tenant-with-admin: Invalid JSON in request body:`, error);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Invalid authorization token',
-          code: 'INVALID_TOKEN'
-        }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    console.log(`[${requestId}] User authenticated: ${user.id}`);
-
-    // Check admin permissions
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('role, is_active')
-      .eq('id', user.id)
-      .eq('is_active', true)
-      .single();
-
-    if (adminError || !adminUser || !['super_admin', 'platform_admin'].includes(adminUser.role)) {
-      console.error(`[${requestId}] Admin check failed:`, adminError, adminUser);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Admin privileges required',
-          code: 'INSUFFICIENT_PRIVILEGES'
-        }),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    console.log(`[${requestId}] Admin privileges confirmed: ${adminUser.role}`);
-
-    const requestBody: CreateTenantRequest = await req.json();
-    console.log(`[${requestId}] Request body received:`, JSON.stringify(requestBody, null, 2));
-
-    // Validate required fields
-    if (!requestBody.name || !requestBody.slug || !requestBody.owner_email || !requestBody.owner_name) {
-      console.error(`[${requestId}] Missing required fields`);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Missing required fields: name, slug, owner_email, owner_name',
-          code: 'MISSING_FIELDS'
+          error: 'Invalid JSON in request body',
+          code: 'INVALID_JSON',
+          request_id: requestId
         }),
         { 
           status: 400, 
@@ -138,19 +107,133 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: Create the tenant
-    console.log(`[${requestId}] Creating tenant: ${requestBody.name}`);
-    
-    const { data: tenant, error: tenantError } = await supabase
-      .from('tenants')
+    console.log(`[${requestId}] create-tenant-with-admin: Request body:`, JSON.stringify(requestBody, null, 2));
+
+    // Validate required fields
+    if (!requestBody.name?.trim()) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Tenant name is required',
+          code: 'VALIDATION_ERROR',
+          request_id: requestId
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (!requestBody.slug?.trim()) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Tenant slug is required',
+          code: 'VALIDATION_ERROR',
+          request_id: requestId
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (!requestBody.owner_email?.trim()) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Owner email is required',
+          code: 'VALIDATION_ERROR',
+          request_id: requestId
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Check for idempotency
+    if (idempotencyKey) {
+      console.log(`[${requestId}] create-tenant-with-admin: Checking idempotency for key: ${idempotencyKey}`);
+      
+      const { data: existingRequest } = await supabaseClient
+        .from('tenant_creation_requests')
+        .select('*')
+        .eq('idempotency_key', idempotencyKey)
+        .single();
+
+      if (existingRequest) {
+        console.log(`[${requestId}] create-tenant-with-admin: Found existing request for idempotency key`);
+        
+        if (existingRequest.status === 'completed') {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              tenant_id: existingRequest.tenant_id,
+              message: 'Tenant already created (idempotent)',
+              request_id: requestId,
+              correlation_id: correlationId,
+              idempotency_key: idempotencyKey
+            }),
+            { 
+              status: 200, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        } else if (existingRequest.status === 'failed') {
+          // Allow retry for failed requests
+          console.log(`[${requestId}] create-tenant-with-admin: Previous request failed, allowing retry`);
+        } else {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Request already in progress',
+              code: 'REQUEST_IN_PROGRESS',
+              request_id: requestId
+            }),
+            { 
+              status: 409, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+      }
+    }
+
+    // Create idempotency record
+    const { data: idempotencyRecord, error: idempotencyError } = await supabaseClient
+      .from('tenant_creation_requests')
       .insert({
+        idempotency_key: idempotencyKey || `auto-${requestId}`,
+        request_data: requestBody,
+        status: 'processing',
+        correlation_id: correlationId,
+        request_id: requestId
+      })
+      .select()
+      .single();
+
+    if (idempotencyError) {
+      console.error(`[${requestId}] create-tenant-with-admin: Failed to create idempotency record:`, idempotencyError);
+    }
+
+    let tenantId: string | null = null;
+
+    try {
+      // Step 1: Create the tenant
+      console.log(`[${requestId}] create-tenant-with-admin: Creating tenant...`);
+      
+      const tenantData = {
         name: requestBody.name,
         slug: requestBody.slug,
         type: requestBody.type || 'agri_company',
         status: requestBody.status || 'trial',
         subscription_plan: requestBody.subscription_plan || 'Kisan_Basic',
-        owner_email: requestBody.owner_email,
         owner_name: requestBody.owner_name,
+        owner_email: requestBody.owner_email,
         owner_phone: requestBody.owner_phone,
         business_registration: requestBody.business_registration,
         business_address: requestBody.business_address,
@@ -165,64 +248,189 @@ serve(async (req) => {
         max_api_calls_per_day: requestBody.max_api_calls_per_day || 10000,
         subdomain: requestBody.subdomain,
         custom_domain: requestBody.custom_domain,
-        metadata: {
-          ...requestBody.metadata,
-          created_by: user.id,
-          created_via: 'admin_portal',
-          correlation_id: correlationId
+        metadata: requestBody.metadata || {}
+      };
+
+      const { data: tenant, error: tenantError } = await supabaseClient
+        .from('tenants')
+        .insert(tenantData)
+        .select()
+        .single();
+
+      if (tenantError) {
+        console.error(`[${requestId}] create-tenant-with-admin: Tenant creation error:`, tenantError);
+        throw new Error(`Failed to create tenant: ${tenantError.message}`);
+      }
+
+      tenantId = tenant.id;
+      console.log(`[${requestId}] create-tenant-with-admin: Tenant created successfully with ID: ${tenantId}`);
+
+      // Step 2: Create default tenant branding
+      console.log(`[${requestId}] create-tenant-with-admin: Creating default branding...`);
+      
+      const { error: brandingError } = await supabaseClient
+        .from('tenant_branding')
+        .insert({
+          tenant_id: tenantId,
+          primary_color: '#10B981',
+          secondary_color: '#065F46',
+          accent_color: '#F59E0B',
+          app_name: requestBody.name,
+          logo_url: null
+        });
+
+      if (brandingError) {
+        console.error(`[${requestId}] create-tenant-with-admin: Branding creation error:`, brandingError);
+        // Don't fail the whole process for branding
+      }
+
+      // Step 3: Create default tenant features based on subscription plan
+      console.log(`[${requestId}] create-tenant-with-admin: Creating default features...`);
+      
+      const features = getDefaultFeatures(requestBody.subscription_plan || 'Kisan_Basic');
+      
+      const { error: featuresError } = await supabaseClient
+        .from('tenant_features')
+        .insert({
+          tenant_id: tenantId,
+          ...features
+        });
+
+      if (featuresError) {
+        console.error(`[${requestId}] create-tenant-with-admin: Features creation error:`, featuresError);
+        // Don't fail the whole process for features
+      }
+
+      // Step 4: Create/Find admin user and establish tenant relationship
+      console.log(`[${requestId}] create-tenant-with-admin: Setting up admin user...`);
+
+      // Check if user already exists in auth
+      const { data: existingUser } = await supabaseClient.auth.admin.listUsers();
+      const authUser = existingUser?.users?.find(u => u.email === requestBody.owner_email);
+
+      let userId: string;
+
+      if (authUser) {
+        console.log(`[${requestId}] create-tenant-with-admin: Found existing auth user: ${authUser.id}`);
+        userId = authUser.id;
+      } else {
+        console.log(`[${requestId}] create-tenant-with-admin: Creating new auth user...`);
+        
+        // Create auth user
+        const { data: newUser, error: authError } = await supabaseClient.auth.admin.createUser({
+          email: requestBody.owner_email,
+          email_confirm: true,
+          user_metadata: {
+            full_name: requestBody.owner_name,
+            phone: requestBody.owner_phone,
+            tenant_id: tenantId,
+            role: SYSTEM_ROLE_CODES.TENANT_ADMIN
+          }
+        });
+
+        if (authError) {
+          console.error(`[${requestId}] create-tenant-with-admin: Auth user creation error:`, authError);
+          throw new Error(`Failed to create admin user: ${authError.message}`);
         }
-      })
-      .select()
-      .single();
 
-    if (tenantError) {
-      console.error(`[${requestId}] Error creating tenant:`, tenantError);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Failed to create tenant',
-          code: 'TENANT_CREATION_ERROR',
-          details: tenantError.message
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+        userId = newUser.user!.id;
+        console.log(`[${requestId}] create-tenant-with-admin: Auth user created with ID: ${userId}`);
+      }
 
-    console.log(`[${requestId}] Tenant created successfully: ${tenant.id}`);
+      // Step 5: Create user-tenant relationship using direct insert
+      console.log(`[${requestId}] create-tenant-with-admin: Creating user-tenant relationship...`);
 
-    // Step 2: Create admin user account
-    console.log(`[${requestId}] Creating admin user for: ${requestBody.owner_email}`);
-    
-    const tempPassword = Math.random().toString(36).slice(-12) + '!A1';
-    
-    const { data: adminUserData, error: adminUserError } = await supabase.auth.admin.createUser({
-      email: requestBody.owner_email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
-        full_name: requestBody.owner_name,
-        tenant_id: tenant.id,
-        role: 'tenant_admin',
-        created_via: 'tenant_creation',
+      const { error: relationshipError } = await supabaseClient
+        .from('user_tenants')
+        .upsert({
+          user_id: userId,
+          tenant_id: tenantId,
+          role: SYSTEM_ROLE_CODES.TENANT_ADMIN,
+          is_active: true,
+          metadata: {
+            created_as: 'tenant_creator',
+            created_by_function: 'create-tenant-with-admin',
+            request_id: requestId,
+            correlation_id: correlationId
+          }
+        }, {
+          onConflict: 'user_id,tenant_id'
+        });
+
+      if (relationshipError) {
+        console.error(`[${requestId}] create-tenant-with-admin: User-tenant relationship error:`, relationshipError);
+        throw new Error(`Failed to create user-tenant relationship: ${relationshipError.message}`);
+      }
+
+      console.log(`[${requestId}] create-tenant-with-admin: User-tenant relationship created successfully`);
+
+      // Update idempotency record as completed
+      if (idempotencyRecord) {
+        await supabaseClient
+          .from('tenant_creation_requests')
+          .update({
+            status: 'completed',
+            tenant_id: tenantId,
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', idempotencyRecord.id);
+      }
+
+      // Success response
+      const successResponse = {
+        success: true,
+        tenant_id: tenantId,
+        user_id: userId,
+        message: 'Tenant and admin user created successfully',
+        request_id: requestId,
         correlation_id: correlationId
-      }
-    });
+      };
 
-    if (adminUserError) {
-      console.error(`[${requestId}] Error creating admin user:`, adminUserError);
-      
-      // Rollback tenant creation
-      await supabase.from('tenants').delete().eq('id', tenant.id);
-      
+      console.log(`[${requestId}] create-tenant-with-admin: Success response:`, JSON.stringify(successResponse, null, 2));
+
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Failed to create admin user account',
-          code: 'ADMIN_USER_CREATION_ERROR',
-          details: adminUserError.message
+        JSON.stringify(successResponse),
+        { 
+          status: 201, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+
+    } catch (error) {
+      console.error(`[${requestId}] create-tenant-with-admin: Process error:`, error);
+
+      // Update idempotency record as failed
+      if (idempotencyRecord) {
+        await supabaseClient
+          .from('tenant_creation_requests')
+          .update({
+            status: 'failed',
+            error_message: error instanceof Error ? error.message : 'Unknown error',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', idempotencyRecord.id);
+      }
+
+      // If we created a tenant but failed later, we should clean up
+      if (tenantId) {
+        console.log(`[${requestId}] create-tenant-with-admin: Attempting cleanup of tenant ${tenantId}`);
+        try {
+          await supabaseClient.from('tenant_features').delete().eq('tenant_id', tenantId);
+          await supabaseClient.from('tenant_branding').delete().eq('tenant_id', tenantId);
+          await supabaseClient.from('user_tenants').delete().eq('tenant_id', tenantId);
+          await supabaseClient.from('tenants').delete().eq('id', tenantId);
+          console.log(`[${requestId}] create-tenant-with-admin: Cleanup completed`);
+        } catch (cleanupError) {
+          console.error(`[${requestId}] create-tenant-with-admin: Cleanup error:`, cleanupError);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: error instanceof Error ? error.message : 'Internal server error',
+          code: 'PROCESSING_ERROR',
+          request_id: requestId
         }),
         { 
           status: 500, 
@@ -230,90 +438,14 @@ serve(async (req) => {
         }
       );
     }
-
-    console.log(`[${requestId}] Admin user created: ${adminUserData.user.id}`);
-
-    // Step 3: Create user-tenant relationship - FIXED: Direct table insert instead of RPC
-    console.log(`[${requestId}] Creating user-tenant relationship directly`);
-    
-    const { data: relationshipData, error: relationshipError } = await supabase
-      .from('user_tenants')
-      .insert({
-        user_id: adminUserData.user.id,
-        tenant_id: tenant.id,
-        role: 'tenant_admin',
-        is_active: true,
-        metadata: {
-          created_via: 'tenant_creation',
-          auto_assigned: true,
-          created_by: user.id,
-          correlation_id: correlationId,
-          created_at: new Date().toISOString()
-        }
-      })
-      .select()
-      .single();
-
-    if (relationshipError) {
-      console.error(`[${requestId}] Error creating user-tenant relationship:`, relationshipError);
-      
-      // Rollback - delete tenant and user
-      await supabase.from('tenants').delete().eq('id', tenant.id);
-      await supabase.auth.admin.deleteUser(adminUserData.user.id);
-      
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Failed to create user-tenant relationship',
-          code: 'USER_TENANT_RELATIONSHIP_ERROR',
-          details: relationshipError.message
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    console.log(`[${requestId}] User-tenant relationship created successfully:`, relationshipData);
-
-    // Step 4: Send welcome email (optional)
-    let emailSent = false;
-    try {
-      // TODO: Implement email sending logic here
-      emailSent = true;
-    } catch (emailError) {
-      console.warn(`[${requestId}] Email sending failed:`, emailError);
-    }
-
-    const response = {
-      success: true,
-      tenant_id: tenant.id,
-      admin_user_id: adminUserData.user.id,
-      relationship_id: relationshipData.id,
-      emailSent,
-      correlationId,
-      message: 'Tenant and admin user created successfully'
-    };
-
-    console.log(`[${requestId}] Complete success:`, response);
-
-    return new Response(
-      JSON.stringify(response),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
 
   } catch (error) {
-    console.error('Unexpected error in create-tenant-with-admin:', error);
+    console.error('create-tenant-with-admin: Unexpected error:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
         error: 'Internal server error',
-        code: 'INTERNAL_SERVER_ERROR',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        code: 'INTERNAL_SERVER_ERROR'
       }),
       { 
         status: 500, 
@@ -322,3 +454,67 @@ serve(async (req) => {
     );
   }
 })
+
+// Helper function to get default features based on subscription plan
+function getDefaultFeatures(subscriptionPlan: string) {
+  const baseFeatures = {
+    ai_chat: false,
+    weather_forecast: true,
+    marketplace: true,
+    community_forum: false,
+    satellite_imagery: false,
+    soil_testing: false,
+    drone_monitoring: false,
+    iot_integration: false,
+    ecommerce: false,
+    payment_gateway: false,
+    inventory_management: false,
+    logistics_tracking: false,
+    basic_analytics: true,
+    advanced_analytics: false,
+    predictive_analytics: false,
+    custom_reports: false,
+    api_access: false,
+    webhook_support: false,
+    third_party_integrations: false,
+    white_label_mobile_app: false
+  };
+
+  switch (subscriptionPlan) {
+    case 'AI_Enterprise':
+      return {
+        ...baseFeatures,
+        ai_chat: true,
+        satellite_imagery: true,
+        soil_testing: true,
+        drone_monitoring: true,
+        iot_integration: true,
+        ecommerce: true,
+        payment_gateway: true,
+        inventory_management: true,
+        logistics_tracking: true,
+        advanced_analytics: true,
+        predictive_analytics: true,
+        custom_reports: true,
+        api_access: true,
+        webhook_support: true,
+        third_party_integrations: true,
+        white_label_mobile_app: true
+      };
+      
+    case 'Shakti_Growth':
+      return {
+        ...baseFeatures,
+        ai_chat: true,
+        satellite_imagery: true,
+        ecommerce: true,
+        inventory_management: true,
+        advanced_analytics: true,
+        api_access: true,
+        webhook_support: true
+      };
+      
+    default: // Kisan_Basic
+      return baseFeatures;
+  }
+}

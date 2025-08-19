@@ -1,16 +1,17 @@
 
-import { UserRole, Permission } from '@/types/enums';
+import { SYSTEM_ROLE_CODES, SystemRoleCode } from '@/types/roles';
+import { Permission } from '@/types/enums';
 
 export interface RBACContext {
   userId: string;
-  userRole: UserRole;
+  userRole: SystemRoleCode;
   tenantId?: string;
-  tenantRole?: UserRole;
+  tenantRole?: SystemRoleCode;
   permissions: Permission[];
 }
 
-const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  [UserRole.SUPER_ADMIN]: [
+const ROLE_PERMISSIONS: Record<SystemRoleCode, Permission[]> = {
+  [SYSTEM_ROLE_CODES.SUPER_ADMIN]: [
     Permission.SYSTEM_ADMIN,
     Permission.SYSTEM_CONFIG,
     Permission.TENANT_CREATE,
@@ -23,7 +24,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.USER_DELETE,
     Permission.BILLING_ADMIN,
   ],
-  [UserRole.PLATFORM_ADMIN]: [
+  [SYSTEM_ROLE_CODES.PLATFORM_ADMIN]: [
     Permission.TENANT_READ,
     Permission.TENANT_UPDATE,
     Permission.USER_READ,
@@ -31,7 +32,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.BILLING_READ,
     Permission.BILLING_UPDATE,
   ],
-  [UserRole.TENANT_ADMIN]: [
+  [SYSTEM_ROLE_CODES.TENANT_OWNER]: [
     Permission.TENANT_READ,
     Permission.TENANT_UPDATE,
     Permission.USER_CREATE,
@@ -40,13 +41,31 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.USER_DELETE,
     Permission.BILLING_READ,
   ],
-  [UserRole.TENANT_USER]: [
+  [SYSTEM_ROLE_CODES.TENANT_ADMIN]: [
+    Permission.TENANT_READ,
+    Permission.TENANT_UPDATE,
+    Permission.USER_CREATE,
+    Permission.USER_READ,
+    Permission.USER_UPDATE,
+    Permission.USER_DELETE,
+    Permission.BILLING_READ,
+  ],
+  [SYSTEM_ROLE_CODES.TENANT_MANAGER]: [
+    Permission.TENANT_READ,
+    Permission.USER_READ,
+    Permission.USER_UPDATE,
+  ],
+  [SYSTEM_ROLE_CODES.TENANT_USER]: [
     Permission.USER_READ,
   ],
-  [UserRole.FARMER]: [
+  [SYSTEM_ROLE_CODES.FARMER]: [
     Permission.USER_READ,
   ],
-  [UserRole.DEALER]: [
+  [SYSTEM_ROLE_CODES.DEALER]: [
+    Permission.USER_READ,
+    Permission.USER_UPDATE,
+  ],
+  [SYSTEM_ROLE_CODES.AGENT]: [
     Permission.USER_READ,
     Permission.USER_UPDATE,
   ],
@@ -65,20 +84,20 @@ export class RBACService {
     return permissions.every(permission => this.hasPermission(context, permission));
   }
 
-  static hasRole(context: RBACContext, roles: UserRole[]): boolean {
+  static hasRole(context: RBACContext, roles: SystemRoleCode[]): boolean {
     return roles.includes(context.userRole) || 
            (context.tenantRole && roles.includes(context.tenantRole));
   }
 
-  static getPermissionsForRole(role: UserRole): Permission[] {
+  static getPermissionsForRole(role: SystemRoleCode): Permission[] {
     return ROLE_PERMISSIONS[role] || [];
   }
 
   static buildContext(
     userId: string, 
-    userRole: UserRole, 
+    userRole: SystemRoleCode, 
     tenantId?: string, 
-    tenantRole?: UserRole
+    tenantRole?: SystemRoleCode
   ): RBACContext {
     const basePermissions = this.getPermissionsForRole(userRole);
     const tenantPermissions = tenantRole ? this.getPermissionsForRole(tenantRole) : [];
@@ -95,11 +114,11 @@ export class RBACService {
   }
 
   static canAccessTenant(context: RBACContext, targetTenantId: string): boolean {
-    if (context.userRole === UserRole.SUPER_ADMIN) {
+    if (context.userRole === SYSTEM_ROLE_CODES.SUPER_ADMIN) {
       return true;
     }
     
-    if (context.userRole === UserRole.PLATFORM_ADMIN) {
+    if (context.userRole === SYSTEM_ROLE_CODES.PLATFORM_ADMIN) {
       return true;
     }
     
@@ -107,15 +126,16 @@ export class RBACService {
   }
 
   static isSystemAdmin(context: RBACContext): boolean {
-    return this.hasRole(context, [UserRole.SUPER_ADMIN, UserRole.PLATFORM_ADMIN]);
+    return this.hasRole(context, [SYSTEM_ROLE_CODES.SUPER_ADMIN, SYSTEM_ROLE_CODES.PLATFORM_ADMIN]);
   }
 
   static isTenantAdmin(context: RBACContext): boolean {
-    return this.hasRole(context, [UserRole.TENANT_ADMIN]) || this.isSystemAdmin(context);
+    return this.hasRole(context, [SYSTEM_ROLE_CODES.TENANT_ADMIN, SYSTEM_ROLE_CODES.TENANT_OWNER]) || this.isSystemAdmin(context);
   }
 }
 
 // Export types and enums for use in other modules
-export { UserRole, Permission };
-// Export Role as an alias for UserRole to maintain compatibility
-export { UserRole as Role };
+export { Permission };
+// Export SystemRoleCode as Role for compatibility
+export type Role = SystemRoleCode;
+export { SystemRoleCode as UserRole };
