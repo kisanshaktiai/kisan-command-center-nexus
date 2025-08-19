@@ -39,41 +39,90 @@ export class UserTenantService {
   static async createUserTenant(request: CreateUserTenantRequest): Promise<UserTenantRelationship> {
     console.log('UserTenantService: Creating user-tenant relationship', request);
 
-    // Validate role code exists
-    const isValidRole = await SystemRoleService.validateRoleCode(request.role);
-    if (!isValidRole) {
-      throw new Error(`Invalid role code: ${request.role}`);
-    }
-
     try {
-      // Use direct insert with proper type casting - insert as any to bypass strict typing
-      const { data, error } = await supabase
-        .from('user_tenants')
-        .insert({
-          user_id: request.user_id,
-          tenant_id: request.tenant_id,
-          role: request.role as any, // Cast to any to bypass database enum constraints
-          is_active: request.is_active ?? true,
-          metadata: request.metadata || {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        } as any) // Cast entire object to any
-        .select()
+      // First, verify the role exists and is active
+      const { data: roleCheck, error: roleError } = await supabase
+        .from('system_roles')
+        .select('role_code, is_active')
+        .eq('role_code', request.role)
+        .eq('is_active', true)
         .single();
 
-      if (error) {
-        console.error('UserTenantService: Insert error:', error);
-        throw new Error(`Failed to create user-tenant relationship: ${error.message}`);
+      if (roleError || !roleCheck) {
+        throw new Error(`Invalid or inactive role code: ${request.role}`);
       }
 
-      console.log('UserTenantService: Successfully created relationship:', data);
-      return {
-        user_id: data.user_id,
-        tenant_id: data.tenant_id,
-        role: data.role as SystemRoleCode,
-        is_active: data.is_active,
-        metadata: data.metadata as Record<string, any>
-      };
+      // Check if relationship already exists
+      const { data: existingRelation, error: checkError } = await supabase
+        .from('user_tenants')
+        .select('*')
+        .eq('user_id', request.user_id)
+        .eq('tenant_id', request.tenant_id)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('UserTenantService: Error checking existing relationship:', checkError);
+        throw new Error(`Failed to check existing relationship: ${checkError.message}`);
+      }
+
+      if (existingRelation) {
+        // Update existing relationship
+        const { data, error } = await supabase
+          .from('user_tenants')
+          .update({
+            role: request.role,
+            is_active: request.is_active ?? true,
+            metadata: request.metadata || {},
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', request.user_id)
+          .eq('tenant_id', request.tenant_id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('UserTenantService: Update error:', error);
+          throw new Error(`Failed to update user-tenant relationship: ${error.message}`);
+        }
+
+        console.log('UserTenantService: Successfully updated relationship:', data);
+        return {
+          user_id: data.user_id,
+          tenant_id: data.tenant_id,
+          role: data.role as SystemRoleCode,
+          is_active: data.is_active,
+          metadata: data.metadata as Record<string, any>
+        };
+      } else {
+        // Create new relationship
+        const { data, error } = await supabase
+          .from('user_tenants')
+          .insert({
+            user_id: request.user_id,
+            tenant_id: request.tenant_id,
+            role: request.role,
+            is_active: request.is_active ?? true,
+            metadata: request.metadata || {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('UserTenantService: Insert error:', error);
+          throw new Error(`Failed to create user-tenant relationship: ${error.message}`);
+        }
+
+        console.log('UserTenantService: Successfully created relationship:', data);
+        return {
+          user_id: data.user_id,
+          tenant_id: data.tenant_id,
+          role: data.role as SystemRoleCode,
+          is_active: data.is_active,
+          metadata: data.metadata as Record<string, any>
+        };
+      }
 
     } catch (error) {
       console.error('UserTenantService: Unexpected error:', error);
@@ -93,20 +142,22 @@ export class UserTenantService {
 
     // Validate role if provided
     if (updates.role) {
-      const isValidRole = await SystemRoleService.validateRoleCode(updates.role);
-      if (!isValidRole) {
-        throw new Error(`Invalid role code: ${updates.role}`);
+      const { data: roleCheck, error: roleError } = await supabase
+        .from('system_roles')
+        .select('role_code, is_active')
+        .eq('role_code', updates.role)
+        .eq('is_active', true)
+        .single();
+
+      if (roleError || !roleCheck) {
+        throw new Error(`Invalid or inactive role code: ${updates.role}`);
       }
     }
 
-    const updateData: any = {
+    const updateData = {
       ...updates,
       updated_at: new Date().toISOString()
     };
-
-    if (updates.role) {
-      updateData.role = updates.role as any; // Cast to any for database compatibility
-    }
 
     const { data, error } = await supabase
       .from('user_tenants')

@@ -1,45 +1,40 @@
 
-import { TenantStatus, TenantType, SubscriptionPlan } from '@/types/enums';
+import { TenantType, TenantStatus } from '@/types/enums';
 
-export const mapTenantTypeToDisplay = (type: TenantType): string => {
-  const mapping = {
-    [TenantType.AGRI_COMPANY]: 'Agricultural Company',
-    [TenantType.DEALER]: 'Dealer',
-    [TenantType.NGO]: 'NGO',
-    [TenantType.GOVERNMENT]: 'Government',
-    [TenantType.UNIVERSITY]: 'University',
+export const mapTenantTypeToDisplay = (type: string): string => {
+  const typeMap: Record<string, string> = {
+    [TenantType.AGRI_COMPANY]: 'Agriculture Company',
+    [TenantType.DEALER]: 'Dealer Network',
+    [TenantType.COOPERATIVE]: 'Cooperative Society',
+    [TenantType.UNIVERSITY]: 'University/Research',
     [TenantType.SUGAR_FACTORY]: 'Sugar Factory',
-    [TenantType.COOPERATIVE]: 'Cooperative',
-    [TenantType.INSURANCE]: 'Insurance',
+    [TenantType.GOVERNMENT]: 'Government Entity',
+    [TenantType.INSURANCE]: 'Insurance Provider',
+    [TenantType.OTHER]: 'Other'
   };
-  return mapping[type] || type;
+  return typeMap[type] || type;
 };
 
-export const mapTenantStatusToDisplay = (status: TenantStatus): string => {
-  const mapping = {
+export const mapTenantStatusToDisplay = (status: string): string => {
+  const statusMap: Record<string, string> = {
     [TenantStatus.TRIAL]: 'Trial',
     [TenantStatus.ACTIVE]: 'Active',
     [TenantStatus.SUSPENDED]: 'Suspended',
-    [TenantStatus.CANCELLED]: 'Cancelled',
     [TenantStatus.ARCHIVED]: 'Archived',
     [TenantStatus.PENDING_APPROVAL]: 'Pending Approval',
+    [TenantStatus.EXPIRED]: 'Expired'
   };
-  return mapping[status] || status;
+  return statusMap[status] || status;
 };
 
-export const mapSubscriptionPlanToDisplay = (plan: SubscriptionPlan): string => {
-  const mapping = {
-    [SubscriptionPlan.KISAN_BASIC]: 'Kisan – Starter',
-    [SubscriptionPlan.SHAKTI_GROWTH]: 'Shakti – Growth',
-    [SubscriptionPlan.AI_ENTERPRISE]: 'AI – Enterprise',
-    [SubscriptionPlan.CUSTOM]: 'Custom Plan',
+export const mapTenantStatusToColor = (status: string): string => {
+  const colorMap: Record<string, string> = {
+    [TenantStatus.TRIAL]: 'bg-blue-100 text-blue-800',
+    [TenantStatus.ACTIVE]: 'bg-green-100 text-green-800',
+    [TenantStatus.SUSPENDED]: 'bg-red-100 text-red-800',
+    [TenantStatus.ARCHIVED]: 'bg-gray-100 text-gray-800',
+    [TenantStatus.PENDING_APPROVAL]: 'bg-yellow-100 text-yellow-800',
+    [TenantStatus.EXPIRED]: 'bg-orange-100 text-orange-800'
   };
-  return mapping[plan] || plan;
-};
-
-// Export all mappers as a group for backward compatibility
-export const tenantMappers = {
-  mapTenantTypeToDisplay,
-  mapTenantStatusToDisplay,
-  mapSubscriptionPlanToDisplay
+  return colorMap[status] || 'bg-gray-100 text-gray-800';
 };

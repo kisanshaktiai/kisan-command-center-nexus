@@ -35,7 +35,7 @@ export class RBACService {
         return [];
       }
 
-      const permissions = roleData.permissions as Permission[];
+      const permissions = Array.isArray(roleData.permissions) ? roleData.permissions as Permission[] : [];
       rolePermissionsCache.set(roleCode, permissions);
       return permissions;
     } catch (error) {
@@ -104,9 +104,19 @@ export class RBACService {
 
   static async getRoleLevel(roleCode: SystemRoleCode): Promise<number> {
     try {
-      const { data } = await supabase
-        .rpc('get_role_level', { p_role_code: roleCode });
-      return data || 0;
+      const { data, error } = await supabase
+        .from('system_roles')
+        .select('role_level')
+        .eq('role_code', roleCode)
+        .eq('is_active', true)
+        .single();
+
+      if (error) {
+        console.error('Error getting role level:', error);
+        return 0;
+      }
+
+      return data?.role_level || 0;
     } catch (error) {
       console.error('Error getting role level:', error);
       return 0;
@@ -115,9 +125,18 @@ export class RBACService {
 
   static async isRoleActive(roleCode: SystemRoleCode): Promise<boolean> {
     try {
-      const { data } = await supabase
-        .rpc('is_system_role_active', { p_role_code: roleCode });
-      return data || false;
+      const { data, error } = await supabase
+        .from('system_roles')
+        .select('is_active')
+        .eq('role_code', roleCode)
+        .single();
+
+      if (error) {
+        console.error('Error checking role active status:', error);
+        return false;
+      }
+
+      return data?.is_active || false;
     } catch (error) {
       console.error('Error checking role active status:', error);
       return false;

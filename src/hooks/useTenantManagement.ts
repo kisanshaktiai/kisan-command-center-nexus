@@ -1,527 +1,175 @@
-import { useState, useEffect } from 'react';
-import { useToast } from "@/hooks/use-toast";
-import { useTenants, useCreateTenant, useUpdateTenant } from '@/data/hooks/useTenants';
-import { Tenant, TenantFormData } from '@/types/tenant';
-import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
-import { TenantViewPreferences, TenantMetrics } from '@/types/tenantView';
-import { supabase } from '@/integrations/supabase/client';
+import { useCallback, useState } from 'react';
+import { CreateTenantDTO, UpdateTenantDTO, Tenant } from '@/types/tenant';
+import { TenantViewPreferences } from '@/types/tenantView';
+import { useTenantData } from './useTenantData';
+import { useTenantMutations } from './useTenantMutations';
+import { useTenantFiltering } from './useTenantFiltering';
+import { TenantDisplayService, FormattedTenantData } from '@/services/TenantDisplayService';
+import { TenantStatus, SubscriptionPlan, TenantStatusValue, SubscriptionPlanValue } from '@/types/enums';
 
-interface SecurityContext {
-  requestId?: string;
-  correlationId?: string;
-  sessionId?: string;
-  userAgent?: string;
-  ipAddress?: string;
+interface UseTenantManagementOptions {
+  initialFilters?: {
+    search?: string;
+    type?: string;
+    status?: string;
+  };
+  initialViewPreferences?: TenantViewPreferences;
 }
 
-export const useTenantManagement = () => {
-  const [tenantMetrics, setTenantMetrics] = useState<Record<string, TenantMetrics>>({});
-  const [creationSuccess, setCreationSuccess] = useState<{
-    tenantName: string;
-    adminEmail: string;
-    hasEmailSent: boolean;
-    correlationId?: string;
-    warnings?: string[];
-  } | null>(null);
-  const { toast } = useToast();
+interface CreationSuccessState {
+  tenantName: string;
+  adminEmail: string;
+  hasEmailSent: boolean;
+  correlationId?: string;
+  warnings?: string[];
+}
 
-  // Use React Query hooks
-  const { data: tenants = [], isLoading: loading, error: queryError } = useTenants();
-  const createTenantMutation = useCreateTenant();
-  const updateTenantMutation = useUpdateTenant();
-
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [securityContext, setSecurityContext] = useState<SecurityContext>({});
-
-  // View preferences state
-  const [viewPreferences, setViewPreferences] = useState<TenantViewPreferences>({
-    mode: 'small-cards',
-    density: 'comfortable',
-    sortBy: 'created_at',
-    sortOrder: 'desc',
+export const useTenantManagement = (options: UseTenantManagementOptions = {}) => {
+  // Data and mutations
+  const { data: tenants = [], isLoading, error } = useTenantData({ filters: options.initialFilters });
+  const { createTenantMutation, updateTenantMutation, deleteTenantMutation, isSubmitting } = useTenantMutations();
+  
+  // Filtering and sorting
+  const {
+    searchTerm,
+    setSearchTerm,
+    filterType,
+    setFilterType,
+    filterStatus,
+    setFilterStatus,
+    viewPreferences,
+    setViewPreferences,
+    filteredTenants,
+  } = useTenantFiltering({ 
+    tenants, 
+    initialFilters: options.initialFilters,
+    initialViewPreferences: options.initialViewPreferences
   });
 
-  // Form state with default values using enums
-  const [formData, setFormData] = useState<TenantFormData>({
-    name: '',
-    slug: '',
-    type: TenantType.AGRI_COMPANY,
-    status: TenantStatus.TRIAL,
-    subscription_plan: SubscriptionPlan.KISAN_BASIC,
-    max_farmers: 1000,
-    max_dealers: 50,
-    max_products: 100,
-    max_storage_gb: 10,
-    max_api_calls_per_day: 10000,
-    owner_name: '',
-    owner_email: '',
-    subdomain: '',
-  });
+  // Additional state for UI management
+  const [creationSuccess, setCreationSuccess] = useState<CreationSuccessState | null>(null);
+  const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
-  // Initialize security context
-  useEffect(() => {
-    const initSecurityContext = () => {
-      const sessionId = sessionStorage.getItem('session_id') || 
-                       `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      sessionStorage.setItem('session_id', sessionId);
+  // Format tenants for display
+  const formattedTenants: FormattedTenantData[] = TenantDisplayService.formatTenantsForDisplay(filteredTenants);
+  
+  // Format details tenant for display
+  const detailsFormattedData = detailsTenant ? TenantDisplayService.formatTenantForDisplay(detailsTenant) : null;
 
-      setSecurityContext({
-        sessionId,
-        userAgent: navigator.userAgent,
-        requestId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      });
-    };
-
-    initSecurityContext();
-  }, []);
-
-  useEffect(() => {
-    if (queryError) {
-      setError(queryError.message || 'Failed to fetch tenants');
-    } else {
-      setError(null);
-    }
-  }, [queryError]);
-
-  useEffect(() => {
-    // Load view preferences from localStorage
-    const savedPreferences = localStorage.getItem('tenant-view-preferences');
-    if (savedPreferences) {
-      setViewPreferences(JSON.parse(savedPreferences));
-    }
-  }, []);
-
-  useEffect(() => {
-    // Save view preferences to localStorage
-    localStorage.setItem('tenant-view-preferences', JSON.stringify(viewPreferences));
-  }, [viewPreferences]);
-
-  const fetchTenantsMetrics = async (tenantList: Tenant[]) => {
-    const metricsPromises = tenantList.map(async (tenant) => {
-      try {
-        const response = await supabase.functions.invoke('tenant-limits-quotas', {
-          body: { tenantId: tenant.id }
-        });
-
-        if (response.data) {
-          return {
-            tenantId: tenant.id,
-            metrics: {
-              usageMetrics: {
-                farmers: { 
-                  current: response.data.usage.farmers, 
-                  limit: response.data.limits.farmers, 
-                  percentage: (response.data.usage.farmers / response.data.limits.farmers) * 100 
-                },
-                dealers: { 
-                  current: response.data.usage.dealers, 
-                  limit: response.data.limits.dealers, 
-                  percentage: (response.data.usage.dealers / response.data.limits.dealers) * 100 
-                },
-                products: { 
-                  current: response.data.usage.products, 
-                  limit: response.data.limits.products, 
-                  percentage: (response.data.usage.products / response.data.limits.products) * 100 
-                },
-                storage: { 
-                  current: response.data.usage.storage, 
-                  limit: response.data.limits.storage, 
-                  percentage: (response.data.usage.storage / response.data.limits.storage) * 100 
-                },
-                apiCalls: { 
-                  current: response.data.usage.api_calls, 
-                  limit: response.data.limits.api_calls, 
-                  percentage: (response.data.usage.api_calls / response.data.limits.api_calls) * 100 
-                },
-              },
-              growthTrends: {
-                farmers: [10, 15, 25, 30, 45, 50, 65],
-                revenue: [1000, 1200, 1500, 1800, 2100, 2400, 2700],
-                apiUsage: [100, 150, 200, 250, 300, 350, 400],
-              },
-              healthScore: Math.floor(Math.random() * 40) + 60,
-              lastActivityDate: new Date().toISOString(),
-            }
-          };
-        }
-        return null;
-      } catch (error) {
-        console.error(`Error fetching metrics for tenant ${tenant.id}:`, error);
-        return null;
-      }
-    });
-
-    const results = await Promise.all(metricsPromises);
-    const metricsMap: Record<string, TenantMetrics> = {};
-    
-    results.forEach((result) => {
-      if (result) {
-        metricsMap[result.tenantId] = result.metrics;
-      }
-    });
-
-    setTenantMetrics(metricsMap);
-  };
-
-  /**
-   * Enhanced email validation
-   */
-  const validateEmailFormat = (email: string): { isValid: boolean; error?: string } => {
-    if (!email || typeof email !== 'string') {
-      return { isValid: false, error: 'Email is required' };
-    }
-
-    const trimmedEmail = email.trim();
-    
-    if (trimmedEmail.length === 0) {
-      return { isValid: false, error: 'Email cannot be empty' };
-    }
-
-    if (trimmedEmail.length > 254) {
-      return { isValid: false, error: 'Email address is too long' };
-    }
-
-    // Enhanced email regex
-    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-    
-    if (!emailRegex.test(trimmedEmail)) {
-      return { isValid: false, error: 'Invalid email format' };
-    }
-
-    return { isValid: true };
-  };
-
-  /**
-   * Generate idempotency key for tenant creation
-   */
-  const generateIdempotencyKey = (formData: TenantFormData): string => {
-    const keyData = {
-      name: formData.name.trim(),
-      slug: formData.slug.trim(),
-      owner_email: formData.owner_email.trim(),
-      timestamp: Math.floor(Date.now() / 60000) // 1-minute window
-    };
-    return btoa(JSON.stringify(keyData));
-  };
-
-  const handleCreateTenant = async () => {
-    if (isSubmitting) return false;
-    
-    try {
-      setIsSubmitting(true);
-      setCreationSuccess(null);
-      
-      const correlationId = `tenant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      console.log('Creating tenant with enhanced security:', { 
-        ...formData, 
-        correlationId,
-        securityContext 
-      });
-
-      // Enhanced client-side validation
-      if (!formData.name?.trim()) {
-        throw new Error('Organization name is required');
-      }
-      
-      if (!formData.slug?.trim()) {
-        throw new Error('Slug is required');
-      }
-
-      if (!formData.owner_email?.trim()) {
-        throw new Error('Admin email is required');
-      }
-
-      if (!formData.owner_name?.trim()) {
-        throw new Error('Admin name is required');
-      }
-
-      // Enhanced email validation
-      const emailValidation = validateEmailFormat(formData.owner_email);
-      if (!emailValidation.isValid) {
-        throw new Error(emailValidation.error);
-      }
-
-      // Generate idempotency key
-      const idempotencyKey = generateIdempotencyKey(formData);
-      
-      // Map form data to CreateTenantDTO with security context
-      const createData = {
-        name: formData.name.trim(),
-        slug: formData.slug.trim(),
-        type: formData.type,
-        status: formData.status,
-        subscription_plan: formData.subscription_plan,
-        owner_email: formData.owner_email.trim(),
-        owner_name: formData.owner_name.trim(),
-        metadata: {
-          ...formData.metadata,
-          created_via: 'admin_ui',
-          security_context: securityContext,
-          correlation_id: correlationId
-        }
-      };
-
-      // Call the enhanced Edge Function with security headers
-      const { data, error } = await supabase.functions.invoke('create-tenant-with-admin', {
-        body: createData,
-        headers: {
-          'Idempotency-Key': idempotencyKey,
-          'X-Request-ID': securityContext.requestId || correlationId,
-          'X-Session-ID': securityContext.sessionId,
-          'X-Correlation-ID': correlationId
-        }
-      });
-
-      if (error) {
-        console.error('Enhanced tenant creation error:', error);
-        throw new Error(error.message || 'Failed to create tenant');
-      }
-
-      if (!data?.success) {
-        console.error('Enhanced tenant creation returned error:', data?.error);
-        throw new Error(data?.error || 'Failed to create tenant');
-      }
-
-      console.log('Enhanced tenant creation successful:', data);
-
-      // Set enhanced success state for feedback
-      setCreationSuccess({
-        tenantName: formData.name,
-        adminEmail: formData.owner_email,
-        hasEmailSent: data.emailSent || false,
-        correlationId: data.correlationId,
-        warnings: data.warnings
-      });
-
-      // Enhanced success toast with security context
-      const toastMessage = data.emailSent 
-        ? `Welcome email sent to ${formData.owner_email} with login credentials.`
-        : `Tenant created successfully. Email delivery may have failed - please check email settings.`;
-
-      toast({
-        title: "Tenant Created Successfully",
-        description: toastMessage,
-        variant: "default",
-      });
-
-      // Show warnings if present
-      if (data.warnings && data.warnings.length > 0) {
-        setTimeout(() => {
-          toast({
-            title: "Note",
-            description: data.warnings.join('; '),
-            variant: "default",
-          });
-        }, 2000);
-      }
-
-      resetForm();
-      return true;
-    } catch (error: any) {
-      console.error('Enhanced tenant creation error:', error);
-      
-      // Enhanced error handling with security context
-      let errorMessage = "Failed to create tenant";
-      
-      if (error.message?.includes('Slug already exists')) {
-        errorMessage = "A tenant with this slug already exists";
-      } else if (error.message?.includes('Admin access required')) {
-        errorMessage = "You don't have permission to create tenants";
-      } else if (error.message?.includes('Missing required fields')) {
-        errorMessage = "Please fill in all required fields";
-      } else if (error.message?.includes('Invalid email format')) {
-        errorMessage = "Please enter a valid email address";
-      } else if (error.message?.includes('Rate limit exceeded')) {
-        errorMessage = "Too many requests. Please wait before creating another tenant";
-      } else if (error.message?.includes('DUPLICATE_REQUEST')) {
-        errorMessage = "A tenant creation is already in progress with the same details";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        title: "Error Creating Tenant",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      return false;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleUpdateTenant = async (editingTenant: Tenant) => {
-    if (!editingTenant || isSubmitting) {
-      console.error('No tenant selected for editing');
-      return false;
-    }
-
-    try {
-      setIsSubmitting(true);
-      console.log('Updating tenant with enhanced security:', formData);
-      
-      // Map form data to UpdateTenantDTO with security context
-      const updateData = {
-        name: formData.name,
-        status: formData.status,
-        subscription_plan: formData.subscription_plan,
-        metadata: {
-          updated_via: 'admin_ui',
-          security_context: securityContext,
-          last_updated: new Date().toISOString()
-        }
-      };
-
-      await updateTenantMutation.mutateAsync({ 
-        id: editingTenant.id, 
-        data: updateData 
-      });
-
-      toast({
-        title: "Success",
-        description: "Tenant updated successfully",
-        variant: "default",
-      });
-
-      resetForm();
-      return true;
-    } catch (error: any) {
-      console.error('Enhanced tenant update error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update tenant",
-        variant: "destructive",
-      });
-      return false;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteTenant = async (tenantId: string) => {
-    if (!confirm('Are you sure you want to delete this tenant? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      console.log('Deleting tenant with enhanced security:', tenantId);
-      
-      // For now, we'll implement soft delete by updating status with security context
-      await updateTenantMutation.mutateAsync({
-        id: tenantId,
-        data: { 
-          status: TenantStatus.CANCELLED,
-          metadata: {
-            deleted_via: 'admin_ui',
-            security_context: securityContext,
-            deleted_at: new Date().toISOString()
-          }
-        }
-      });
-      
-      toast({
-        title: "Success",
-        description: "Tenant deleted successfully",
-      });
-    } catch (error: any) {
-      console.error('Enhanced tenant delete error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete tenant",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const resetForm = () => {
-    console.log('Resetting form to default values');
-    setFormData({
-      name: '',
-      slug: '',
-      type: TenantType.AGRI_COMPANY,
-      status: TenantStatus.TRIAL,
-      subscription_plan: SubscriptionPlan.KISAN_BASIC,
-      max_farmers: 1000,
-      max_dealers: 50,
-      max_products: 100,
-      max_storage_gb: 10,
-      max_api_calls_per_day: 10000,
-      owner_name: '',
-      owner_email: '',
-      subdomain: '',
-    });
+  // Success state management
+  const clearCreationSuccess = useCallback(() => {
     setCreationSuccess(null);
-  };
+  }, []);
 
-  const populateFormForEdit = (tenant: Tenant) => {
-    console.log('Populating form for edit with enhanced security:', tenant);
-    
-    const metadata = tenant.metadata && typeof tenant.metadata === 'object' 
-      ? tenant.metadata as Record<string, any>
-      : {};
-    
-    const businessAddress = tenant.business_address && typeof tenant.business_address === 'object'
-      ? tenant.business_address as Record<string, any>
-      : tenant.business_address
-        ? { address: tenant.business_address }
-        : undefined;
-    
-    setFormData({
-      name: tenant.name || '',
-      slug: tenant.slug || '',
-      type: tenant.type || TenantType.AGRI_COMPANY,
-      status: tenant.status || TenantStatus.TRIAL,
-      owner_name: tenant.owner_name || '',
-      owner_email: tenant.owner_email || '',
-      owner_phone: tenant.owner_phone || '',
-      business_registration: tenant.business_registration || '',
-      business_address: businessAddress,
-      established_date: tenant.established_date || '',
-      subscription_plan: tenant.subscription_plan || SubscriptionPlan.KISAN_BASIC,
-      subscription_start_date: tenant.subscription_start_date || '',
-      subscription_end_date: tenant.subscription_end_date || '',
-      trial_ends_at: tenant.trial_ends_at || '',
-      max_farmers: tenant.max_farmers || 1000,
-      max_dealers: tenant.max_dealers || 50,
-      max_products: tenant.max_products || 100,
-      max_storage_gb: tenant.max_storage_gb || 10,
-      max_api_calls_per_day: tenant.max_api_calls_per_day || 10000,
-      subdomain: tenant.subdomain || '',
-      custom_domain: tenant.custom_domain || '',
-      metadata,
-    });
-  };
+  // Action handlers
+  const handleCreateTenant = useCallback(async (data: CreateTenantDTO): Promise<boolean> => {
+    try {
+      const result = await createTenantMutation.mutateAsync(data);
+      if (result) {
+        setCreationSuccess({
+          tenantName: data.name,
+          adminEmail: data.owner_email,
+          hasEmailSent: true,
+          correlationId: `create-${Date.now()}`
+        });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }, [createTenantMutation]);
 
-  const fetchTenants = async () => {
-    // This is handled by React Query automatically
-    console.log('Fetch tenants called - handled by React Query with enhanced security');
-  };
+const handleUpdateTenant = useCallback(async (id: string, data: UpdateTenantDTO): Promise<boolean> => {
+  try {
+    // Ensure proper type conversion
+    const updateData: UpdateTenantDTO = {
+      ...data,
+      status: data.status as TenantStatusValue,
+      subscription_plan: data.subscription_plan as SubscriptionPlanValue,
+      metadata: {
+        ...data.metadata,
+        updated_via: 'tenant_management_hook',
+        security_context: {
+          user_id: 'current_user',
+          timestamp: new Date().toISOString(),
+          source: 'web_interface'
+        },
+        last_updated: new Date().toISOString()
+      }
+    };
+
+    await updateTenantMutation.mutateAsync({ id, data: updateData });
+    return true;
+  } catch {
+    return false;
+  }
+}, [updateTenantMutation]);
+
+  const handleDeleteTenant = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      await deleteTenantMutation.mutateAsync(id);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [deleteTenantMutation]);
+
+  const handleViewDetails = useCallback((tenant: Tenant) => {
+    setDetailsTenant(tenant);
+    setIsDetailsModalOpen(true);
+  }, []);
+
+  const handleDetailsEdit = useCallback(() => {
+    // This would typically open an edit modal or navigate to edit page
+    console.log('Edit tenant details');
+  }, []);
+
+  const closeDetailsModal = useCallback(() => {
+    setIsDetailsModalOpen(false);
+    setDetailsTenant(null);
+  }, []);
 
   return {
-    // State
-    tenants,
-    loading: loading || isSubmitting,
+    // Data
+    tenants: filteredTenants,
+    formattedTenants,
+    isLoading,
     error,
     isSubmitting,
-    tenantMetrics,
-    viewPreferences,
-    formData,
+
+    // Success state
     creationSuccess,
-    securityContext,
-    
-    // Actions
+    clearCreationSuccess,
+
+    // Details modal
+    detailsTenant,
+    isDetailsModalOpen,
+    detailsFormattedData,
+
+    // Filters
+    searchTerm,
+    setSearchTerm,
+    filterType,
+    setFilterType,
+    filterStatus,
+    setFilterStatus,
+
+    // View preferences
+    viewPreferences,
     setViewPreferences,
-    setFormData,
+
+    // Actions
     handleCreateTenant,
     handleUpdateTenant,
     handleDeleteTenant,
-    resetForm,
-    populateFormForEdit,
-    fetchTenants,
-    setError,
-    setCreationSuccess,
-    validateEmailFormat: (email: string) => ({ isValid: true }),
+    handleViewDetails,
+    handleDetailsEdit,
+    closeDetailsModal,
+
+    // Mutations for direct access if needed
+    createTenantMutation,
+    updateTenantMutation,
+    deleteTenantMutation,
   };
 };

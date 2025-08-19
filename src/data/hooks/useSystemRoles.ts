@@ -19,7 +19,19 @@ export const useSystemRoles = () => {
         throw error;
       }
 
-      return data || [];
+      // Convert database response to SystemRole type
+      return (data || []).map(role => ({
+        id: role.id,
+        role_code: role.role_code,
+        role_name: role.role_name,
+        role_description: role.role_description || '',
+        role_level: role.role_level,
+        permissions: Array.isArray(role.permissions) ? role.permissions : [],
+        is_active: role.is_active,
+        is_system_role: role.is_system_role,
+        created_at: role.created_at,
+        updated_at: role.updated_at,
+      }));
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -44,7 +56,19 @@ export const useSystemRole = (roleCode: SystemRoleCode) => {
         throw error;
       }
 
-      return data;
+      // Convert database response to SystemRole type
+      return {
+        id: data.id,
+        role_code: data.role_code,
+        role_name: data.role_name,
+        role_description: data.role_description || '',
+        role_level: data.role_level,
+        permissions: Array.isArray(data.permissions) ? data.permissions : [],
+        is_active: data.is_active,
+        is_system_role: data.is_system_role,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
     },
     enabled: !!roleCode,
   });
@@ -123,14 +147,18 @@ export const useRolePermissions = (roleCode?: SystemRoleCode) => {
       if (!roleCode) return [];
 
       const { data, error } = await supabase
-        .rpc('get_role_permissions', { p_role_code: roleCode });
+        .from('system_roles')
+        .select('permissions')
+        .eq('role_code', roleCode)
+        .eq('is_active', true)
+        .single();
 
       if (error) {
         console.error('Error fetching role permissions:', error);
-        throw error;
+        return [];
       }
 
-      return data || [];
+      return Array.isArray(data.permissions) ? data.permissions : [];
     },
     enabled: !!roleCode,
   });
@@ -143,14 +171,18 @@ export const useRoleLevel = (roleCode?: SystemRoleCode) => {
       if (!roleCode) return 0;
 
       const { data, error } = await supabase
-        .rpc('get_role_level', { p_role_code: roleCode });
+        .from('system_roles')
+        .select('role_level')
+        .eq('role_code', roleCode)
+        .eq('is_active', true)
+        .single();
 
       if (error) {
         console.error('Error fetching role level:', error);
-        throw error;
+        return 0;
       }
 
-      return data || 0;
+      return data.role_level || 0;
     },
     enabled: !!roleCode,
   });

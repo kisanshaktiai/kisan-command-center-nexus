@@ -1,112 +1,131 @@
 
-// Update enums to match system_roles table structure
+// Core system enums aligned with database
+
 export enum TenantType {
   AGRI_COMPANY = 'agri_company',
+  DEALER = 'dealer',
   COOPERATIVE = 'cooperative',
+  UNIVERSITY = 'university',
+  SUGAR_FACTORY = 'sugar_factory',
   GOVERNMENT = 'government',
-  NGO = 'ngo',
-  RESEARCH = 'research',
-  STARTUP = 'startup'
+  INSURANCE = 'insurance',
+  OTHER = 'other'
 }
 
 export enum TenantStatus {
   TRIAL = 'trial',
   ACTIVE = 'active',
   SUSPENDED = 'suspended',
-  CANCELLED = 'cancelled',
-  ARCHIVED = 'archived'
+  ARCHIVED = 'archived',
+  PENDING_APPROVAL = 'pending_approval',
+  EXPIRED = 'expired'
 }
 
 export enum SubscriptionPlan {
   KISAN_BASIC = 'Kisan_Basic',
   SHAKTI_GROWTH = 'Shakti_Growth',
   AI_ENTERPRISE = 'AI_Enterprise',
-  CUSTOM = 'Custom'
+  CUSTOM_ENTERPRISE = 'Custom_Enterprise'
 }
 
-// Permission system from system_roles table
+// Type aliases for compatibility
+export type TenantTypeValue = `${TenantType}`;
+export type TenantStatusValue = `${TenantStatus}`;
+export type SubscriptionPlanValue = `${SubscriptionPlan}`;
+
+// Permission system
 export enum Permission {
-  // System-wide permissions
+  // System permissions
   SYSTEM_ADMIN = 'system:*',
-  SYSTEM_CONFIG = 'system:config',
-  SYSTEM_METRICS = 'system:metrics',
+  SYSTEM_READ = 'system:read',
+  SYSTEM_WRITE = 'system:write',
   
-  // Tenant management
-  TENANT_ALL = 'tenant:*',
-  TENANT_ADMIN = 'tenant:admin',
-  TENANT_CREATE = 'tenant:create',
+  // Tenant permissions
+  TENANT_ADMIN = 'tenant:*',
   TENANT_READ = 'tenant:read',
-  TENANT_UPDATE = 'tenant:update',
-  TENANT_DELETE = 'tenant:delete',
   TENANT_WRITE = 'tenant:write',
+  TENANT_DELETE = 'tenant:delete',
   
-  // User management
-  USER_ALL = 'user:*',
-  USER_CREATE = 'user:create',
+  // User permissions
+  USER_ADMIN = 'user:*',
   USER_READ = 'user:read',
-  USER_UPDATE = 'user:update',
-  USER_DELETE = 'user:delete',
   USER_WRITE = 'user:write',
+  USER_DELETE = 'user:delete',
   
-  // Billing
-  BILLING_ALL = 'billing:*',
-  BILLING_ADMIN = 'billing:admin',
+  // Billing permissions
+  BILLING_ADMIN = 'billing:*',
   BILLING_READ = 'billing:read',
-  BILLING_UPDATE = 'billing:update',
+  BILLING_WRITE = 'billing:write',
   
-  // Analytics
-  ANALYTICS_ALL = 'analytics:*',
-  ANALYTICS_ADMIN = 'analytics:admin',
+  // Analytics permissions
+  ANALYTICS_ADMIN = 'analytics:*',
   ANALYTICS_READ = 'analytics:read',
-  ANALYTICS_EXPORT = 'analytics:export',
+  ANALYTICS_WRITE = 'analytics:write',
   
-  // API access
-  API_ALL = 'api:*',
-  API_ADMIN = 'api:admin',
-  API_READ = 'api:read',
-  API_WRITE = 'api:write',
-  
-  // Domain specific
+  // Product permissions
   PRODUCTS_READ = 'products:read',
+  PRODUCTS_WRITE = 'products:write',
+  
+  // Customer permissions
+  CUSTOMERS_READ = 'customers:read',
   CUSTOMERS_WRITE = 'customers:write',
+  
+  // Order permissions
+  ORDERS_READ = 'orders:read',
   ORDERS_WRITE = 'orders:write',
+  
+  // Commission permissions
   COMMISSION_READ = 'commission:read',
+  COMMISSION_WRITE = 'commission:write',
+  
+  // Farmer permissions
   FARMERS_READ = 'farmers:read',
   FARMERS_WRITE = 'farmers:write',
+  
+  // Task permissions
+  TASKS_READ = 'tasks:read',
   TASKS_WRITE = 'tasks:write',
+  
+  // Report permissions
   REPORTS_READ = 'reports:read',
+  REPORTS_WRITE = 'reports:write',
+  
+  // Profile permissions
+  PROFILE_READ = 'profile:read',
   PROFILE_WRITE = 'profile:write',
+  
+  // Crop permissions
+  CROPS_READ = 'crops:read',
   CROPS_WRITE = 'crops:write',
+  
+  // Weather permissions
   WEATHER_READ = 'weather:read',
+  
+  // Marketplace permissions
   MARKETPLACE_READ = 'marketplace:read',
-  DASHBOARD_READ = 'dashboard:read'
+  MARKETPLACE_WRITE = 'marketplace:write',
+  
+  // Dashboard permissions
+  DASHBOARD_READ = 'dashboard:read',
+  DASHBOARD_WRITE = 'dashboard:write',
+  
+  // API permissions
+  API_READ = 'api:read',
+  API_WRITE = 'api:write',
+  API_ADMIN = 'api:admin'
 }
 
-export enum LeadStatus {
-  NEW = 'new',
-  CONTACTED = 'contacted',
-  QUALIFIED = 'qualified',
-  PROPOSAL_SENT = 'proposal_sent',
-  NEGOTIATION = 'negotiation',
-  CLOSED_WON = 'closed_won',
-  CLOSED_LOST = 'closed_lost',
-  CONVERTED = 'converted'
+// Role system enums
+export enum SystemRoleCode {
+  SUPER_ADMIN = 'super_admin',
+  PLATFORM_ADMIN = 'platform_admin',
+  TENANT_OWNER = 'tenant_owner',
+  TENANT_ADMIN = 'tenant_admin',
+  TENANT_MANAGER = 'tenant_manager',
+  DEALER = 'dealer',
+  AGENT = 'agent',
+  FARMER = 'farmer',
+  TENANT_USER = 'tenant_user'
 }
 
-export enum LeadSource {
-  WEBSITE = 'website',
-  REFERRAL = 'referral',
-  SOCIAL_MEDIA = 'social_media',
-  EMAIL_CAMPAIGN = 'email_campaign',
-  COLD_OUTREACH = 'cold_outreach',
-  TRADE_SHOW = 'trade_show',
-  PARTNER = 'partner',
-  OTHER = 'other'
-}
-
-export enum LeadPriority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical'
-}
+export type SystemRoleCodeValue = `${SystemRoleCode}`;
