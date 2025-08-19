@@ -1,13 +1,23 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { CreateTenantDTO, UpdateTenantDTO, Tenant } from '@/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO, Tenant, convertDatabaseTenant } from '@/types/tenant';
 import { TenantStatus, SubscriptionPlan } from '@/types/enums';
 
 class TenantService {
   async createTenant(data: CreateTenantDTO): Promise<Tenant> {
+    // Ensure required fields have defaults
+    const insertData = {
+      ...data,
+      type: data.type || 'agri_company',
+      status: data.status || 'trial',
+      subscription_plan: data.subscription_plan || 'Kisan_Basic',
+      business_address: data.business_address || {},
+      metadata: data.metadata || {},
+    };
+
     const { data: tenant, error } = await supabase
       .from('tenants')
-      .insert(data)
+      .insert(insertData)
       .select()
       .single();
 
@@ -15,7 +25,7 @@ class TenantService {
       throw new Error(`Failed to create tenant: ${error.message}`);
     }
 
-    return tenant;
+    return convertDatabaseTenant(tenant);
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<Tenant> {
@@ -30,7 +40,7 @@ class TenantService {
       throw new Error(`Failed to update tenant: ${error.message}`);
     }
 
-    return tenant;
+    return convertDatabaseTenant(tenant);
   }
 
   async deleteTenant(id: string): Promise<boolean> {

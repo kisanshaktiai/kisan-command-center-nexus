@@ -27,10 +27,10 @@ interface CreationSuccessState {
 
 export const useTenantManagement = (options: UseTenantManagementOptions = {}) => {
   // Data and mutations
-  const { data: tenantData = [], isLoading, error } = useTenantData({ filters: options.initialFilters });
+  const { data: tenantData, isLoading, error } = useTenantData({ filters: options.initialFilters });
   
-  // Ensure we always work with an array
-  const tenants = Array.isArray(tenantData) ? tenantData : [tenantData].filter(Boolean);
+  // Ensure we always work with an array - fix the type conversion
+  const tenants = Array.isArray(tenantData) ? tenantData : (tenantData ? [tenantData] : []);
   
   const { createTenantMutation, updateTenantMutation, deleteTenantMutation, isSubmitting } = useTenantMutations();
   

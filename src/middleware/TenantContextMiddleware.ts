@@ -84,12 +84,27 @@ class TenantContextService {
 
       if (error) throw error;
 
+      // Safely parse business_address
+      let businessAddress: Record<string, any> = {};
+      if (data.business_address) {
+        if (typeof data.business_address === 'string') {
+          try {
+            businessAddress = JSON.parse(data.business_address);
+          } catch {
+            businessAddress = {};
+          }
+        } else if (typeof data.business_address === 'object') {
+          businessAddress = data.business_address as Record<string, any>;
+        }
+      }
+
       const tenant: Tenant = {
         ...data,
         id: createTenantID(data.id),
         type: data.type as TenantType,
         status: data.status as TenantStatus,
         subscription_plan: data.subscription_plan as SubscriptionPlan,
+        business_address: businessAddress,
         metadata: (data.metadata as Record<string, any>) || {},
         branding: data.tenant_branding?.[0] || null,
         features: data.tenant_features?.[0] || null,

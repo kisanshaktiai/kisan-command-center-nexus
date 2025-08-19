@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { SystemRoleCode } from '@/types/enums';
@@ -61,59 +60,63 @@ export class UserTenantService extends BaseService {
 
   static async ensureUserTenantRecord(userId: string, tenantId: string, roleCode: string = 'tenant_admin'): Promise<ServiceResult<any>> {
     const instance = UserTenantService.getInstance();
-    return instance.createUserTenant({
-      user_id: userId,
-      tenant_id: tenantId,
-      role_code: roleCode
-    });
+    return instance.ensureUserTenantRecord(userId, tenantId, roleCode);
   }
 
   static async checkUserTenantStatus(email: string, tenantId: string): Promise<UserTenantStatus | null> {
     try {
-      // First, try to find user by email in profiles table
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('email', email)
-        .single();
+      // First, get user from auth.users using RPC function or admin API
+      const { data: authUsers, error: authError } = await supabase.rpc('get_user_by_email', { user_email: email });
 
-      if (profileError || !profile) {
+      if (authError || !authUsers) {
         return {
+          id: '',
+          user_id: '',
+          tenant_id: tenantId,
+          role_code: '',
+          is_active: false,
+          is_primary: false,
+          created_at: '',
+          updated_at: '',
           authExists: false,
           tenantRelationshipExists: false,
           roleMatches: false,
           issues: ['User not found in authentication system'],
-          expectedRole: 'tenant_admin'
+          expectedRole: 'tenant_admin',
+          currentRole: undefined,
+          userId: undefined
         } as UserTenantStatus;
       }
+
+      const userId = Array.isArray(authUsers) ? authUsers[0]?.id : authUsers?.id;
 
       // Check user_tenants relationship
       const { data: userTenant, error: relationError } = await supabase
         .from('user_tenants')
         .select(`
           *,
-          system_roles(role_code)
+          role_code
         `)
-        .eq('user_id', profile.id)
+        .eq('user_id', userId)
         .eq('tenant_id', tenantId)
         .single();
 
       return {
         id: userTenant?.id || '',
-        user_id: profile.id,
+        user_id: userId,
         tenant_id: tenantId,
-        role_code: userTenant?.system_roles?.role_code || '',
+        role_code: userTenant?.role_code || '',
         is_active: userTenant?.is_active || false,
         is_primary: userTenant?.is_primary || false,
         created_at: userTenant?.created_at || '',
         updated_at: userTenant?.updated_at || '',
         authExists: true,
         tenantRelationshipExists: !!userTenant,
-        roleMatches: userTenant?.system_roles?.role_code === 'tenant_admin',
-        currentRole: userTenant?.system_roles?.role_code || null,
+        roleMatches: userTenant?.role_code === 'tenant_admin',
+        currentRole: userTenant?.role_code || undefined,
         expectedRole: 'tenant_admin',
         issues: userTenant ? [] : ['User-tenant relationship missing'],
-        userId: profile.id
+        userId: userId
       } as UserTenantStatus;
     } catch (error) {
       console.error('Error checking user tenant status:', error);
@@ -122,11 +125,57 @@ export class UserTenantService extends BaseService {
   }
 
   async ensureUserTenantRecord(userId: string, tenantId: string, roleCode: string = 'tenant_admin'): Promise<ServiceResult<any>> {
-    return this.createUserTenant({
-      user_id: userId,
-      tenant_id: tenantId,
-      role_code: roleCode
-    });
+    return this.executeOperation(
+      async () => {
+        // Check if user-tenant relationship already exists
+        const { data: existingRelation } = await supabase
+          .from('user_tenants')
+          .select('id, is_active')
+          .eq('user_id', userId)
+          .eq('tenant_id', tenantId)
+          .single();
+
+        if (existingRelation) {
+          // Update existing relationship
+          const updateData: any = {
+            role_code: roleCode,
+            is_active: true,
+            is_primary: false,
+            updated_at: new Date().toISOString()
+          };
+
+          const { data: updated, error: updateError } = await supabase
+            .from('user_tenants')
+            .update(updateData)
+            .eq('id', existingRelation.id)
+            .select()
+            .single();
+
+          if (updateError) throw updateError;
+          return updated;
+        } else {
+          // Create new relationship
+          const insertData: any = {
+            user_id: userId,
+            tenant_id: tenantId,
+            role_code: roleCode,
+            is_active: true,
+            is_primary: false,
+            joined_at: new Date().toISOString()
+          };
+
+          const { data: created, error: createError } = await supabase
+            .from('user_tenants')
+            .insert(insertData)
+            .select()
+            .single();
+
+          if (createError) throw createError;
+          return created;
+        }
+      },
+      'ensureUserTenantRecord'
+    );
   }
 
   async createUserTenant(data: CreateUserTenantData): Promise<ServiceResult<any>> {

@@ -10,12 +10,16 @@ interface TenantListViewProps {
   tenants: any[];
   onViewDetails: (tenant: Tenant) => void;
   onEditTenant: (tenant: Tenant) => void;
+  onEdit?: (tenant: Tenant) => void;
+  onDelete?: (tenantId: string) => void;
 }
 
 export const TenantListView: React.FC<TenantListViewProps> = ({
   tenants,
   onViewDetails,
-  onEditTenant
+  onEditTenant,
+  onEdit,
+  onDelete
 }) => {
   if (!tenants?.length) {
     return (
@@ -24,6 +28,14 @@ export const TenantListView: React.FC<TenantListViewProps> = ({
       </div>
     );
   }
+
+  const handleEdit = (tenant: Tenant) => {
+    if (onEdit) {
+      onEdit(tenant);
+    } else if (onEditTenant) {
+      onEditTenant(tenant);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -55,7 +67,7 @@ export const TenantListView: React.FC<TenantListViewProps> = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onEditTenant(tenant)}
+                  onClick={() => handleEdit(tenant)}
                 >
                   <Edit className="w-4 h-4" />
                 </Button>
@@ -67,3 +79,5 @@ export const TenantListView: React.FC<TenantListViewProps> = ({
     </div>
   );
 };
+
+export default TenantListView;
