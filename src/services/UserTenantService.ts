@@ -1,6 +1,6 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { BaseService, ServiceResult } from '@/services/BaseService';
-import { SystemRoleCode } from '@/types/enums';
 
 interface CreateUserTenantData {
   user_id: string;
@@ -65,10 +65,14 @@ export class UserTenantService extends BaseService {
 
   static async checkUserTenantStatus(email: string, tenantId: string): Promise<UserTenantStatus | null> {
     try {
-      // First, get user from auth.users using RPC function or admin API
-      const { data: authUsers, error: authError } = await supabase.rpc('get_user_by_email', { user_email: email });
+      // First, get user from profiles table (which should have been synced from auth.users)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email)
+        .single();
 
-      if (authError || !authUsers) {
+      if (profileError || !profile) {
         return {
           id: '',
           user_id: '',
@@ -81,22 +85,19 @@ export class UserTenantService extends BaseService {
           authExists: false,
           tenantRelationshipExists: false,
           roleMatches: false,
-          issues: ['User not found in authentication system'],
+          issues: ['User not found in profiles'],
           expectedRole: 'tenant_admin',
           currentRole: undefined,
           userId: undefined
         } as UserTenantStatus;
       }
 
-      const userId = Array.isArray(authUsers) ? authUsers[0]?.id : authUsers?.id;
+      const userId = profile.id;
 
       // Check user_tenants relationship
       const { data: userTenant, error: relationError } = await supabase
         .from('user_tenants')
-        .select(`
-          *,
-          role_code
-        `)
+        .select('*')
         .eq('user_id', userId)
         .eq('tenant_id', tenantId)
         .single();
@@ -181,18 +182,6 @@ export class UserTenantService extends BaseService {
   async createUserTenant(data: CreateUserTenantData): Promise<ServiceResult<any>> {
     return this.executeOperation(
       async () => {
-        // Validate role exists in system_roles
-        const { data: role, error: roleError } = await supabase
-          .from('system_roles')
-          .select('role_code')
-          .eq('role_code', data.role_code)
-          .eq('is_active', true)
-          .single();
-
-        if (roleError || !role) {
-          throw new Error(`Invalid role: ${data.role_code}`);
-        }
-
         // Map platform_admin to super_admin if needed for compatibility
         let roleCode = data.role_code;
         if (roleCode === 'platform_admin') {
@@ -261,20 +250,6 @@ export class UserTenantService extends BaseService {
   async updateUserTenant(id: string, data: UpdateUserTenantData): Promise<ServiceResult<any>> {
     return this.executeOperation(
       async () => {
-        // Validate role if provided
-        if (data.role_code) {
-          const { data: role, error: roleError } = await supabase
-            .from('system_roles')
-            .select('role_code')
-            .eq('role_code', data.role_code)
-            .eq('is_active', true)
-            .single();
-
-          if (roleError || !role) {
-            throw new Error(`Invalid role: ${data.role_code}`);
-          }
-        }
-
         const { data: updated, error } = await supabase
           .from('user_tenants')
           .update({
@@ -299,8 +274,7 @@ export class UserTenantService extends BaseService {
           .from('user_tenants')
           .select(`
             *,
-            tenants (*),
-            system_roles (*)
+            tenants (*)
           `)
           .eq('user_id', userId)
           .eq('is_active', true)
@@ -326,8 +300,7 @@ export class UserTenantService extends BaseService {
               email,
               phone,
               avatar_url
-            ),
-            system_roles (*)
+            )
           `)
           .eq('tenant_id', tenantId)
           .eq('is_active', true)

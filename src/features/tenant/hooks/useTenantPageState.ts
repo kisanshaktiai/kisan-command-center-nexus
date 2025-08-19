@@ -16,7 +16,10 @@ interface UseTenantPageStateOptions {
 }
 
 export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
-  const { data: tenants = [], isLoading, error } = useTenantData({ filters: options.initialFilters });
+  const { data: tenantData = [], isLoading, error } = useTenantData({ filters: options.initialFilters });
+  
+  // Ensure we always work with an array
+  const tenants = Array.isArray(tenantData) ? tenantData : (tenantData ? [tenantData] : []) as Tenant[];
   
   const {
     // Core management functionality
@@ -30,7 +33,7 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
     handleDeleteTenant,
   } = useTenantManagement();
   
-  // Analytics integration
+  // Analytics integration - pass the tenants array
   const { tenantMetrics, refreshMetrics } = useTenantAnalytics({ 
     tenants,
     autoRefresh: true,
