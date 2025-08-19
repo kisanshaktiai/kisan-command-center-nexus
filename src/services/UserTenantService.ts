@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { SystemRoleService } from './SystemRoleService';
 import { SYSTEM_ROLE_CODES, type SystemRoleCode } from '@/types/roles';
@@ -45,13 +46,13 @@ export class UserTenantService {
     }
 
     try {
-      // Use direct insert to avoid RPC function issues
+      // Use direct insert with proper type casting
       const { data, error } = await supabase
         .from('user_tenants')
         .insert({
           user_id: request.user_id,
           tenant_id: request.tenant_id,
-          role: request.role as any, // Cast to avoid enum conflicts
+          role: request.role as string, // Cast to string for database
           is_active: request.is_active ?? true,
           metadata: request.metadata || {},
           created_at: new Date().toISOString(),
@@ -98,13 +99,18 @@ export class UserTenantService {
       }
     }
 
+    const updateData: any = {
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+
+    if (updates.role) {
+      updateData.role = updates.role as string; // Cast to string for database
+    }
+
     const { data, error } = await supabase
       .from('user_tenants')
-      .update({
-        ...updates,
-        role: updates.role as any, // Cast to avoid enum conflicts
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('user_id', userId)
       .eq('tenant_id', tenantId)
       .select()
@@ -259,18 +265,23 @@ export class UserTenantService {
 
     try {
       // Check if user exists in auth system
-      const { data: users, error: usersError } = await supabase.auth.admin.listUsers();
-      
-      if (usersError) {
-        issues.push(`Auth system error: ${usersError.message}`);
-      } else {
-        const authUser = users.users.find(u => u.email === email);
-        if (authUser) {
-          authExists = true;
-          userId = authUser.id;
+      try {
+        const { data: users, error: usersError } = await supabase.auth.admin.listUsers();
+        
+        if (usersError) {
+          issues.push(`Auth system error: ${usersError.message}`);
         } else {
-          issues.push('User not found in authentication system');
+          const authUser = users.users.find(u => u.email === email);
+          if (authUser) {
+            authExists = true;
+            userId = authUser.id;
+          } else {
+            issues.push('User not found in authentication system');
+          }
         }
+      } catch (authError) {
+        console.error('Error checking auth users:', authError);
+        issues.push('Unable to check authentication system');
       }
 
       // Check tenant relationship if user exists
@@ -311,6 +322,7 @@ export class UserTenantService {
         profileExists: false,
         tenantRelationshipExists: false,
         roleMatches: false,
+        currentRole,
         email,
         issues,
         canCreateRelationship: false

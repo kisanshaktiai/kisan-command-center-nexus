@@ -48,7 +48,11 @@ export enum TenantType {
   GOVERNMENT = 'government',
   NGO = 'ngo',
   RESEARCH = 'research',
-  INDIVIDUAL = 'individual'
+  INDIVIDUAL = 'individual',
+  DEALER = 'dealer',
+  UNIVERSITY = 'university',
+  SUGAR_FACTORY = 'sugar_factory',
+  INSURANCE = 'insurance'
 }
 
 export enum TenantStatus {
@@ -56,11 +60,13 @@ export enum TenantStatus {
   TRIAL = 'trial',
   SUSPENDED = 'suspended',
   CANCELLED = 'cancelled',
-  ARCHIVED = 'archived'
+  ARCHIVED = 'archived',
+  PENDING_APPROVAL = 'pending_approval'
 }
 
 export enum SubscriptionPlan {
   KISAN_BASIC = 'Kisan_Basic',
   SHAKTI_GROWTH = 'Shakti_Growth',
-  AI_ENTERPRISE = 'AI_Enterprise'
+  AI_ENTERPRISE = 'AI_Enterprise',
+  CUSTOM = 'custom'
 }
