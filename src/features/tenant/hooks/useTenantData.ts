@@ -5,6 +5,7 @@ import { Tenant, TenantFilters, convertDatabaseTenant } from '@/types/tenant';
 import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
 
 interface UseTenantDataOptions {
+  tenantId?: string;
   filters?: {
     search?: string;
     type?: string;
@@ -27,16 +28,24 @@ const validateTenantStatus = (status: string): TenantStatus | undefined => {
 };
 
 export const useTenantData = (options: UseTenantDataOptions = {}) => {
-  const { filters = {}, enabled = true } = options;
+  const { tenantId, filters = {}, enabled = true } = options;
 
   return useQuery({
-    queryKey: ['tenants', filters],
+    queryKey: tenantId ? ['tenant', tenantId] : ['tenants', filters],
     queryFn: async () => {
+      if (tenantId) {
+        const response = await enhancedApiFactory.get<any>(`tenants/${tenantId}`);
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to fetch tenant');
+        }
+        return convertDatabaseTenant(response.data);
+      }
+
       // Convert and validate filter parameters
       const apiFilters: TenantFilters = {
         search: filters.search,
-        type: filters.type && filters.type !== 'all' ? filters.type : undefined,
-        status: filters.status && filters.status !== 'all' ? filters.status : undefined,
+        type: filters.type && filters.type !== 'all' ? (filters.type as any) : undefined,
+        status: filters.status && filters.status !== 'all' ? (filters.status as any) : undefined,
       };
 
       // Remove undefined values

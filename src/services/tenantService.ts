@@ -1,6 +1,51 @@
+
+import { supabase } from '@/integrations/supabase/client';
+import { CreateTenantDTO, UpdateTenantDTO, Tenant } from '@/types/tenant';
 import { TenantStatus, SubscriptionPlan } from '@/types/enums';
 
 class TenantService {
+  async createTenant(data: CreateTenantDTO): Promise<Tenant> {
+    const { data: tenant, error } = await supabase
+      .from('tenants')
+      .insert(data)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to create tenant: ${error.message}`);
+    }
+
+    return tenant;
+  }
+
+  async updateTenant(id: string, data: UpdateTenantDTO): Promise<Tenant> {
+    const { data: tenant, error } = await supabase
+      .from('tenants')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update tenant: ${error.message}`);
+    }
+
+    return tenant;
+  }
+
+  async deleteTenant(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('tenants')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(`Failed to delete tenant: ${error.message}`);
+    }
+
+    return true;
+  }
+
   getStatusBadgeVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
     switch (status.toLowerCase()) {
       case TenantStatus.ACTIVE:
@@ -110,71 +155,6 @@ class TenantService {
   validateEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
-  }
-
-  // Resource limit utilities
-  hasUnlimitedFarmers(maxFarmers?: number): boolean {
-    return !maxFarmers || maxFarmers === -1;
-  }
-
-  hasUnlimitedDealers(maxDealers?: number): boolean {
-    return !maxDealers || maxDealers === -1;
-  }
-
-  hasUnlimitedProducts(maxProducts?: number): boolean {
-    return !maxProducts || maxProducts === -1;
-  }
-
-  hasUnlimitedStorage(maxStorageGb?: number): boolean {
-    return !maxStorageGb || maxStorageGb === -1;
-  }
-
-  // Feature access utilities
-  canAccessFeature(plan: string, feature: string): boolean {
-    const featureMatrix: Record<string, string[]> = {
-      [SubscriptionPlan.KISAN_BASIC]: ['basic_analytics', 'weather_forecast', 'marketplace'],
-      [SubscriptionPlan.SHAKTI_GROWTH]: ['basic_analytics', 'advanced_analytics', 'weather_forecast', 'marketplace', 'community_forum'],
-      [SubscriptionPlan.AI_ENTERPRISE]: ['basic_analytics', 'advanced_analytics', 'predictive_analytics', 'weather_forecast', 'marketplace', 'community_forum', 'ai_chat', 'satellite_imagery'],
-      [SubscriptionPlan.CUSTOM_ENTERPRISE]: ['*'] // All features
-    };
-
-    const planFeatures = featureMatrix[plan] || [];
-    return planFeatures.includes('*') || planFeatures.includes(feature);
-  }
-
-  // Tenant health utilities
-  getTenantHealthScore(tenant: any): number {
-    let score = 0;
-    
-    // Basic info completeness (30 points)
-    if (tenant.name) score += 5;
-    if (tenant.owner_name) score += 5;
-    if (tenant.owner_email) score += 5;
-    if (tenant.business_address) score += 5;
-    if (tenant.business_registration) score += 5;
-    if (tenant.established_date) score += 5;
-
-    // Status health (40 points)
-    if (tenant.status === TenantStatus.ACTIVE) score += 40;
-    else if (tenant.status === TenantStatus.TRIAL) score += 20;
-    else if (tenant.status === TenantStatus.PENDING_APPROVAL) score += 10;
-
-    // Subscription health (30 points)
-    if (tenant.subscription_start_date && tenant.subscription_end_date) {
-      const now = new Date();
-      const endDate = new Date(tenant.subscription_end_date);
-      if (endDate > now) score += 30;
-      else score += 10; // Expired but has subscription
-    }
-
-    return Math.min(score, 100);
-  }
-
-  getTenantHealthStatus(score: number): 'excellent' | 'good' | 'fair' | 'poor' {
-    if (score >= 90) return 'excellent';
-    if (score >= 70) return 'good';
-    if (score >= 50) return 'fair';
-    return 'poor';
   }
 }
 

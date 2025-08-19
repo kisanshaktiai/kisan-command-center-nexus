@@ -70,11 +70,14 @@ export class UserTenantService extends BaseService {
 
   static async checkUserTenantStatus(email: string, tenantId: string): Promise<UserTenantStatus | null> {
     try {
-      // Get user from auth
-      const { data: user, error: userError } = await supabase.auth.admin.getUserByEmail?.(email) || 
-        await supabase.from('auth.users').select('*').eq('email', email).single();
+      // First, try to find user by email in profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email)
+        .single();
 
-      if (userError || !user) {
+      if (profileError || !profile) {
         return {
           authExists: false,
           tenantRelationshipExists: false,
@@ -87,27 +90,30 @@ export class UserTenantService extends BaseService {
       // Check user_tenants relationship
       const { data: userTenant, error: relationError } = await supabase
         .from('user_tenants')
-        .select('*')
-        .eq('user_id', user.id)
+        .select(`
+          *,
+          system_roles(role_code)
+        `)
+        .eq('user_id', profile.id)
         .eq('tenant_id', tenantId)
         .single();
 
       return {
         id: userTenant?.id || '',
-        user_id: user.id,
+        user_id: profile.id,
         tenant_id: tenantId,
-        role_code: userTenant?.role_code || '',
+        role_code: userTenant?.system_roles?.role_code || '',
         is_active: userTenant?.is_active || false,
         is_primary: userTenant?.is_primary || false,
         created_at: userTenant?.created_at || '',
         updated_at: userTenant?.updated_at || '',
         authExists: true,
         tenantRelationshipExists: !!userTenant,
-        roleMatches: userTenant?.role_code === 'tenant_admin',
-        currentRole: userTenant?.role_code || null,
+        roleMatches: userTenant?.system_roles?.role_code === 'tenant_admin',
+        currentRole: userTenant?.system_roles?.role_code || null,
         expectedRole: 'tenant_admin',
         issues: userTenant ? [] : ['User-tenant relationship missing'],
-        userId: user.id
+        userId: profile.id
       } as UserTenantStatus;
     } catch (error) {
       console.error('Error checking user tenant status:', error);
@@ -140,7 +146,7 @@ export class UserTenantService extends BaseService {
 
         // Map platform_admin to super_admin if needed for compatibility
         let roleCode = data.role_code;
-        if (roleCode === SystemRoleCode.PLATFORM_ADMIN) {
+        if (roleCode === 'platform_admin') {
           roleCode = 'super_admin';
         }
 

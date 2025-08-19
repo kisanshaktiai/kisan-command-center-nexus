@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from './useNotifications';
@@ -86,7 +85,7 @@ export const useTenantUserManagement = () => {
       console.log('useTenantUserManagement: User-tenant status result:', status);
       
       // Check if there were any errors in the status check
-      if (status.issues.length > 0) {
+      if (status?.issues && status.issues.length > 0) {
         const hasOnlyMissingRelationshipIssue = status.issues.length === 1 && 
           status.issues[0] === 'User-tenant relationship missing' && 
           status.authExists;
@@ -138,8 +137,7 @@ export const useTenantUserManagement = () => {
         console.error('useTenantUserManagement: Failed to ensure user-tenant record:', result);
         // Show more detailed error message from the enhanced error handling
         const errorMessage = result.error || 'Failed to create user-tenant relationship';
-        const detailedMessage = result.code ? `${errorMessage} (${result.code})` : errorMessage;
-        showError(detailedMessage);
+        showError(errorMessage);
         return false;
       }
     } catch (error) {

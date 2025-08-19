@@ -304,5 +304,9 @@ export function getSubscriptionPlanDisplay(plan: SubscriptionPlanValue): string 
   return displayMap[plan] || plan;
 }
 
+export function convertEnumToString(enumValue: any): string {
+  return String(enumValue);
+}
+
 // Re-export enums for convenience
 export { TenantType, TenantStatus, SubscriptionPlan, type TenantTypeValue, type TenantStatusValue, type SubscriptionPlanValue };
