@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ManageUserTenantRequest {
@@ -35,22 +34,16 @@ export interface UserTenantStatus {
   issues: string[];
 }
 
-// Type guard for database function response
-function isUserTenantResponse(data: any): data is UserTenantResponse {
-  return data && typeof data === 'object' && 'success' in data;
-}
-
 export class UserTenantService {
   /**
-   * Create or update a user-tenant relationship using the database function directly
+   * Create or update a user-tenant relationship - FIXED: Direct table operations
    */
   static async manageUserTenantRelationship(
     request: ManageUserTenantRequest
   ): Promise<UserTenantResponse> {
     try {
-      console.log('UserTenantService: Managing user-tenant relationship via database function:', request);
+      console.log('UserTenantService: Managing user-tenant relationship via direct table insert:', request);
 
-      // Validate role is one of the allowed enum values
       const validRoles = ['super_admin', 'tenant_admin', 'tenant_owner', 'farmer', 'dealer', 'tenant_manager', 'agent'];
       if (!validRoles.includes(request.role)) {
         console.error('UserTenantService: Invalid role provided:', request.role);
@@ -61,71 +54,72 @@ export class UserTenantService {
         };
       }
 
-      // Call the database function directly instead of the edge function
-      const { data, error } = await supabase.rpc('manage_user_tenant_relationship', {
-        p_user_id: request.user_id,
-        p_tenant_id: request.tenant_id,
-        p_role: request.role,
-        p_is_active: request.is_active ?? true,
-        p_metadata: request.metadata || {},
-        p_operation: request.operation || 'upsert'
-      });
+      // Use direct table operations instead of RPC function
+      let data, error;
+
+      if (request.operation === 'insert') {
+        const result = await supabase
+          .from('user_tenants')
+          .insert({
+            user_id: request.user_id,
+            tenant_id: request.tenant_id,
+            role: request.role,
+            is_active: request.is_active ?? true,
+            metadata: request.metadata || {}
+          })
+          .select()
+          .single();
+        
+        data = result.data;
+        error = result.error;
+      } else {
+        // For upsert operations
+        const result = await supabase
+          .from('user_tenants')
+          .upsert({
+            user_id: request.user_id,
+            tenant_id: request.tenant_id,
+            role: request.role,
+            is_active: request.is_active ?? true,
+            metadata: request.metadata || {}
+          })
+          .select()
+          .single();
+        
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
-        console.error('UserTenantService: Database function error:', error);
+        console.error('UserTenantService: Database operation error:', error);
         return {
           success: false,
           error: error.message || 'Failed to manage user-tenant relationship',
-          code: 'DATABASE_FUNCTION_ERROR'
+          code: 'DATABASE_ERROR'
         };
       }
 
-      // Properly handle the database function response with type checking
       if (!data) {
-        console.error('UserTenantService: No data returned from database function');
+        console.error('UserTenantService: No data returned from database operation');
         return {
           success: false,
-          error: 'No response from database function',
+          error: 'No response from database operation',
           code: 'NO_RESPONSE'
         };
       }
 
-      // Type guard and proper casting
-      let response: UserTenantResponse;
-      if (isUserTenantResponse(data)) {
-        response = data;
-      } else if (typeof data === 'object' && data !== null) {
-        // Handle cases where data might be a plain object
-        const dataObj = data as Record<string, any>;
-        response = {
-          success: dataObj.success || false,
-          error: dataObj.error,
-          code: dataObj.code,
-          relationship_id: dataObj.relationship_id,
-          operation: dataObj.operation,
-          user_id: dataObj.user_id,
-          tenant_id: dataObj.tenant_id,
-          role: dataObj.role,
-          is_active: dataObj.is_active,
-          message: dataObj.message,
-          request_id: dataObj.request_id,
-          correlation_id: dataObj.correlation_id
-        };
-      } else {
-        console.error('UserTenantService: Invalid response format:', data);
-        return {
-          success: false,
-          error: 'Invalid response format from database function',
-          code: 'INVALID_RESPONSE_FORMAT'
-        };
-      }
+      const response: UserTenantResponse = {
+        success: true,
+        relationship_id: data.id,
+        operation: request.operation || 'upsert',
+        user_id: data.user_id,
+        tenant_id: data.tenant_id,
+        role: data.role,
+        is_active: data.is_active,
+        message: 'User-tenant relationship managed successfully'
+      };
 
-      if (!response.success) {
-        console.error('UserTenantService: Database function returned error:', response);
-        return response;
-      }
-
-      console.log('UserTenantService: Successfully managed relationship via database function:', response);
+      console.log('UserTenantService: Successfully managed relationship:', response);
       return response;
 
     } catch (error: any) {
@@ -195,7 +189,6 @@ export class UserTenantService {
         };
       }
 
-      // Check auth.users table using the get-user-by-email edge function
       const { data: authUserResponse, error: authError } = await supabase.functions.invoke('get-user-by-email', {
         body: { user_email: email.trim() }
       });
@@ -214,7 +207,6 @@ export class UserTenantService {
       const authUser = authUserResponse && Array.isArray(authUserResponse) && authUserResponse.length > 0 ? authUserResponse[0] : null;
       console.log('UserTenantService: Auth user result:', authUser);
 
-      // Check user_tenants table if user exists
       let tenantRelationship = null;
       if (authUser) {
         console.log('UserTenantService: Checking tenant relationship for user:', authUser.id);
@@ -291,7 +283,7 @@ export class UserTenantService {
     userId: string,
     tenantId: string
   ): Promise<UserTenantResponse> {
-    console.log('UserTenantService: Ensuring user-tenant record via global function for:', { userId, tenantId });
+    console.log('UserTenantService: Ensuring user-tenant record for:', { userId, tenantId });
     
     return this.manageUserTenantRelationship({
       user_id: userId,
@@ -316,17 +308,21 @@ export class UserTenantService {
     includeInactive = false
   ): Promise<UserTenantResponse> {
     try {
-      const params = new URLSearchParams();
-      if (userId) params.append('user_id', userId);
-      if (tenantId) params.append('tenant_id', tenantId);
-      if (includeInactive) params.append('include_inactive', 'true');
+      let query = supabase.from('user_tenants').select('*');
 
-      const { data, error } = await supabase.functions.invoke('manage-user-tenant', {
-        method: 'GET',
-        headers: {
-          'x-request-id': `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        }
-      });
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('UserTenantService: Error fetching relationships:', error);
@@ -337,7 +333,10 @@ export class UserTenantService {
         };
       }
 
-      return data as UserTenantResponse;
+      return {
+        success: true,
+        message: `Found ${data?.length || 0} relationships`
+      };
 
     } catch (error: any) {
       console.error('UserTenantService: Unexpected error fetching relationships:', error);

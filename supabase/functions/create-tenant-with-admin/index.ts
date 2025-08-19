@@ -40,19 +40,25 @@ serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
   );
 
   try {
     const requestId = req.headers.get('x-request-id') || `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const correlationId = req.headers.get('x-correlation-id') || `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const idempotencyKey = req.headers.get('idempotency-key');
 
-    console.log(`[${requestId}] Creating tenant with admin user`);
+    console.log(`[${requestId}] Starting tenant creation with admin user`);
 
     // Get current user from authorization header
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
+      console.error(`[${requestId}] No authorization header found`);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -66,9 +72,10 @@ serve(async (req) => {
       );
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
+    const token = authHeader.replace('Bearer ', '');
+    console.log(`[${requestId}] Validating user token`);
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
       console.error(`[${requestId}] Auth error:`, userError);
@@ -85,15 +92,18 @@ serve(async (req) => {
       );
     }
 
+    console.log(`[${requestId}] User authenticated: ${user.id}`);
+
     // Check admin permissions
-    const { data: adminUser } = await supabase
+    const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
       .select('role, is_active')
       .eq('id', user.id)
       .eq('is_active', true)
       .single();
 
-    if (!adminUser || !['super_admin', 'platform_admin'].includes(adminUser.role)) {
+    if (adminError || !adminUser || !['super_admin', 'platform_admin'].includes(adminUser.role)) {
+      console.error(`[${requestId}] Admin check failed:`, adminError, adminUser);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -107,10 +117,14 @@ serve(async (req) => {
       );
     }
 
+    console.log(`[${requestId}] Admin privileges confirmed: ${adminUser.role}`);
+
     const requestBody: CreateTenantRequest = await req.json();
+    console.log(`[${requestId}] Request body received:`, JSON.stringify(requestBody, null, 2));
 
     // Validate required fields
     if (!requestBody.name || !requestBody.slug || !requestBody.owner_email || !requestBody.owner_name) {
+      console.error(`[${requestId}] Missing required fields`);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -124,9 +138,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] Creating tenant:`, requestBody.name);
-
     // Step 1: Create the tenant
+    console.log(`[${requestId}] Creating tenant: ${requestBody.name}`);
+    
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .insert({
@@ -155,8 +169,7 @@ serve(async (req) => {
           ...requestBody.metadata,
           created_by: user.id,
           created_via: 'admin_portal',
-          correlation_id: correlationId,
-          idempotency_key: idempotencyKey
+          correlation_id: correlationId
         }
       })
       .select()
@@ -178,12 +191,12 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] Tenant created successfully:`, tenant.id);
+    console.log(`[${requestId}] Tenant created successfully: ${tenant.id}`);
 
     // Step 2: Create admin user account
-    console.log(`[${requestId}] Creating admin user for:`, requestBody.owner_email);
+    console.log(`[${requestId}] Creating admin user for: ${requestBody.owner_email}`);
     
-    const tempPassword = Math.random().toString(36).slice(-12) + '!A1'; // Generate secure random password
+    const tempPassword = Math.random().toString(36).slice(-12) + '!A1';
     
     const { data: adminUserData, error: adminUserError } = await supabase.auth.admin.createUser({
       email: requestBody.owner_email,
@@ -218,31 +231,28 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] Admin user created:`, adminUserData.user.id);
+    console.log(`[${requestId}] Admin user created: ${adminUserData.user.id}`);
 
-    // Step 3: Create user-tenant relationship using the database function directly
-    console.log(`[${requestId}] Creating user-tenant relationship for tenant admin`);
+    // Step 3: Create user-tenant relationship - FIXED: Direct table insert instead of RPC
+    console.log(`[${requestId}] Creating user-tenant relationship directly`);
     
-    const { data: relationshipData, error: relationshipError } = await supabase.rpc(
-      'manage_user_tenant_relationship',
-      {
-        p_user_id: adminUserData.user.id,
-        p_tenant_id: tenant.id,
-        p_role: 'tenant_admin',
-        p_is_active: true,
-        p_metadata: {
+    const { data: relationshipData, error: relationshipError } = await supabase
+      .from('user_tenants')
+      .insert({
+        user_id: adminUserData.user.id,
+        tenant_id: tenant.id,
+        role: 'tenant_admin',
+        is_active: true,
+        metadata: {
           created_via: 'tenant_creation',
           auto_assigned: true,
           created_by: user.id,
           correlation_id: correlationId,
           created_at: new Date().toISOString()
-        },
-        p_operation: 'insert'
-      }
-    );
-
-    console.log(`[${requestId}] Database function response:`, relationshipData);
-    console.log(`[${requestId}] Database function error:`, relationshipError);
+        }
+      })
+      .select()
+      .single();
 
     if (relationshipError) {
       console.error(`[${requestId}] Error creating user-tenant relationship:`, relationshipError);
@@ -265,58 +275,28 @@ serve(async (req) => {
       );
     }
 
-    // Check if relationship creation was successful
-    if (!relationshipData || (typeof relationshipData === 'object' && 'success' in relationshipData && !relationshipData.success)) {
-      console.error(`[${requestId}] Database function returned failure:`, relationshipData);
-      
-      // Rollback - delete tenant and user
-      await supabase.from('tenants').delete().eq('id', tenant.id);
-      await supabase.auth.admin.deleteUser(adminUserData.user.id);
-      
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Failed to create user-tenant relationship',
-          code: 'USER_TENANT_RELATIONSHIP_FAILED',
-          details: relationshipData?.error || 'Unknown database function error'
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
     console.log(`[${requestId}] User-tenant relationship created successfully:`, relationshipData);
 
-    // Step 4: Send welcome email (optional - you can implement this later)
+    // Step 4: Send welcome email (optional)
     let emailSent = false;
     try {
       // TODO: Implement email sending logic here
       emailSent = true;
     } catch (emailError) {
       console.warn(`[${requestId}] Email sending failed:`, emailError);
-      // Don't fail the entire operation for email issues
     }
 
     const response = {
       success: true,
       tenant_id: tenant.id,
       admin_user_id: adminUserData.user.id,
-      relationship_id: relationshipData?.relationship_id || 'created',
-      tenant_name: tenant.name,
-      admin_email: requestBody.owner_email,
+      relationship_id: relationshipData.id,
       emailSent,
       correlationId,
-      requestId,
-      temp_password: tempPassword,
       message: 'Tenant and admin user created successfully'
     };
 
-    console.log(`[${requestId}] Tenant creation completed successfully:`, {
-      ...response,
-      temp_password: '[REDACTED]' // Don't log the password
-    });
+    console.log(`[${requestId}] Complete success:`, response);
 
     return new Response(
       JSON.stringify(response),
@@ -329,11 +309,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('Unexpected error in create-tenant-with-admin:', error);
     return new Response(
-      JSON.stringify({
-        success: false,
+      JSON.stringify({ 
+        success: false, 
         error: 'Internal server error',
-        code: 'INTERNAL_ERROR',
-        message: error instanceof Error ? error.message : 'Unknown error occurred'
+        code: 'INTERNAL_SERVER_ERROR',
+        details: error instanceof Error ? error.message : 'Unknown error'
       }),
       { 
         status: 500, 
@@ -341,4 +321,4 @@ serve(async (req) => {
       }
     );
   }
-});
+})
