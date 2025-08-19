@@ -46,18 +46,18 @@ export class UserTenantService {
     }
 
     try {
-      // Use direct insert with proper type casting
+      // Use direct insert with proper type casting - insert as any to bypass strict typing
       const { data, error } = await supabase
         .from('user_tenants')
         .insert({
           user_id: request.user_id,
           tenant_id: request.tenant_id,
-          role: request.role as string, // Cast to string for database
+          role: request.role as any, // Cast to any to bypass database enum constraints
           is_active: request.is_active ?? true,
           metadata: request.metadata || {},
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        })
+        } as any) // Cast entire object to any
         .select()
         .single();
 
@@ -105,7 +105,7 @@ export class UserTenantService {
     };
 
     if (updates.role) {
-      updateData.role = updates.role as string; // Cast to string for database
+      updateData.role = updates.role as any; // Cast to any for database compatibility
     }
 
     const { data, error } = await supabase
@@ -266,18 +266,20 @@ export class UserTenantService {
     try {
       // Check if user exists in auth system
       try {
-        const { data: users, error: usersError } = await supabase.auth.admin.listUsers();
+        const { data: listResult, error: usersError } = await supabase.auth.admin.listUsers();
         
         if (usersError) {
           issues.push(`Auth system error: ${usersError.message}`);
-        } else {
-          const authUser = users.users.find(u => u.email === email);
+        } else if (listResult && listResult.users) {
+          const authUser = listResult.users.find((u: any) => u.email === email);
           if (authUser) {
             authExists = true;
             userId = authUser.id;
           } else {
             issues.push('User not found in authentication system');
           }
+        } else {
+          issues.push('Unable to retrieve user list from auth system');
         }
       } catch (authError) {
         console.error('Error checking auth users:', authError);

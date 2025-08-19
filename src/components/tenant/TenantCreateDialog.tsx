@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   AlertDialog,
@@ -8,7 +9,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button";
 import { Loader2 } from 'lucide-react';
@@ -19,15 +19,19 @@ import { TenantForm } from './TenantForm';
 interface TenantCreateDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreateTenant?: (tenantData: CreateTenantDTO) => Promise<boolean>;
   onSuccess?: () => void;
+  isSubmitting?: boolean;
 }
 
 export const TenantCreateDialog: React.FC<TenantCreateDialogProps> = ({ 
   isOpen, 
   onClose,
-  onSuccess 
+  onCreateTenant,
+  onSuccess,
+  isSubmitting = false
 }) => {
-  const { mutate: createTenant, isPending: isCreating } = useCreateTenant();
+  const createTenantMutation = useCreateTenant();
 
   const handleClose = () => {
     onClose();
@@ -66,15 +70,20 @@ export const TenantCreateDialog: React.FC<TenantCreateDialogProps> = ({
         metadata: tenantData.metadata
       };
 
-      await createTenantMutation.mutateAsync(createData);
-      return true;
+      // Use the provided onCreateTenant handler if available, otherwise use the mutation
+      if (onCreateTenant) {
+        return await onCreateTenant(createData);
+      } else {
+        await createTenantMutation.mutateAsync(createData);
+        return true;
+      }
     } catch (error) {
       console.error('Failed to create tenant:', error);
       return false;
     }
   };
 
-  const createTenantMutation = useCreateTenant();
+  const isLoading = isSubmitting || createTenantMutation.isPending;
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
@@ -90,15 +99,15 @@ export const TenantCreateDialog: React.FC<TenantCreateDialogProps> = ({
           mode="create"
           onSubmit={handleSubmit}
           onCancel={handleClose}
-          isSubmitting={createTenantMutation.isPending}
+          isSubmitting={isLoading}
         />
 
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleClose} disabled={createTenantMutation.isPending}>
+          <AlertDialogCancel onClick={handleClose} disabled={isLoading}>
             Cancel
           </AlertDialogCancel>
-          <AlertDialogAction onClick={handleSuccess} disabled={createTenantMutation.isPending}>
-            {createTenantMutation.isPending ? (
+          <AlertDialogAction onClick={handleSuccess} disabled={isLoading}>
+            {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Creating...
