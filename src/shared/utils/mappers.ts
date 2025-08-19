@@ -1,8 +1,15 @@
 
-import { TenantType, TenantStatus } from '@/types/enums';
+import { 
+  TenantType, 
+  TenantStatus, 
+  SubscriptionPlan,
+  TenantTypeValue,
+  TenantStatusValue,
+  SubscriptionPlanValue
+} from '@/types/enums';
 
-export const mapTenantTypeToDisplay = (type: string): string => {
-  const typeMap: Record<string, string> = {
+export const mapTenantTypeToDisplay = (type: TenantTypeValue): string => {
+  const displayMap: Record<TenantTypeValue, string> = {
     [TenantType.AGRI_COMPANY]: 'Agriculture Company',
     [TenantType.DEALER]: 'Dealer Network',
     [TenantType.COOPERATIVE]: 'Cooperative Society',
@@ -12,29 +19,27 @@ export const mapTenantTypeToDisplay = (type: string): string => {
     [TenantType.INSURANCE]: 'Insurance Provider',
     [TenantType.OTHER]: 'Other'
   };
-  return typeMap[type] || type;
+  return displayMap[type] || type;
 };
 
-export const mapTenantStatusToDisplay = (status: string): string => {
-  const statusMap: Record<string, string> = {
+export const mapTenantStatusToDisplay = (status: TenantStatusValue): string => {
+  const displayMap: Record<TenantStatusValue, string> = {
     [TenantStatus.TRIAL]: 'Trial',
     [TenantStatus.ACTIVE]: 'Active',
     [TenantStatus.SUSPENDED]: 'Suspended',
     [TenantStatus.ARCHIVED]: 'Archived',
     [TenantStatus.PENDING_APPROVAL]: 'Pending Approval',
-    [TenantStatus.EXPIRED]: 'Expired'
+    [TenantStatus.CANCELLED]: 'Cancelled'
   };
-  return statusMap[status] || status;
+  return displayMap[status] || status;
 };
 
-export const mapTenantStatusToColor = (status: string): string => {
-  const colorMap: Record<string, string> = {
-    [TenantStatus.TRIAL]: 'bg-blue-100 text-blue-800',
-    [TenantStatus.ACTIVE]: 'bg-green-100 text-green-800',
-    [TenantStatus.SUSPENDED]: 'bg-red-100 text-red-800',
-    [TenantStatus.ARCHIVED]: 'bg-gray-100 text-gray-800',
-    [TenantStatus.PENDING_APPROVAL]: 'bg-yellow-100 text-yellow-800',
-    [TenantStatus.EXPIRED]: 'bg-orange-100 text-orange-800'
+export const mapSubscriptionPlanToDisplay = (plan: SubscriptionPlanValue): string => {
+  const displayMap: Record<SubscriptionPlanValue, string> = {
+    [SubscriptionPlan.KISAN_BASIC]: 'Kisan Basic',
+    [SubscriptionPlan.SHAKTI_GROWTH]: 'Shakti Growth',
+    [SubscriptionPlan.AI_ENTERPRISE]: 'AI Enterprise',
+    [SubscriptionPlan.CUSTOM_ENTERPRISE]: 'Custom Enterprise'
   };
-  return colorMap[status] || 'bg-gray-100 text-gray-800';
+  return displayMap[plan] || plan;
 };

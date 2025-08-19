@@ -18,14 +18,14 @@ export enum TenantStatus {
   SUSPENDED = 'suspended',
   ARCHIVED = 'archived',
   PENDING_APPROVAL = 'pending_approval',
-  CANCELLED = 'cancelled'  // Changed from EXPIRED to CANCELLED to match database
+  CANCELLED = 'cancelled'  // This matches the database schema
 }
 
 export enum SubscriptionPlan {
   KISAN_BASIC = 'Kisan_Basic',
   SHAKTI_GROWTH = 'Shakti_Growth',
   AI_ENTERPRISE = 'AI_Enterprise',
-  CUSTOM_ENTERPRISE = 'Custom_Enterprise'
+  CUSTOM_ENTERPRISE = 'custom'  // This matches the database schema
 }
 
 // Type aliases for compatibility

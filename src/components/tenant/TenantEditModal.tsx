@@ -119,7 +119,7 @@ const TenantEditModal: React.FC<TenantEditModalProps> = ({
                 <SelectItem value={TenantStatus.SUSPENDED}>Suspended</SelectItem>
                 <SelectItem value={TenantStatus.ARCHIVED}>Archived</SelectItem>
                 <SelectItem value={TenantStatus.PENDING_APPROVAL}>Pending Approval</SelectItem>
-                <SelectItem value={TenantStatus.EXPIRED}>Expired</SelectItem>
+                <SelectItem value={TenantStatus.CANCELLED}>Cancelled</SelectItem>
               </SelectContent>
             </Select>
           </div>

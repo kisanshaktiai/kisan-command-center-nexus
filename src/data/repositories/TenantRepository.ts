@@ -29,7 +29,8 @@ export class TenantRepository extends BaseService {
           current_period_start,
           current_period_end
         ),
-        tenant_features (*)
+        tenant_features (*),
+        tenant_branding (*)
       `)
       .order('created_at', { ascending: false });
 
@@ -54,13 +55,19 @@ export class TenantRepository extends BaseService {
   }
 
   async createTenant(tenantData: CreateTenantDTO) {
+    // Map enum values to database values
+    let subscriptionPlan = tenantData.subscription_plan || 'Kisan_Basic';
+    if (subscriptionPlan === 'Custom_Enterprise') {
+      subscriptionPlan = 'custom'; // Map to database value
+    }
+
     // Ensure we only pass valid database fields
     const dbData = {
       name: tenantData.name,
       slug: tenantData.slug,
       type: tenantData.type || 'other',
       status: tenantData.status || 'trial',
-      subscription_plan: tenantData.subscription_plan || 'Kisan_Basic',
+      subscription_plan: subscriptionPlan,
       owner_name: tenantData.owner_name,
       owner_email: tenantData.owner_email,
       owner_phone: tenantData.owner_phone,
@@ -98,7 +105,14 @@ export class TenantRepository extends BaseService {
     if (tenantData.slug !== undefined) dbData.slug = tenantData.slug;
     if (tenantData.type !== undefined) dbData.type = tenantData.type;
     if (tenantData.status !== undefined) dbData.status = tenantData.status;
-    if (tenantData.subscription_plan !== undefined) dbData.subscription_plan = tenantData.subscription_plan;
+    if (tenantData.subscription_plan !== undefined) {
+      // Map enum values to database values
+      let plan = tenantData.subscription_plan;
+      if (plan === 'Custom_Enterprise') {
+        plan = 'custom'; // Map to database value
+      }
+      dbData.subscription_plan = plan;
+    }
     if (tenantData.owner_name !== undefined) dbData.owner_name = tenantData.owner_name;
     if (tenantData.owner_email !== undefined) dbData.owner_email = tenantData.owner_email;
     if (tenantData.owner_phone !== undefined) dbData.owner_phone = tenantData.owner_phone;

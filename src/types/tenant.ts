@@ -34,7 +34,9 @@ export interface Tenant {
   created_at: string;
   updated_at: string;
   
-  // Relations
+  // Relations - these are loaded separately and attached
+  branding?: TenantBranding | null;
+  features?: TenantFeatures | null;
   tenant_subscriptions?: any[];
   tenant_features?: any[];
   tenant_branding?: any[];
@@ -68,14 +70,22 @@ export interface TenantFormData {
 
 // Additional interfaces for compatibility
 export interface TenantBranding {
+  id?: string;
+  tenant_id?: string;
   primary_color?: string;
   secondary_color?: string;
   accent_color?: string;
   app_name?: string;
+  app_tagline?: string;
   logo_url?: string;
+  favicon_url?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface TenantFeatures {
+  id?: string;
+  tenant_id?: string;
   ai_chat?: boolean;
   weather_forecast?: boolean;
   marketplace?: boolean;
@@ -96,6 +106,8 @@ export interface TenantFeatures {
   webhook_support?: boolean;
   third_party_integrations?: boolean;
   white_label_mobile_app?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Utility types
@@ -182,11 +194,39 @@ export const tenantStatusOptions = [
   { value: TenantStatus.SUSPENDED, label: 'Suspended' },
   { value: TenantStatus.ARCHIVED, label: 'Archived' },
   { value: TenantStatus.PENDING_APPROVAL, label: 'Pending Approval' },
-  { value: TenantStatus.EXPIRED, label: 'Expired' }
+  { value: TenantStatus.CANCELLED, label: 'Cancelled' }
 ];
 
 // Database raw type converter
 export function convertDatabaseTenant(raw: any): Tenant {
+  // Safely parse business_address if it's a string
+  let businessAddress: Record<string, any> = {};
+  if (raw.business_address) {
+    if (typeof raw.business_address === 'string') {
+      try {
+        businessAddress = JSON.parse(raw.business_address);
+      } catch {
+        businessAddress = {};
+      }
+    } else if (typeof raw.business_address === 'object') {
+      businessAddress = raw.business_address;
+    }
+  }
+
+  // Safely parse metadata
+  let metadata: Record<string, any> = {};
+  if (raw.metadata) {
+    if (typeof raw.metadata === 'string') {
+      try {
+        metadata = JSON.parse(raw.metadata);
+      } catch {
+        metadata = {};
+      }
+    } else if (typeof raw.metadata === 'object') {
+      metadata = raw.metadata;
+    }
+  }
+
   return {
     id: raw.id,
     name: raw.name,
@@ -198,7 +238,7 @@ export function convertDatabaseTenant(raw: any): Tenant {
     owner_email: raw.owner_email,
     owner_phone: raw.owner_phone,
     business_registration: raw.business_registration,
-    business_address: raw.business_address,
+    business_address: businessAddress,
     established_date: raw.established_date,
     subscription_start_date: raw.subscription_start_date,
     subscription_end_date: raw.subscription_end_date,
@@ -215,12 +255,16 @@ export function convertDatabaseTenant(raw: any): Tenant {
     custom_domain: raw.custom_domain,
     branding_version: raw.branding_version,
     branding_updated_at: raw.branding_updated_at,
-    metadata: raw.metadata,
+    metadata: metadata,
     created_at: raw.created_at,
     updated_at: raw.updated_at,
     tenant_subscriptions: raw.tenant_subscriptions,
     tenant_features: raw.tenant_features,
     tenant_branding: raw.tenant_branding,
+    
+    // Extract branding and features from relations if available
+    branding: raw.tenant_branding?.[0] || null,
+    features: raw.tenant_features?.[0] || null,
   };
 }
 
@@ -246,7 +290,7 @@ export function getTenantStatusDisplay(status: TenantStatusValue): string {
     [TenantStatus.SUSPENDED]: 'Suspended',
     [TenantStatus.ARCHIVED]: 'Archived',
     [TenantStatus.PENDING_APPROVAL]: 'Pending Approval',
-    [TenantStatus.EXPIRED]: 'Expired'
+    [TenantStatus.CANCELLED]: 'Cancelled'
   };
   return displayMap[status] || status;
 }
