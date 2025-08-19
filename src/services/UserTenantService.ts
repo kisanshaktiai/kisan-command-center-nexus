@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface ManageUserTenantRequest {
   user_id: string;
   tenant_id: string;
-  role: 'super_admin' | 'platform_admin' | 'tenant_admin' | 'tenant_owner' | 'tenant_user' | 'farmer' | 'dealer';
+  role: 'super_admin' | 'tenant_admin' | 'tenant_owner' | 'farmer' | 'dealer' | 'tenant_manager' | 'agent';
   is_active?: boolean;
   metadata?: Record<string, any>;
   operation?: 'insert' | 'update' | 'upsert';
@@ -35,6 +35,11 @@ export interface UserTenantStatus {
   issues: string[];
 }
 
+// Type guard for database function response
+function isUserTenantResponse(data: any): data is UserTenantResponse {
+  return data && typeof data === 'object' && 'success' in data;
+}
+
 export class UserTenantService {
   /**
    * Create or update a user-tenant relationship using the database function directly
@@ -46,7 +51,7 @@ export class UserTenantService {
       console.log('UserTenantService: Managing user-tenant relationship via database function:', request);
 
       // Validate role is one of the allowed enum values
-      const validRoles = ['super_admin', 'platform_admin', 'tenant_admin', 'tenant_owner', 'tenant_user', 'farmer', 'dealer'];
+      const validRoles = ['super_admin', 'tenant_admin', 'tenant_owner', 'farmer', 'dealer', 'tenant_manager', 'agent'];
       if (!validRoles.includes(request.role)) {
         console.error('UserTenantService: Invalid role provided:', request.role);
         return {
@@ -75,17 +80,53 @@ export class UserTenantService {
         };
       }
 
-      if (!data?.success) {
-        console.error('UserTenantService: Database function returned error:', data);
+      // Properly handle the database function response with type checking
+      if (!data) {
+        console.error('UserTenantService: No data returned from database function');
         return {
           success: false,
-          error: data?.error || 'Failed to manage user-tenant relationship',
-          code: data?.code || 'OPERATION_FAILED'
+          error: 'No response from database function',
+          code: 'NO_RESPONSE'
         };
       }
 
-      console.log('UserTenantService: Successfully managed relationship via database function:', data);
-      return data as UserTenantResponse;
+      // Type guard and proper casting
+      let response: UserTenantResponse;
+      if (isUserTenantResponse(data)) {
+        response = data;
+      } else if (typeof data === 'object' && data !== null) {
+        // Handle cases where data might be a plain object
+        const dataObj = data as Record<string, any>;
+        response = {
+          success: dataObj.success || false,
+          error: dataObj.error,
+          code: dataObj.code,
+          relationship_id: dataObj.relationship_id,
+          operation: dataObj.operation,
+          user_id: dataObj.user_id,
+          tenant_id: dataObj.tenant_id,
+          role: dataObj.role,
+          is_active: dataObj.is_active,
+          message: dataObj.message,
+          request_id: dataObj.request_id,
+          correlation_id: dataObj.correlation_id
+        };
+      } else {
+        console.error('UserTenantService: Invalid response format:', data);
+        return {
+          success: false,
+          error: 'Invalid response format from database function',
+          code: 'INVALID_RESPONSE_FORMAT'
+        };
+      }
+
+      if (!response.success) {
+        console.error('UserTenantService: Database function returned error:', response);
+        return response;
+      }
+
+      console.log('UserTenantService: Successfully managed relationship via database function:', response);
+      return response;
 
     } catch (error: any) {
       console.error('UserTenantService: Unexpected error:', error);
@@ -105,10 +146,12 @@ export class UserTenantService {
     tenantId: string,
     metadata?: Record<string, any>
   ): Promise<UserTenantResponse> {
+    console.log('UserTenantService: Creating tenant admin relationship:', { userId, tenantId });
+    
     return this.manageUserTenantRelationship({
       user_id: userId,
       tenant_id: tenantId,
-      role: 'tenant_admin', // Use the correct enum value
+      role: 'tenant_admin',
       is_active: true,
       metadata: {
         ...metadata,
@@ -181,13 +224,9 @@ export class UserTenantService {
           .select('*')
           .eq('user_id', authUser.id)
           .eq('tenant_id', tenantId)
-          .single();
+          .maybeSingle();
 
-        if (!relationshipError) {
-          tenantRelationship = relationship;
-          console.log('UserTenantService: Found tenant relationship:', tenantRelationship);
-        } else if (relationshipError.code !== 'PGRST116') {
-          // PGRST116 means no rows returned, which is expected if no relationship exists
+        if (relationshipError) {
           console.error('UserTenantService: Error checking tenant relationship:', relationshipError);
           return {
             authExists: !!authUser,
@@ -197,9 +236,10 @@ export class UserTenantService {
             userId: authUser?.id,
             issues: [`Error checking tenant relationship: ${relationshipError.message}`]
           };
-        } else {
-          console.log('UserTenantService: No tenant relationship found (expected for new relationships)');
         }
+
+        tenantRelationship = relationship;
+        console.log('UserTenantService: Found tenant relationship:', tenantRelationship);
       }
 
       const expectedRole = 'tenant_admin';
@@ -256,7 +296,7 @@ export class UserTenantService {
     return this.manageUserTenantRelationship({
       user_id: userId,
       tenant_id: tenantId,
-      role: 'tenant_admin', // Use valid enum value
+      role: 'tenant_admin',
       is_active: true,
       metadata: {
         created_via: 'manual_fix',

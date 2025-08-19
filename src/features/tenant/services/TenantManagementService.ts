@@ -1,4 +1,3 @@
-
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { tenantApiService } from '@/services/api/TenantApiService';
 import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant } from '@/types/tenant';

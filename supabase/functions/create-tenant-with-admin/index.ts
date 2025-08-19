@@ -1,9 +1,11 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-request-id, x-correlation-id, idempotency-key',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
 }
 
 interface CreateTenantRequest {
@@ -69,6 +71,7 @@ serve(async (req) => {
     );
 
     if (userError || !user) {
+      console.error(`[${requestId}] Auth error:`, userError);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -178,9 +181,13 @@ serve(async (req) => {
     console.log(`[${requestId}] Tenant created successfully:`, tenant.id);
 
     // Step 2: Create admin user account
+    console.log(`[${requestId}] Creating admin user for:`, requestBody.owner_email);
+    
+    const tempPassword = Math.random().toString(36).slice(-12) + '!A1'; // Generate secure random password
+    
     const { data: adminUserData, error: adminUserError } = await supabase.auth.admin.createUser({
       email: requestBody.owner_email,
-      password: Math.random().toString(36).slice(-12) + '!A1', // Generate secure random password
+      password: tempPassword,
       email_confirm: true,
       user_metadata: {
         full_name: requestBody.owner_name,
@@ -221,7 +228,7 @@ serve(async (req) => {
       {
         p_user_id: adminUserData.user.id,
         p_tenant_id: tenant.id,
-        p_role: 'tenant_admin', // Use the correct enum value
+        p_role: 'tenant_admin',
         p_is_active: true,
         p_metadata: {
           created_via: 'tenant_creation',
@@ -234,8 +241,11 @@ serve(async (req) => {
       }
     );
 
-    if (relationshipError || !relationshipData?.success) {
-      console.error(`[${requestId}] Error creating user-tenant relationship:`, relationshipError || relationshipData);
+    console.log(`[${requestId}] Database function response:`, relationshipData);
+    console.log(`[${requestId}] Database function error:`, relationshipError);
+
+    if (relationshipError) {
+      console.error(`[${requestId}] Error creating user-tenant relationship:`, relationshipError);
       
       // Rollback - delete tenant and user
       await supabase.from('tenants').delete().eq('id', tenant.id);
@@ -246,7 +256,29 @@ serve(async (req) => {
           success: false,
           error: 'Failed to create user-tenant relationship',
           code: 'USER_TENANT_RELATIONSHIP_ERROR',
-          details: relationshipError?.message || relationshipData?.error
+          details: relationshipError.message
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Check if relationship creation was successful
+    if (!relationshipData || (typeof relationshipData === 'object' && 'success' in relationshipData && !relationshipData.success)) {
+      console.error(`[${requestId}] Database function returned failure:`, relationshipData);
+      
+      // Rollback - delete tenant and user
+      await supabase.from('tenants').delete().eq('id', tenant.id);
+      await supabase.auth.admin.deleteUser(adminUserData.user.id);
+      
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Failed to create user-tenant relationship',
+          code: 'USER_TENANT_RELATIONSHIP_FAILED',
+          details: relationshipData?.error || 'Unknown database function error'
         }),
         { 
           status: 500, 
@@ -271,16 +303,20 @@ serve(async (req) => {
       success: true,
       tenant_id: tenant.id,
       admin_user_id: adminUserData.user.id,
-      relationship_id: relationshipData.relationship_id,
+      relationship_id: relationshipData?.relationship_id || 'created',
       tenant_name: tenant.name,
       admin_email: requestBody.owner_email,
       emailSent,
       correlationId,
       requestId,
+      temp_password: tempPassword,
       message: 'Tenant and admin user created successfully'
     };
 
-    console.log(`[${requestId}] Tenant creation completed successfully:`, response);
+    console.log(`[${requestId}] Tenant creation completed successfully:`, {
+      ...response,
+      temp_password: '[REDACTED]' // Don't log the password
+    });
 
     return new Response(
       JSON.stringify(response),
