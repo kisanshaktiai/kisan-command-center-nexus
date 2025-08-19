@@ -57,14 +57,14 @@ export class TenantRepository extends BaseService {
   async createTenant(tenantData: CreateTenantDTO) {
     // Map enum values to database values
     let subscriptionPlan = tenantData.subscription_plan || 'Kisan_Basic';
-    if (subscriptionPlan === 'Custom_Enterprise') {
-      subscriptionPlan = 'custom'; // Map to database value
+    if (subscriptionPlan === 'custom') {
+      subscriptionPlan = 'custom'; // Already matches database
     }
 
     // Map tenant type to database value
     let tenantType = tenantData.type || 'ngo'; // Default to ngo instead of other
-    if (tenantType === 'other') {
-      tenantType = 'ngo'; // Map other to ngo for database compatibility
+    if (tenantType === 'ngo') {
+      tenantType = 'ngo'; // Already matches database
     }
 
     // Ensure we only pass valid database fields
@@ -111,8 +111,8 @@ export class TenantRepository extends BaseService {
     if (tenantData.slug !== undefined) dbData.slug = tenantData.slug;
     if (tenantData.type !== undefined) {
       let type = tenantData.type;
-      if (type === 'other') {
-        type = 'ngo'; // Map other to ngo for database compatibility
+      if (type === 'ngo') {
+        type = 'ngo'; // Already matches database
       }
       dbData.type = type;
     }
@@ -120,8 +120,8 @@ export class TenantRepository extends BaseService {
     if (tenantData.subscription_plan !== undefined) {
       // Map enum values to database values
       let plan = tenantData.subscription_plan;
-      if (plan === 'Custom_Enterprise') {
-        plan = 'custom'; // Map to database value
+      if (plan === 'custom') {
+        plan = 'custom'; // Already matches database
       }
       dbData.subscription_plan = plan;
     }

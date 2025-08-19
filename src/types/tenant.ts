@@ -1,4 +1,3 @@
-
 import { TenantType, TenantStatus, SubscriptionPlan, TenantTypeValue, TenantStatusValue, SubscriptionPlanValue } from './enums';
 
 // Base tenant interface
@@ -185,7 +184,7 @@ export const tenantTypeOptions = [
   { value: TenantType.SUGAR_FACTORY, label: 'Sugar Factory' },
   { value: TenantType.GOVERNMENT, label: 'Government Entity' },
   { value: TenantType.INSURANCE, label: 'Insurance Provider' },
-  { value: TenantType.OTHER, label: 'Other' }
+  { value: TenantType.NGO, label: 'NGO' }
 ];
 
 export const tenantStatusOptions = [
@@ -278,7 +277,7 @@ export function getTenantTypeDisplay(type: TenantTypeValue): string {
     [TenantType.SUGAR_FACTORY]: 'Sugar Factory',
     [TenantType.GOVERNMENT]: 'Government Entity',
     [TenantType.INSURANCE]: 'Insurance Provider',
-    [TenantType.OTHER]: 'Other'
+    [TenantType.NGO]: 'NGO'
   };
   return displayMap[type] || type;
 }

@@ -25,7 +25,6 @@ const TenantManagementPage: React.FC = () => {
     // Details modal
     detailsTenant,
     isDetailsModalOpen,
-    detailsFormattedData,
 
     // Edit modal
     editingTenant,
@@ -103,22 +102,24 @@ const TenantManagementPage: React.FC = () => {
         setFilterType={setFilterType}
         filterStatus={filterStatus}
         setFilterStatus={setFilterStatus}
-        viewPreferences={viewPreferences}
-        setViewPreferences={setViewPreferences}
       />
 
-      <TenantCreateDialog onCreateTenant={handleCreateTenant} />
+      <TenantCreateDialog 
+        isOpen={false}
+        onClose={() => {}}
+        onCreateTenant={handleCreateTenant} 
+      />
 
       {viewPreferences.mode === 'list' ? (
         <TenantListView
-          tenants={formattedTenants}
+          tenants={formattedTenants as any[]}
           onViewDetails={handleViewDetails}
           onEditTenant={handleEditTenant}
         />
       ) : (
         <TenantGridView
-          tenants={formattedTenants}
-          viewMode={viewPreferences.mode}
+          tenants={formattedTenants as any[]}
+          viewMode={viewPreferences.mode === 'analytics' ? 'grid' : viewPreferences.mode}
           onViewDetails={handleViewDetails}
           onEditTenant={handleEditTenant}
         />
@@ -126,7 +127,6 @@ const TenantManagementPage: React.FC = () => {
 
       <TenantDetailsModal
         tenant={detailsTenant}
-        formattedData={detailsFormattedData}
         isOpen={isDetailsModalOpen}
         onClose={closeDetailsModal}
         onEdit={handleDetailsEdit}

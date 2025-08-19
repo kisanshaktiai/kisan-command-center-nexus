@@ -18,14 +18,22 @@ export const TenantGridView: React.FC<TenantGridViewProps> = ({
 }) => {
   const getGridClasses = () => {
     switch (viewMode) {
-      case 'large-cards':
-        return 'grid grid-cols-1 md:grid-cols-2 gap-6';
       case 'small-cards':
         return 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
-      default:
+      case 'large-cards':
         return 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+      default:
+        return 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
     }
   };
+
+  if (!tenants?.length) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">No tenants found.</p>
+      </div>
+    );
+  }
 
   return (
     <div className={getGridClasses()}>
@@ -33,7 +41,6 @@ export const TenantGridView: React.FC<TenantGridViewProps> = ({
         <TenantCard
           key={tenant.id}
           tenant={tenant}
-          viewMode={viewMode}
           onViewDetails={onViewDetails}
           onEditTenant={onEditTenant}
         />
@@ -41,3 +48,5 @@ export const TenantGridView: React.FC<TenantGridViewProps> = ({
     </div>
   );
 };
+
+export default TenantGridView;

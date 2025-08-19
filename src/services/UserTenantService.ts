@@ -35,6 +35,14 @@ export interface UserTenantStatus {
   employee_id?: string;
   created_at: string;
   updated_at: string;
+  // Extended properties for status checking
+  authExists?: boolean;
+  tenantRelationshipExists?: boolean;
+  roleMatches?: boolean;
+  currentRole?: string;
+  expectedRole?: string;
+  issues?: string[];
+  userId?: string;
 }
 
 export class UserTenantService extends BaseService {
@@ -51,7 +59,63 @@ export class UserTenantService extends BaseService {
     return UserTenantService.instance;
   }
 
-  async ensureUserTenantRecord(userId: string, tenantId: string, roleCode: string): Promise<ServiceResult<any>> {
+  static async ensureUserTenantRecord(userId: string, tenantId: string, roleCode: string = 'tenant_admin'): Promise<ServiceResult<any>> {
+    const instance = UserTenantService.getInstance();
+    return instance.createUserTenant({
+      user_id: userId,
+      tenant_id: tenantId,
+      role_code: roleCode
+    });
+  }
+
+  static async checkUserTenantStatus(email: string, tenantId: string): Promise<UserTenantStatus | null> {
+    try {
+      // Get user from auth
+      const { data: user, error: userError } = await supabase.auth.admin.getUserByEmail?.(email) || 
+        await supabase.from('auth.users').select('*').eq('email', email).single();
+
+      if (userError || !user) {
+        return {
+          authExists: false,
+          tenantRelationshipExists: false,
+          roleMatches: false,
+          issues: ['User not found in authentication system'],
+          expectedRole: 'tenant_admin'
+        } as UserTenantStatus;
+      }
+
+      // Check user_tenants relationship
+      const { data: userTenant, error: relationError } = await supabase
+        .from('user_tenants')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      return {
+        id: userTenant?.id || '',
+        user_id: user.id,
+        tenant_id: tenantId,
+        role_code: userTenant?.role_code || '',
+        is_active: userTenant?.is_active || false,
+        is_primary: userTenant?.is_primary || false,
+        created_at: userTenant?.created_at || '',
+        updated_at: userTenant?.updated_at || '',
+        authExists: true,
+        tenantRelationshipExists: !!userTenant,
+        roleMatches: userTenant?.role_code === 'tenant_admin',
+        currentRole: userTenant?.role_code || null,
+        expectedRole: 'tenant_admin',
+        issues: userTenant ? [] : ['User-tenant relationship missing'],
+        userId: user.id
+      } as UserTenantStatus;
+    } catch (error) {
+      console.error('Error checking user tenant status:', error);
+      return null;
+    }
+  }
+
+  async ensureUserTenantRecord(userId: string, tenantId: string, roleCode: string = 'tenant_admin'): Promise<ServiceResult<any>> {
     return this.createUserTenant({
       user_id: userId,
       tenant_id: tenantId,
@@ -77,7 +141,7 @@ export class UserTenantService extends BaseService {
         // Map platform_admin to super_admin if needed for compatibility
         let roleCode = data.role_code;
         if (roleCode === SystemRoleCode.PLATFORM_ADMIN) {
-          roleCode = SystemRoleCode.SUPER_ADMIN;
+          roleCode = 'super_admin';
         }
 
         // Check if user-tenant relationship already exists

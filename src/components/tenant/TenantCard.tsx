@@ -1,117 +1,105 @@
 
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Building2, Edit, Trash2, Users, Calendar } from "lucide-react";
-import { tenantService } from "@/services/tenantService";
-import { Tenant } from "@/types/tenant";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Building, Users, Calendar, Settings, Eye } from 'lucide-react';
+import { Tenant } from '@/types/tenant';
+import { tenantService } from '@/services/tenantService';
 
 interface TenantCardProps {
   tenant: Tenant;
-  onEdit: (tenant: Tenant) => void;
-  onDelete: (tenantId: string) => void;
-  onViewDetails?: (tenant: Tenant) => void;
+  onViewDetails: (tenant: Tenant) => void;
+  onEditTenant: (tenant: Tenant) => void;
 }
 
 export const TenantCard: React.FC<TenantCardProps> = ({
   tenant,
-  onEdit,
-  onDelete,
   onViewDetails,
+  onEditTenant
 }) => {
-  const handleCardClick = () => {
-    if (onViewDetails) {
-      onViewDetails(tenant);
-    }
+  const getInitials = (name: string) => {
+    return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Not set';
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
-    <Card 
-      className="cursor-pointer hover:shadow-md transition-shadow"
-      onClick={handleCardClick}
-    >
+    <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Building2 className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-lg truncate">{tenant.name}</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">
-                {tenant.slug}
-              </CardDescription>
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={tenant.branding?.logo_url} />
+              <AvatarFallback className="bg-primary/10">
+                {getInitials(tenant.name)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <CardTitle className="text-lg">{tenant.name}</CardTitle>
+              <p className="text-sm text-muted-foreground">{tenant.slug}</p>
             </div>
           </div>
-          <Badge variant={tenantService.getStatusBadgeVariant(tenant.status)}>
-            {tenant.status?.toUpperCase()}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={tenantService.getStatusBadgeVariant(tenant.status)}>
+              {tenant.status}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0">
-        <div className="space-y-3">
-          {/* Type and Plan */}
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">Type:</span>
-            <span className="capitalize">{tenant.type?.replace('_', ' ')}</span>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <Building className="h-4 w-4 text-muted-foreground" />
+            <span className="capitalize">{tenant.type.replace('_', ' ')}</span>
           </div>
-          
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">Plan:</span>
+          <div className="flex items-center gap-2">
             <Badge variant={tenantService.getPlanBadgeVariant(tenant.subscription_plan)}>
               {tenantService.getPlanDisplayName(tenant.subscription_plan)}
             </Badge>
           </div>
+        </div>
 
-          {/* Owner Email */}
-          {tenant.owner_email && (
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">Owner:</span>
-              <span className="truncate max-w-32" title={tenant.owner_email}>
-                {tenant.owner_email}
-              </span>
-            </div>
-          )}
-
-          {/* Created Date */}
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">Created:</span>
-            <div className="flex items-center space-x-1">
-              <Calendar className="h-3 w-3" />
-              <span>{new Date(tenant.created_at).toLocaleDateString()}</span>
-            </div>
+        {tenant.owner_name && (
+          <div className="flex items-center gap-2 text-sm">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span>{tenant.owner_name}</span>
           </div>
+        )}
 
-          {/* Actions */}
-          <div className="flex justify-end space-x-2 pt-2 border-t">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(tenant);
-              }}
-            >
-              <Edit className="h-4 w-4 mr-1" />
-              Edit
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(tenant.id);
-              }}
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Delete
-            </Button>
-          </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span>Created: {formatDate(tenant.created_at)}</span>
+        </div>
+
+        <div className="flex items-center justify-between pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onViewDetails(tenant)}
+            className="flex items-center gap-1"
+          >
+            <Eye className="h-3 w-3" />
+            View Details
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEditTenant(tenant)}
+            className="flex items-center gap-1"
+          >
+            <Settings className="h-3 w-3" />
+            Edit
+          </Button>
         </div>
       </CardContent>
     </Card>
   );
 };
+
+export default TenantCard;
