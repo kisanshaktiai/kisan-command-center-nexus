@@ -5309,6 +5309,45 @@ export type Database = {
           },
         ]
       }
+      system_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          is_system_role: boolean | null
+          permissions: Json | null
+          role_code: string
+          role_description: string | null
+          role_level: number
+          role_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system_role?: boolean | null
+          permissions?: Json | null
+          role_code: string
+          role_description?: string | null
+          role_level?: number
+          role_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system_role?: boolean | null
+          permissions?: Json | null
+          role_code?: string
+          role_description?: string | null
+          role_level?: number
+          role_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       team_invitations: {
         Row: {
           accepted_at: string | null

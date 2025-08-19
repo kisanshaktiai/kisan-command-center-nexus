@@ -4,11 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ShieldX, Loader2 } from 'lucide-react';
+import { SYSTEM_ROLE_CODES, SystemRoleCode } from '@/types/roles';
 
 interface RoleBasedAccessProps {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'platform_admin' | 'super_admin';
-  allowedRoles?: string[];
+  requiredRole?: SystemRoleCode;
+  allowedRoles?: SystemRoleCode[];
   fallback?: React.ReactNode;
   requireAuth?: boolean;
 }
@@ -64,16 +65,28 @@ const RoleBasedAccessWithAuth: React.FC<RoleBasedAccessProps> = ({
     );
   }
 
-  // Check specific role requirements
+  // Check specific role requirements using system roles
   if (requiredRole || allowedRoles.length > 0) {
     const userRole = adminRole || '';
-    const roleHierarchy = ['super_admin', 'platform_admin', 'admin'];
+    
+    // Define role hierarchy based on system_roles table levels
+    const roleHierarchy = [
+      SYSTEM_ROLE_CODES.SUPER_ADMIN,        // level 100
+      SYSTEM_ROLE_CODES.PLATFORM_ADMIN,     // level 90
+      SYSTEM_ROLE_CODES.TENANT_OWNER,       // level 80
+      SYSTEM_ROLE_CODES.TENANT_ADMIN,       // level 70
+      SYSTEM_ROLE_CODES.TENANT_MANAGER,     // level 60
+      SYSTEM_ROLE_CODES.DEALER,             // level 40
+      SYSTEM_ROLE_CODES.AGENT,              // level 35
+      SYSTEM_ROLE_CODES.FARMER,             // level 20
+      SYSTEM_ROLE_CODES.TENANT_USER         // level 10
+    ];
     
     let hasAccess = false;
 
     if (requiredRole) {
-      // Check if user has required role or higher
-      const userRoleIndex = roleHierarchy.indexOf(userRole);
+      // Check if user has required role or higher in hierarchy
+      const userRoleIndex = roleHierarchy.indexOf(userRole as SystemRoleCode);
       const requiredRoleIndex = roleHierarchy.indexOf(requiredRole);
       
       hasAccess = userRoleIndex !== -1 && requiredRoleIndex !== -1 && userRoleIndex <= requiredRoleIndex;
@@ -81,7 +94,7 @@ const RoleBasedAccessWithAuth: React.FC<RoleBasedAccessProps> = ({
 
     if (allowedRoles.length > 0) {
       // Check if user has any of the allowed roles
-      hasAccess = hasAccess || allowedRoles.includes(userRole);
+      hasAccess = hasAccess || allowedRoles.includes(userRole as SystemRoleCode);
     }
 
     if (!hasAccess) {

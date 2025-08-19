@@ -1,6 +1,7 @@
 
 import { SYSTEM_ROLE_CODES, SystemRoleCode } from '@/types/roles';
 import { Permission } from '@/types/enums';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface RBACContext {
   userId: string;
@@ -10,70 +11,42 @@ export interface RBACContext {
   permissions: Permission[];
 }
 
-const ROLE_PERMISSIONS: Record<SystemRoleCode, Permission[]> = {
-  [SYSTEM_ROLE_CODES.SUPER_ADMIN]: [
-    Permission.SYSTEM_ADMIN,
-    Permission.SYSTEM_CONFIG,
-    Permission.TENANT_CREATE,
-    Permission.TENANT_READ,
-    Permission.TENANT_UPDATE,
-    Permission.TENANT_DELETE,
-    Permission.USER_CREATE,
-    Permission.USER_READ,
-    Permission.USER_UPDATE,
-    Permission.USER_DELETE,
-    Permission.BILLING_ADMIN,
-  ],
-  [SYSTEM_ROLE_CODES.PLATFORM_ADMIN]: [
-    Permission.TENANT_READ,
-    Permission.TENANT_UPDATE,
-    Permission.USER_READ,
-    Permission.USER_UPDATE,
-    Permission.BILLING_READ,
-    Permission.BILLING_UPDATE,
-  ],
-  [SYSTEM_ROLE_CODES.TENANT_OWNER]: [
-    Permission.TENANT_READ,
-    Permission.TENANT_UPDATE,
-    Permission.USER_CREATE,
-    Permission.USER_READ,
-    Permission.USER_UPDATE,
-    Permission.USER_DELETE,
-    Permission.BILLING_READ,
-  ],
-  [SYSTEM_ROLE_CODES.TENANT_ADMIN]: [
-    Permission.TENANT_READ,
-    Permission.TENANT_UPDATE,
-    Permission.USER_CREATE,
-    Permission.USER_READ,
-    Permission.USER_UPDATE,
-    Permission.USER_DELETE,
-    Permission.BILLING_READ,
-  ],
-  [SYSTEM_ROLE_CODES.TENANT_MANAGER]: [
-    Permission.TENANT_READ,
-    Permission.USER_READ,
-    Permission.USER_UPDATE,
-  ],
-  [SYSTEM_ROLE_CODES.TENANT_USER]: [
-    Permission.USER_READ,
-  ],
-  [SYSTEM_ROLE_CODES.FARMER]: [
-    Permission.USER_READ,
-  ],
-  [SYSTEM_ROLE_CODES.DEALER]: [
-    Permission.USER_READ,
-    Permission.USER_UPDATE,
-  ],
-  [SYSTEM_ROLE_CODES.AGENT]: [
-    Permission.USER_READ,
-    Permission.USER_UPDATE,
-  ],
-};
+// Cache for role permissions from database
+const rolePermissionsCache = new Map<string, Permission[]>();
 
 export class RBACService {
+  
+  static async getPermissionsForRole(roleCode: SystemRoleCode): Promise<Permission[]> {
+    // Check cache first
+    if (rolePermissionsCache.has(roleCode)) {
+      return rolePermissionsCache.get(roleCode)!;
+    }
+
+    try {
+      const { data: roleData, error } = await supabase
+        .from('system_roles')
+        .select('permissions')
+        .eq('role_code', roleCode)
+        .eq('is_active', true)
+        .single();
+
+      if (error || !roleData) {
+        console.error('Error fetching role permissions:', error);
+        return [];
+      }
+
+      const permissions = roleData.permissions as Permission[];
+      rolePermissionsCache.set(roleCode, permissions);
+      return permissions;
+    } catch (error) {
+      console.error('Error in getPermissionsForRole:', error);
+      return [];
+    }
+  }
+
   static hasPermission(context: RBACContext, permission: Permission): boolean {
-    return context.permissions.includes(permission);
+    return context.permissions.includes(permission) || 
+           context.permissions.includes(Permission.SYSTEM_ADMIN);
   }
 
   static hasAnyPermission(context: RBACContext, permissions: Permission[]): boolean {
@@ -89,18 +62,14 @@ export class RBACService {
            (context.tenantRole && roles.includes(context.tenantRole));
   }
 
-  static getPermissionsForRole(role: SystemRoleCode): Permission[] {
-    return ROLE_PERMISSIONS[role] || [];
-  }
-
-  static buildContext(
+  static async buildContext(
     userId: string, 
     userRole: SystemRoleCode, 
     tenantId?: string, 
     tenantRole?: SystemRoleCode
-  ): RBACContext {
-    const basePermissions = this.getPermissionsForRole(userRole);
-    const tenantPermissions = tenantRole ? this.getPermissionsForRole(tenantRole) : [];
+  ): Promise<RBACContext> {
+    const basePermissions = await this.getPermissionsForRole(userRole);
+    const tenantPermissions = tenantRole ? await this.getPermissionsForRole(tenantRole) : [];
     
     const allPermissions = [...new Set([...basePermissions, ...tenantPermissions])];
     
@@ -131,6 +100,28 @@ export class RBACService {
 
   static isTenantAdmin(context: RBACContext): boolean {
     return this.hasRole(context, [SYSTEM_ROLE_CODES.TENANT_ADMIN, SYSTEM_ROLE_CODES.TENANT_OWNER]) || this.isSystemAdmin(context);
+  }
+
+  static async getRoleLevel(roleCode: SystemRoleCode): Promise<number> {
+    try {
+      const { data } = await supabase
+        .rpc('get_role_level', { p_role_code: roleCode });
+      return data || 0;
+    } catch (error) {
+      console.error('Error getting role level:', error);
+      return 0;
+    }
+  }
+
+  static async isRoleActive(roleCode: SystemRoleCode): Promise<boolean> {
+    try {
+      const { data } = await supabase
+        .rpc('is_system_role_active', { p_role_code: roleCode });
+      return data || false;
+    } catch (error) {
+      console.error('Error checking role active status:', error);
+      return false;
+    }
   }
 }
 
