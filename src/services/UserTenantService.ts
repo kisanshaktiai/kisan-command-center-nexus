@@ -19,6 +19,17 @@ export interface CreateUserTenantRequest {
   metadata?: Record<string, any>;
 }
 
+export interface UserTenantStatus {
+  exists: boolean;
+  authExists: boolean;
+  profileExists: boolean;
+  tenantRelationshipExists: boolean;
+  userId?: string;
+  email?: string;
+  issues: string[];
+  canCreateRelationship: boolean;
+}
+
 export class UserTenantService {
   /**
    * Create a new user-tenant relationship
@@ -54,7 +65,13 @@ export class UserTenantService {
       }
 
       console.log('UserTenantService: Successfully created relationship:', data);
-      return data;
+      return {
+        user_id: data.user_id,
+        tenant_id: data.tenant_id,
+        role: data.role as SystemRoleCode,
+        is_active: data.is_active,
+        metadata: data.metadata as Record<string, any>
+      };
 
     } catch (error) {
       console.error('UserTenantService: Unexpected error:', error);
@@ -97,7 +114,13 @@ export class UserTenantService {
     }
 
     console.log('UserTenantService: Successfully updated relationship:', data);
-    return data;
+    return {
+      user_id: data.user_id,
+      tenant_id: data.tenant_id,
+      role: data.role as SystemRoleCode,
+      is_active: data.is_active,
+      metadata: data.metadata as Record<string, any>
+    };
   }
 
   /**
@@ -121,7 +144,13 @@ export class UserTenantService {
       throw new Error(`Failed to fetch user tenants: ${error.message}`);
     }
 
-    return data || [];
+    return (data || []).map(item => ({
+      user_id: item.user_id,
+      tenant_id: item.tenant_id,
+      role: item.role as SystemRoleCode,
+      is_active: item.is_active,
+      metadata: item.metadata as Record<string, any>
+    }));
   }
 
   /**
@@ -145,7 +174,13 @@ export class UserTenantService {
       throw new Error(`Failed to fetch tenant users: ${error.message}`);
     }
 
-    return data || [];
+    return (data || []).map(item => ({
+      user_id: item.user_id,
+      tenant_id: item.tenant_id,
+      role: item.role as SystemRoleCode,
+      is_active: item.is_active,
+      metadata: item.metadata as Record<string, any>
+    }));
   }
 
   /**
@@ -206,6 +241,104 @@ export class UserTenantService {
     }
 
     return data.role as SystemRoleCode;
+  }
+
+  /**
+   * Check user tenant status - comprehensive status check
+   */
+  static async checkUserTenantStatus(email: string, tenantId: string): Promise<UserTenantStatus> {
+    const issues: string[] = [];
+    let userId: string | undefined;
+    let authExists = false;
+    let profileExists = false;
+    let tenantRelationshipExists = false;
+
+    try {
+      // Check if user exists in auth system
+      const { data: users, error: usersError } = await supabase.auth.admin.listUsers();
+      
+      if (usersError) {
+        issues.push(`Auth system error: ${usersError.message}`);
+      } else {
+        const authUser = users.users.find(u => u.email === email);
+        if (authUser) {
+          authExists = true;
+          userId = authUser.id;
+        } else {
+          issues.push('User not found in authentication system');
+        }
+      }
+
+      // Check tenant relationship if user exists
+      if (userId) {
+        const hasAccess = await this.userHasTenantAccess(userId, tenantId);
+        if (hasAccess) {
+          tenantRelationshipExists = true;
+        } else {
+          issues.push('User-tenant relationship missing');
+        }
+      }
+
+      return {
+        exists: authExists && tenantRelationshipExists,
+        authExists,
+        profileExists: true, // We don't have a separate profiles table
+        tenantRelationshipExists,
+        userId,
+        email,
+        issues,
+        canCreateRelationship: authExists && !tenantRelationshipExists
+      };
+
+    } catch (error) {
+      console.error('Error checking user tenant status:', error);
+      issues.push(`Status check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      return {
+        exists: false,
+        authExists: false,
+        profileExists: false,
+        tenantRelationshipExists: false,
+        email,
+        issues,
+        canCreateRelationship: false
+      };
+    }
+  }
+
+  /**
+   * Ensure user tenant record exists
+   */
+  static async ensureUserTenantRecord(userId: string, tenantId: string): Promise<{ success: boolean; error?: string; code?: string }> {
+    try {
+      // Check if relationship already exists
+      const hasAccess = await this.userHasTenantAccess(userId, tenantId);
+      if (hasAccess) {
+        return { success: true };
+      }
+
+      // Create the relationship with tenant_user role as default
+      await this.createUserTenant({
+        user_id: userId,
+        tenant_id: tenantId,
+        role: SYSTEM_ROLE_CODES.TENANT_USER,
+        is_active: true,
+        metadata: {
+          created_as: 'auto_provisioned',
+          created_at: new Date().toISOString()
+        }
+      });
+
+      return { success: true };
+
+    } catch (error) {
+      console.error('Error ensuring user tenant record:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'CREATION_FAILED'
+      };
+    }
   }
 
   /**

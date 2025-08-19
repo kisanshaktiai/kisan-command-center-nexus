@@ -1,14 +1,15 @@
 
 import React from 'react';
 import { useCurrentAuth } from '@/data/hooks/useAuthData';
-import { RBACService, Permission, UserRole, RBACContext } from '@/utils/rbac';
+import { RBACService, Permission, RBACContext } from '@/utils/rbac';
+import { SystemRoleCode } from '@/types/roles';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield } from 'lucide-react';
 
 interface RBACGuardProps {
   children: React.ReactNode;
   permissions?: Permission[];
-  roles?: UserRole[];
+  roles?: SystemRoleCode[];
   requireAll?: boolean;
   fallback?: React.ReactNode;
 }
@@ -17,7 +18,7 @@ interface RBACGuardProps {
 const buildRBACContextFromAuthState = (authState: any): RBACContext | null => {
   if (!authState?.user?.id) return null;
   
-  const userRole = authState.user.role || UserRole.TENANT_USER;
+  const userRole = authState.user.role || 'tenant_user' as SystemRoleCode;
   const userId = authState.user.id;
   const tenantId = authState.user.tenant_id;
   const tenantRole = authState.user.tenant_role;
