@@ -40,6 +40,69 @@ export interface Tenant {
   tenant_branding?: any[];
 }
 
+// Form data interface
+export interface TenantFormData {
+  name: string;
+  slug: string;
+  type: TenantTypeValue;
+  status: TenantStatusValue;
+  subscription_plan: SubscriptionPlanValue;
+  owner_name?: string;
+  owner_email?: string;
+  owner_phone?: string;
+  business_registration?: string;
+  business_address?: Record<string, any>;
+  established_date?: string;
+  subscription_start_date?: string;
+  subscription_end_date?: string;
+  trial_ends_at?: string;
+  max_farmers?: number;
+  max_dealers?: number;
+  max_products?: number;
+  max_storage_gb?: number;
+  max_api_calls_per_day?: number;
+  subdomain?: string;
+  custom_domain?: string;
+  metadata?: Record<string, any>;
+}
+
+// Additional interfaces for compatibility
+export interface TenantBranding {
+  primary_color?: string;
+  secondary_color?: string;
+  accent_color?: string;
+  app_name?: string;
+  logo_url?: string;
+}
+
+export interface TenantFeatures {
+  ai_chat?: boolean;
+  weather_forecast?: boolean;
+  marketplace?: boolean;
+  community_forum?: boolean;
+  satellite_imagery?: boolean;
+  soil_testing?: boolean;
+  drone_monitoring?: boolean;
+  iot_integration?: boolean;
+  ecommerce?: boolean;
+  payment_gateway?: boolean;
+  inventory_management?: boolean;
+  logistics_tracking?: boolean;
+  basic_analytics?: boolean;
+  advanced_analytics?: boolean;
+  predictive_analytics?: boolean;
+  custom_reports?: boolean;
+  api_access?: boolean;
+  webhook_support?: boolean;
+  third_party_integrations?: boolean;
+  white_label_mobile_app?: boolean;
+}
+
+// Utility types
+export type TenantID = string;
+
+export const createTenantID = (id: string): TenantID => id;
+
 // DTO interfaces
 export interface CreateTenantDTO {
   name: string;
@@ -100,6 +163,27 @@ export interface TenantFilters {
   status?: TenantStatusValue;
   subscription_plan?: SubscriptionPlanValue;
 }
+
+// Options for dropdowns
+export const tenantTypeOptions = [
+  { value: TenantType.AGRI_COMPANY, label: 'Agriculture Company' },
+  { value: TenantType.DEALER, label: 'Dealer Network' },
+  { value: TenantType.COOPERATIVE, label: 'Cooperative Society' },
+  { value: TenantType.UNIVERSITY, label: 'University/Research' },
+  { value: TenantType.SUGAR_FACTORY, label: 'Sugar Factory' },
+  { value: TenantType.GOVERNMENT, label: 'Government Entity' },
+  { value: TenantType.INSURANCE, label: 'Insurance Provider' },
+  { value: TenantType.OTHER, label: 'Other' }
+];
+
+export const tenantStatusOptions = [
+  { value: TenantStatus.TRIAL, label: 'Trial' },
+  { value: TenantStatus.ACTIVE, label: 'Active' },
+  { value: TenantStatus.SUSPENDED, label: 'Suspended' },
+  { value: TenantStatus.ARCHIVED, label: 'Archived' },
+  { value: TenantStatus.PENDING_APPROVAL, label: 'Pending Approval' },
+  { value: TenantStatus.EXPIRED, label: 'Expired' }
+];
 
 // Database raw type converter
 export function convertDatabaseTenant(raw: any): Tenant {
@@ -176,3 +260,6 @@ export function getSubscriptionPlanDisplay(plan: SubscriptionPlanValue): string 
   };
   return displayMap[plan] || plan;
 }
+
+// Re-export enums for convenience
+export { TenantType, TenantStatus, SubscriptionPlan, type TenantTypeValue, type TenantStatusValue, type SubscriptionPlanValue };

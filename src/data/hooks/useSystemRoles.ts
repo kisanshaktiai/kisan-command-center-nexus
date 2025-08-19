@@ -19,14 +19,16 @@ export const useSystemRoles = () => {
         throw error;
       }
 
-      // Convert database response to SystemRole type
+      // Convert database response to SystemRole type with proper type casting
       return (data || []).map(role => ({
         id: role.id,
         role_code: role.role_code,
         role_name: role.role_name,
         role_description: role.role_description || '',
         role_level: role.role_level,
-        permissions: Array.isArray(role.permissions) ? role.permissions : [],
+        permissions: Array.isArray(role.permissions) 
+          ? (role.permissions as string[]) 
+          : [],
         is_active: role.is_active,
         is_system_role: role.is_system_role,
         created_at: role.created_at,
@@ -56,14 +58,16 @@ export const useSystemRole = (roleCode: SystemRoleCode) => {
         throw error;
       }
 
-      // Convert database response to SystemRole type
+      // Convert database response to SystemRole type with proper type casting
       return {
         id: data.id,
         role_code: data.role_code,
         role_name: data.role_name,
         role_description: data.role_description || '',
         role_level: data.role_level,
-        permissions: Array.isArray(data.permissions) ? data.permissions : [],
+        permissions: Array.isArray(data.permissions) 
+          ? (data.permissions as string[]) 
+          : [],
         is_active: data.is_active,
         is_system_role: data.is_system_role,
         created_at: data.created_at,
@@ -158,7 +162,7 @@ export const useRolePermissions = (roleCode?: SystemRoleCode) => {
         return [];
       }
 
-      return Array.isArray(data.permissions) ? data.permissions : [];
+      return Array.isArray(data.permissions) ? (data.permissions as string[]) : [];
     },
     enabled: !!roleCode,
   });

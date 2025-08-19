@@ -18,7 +18,7 @@ export enum TenantStatus {
   SUSPENDED = 'suspended',
   ARCHIVED = 'archived',
   PENDING_APPROVAL = 'pending_approval',
-  EXPIRED = 'expired'
+  CANCELLED = 'cancelled'  // Changed from EXPIRED to CANCELLED to match database
 }
 
 export enum SubscriptionPlan {

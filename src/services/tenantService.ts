@@ -1,8 +1,7 @@
 
 import { tenantRepository } from '@/data/repositories/TenantRepository';
 import { BaseService, ServiceResult } from '@/services/BaseService';
-import { CreateTenantDTO, UpdateTenantDTO, Tenant, TenantFilters, convertDatabaseTenant } from '@/types/tenant';
-import { TenantStatus } from '@/types/enums';
+import { CreateTenantDTO, UpdateTenantDTO, Tenant, TenantFilters, convertDatabaseTenant, TenantStatus, SubscriptionPlan } from '@/types/tenant';
 
 export class TenantService extends BaseService {
   private static instance: TenantService;
@@ -63,6 +62,52 @@ export class TenantService extends BaseService {
       async () => tenantRepository.deleteTenant(id),
       'deleteTenant'
     );
+  }
+
+  // Utility methods for UI components
+  getStatusBadgeVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+    switch (status) {
+      case TenantStatus.ACTIVE:
+        return 'default';
+      case TenantStatus.TRIAL:
+        return 'secondary';
+      case TenantStatus.SUSPENDED:
+      case TenantStatus.EXPIRED:
+        return 'destructive';
+      case TenantStatus.PENDING_APPROVAL:
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  }
+
+  getPlanBadgeVariant(plan: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+    switch (plan) {
+      case SubscriptionPlan.AI_ENTERPRISE:
+      case SubscriptionPlan.CUSTOM_ENTERPRISE:
+        return 'default';
+      case SubscriptionPlan.SHAKTI_GROWTH:
+        return 'secondary';
+      case SubscriptionPlan.KISAN_BASIC:
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  }
+
+  getPlanDisplayName(plan: string): string {
+    switch (plan) {
+      case SubscriptionPlan.KISAN_BASIC:
+        return 'Kisan Basic';
+      case SubscriptionPlan.SHAKTI_GROWTH:
+        return 'Shakti Growth';
+      case SubscriptionPlan.AI_ENTERPRISE:
+        return 'AI Enterprise';
+      case SubscriptionPlan.CUSTOM_ENTERPRISE:
+        return 'Custom Enterprise';
+      default:
+        return plan;
+    }
   }
 }
 
