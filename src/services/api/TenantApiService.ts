@@ -21,20 +21,23 @@ class TenantApiService {
       params.search = filters.search;
     }
     
-    // Fix type comparison by checking for specific values instead of enum comparison
-    if (filters?.type && typeof filters.type === 'string' && filters.type !== 'all' && filters.type !== '') {
+    // Fix type comparison by checking for valid enum values
+    if (filters?.type && filters.type !== 'all' && filters.type !== '' && typeof filters.type === 'string') {
+      // Only add if it's a valid enum value, not 'all' or empty
       params.type = filters.type;
     }
     
-    if (filters?.status && typeof filters.status === 'string' && filters.status !== 'all' && filters.status !== '') {
+    if (filters?.status && filters.status !== 'all' && filters.status !== '' && typeof filters.status === 'string') {
+      // Only add if it's a valid enum value, not 'all' or empty
       params.status = filters.status;
     }
     
-    if (filters?.subscription_plan && typeof filters.subscription_plan === 'string' && filters.subscription_plan !== 'all' && filters.subscription_plan !== '') {
+    if (filters?.subscription_plan && filters.subscription_plan !== 'all' && filters.subscription_plan !== '' && typeof filters.subscription_plan === 'string') {
+      // Only add if it's a valid enum value, not 'all' or empty
       params.subscription_plan = filters.subscription_plan;
     }
 
-    return enhancedApiFactory.get<Tenant[]>('tenants', params);
+    return enhancedApiFactory.get<Tenant[]>('tenants', { params });
   }
 
   async getTenant(id: string) {
