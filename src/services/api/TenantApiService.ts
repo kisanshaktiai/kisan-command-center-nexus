@@ -1,8 +1,6 @@
 
 import { enhancedApiFactory } from './EnhancedApiFactory';
 import { Tenant, TenantFilters, CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
-import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
-import { convertEnumToString } from '@/types/tenant';
 
 class TenantApiService {
   private static instance: TenantApiService;
@@ -24,15 +22,15 @@ class TenantApiService {
     }
     
     if (filters?.type && filters.type !== 'all') {
-      params.type = convertEnumToString(filters.type);
+      params.type = String(filters.type);
     }
     
     if (filters?.status && filters.status !== 'all') {
-      params.status = convertEnumToString(filters.status);
+      params.status = String(filters.status);
     }
     
     if (filters?.subscription_plan && filters.subscription_plan !== 'all') {
-      params.subscription_plan = convertEnumToString(filters.subscription_plan);
+      params.subscription_plan = String(filters.subscription_plan);
     }
 
     return enhancedApiFactory.get<Tenant[]>('tenants', params);

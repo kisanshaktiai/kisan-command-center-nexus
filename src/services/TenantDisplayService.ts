@@ -64,7 +64,9 @@ export class TenantDisplayService {
     return tenants.map(tenant => this.formatTenantForDisplay(tenant));
   }
 
-  private static getStatusBadgeVariant(status: string): string {
+  private static getStatusBadgeVariant(status?: string): string {
+    if (!status) return 'secondary';
+    
     switch (status.toLowerCase()) {
       case 'active': return 'default';
       case 'trial': return 'secondary';
@@ -74,7 +76,9 @@ export class TenantDisplayService {
     }
   }
 
-  private static getPlanBadgeVariant(plan: string): string {
+  private static getPlanBadgeVariant(plan?: string): string {
+    if (!plan) return 'outline';
+    
     switch (plan) {
       case 'AI_Enterprise': return 'default';
       case 'Shakti_Growth': return 'secondary';
@@ -97,7 +101,9 @@ export class TenantDisplayService {
     return parts.length > 0 ? parts.join(', ') : 'Not provided';
   }
 
-  static getStatusColor(status: string): string {
+  static getStatusColor(status?: string): string {
+    if (!status) return 'bg-gray-500';
+    
     switch (status.toLowerCase()) {
       case 'active': return 'bg-green-500';
       case 'trial': return 'bg-blue-500';

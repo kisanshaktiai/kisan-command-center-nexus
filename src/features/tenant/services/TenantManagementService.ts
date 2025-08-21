@@ -18,35 +18,63 @@ export class TenantManagementService extends BaseService {
   }
 
   async getTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
-    return this.executeOperation(
+    const result = await this.executeOperation(
       () => tenantApiService.getTenants(filters),
       'getTenants'
     );
+    
+    // Extract data from ApiResponse if needed
+    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
+      return { ...result, data: (result.data as any).data };
+    }
+    
+    return result as ServiceResult<Tenant[]>;
   }
 
   async getTenantById(id: string): Promise<ServiceResult<Tenant>> {
-    return this.executeOperation(
+    const result = await this.executeOperation(
       () => tenantApiService.getTenant(id),
       'getTenantById'
     );
+    
+    // Extract data from ApiResponse if needed
+    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
+      return { ...result, data: (result.data as any).data };
+    }
+    
+    return result as ServiceResult<Tenant>;
   }
 
   async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
-    return this.executeOperation(
+    const result = await this.executeOperation(
       () => tenantApiService.createTenant(data),
       'createTenant'
     );
+    
+    // Extract data from ApiResponse if needed
+    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
+      return { ...result, data: (result.data as any).data };
+    }
+    
+    return result as ServiceResult<Tenant>;
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
-    return this.executeOperation(
+    const result = await this.executeOperation(
       () => tenantApiService.updateTenant(id, data),
       'updateTenant'
     );
+    
+    // Extract data from ApiResponse if needed
+    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
+      return { ...result, data: (result.data as any).data };
+    }
+    
+    return result as ServiceResult<Tenant>;
   }
 
   async suspendTenant(id: string, reason?: string): Promise<ServiceResult<Tenant>> {
-    return this.executeOperation(
+    const result = await this.executeOperation(
       () => tenantApiService.updateTenant(id, { 
         status: 'suspended',
         suspended_at: new Date().toISOString(),
@@ -54,10 +82,17 @@ export class TenantManagementService extends BaseService {
       }),
       'suspendTenant'
     );
+    
+    // Extract data from ApiResponse if needed
+    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
+      return { ...result, data: (result.data as any).data };
+    }
+    
+    return result as ServiceResult<Tenant>;
   }
 
   async reactivateTenant(id: string): Promise<ServiceResult<Tenant>> {
-    return this.executeOperation(
+    const result = await this.executeOperation(
       () => tenantApiService.updateTenant(id, { 
         status: 'active',
         reactivated_at: new Date().toISOString(),
@@ -65,13 +100,27 @@ export class TenantManagementService extends BaseService {
       }),
       'reactivateTenant'
     );
+    
+    // Extract data from ApiResponse if needed
+    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
+      return { ...result, data: (result.data as any).data };
+    }
+    
+    return result as ServiceResult<Tenant>;
   }
 
   async deleteTenant(id: string): Promise<ServiceResult<boolean>> {
-    return this.executeOperation(
+    const result = await this.executeOperation(
       () => tenantApiService.deleteTenant(id),
       'deleteTenant'
     );
+    
+    // Extract data from ApiResponse if needed
+    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
+      return { ...result, data: (result.data as any).data };
+    }
+    
+    return result as ServiceResult<boolean>;
   }
 }
 
