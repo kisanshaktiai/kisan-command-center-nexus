@@ -21,15 +21,15 @@ class TenantApiService {
       params.search = filters.search;
     }
     
-    if (filters?.type && filters.type !== 'all') {
+    if (filters?.type && filters.type !== 'all' && filters.type !== '') {
       params.type = String(filters.type);
     }
     
-    if (filters?.status && filters.status !== 'all') {
+    if (filters?.status && filters.status !== 'all' && filters.status !== '') {
       params.status = String(filters.status);
     }
     
-    if (filters?.subscription_plan && filters.subscription_plan !== 'all') {
+    if (filters?.subscription_plan && filters.subscription_plan !== 'all' && filters.subscription_plan !== '') {
       params.subscription_plan = String(filters.subscription_plan);
     }
 

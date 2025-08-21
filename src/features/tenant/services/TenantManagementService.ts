@@ -25,7 +25,10 @@ export class TenantManagementService extends BaseService {
     
     // Extract data from ApiResponse if needed
     if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { ...result, data: (result.data as any).data };
+      return { 
+        success: true, 
+        data: (result.data as any).data as Tenant[]
+      };
     }
     
     return result as ServiceResult<Tenant[]>;
@@ -39,7 +42,10 @@ export class TenantManagementService extends BaseService {
     
     // Extract data from ApiResponse if needed
     if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { ...result, data: (result.data as any).data };
+      return { 
+        success: true, 
+        data: (result.data as any).data as Tenant
+      };
     }
     
     return result as ServiceResult<Tenant>;
@@ -53,7 +59,10 @@ export class TenantManagementService extends BaseService {
     
     // Extract data from ApiResponse if needed
     if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { ...result, data: (result.data as any).data };
+      return { 
+        success: true, 
+        data: (result.data as any).data as Tenant
+      };
     }
     
     return result as ServiceResult<Tenant>;
@@ -67,7 +76,10 @@ export class TenantManagementService extends BaseService {
     
     // Extract data from ApiResponse if needed
     if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { ...result, data: (result.data as any).data };
+      return { 
+        success: true, 
+        data: (result.data as any).data as Tenant
+      };
     }
     
     return result as ServiceResult<Tenant>;
@@ -85,7 +97,10 @@ export class TenantManagementService extends BaseService {
     
     // Extract data from ApiResponse if needed
     if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { ...result, data: (result.data as any).data };
+      return { 
+        success: true, 
+        data: (result.data as any).data as Tenant
+      };
     }
     
     return result as ServiceResult<Tenant>;
@@ -103,7 +118,10 @@ export class TenantManagementService extends BaseService {
     
     // Extract data from ApiResponse if needed
     if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { ...result, data: (result.data as any).data };
+      return { 
+        success: true, 
+        data: (result.data as any).data as Tenant
+      };
     }
     
     return result as ServiceResult<Tenant>;
@@ -117,7 +135,10 @@ export class TenantManagementService extends BaseService {
     
     // Extract data from ApiResponse if needed
     if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { ...result, data: (result.data as any).data };
+      return { 
+        success: true, 
+        data: (result.data as any).data as boolean
+      };
     }
     
     return result as ServiceResult<boolean>;

@@ -12,6 +12,16 @@ export interface UserTenantData {
   updated_at: string;
 }
 
+export interface UserTenantStatus {
+  authExists: boolean;
+  tenantRelationshipExists: boolean;
+  roleMatches: boolean;
+  userId?: string;
+  currentRole?: string;
+  expectedRole?: string;
+  issues: string[];
+}
+
 export interface TenantUserInvite {
   tenant_id: string;
   email: string;
@@ -42,7 +52,6 @@ export class UserTenantService extends BaseService {
           id,
           user_id,
           tenant_id,
-          role_id,
           is_active,
           is_primary,
           created_at,
@@ -54,27 +63,22 @@ export class UserTenantService extends BaseService {
         throw new Error(`Failed to fetch user tenants: ${userTenantsError.message}`);
       }
 
-      // For each user tenant, get the user profile data
       const userData: UserTenantData[] = [];
 
       for (const userTenant of userTenants || []) {
         try {
-          // Get user profile data
-          const { data: profile, error: profileError } = await supabase
-            .from('user_tenants')
-            .select('*')
-            .eq('user_id', userTenant.user_id)
-            .single();
+          // Get user auth data using Supabase auth admin
+          const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userTenant.user_id);
 
-          if (profileError) {
-            console.warn(`Failed to get profile for user ${userTenant.user_id}:`, profileError);
+          if (authError || !authUser.user) {
+            console.warn(`Failed to get auth user for ${userTenant.user_id}:`, authError);
             continue;
           }
 
           userData.push({
             id: userTenant.id,
-            email: profile?.email || 'Unknown',
-            role_code: 'user', // Default role since role_code doesn't exist in current schema
+            email: authUser.user.email || 'Unknown',
+            role_code: 'tenant_user', // Default role
             is_active: userTenant.is_active,
             is_primary: userTenant.is_primary,
             created_at: userTenant.created_at,
@@ -89,13 +93,112 @@ export class UserTenantService extends BaseService {
     }, 'getUsersByTenant');
   }
 
+  static async checkUserTenantStatus(email: string, tenantId: string): Promise<UserTenantStatus> {
+    const issues: string[] = [];
+    let authExists = false;
+    let tenantRelationshipExists = false;
+    let roleMatches = false;
+    let userId: string | undefined;
+    let currentRole: string | undefined;
+    const expectedRole = 'tenant_admin';
+
+    try {
+      // Check if user exists in auth system
+      const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+      
+      if (!authError && authData.users) {
+        const authUser = authData.users.find(user => user.email === email);
+        if (authUser) {
+          authExists = true;
+          userId = authUser.id;
+        } else {
+          issues.push('User not found in authentication system');
+        }
+      }
+
+      // Check tenant relationship if user exists
+      if (userId) {
+        const { data: userTenant, error: relationError } = await supabase
+          .from('user_tenants')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('tenant_id', tenantId)
+          .single();
+
+        if (!relationError && userTenant) {
+          tenantRelationshipExists = true;
+          currentRole = 'tenant_admin'; // Assume admin role for now
+          roleMatches = currentRole === expectedRole;
+        } else {
+          issues.push('User-tenant relationship missing');
+        }
+      }
+
+      return {
+        authExists,
+        tenantRelationshipExists,
+        roleMatches,
+        userId,
+        currentRole,
+        expectedRole,
+        issues
+      };
+    } catch (error) {
+      console.error('Error checking user tenant status:', error);
+      issues.push('Error checking status');
+      return {
+        authExists: false,
+        tenantRelationshipExists: false,
+        roleMatches: false,
+        issues
+      };
+    }
+  }
+
+  static async ensureUserTenantRecord(userId: string, tenantId: string): Promise<ServiceResult<boolean>> {
+    try {
+      // Check if relationship already exists
+      const { data: existing } = await supabase
+        .from('user_tenants')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (existing) {
+        return { success: true, data: true };
+      }
+
+      // Create the relationship
+      const { error } = await supabase
+        .from('user_tenants')
+        .insert({
+          user_id: userId,
+          tenant_id: tenantId,
+          is_active: true,
+          is_primary: false
+        });
+
+      if (error) {
+        throw new Error(`Failed to create user-tenant relationship: ${error.message}`);
+      }
+
+      return { success: true, data: true };
+    } catch (error) {
+      console.error('Error ensuring user tenant record:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to create relationship'
+      };
+    }
+  }
+
   async inviteUserToTenant(invite: TenantUserInvite): Promise<ServiceResult<boolean>> {
     return this.executeOperation(async () => {
-      // Create the tenant invitation
+      // Use admin_invites table instead of tenant_invitations
       const { error: inviteError } = await supabase
-        .from('tenant_invitations')
+        .from('admin_invites')
         .insert({
-          tenant_id: invite.tenant_id,
           email: invite.email,
           invited_by: invite.invited_by,
           expires_at: invite.expires_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -130,7 +233,7 @@ export class UserTenantService extends BaseService {
     return this.executeOperation(async () => {
       const { error } = await supabase
         .from('user_tenants')
-        .update({ role_id: roleId, updated_at: new Date().toISOString() })
+        .update({ updated_at: new Date().toISOString() })
         .eq('tenant_id', tenantId)
         .eq('user_id', userId);
 
