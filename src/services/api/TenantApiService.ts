@@ -40,7 +40,7 @@ class TenantApiService {
   }
 
   async getTenant(id: string) {
-    return enhancedApiFactory.get<Tenant>(`tenants/${id}`);
+    return enhancedApiFactory.get<Tenant>(`tenants/${id}`, undefined);
   }
 
   async createTenant(data: CreateTenantDTO) {
@@ -48,7 +48,7 @@ class TenantApiService {
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO) {
-    return enhancedApiFactory.put<Tenant>(`tenants/${id}`, data, undefined);
+    return enhancedApiFactory.put<Tenant>(`tenants/${id}`, undefined, data);
   }
 
   async deleteTenant(id: string) {
