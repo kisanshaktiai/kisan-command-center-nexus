@@ -21,16 +21,18 @@ class TenantApiService {
       params.search = filters.search;
     }
     
-    // Fix type comparison by using proper type guards
-    if (filters?.type && filters.type !== 'all' && filters.type !== '') {
+    // Handle type filter - check if it's not 'all' or empty string
+    if (filters?.type && filters.type !== 'all' && filters.type.length > 0) {
       params.type = filters.type;
     }
     
-    if (filters?.status && filters.status !== 'all' && filters.status !== '') {
+    // Handle status filter - check if it's not 'all' or empty string
+    if (filters?.status && filters.status !== 'all' && filters.status.length > 0) {
       params.status = filters.status;
     }
     
-    if (filters?.subscription_plan && filters.subscription_plan !== 'all' && filters.subscription_plan !== '') {
+    // Handle subscription_plan filter - check if it's not 'all' or empty string
+    if (filters?.subscription_plan && filters.subscription_plan !== 'all' && filters.subscription_plan.length > 0) {
       params.subscription_plan = filters.subscription_plan;
     }
 
