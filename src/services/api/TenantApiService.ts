@@ -21,15 +21,15 @@ class TenantApiService {
       params.search = filters.search;
     }
     
-    if (filters?.type && filters.type !== 'all' && filters.type !== '') {
+    if (filters?.type && String(filters.type) !== 'all' && String(filters.type) !== '') {
       params.type = String(filters.type);
     }
     
-    if (filters?.status && filters.status !== 'all' && filters.status !== '') {
+    if (filters?.status && String(filters.status) !== 'all' && String(filters.status) !== '') {
       params.status = String(filters.status);
     }
     
-    if (filters?.subscription_plan && filters.subscription_plan !== 'all' && filters.subscription_plan !== '') {
+    if (filters?.subscription_plan && String(filters.subscription_plan) !== 'all' && String(filters.subscription_plan) !== '') {
       params.subscription_plan = String(filters.subscription_plan);
     }
 
@@ -41,15 +41,15 @@ class TenantApiService {
   }
 
   async createTenant(data: CreateTenantDTO) {
-    return enhancedApiFactory.post<Tenant>('tenants', data);
+    return enhancedApiFactory.post<Tenant>('tenants', data, {});
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO) {
-    return enhancedApiFactory.put<Tenant>(`tenants/${id}`, data);
+    return enhancedApiFactory.put<Tenant>(`tenants/${id}`, data, {});
   }
 
   async deleteTenant(id: string) {
-    return enhancedApiFactory.delete<boolean>(`tenants/${id}`);
+    return enhancedApiFactory.delete<boolean>(`tenants/${id}`, {});
   }
 }
 

@@ -2,6 +2,7 @@
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { tenantApiService } from '@/services/api/TenantApiService';
 import { CreateTenantDTO, UpdateTenantDTO, Tenant, TenantFilters } from '@/types/tenant';
+import { ApiResponse } from '@/types/api';
 
 export class TenantManagementService extends BaseService {
   private static instance: TenantManagementService;
@@ -17,21 +18,26 @@ export class TenantManagementService extends BaseService {
     return TenantManagementService.instance;
   }
 
+  private extractApiData<T>(result: ServiceResult<ApiResponse<T>>): ServiceResult<T> {
+    if (!result.success || !result.data) {
+      return { success: false, error: result.error };
+    }
+
+    const apiResponse = result.data as ApiResponse<T>;
+    if (apiResponse.success && apiResponse.data) {
+      return { success: true, data: apiResponse.data };
+    }
+
+    return { success: false, error: apiResponse.error || 'API request failed' };
+  }
+
   async getTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
     const result = await this.executeOperation(
       () => tenantApiService.getTenants(filters),
       'getTenants'
     );
     
-    // Extract data from ApiResponse if needed
-    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { 
-        success: true, 
-        data: (result.data as any).data as Tenant[]
-      };
-    }
-    
-    return result as ServiceResult<Tenant[]>;
+    return this.extractApiData(result as ServiceResult<ApiResponse<Tenant[]>>);
   }
 
   async getTenantById(id: string): Promise<ServiceResult<Tenant>> {
@@ -40,15 +46,7 @@ export class TenantManagementService extends BaseService {
       'getTenantById'
     );
     
-    // Extract data from ApiResponse if needed
-    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { 
-        success: true, 
-        data: (result.data as any).data as Tenant
-      };
-    }
-    
-    return result as ServiceResult<Tenant>;
+    return this.extractApiData(result as ServiceResult<ApiResponse<Tenant>>);
   }
 
   async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
@@ -57,15 +55,7 @@ export class TenantManagementService extends BaseService {
       'createTenant'
     );
     
-    // Extract data from ApiResponse if needed
-    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { 
-        success: true, 
-        data: (result.data as any).data as Tenant
-      };
-    }
-    
-    return result as ServiceResult<Tenant>;
+    return this.extractApiData(result as ServiceResult<ApiResponse<Tenant>>);
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
@@ -74,15 +64,7 @@ export class TenantManagementService extends BaseService {
       'updateTenant'
     );
     
-    // Extract data from ApiResponse if needed
-    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { 
-        success: true, 
-        data: (result.data as any).data as Tenant
-      };
-    }
-    
-    return result as ServiceResult<Tenant>;
+    return this.extractApiData(result as ServiceResult<ApiResponse<Tenant>>);
   }
 
   async suspendTenant(id: string, reason?: string): Promise<ServiceResult<Tenant>> {
@@ -95,15 +77,7 @@ export class TenantManagementService extends BaseService {
       'suspendTenant'
     );
     
-    // Extract data from ApiResponse if needed
-    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { 
-        success: true, 
-        data: (result.data as any).data as Tenant
-      };
-    }
-    
-    return result as ServiceResult<Tenant>;
+    return this.extractApiData(result as ServiceResult<ApiResponse<Tenant>>);
   }
 
   async reactivateTenant(id: string): Promise<ServiceResult<Tenant>> {
@@ -116,15 +90,7 @@ export class TenantManagementService extends BaseService {
       'reactivateTenant'
     );
     
-    // Extract data from ApiResponse if needed
-    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { 
-        success: true, 
-        data: (result.data as any).data as Tenant
-      };
-    }
-    
-    return result as ServiceResult<Tenant>;
+    return this.extractApiData(result as ServiceResult<ApiResponse<Tenant>>);
   }
 
   async deleteTenant(id: string): Promise<ServiceResult<boolean>> {
@@ -133,15 +99,7 @@ export class TenantManagementService extends BaseService {
       'deleteTenant'
     );
     
-    // Extract data from ApiResponse if needed
-    if (result.success && result.data && typeof result.data === 'object' && 'data' in result.data) {
-      return { 
-        success: true, 
-        data: (result.data as any).data as boolean
-      };
-    }
-    
-    return result as ServiceResult<boolean>;
+    return this.extractApiData(result as ServiceResult<ApiResponse<boolean>>);
   }
 }
 

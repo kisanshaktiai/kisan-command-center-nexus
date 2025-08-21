@@ -52,6 +52,7 @@ export class UserTenantService extends BaseService {
           id,
           user_id,
           tenant_id,
+          role,
           is_active,
           is_primary,
           created_at,
@@ -67,18 +68,22 @@ export class UserTenantService extends BaseService {
 
       for (const userTenant of userTenants || []) {
         try {
-          // Get user auth data using Supabase auth admin
-          const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userTenant.user_id);
+          // Get user profile data
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('email, full_name')
+            .eq('id', userTenant.user_id)
+            .single();
 
-          if (authError || !authUser.user) {
-            console.warn(`Failed to get auth user for ${userTenant.user_id}:`, authError);
+          if (profileError || !profile) {
+            console.warn(`Failed to get profile for user ${userTenant.user_id}:`, profileError);
             continue;
           }
 
           userData.push({
             id: userTenant.id,
-            email: authUser.user.email || 'Unknown',
-            role_code: 'tenant_user', // Default role
+            email: profile.email || 'Unknown',
+            role_code: userTenant.role || 'tenant_user',
             is_active: userTenant.is_active,
             is_primary: userTenant.is_primary,
             created_at: userTenant.created_at,
@@ -103,31 +108,32 @@ export class UserTenantService extends BaseService {
     const expectedRole = 'tenant_admin';
 
     try {
-      // Check if user exists in auth system
-      const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+      // Check if user exists in profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email)
+        .single();
       
-      if (!authError && authData.users) {
-        const authUser = authData.users.find(user => user.email === email);
-        if (authUser) {
-          authExists = true;
-          userId = authUser.id;
-        } else {
-          issues.push('User not found in authentication system');
-        }
+      if (!profileError && profile) {
+        authExists = true;
+        userId = profile.id;
+      } else {
+        issues.push('User not found in system');
       }
 
       // Check tenant relationship if user exists
       if (userId) {
         const { data: userTenant, error: relationError } = await supabase
           .from('user_tenants')
-          .select('*')
+          .select('role')
           .eq('user_id', userId)
           .eq('tenant_id', tenantId)
           .single();
 
         if (!relationError && userTenant) {
           tenantRelationshipExists = true;
-          currentRole = 'tenant_admin'; // Assume admin role for now
+          currentRole = userTenant.role || 'tenant_user';
           roleMatches = currentRole === expectedRole;
         } else {
           issues.push('User-tenant relationship missing');
@@ -169,12 +175,13 @@ export class UserTenantService extends BaseService {
         return { success: true, data: true };
       }
 
-      // Create the relationship
+      // Create the relationship with required fields
       const { error } = await supabase
         .from('user_tenants')
         .insert({
           user_id: userId,
           tenant_id: tenantId,
+          role: 'tenant_user',
           is_active: true,
           is_primary: false
         });
@@ -195,11 +202,13 @@ export class UserTenantService extends BaseService {
 
   async inviteUserToTenant(invite: TenantUserInvite): Promise<ServiceResult<boolean>> {
     return this.executeOperation(async () => {
-      // Use admin_invites table instead of tenant_invitations
+      // Use admin_invites table with required fields
       const { error: inviteError } = await supabase
         .from('admin_invites')
         .insert({
           email: invite.email,
+          invite_token: crypto.randomUUID(),
+          role: invite.role_code,
           invited_by: invite.invited_by,
           expires_at: invite.expires_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           status: 'pending'
@@ -233,7 +242,10 @@ export class UserTenantService extends BaseService {
     return this.executeOperation(async () => {
       const { error } = await supabase
         .from('user_tenants')
-        .update({ updated_at: new Date().toISOString() })
+        .update({ 
+          role: roleId,
+          updated_at: new Date().toISOString() 
+        })
         .eq('tenant_id', tenantId)
         .eq('user_id', userId);
 
