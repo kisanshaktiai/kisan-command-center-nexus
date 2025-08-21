@@ -168,7 +168,7 @@ export interface UpdateTenantDTO {
   metadata?: Record<string, any>;
 }
 
-// Updated TenantFilters to allow for string literals like 'all' and ''
+// Updated TenantFilters to properly handle union types
 export interface TenantFilters {
   search?: string;
   type?: TenantTypeValue | 'all' | '';

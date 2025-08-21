@@ -21,19 +21,16 @@ class TenantApiService {
       params.search = filters.search;
     }
     
-    // Fix type comparison by checking for valid enum values
-    if (filters?.type && filters.type !== 'all' && filters.type !== '' && typeof filters.type === 'string') {
-      // Only add if it's a valid enum value, not 'all' or empty
+    // Fix type comparison by using proper type guards
+    if (filters?.type && filters.type !== 'all' && filters.type !== '') {
       params.type = filters.type;
     }
     
-    if (filters?.status && filters.status !== 'all' && filters.status !== '' && typeof filters.status === 'string') {
-      // Only add if it's a valid enum value, not 'all' or empty
+    if (filters?.status && filters.status !== 'all' && filters.status !== '') {
       params.status = filters.status;
     }
     
-    if (filters?.subscription_plan && filters.subscription_plan !== 'all' && filters.subscription_plan !== '' && typeof filters.subscription_plan === 'string') {
-      // Only add if it's a valid enum value, not 'all' or empty
+    if (filters?.subscription_plan && filters.subscription_plan !== 'all' && filters.subscription_plan !== '') {
       params.subscription_plan = filters.subscription_plan;
     }
 
