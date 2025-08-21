@@ -45,8 +45,8 @@ export const TenantCard: React.FC<TenantCardProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={tenantService.getStatusBadgeVariant(tenant.status)}>
-              {tenant.status}
+            <Badge variant={tenantService.getStatusBadgeVariant(tenant.status || 'unknown')}>
+              {tenant.status || 'Unknown'}
             </Badge>
           </div>
         </div>
@@ -56,7 +56,7 @@ export const TenantCard: React.FC<TenantCardProps> = ({
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="flex items-center gap-2">
             <Building className="h-4 w-4 text-muted-foreground" />
-            <span className="capitalize">{tenant.type.replace('_', ' ')}</span>
+            <span className="capitalize">{(tenant.type || 'unknown').replace('_', ' ')}</span>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant={tenantService.getPlanBadgeVariant(tenant.subscription_plan)}>

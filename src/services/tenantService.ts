@@ -56,7 +56,9 @@ class TenantService {
     return true;
   }
 
-  getStatusBadgeVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+  getStatusBadgeVariant(status?: string | null): 'default' | 'secondary' | 'destructive' | 'outline' {
+    if (!status) return 'outline';
+    
     switch (status.toLowerCase()) {
       case TenantStatus.ACTIVE:
         return 'default';
@@ -73,7 +75,9 @@ class TenantService {
     }
   }
 
-  getPlanBadgeVariant(plan: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+  getPlanBadgeVariant(plan?: string | null): 'default' | 'secondary' | 'destructive' | 'outline' {
+    if (!plan) return 'outline';
+    
     switch (plan) {
       case SubscriptionPlan.KISAN_BASIC:
         return 'outline';
@@ -88,7 +92,9 @@ class TenantService {
     }
   }
 
-  getPlanDisplayName(plan: string): string {
+  getPlanDisplayName(plan?: string | null): string {
+    if (!plan) return 'Unknown';
+    
     switch (plan) {
       case SubscriptionPlan.KISAN_BASIC:
         return 'Kisan Basic';

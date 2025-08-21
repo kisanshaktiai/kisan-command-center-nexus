@@ -68,24 +68,24 @@ export class UserTenantService extends BaseService {
 
       for (const userTenant of userTenants || []) {
         try {
-          // Get user profile data
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
+          // Get user data from admin_users table instead of profiles
+          const { data: adminUser, error: adminUserError } = await supabase
+            .from('admin_users')
             .select('email, full_name')
             .eq('id', userTenant.user_id)
             .single();
 
-          if (profileError || !profile) {
-            console.warn(`Failed to get profile for user ${userTenant.user_id}:`, profileError);
+          if (adminUserError || !adminUser) {
+            console.warn(`Failed to get admin user for user ${userTenant.user_id}:`, adminUserError);
             continue;
           }
 
           userData.push({
             id: userTenant.id,
-            email: profile.email || 'Unknown',
+            email: adminUser.email || 'Unknown',
             role_code: userTenant.role || 'tenant_user',
-            is_active: userTenant.is_active,
-            is_primary: userTenant.is_primary,
+            is_active: userTenant.is_active || false,
+            is_primary: userTenant.is_primary || false,
             created_at: userTenant.created_at,
             updated_at: userTenant.updated_at,
           });
@@ -108,16 +108,16 @@ export class UserTenantService extends BaseService {
     const expectedRole = 'tenant_admin';
 
     try {
-      // Check if user exists in profiles table
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
+      // Check if user exists in admin_users table
+      const { data: adminUser, error: adminUserError } = await supabase
+        .from('admin_users')
         .select('id, email')
         .eq('email', email)
         .single();
       
-      if (!profileError && profile) {
+      if (!adminUserError && adminUser) {
         authExists = true;
-        userId = profile.id;
+        userId = adminUser.id;
       } else {
         issues.push('User not found in system');
       }
@@ -181,7 +181,7 @@ export class UserTenantService extends BaseService {
         .insert({
           user_id: userId,
           tenant_id: tenantId,
-          role: 'tenant_user',
+          role: 'tenant_admin',
           is_active: true,
           is_primary: false
         });
@@ -208,7 +208,7 @@ export class UserTenantService extends BaseService {
         .insert({
           email: invite.email,
           invite_token: crypto.randomUUID(),
-          role: invite.role_code,
+          role: invite.role_code as 'dealer' | 'tenant_admin' | 'super_admin' | 'tenant_owner' | 'tenant_manager' | 'agent' | 'farmer',
           invited_by: invite.invited_by,
           expires_at: invite.expires_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           status: 'pending'
@@ -243,7 +243,7 @@ export class UserTenantService extends BaseService {
       const { error } = await supabase
         .from('user_tenants')
         .update({ 
-          role: roleId,
+          role: roleId as 'dealer' | 'tenant_admin' | 'super_admin' | 'tenant_owner' | 'tenant_manager' | 'agent' | 'farmer',
           updated_at: new Date().toISOString() 
         })
         .eq('tenant_id', tenantId)
