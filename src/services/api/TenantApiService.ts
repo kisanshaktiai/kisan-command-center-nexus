@@ -21,15 +21,16 @@ class TenantApiService {
       params.search = filters.search;
     }
     
-    if (filters?.type && filters.type !== 'all' && filters.type !== '') {
+    // Fix type comparison by checking for specific values instead of enum comparison
+    if (filters?.type && typeof filters.type === 'string' && filters.type !== 'all' && filters.type !== '') {
       params.type = filters.type;
     }
     
-    if (filters?.status && filters.status !== 'all' && filters.status !== '') {
+    if (filters?.status && typeof filters.status === 'string' && filters.status !== 'all' && filters.status !== '') {
       params.status = filters.status;
     }
     
-    if (filters?.subscription_plan && filters.subscription_plan !== 'all' && filters.subscription_plan !== '') {
+    if (filters?.subscription_plan && typeof filters.subscription_plan === 'string' && filters.subscription_plan !== 'all' && filters.subscription_plan !== '') {
       params.subscription_plan = filters.subscription_plan;
     }
 

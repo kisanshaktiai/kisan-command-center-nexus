@@ -168,11 +168,12 @@ export interface UpdateTenantDTO {
   metadata?: Record<string, any>;
 }
 
+// Updated TenantFilters to allow for string literals like 'all' and ''
 export interface TenantFilters {
   search?: string;
-  type?: TenantTypeValue;
-  status?: TenantStatusValue;
-  subscription_plan?: SubscriptionPlanValue;
+  type?: TenantTypeValue | 'all' | '';
+  status?: TenantStatusValue | 'all' | '';
+  subscription_plan?: SubscriptionPlanValue | 'all' | '';
 }
 
 // Options for dropdowns
