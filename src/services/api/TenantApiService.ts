@@ -36,7 +36,7 @@ class TenantApiService {
       params.subscription_plan = filters.subscription_plan;
     }
 
-    return enhancedApiFactory.get<Tenant[]>('tenants', { params });
+    return enhancedApiFactory.get<Tenant[]>('tenants', undefined, { params });
   }
 
   async getTenant(id: string) {
@@ -52,7 +52,7 @@ class TenantApiService {
   }
 
   async deleteTenant(id: string) {
-    return enhancedApiFactory.delete<boolean>(`tenants/${id}`);
+    return enhancedApiFactory.delete<boolean>(`tenants/${id}`, undefined);
   }
 }
 
