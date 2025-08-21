@@ -21,17 +21,17 @@ class TenantApiService {
       params.search = filters.search;
     }
     
-    // Handle type filter - check if it's not 'all' or empty string
+    // Handle type filter - check if it's not 'all' or has length > 0
     if (filters?.type && filters.type !== 'all' && filters.type.length > 0) {
       params.type = filters.type;
     }
     
-    // Handle status filter - check if it's not 'all' or empty string
+    // Handle status filter - check if it's not 'all' or has length > 0
     if (filters?.status && filters.status !== 'all' && filters.status.length > 0) {
       params.status = filters.status;
     }
     
-    // Handle subscription_plan filter - check if it's not 'all' or empty string
+    // Handle subscription_plan filter - check if it's not 'all' or has length > 0
     if (filters?.subscription_plan && filters.subscription_plan !== 'all' && filters.subscription_plan.length > 0) {
       params.subscription_plan = filters.subscription_plan;
     }
@@ -48,7 +48,7 @@ class TenantApiService {
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO) {
-    return enhancedApiFactory.put<Tenant>(`tenants/${id}`, data);
+    return enhancedApiFactory.put<Tenant>(`tenants/${id}`, data, undefined);
   }
 
   async deleteTenant(id: string) {
