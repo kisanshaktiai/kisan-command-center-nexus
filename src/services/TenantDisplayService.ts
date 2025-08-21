@@ -32,30 +32,52 @@ export interface FormattedTenantData {
 
 export class TenantDisplayService {
   static formatTenantForDisplay(tenant: Tenant): FormattedTenantData {
+    // Add safety checks and default values
+    const safeTenant = {
+      id: tenant?.id || '',
+      name: tenant?.name || 'Unknown',
+      slug: tenant?.slug || '',
+      type: tenant?.type,
+      status: tenant?.status,
+      subscription_plan: tenant?.subscription_plan,
+      owner_email: tenant?.owner_email,
+      owner_name: tenant?.owner_name,
+      owner_phone: tenant?.owner_phone,
+      created_at: tenant?.created_at,
+      updated_at: tenant?.updated_at,
+      business_address: tenant?.business_address,
+      max_farmers: tenant?.max_farmers,
+      max_dealers: tenant?.max_dealers,
+      max_storage_gb: tenant?.max_storage_gb,
+      max_api_calls_per_day: tenant?.max_api_calls_per_day,
+      subdomain: tenant?.subdomain,
+      custom_domain: tenant?.custom_domain
+    };
+
     return {
-      id: tenant.id,
-      name: tenant.name,
-      slug: tenant.slug,
-      displayType: mapTenantTypeToDisplay(tenant.type),
-      displayStatus: mapTenantStatusToDisplay(tenant.status),
-      statusBadgeVariant: this.getStatusBadgeVariant(tenant.status),
-      planBadgeVariant: this.getPlanBadgeVariant(tenant.subscription_plan),
-      planDisplayName: mapSubscriptionPlanToDisplay(tenant.subscription_plan),
-      ownerEmail: tenant.owner_email || 'Not provided',
-      ownerName: tenant.owner_name || 'Not provided',
-      ownerPhone: tenant.owner_phone || 'Not provided',
-      formattedCreatedAt: formatters.dateTime(tenant.created_at),
-      formattedUpdatedAt: formatters.dateTime(tenant.updated_at),
-      formattedBusinessAddress: this.formatBusinessAddress(tenant.business_address),
+      id: safeTenant.id,
+      name: safeTenant.name,
+      slug: safeTenant.slug,
+      displayType: mapTenantTypeToDisplay(safeTenant.type),
+      displayStatus: mapTenantStatusToDisplay(safeTenant.status),
+      statusBadgeVariant: this.getStatusBadgeVariant(safeTenant.status),
+      planBadgeVariant: this.getPlanBadgeVariant(safeTenant.subscription_plan),
+      planDisplayName: mapSubscriptionPlanToDisplay(safeTenant.subscription_plan),
+      ownerEmail: safeTenant.owner_email || 'Not provided',
+      ownerName: safeTenant.owner_name || 'Not provided',
+      ownerPhone: safeTenant.owner_phone || 'Not provided',
+      formattedCreatedAt: formatters.dateTime(safeTenant.created_at),
+      formattedUpdatedAt: formatters.dateTime(safeTenant.updated_at),
+      formattedBusinessAddress: this.formatBusinessAddress(safeTenant.business_address),
       limitsDisplay: {
-        farmers: tenant.max_farmers?.toLocaleString() || 'Unlimited',
-        dealers: tenant.max_dealers?.toLocaleString() || 'Unlimited',
-        storage: tenant.max_storage_gb ? `${tenant.max_storage_gb} GB` : 'Unlimited',
-        apiCalls: tenant.max_api_calls_per_day?.toLocaleString() || 'Unlimited'
+        farmers: safeTenant.max_farmers?.toLocaleString() || 'Unlimited',
+        dealers: safeTenant.max_dealers?.toLocaleString() || 'Unlimited',
+        storage: safeTenant.max_storage_gb ? `${safeTenant.max_storage_gb} GB` : 'Unlimited',
+        apiCalls: safeTenant.max_api_calls_per_day?.toLocaleString() || 'Unlimited'
       },
       domainInfo: {
-        subdomain: tenant.subdomain,
-        customDomain: tenant.custom_domain
+        subdomain: safeTenant.subdomain,
+        customDomain: safeTenant.custom_domain
       }
     };
   }
@@ -67,7 +89,7 @@ export class TenantDisplayService {
   private static getStatusBadgeVariant(status?: string): string {
     if (!status) return 'secondary';
     
-    switch (status.toLowerCase()) {
+    switch (String(status).toLowerCase()) {
       case 'active': return 'default';
       case 'trial': return 'secondary';
       case 'suspended': return 'destructive';
@@ -79,7 +101,7 @@ export class TenantDisplayService {
   private static getPlanBadgeVariant(plan?: string): string {
     if (!plan) return 'outline';
     
-    switch (plan) {
+    switch (String(plan)) {
       case 'AI_Enterprise': return 'default';
       case 'Shakti_Growth': return 'secondary';
       case 'Kisan_Basic': return 'outline';
@@ -104,7 +126,7 @@ export class TenantDisplayService {
   static getStatusColor(status?: string): string {
     if (!status) return 'bg-gray-500';
     
-    switch (status.toLowerCase()) {
+    switch (String(status).toLowerCase()) {
       case 'active': return 'bg-green-500';
       case 'trial': return 'bg-blue-500';
       case 'suspended': return 'bg-yellow-500';

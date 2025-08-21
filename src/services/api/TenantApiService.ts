@@ -1,8 +1,8 @@
 
 import { enhancedApiFactory } from './EnhancedApiFactory';
-import { Tenant, TenantFilters, CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO, Tenant } from '@/types/tenant';
 
-class TenantApiService {
+export class TenantApiService {
   private static instance: TenantApiService;
 
   private constructor() {}
@@ -14,45 +14,69 @@ class TenantApiService {
     return TenantApiService.instance;
   }
 
-  async getTenants(filters?: TenantFilters) {
-    const params: Record<string, string> = {};
+  async getTenants(filters?: Record<string, any>) {
+    console.log('TenantApiService: Getting tenants with filters:', filters);
     
-    if (filters?.search) {
-      params.search = filters.search;
+    try {
+      const result = await enhancedApiFactory.get<Tenant[]>('tenants', undefined, filters);
+      console.log('TenantApiService: Successfully fetched tenants:', result);
+      return result;
+    } catch (error) {
+      console.error('TenantApiService: Error fetching tenants:', error);
+      throw error;
     }
-    
-    // Handle type filter - check if it's not 'all' or has length > 0
-    if (filters?.type && filters.type !== 'all' && filters.type.length > 0) {
-      params.type = filters.type;
-    }
-    
-    // Handle status filter - check if it's not 'all' or has length > 0
-    if (filters?.status && filters.status !== 'all' && filters.status.length > 0) {
-      params.status = filters.status;
-    }
-    
-    // Handle subscription_plan filter - check if it's not 'all' or has length > 0
-    if (filters?.subscription_plan && filters.subscription_plan !== 'all' && filters.subscription_plan.length > 0) {
-      params.subscription_plan = filters.subscription_plan;
-    }
-
-    return enhancedApiFactory.get<Tenant[]>('tenants', undefined, { params });
   }
 
   async getTenant(id: string) {
-    return enhancedApiFactory.get<Tenant>(`tenants/${id}`, undefined);
+    console.log('TenantApiService: Getting tenant with ID:', id);
+    
+    try {
+      const result = await enhancedApiFactory.get<Tenant>(`tenants/${id}`, undefined);
+      console.log('TenantApiService: Successfully fetched tenant:', result);
+      return result;
+    } catch (error) {
+      console.error('TenantApiService: Error fetching tenant:', error);
+      throw error;
+    }
   }
 
   async createTenant(data: CreateTenantDTO) {
-    return enhancedApiFactory.post<Tenant>('tenants', data);
+    console.log('TenantApiService: Creating tenant with data:', data);
+    
+    try {
+      const result = await enhancedApiFactory.post<Tenant>('tenants', undefined, data);
+      console.log('TenantApiService: Successfully created tenant:', result);
+      return result;
+    } catch (error) {
+      console.error('TenantApiService: Error creating tenant:', error);
+      throw error;
+    }
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO) {
-    return enhancedApiFactory.put<Tenant>(`tenants/${id}`, undefined, data);
+    console.log('TenantApiService: Updating tenant with ID:', id, 'Data:', data);
+    
+    try {
+      const result = await enhancedApiFactory.put<Tenant>(`tenants/${id}`, undefined, data);
+      console.log('TenantApiService: Successfully updated tenant:', result);
+      return result;
+    } catch (error) {
+      console.error('TenantApiService: Error updating tenant:', error);
+      throw error;
+    }
   }
 
   async deleteTenant(id: string) {
-    return enhancedApiFactory.delete<boolean>(`tenants/${id}`, undefined);
+    console.log('TenantApiService: Deleting tenant with ID:', id);
+    
+    try {
+      const result = await enhancedApiFactory.delete<boolean>(`tenants/${id}`, undefined);
+      console.log('TenantApiService: Successfully deleted tenant:', result);
+      return result;
+    } catch (error) {
+      console.error('TenantApiService: Error deleting tenant:', error);
+      throw error;
+    }
   }
 }
 

@@ -1,54 +1,81 @@
-import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
 
-// Tenant Type Mappers
-export const mapTenantTypeToDisplay = (type: string): string => {
-  const typeDisplayMap: Record<string, string> = {
-    [TenantType.AGRI_COMPANY]: 'Agriculture Company',
-    [TenantType.DEALER]: 'Dealer Network', 
-    [TenantType.COOPERATIVE]: 'Cooperative Society',
-    [TenantType.UNIVERSITY]: 'University/Research',
-    [TenantType.SUGAR_FACTORY]: 'Sugar Factory',
-    [TenantType.GOVERNMENT]: 'Government Entity',
-    [TenantType.INSURANCE]: 'Insurance Provider',
-    [TenantType.NGO]: 'NGO'
-  };
-  return typeDisplayMap[type] || type;
+export const mapTenantTypeToDisplay = (type?: string): string => {
+  if (!type) return 'Unknown';
+  
+  // Handle undefined/null safely
+  const safeType = String(type);
+  
+  switch (safeType.toLowerCase()) {
+    case 'agri_company':
+      return 'Agriculture Company';
+    case 'cooperative':
+      return 'Cooperative';
+    case 'government':
+      return 'Government';
+    case 'ngo':
+      return 'NGO';
+    case 'research':
+      return 'Research Institute';
+    default:
+      // Safe string replacement - convert underscores to spaces and capitalize
+      return safeType
+        .replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+  }
 };
 
-export const mapDisplayToTenantType = (display: string): string => {
-  const reverseMap: Record<string, string> = {
-    'Agriculture Company': TenantType.AGRI_COMPANY,
-    'Dealer Network': TenantType.DEALER,
-    'Cooperative Society': TenantType.COOPERATIVE,
-    'University/Research': TenantType.UNIVERSITY,
-    'Sugar Factory': TenantType.SUGAR_FACTORY,
-    'Government Entity': TenantType.GOVERNMENT,
-    'Insurance Provider': TenantType.INSURANCE,
-    'NGO': TenantType.NGO
-  };
-  return reverseMap[display] || display;
+export const mapTenantStatusToDisplay = (status?: string): string => {
+  if (!status) return 'Unknown';
+  
+  // Handle undefined/null safely
+  const safeStatus = String(status);
+  
+  switch (safeStatus.toLowerCase()) {
+    case 'active':
+      return 'Active';
+    case 'trial':
+      return 'Trial';
+    case 'suspended':
+      return 'Suspended';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'archived':
+      return 'Archived';
+    case 'pending_approval':
+      return 'Pending Approval';
+    default:
+      // Safe string replacement
+      return safeStatus
+        .replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+  }
 };
 
-// Tenant Status Mappers
-export const mapTenantStatusToDisplay = (status: string): string => {
-  const statusDisplayMap: Record<string, string> = {
-    [TenantStatus.TRIAL]: 'Trial',
-    [TenantStatus.ACTIVE]: 'Active',
-    [TenantStatus.SUSPENDED]: 'Suspended',
-    [TenantStatus.ARCHIVED]: 'Archived',
-    [TenantStatus.PENDING_APPROVAL]: 'Pending Approval',
-    [TenantStatus.CANCELLED]: 'Cancelled'
-  };
-  return statusDisplayMap[status] || status;
-};
-
-// Subscription Plan Mappers
-export const mapSubscriptionPlanToDisplay = (plan: string): string => {
-  const planDisplayMap: Record<string, string> = {
-    [SubscriptionPlan.KISAN_BASIC]: 'Kisan Basic',
-    [SubscriptionPlan.SHAKTI_GROWTH]: 'Shakti Growth', 
-    [SubscriptionPlan.AI_ENTERPRISE]: 'AI Enterprise',
-    [SubscriptionPlan.CUSTOM_ENTERPRISE]: 'Custom Enterprise'
-  };
-  return planDisplayMap[plan] || plan;
+export const mapSubscriptionPlanToDisplay = (plan?: string): string => {
+  if (!plan) return 'Unknown Plan';
+  
+  // Handle undefined/null safely
+  const safePlan = String(plan);
+  
+  switch (safePlan) {
+    case 'Kisan_Basic':
+      return 'Kisan Basic';
+    case 'Shakti_Growth':
+      return 'Shakti Growth';
+    case 'AI_Enterprise':
+      return 'AI Enterprise';
+    case 'Custom_Enterprise':
+      return 'Custom Enterprise';
+    default:
+      // Safe string replacement
+      return safePlan
+        .replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+  }
 };
