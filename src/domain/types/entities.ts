@@ -1,21 +1,19 @@
 
-// Domain entity type definitions
-export interface DomainEntity {
-  id: string;
-  version: number;
-  createdAt: Date;
-  updatedAt: Date;
+import { BaseEntity } from '@/types/common';
+
+export interface DomainEntity extends BaseEntity {
+  // Base properties for all domain entities
 }
 
-export interface AggregateRoot extends DomainEntity {
-  domainEvents: DomainEvent[];
+export interface UserEntity extends DomainEntity {
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
 }
 
-export interface DomainEvent {
-  id: string;
+export interface TenantEntity extends DomainEntity {
+  name: string;
+  slug: string;
   type: string;
-  aggregateId: string;
-  version: number;
-  timestamp: Date;
-  data: Record<string, unknown>;
+  status: string;
 }

@@ -1,16 +1,14 @@
 
-// Domain service type definitions
 export interface DomainService {
-  readonly name: string;
+  // Base interface for domain services
 }
 
-export interface ValidationResult {
-  isValid: boolean;
-  errors: ValidationError[];
+export interface AuthDomainService extends DomainService {
+  authenticate(credentials: any): Promise<any>;
+  authorize(user: any, resource: string): Promise<boolean>;
 }
 
-export interface ValidationError {
-  field: string;
-  code: string;
-  message: string;
+export interface TenantDomainService extends DomainService {
+  createTenant(data: any): Promise<any>;
+  updateTenant(id: string, data: any): Promise<any>;
 }

@@ -1,29 +1,10 @@
 
-// Repository pattern type definitions
-export interface Repository<T, TId = string> {
-  findById(id: TId): Promise<T | null>;
+import { DomainEntity } from './entities';
+
+export interface DomainRepository<T extends DomainEntity> {
+  findById(id: string): Promise<T | null>;
   findAll(): Promise<T[]>;
-  save(entity: T): Promise<T>;
-  delete(id: TId): Promise<void>;
-}
-
-export interface QueryRepository<T> {
-  findByQuery(query: Query): Promise<T[]>;
-  count(query: Query): Promise<number>;
-}
-
-export interface Query {
-  filters: Record<string, unknown>;
-  sorting: SortingCriteria[];
-  pagination: PaginationCriteria;
-}
-
-export interface SortingCriteria {
-  field: string;
-  direction: 'asc' | 'desc';
-}
-
-export interface PaginationCriteria {
-  page: number;
-  size: number;
+  create(entity: Omit<T, 'id' | 'created_at' | 'updated_at'>): Promise<T>;
+  update(id: string, updates: Partial<T>): Promise<T>;
+  delete(id: string): Promise<void>;
 }

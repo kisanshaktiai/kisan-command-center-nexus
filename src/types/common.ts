@@ -56,3 +56,20 @@ export interface AppError {
   context?: Record<string, unknown>;
   timestamp: Timestamp;
 }
+
+// Domain types
+export interface DomainEntity extends BaseEntity {
+  // Base properties for all domain entities
+}
+
+export interface DomainService {
+  // Base interface for domain services
+}
+
+export interface DomainRepository<T extends DomainEntity> {
+  findById(id: UUID): Promise<T | null>;
+  findAll(): Promise<T[]>;
+  create(entity: Omit<T, 'id' | 'created_at' | 'updated_at'>): Promise<T>;
+  update(id: UUID, updates: Partial<T>): Promise<T>;
+  delete(id: UUID): Promise<void>;
+}

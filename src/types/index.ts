@@ -1,15 +1,27 @@
 
 // Re-export all type definitions from centralized location
 export * from './common';
+export * from './api';
 
-// Auth types - avoid duplicate exports
+// Auth types - carefully managed exports
 export type { 
   User, 
   AuthState, 
   AuthContextType,
-  LoginCredentials,
+  SignInCredentials as LoginCredentials,
   AdminRegistrationData,
-  SuperAdminSetupData 
+  SuperAdminSetupData,
+  UserProfile,
+  TenantData,
+  AuthResult,
+  AdminStatus,
+  AuthError,
+  SignUpCredentials,
+  AdminInvite,
+  BootstrapData,
+  AdminStatusResult,
+  BootstrapStatusResult,
+  SupabaseRpcResponse
 } from './auth';
 
 // Tenant types
@@ -28,11 +40,13 @@ export {
   SubscriptionPlan 
 } from './enums';
 
-// API types - avoid duplicate exports
+// API types
 export type { 
   ServiceResult, 
   PaginatedResponse, 
-  QueryOptions 
+  QueryOptions,
+  ApiError,
+  ApiResponse
 } from './api';
 
 // Domain types

@@ -1,10 +1,28 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { User, AuthState, ServiceResult, AdminRegistrationData, SuperAdminSetupData, LoginCredentials } from '@/types';
-import { BaseService } from './BaseService';
+import { User, AuthState, TenantData } from '@/types/auth';
+import { BaseService, ServiceResult } from './BaseService';
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface AdminRegistrationData {
+  email: string;
+  full_name: string;
+  token: string;
+}
+
+export interface SuperAdminSetupData {
+  email: string;
+  password: string;
+  full_name: string;
+}
 
 export class AuthService extends BaseService {
   private static instance: AuthService;
+  private authStateSubscribers: ((authState: AuthState) => void)[] = [];
 
   static getInstance(): AuthService {
     if (!this.instance) {
@@ -44,9 +62,9 @@ export class AuthService extends BaseService {
         session: null,
         isAuthenticated: true,
         isAdmin,
+        isSuperAdmin: adminRole === 'super_admin',
         adminRole,
-        isLoading: false,
-        error: null
+        profile: null
       };
     } catch (error) {
       console.error('Error getting auth state:', error);
@@ -60,10 +78,85 @@ export class AuthService extends BaseService {
       session: null,
       isAuthenticated: false,
       isAdmin: false,
+      isSuperAdmin: false,
       adminRole: null,
-      isLoading: false,
-      error: null
+      profile: null
     };
+  }
+
+  /**
+   * Subscribe to auth state changes
+   */
+  subscribeToAuthStateChanges(callback: (authState: AuthState) => void): () => void {
+    this.authStateSubscribers.push(callback);
+    
+    // Set up Supabase auth listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        const authState = await this.getCurrentAuthState();
+        this.notifySubscribers(authState);
+      }
+    );
+
+    // Return unsubscribe function
+    return () => {
+      this.authStateSubscribers = this.authStateSubscribers.filter(sub => sub !== callback);
+      subscription.unsubscribe();
+    };
+  }
+
+  private notifySubscribers(authState: AuthState) {
+    this.authStateSubscribers.forEach(callback => callback(authState));
+  }
+
+  /**
+   * Sign in user
+   */
+  async signIn(email: string, password: string): Promise<ServiceResult<AuthState>> {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        return this.handleError('Authentication failed', error);
+      }
+
+      if (!data.user) {
+        return this.handleError('Authentication failed - no user returned');
+      }
+
+      const authState = await this.getCurrentAuthState();
+      return this.handleSuccess(authState);
+    } catch (error) {
+      return this.handleError('Sign in failed', error);
+    }
+  }
+
+  /**
+   * Sign up user
+   */
+  async signUp(email: string, password: string, tenantData: TenantData): Promise<ServiceResult<User>> {
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: tenantData.fullName
+          }
+        }
+      });
+
+      if (authError || !authData.user) {
+        return this.handleError('User registration failed', authError);
+      }
+
+      return this.handleSuccess(authData.user);
+    } catch (error) {
+      return this.handleError('Registration failed', error);
+    }
   }
 
   /**
@@ -74,7 +167,7 @@ export class AuthService extends BaseService {
       const { data, error } = await supabase
         .from('admin_registrations')
         .select('id')
-        .eq('registration_completed', true)
+        .eq('status', 'completed')
         .limit(1);
 
       if (error) {
@@ -98,7 +191,7 @@ export class AuthService extends BaseService {
         .insert({
           email: data.email,
           full_name: data.full_name,
-          registration_completed: false
+          status: 'pending'
         })
         .select()
         .single();
@@ -145,7 +238,7 @@ export class AuthService extends BaseService {
       // Mark registration as completed
       await supabase
         .from('admin_registrations')
-        .update({ registration_completed: true })
+        .update({ status: 'completed' })
         .eq('id', registrationData.id);
 
       return this.handleSuccess(authData.user);
@@ -189,9 +282,9 @@ export class AuthService extends BaseService {
         session: data.session,
         isAuthenticated: true,
         isAdmin: true,
+        isSuperAdmin: adminData.role === 'super_admin',
         adminRole: adminData.role,
-        isLoading: false,
-        error: null
+        profile: null
       };
 
       return this.handleSuccess(authState);
@@ -225,8 +318,8 @@ export class AuthService extends BaseService {
       const { data, error } = await supabase
         .from('admin_registrations')
         .select('*')
-        .eq('invite_token', token)
-        .eq('registration_completed', false)
+        .eq('registration_token', token)
+        .eq('status', 'pending')
         .single();
 
       if (error || !data) {
@@ -245,7 +338,7 @@ export class AuthService extends BaseService {
       return this.handleSuccess({
         email: data.email,
         full_name: data.full_name,
-        token: data.invite_token
+        token: data.registration_token
       });
     } catch (error) {
       return this.handleError('Token validation failed', error);
@@ -299,8 +392,8 @@ export class AuthService extends BaseService {
       // Mark registration as completed
       await supabase
         .from('admin_registrations')
-        .update({ registration_completed: true })
-        .eq('invite_token', token);
+        .update({ status: 'completed' })
+        .eq('registration_token', token);
 
       return this.handleSuccess(authData.user);
     } catch (error) {
