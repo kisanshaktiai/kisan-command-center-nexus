@@ -1,12 +1,39 @@
 
-// Centralized type exports for better organization
-export * from './auth';
-export * from './tenant';
-export * from './admin';
-export * from './api';
-export * from './enums';
-export * from './roles';
+// Re-export all type definitions from centralized location
 export * from './common';
 
-// Re-export commonly used external types
-export type { User, Session } from '@supabase/supabase-js';
+// Auth types - avoid duplicate exports
+export type { 
+  User, 
+  AuthState, 
+  AuthContextType,
+  LoginCredentials,
+  AdminRegistrationData,
+  SuperAdminSetupData 
+} from './auth';
+
+// Tenant types
+export type { 
+  Tenant, 
+  TenantFilters, 
+  CreateTenantDTO, 
+  UpdateTenantDTO,
+  DatabaseTenant 
+} from './tenant';
+
+// Enum types - avoid duplicate exports
+export { 
+  TenantType, 
+  TenantStatus, 
+  SubscriptionPlan 
+} from './enums';
+
+// API types - avoid duplicate exports
+export type { 
+  ServiceResult, 
+  PaginatedResponse, 
+  QueryOptions 
+} from './api';
+
+// Domain types
+export type { DomainEntity, DomainService, DomainRepository } from './common';

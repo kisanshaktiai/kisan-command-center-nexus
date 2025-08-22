@@ -1,7 +1,7 @@
 
-// Performance utilities for better developer experience
-import { useCallback, useRef, useMemo } from 'react';
+import React, { useCallback, useRef, useMemo } from 'react';
 
+// Performance utilities for better developer experience
 export class PerformanceUtils {
   /**
    * Debounce a function
