@@ -1,15 +1,17 @@
 
-import React, { createContext, useContext, useEffect } from 'react';
-import { useAuthStore } from '@/lib/stores/authStore';
-import { AuthState } from '@/types/auth';
-import { useSessionTimeout } from '@/hooks/useSessionTimeout';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { authService } from '@/services/AuthService';
+import { AuthState, TenantData } from '@/types/auth';
 
-const AuthContext = createContext<AuthState & {
+interface AuthContextType extends AuthState {
   signOut: () => Promise<void>;
-  signUp: (email: string, password: string, tenantData: any) => Promise<{ data?: any; error?: any }>;
+  signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data?: any; error?: any }>;
   isLoading: boolean;
   error: string | null;
-}>({
+  clearError: () => void;
+}
+
+const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   isAuthenticated: false,
@@ -21,6 +23,7 @@ const AuthContext = createContext<AuthState & {
   signUp: async () => ({ error: new Error('Not implemented') }),
   isLoading: false,
   error: null,
+  clearError: () => {},
 });
 
 export const useAuth = () => {
@@ -32,75 +35,105 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const authStore = useAuthStore();
-  
-  // Use session timeout to prevent infinite loading states
-  const { forceReload } = useSessionTimeout(15000); // 15 second timeout
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    session: null,
+    isAuthenticated: false,
+    isAdmin: false,
+    isSuperAdmin: false,
+    adminRole: null,
+    profile: null,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let initPromise: Promise<void> | null = null;
-    
-    // Initialize auth state on mount
+    let mounted = true;
+
+    // Initialize auth state
     const initAuth = async () => {
       try {
-        console.log('AuthProvider: Starting initialization...');
-        const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
+        setIsLoading(true);
+        const currentAuthState = await authService.getCurrentAuthState();
         
-        // Prevent multiple concurrent initializations
-        if (!initPromise) {
-          initPromise = unifiedAuthService.initialize();
+        if (mounted) {
+          setAuthState(currentAuthState);
+          setError(null);
         }
-        
-        await initPromise;
-        console.log('AuthProvider: Initialization completed');
       } catch (error) {
-        console.error('AuthProvider: Error initializing auth:', error);
-        authStore.setError('Authentication system failed to initialize');
-        
-        // If initialization fails completely, provide recovery option
-        setTimeout(() => {
-          if (authStore.isLoading && !authStore.user) {
-            console.error('AuthProvider: Initialization stuck, offering reload');
-            authStore.setError('Authentication failed to load. Please refresh the page.');
-          }
-        }, 10000);
+        console.error('AuthProvider: Failed to initialize auth:', error);
+        if (mounted) {
+          setError('Failed to initialize authentication');
+        }
       } finally {
-        authStore.setLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
+    // Subscribe to auth state changes
+    const unsubscribe = authService.subscribeToAuthStateChanges((newAuthState) => {
+      if (mounted) {
+        setAuthState(newAuthState);
+        setError(null);
+      }
+    });
+
     initAuth();
 
-    // Cleanup on unmount
     return () => {
-      initPromise = null;
+      mounted = false;
+      unsubscribe();
     };
   }, []);
 
-  // Add debugging for auth state changes
-  useEffect(() => {
-    console.log('AuthProvider: Auth state changed:', {
-      hasUser: !!authStore.user,
-      isAdmin: authStore.isAdmin,
-      isLoading: authStore.isLoading,
-      hasError: !!authStore.error
-    });
-  }, [authStore.user, authStore.isAdmin, authStore.isLoading, authStore.error]);
+  const signOut = async () => {
+    try {
+      setError(null);
+      const result = await authService.signOut();
+      if (!result.success && result.error) {
+        setError(result.error);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Sign out failed';
+      setError(errorMessage);
+    }
+  };
+
+  const signUp = async (email: string, password: string, tenantData: TenantData) => {
+    try {
+      setError(null);
+      const result = await authService.signUp(email, password, tenantData);
+      
+      if (result.success) {
+        return { data: result.data };
+      } else {
+        setError(result.error || 'Sign up failed');
+        return { error: new Error(result.error || 'Sign up failed') };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Sign up failed';
+      setError(errorMessage);
+      return { error: new Error(errorMessage) };
+    }
+  };
+
+  const clearError = () => {
+    setError(null);
+  };
+
+  const contextValue: AuthContextType = {
+    ...authState,
+    signOut,
+    signUp,
+    isLoading,
+    error,
+    clearError,
+  };
 
   return (
-    <AuthContext.Provider value={{
-      user: authStore.user,
-      session: authStore.session,
-      isAuthenticated: authStore.isAuthenticated,
-      isAdmin: authStore.isAdmin,
-      isSuperAdmin: authStore.isSuperAdmin,
-      adminRole: authStore.adminRole,
-      profile: authStore.profile,
-      signOut: authStore.signOut,
-      signUp: authStore.signUp,
-      isLoading: authStore.isLoading,
-      error: authStore.error,
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

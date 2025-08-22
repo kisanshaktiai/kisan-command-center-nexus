@@ -1,6 +1,6 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { tenantService } from '@/services/tenantService';
+import { tenantService } from '@/services/TenantService';
 import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
 import { toast } from 'sonner';
 
@@ -8,7 +8,13 @@ export const useTenantMutations = () => {
   const queryClient = useQueryClient();
 
   const createTenantMutation = useMutation({
-    mutationFn: (data: CreateTenantDTO) => tenantService.createTenant(data),
+    mutationFn: async (data: CreateTenantDTO) => {
+      const result = await tenantService.createTenant(data);
+      if (result.success && result.data) {
+        return result.data;
+      }
+      throw new Error(result.error || 'Failed to create tenant');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-data'] });
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
@@ -21,8 +27,13 @@ export const useTenantMutations = () => {
   });
 
   const updateTenantMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateTenantDTO }) => 
-      tenantService.updateTenant(id, data),
+    mutationFn: async ({ id, data }: { id: string; data: UpdateTenantDTO }) => {
+      const result = await tenantService.updateTenant(id, data);
+      if (result.success && result.data) {
+        return result.data;
+      }
+      throw new Error(result.error || 'Failed to update tenant');
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tenant-data'] });
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
@@ -35,7 +46,13 @@ export const useTenantMutations = () => {
   });
 
   const deleteTenantMutation = useMutation({
-    mutationFn: (id: string) => tenantService.deleteTenant(id),
+    mutationFn: async (id: string) => {
+      const result = await tenantService.deleteTenant(id);
+      if (result.success) {
+        return true;
+      }
+      throw new Error(result.error || 'Failed to delete tenant');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-data'] });
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
