@@ -18,7 +18,7 @@ export class TenantApiService {
     console.log('TenantApiService: Getting tenants with filters:', filters);
     
     try {
-      const result = await enhancedApiFactory.get<Tenant[]>('tenants', undefined, filters);
+      const result = await enhancedApiFactory.get<Tenant[]>('tenants', filters);
       console.log('TenantApiService: Successfully fetched tenants:', result);
       return result;
     } catch (error) {
@@ -31,7 +31,7 @@ export class TenantApiService {
     console.log('TenantApiService: Getting tenant with ID:', id);
     
     try {
-      const result = await enhancedApiFactory.get<Tenant>(`tenants/${id}`, undefined);
+      const result = await enhancedApiFactory.get<Tenant>(`tenants/${id}`);
       console.log('TenantApiService: Successfully fetched tenant:', result);
       return result;
     } catch (error) {
@@ -44,7 +44,7 @@ export class TenantApiService {
     console.log('TenantApiService: Creating tenant with data:', data);
     
     try {
-      const result = await enhancedApiFactory.post<Tenant>('tenants', undefined, data);
+      const result = await enhancedApiFactory.post<Tenant>('tenants', data);
       console.log('TenantApiService: Successfully created tenant:', result);
       return result;
     } catch (error) {
@@ -57,7 +57,7 @@ export class TenantApiService {
     console.log('TenantApiService: Updating tenant with ID:', id, 'Data:', data);
     
     try {
-      const result = await enhancedApiFactory.put<Tenant>(`tenants/${id}`, undefined, data);
+      const result = await enhancedApiFactory.put<Tenant>(`tenants/${id}`, id, data);
       console.log('TenantApiService: Successfully updated tenant:', result);
       return result;
     } catch (error) {
@@ -70,7 +70,7 @@ export class TenantApiService {
     console.log('TenantApiService: Deleting tenant with ID:', id);
     
     try {
-      const result = await enhancedApiFactory.delete<boolean>(`tenants/${id}`, undefined);
+      const result = await enhancedApiFactory.delete<boolean>(`tenants/${id}`, id);
       console.log('TenantApiService: Successfully deleted tenant:', result);
       return result;
     } catch (error) {
