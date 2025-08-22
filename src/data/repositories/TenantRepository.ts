@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { BaseService, ServiceResult } from '@/services/BaseService';
-import { CreateTenantDTO, UpdateTenantDTO, Tenant, TenantFilters, convertDatabaseTenant } from '@/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO, Tenant, TenantFilters, convertDatabaseTenant, TenantType, TenantStatus, SubscriptionPlan } from '@/types/tenant';
 
 export class TenantRepository extends BaseService {
   private static instance: TenantRepository;
@@ -76,9 +76,17 @@ export class TenantRepository extends BaseService {
   async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
       async () => {
+        // Ensure required fields have defaults
+        const tenantData = {
+          type: TenantType.AGRI_COMPANY,
+          status: TenantStatus.TRIAL,
+          subscription_plan: SubscriptionPlan.KISAN_BASIC,
+          ...data
+        };
+
         const { data: tenant, error } = await supabase
           .from('tenants')
-          .insert(data)
+          .insert(tenantData)
           .select()
           .single();
 

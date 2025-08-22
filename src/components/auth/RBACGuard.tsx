@@ -13,13 +13,13 @@ export const RBACGuard: React.FC<RBACGuardProps> = ({
   requiredRole,
   fallback = <div>Access denied</div>
 }) => {
-  const { authState } = useAuth();
+  const { isAuthenticated, isAdmin, isSuperAdmin, adminRole } = useAuth();
 
-  if (!authState.isAuthenticated) {
+  if (!isAuthenticated) {
     return <>{fallback}</>;
   }
 
-  if (requiredRole && authState.adminRole !== requiredRole && !authState.isSuperAdmin) {
+  if (requiredRole && adminRole !== requiredRole && !isSuperAdmin) {
     return <>{fallback}</>;
   }
 

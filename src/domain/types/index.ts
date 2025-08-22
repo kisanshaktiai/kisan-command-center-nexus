@@ -1,6 +1,5 @@
 
-// Domain layer exports - Phase 3 enhanced
-export * from './types';
+// Domain-specific type definitions
 export * from './entities';
 export * from './services';
 export * from './repositories';
