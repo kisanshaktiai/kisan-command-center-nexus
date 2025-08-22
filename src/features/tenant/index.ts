@@ -1,19 +1,16 @@
 
-// Components
-export { default as TenantManagementPage } from './components/TenantManagementPage';
-export { TenantManagementHeader } from './components/TenantManagementHeader';
-export { TenantViewControls } from './components/TenantViewControls';
-export { TenantViewRenderer } from './components/TenantViewRenderer';
+// Tenant feature exports
+export * from './components/TenantManagementPage';
+export * from './components/TenantViewControls';
+export * from './components/TenantViewRenderer';
+export * from './components/TenantManagementHeader';
 
 // Hooks
-export { useTenantManagement } from './hooks/useTenantManagement';
-export { useTenantData } from './hooks/useTenantData';
-export { useTenantMutations } from './hooks/useTenantMutations';
-export { useTenantFiltering } from './hooks/useTenantFiltering';
-export { useTenantUIState } from './hooks/useTenantUIState';
+export * from './hooks/useTenantData';
+export * from './hooks/useTenantFiltering';
+export * from './hooks/useTenantMutations';
+export * from './hooks/useTenantPageState';
+export * from './hooks/useTenantUIState';
+export * from './hooks/useTenantAnalytics';
 
-// Services
-export { tenantManagementService } from './services/TenantManagementService';
-
-// Types
-export * from './types';
+// Remove service export as it's been moved to services layer

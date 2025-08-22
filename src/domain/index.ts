@@ -1,11 +1,7 @@
 
-// Services
-export * from './metrics/metricsService';
-export * from './billing/billingService';
-export * from './tenants/tenantService';
-
-// Business logic
-export * from './metrics/calculations';
-export * from './metrics/formatters';
-export * from './auth/permissions';
-export * from './tenants/validation';
+// Domain exports
+export * from './auth';
+export * from './leads';
+export * from './subscriptions';
+export * from './tenant';
+// Remove tenantService export as it's been moved to services layer

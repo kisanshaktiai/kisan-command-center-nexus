@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Building, Users, Calendar, Settings, Eye } from 'lucide-react';
 import { Tenant } from '@/types/tenant';
-import { tenantService } from '@/services/tenantService';
+import { tenantService } from '@/services/TenantService';
 
 interface TenantCardProps {
   tenant: Tenant;

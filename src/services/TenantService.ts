@@ -1,13 +1,16 @@
 
+import { supabase } from '@/integrations/supabase/client';
 import { BaseService, ServiceResult } from './BaseService';
-import { tenantRepository } from '@/data/repositories/TenantRepository';
 import { CreateTenantDTO, UpdateTenantDTO, Tenant, TenantFilters } from '@/types/tenant';
+import { TenantRepository } from '@/data/repositories/TenantRepository';
 
 export class TenantService extends BaseService {
   private static instance: TenantService;
+  private tenantRepository: TenantRepository;
 
   private constructor() {
     super();
+    this.tenantRepository = new TenantRepository();
   }
 
   public static getInstance(): TenantService {
@@ -19,47 +22,35 @@ export class TenantService extends BaseService {
 
   async getTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
     return this.executeOperation(
-      async () => {
-        const rawData = await tenantRepository.getTenants(filters);
-        return rawData.map(tenant => this.transformDatabaseTenant(tenant));
-      },
+      async () => this.tenantRepository.getTenants(filters),
       'getTenants'
     );
   }
 
   async getTenant(id: string): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      async () => {
-        const rawData = await tenantRepository.getTenant(id);
-        return this.transformDatabaseTenant(rawData);
-      },
+      async () => this.tenantRepository.getTenant(id),
       'getTenant'
     );
   }
 
   async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      async () => {
-        const rawData = await tenantRepository.createTenant(data);
-        return this.transformDatabaseTenant(rawData);
-      },
+      async () => this.tenantRepository.createTenant(data),
       'createTenant'
     );
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      async () => {
-        const rawData = await tenantRepository.updateTenant(id, data);
-        return this.transformDatabaseTenant(rawData);
-      },
+      async () => this.tenantRepository.updateTenant(id, data),
       'updateTenant'
     );
   }
 
   async deleteTenant(id: string): Promise<ServiceResult<boolean>> {
     return this.executeOperation(
-      async () => tenantRepository.deleteTenant(id),
+      async () => this.tenantRepository.deleteTenant(id),
       'deleteTenant'
     );
   }
@@ -72,8 +63,7 @@ export class TenantService extends BaseService {
           suspended_at: new Date().toISOString(),
           metadata: { suspension_reason: reason }
         };
-        const rawData = await tenantRepository.updateTenant(id, updateData);
-        return this.transformDatabaseTenant(rawData);
+        return this.tenantRepository.updateTenant(id, updateData);
       },
       'suspendTenant'
     );
@@ -87,44 +77,52 @@ export class TenantService extends BaseService {
           reactivated_at: new Date().toISOString(),
           suspended_at: undefined
         };
-        const rawData = await tenantRepository.updateTenant(id, updateData);
-        return this.transformDatabaseTenant(rawData);
+        return this.tenantRepository.updateTenant(id, updateData);
       },
       'reactivateTenant'
     );
   }
 
-  private transformDatabaseTenant(rawTenant: any): Tenant {
-    return {
-      id: rawTenant.id,
-      name: rawTenant.name,
-      slug: rawTenant.slug,
-      type: rawTenant.type,
-      status: rawTenant.status,
-      subscription_plan: rawTenant.subscription_plan,
-      owner_name: rawTenant.owner_name,
-      owner_email: rawTenant.owner_email,
-      owner_phone: rawTenant.owner_phone,
-      business_registration: rawTenant.business_registration,
-      business_address: rawTenant.business_address,
-      established_date: rawTenant.established_date,
-      subscription_start_date: rawTenant.subscription_start_date,
-      subscription_end_date: rawTenant.subscription_end_date,
-      trial_ends_at: rawTenant.trial_ends_at,
-      suspended_at: rawTenant.suspended_at,
-      reactivated_at: rawTenant.reactivated_at,
-      archived_at: rawTenant.archived_at,
-      max_farmers: rawTenant.max_farmers,
-      max_dealers: rawTenant.max_dealers,
-      max_products: rawTenant.max_products,
-      max_storage_gb: rawTenant.max_storage_gb,
-      max_api_calls_per_day: rawTenant.max_api_calls_per_day,
-      subdomain: rawTenant.subdomain,
-      custom_domain: rawTenant.custom_domain,
-      metadata: rawTenant.metadata || {},
-      created_at: rawTenant.created_at,
-      updated_at: rawTenant.updated_at
-    };
+  // Utility methods for UI components
+  getStatusBadgeVariant(status: string) {
+    switch (status) {
+      case 'active':
+        return 'default';
+      case 'suspended':
+        return 'destructive';
+      case 'trial':
+        return 'secondary';
+      case 'archived':
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  }
+
+  getPlanBadgeVariant(plan: string) {
+    switch (plan) {
+      case 'enterprise':
+        return 'default';
+      case 'professional':
+        return 'secondary';
+      case 'basic':
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  }
+
+  getPlanDisplayName(plan: string) {
+    switch (plan) {
+      case 'basic':
+        return 'Basic';
+      case 'professional':
+        return 'Professional';
+      case 'enterprise':
+        return 'Enterprise';
+      default:
+        return 'Unknown';
+    }
   }
 }
 
