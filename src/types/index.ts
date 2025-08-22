@@ -8,7 +8,7 @@ export type {
   User, 
   AuthState, 
   AuthContextType,
-  SignInCredentials as LoginCredentials,
+  SignInCredentials,
   AdminRegistrationData,
   SuperAdminSetupData,
   UserProfile,
@@ -24,20 +24,31 @@ export type {
   SupabaseRpcResponse
 } from './auth';
 
-// Tenant types
+// Tenant types - comprehensive exports
 export type { 
   Tenant, 
   TenantFilters, 
   CreateTenantDTO, 
   UpdateTenantDTO,
-  DatabaseTenant 
+  DatabaseTenant,
+  TenantFormData
 } from './tenant';
+
+// Export conversion function
+export { convertDatabaseTenant } from './tenant';
 
 // Enum types - avoid duplicate exports
 export { 
   TenantType, 
   TenantStatus, 
   SubscriptionPlan 
+} from './enums';
+
+// Type aliases
+export type {
+  TenantTypeValue,
+  TenantStatusValue,
+  SubscriptionPlanValue
 } from './enums';
 
 // API types
@@ -50,4 +61,9 @@ export type {
 } from './api';
 
 // Domain types
-export type { DomainEntity, DomainService, DomainRepository } from './common';
+export type { 
+  DomainEntity, 
+  DomainService, 
+  DomainRepository,
+  BaseEntity
+} from './common';

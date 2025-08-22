@@ -28,13 +28,19 @@ interface TenantEditModalProps {
   onSave: (id: string, data: UpdateTenantDTO) => Promise<boolean>;
 }
 
+interface FormData {
+  name: string;
+  status: TenantStatusValue;
+  subscription_plan: SubscriptionPlanValue;
+}
+
 const TenantEditModal: React.FC<TenantEditModalProps> = ({
   tenant,
   isOpen,
   onClose,
   onSave,
 }) => {
-  const [formData, setFormData] = useState<UpdateTenantDTO>({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     status: TenantStatus.TRIAL as TenantStatusValue,
     subscription_plan: SubscriptionPlan.KISAN_BASIC as SubscriptionPlanValue,
@@ -71,9 +77,10 @@ const TenantEditModal: React.FC<TenantEditModalProps> = ({
     setIsSubmitting(true);
     try {
       const updateData: UpdateTenantDTO = {
-        ...formData,
-        status: formData.status as TenantStatusValue,
-        subscription_plan: formData.subscription_plan as SubscriptionPlanValue,
+        id: tenant.id,
+        name: formData.name,
+        status: formData.status,
+        subscription_plan: formData.subscription_plan,
       };
       
       const success = await onSave(tenant.id, updateData);
