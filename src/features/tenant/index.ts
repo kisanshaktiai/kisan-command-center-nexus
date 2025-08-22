@@ -1,6 +1,9 @@
 
 // Tenant feature exports
 export * from './components/TenantManagementPage';
+export * from './components/TenantPageHeader';
+export * from './components/TenantPageContent';
+export * from './components/TenantPageModals';
 export * from './components/TenantViewControls';
 export * from './components/TenantViewRenderer';
 export * from './components/TenantManagementHeader';
@@ -12,5 +15,5 @@ export * from './hooks/useTenantMutations';
 export * from './hooks/useTenantPageState';
 export * from './hooks/useTenantUIState';
 export * from './hooks/useTenantAnalytics';
-
-// Remove service export as it's been moved to services layer
+export * from './hooks/useTenantActions';
+export * from './hooks/useTenantModals';

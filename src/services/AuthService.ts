@@ -2,15 +2,13 @@
 import { supabase } from '@/integrations/supabase/client';
 import { BaseService, ServiceResult } from './BaseService';
 import { AuthState, TenantData, AdminStatus, BootstrapData } from '@/types/auth';
-import { UserRepository } from '@/data/repositories/UserRepository';
+import { userRepository } from '@/data/repositories/UserRepository';
 
 export class AuthService extends BaseService {
   private static instance: AuthService;
-  private userRepository: UserRepository;
 
   private constructor() {
     super();
-    this.userRepository = new UserRepository();
   }
 
   public static getInstance(): AuthService {
@@ -38,7 +36,7 @@ export class AuthService extends BaseService {
       }
 
       const adminStatus = await this.getAdminStatus();
-      const profile = await this.userRepository.getUserProfile(user.id);
+      const profileResult = await userRepository.getUserProfile(user.id);
 
       return {
         user,
@@ -47,7 +45,7 @@ export class AuthService extends BaseService {
         isAdmin: adminStatus.isAdmin,
         isSuperAdmin: adminStatus.isSuperAdmin,
         adminRole: adminStatus.adminRole,
-        profile: profile.success ? profile.data : null,
+        profile: profileResult.success ? profileResult.data : null,
       };
     } catch (error) {
       console.error('AuthService: Failed to get current auth state:', error);
@@ -124,7 +122,8 @@ export class AuthService extends BaseService {
         };
       }
 
-      const { data, error } = await supabase.rpc('get_admin_status');
+      // Use proper type assertion for RPC call
+      const { data, error } = await supabase.rpc('get_admin_status') as { data: any, error: any };
 
       if (error) {
         console.error('AuthService: Failed to get admin status:', error);
@@ -153,7 +152,7 @@ export class AuthService extends BaseService {
   async checkBootstrapStatus(): Promise<ServiceResult<boolean>> {
     return this.executeOperation(
       async () => {
-        const { data, error } = await supabase.rpc('check_bootstrap_status');
+        const { data, error } = await supabase.rpc('check_bootstrap_status') as { data: any, error: any };
         
         if (error) throw error;
 
@@ -163,7 +162,7 @@ export class AuthService extends BaseService {
         }
         
         if (typeof data === 'object' && data !== null) {
-          return (data as any).bootstrap_needed || false;
+          return data.bootstrap_needed || false;
         }
         
         return false;
@@ -179,7 +178,7 @@ export class AuthService extends BaseService {
           admin_email: bootstrapData.email,
           admin_password: bootstrapData.password,
           admin_full_name: bootstrapData.fullName,
-        });
+        }) as { data: any, error: any };
 
         if (error) throw error;
 

@@ -2,9 +2,10 @@
 import { useState } from 'react';
 import { TenantViewPreferences } from '@/types/tenantView';
 import { useTenantData } from './useTenantData';
-import { useTenantManagement } from './useTenantManagement';
+import { useTenantActions } from './useTenantActions';
+import { useTenantModals } from './useTenantModals';
 import { useTenantAnalytics } from './useTenantAnalytics';
-import { TenantDisplayService, FormattedTenantData } from '@/services/TenantDisplayService';
+import { TenantDisplayService } from '@/services/TenantDisplayService';
 import { Tenant, UpdateTenantDTO } from '@/types/tenant';
 
 interface UseTenantPageStateOptions {
@@ -15,31 +16,41 @@ interface UseTenantPageStateOptions {
   };
 }
 
+interface CreationSuccessState {
+  tenantName: string;
+  adminEmail: string;
+  hasEmailSent: boolean;
+}
+
 export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
   const { data: tenantData = [], isLoading, error } = useTenantData({ filters: options.initialFilters });
   
   // Ensure we always work with an array
   const tenants = Array.isArray(tenantData) ? tenantData : (tenantData ? [tenantData] : []) as Tenant[];
   
+  // Use focused hooks
+  const { handleCreateTenant, handleUpdateTenant, isSubmitting } = useTenantActions();
   const {
-    // Core management functionality
-    isSubmitting,
-    creationSuccess,
-    clearCreationSuccess,
-    
-    // Actions
-    handleCreateTenant,
-    handleUpdateTenant,
-    handleDeleteTenant,
-  } = useTenantManagement();
+    detailsTenant,
+    isDetailsModalOpen,
+    handleViewDetails,
+    closeDetailsModal,
+    handleDetailsEdit,
+    editingTenant,
+    isEditModalOpen,
+    handleEditTenant,
+    closeEditModal,
+  } = useTenantModals();
   
-  // Analytics integration - pass the tenants array
-  const { tenantMetrics, refreshMetrics } = useTenantAnalytics({ 
+  // Analytics integration
+  const { refreshMetrics } = useTenantAnalytics({ 
     tenants,
     autoRefresh: true,
     refreshInterval: 30000 
   });
   
+  // Local state
+  const [creationSuccess, setCreationSuccess] = useState<CreationSuccessState | null>(null);
   const [viewPreferences, setViewPreferences] = useState<TenantViewPreferences>({
     mode: 'small-cards',
     density: 'comfortable',
@@ -51,55 +62,30 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
   const [filterType, setFilterType] = useState(options.initialFilters?.type || '');
   const [filterStatus, setFilterStatus] = useState(options.initialFilters?.status || '');
 
-  // Modal states - fixed state management
-  const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-
   // Format tenants for display
-  const formattedTenants: FormattedTenantData[] = TenantDisplayService.formatTenantsForDisplay(tenants);
+  const formattedTenants = TenantDisplayService.formatTenantsForDisplay(tenants);
   
-  // Format details tenant for display
-  const detailsFormattedData = detailsTenant ? TenantDisplayService.formatTenantForDisplay(detailsTenant) : null;
-
-  // Enhanced action handlers
-  const handleViewDetails = (tenant: Tenant) => {
-    console.log('useTenantPageState: Opening details for tenant:', tenant.id);
-    setDetailsTenant(tenant);
-    setIsDetailsModalOpen(true);
-    refreshMetrics();
+  // Success state management
+  const clearCreationSuccess = () => {
+    setCreationSuccess(null);
   };
 
-  const handleDetailsEdit = (tenant: Tenant) => {
-    console.log('useTenantPageState: Edit from details for tenant:', tenant.id);
-    // Close details modal and open edit modal
-    setIsDetailsModalOpen(false);
-    setDetailsTenant(null);
-    setEditingTenant(tenant);
-    setIsEditModalOpen(true);
+  // Enhanced create handler
+  const handleCreateTenantWithSuccess = async (data: any): Promise<boolean> => {
+    const success = await handleCreateTenant(data);
+    if (success) {
+      setCreationSuccess({
+        tenantName: data.name,
+        adminEmail: data.owner_email || '',
+        hasEmailSent: true
+      });
+      refreshMetrics();
+    }
+    return success;
   };
 
-  const handleEditTenant = (tenant: Tenant) => {
-    console.log('useTenantPageState: Direct edit for tenant:', tenant.id);
-    setEditingTenant(tenant);
-    setIsEditModalOpen(true);
-  };
-
-  const closeDetailsModal = () => {
-    console.log('useTenantPageState: Closing details modal');
-    setIsDetailsModalOpen(false);
-    setDetailsTenant(null);
-  };
-
-  const closeEditModal = () => {
-    console.log('useTenantPageState: Closing edit modal');
-    setIsEditModalOpen(false);
-    setEditingTenant(null);
-  };
-
+  // Enhanced save handler
   const handleSaveTenant = async (id: string, data: UpdateTenantDTO): Promise<boolean> => {
-    console.log('useTenantPageState: Saving tenant:', id, data);
     const success = await handleUpdateTenant(id, data);
     if (success) {
       closeEditModal();
@@ -116,10 +102,6 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
     error,
     isSubmitting,
 
-    // Analytics
-    tenantMetrics,
-    refreshMetrics,
-
     // Success state
     creationSuccess,
     clearCreationSuccess,
@@ -127,9 +109,8 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
     // Details modal
     detailsTenant,
     isDetailsModalOpen,
-    detailsFormattedData,
 
-    // Edit modal - ensure these are returned
+    // Edit modal
     editingTenant,
     isEditModalOpen,
 
@@ -144,7 +125,7 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
     setFilterStatus,
 
     // Actions
-    handleCreateTenant,
+    handleCreateTenant: handleCreateTenantWithSuccess,
     handleViewDetails,
     handleDetailsEdit,
     handleEditTenant,

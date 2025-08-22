@@ -1,16 +1,13 @@
 
-import { supabase } from '@/integrations/supabase/client';
 import { BaseService, ServiceResult } from './BaseService';
 import { CreateTenantDTO, UpdateTenantDTO, Tenant, TenantFilters } from '@/types/tenant';
-import { TenantRepository } from '@/data/repositories/TenantRepository';
+import { tenantRepository } from '@/data/repositories/TenantRepository';
 
 export class TenantService extends BaseService {
   private static instance: TenantService;
-  private tenantRepository: TenantRepository;
 
   private constructor() {
     super();
-    this.tenantRepository = new TenantRepository();
   }
 
   public static getInstance(): TenantService {
@@ -22,35 +19,65 @@ export class TenantService extends BaseService {
 
   async getTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
     return this.executeOperation(
-      async () => this.tenantRepository.getTenants(filters),
+      async () => {
+        const result = await tenantRepository.getTenants(filters);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
+      },
       'getTenants'
     );
   }
 
   async getTenant(id: string): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      async () => this.tenantRepository.getTenant(id),
+      async () => {
+        const result = await tenantRepository.getTenant(id);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
+      },
       'getTenant'
     );
   }
 
   async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      async () => this.tenantRepository.createTenant(data),
+      async () => {
+        const result = await tenantRepository.createTenant(data);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
+      },
       'createTenant'
     );
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      async () => this.tenantRepository.updateTenant(id, data),
+      async () => {
+        const result = await tenantRepository.updateTenant(id, data);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
+      },
       'updateTenant'
     );
   }
 
   async deleteTenant(id: string): Promise<ServiceResult<boolean>> {
     return this.executeOperation(
-      async () => this.tenantRepository.deleteTenant(id),
+      async () => {
+        const result = await tenantRepository.deleteTenant(id);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
+      },
       'deleteTenant'
     );
   }
@@ -63,7 +90,11 @@ export class TenantService extends BaseService {
           suspended_at: new Date().toISOString(),
           metadata: { suspension_reason: reason }
         };
-        return this.tenantRepository.updateTenant(id, updateData);
+        const result = await tenantRepository.updateTenant(id, updateData);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
       },
       'suspendTenant'
     );
@@ -77,7 +108,11 @@ export class TenantService extends BaseService {
           reactivated_at: new Date().toISOString(),
           suspended_at: undefined
         };
-        return this.tenantRepository.updateTenant(id, updateData);
+        const result = await tenantRepository.updateTenant(id, updateData);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
       },
       'reactivateTenant'
     );

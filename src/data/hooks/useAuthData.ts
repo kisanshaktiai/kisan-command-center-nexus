@@ -1,33 +1,16 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { authService } from '@/services/AuthService';
+import { AuthState } from '@/types/auth';
 
 export const useAuthData = () => {
-  const { data: authState, isLoading: authLoading, error: authError } = useQuery({
-    queryKey: ['auth-state'],
-    queryFn: async () => {
-      const result = await authService.getCurrentAuthState();
-      return result;
-    },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+  return useQuery({
+    queryKey: ['auth-data'],
+    queryFn: () => authService.getCurrentAuthState(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
-
-  const { data: adminStatus, isLoading: adminLoading, error: adminError } = useQuery({
-    queryKey: ['admin-status'],
-    queryFn: async () => {
-      const result = await authService.getAdminStatus();
-      return result;
-    },
-    enabled: !!authState?.user,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-  });
-
-  return {
-    authState,
-    adminStatus,
-    isLoading: authLoading || adminLoading,
-    error: authError || adminError,
-  };
 };
+
+// Legacy export for compatibility
+export const useCurrentAuth = useAuthData;

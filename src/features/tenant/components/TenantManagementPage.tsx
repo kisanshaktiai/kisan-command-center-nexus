@@ -1,12 +1,9 @@
 
 import React from 'react';
 import { useTenantPageState } from '../hooks/useTenantPageState';
-import { TenantFilters } from '@/components/tenant/TenantFilters';
-import { TenantCreateDialog } from '@/components/tenant/TenantCreateDialog';
-import TenantEditModal from '@/components/tenant/TenantEditModal';
-import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
-import { TenantListView } from '@/components/tenant/TenantListView';
-import { TenantGridView } from '@/components/tenant/TenantGridView';
+import { TenantPageHeader } from './TenantPageHeader';
+import { TenantPageContent } from './TenantPageContent';
+import { TenantPageModals } from './TenantPageModals';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 
@@ -73,70 +70,35 @@ const TenantManagementPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Tenant Management</h1>
-          <p className="text-muted-foreground">
-            Manage tenants, subscriptions, and configurations
-          </p>
-        </div>
-      </div>
+      <TenantPageHeader
+        creationSuccess={creationSuccess}
+        onClearSuccess={clearCreationSuccess}
+      />
 
-      {creationSuccess && (
-        <Alert>
-          <AlertDescription>
-            Tenant "{creationSuccess.tenantName}" created successfully!
-            {creationSuccess.hasEmailSent && (
-              <span className="ml-2">
-                Invitation email sent to {creationSuccess.adminEmail}
-              </span>
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <TenantFilters
+      <TenantPageContent
+        formattedTenants={formattedTenants}
+        viewPreferences={viewPreferences}
+        setViewPreferences={setViewPreferences}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         filterType={filterType}
         setFilterType={setFilterType}
         filterStatus={filterStatus}
         setFilterStatus={setFilterStatus}
+        onCreateTenant={handleCreateTenant}
+        onViewDetails={handleViewDetails}
+        onEditTenant={handleEditTenant}
       />
 
-      <TenantCreateDialog 
-        isOpen={false}
-        onClose={() => {}}
-        onCreateTenant={handleCreateTenant} 
-      />
-
-      {viewPreferences.mode === 'list' ? (
-        <TenantListView
-          tenants={formattedTenants as any[]}
-          onViewDetails={handleViewDetails}
-          onEditTenant={handleEditTenant}
-        />
-      ) : (
-        <TenantGridView
-          tenants={formattedTenants as any[]}
-          viewMode={viewPreferences.mode === 'analytics' ? 'grid' : viewPreferences.mode}
-          onViewDetails={handleViewDetails}
-          onEditTenant={handleEditTenant}
-        />
-      )}
-
-      <TenantDetailsModal
-        tenant={detailsTenant}
-        isOpen={isDetailsModalOpen}
-        onClose={closeDetailsModal}
-        onEdit={handleDetailsEdit}
-      />
-
-      <TenantEditModal
-        tenant={editingTenant}
-        isOpen={isEditModalOpen}
-        onClose={closeEditModal}
-        onSave={handleSaveTenant}
+      <TenantPageModals
+        detailsTenant={detailsTenant}
+        isDetailsModalOpen={isDetailsModalOpen}
+        onCloseDetails={closeDetailsModal}
+        onDetailsEdit={handleDetailsEdit}
+        editingTenant={editingTenant}
+        isEditModalOpen={isEditModalOpen}
+        onCloseEdit={closeEditModal}
+        onSaveTenant={handleSaveTenant}
       />
     </div>
   );
