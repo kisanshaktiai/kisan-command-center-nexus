@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { UpdateTenantDTO } from '@/types/tenant';
 import { TenantStatus, SubscriptionPlan, TenantStatusValue, SubscriptionPlanValue } from '@/types/enums';
@@ -27,13 +28,36 @@ interface TenantEditModalEnhancedProps {
   onSave: (id: string, data: UpdateTenantDTO) => Promise<boolean>;
 }
 
+interface FormData {
+  name: string;
+  status: TenantStatusValue;
+  subscription_plan: SubscriptionPlanValue;
+  owner_name: string;
+  owner_email: string;
+  owner_phone: string;
+  business_registration: string;
+  business_address: string;
+  established_date: string;
+  subscription_start_date: string;
+  subscription_end_date: string;
+  trial_ends_at: string;
+  max_farmers: number;
+  max_dealers: number;
+  max_products: number;
+  max_storage_gb: number;
+  max_api_calls_per_day: number;
+  subdomain: string;
+  custom_domain: string;
+  metadata: Record<string, unknown>;
+}
+
 const TenantEditModalEnhanced: React.FC<TenantEditModalEnhancedProps> = ({
   tenant,
   isOpen,
   onClose,
   onSave,
 }) => {
-  const [formData, setFormData<Omit<UpdateTenantDTO, 'id'>>] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     status: TenantStatus.TRIAL as TenantStatusValue,
     subscription_plan: SubscriptionPlan.KISAN_BASIC as SubscriptionPlanValue,

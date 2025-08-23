@@ -1,4 +1,3 @@
-
 // Import from centralized enums and types
 export * from './enums';
 
@@ -258,6 +257,13 @@ export const tenantStatusOptions = [
   { value: 'archived', label: 'Archived' },
   { value: 'pending_approval', label: 'Pending Approval' },
   { value: 'cancelled', label: 'Cancelled' }
+];
+
+export const subscriptionPlanOptions = [
+  { value: 'Kisan_Basic', label: 'Kisan Basic' },
+  { value: 'Shakti_Growth', label: 'Shakti Growth' },
+  { value: 'AI_Enterprise', label: 'AI Enterprise' },
+  { value: 'Custom_Enterprise', label: 'Custom Enterprise' }
 ];
 
 // Type aliases for enum values
