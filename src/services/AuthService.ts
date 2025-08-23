@@ -1,4 +1,3 @@
-
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -30,8 +29,8 @@ interface SimpleTenantData {
   phone: string;
 }
 
-// Explicit type for admin user query to avoid deep type expansion
-interface AdminUser {
+// Simple type for admin user data to avoid deep expansion
+interface AdminUserData {
   role: string;
   is_active: boolean;
 }
@@ -60,23 +59,24 @@ export class AuthService {
       const session = sessionResult.data.session;
       const user = session.user;
 
-      // Check admin status using maybeSingle with explicit typing
+      // Check admin status without generic typing to avoid deep expansion
       const adminResult = await supabase
         .from('admin_users')
-        .select<AdminUser>('role, is_active')
+        .select('role, is_active')
         .eq('user_id', user.id)
         .eq('is_active', true)
         .maybeSingle();
 
       const isAdmin = !adminResult.error && adminResult.data !== null;
+      const adminData = adminResult.data as AdminUserData | null;
       
       return {
         user,
         session,
         isAuthenticated: true,
         isAdmin,
-        isSuperAdmin: isAdmin && adminResult.data?.role === 'super_admin',
-        adminRole: isAdmin ? adminResult.data?.role ?? null : null,
+        isSuperAdmin: isAdmin && adminData?.role === 'super_admin',
+        adminRole: isAdmin ? adminData?.role ?? null : null,
         profile: null
       };
     } catch (error) {
@@ -145,10 +145,10 @@ export class AuthService {
         return { success: false, error: 'Authentication failed' };
       }
 
-      // Check admin privileges using maybeSingle with explicit typing
+      // Check admin privileges without generic typing
       const adminResult = await supabase
         .from('admin_users')
-        .select<AdminUser>('role, is_active')
+        .select('role, is_active')
         .eq('user_id', result.data.user.id)
         .eq('is_active', true)
         .maybeSingle();
@@ -157,13 +157,15 @@ export class AuthService {
         return { success: false, error: 'Access denied: Administrator privileges required' };
       }
 
+      const adminData = adminResult.data as AdminUserData;
+
       const authState: SimpleAuthState = {
         user: result.data.user,
         session: result.data.session,
         isAuthenticated: true,
         isAdmin: true,
-        isSuperAdmin: adminResult.data.role === 'super_admin',
-        adminRole: adminResult.data.role,
+        isSuperAdmin: adminData.role === 'super_admin',
+        adminRole: adminData.role,
         profile: null
       };
 
@@ -377,7 +379,7 @@ export class AuthService {
     try {
       const result = await supabase
         .from('admin_users')
-        .select<AdminUser>('role, is_active')
+        .select('role, is_active')
         .eq('user_id', userId)
         .eq('is_active', true)
         .maybeSingle();
@@ -390,12 +392,14 @@ export class AuthService {
         return { success: true, data: { isAdmin: false, isSuperAdmin: false, role: null } };
       }
 
+      const adminData = result.data as AdminUserData;
+
       return {
         success: true,
         data: {
           isAdmin: true,
-          isSuperAdmin: result.data.role === 'super_admin',
-          role: result.data.role
+          isSuperAdmin: adminData.role === 'super_admin',
+          role: adminData.role
         }
       };
     } catch (error) {
