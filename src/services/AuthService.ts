@@ -60,12 +60,12 @@ export class AuthService {
       const user = session.user;
 
       // Check admin status with complete type bypass to avoid deep expansion
-      const adminResult = (await supabase
+      const adminResult: any = await (supabase as any)
         .from('admin_users')
         .select('role, is_active')
         .eq('user_id', user.id)
         .eq('is_active', true)
-        .maybeSingle()) as any;
+        .maybeSingle();
 
       const isAdmin = !adminResult.error && adminResult.data !== null;
       const adminData = adminResult.data as AdminUserData | null;
@@ -146,12 +146,12 @@ export class AuthService {
       }
 
       // Check admin privileges with complete type bypass
-      const adminResult = (await supabase
+      const adminResult: any = await (supabase as any)
         .from('admin_users')
         .select('role, is_active')
         .eq('user_id', result.data.user.id)
         .eq('is_active', true)
-        .maybeSingle()) as any;
+        .maybeSingle();
 
       if (adminResult.error || !adminResult.data) {
         return { success: false, error: 'Access denied: Administrator privileges required' };
@@ -377,12 +377,12 @@ export class AuthService {
 
   async checkAdminStatus(userId: string): Promise<SimpleResult<{ isAdmin: boolean; isSuperAdmin: boolean; role: string | null }>> {
     try {
-      const result = (await supabase
+      const result: any = await (supabase as any)
         .from('admin_users')
         .select('role, is_active')
         .eq('user_id', userId)
         .eq('is_active', true)
-        .maybeSingle()) as any;
+        .maybeSingle();
 
       if (result.error) {
         return { success: false, error: result.error.message };
