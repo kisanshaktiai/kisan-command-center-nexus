@@ -34,10 +34,10 @@ export class TenantRepository extends BaseService {
           query = query.or(`name.ilike.%${filters.search}%,owner_email.ilike.%${filters.search}%`);
         }
         if (filters?.type && filters.type !== 'all') {
-          query = query.eq('type', filters.type);
+          query = query.eq('type', filters.type as any);
         }
         if (filters?.status && filters.status !== 'all') {
-          query = query.eq('status', filters.status);
+          query = query.eq('status', filters.status as any);
         }
 
         const { data, error } = await query;
@@ -45,7 +45,7 @@ export class TenantRepository extends BaseService {
         if (error) throw error;
         if (!data) return [];
 
-        return data.map(convertDatabaseTenant);
+        return data.map((item: any) => convertDatabaseTenant(item));
       },
       'getTenants'
     );
@@ -81,12 +81,13 @@ export class TenantRepository extends BaseService {
           type: TenantType.AGRI_COMPANY,
           status: TenantStatus.TRIAL,
           subscription_plan: SubscriptionPlan.KISAN_BASIC,
-          ...data
+          ...data,
+          metadata: data.metadata || {}
         };
 
         const { data: tenant, error } = await supabase
           .from('tenants')
-          .insert(tenantData)
+          .insert(tenantData as any)
           .select()
           .single();
 
@@ -100,9 +101,10 @@ export class TenantRepository extends BaseService {
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
       async () => {
+        const { id: _, ...updateData } = data;
         const { data: tenant, error } = await supabase
           .from('tenants')
-          .update(data)
+          .update(updateData as any)
           .eq('id', id)
           .select()
           .single();
