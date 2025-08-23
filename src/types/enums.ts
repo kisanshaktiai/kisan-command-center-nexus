@@ -38,7 +38,8 @@ export enum Permission {
   DELETE_TENANT = 'delete:tenant',
   MANAGE_USERS = 'manage:users',
   READ_ANALYTICS = 'read:analytics',
-  MANAGE_SETTINGS = 'manage:settings'
+  MANAGE_SETTINGS = 'manage:settings',
+  SYSTEM_ADMIN = 'system:admin'
 }
 
 // Type aliases for convenience

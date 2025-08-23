@@ -1,283 +1,74 @@
 
+import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { User, AuthState, TenantData } from '@/types/auth';
-import { BaseService, ServiceResult } from './BaseService';
-
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface AdminRegistrationData {
-  email: string;
-  full_name: string;
-  token: string;
-}
-
-export interface SuperAdminSetupData {
-  email: string;
-  password: string;
-  full_name: string;
-}
+import { BaseService } from './BaseService';
+import { 
+  AdminRegistrationData, 
+  SignInCredentials, 
+  AdminInvite,
+  UserProfile,
+  AuthResult,
+  AuthState,
+  TenantData
+} from '@/types/auth';
+import { ServiceResult } from '@/types/api';
 
 export class AuthService extends BaseService {
-  private static instance: AuthService;
-  private authStateSubscribers: ((authState: AuthState) => void)[] = [];
-
-  static getInstance(): AuthService {
-    if (!this.instance) {
-      this.instance = new AuthService();
-    }
-    return this.instance;
-  }
-
-  /**
-   * Get current authentication state
-   */
-  async getCurrentAuthState(): Promise<AuthState> {
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      
-      if (error) {
-        console.error('Auth state error:', error);
-        return this.createEmptyAuthState();
-      }
-
-      if (!user) {
-        return this.createEmptyAuthState();
-      }
-
-      // Check if user is admin
-      const { data: adminData } = await supabase
-        .from('admin_users')
-        .select('role, is_active')
-        .eq('user_id', user.id)
-        .single();
-
-      const isAdmin = !!adminData?.is_active;
-      const adminRole = adminData?.role || null;
-
-      return {
-        user,
-        session: null,
-        isAuthenticated: true,
-        isAdmin,
-        isSuperAdmin: adminRole === 'super_admin',
-        adminRole,
-        profile: null
-      };
-    } catch (error) {
-      console.error('Error getting auth state:', error);
-      return this.createEmptyAuthState();
-    }
-  }
-
-  private createEmptyAuthState(): AuthState {
-    return {
-      user: null,
-      session: null,
-      isAuthenticated: false,
-      isAdmin: false,
-      isSuperAdmin: false,
-      adminRole: null,
-      profile: null
-    };
-  }
-
-  /**
-   * Subscribe to auth state changes
-   */
-  subscribeToAuthStateChanges(callback: (authState: AuthState) => void): () => void {
-    this.authStateSubscribers.push(callback);
-    
-    // Set up Supabase auth listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        const authState = await this.getCurrentAuthState();
-        this.notifySubscribers(authState);
-      }
-    );
-
-    // Return unsubscribe function
-    return () => {
-      this.authStateSubscribers = this.authStateSubscribers.filter(sub => sub !== callback);
-      subscription.unsubscribe();
-    };
-  }
-
-  private notifySubscribers(authState: AuthState) {
-    this.authStateSubscribers.forEach(callback => callback(authState));
-  }
-
-  /**
-   * Sign in user
-   */
-  async signIn(email: string, password: string): Promise<ServiceResult<AuthState>> {
-    try {
+  async signInUser(email: string, password: string): Promise<AuthResult> {
+    return this.executeOperation(async () => {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        return this.handleError('Authentication failed', error);
-      }
-
-      if (!data.user) {
-        return this.handleError('Authentication failed - no user returned');
-      }
-
-      const authState = await this.getCurrentAuthState();
-      return this.handleSuccess(authState);
-    } catch (error) {
-      return this.handleError('Sign in failed', error);
-    }
-  }
-
-  /**
-   * Sign up user
-   */
-  async signUp(email: string, password: string, tenantData: TenantData): Promise<ServiceResult<User>> {
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            full_name: tenantData.fullName
-          }
-        }
       });
-
-      if (authError || !authData.user) {
-        return this.handleError('User registration failed', authError);
-      }
-
-      return this.handleSuccess(authData.user);
-    } catch (error) {
-      return this.handleError('Registration failed', error);
-    }
-  }
-
-  /**
-   * Check if system bootstrap is completed
-   */
-  async isBootstrapCompleted(): Promise<ServiceResult<boolean>> {
-    try {
-      const { data, error } = await supabase
-        .from('admin_registrations')
-        .select('id')
-        .eq('status', 'completed')
-        .limit(1);
 
       if (error) {
-        return this.handleError('Failed to check bootstrap status', error);
+        throw error;
       }
 
-      return this.handleSuccess(data.length > 0);
-    } catch (error) {
-      return this.handleError('Bootstrap check failed', error);
-    }
+      if (!data.user || !data.session) {
+        throw new Error('Authentication failed');
+      }
+
+      return {
+        user: data.user,
+        session: data.session,
+        isAuthenticated: true,
+        isAdmin: false,
+        isSuperAdmin: false,
+        adminRole: null,
+        profile: null
+      };
+    });
   }
 
-  /**
-   * Bootstrap super admin account
-   */
-  async bootstrapSuperAdmin(data: SuperAdminSetupData): Promise<ServiceResult<User>> {
-    try {
-      // Create admin registration record first
-      const { data: registrationData, error: regError } = await supabase
-        .from('admin_registrations')
-        .insert({
-          email: data.email,
-          full_name: data.full_name,
-          status: 'pending'
-        })
-        .select()
-        .single();
-
-      if (regError) {
-        return this.handleError('Failed to create admin registration', regError);
-      }
-
-      // Sign up the user via Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            full_name: data.full_name,
-            role: 'super_admin'
-          }
-        }
-      });
-
-      if (authError) {
-        return this.handleError('Failed to create user account', authError);
-      }
-
-      if (!authData.user) {
-        return this.handleError('User creation failed - no user returned');
-      }
-
-      // Create admin user record
-      const { error: adminError } = await supabase
-        .from('admin_users')
-        .insert({
-          id: authData.user.id,
-          email: data.email,
-          full_name: data.full_name,
-          role: 'super_admin',
-          is_active: true
-        });
-
-      if (adminError) {
-        return this.handleError('Failed to create admin user record', adminError);
-      }
-
-      // Mark registration as completed
-      await supabase
-        .from('admin_registrations')
-        .update({ status: 'completed' })
-        .eq('id', registrationData.id);
-
-      return this.handleSuccess(authData.user);
-    } catch (error) {
-      return this.handleError('Bootstrap setup failed', error);
-    }
-  }
-
-  /**
-   * Sign in admin user
-   */
-  async signInAdmin(credentials: LoginCredentials): Promise<ServiceResult<AuthState>> {
-    try {
+  async signInAdmin(email: string, password: string): Promise<AuthResult> {
+    return this.executeOperation(async () => {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password
+        email,
+        password,
       });
 
       if (error) {
-        return this.handleError('Authentication failed', error);
+        throw error;
       }
 
-      if (!data.user) {
-        return this.handleError('Authentication failed - no user returned');
+      if (!data.user || !data.session) {
+        throw new Error('Authentication failed');
       }
 
-      // Verify admin status
+      // Check if user has admin privileges
       const { data: adminData, error: adminError } = await supabase
         .from('admin_users')
         .select('role, is_active')
         .eq('user_id', data.user.id)
+        .eq('is_active', true)
         .single();
 
-      if (adminError || !adminData?.is_active) {
-        await supabase.auth.signOut();
-        return this.handleError('Access denied - invalid admin account');
+      if (adminError || !adminData) {
+        throw new Error('Access denied: Administrator privileges required');
       }
 
-      const authState: AuthState = {
+      return {
         user: data.user,
         session: data.session,
         isAuthenticated: true,
@@ -286,120 +77,289 @@ export class AuthService extends BaseService {
         adminRole: adminData.role,
         profile: null
       };
-
-      return this.handleSuccess(authState);
-    } catch (error) {
-      return this.handleError('Sign in failed', error);
-    }
+    });
   }
 
-  /**
-   * Sign out current user
-   */
-  async signOut(): Promise<ServiceResult<void>> {
-    try {
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        return this.handleError('Sign out failed', error);
-      }
-
-      return this.handleSuccess(undefined);
-    } catch (error) {
-      return this.handleError('Sign out failed', error);
-    }
-  }
-
-  /**
-   * Validate invite token
-   */
-  async validateInviteToken(token: string): Promise<ServiceResult<AdminRegistrationData>> {
-    try {
-      const { data, error } = await supabase
-        .from('admin_registrations')
-        .select('*')
-        .eq('registration_token', token)
-        .eq('status', 'pending')
-        .single();
-
-      if (error || !data) {
-        return this.handleError('Invalid or expired invite token');
-      }
-
-      // Check if token is expired (24 hours)
-      const tokenDate = new Date(data.created_at);
-      const now = new Date();
-      const hoursDiff = (now.getTime() - tokenDate.getTime()) / (1000 * 60 * 60);
-
-      if (hoursDiff > 24) {
-        return this.handleError('Invite token has expired');
-      }
-
-      return this.handleSuccess({
-        email: data.email,
-        full_name: data.full_name,
-        token: data.registration_token
-      });
-    } catch (error) {
-      return this.handleError('Token validation failed', error);
-    }
-  }
-
-  /**
-   * Register user via invite
-   */
-  async registerViaInvite(token: string, password: string): Promise<ServiceResult<User>> {
-    try {
-      // Validate token first
-      const tokenResult = await this.validateInviteToken(token);
-      if (!tokenResult.success) {
-        return tokenResult as ServiceResult<User>;
-      }
-
-      const registration = tokenResult.data;
-
-      // Sign up the user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: registration.email,
+  async signUp(email: string, password: string, tenantData?: TenantData): Promise<AuthResult> {
+    return this.executeOperation(async () => {
+      const { data, error } = await supabase.auth.signUp({
+        email,
         password,
         options: {
-          data: {
-            full_name: registration.full_name,
-            role: 'admin'
-          }
+          data: tenantData || {}
         }
       });
 
+      if (error) {
+        throw error;
+      }
+
+      if (!data.user) {
+        throw new Error('Registration failed');
+      }
+
+      return {
+        user: data.user,
+        session: data.session,
+        isAuthenticated: !!data.session,
+        isAdmin: false,
+        isSuperAdmin: false,
+        adminRole: null,
+        profile: null
+      };
+    });
+  }
+
+  async signOut(): Promise<ServiceResult<void>> {
+    return this.executeOperation(async () => {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw error;
+      }
+    });
+  }
+
+  async getCurrentUser(): Promise<ServiceResult<User | null>> {
+    return this.executeOperation(async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) {
+        throw error;
+      }
+      return user;
+    });
+  }
+
+  async getCurrentSession(): Promise<ServiceResult<Session | null>> {
+    return this.executeOperation(async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        throw error;
+      }
+      return session;
+    });
+  }
+
+  async resetPassword(email: string): Promise<ServiceResult<void>> {
+    return this.executeOperation(async () => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) {
+        throw error;
+      }
+    });
+  }
+
+  async updatePassword(newPassword: string): Promise<ServiceResult<User>> {
+    return this.executeOperation(async () => {
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      if (error) {
+        throw error;
+      }
+      if (!data.user) {
+        throw new Error('Failed to update password');
+      }
+      return data.user;
+    });
+  }
+
+  async updateEmail(newEmail: string): Promise<ServiceResult<User>> {
+    return this.executeOperation(async () => {
+      const { data, error } = await supabase.auth.updateUser({
+        email: newEmail
+      });
+      if (error) {
+        throw error;
+      }
+      if (!data.user) {
+        throw new Error('Failed to update email');
+      }
+      return data.user;
+    });
+  }
+
+  async refreshSession(): Promise<ServiceResult<Session | null>> {
+    return this.executeOperation(async () => {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) {
+        throw error;
+      }
+      return data.session;
+    });
+  }
+
+  async verifyOTP(email: string, token: string, type: 'signup' | 'recovery' | 'email'): Promise<AuthResult> {
+    return this.executeOperation(async () => {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data.user || !data.session) {
+        throw new Error('OTP verification failed');
+      }
+
+      return {
+        user: data.user,
+        session: data.session,
+        isAuthenticated: true,
+        isAdmin: false,
+        isSuperAdmin: false,
+        adminRole: null,
+        profile: null
+      };
+    });
+  }
+
+  async resendOTP(email: string, type: 'signup' | 'recovery'): Promise<ServiceResult<void>> {
+    return this.executeOperation(async () => {
+      const { error } = await supabase.auth.resend({
+        type,
+        email
+      });
+      if (error) {
+        throw error;
+      }
+    });
+  }
+
+  async getUserProfile(userId: string): Promise<ServiceResult<UserProfile | null>> {
+    return this.executeOperation(async () => {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null; // No profile found
+        }
+        throw error;
+      }
+
+      return data as UserProfile;
+    });
+  }
+
+  async createUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<ServiceResult<UserProfile>> {
+    return this.executeOperation(async () => {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: userId,
+          ...profileData
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data as UserProfile;
+    });
+  }
+
+  async updateUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<ServiceResult<UserProfile>> {
+    return this.executeOperation(async () => {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .update(profileData)
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data as UserProfile;
+    });
+  }
+
+  async checkAdminStatus(userId: string): Promise<ServiceResult<{ isAdmin: boolean; isSuperAdmin: boolean; role: string | null }>> {
+    return this.executeOperation(async () => {
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('role, is_active')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return { isAdmin: false, isSuperAdmin: false, role: null };
+        }
+        throw error;
+      }
+
+      return {
+        isAdmin: true,
+        isSuperAdmin: data.role === 'super_admin',
+        role: data.role
+      };
+    });
+  }
+
+  async createAdminUser(userData: AdminRegistrationData): Promise<ServiceResult<AdminRegistrationData>> {
+    return this.executeOperation(async () => {
+      // Create the user account first
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: userData.email,
+        password: userData.password,
+        email_confirm: true
+      });
+
       if (authError || !authData.user) {
-        return this.handleError('User registration failed', authError);
+        throw authError || new Error('Failed to create user account');
       }
 
       // Create admin user record
-      const { error: adminError } = await supabase
+      const { data: adminData, error: adminError } = await supabase
         .from('admin_users')
         .insert({
-          id: authData.user.id,
-          email: registration.email,
-          full_name: registration.full_name,
-          role: 'admin',
+          user_id: authData.user.id,
+          email: userData.email,
+          role: userData.role,
           is_active: true
-        });
+        })
+        .select()
+        .single();
 
       if (adminError) {
-        return this.handleError('Failed to create admin record', adminError);
+        throw adminError;
       }
 
-      // Mark registration as completed
-      await supabase
-        .from('admin_registrations')
-        .update({ status: 'completed' })
-        .eq('registration_token', token);
+      return userData;
+    });
+  }
 
-      return this.handleSuccess(authData.user);
-    } catch (error) {
-      return this.handleError('Registration failed', error);
-    }
+  async inviteAdmin(inviteData: AdminInvite): Promise<ServiceResult<AdminInvite>> {
+    return this.executeOperation(async () => {
+      // Send invitation email
+      const { data, error } = await supabase.auth.admin.inviteUserByEmail(
+        inviteData.email,
+        {
+          data: {
+            role: inviteData.role,
+            invited_by: inviteData.invited_by
+          }
+        }
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      return inviteData;
+    });
   }
 }
 
-export const authService = AuthService.getInstance();
+export const authService = new AuthService();

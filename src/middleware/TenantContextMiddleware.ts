@@ -98,16 +98,57 @@ class TenantContextService {
         }
       }
 
+      // Safely parse settings
+      let settings: Record<string, unknown> = {};
+      if (data.settings) {
+        if (typeof data.settings === 'string') {
+          try {
+            settings = JSON.parse(data.settings);
+          } catch {
+            settings = {};
+          }
+        } else if (typeof data.settings === 'object' && data.settings !== null) {
+          settings = data.settings as Record<string, unknown>;
+        }
+      }
+
+      // Safely parse metadata
+      let metadata: Record<string, unknown> = {};
+      if (data.metadata) {
+        if (typeof data.metadata === 'string') {
+          try {
+            metadata = JSON.parse(data.metadata);
+          } catch {
+            metadata = {};
+          }
+        } else if (typeof data.metadata === 'object' && data.metadata !== null) {
+          metadata = data.metadata as Record<string, unknown>;
+        }
+      }
+
+      // Safely parse features
+      const features: TenantFeatures = {};
+      if (data.tenant_features?.[0]) {
+        const featureData = data.tenant_features[0];
+        Object.keys(featureData).forEach(key => {
+          const value = featureData[key];
+          if (typeof value === 'boolean' || typeof value === 'string' || typeof value === 'number') {
+            features[key] = value;
+          }
+        });
+      }
+
       const tenant: Tenant = {
         ...data,
-        id: createTenantID(data.id),
+        id: brandedTenantId,
         type: data.type as TenantType,
         status: data.status as TenantStatus,
         subscription_plan: data.subscription_plan as SubscriptionPlan,
         business_address: businessAddress,
-        metadata: (data.metadata as Record<string, any>) || {},
+        settings,
+        metadata,
         branding: data.tenant_branding?.[0] || null,
-        features: data.tenant_features?.[0] || null,
+        features,
       };
 
       // Cache the tenant
@@ -117,7 +158,7 @@ class TenantContextService {
         tenantId: brandedTenantId,
         tenant,
         branding: tenant.branding,
-        features: tenant.features,
+        features,
         isLoading: false,
         error: null,
       });
