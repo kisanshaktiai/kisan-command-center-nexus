@@ -2,41 +2,30 @@
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-// Minimal, isolated types to prevent circular references
-export interface AuthUser {
-  id: string;
-  email?: string;
-  user_metadata?: any;
-  app_metadata?: any;
-}
-
-export interface AuthSession {
-  access_token: string;
-  refresh_token: string;
-  user: AuthUser;
-}
-
-export interface AuthState {
+// Simple, isolated types to prevent circular references
+interface SimpleAuthState {
   user: User | null;
   session: Session | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
   adminRole: string | null;
-  profile: UserProfile | null;
+  profile: any;
 }
 
-export interface UserProfile {
-  id: string;
-  full_name?: string;
-  email: string;
-  mobile_number?: string;
-  avatar_url?: string;
-  created_at: string;
-  updated_at: string;
+interface SimpleAuthResult {
+  success: boolean;
+  data?: SimpleAuthState;
+  error?: string;
 }
 
-export interface TenantData {
+interface SimpleServiceResult<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+interface SimpleTenantData {
   organizationName: string;
   organizationType: string;
   tenantId?: string;
@@ -44,42 +33,10 @@ export interface TenantData {
   phone: string;
 }
 
-export interface AuthResult {
-  success: boolean;
-  data?: AuthState;
-  error?: string;
-}
-
-export interface ServiceResult<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
-export interface AdminInvite {
-  id: string;
-  email: string;
-  role: string;
-  status: 'pending' | 'accepted' | 'expired';
-  expires_at: string;
-  invite_token: string;
-  invited_by: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AdminRegistrationData {
-  email: string;
-  full_name: string;
-  token: string;
-  password?: string;
-  role?: string;
-}
-
 export class AuthService {
-  private authStateSubscription: ((authState: AuthState) => void) | null = null;
+  private authStateSubscription: ((authState: SimpleAuthState) => void) | null = null;
 
-  async getCurrentAuthState(): Promise<AuthState> {
+  async getCurrentAuthState(): Promise<SimpleAuthState> {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       
@@ -132,7 +89,7 @@ export class AuthService {
     }
   }
 
-  subscribeToAuthStateChanges(callback: (authState: AuthState) => void): () => void {
+  subscribeToAuthStateChanges(callback: (authState: SimpleAuthState) => void): () => void {
     this.authStateSubscription = callback;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -148,7 +105,7 @@ export class AuthService {
     };
   }
 
-  async signIn(email: string, password: string): Promise<AuthResult> {
+  async signIn(email: string, password: string): Promise<SimpleAuthResult> {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -176,11 +133,11 @@ export class AuthService {
     }
   }
 
-  async signInUser(email: string, password: string): Promise<AuthResult> {
+  async signInUser(email: string, password: string): Promise<SimpleAuthResult> {
     return this.signIn(email, password);
   }
 
-  async signInAdmin(email: string, password: string): Promise<AuthResult> {
+  async signInAdmin(email: string, password: string): Promise<SimpleAuthResult> {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -207,7 +164,7 @@ export class AuthService {
         return { success: false, error: 'Access denied: Administrator privileges required' };
       }
 
-      const authState: AuthState = {
+      const authState: SimpleAuthState = {
         user: data.user,
         session: data.session,
         isAuthenticated: true,
@@ -229,7 +186,7 @@ export class AuthService {
     }
   }
 
-  async signUp(email: string, password: string, tenantData?: TenantData): Promise<AuthResult> {
+  async signUp(email: string, password: string, tenantData?: SimpleTenantData): Promise<SimpleAuthResult> {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -267,7 +224,7 @@ export class AuthService {
     }
   }
 
-  async signOut(): Promise<ServiceResult<void>> {
+  async signOut(): Promise<SimpleServiceResult<void>> {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
@@ -282,7 +239,7 @@ export class AuthService {
     }
   }
 
-  async getCurrentUser(): Promise<ServiceResult<User | null>> {
+  async getCurrentUser(): Promise<SimpleServiceResult<User | null>> {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error) {
@@ -297,7 +254,7 @@ export class AuthService {
     }
   }
 
-  async getCurrentSession(): Promise<ServiceResult<Session | null>> {
+  async getCurrentSession(): Promise<SimpleServiceResult<Session | null>> {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
@@ -312,7 +269,7 @@ export class AuthService {
     }
   }
 
-  async resetPassword(email: string): Promise<ServiceResult<void>> {
+  async resetPassword(email: string): Promise<SimpleServiceResult<void>> {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) {
@@ -327,7 +284,7 @@ export class AuthService {
     }
   }
 
-  async updatePassword(newPassword: string): Promise<ServiceResult<User>> {
+  async updatePassword(newPassword: string): Promise<SimpleServiceResult<User>> {
     try {
       const { data, error } = await supabase.auth.updateUser({
         password: newPassword
@@ -347,7 +304,7 @@ export class AuthService {
     }
   }
 
-  async updateEmail(newEmail: string): Promise<ServiceResult<User>> {
+  async updateEmail(newEmail: string): Promise<SimpleServiceResult<User>> {
     try {
       const { data, error } = await supabase.auth.updateUser({
         email: newEmail
@@ -367,7 +324,7 @@ export class AuthService {
     }
   }
 
-  async refreshSession(): Promise<ServiceResult<Session | null>> {
+  async refreshSession(): Promise<SimpleServiceResult<Session | null>> {
     try {
       const { data, error } = await supabase.auth.refreshSession();
       if (error) {
@@ -382,7 +339,7 @@ export class AuthService {
     }
   }
 
-  async verifyOTP(email: string, token: string, type: 'signup' | 'email'): Promise<AuthResult> {
+  async verifyOTP(email: string, token: string, type: 'signup' | 'email'): Promise<SimpleAuthResult> {
     try {
       const { data, error } = await supabase.auth.verifyOtp({
         email,
@@ -411,7 +368,7 @@ export class AuthService {
     }
   }
 
-  async resendOTP(email: string, type: 'signup'): Promise<ServiceResult<void>> {
+  async resendOTP(email: string, type: 'signup'): Promise<SimpleServiceResult<void>> {
     try {
       const { error } = await supabase.auth.resend({
         type,
@@ -429,77 +386,7 @@ export class AuthService {
     }
   }
 
-  async getUserProfile(userId: string): Promise<ServiceResult<UserProfile | null>> {
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          return { success: true, data: null };
-        }
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data: data as UserProfile };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get user profile'
-      };
-    }
-  }
-
-  async createUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<ServiceResult<UserProfile>> {
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: userId,
-          ...profileData
-        })
-        .select()
-        .single();
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data: data as UserProfile };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to create user profile'
-      };
-    }
-  }
-
-  async updateUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<ServiceResult<UserProfile>> {
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .update(profileData)
-        .eq('id', userId)
-        .select()
-        .single();
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data: data as UserProfile };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to update user profile'
-      };
-    }
-  }
-
-  async checkAdminStatus(userId: string): Promise<ServiceResult<{ isAdmin: boolean; isSuperAdmin: boolean; role: string | null }>> {
+  async checkAdminStatus(userId: string): Promise<SimpleServiceResult<{ isAdmin: boolean; isSuperAdmin: boolean; role: string | null }>> {
     try {
       const { data, error } = await supabase
         .from('admin_users')
@@ -527,77 +414,6 @@ export class AuthService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to check admin status'
-      };
-    }
-  }
-
-  async createAdminUser(userData: AdminRegistrationData & { password: string; role: string }): Promise<ServiceResult<AdminRegistrationData>> {
-    try {
-      // Create the user account first
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: userData.email,
-        password: userData.password,
-        email_confirm: true
-      });
-
-      if (authError || !authData.user) {
-        return { success: false, error: authError?.message || 'Failed to create user account' };
-      }
-
-      // Create admin user record
-      const { data: adminData, error: adminError } = await supabase
-        .from('admin_users')
-        .insert({
-          user_id: authData.user.id,
-          email: userData.email,
-          role: userData.role,
-          is_active: true
-        })
-        .select()
-        .single();
-
-      if (adminError) {
-        return { success: false, error: adminError.message };
-      }
-
-      return {
-        success: true,
-        data: {
-          email: userData.email,
-          full_name: userData.full_name,
-          token: userData.token
-        }
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to create admin user'
-      };
-    }
-  }
-
-  async inviteAdmin(inviteData: AdminInvite): Promise<ServiceResult<AdminInvite>> {
-    try {
-      // Send invitation email
-      const { data, error } = await supabase.auth.admin.inviteUserByEmail(
-        inviteData.email,
-        {
-          data: {
-            role: inviteData.role,
-            invited_by: inviteData.invited_by
-          }
-        }
-      );
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data: inviteData };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to invite admin'
       };
     }
   }
