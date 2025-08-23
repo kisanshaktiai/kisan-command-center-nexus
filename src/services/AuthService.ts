@@ -1,6 +1,6 @@
+
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { BaseService } from './BaseService';
 import { 
   AdminRegistrationData, 
   SignInCredentials, 
@@ -9,16 +9,21 @@ import {
   AuthState,
   TenantData
 } from '@/types/auth';
-import { ServiceResult } from '@/types/api';
 
-// Simple auth result type to avoid circular references
+// Simple result types to avoid circular references
+interface SimpleServiceResult<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
 interface SimpleAuthResult {
   success: boolean;
   data?: AuthState;
   error?: string;
 }
 
-export class AuthService extends BaseService {
+export class AuthService {
   private authStateSubscription: ((authState: AuthState) => void) | null = null;
 
   async getCurrentAuthState(): Promise<AuthState> {
@@ -172,7 +177,7 @@ export class AuthService extends BaseService {
   }
 
   async signUp(email: string, password: string, tenantData?: TenantData): Promise<SimpleAuthResult> {
-    return this.executeOperation(async () => {
+    try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -190,57 +195,87 @@ export class AuthService extends BaseService {
       }
 
       return {
-        user: data.user,
-        session: data.session,
-        isAuthenticated: !!data.session,
-        isAdmin: false,
-        isSuperAdmin: false,
-        adminRole: null,
-        profile: null
+        success: true,
+        data: {
+          user: data.user,
+          session: data.session,
+          isAuthenticated: !!data.session,
+          isAdmin: false,
+          isSuperAdmin: false,
+          adminRole: null,
+          profile: null
+        }
       };
-    });
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Sign up failed'
+      };
+    }
   }
 
-  async signOut(): Promise<ServiceResult<void>> {
-    return this.executeOperation(async () => {
+  async signOut(): Promise<SimpleServiceResult<void>> {
+    try {
       const { error } = await supabase.auth.signOut();
       if (error) {
         throw error;
       }
-    });
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Sign out failed'
+      };
+    }
   }
 
-  async getCurrentUser(): Promise<ServiceResult<User | null>> {
-    return this.executeOperation(async () => {
+  async getCurrentUser(): Promise<SimpleServiceResult<User | null>> {
+    try {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error) {
         throw error;
       }
-      return user;
-    });
+      return { success: true, data: user };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get current user'
+      };
+    }
   }
 
-  async getCurrentSession(): Promise<ServiceResult<Session | null>> {
-    return this.executeOperation(async () => {
+  async getCurrentSession(): Promise<SimpleServiceResult<Session | null>> {
+    try {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
         throw error;
       }
-      return session;
-    });
+      return { success: true, data: session };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get current session'
+      };
+    }
   }
 
-  async resetPassword(email: string): Promise<ServiceResult<void>> {
-    return this.executeOperation(async () => {
+  async resetPassword(email: string): Promise<SimpleServiceResult<void>> {
+    try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) {
         throw error;
       }
-    });
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Password reset failed'
+      };
+    }
   }
 
-  async updatePassword(newPassword: string): Promise<ServiceResult<User>> {
-    return this.executeOperation(async () => {
+  async updatePassword(newPassword: string): Promise<SimpleServiceResult<User>> {
+    try {
       const { data, error } = await supabase.auth.updateUser({
         password: newPassword
       });
@@ -250,12 +285,17 @@ export class AuthService extends BaseService {
       if (!data.user) {
         throw new Error('Failed to update password');
       }
-      return data.user;
-    });
+      return { success: true, data: data.user };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Password update failed'
+      };
+    }
   }
 
-  async updateEmail(newEmail: string): Promise<ServiceResult<User>> {
-    return this.executeOperation(async () => {
+  async updateEmail(newEmail: string): Promise<SimpleServiceResult<User>> {
+    try {
       const { data, error } = await supabase.auth.updateUser({
         email: newEmail
       });
@@ -265,18 +305,28 @@ export class AuthService extends BaseService {
       if (!data.user) {
         throw new Error('Failed to update email');
       }
-      return data.user;
-    });
+      return { success: true, data: data.user };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Email update failed'
+      };
+    }
   }
 
-  async refreshSession(): Promise<ServiceResult<Session | null>> {
-    return this.executeOperation(async () => {
+  async refreshSession(): Promise<SimpleServiceResult<Session | null>> {
+    try {
       const { data, error } = await supabase.auth.refreshSession();
       if (error) {
         throw error;
       }
-      return data.session;
-    });
+      return { success: true, data: data.session };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Session refresh failed'
+      };
+    }
   }
 
   async verifyOTP(email: string, token: string, type: 'signup' | 'email'): Promise<SimpleAuthResult> {
@@ -308,8 +358,8 @@ export class AuthService extends BaseService {
     }
   }
 
-  async resendOTP(email: string, type: 'signup'): Promise<ServiceResult<void>> {
-    return this.executeOperation(async () => {
+  async resendOTP(email: string, type: 'signup'): Promise<SimpleServiceResult<void>> {
+    try {
       const { error } = await supabase.auth.resend({
         type,
         email
@@ -317,11 +367,17 @@ export class AuthService extends BaseService {
       if (error) {
         throw error;
       }
-    });
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'OTP resend failed'
+      };
+    }
   }
 
-  async getUserProfile(userId: string): Promise<ServiceResult<UserProfile | null>> {
-    return this.executeOperation(async () => {
+  async getUserProfile(userId: string): Promise<SimpleServiceResult<UserProfile | null>> {
+    try {
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -330,17 +386,22 @@ export class AuthService extends BaseService {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          return null; // No profile found
+          return { success: true, data: null };
         }
         throw error;
       }
 
-      return data as UserProfile;
-    });
+      return { success: true, data: data as UserProfile };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get user profile'
+      };
+    }
   }
 
-  async createUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<ServiceResult<UserProfile>> {
-    return this.executeOperation(async () => {
+  async createUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<SimpleServiceResult<UserProfile>> {
+    try {
       const { data, error } = await supabase
         .from('user_profiles')
         .insert({
@@ -354,12 +415,17 @@ export class AuthService extends BaseService {
         throw error;
       }
 
-      return data as UserProfile;
-    });
+      return { success: true, data: data as UserProfile };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create user profile'
+      };
+    }
   }
 
-  async updateUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<ServiceResult<UserProfile>> {
-    return this.executeOperation(async () => {
+  async updateUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<SimpleServiceResult<UserProfile>> {
+    try {
       const { data, error } = await supabase
         .from('user_profiles')
         .update(profileData)
@@ -371,12 +437,17 @@ export class AuthService extends BaseService {
         throw error;
       }
 
-      return data as UserProfile;
-    });
+      return { success: true, data: data as UserProfile };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update user profile'
+      };
+    }
   }
 
-  async checkAdminStatus(userId: string): Promise<ServiceResult<{ isAdmin: boolean; isSuperAdmin: boolean; role: string | null }>> {
-    return this.executeOperation(async () => {
+  async checkAdminStatus(userId: string): Promise<SimpleServiceResult<{ isAdmin: boolean; isSuperAdmin: boolean; role: string | null }>> {
+    try {
       const { data, error } = await supabase
         .from('admin_users')
         .select('role, is_active')
@@ -386,21 +457,29 @@ export class AuthService extends BaseService {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          return { isAdmin: false, isSuperAdmin: false, role: null };
+          return { success: true, data: { isAdmin: false, isSuperAdmin: false, role: null } };
         }
         throw error;
       }
 
       return {
-        isAdmin: true,
-        isSuperAdmin: data.role === 'super_admin',
-        role: data.role
+        success: true,
+        data: {
+          isAdmin: true,
+          isSuperAdmin: data.role === 'super_admin',
+          role: data.role
+        }
       };
-    });
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to check admin status'
+      };
+    }
   }
 
-  async createAdminUser(userData: AdminRegistrationData & { password: string; role: string }): Promise<ServiceResult<AdminRegistrationData>> {
-    return this.executeOperation(async () => {
+  async createAdminUser(userData: AdminRegistrationData & { password: string; role: string }): Promise<SimpleServiceResult<AdminRegistrationData>> {
+    try {
       // Create the user account first
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: userData.email,
@@ -429,15 +508,23 @@ export class AuthService extends BaseService {
       }
 
       return {
-        email: userData.email,
-        full_name: userData.full_name,
-        token: userData.token
+        success: true,
+        data: {
+          email: userData.email,
+          full_name: userData.full_name,
+          token: userData.token
+        }
       };
-    });
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create admin user'
+      };
+    }
   }
 
-  async inviteAdmin(inviteData: AdminInvite): Promise<ServiceResult<AdminInvite>> {
-    return this.executeOperation(async () => {
+  async inviteAdmin(inviteData: AdminInvite): Promise<SimpleServiceResult<AdminInvite>> {
+    try {
       // Send invitation email
       const { data, error } = await supabase.auth.admin.inviteUserByEmail(
         inviteData.email,
@@ -453,8 +540,13 @@ export class AuthService extends BaseService {
         throw error;
       }
 
-      return inviteData;
-    });
+      return { success: true, data: inviteData };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to invite admin'
+      };
+    }
   }
 }
 
