@@ -15,11 +15,22 @@ export const TenantFormBusiness: React.FC<TenantFormBusinessProps> = ({
   onFieldChange
 }) => {
   const handleAddressChange = (field: string, value: string) => {
-    const currentAddress = formData.business_address || {};
+    const currentAddress = typeof formData.business_address === 'object' && formData.business_address !== null
+      ? formData.business_address
+      : {};
+    
     onFieldChange('business_address', {
       ...currentAddress,
       [field]: value
     });
+  };
+
+  // Safely get address values
+  const getAddressValue = (field: string): string => {
+    if (typeof formData.business_address === 'object' && formData.business_address !== null) {
+      return (formData.business_address as any)[field] || '';
+    }
+    return '';
   };
 
   return (
@@ -63,7 +74,7 @@ export const TenantFormBusiness: React.FC<TenantFormBusinessProps> = ({
             <Label htmlFor="street">Street Address</Label>
             <Input
               id="street"
-              value={formData.business_address?.street || ''}
+              value={getAddressValue('street')}
               onChange={(e) => handleAddressChange('street', e.target.value)}
               placeholder="Street address"
             />
@@ -73,7 +84,7 @@ export const TenantFormBusiness: React.FC<TenantFormBusinessProps> = ({
               <Label htmlFor="city">City</Label>
               <Input
                 id="city"
-                value={formData.business_address?.city || ''}
+                value={getAddressValue('city')}
                 onChange={(e) => handleAddressChange('city', e.target.value)}
                 placeholder="City"
               />
@@ -82,7 +93,7 @@ export const TenantFormBusiness: React.FC<TenantFormBusinessProps> = ({
               <Label htmlFor="state">State/Province</Label>
               <Input
                 id="state"
-                value={formData.business_address?.state || ''}
+                value={getAddressValue('state')}
                 onChange={(e) => handleAddressChange('state', e.target.value)}
                 placeholder="State or Province"
               />
@@ -93,7 +104,7 @@ export const TenantFormBusiness: React.FC<TenantFormBusinessProps> = ({
               <Label htmlFor="postal_code">Postal Code</Label>
               <Input
                 id="postal_code"
-                value={formData.business_address?.postal_code || ''}
+                value={getAddressValue('postal_code')}
                 onChange={(e) => handleAddressChange('postal_code', e.target.value)}
                 placeholder="Postal code"
               />
@@ -102,7 +113,7 @@ export const TenantFormBusiness: React.FC<TenantFormBusinessProps> = ({
               <Label htmlFor="country">Country</Label>
               <Input
                 id="country"
-                value={formData.business_address?.country || ''}
+                value={getAddressValue('country')}
                 onChange={(e) => handleAddressChange('country', e.target.value)}
                 placeholder="Country"
               />

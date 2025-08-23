@@ -1,3 +1,4 @@
+
 // Import from centralized enums and types
 export * from './enums';
 
@@ -22,7 +23,13 @@ export interface Tenant {
   // Business information
   organization_name?: string;
   business_registration?: string;
-  business_address?: string;
+  business_address?: string | {
+    street?: string;
+    city?: string;
+    state?: string;
+    postal_code?: string;
+    country?: string;
+  };
   established_date?: string;
   
   // Subscription details
@@ -46,6 +53,7 @@ export interface Tenant {
     logo_url?: string;
     primary_color?: string;
     secondary_color?: string;
+    accent_color?: string;
     app_name?: string;
     app_tagline?: string;
     theme_settings?: Record<string, unknown>;
@@ -54,6 +62,7 @@ export interface Tenant {
   // Additional settings
   settings?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  features?: Record<string, unknown>;
 }
 
 // Additional branding interface
@@ -89,6 +98,7 @@ export interface CreateTenantDTO {
   name: string;
   slug: string;
   type: string;
+  status?: string;
   
   // Optional owner information
   owner_name?: string;
@@ -98,7 +108,13 @@ export interface CreateTenantDTO {
   // Optional business information
   organization_name?: string;
   business_registration?: string;
-  business_address?: string;
+  business_address?: string | {
+    street?: string;
+    city?: string;
+    state?: string;
+    postal_code?: string;
+    country?: string;
+  };
   established_date?: string;
   
   // Optional subscription details
@@ -123,7 +139,7 @@ export interface CreateTenantDTO {
 }
 
 export interface UpdateTenantDTO {
-  id: string;
+  id?: string;
   name?: string;
   slug?: string;
   type?: string;
@@ -138,7 +154,13 @@ export interface UpdateTenantDTO {
   // Optional business information
   organization_name?: string;
   business_registration?: string;
-  business_address?: string;
+  business_address?: string | {
+    street?: string;
+    city?: string;
+    state?: string;
+    postal_code?: string;
+    country?: string;
+  };
   established_date?: string;
   
   // Optional subscription details
@@ -156,6 +178,10 @@ export interface UpdateTenantDTO {
   // Optional domain settings
   subdomain?: string;
   custom_domain?: string;
+  
+  // Service-specific fields
+  suspended_at?: string;
+  reactivated_at?: string;
   
   // Optional settings
   settings?: Record<string, unknown>;
@@ -196,6 +222,7 @@ export interface DatabaseTenant {
     logo_url?: string;
     primary_color?: string;
     secondary_color?: string;
+    accent_color?: string;
     app_name?: string;
     app_tagline?: string;
     theme_settings?: Record<string, unknown>;
@@ -305,10 +332,12 @@ export const convertDatabaseTenant = (dbTenant: any): Tenant => {
     custom_domain: dbTenant.custom_domain || undefined,
     settings: dbTenant.settings || undefined,
     metadata: dbTenant.metadata || undefined,
+    features: dbTenant.tenant_features?.[0] || undefined,
     branding: Object.keys(branding).length > 0 ? {
       logo_url: branding.logo_url,
       primary_color: branding.primary_color,
       secondary_color: branding.secondary_color,
+      accent_color: branding.accent_color,
       app_name: branding.app_name,
       app_tagline: branding.app_tagline,
       theme_settings: branding.theme_settings,

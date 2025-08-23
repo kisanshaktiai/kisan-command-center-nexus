@@ -31,7 +31,18 @@ export enum SubscriptionPlan {
   CUSTOM_ENTERPRISE = 'Custom_Enterprise'
 }
 
+// Permission Enumeration for RBAC
+export enum Permission {
+  READ_TENANT = 'read:tenant',
+  WRITE_TENANT = 'write:tenant',
+  DELETE_TENANT = 'delete:tenant',
+  MANAGE_USERS = 'manage:users',
+  READ_ANALYTICS = 'read:analytics',
+  MANAGE_SETTINGS = 'manage:settings'
+}
+
 // Type aliases for convenience
 export type TenantTypeValue = `${TenantType}`;
 export type TenantStatusValue = `${TenantStatus}`;
 export type SubscriptionPlanValue = `${SubscriptionPlan}`;
+export type PermissionValue = `${Permission}`;
