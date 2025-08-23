@@ -37,7 +37,13 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const authState = await authService.getCurrentAuthState();
           set({
-            ...authState,
+            user: authState.user,
+            session: authState.session,
+            isAuthenticated: authState.isAuthenticated,
+            isAdmin: authState.isAdmin,
+            isSuperAdmin: authState.isSuperAdmin,
+            adminRole: authState.adminRole,
+            profile: authState.profile,
             isLoading: false,
           });
         } catch (error) {
@@ -54,7 +60,13 @@ export const useAuthStore = create<AuthStore>()(
           const result = await authService.signIn(email, password);
           if (result.success && result.data) {
             set({
-              ...result.data,
+              user: result.data.user,
+              session: result.data.session,
+              isAuthenticated: result.data.isAuthenticated,
+              isAdmin: result.data.isAdmin,
+              isSuperAdmin: result.data.isSuperAdmin,
+              adminRole: result.data.adminRole,
+              profile: result.data.profile,
               isLoading: false,
             });
             return { success: true };
@@ -125,7 +137,16 @@ export const useAuthStore = create<AuthStore>()(
       clearError: () => set({ error: null }),
 
       setAuthState: (state: Partial<AuthState>) => {
-        set((current) => ({ ...current, ...state }));
+        set((current) => ({
+          ...current,
+          user: state.user !== undefined ? state.user : current.user,
+          session: state.session !== undefined ? state.session : current.session,
+          isAuthenticated: state.isAuthenticated !== undefined ? state.isAuthenticated : current.isAuthenticated,
+          isAdmin: state.isAdmin !== undefined ? state.isAdmin : current.isAdmin,
+          isSuperAdmin: state.isSuperAdmin !== undefined ? state.isSuperAdmin : current.isSuperAdmin,
+          adminRole: state.adminRole !== undefined ? state.adminRole : current.adminRole,
+          profile: state.profile !== undefined ? state.profile : current.profile,
+        }));
       },
     }),
     {
