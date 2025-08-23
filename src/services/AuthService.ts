@@ -1,4 +1,3 @@
-
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -6,27 +5,34 @@ import {
   SignInCredentials, 
   AdminInvite,
   UserProfile,
-  AuthState,
   TenantData
 } from '@/types/auth';
 
-// Simple result types to avoid circular references
-interface SimpleServiceResult<T = unknown> {
+// Minimal result types to avoid circular references
+interface AuthResult {
+  success: boolean;
+  data?: {
+    user: User | null;
+    session: Session | null;
+    isAuthenticated: boolean;
+    isAdmin: boolean;
+    isSuperAdmin: boolean;
+    adminRole: string | null;
+    profile: UserProfile | null;
+  };
+  error?: string;
+}
+
+interface ServiceResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
 }
 
-interface SimpleAuthResult {
-  success: boolean;
-  data?: AuthState;
-  error?: string;
-}
-
 export class AuthService {
-  private authStateSubscription: ((authState: AuthState) => void) | null = null;
+  private authStateSubscription: ((authState: any) => void) | null = null;
 
-  async getCurrentAuthState(): Promise<AuthState> {
+  async getCurrentAuthState() {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       
@@ -79,7 +85,7 @@ export class AuthService {
     }
   }
 
-  subscribeToAuthStateChanges(callback: (authState: AuthState) => void): () => void {
+  subscribeToAuthStateChanges(callback: (authState: any) => void): () => void {
     this.authStateSubscription = callback;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -95,7 +101,7 @@ export class AuthService {
     };
   }
 
-  async signIn(email: string, password: string): Promise<SimpleAuthResult> {
+  async signIn(email: string, password: string): Promise<AuthResult> {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -103,11 +109,11 @@ export class AuthService {
       });
 
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
 
       if (!data.user || !data.session) {
-        throw new Error('Authentication failed');
+        return { success: false, error: 'Authentication failed' };
       }
 
       const authState = await this.getCurrentAuthState();
@@ -123,11 +129,11 @@ export class AuthService {
     }
   }
 
-  async signInUser(email: string, password: string): Promise<SimpleAuthResult> {
+  async signInUser(email: string, password: string): Promise<AuthResult> {
     return this.signIn(email, password);
   }
 
-  async signInAdmin(email: string, password: string): Promise<SimpleAuthResult> {
+  async signInAdmin(email: string, password: string): Promise<AuthResult> {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -135,11 +141,11 @@ export class AuthService {
       });
 
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
 
       if (!data.user || !data.session) {
-        throw new Error('Authentication failed');
+        return { success: false, error: 'Authentication failed' };
       }
 
       // Check if user has admin privileges
@@ -151,10 +157,10 @@ export class AuthService {
         .single();
 
       if (adminError || !adminData) {
-        throw new Error('Access denied: Administrator privileges required');
+        return { success: false, error: 'Access denied: Administrator privileges required' };
       }
 
-      const authState: AuthState = {
+      const authState = {
         user: data.user,
         session: data.session,
         isAuthenticated: true,
@@ -176,7 +182,7 @@ export class AuthService {
     }
   }
 
-  async signUp(email: string, password: string, tenantData?: TenantData): Promise<SimpleAuthResult> {
+  async signUp(email: string, password: string, tenantData?: TenantData): Promise<AuthResult> {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -187,11 +193,11 @@ export class AuthService {
       });
 
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
 
       if (!data.user) {
-        throw new Error('Registration failed');
+        return { success: false, error: 'Registration failed' };
       }
 
       return {
@@ -214,11 +220,11 @@ export class AuthService {
     }
   }
 
-  async signOut(): Promise<SimpleServiceResult<void>> {
+  async signOut(): Promise<ServiceResult<void>> {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
       return { success: true };
     } catch (error) {
@@ -229,11 +235,11 @@ export class AuthService {
     }
   }
 
-  async getCurrentUser(): Promise<SimpleServiceResult<User | null>> {
+  async getCurrentUser(): Promise<ServiceResult<User | null>> {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
       return { success: true, data: user };
     } catch (error) {
@@ -244,11 +250,11 @@ export class AuthService {
     }
   }
 
-  async getCurrentSession(): Promise<SimpleServiceResult<Session | null>> {
+  async getCurrentSession(): Promise<ServiceResult<Session | null>> {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
       return { success: true, data: session };
     } catch (error) {
@@ -259,11 +265,11 @@ export class AuthService {
     }
   }
 
-  async resetPassword(email: string): Promise<SimpleServiceResult<void>> {
+  async resetPassword(email: string): Promise<ServiceResult<void>> {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
       return { success: true };
     } catch (error) {
@@ -274,16 +280,16 @@ export class AuthService {
     }
   }
 
-  async updatePassword(newPassword: string): Promise<SimpleServiceResult<User>> {
+  async updatePassword(newPassword: string): Promise<ServiceResult<User>> {
     try {
       const { data, error } = await supabase.auth.updateUser({
         password: newPassword
       });
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
       if (!data.user) {
-        throw new Error('Failed to update password');
+        return { success: false, error: 'Failed to update password' };
       }
       return { success: true, data: data.user };
     } catch (error) {
@@ -294,16 +300,16 @@ export class AuthService {
     }
   }
 
-  async updateEmail(newEmail: string): Promise<SimpleServiceResult<User>> {
+  async updateEmail(newEmail: string): Promise<ServiceResult<User>> {
     try {
       const { data, error } = await supabase.auth.updateUser({
         email: newEmail
       });
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
       if (!data.user) {
-        throw new Error('Failed to update email');
+        return { success: false, error: 'Failed to update email' };
       }
       return { success: true, data: data.user };
     } catch (error) {
@@ -314,11 +320,11 @@ export class AuthService {
     }
   }
 
-  async refreshSession(): Promise<SimpleServiceResult<Session | null>> {
+  async refreshSession(): Promise<ServiceResult<Session | null>> {
     try {
       const { data, error } = await supabase.auth.refreshSession();
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
       return { success: true, data: data.session };
     } catch (error) {
@@ -329,7 +335,7 @@ export class AuthService {
     }
   }
 
-  async verifyOTP(email: string, token: string, type: 'signup' | 'email'): Promise<SimpleAuthResult> {
+  async verifyOTP(email: string, token: string, type: 'signup' | 'email'): Promise<AuthResult> {
     try {
       const { data, error } = await supabase.auth.verifyOtp({
         email,
@@ -338,11 +344,11 @@ export class AuthService {
       });
 
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
 
       if (!data.user || !data.session) {
-        throw new Error('OTP verification failed');
+        return { success: false, error: 'OTP verification failed' };
       }
 
       const authState = await this.getCurrentAuthState();
@@ -358,14 +364,14 @@ export class AuthService {
     }
   }
 
-  async resendOTP(email: string, type: 'signup'): Promise<SimpleServiceResult<void>> {
+  async resendOTP(email: string, type: 'signup'): Promise<ServiceResult<void>> {
     try {
       const { error } = await supabase.auth.resend({
         type,
         email
       });
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
       return { success: true };
     } catch (error) {
@@ -376,7 +382,7 @@ export class AuthService {
     }
   }
 
-  async getUserProfile(userId: string): Promise<SimpleServiceResult<UserProfile | null>> {
+  async getUserProfile(userId: string): Promise<ServiceResult<UserProfile | null>> {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -388,7 +394,7 @@ export class AuthService {
         if (error.code === 'PGRST116') {
           return { success: true, data: null };
         }
-        throw error;
+        return { success: false, error: error.message };
       }
 
       return { success: true, data: data as UserProfile };
@@ -400,7 +406,7 @@ export class AuthService {
     }
   }
 
-  async createUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<SimpleServiceResult<UserProfile>> {
+  async createUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<ServiceResult<UserProfile>> {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -412,7 +418,7 @@ export class AuthService {
         .single();
 
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
 
       return { success: true, data: data as UserProfile };
@@ -424,7 +430,7 @@ export class AuthService {
     }
   }
 
-  async updateUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<SimpleServiceResult<UserProfile>> {
+  async updateUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<ServiceResult<UserProfile>> {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -434,7 +440,7 @@ export class AuthService {
         .single();
 
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
 
       return { success: true, data: data as UserProfile };
@@ -446,7 +452,7 @@ export class AuthService {
     }
   }
 
-  async checkAdminStatus(userId: string): Promise<SimpleServiceResult<{ isAdmin: boolean; isSuperAdmin: boolean; role: string | null }>> {
+  async checkAdminStatus(userId: string): Promise<ServiceResult<{ isAdmin: boolean; isSuperAdmin: boolean; role: string | null }>> {
     try {
       const { data, error } = await supabase
         .from('admin_users')
@@ -459,7 +465,7 @@ export class AuthService {
         if (error.code === 'PGRST116') {
           return { success: true, data: { isAdmin: false, isSuperAdmin: false, role: null } };
         }
-        throw error;
+        return { success: false, error: error.message };
       }
 
       return {
@@ -478,7 +484,7 @@ export class AuthService {
     }
   }
 
-  async createAdminUser(userData: AdminRegistrationData & { password: string; role: string }): Promise<SimpleServiceResult<AdminRegistrationData>> {
+  async createAdminUser(userData: AdminRegistrationData & { password: string; role: string }): Promise<ServiceResult<AdminRegistrationData>> {
     try {
       // Create the user account first
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -488,7 +494,7 @@ export class AuthService {
       });
 
       if (authError || !authData.user) {
-        throw authError || new Error('Failed to create user account');
+        return { success: false, error: authError?.message || 'Failed to create user account' };
       }
 
       // Create admin user record
@@ -504,7 +510,7 @@ export class AuthService {
         .single();
 
       if (adminError) {
-        throw adminError;
+        return { success: false, error: adminError.message };
       }
 
       return {
@@ -523,7 +529,7 @@ export class AuthService {
     }
   }
 
-  async inviteAdmin(inviteData: AdminInvite): Promise<SimpleServiceResult<AdminInvite>> {
+  async inviteAdmin(inviteData: AdminInvite): Promise<ServiceResult<AdminInvite>> {
     try {
       // Send invitation email
       const { data, error } = await supabase.auth.admin.inviteUserByEmail(
@@ -537,7 +543,7 @@ export class AuthService {
       );
 
       if (error) {
-        throw error;
+        return { success: false, error: error.message };
       }
 
       return { success: true, data: inviteData };
