@@ -114,6 +114,8 @@ export interface AdminRegistrationData {
   email: string;
   full_name: string;
   token: string;
+  password?: string;
+  role?: string;
 }
 
 export interface SuperAdminSetupData {

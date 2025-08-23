@@ -36,13 +36,14 @@ export abstract class BaseService {
 
   protected async executeOperation<T>(
     operation: () => Promise<T>,
-    operationName: string
+    operationName?: string
   ): Promise<ServiceResult<T>> {
     try {
       const result = await operation();
       return this.handleSuccess(result);
     } catch (error) {
-      return this.handleError(`Failed to ${operationName}`, error);
+      const name = operationName || 'operation';
+      return this.handleError(`Failed to ${name}`, error);
     }
   }
 }
