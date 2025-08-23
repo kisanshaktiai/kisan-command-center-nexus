@@ -30,6 +30,12 @@ interface SimpleTenantData {
   phone: string;
 }
 
+// Explicit type for admin user query to avoid deep type expansion
+interface AdminUser {
+  role: string;
+  is_active: boolean;
+}
+
 export class AuthService {
   private static instance: AuthService;
   private authCallback: ((state: SimpleAuthState) => void) | null = null;
@@ -54,23 +60,23 @@ export class AuthService {
       const session = sessionResult.data.session;
       const user = session.user;
 
-      // Check admin status
+      // Check admin status using maybeSingle with explicit typing
       const adminResult = await supabase
         .from('admin_users')
-        .select('role, is_active')
+        .select<AdminUser>('role, is_active')
         .eq('user_id', user.id)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
-      const isAdmin = !adminResult.error && adminResult.data;
+      const isAdmin = !adminResult.error && adminResult.data !== null;
       
       return {
         user,
         session,
         isAuthenticated: true,
-        isAdmin: Boolean(isAdmin),
+        isAdmin,
         isSuperAdmin: isAdmin && adminResult.data?.role === 'super_admin',
-        adminRole: isAdmin ? adminResult.data?.role || null : null,
+        adminRole: isAdmin ? adminResult.data?.role ?? null : null,
         profile: null
       };
     } catch (error) {
@@ -139,13 +145,13 @@ export class AuthService {
         return { success: false, error: 'Authentication failed' };
       }
 
-      // Check admin privileges
+      // Check admin privileges using maybeSingle with explicit typing
       const adminResult = await supabase
         .from('admin_users')
-        .select('role, is_active')
+        .select<AdminUser>('role, is_active')
         .eq('user_id', result.data.user.id)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (adminResult.error || !adminResult.data) {
         return { success: false, error: 'Access denied: Administrator privileges required' };
@@ -371,16 +377,17 @@ export class AuthService {
     try {
       const result = await supabase
         .from('admin_users')
-        .select('role, is_active')
+        .select<AdminUser>('role, is_active')
         .eq('user_id', userId)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (result.error) {
-        if (result.error.code === 'PGRST116') {
-          return { success: true, data: { isAdmin: false, isSuperAdmin: false, role: null } };
-        }
         return { success: false, error: result.error.message };
+      }
+
+      if (!result.data) {
+        return { success: true, data: { isAdmin: false, isSuperAdmin: false, role: null } };
       }
 
       return {
