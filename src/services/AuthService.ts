@@ -2,10 +2,13 @@
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-// Simple, isolated types to prevent circular references
-interface SimpleAuthState {
-  user: User | null;
-  session: Session | null;
+// Ultra-minimal types to prevent any circular references
+type AuthUser = User | null;
+type AuthSession = Session | null;
+
+interface MinimalAuthState {
+  user: AuthUser;
+  session: AuthSession;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
@@ -13,19 +16,13 @@ interface SimpleAuthState {
   profile: any;
 }
 
-interface SimpleAuthResult {
-  success: boolean;
-  data?: SimpleAuthState;
-  error?: string;
-}
-
-interface SimpleServiceResult<T = any> {
+interface MinimalResult<T = any> {
   success: boolean;
   data?: T;
   error?: string;
 }
 
-interface SimpleTenantData {
+interface MinimalTenantData {
   organizationName: string;
   organizationType: string;
   tenantId?: string;
@@ -34,17 +31,13 @@ interface SimpleTenantData {
 }
 
 export class AuthService {
-  private authStateSubscription: ((authState: SimpleAuthState) => void) | null = null;
+  private authCallback: ((state: MinimalAuthState) => void) | null = null;
 
-  async getCurrentAuthState(): Promise<SimpleAuthState> {
+  async getCurrentAuthState(): Promise<MinimalAuthState> {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       
-      if (error) {
-        throw error;
-      }
-
-      if (!session?.user) {
+      if (error || !session?.user) {
         return {
           user: null,
           session: null,
@@ -57,26 +50,26 @@ export class AuthService {
       }
 
       // Check admin status
-      const { data: adminData, error: adminError } = await supabase
+      const { data: adminData } = await supabase
         .from('admin_users')
         .select('role, is_active')
         .eq('user_id', session.user.id)
         .eq('is_active', true)
         .single();
 
-      const isAdmin = !adminError && adminData;
+      const isAdmin = Boolean(adminData);
       
       return {
         user: session.user,
         session,
         isAuthenticated: true,
-        isAdmin: !!isAdmin,
-        isSuperAdmin: isAdmin && adminData.role === 'super_admin',
-        adminRole: isAdmin ? adminData.role : null,
+        isAdmin,
+        isSuperAdmin: isAdmin && adminData?.role === 'super_admin',
+        adminRole: isAdmin ? adminData?.role || null : null,
         profile: null
       };
     } catch (error) {
-      console.error('Error getting current auth state:', error);
+      console.error('Error getting auth state:', error);
       return {
         user: null,
         session: null,
@@ -89,11 +82,11 @@ export class AuthService {
     }
   }
 
-  subscribeToAuthStateChanges(callback: (authState: SimpleAuthState) => void): () => void {
-    this.authStateSubscription = callback;
+  subscribeToAuthStateChanges(callback: (state: MinimalAuthState) => void): () => void {
+    this.authCallback = callback;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async () => {
         const authState = await this.getCurrentAuthState();
         callback(authState);
       }
@@ -101,11 +94,11 @@ export class AuthService {
 
     return () => {
       subscription.unsubscribe();
-      this.authStateSubscription = null;
+      this.authCallback = null;
     };
   }
 
-  async signIn(email: string, password: string): Promise<SimpleAuthResult> {
+  async signIn(email: string, password: string): Promise<MinimalResult<MinimalAuthState>> {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -121,10 +114,7 @@ export class AuthService {
       }
 
       const authState = await this.getCurrentAuthState();
-      return {
-        success: true,
-        data: authState
-      };
+      return { success: true, data: authState };
     } catch (error) {
       return {
         success: false,
@@ -133,11 +123,11 @@ export class AuthService {
     }
   }
 
-  async signInUser(email: string, password: string): Promise<SimpleAuthResult> {
+  async signInUser(email: string, password: string): Promise<MinimalResult<MinimalAuthState>> {
     return this.signIn(email, password);
   }
 
-  async signInAdmin(email: string, password: string): Promise<SimpleAuthResult> {
+  async signInAdmin(email: string, password: string): Promise<MinimalResult<MinimalAuthState>> {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -152,19 +142,19 @@ export class AuthService {
         return { success: false, error: 'Authentication failed' };
       }
 
-      // Check if user has admin privileges
-      const { data: adminData, error: adminError } = await supabase
+      // Check admin privileges
+      const { data: adminData } = await supabase
         .from('admin_users')
         .select('role, is_active')
         .eq('user_id', data.user.id)
         .eq('is_active', true)
         .single();
 
-      if (adminError || !adminData) {
+      if (!adminData) {
         return { success: false, error: 'Access denied: Administrator privileges required' };
       }
 
-      const authState: SimpleAuthState = {
+      const authState: MinimalAuthState = {
         user: data.user,
         session: data.session,
         isAuthenticated: true,
@@ -174,10 +164,7 @@ export class AuthService {
         profile: null
       };
 
-      return {
-        success: true,
-        data: authState
-      };
+      return { success: true, data: authState };
     } catch (error) {
       return {
         success: false,
@@ -186,7 +173,7 @@ export class AuthService {
     }
   }
 
-  async signUp(email: string, password: string, tenantData?: SimpleTenantData): Promise<SimpleAuthResult> {
+  async signUp(email: string, password: string, tenantData?: MinimalTenantData): Promise<MinimalResult<MinimalAuthState>> {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -209,7 +196,7 @@ export class AuthService {
         data: {
           user: data.user,
           session: data.session,
-          isAuthenticated: !!data.session,
+          isAuthenticated: Boolean(data.session),
           isAdmin: false,
           isSuperAdmin: false,
           adminRole: null,
@@ -224,7 +211,7 @@ export class AuthService {
     }
   }
 
-  async signOut(): Promise<SimpleServiceResult<void>> {
+  async signOut(): Promise<MinimalResult<void>> {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
@@ -239,7 +226,7 @@ export class AuthService {
     }
   }
 
-  async getCurrentUser(): Promise<SimpleServiceResult<User | null>> {
+  async getCurrentUser(): Promise<MinimalResult<AuthUser>> {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error) {
@@ -254,7 +241,7 @@ export class AuthService {
     }
   }
 
-  async getCurrentSession(): Promise<SimpleServiceResult<Session | null>> {
+  async getCurrentSession(): Promise<MinimalResult<AuthSession>> {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
@@ -269,7 +256,7 @@ export class AuthService {
     }
   }
 
-  async resetPassword(email: string): Promise<SimpleServiceResult<void>> {
+  async resetPassword(email: string): Promise<MinimalResult<void>> {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) {
@@ -284,7 +271,7 @@ export class AuthService {
     }
   }
 
-  async updatePassword(newPassword: string): Promise<SimpleServiceResult<User>> {
+  async updatePassword(newPassword: string): Promise<MinimalResult<User>> {
     try {
       const { data, error } = await supabase.auth.updateUser({
         password: newPassword
@@ -304,7 +291,7 @@ export class AuthService {
     }
   }
 
-  async updateEmail(newEmail: string): Promise<SimpleServiceResult<User>> {
+  async updateEmail(newEmail: string): Promise<MinimalResult<User>> {
     try {
       const { data, error } = await supabase.auth.updateUser({
         email: newEmail
@@ -324,7 +311,7 @@ export class AuthService {
     }
   }
 
-  async refreshSession(): Promise<SimpleServiceResult<Session | null>> {
+  async refreshSession(): Promise<MinimalResult<AuthSession>> {
     try {
       const { data, error } = await supabase.auth.refreshSession();
       if (error) {
@@ -339,7 +326,7 @@ export class AuthService {
     }
   }
 
-  async verifyOTP(email: string, token: string, type: 'signup' | 'email'): Promise<SimpleAuthResult> {
+  async verifyOTP(email: string, token: string, type: 'signup' | 'email'): Promise<MinimalResult<MinimalAuthState>> {
     try {
       const { data, error } = await supabase.auth.verifyOtp({
         email,
@@ -356,10 +343,7 @@ export class AuthService {
       }
 
       const authState = await this.getCurrentAuthState();
-      return {
-        success: true,
-        data: authState
-      };
+      return { success: true, data: authState };
     } catch (error) {
       return {
         success: false,
@@ -368,7 +352,7 @@ export class AuthService {
     }
   }
 
-  async resendOTP(email: string, type: 'signup'): Promise<SimpleServiceResult<void>> {
+  async resendOTP(email: string, type: 'signup'): Promise<MinimalResult<void>> {
     try {
       const { error } = await supabase.auth.resend({
         type,
@@ -386,7 +370,7 @@ export class AuthService {
     }
   }
 
-  async checkAdminStatus(userId: string): Promise<SimpleServiceResult<{ isAdmin: boolean; isSuperAdmin: boolean; role: string | null }>> {
+  async checkAdminStatus(userId: string): Promise<MinimalResult<{ isAdmin: boolean; isSuperAdmin: boolean; role: string | null }>> {
     try {
       const { data, error } = await supabase
         .from('admin_users')
