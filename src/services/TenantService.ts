@@ -40,15 +40,17 @@ export class TenantService extends BaseService {
           `)
           .order('created_at', { ascending: false });
 
-        // Apply filters
+        // Apply filters with proper type casting
         if (filters?.search) {
           query = query.ilike('name', `%${filters.search}%`);
         }
         if (filters?.type && filters.type !== 'all') {
-          query = query.eq('type', filters.type);
+          // Cast to proper enum type
+          query = query.eq('type', filters.type as TenantType);
         }
         if (filters?.status && filters.status !== 'all') {
-          query = query.eq('status', filters.status);
+          // Cast to proper enum type
+          query = query.eq('status', filters.status as TenantStatus);
         }
 
         const { data, error } = await query;

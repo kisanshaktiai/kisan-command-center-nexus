@@ -1,6 +1,6 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { tenantService } from '@/services/TenantService';
+import { tenantService } from '@/services/tenantService';
 import { TenantFilters } from '@/types/tenant';
 
 interface UseTenantDataOptions {
