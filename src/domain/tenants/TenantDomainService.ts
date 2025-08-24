@@ -47,7 +47,10 @@ export class TenantDomainService extends BaseService {
     // Validate tenant data before creation
     const validationResult = await this.validateTenantData(data);
     if (!validationResult.success) {
-      return validationResult as ServiceResult<Tenant>;
+      return {
+        success: false,
+        error: validationResult.error
+      } as ServiceResult<Tenant>;
     }
 
     return this.executeOperation(

@@ -20,8 +20,11 @@ export class TenantService extends BaseService {
   async getTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
     return this.executeOperation(
       async () => {
-        const rawData = await tenantRepository.getTenants(filters);
-        return rawData.map(convertDatabaseTenant);
+        const result = await tenantRepository.getTenants(filters);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return (result.data || []).map(convertDatabaseTenant);
       },
       'getTenants'
     );
@@ -30,8 +33,11 @@ export class TenantService extends BaseService {
   async getTenant(id: string): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
       async () => {
-        const rawData = await tenantRepository.getTenant(id);
-        return convertDatabaseTenant(rawData);
+        const result = await tenantRepository.getTenant(id);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return convertDatabaseTenant(result.data);
       },
       'getTenant'
     );
@@ -40,8 +46,11 @@ export class TenantService extends BaseService {
   async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
       async () => {
-        const rawData = await tenantRepository.createTenant(data);
-        return convertDatabaseTenant(rawData);
+        const result = await tenantRepository.createTenant(data);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return convertDatabaseTenant(result.data);
       },
       'createTenant'
     );
@@ -50,8 +59,11 @@ export class TenantService extends BaseService {
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
       async () => {
-        const rawData = await tenantRepository.updateTenant(id, data);
-        return convertDatabaseTenant(rawData);
+        const result = await tenantRepository.updateTenant(id, data);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return convertDatabaseTenant(result.data);
       },
       'updateTenant'
     );
@@ -59,7 +71,13 @@ export class TenantService extends BaseService {
 
   async deleteTenant(id: string): Promise<ServiceResult<boolean>> {
     return this.executeOperation(
-      async () => tenantRepository.deleteTenant(id),
+      async () => {
+        const result = await tenantRepository.deleteTenant(id);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
+      },
       'deleteTenant'
     );
   }

@@ -19,18 +19,18 @@ export abstract class BaseTenantRepository extends BaseService {
   }
 
   protected buildSelectQuery(columns: string = '*') {
-    return supabase.from(this.tableName).select(columns);
+    return supabase.from(this.tableName as any).select(columns);
   }
 
   protected buildInsertQuery(data: any) {
-    return supabase.from(this.tableName).insert(data).select();
+    return supabase.from(this.tableName as any).insert(data).select();
   }
 
   protected buildUpdateQuery(id: string, data: any) {
-    return supabase.from(this.tableName).update(data).eq('id', id).select();
+    return supabase.from(this.tableName as any).update(data).eq('id', id).select();
   }
 
   protected buildDeleteQuery(id: string) {
-    return supabase.from(this.tableName).delete().eq('id', id);
+    return supabase.from(this.tableName as any).delete().eq('id', id);
   }
 }
