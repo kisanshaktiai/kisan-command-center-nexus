@@ -1,9 +1,10 @@
+
 // Single source of truth for all tenant types
 
-// Direct exports from enums
+// Explicit exports from enums
 export {
   TenantType,
-  TenantStatus, 
+  TenantStatus,
   SubscriptionPlan,
   tenantTypeOptions,
   tenantStatusOptions,
@@ -12,11 +13,11 @@ export {
 
 export type {
   TenantStatusValue,
-  TenantTypeValue,
+  TenantTypeValue,  
   SubscriptionPlanValue
 } from './enums';
 
-// Direct exports from interfaces
+// Explicit exports from interfaces
 export {
   createTenantID
 } from './interfaces';
@@ -31,20 +32,15 @@ export type {
   RpcResponse
 } from './interfaces';
 
-// Direct exports from DTOs
+// Explicit exports from DTOs
 export type {
   CreateTenantDTO,
   UpdateTenantDTO
 } from './dto';
 
-// Direct exports from utils
+// Explicit exports from utils
 export {
   convertDatabaseTenant,
   convertEnumToString
 } from './utils';
 
-// Keep the wildcard exports for complete backward compatibility
-export * from './enums';
-export * from './interfaces'; 
-export * from './dto';
-export * from './utils';

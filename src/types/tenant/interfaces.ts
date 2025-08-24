@@ -123,3 +123,4 @@ export interface RpcResponse {
   tenant_id?: string;
   data?: any;
 }
+

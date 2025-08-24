@@ -50,5 +50,3 @@ export interface UpdateTenantDTO {
   metadata?: Record<string, any>;
 }
 
-// Re-export form data here for convenience
-export type { TenantFormData } from './interfaces';

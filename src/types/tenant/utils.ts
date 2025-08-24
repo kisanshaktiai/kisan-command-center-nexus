@@ -21,3 +21,4 @@ export const convertEnumToString = {
   status: (status: TenantStatus): TenantStatusValue => status as TenantStatusValue,
   subscriptionPlan: (plan: SubscriptionPlan): SubscriptionPlanValue => plan as SubscriptionPlanValue,
 };
+
