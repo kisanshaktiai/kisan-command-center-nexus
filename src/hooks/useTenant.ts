@@ -110,13 +110,18 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const tenant = ut.tenants;
             
             // Type guard to ensure tenant exists and has required properties
-            if (!tenant || typeof tenant !== 'object' || !tenant.id || !tenant.name) {
+            if (!tenant || typeof tenant !== 'object' || Array.isArray(tenant)) {
               console.warn('Invalid tenant data:', tenant);
               return null;
             }
             
-            // Now TypeScript knows tenant is not null and has the required properties
-            const safeTenant = tenant as any; // Cast to bypass complex type checking
+            // Cast to any to avoid complex type checking, but ensure we have required fields
+            const safeTenant = tenant as any;
+            
+            if (!safeTenant.id || !safeTenant.name) {
+              console.warn('Missing required tenant fields:', safeTenant);
+              return null;
+            }
             
             return {
               id: createTenantID(safeTenant.id),

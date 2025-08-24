@@ -84,16 +84,19 @@ export class AuthService {
   }
 
   /**
-   * Admin sign in with validation
+   * Admin sign in with validation and error handling
    */
   async signInAdmin(email: string, password: string): Promise<AuthServiceResult<AuthState>> {
     try {
+      console.log('AuthService: Attempting admin sign in for:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
       if (error) {
+        console.error('AuthService: Sign in error:', error);
         return { success: false, error: error.message };
       }
 
@@ -101,14 +104,19 @@ export class AuthService {
         return { success: false, error: 'Invalid credentials' };
       }
 
-      // Check admin status
+      console.log('AuthService: Sign in successful, checking admin status');
+
+      // Check admin status with error handling
       const adminStatus = await this.checkAdminStatus(data.user.id);
       
       if (!adminStatus.isAdmin) {
+        console.log('AuthService: User is not an admin, signing out');
         // Sign out non-admin user
         await supabase.auth.signOut();
         return { success: false, error: 'Access denied: Admin privileges required' };
       }
+
+      console.log('AuthService: Admin verification successful');
 
       const authState: AuthState = {
         user: data.user,
@@ -122,9 +130,10 @@ export class AuthService {
 
       return { success: true, data: authState };
     } catch (error) {
+      console.error('AuthService: Unexpected error during sign in:', error);
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Sign in failed' 
+        error: 'An unexpected error occurred during authentication'
       };
     }
   }
@@ -134,15 +143,16 @@ export class AuthService {
    */
   async bootstrapSuperAdmin(email: string, password: string, fullName: string): Promise<AuthServiceResult<AuthState>> {
     try {
-      // Check if bootstrap is needed
-      const { data: bootstrapCheck } = await supabase.rpc('get_bootstrap_status');
-      const bootstrapStatus = bootstrapCheck as BootstrapStatus;
+      console.log('AuthService: Starting bootstrap for:', email);
+      
+      // Check if bootstrap is needed using the new safe function
+      const { data: bootstrapStatus } = await supabase.rpc('get_bootstrap_status');
       
       if (bootstrapStatus?.completed) {
         return { success: false, error: 'System is already initialized' };
       }
 
-      // Create auth user
+      // Create auth user with better error handling
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -156,6 +166,7 @@ export class AuthService {
       });
 
       if (authError) {
+        console.error('AuthService: Auth user creation failed:', authError);
         return { success: false, error: authError.message };
       }
 
@@ -163,7 +174,9 @@ export class AuthService {
         return { success: false, error: 'Failed to create user account' };
       }
 
-      // Create admin user record
+      console.log('AuthService: Auth user created, creating admin record');
+
+      // Create admin user record with better error handling
       const { error: adminError } = await supabase
         .from('admin_users')
         .insert({
@@ -175,13 +188,16 @@ export class AuthService {
         });
 
       if (adminError) {
+        console.error('AuthService: Admin record creation failed:', adminError);
         return { success: false, error: 'Failed to create admin record' };
       }
+
+      console.log('AuthService: Admin record created, completing bootstrap');
 
       // Complete bootstrap
       const { error: bootstrapError } = await supabase.rpc('complete_bootstrap');
       if (bootstrapError) {
-        console.warn('Bootstrap completion warning:', bootstrapError);
+        console.warn('AuthService: Bootstrap completion warning:', bootstrapError);
       }
 
       const authState: AuthState = {
@@ -194,8 +210,10 @@ export class AuthService {
         profile: null
       };
 
+      console.log('AuthService: Bootstrap completed successfully');
       return { success: true, data: authState };
     } catch (error) {
+      console.error('AuthService: Bootstrap failed with error:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Bootstrap failed' 
@@ -222,25 +240,24 @@ export class AuthService {
   }
 
   /**
-   * Check if bootstrap is needed
+   * Check if bootstrap is needed using the new safe function
    */
   async isBootstrapNeeded(): Promise<boolean> {
     try {
       const { data, error } = await supabase.rpc('get_bootstrap_status');
       if (error) {
-        console.error('Bootstrap check error:', error);
+        console.error('AuthService: Bootstrap check error:', error);
         return true; // Default to showing bootstrap if check fails
       }
-      const bootstrapStatus = data as BootstrapStatus;
-      return !bootstrapStatus?.completed;
+      return !data?.completed;
     } catch (error) {
-      console.error('Bootstrap check exception:', error);
+      console.error('AuthService: Bootstrap check exception:', error);
       return true;
     }
   }
 
   /**
-   * Check admin status for a user
+   * Check admin status for a user with improved error handling
    */
   private async checkAdminStatus(userId: string): Promise<{
     isAdmin: boolean;
@@ -254,7 +271,13 @@ export class AuthService {
         .eq('id', userId)
         .single();
 
-      if (error || !data || !data.is_active) {
+      if (error) {
+        console.error('AuthService: Admin status check error:', error);
+        return { isAdmin: false, isSuperAdmin: false, adminRole: null };
+      }
+
+      if (!data || !data.is_active) {
+        console.log('AuthService: User is not an active admin');
         return { isAdmin: false, isSuperAdmin: false, adminRole: null };
       }
 
@@ -264,7 +287,7 @@ export class AuthService {
         adminRole: data.role
       };
     } catch (error) {
-      console.error('Admin status check failed:', error);
+      console.error('AuthService: Admin status check failed:', error);
       return { isAdmin: false, isSuperAdmin: false, adminRole: null };
     }
   }

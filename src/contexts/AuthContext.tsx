@@ -35,9 +35,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const refreshAuth = async () => {
     try {
       setError(null);
+      console.log('AuthContext: Refreshing auth state');
+      
       const session = await authService.getCurrentSession();
       
       if (session?.user) {
+        console.log('AuthContext: Session found, checking admin status');
+        
         // Check admin status
         const adminStatus = await checkAdminStatus(session.user.id);
         
@@ -50,7 +54,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           adminRole: adminStatus.adminRole,
           profile: null, // Will be loaded separately if needed
         });
+        
+        console.log('AuthContext: Auth state updated', { isAdmin: adminStatus.isAdmin });
       } else {
+        console.log('AuthContext: No session found');
         setAuthState({
           user: null,
           session: null,
@@ -90,7 +97,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .eq('id', userId)
         .single();
 
-      if (error || !data || !data.is_active) {
+      if (error) {
+        console.error('AuthContext: Admin status check error:', error);
+        return { isAdmin: false, isSuperAdmin: false, adminRole: null };
+      }
+
+      if (!data || !data.is_active) {
         return { isAdmin: false, isSuperAdmin: false, adminRole: null };
       }
 
@@ -100,7 +112,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         adminRole: data.role
       };
     } catch (error) {
-      console.error('Failed to check admin status:', error);
+      console.error('AuthContext: Failed to check admin status:', error);
       return { isAdmin: false, isSuperAdmin: false, adminRole: null };
     }
   };
@@ -121,6 +133,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signOut = async () => {
     try {
       setError(null);
+      console.log('AuthContext: Signing out');
+      
       await authService.signOut();
       setAuthState({
         user: null,
@@ -131,6 +145,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         adminRole: null,
         profile: null,
       });
+      
+      console.log('AuthContext: Sign out completed');
     } catch (error) {
       console.error('AuthContext: Sign out error:', error);
       setError(error instanceof Error ? error.message : 'Sign out failed');
@@ -141,6 +157,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     let mounted = true;
 
     const initializeAuth = async () => {
+      console.log('AuthContext: Initializing auth');
       await refreshAuth();
       if (mounted) {
         setIsLoading(false);
@@ -155,6 +172,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (mounted) {
         if (event === 'SIGNED_OUT' || !session) {
+          console.log('AuthContext: User signed out or no session');
           setAuthState({
             user: null,
             session: null,
@@ -165,7 +183,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             profile: null,
           });
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          await refreshAuth();
+          console.log('AuthContext: User signed in or token refreshed');
+          // Use setTimeout to avoid potential database conflicts
+          setTimeout(() => {
+            refreshAuth();
+          }, 100);
         }
       }
     });
