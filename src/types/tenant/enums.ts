@@ -59,4 +59,3 @@ export const subscriptionPlanOptions = [
   { value: SubscriptionPlan.AI_ENTERPRISE, label: 'AI – Enterprise' },
   { value: SubscriptionPlan.CUSTOM, label: 'Custom Plan' },
 ];
-

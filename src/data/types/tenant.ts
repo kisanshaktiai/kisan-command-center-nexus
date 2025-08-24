@@ -4,4 +4,3 @@
 
 // Re-export everything from the centralized tenant types
 export * from '@/types/tenant';
-

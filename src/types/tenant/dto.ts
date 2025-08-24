@@ -1,5 +1,5 @@
 
-import { TenantType, TenantStatus, SubscriptionPlan, TenantStatusValue, TenantTypeValue, SubscriptionPlanValue } from './enums';
+import { TenantStatusValue, TenantTypeValue, SubscriptionPlanValue } from './enums';
 
 export interface CreateTenantDTO {
   name: string;
@@ -49,4 +49,3 @@ export interface UpdateTenantDTO {
   custom_domain?: string;
   metadata?: Record<string, any>;
 }
-
