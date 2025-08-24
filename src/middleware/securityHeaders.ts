@@ -38,15 +38,25 @@ export class SecurityHeadersService {
   }
 
   /**
-   * Apply appropriate headers to fetch requests (minimal set to avoid CORS issues)
+   * Apply appropriate headers to fetch requests (excludes response-only headers)
    */
   public applyToFetchRequest(headers: Headers): Headers {
     const securityHeaders = new Headers(headers);
 
-    // Only apply minimal security headers that won't cause CORS preflight issues
-    // Most security headers are response-only and should not be sent in requests
+    // Only apply headers that are appropriate for outgoing requests
+    // Strict-Transport-Security is a response-only header and should not be sent in requests
     
-    // Only add headers that are commonly accepted by APIs and won't trigger CORS preflight
+    if (this.config.xContentTypeOptions) {
+      securityHeaders.set('X-Content-Type-Options', this.config.xContentTypeOptions);
+    }
+
+    if (this.config.referrerPolicy) {
+      securityHeaders.set('Referrer-Policy', this.config.referrerPolicy);
+    }
+
+    // Note: CSP, X-Frame-Options, Permissions-Policy, and HSTS are typically response headers
+    // and should not be sent in outgoing requests to avoid CORS issues
+
     return securityHeaders;
   }
 
@@ -92,13 +102,6 @@ export class SecurityHeadersService {
 }
 
 /**
- * Check if URL is a Supabase endpoint
- */
-function isSupabaseRequest(url: string): boolean {
-  return url.includes('supabase.co') || url.includes('supabase.com');
-}
-
-/**
  * Initialize security headers for the application
  */
 export const initializeSecurityHeaders = () => {
@@ -107,31 +110,9 @@ export const initializeSecurityHeaders = () => {
   // Apply minimal security headers to outgoing requests to avoid CORS issues
   const originalFetch = window.fetch;
   window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-    // Check if this is a Supabase request
-    const url = typeof input === 'string' ? input : input.toString();
-    
-    if (isSupabaseRequest(url)) {
-      // For Supabase requests, don't add any custom headers that might cause CORS issues
-      // Remove any problematic headers that might be set
-      if (init?.headers) {
-        const headers = new Headers(init.headers);
-        
-        // Remove headers that commonly cause CORS preflight issues
-        headers.delete('referrer-policy');
-        headers.delete('x-frame-options');
-        headers.delete('x-content-type-options');
-        headers.delete('strict-transport-security');
-        headers.delete('permissions-policy');
-        headers.delete('content-security-policy');
-        
-        init = { ...init, headers };
-      }
-      
-      return originalFetch(input, init);
-    }
-    
-    // For other requests, apply minimal security headers
     const headers = new Headers(init?.headers);
+    
+    // Only apply request-appropriate headers to avoid CORS preflight issues
     const secureHeaders = securityService.applyToFetchRequest(headers);
     
     return originalFetch(input, {

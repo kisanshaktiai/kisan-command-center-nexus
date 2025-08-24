@@ -1,14 +1,19 @@
 
-// Feature-level exports for tenant management
-export * from './components';
-export * from './types';
-export * from './services/TenantManagementService';
+// Components
+export { default as TenantManagementPage } from './components/TenantManagementPage';
+export { TenantManagementHeader } from './components/TenantManagementHeader';
+export { TenantViewControls } from './components/TenantViewControls';
+export { TenantViewRenderer } from './components/TenantViewRenderer';
 
-// Core hooks
+// Hooks
+export { useTenantManagement } from './hooks/useTenantManagement';
 export { useTenantData } from './hooks/useTenantData';
 export { useTenantMutations } from './hooks/useTenantMutations';
-export { useTenantUI } from './hooks/useTenantUI';
-export { useTenantAnalytics } from './hooks/useTenantAnalytics';
+export { useTenantFiltering } from './hooks/useTenantFiltering';
+export { useTenantUIState } from './hooks/useTenantUIState';
 
-// Main composition hook
-export { useTenantPageState } from './hooks/useTenantPageState';
+// Services
+export { tenantManagementService } from './services/TenantManagementService';
+
+// Types
+export * from './types';

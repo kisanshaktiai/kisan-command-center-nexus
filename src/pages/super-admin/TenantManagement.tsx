@@ -10,156 +10,165 @@ import { TenantEditModal } from '@/components/tenant/TenantEditModal';
 import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
 import { TenantOverviewMetrics } from '@/components/tenant/TenantOverviewMetrics';
 import { EnhancedTenantManagementHeader } from '@/components/tenant/EnhancedTenantManagementHeader';
-import { TenantErrorBoundary } from '@/components/tenant/TenantErrorBoundary';
-import { useTenantManagement } from '@/hooks/tenant/useTenantManagement';
+import { useTenantPageState } from '@/features/tenant/hooks/useTenantPageState';
 
 const TenantManagement: React.FC = () => {
   const {
     // Data
     tenants,
+    formattedTenants,
     isLoading,
     error,
     isSubmitting,
 
-    // Filters and UI
+    // Analytics
+    tenantMetrics,
+    refreshMetrics,
+
+    // Success state
+    creationSuccess,
+    clearCreationSuccess,
+
+    // UI state
+    detailsTenant,
+    isDetailsModalOpen,
+    editingTenant,
+    isEditModalOpen,
+    viewPreferences,
+    setViewPreferences,
     searchTerm,
     setSearchTerm,
     filterType,
     setFilterType,
     filterStatus,
     setFilterStatus,
-    viewPreferences,
-    setViewPreferences,
-
-    // Modals
-    selectedTenant,
-    isDetailsModalOpen,
-    isEditModalOpen,
-    creationSuccess,
-    openDetailsModal,
-    closeDetailsModal,
-    closeEditModal,
-    handleDetailsEdit,
-    clearCreationSuccess,
 
     // Actions
     handleCreateTenant,
-    handleUpdateTenant,
-    handleSuspendTenant,
-  } = useTenantManagement();
+    handleViewDetails,
+    handleDetailsEdit,
+    handleEditTenant,
+    handleSaveTenant,
+    closeDetailsModal,
+    closeEditModal,
+  } = useTenantPageState();
+
+  const handleDeleteTenant = async (tenantId: string): Promise<boolean> => {
+    // TODO: Implement delete functionality
+    console.log('Delete tenant:', tenantId);
+    return false;
+  };
 
   const handleRefresh = () => {
+    refreshMetrics();
+    // Force re-fetch of tenants data
     window.location.reload();
   };
 
   if (error) {
     return (
-      <TenantErrorBoundary>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <p className="text-red-600 mb-4">Error loading tenants: {error.message}</p>
-            <Button onClick={handleRefresh}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Retry
-            </Button>
-          </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error loading tenants: {error.message}</p>
+          <Button onClick={() => window.location.reload()}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Retry
+          </Button>
         </div>
-      </TenantErrorBoundary>
+      </div>
     );
   }
 
   return (
-    <TenantErrorBoundary>
-      <div className="space-y-6">
-        {/* Enhanced Header with Create Button */}
-        <EnhancedTenantManagementHeader
-          onCreateTenant={handleCreateTenant}
-          onRefresh={handleRefresh}
-          isSubmitting={isSubmitting}
-        />
+    <div className="space-y-6">
+      {/* Enhanced Header with Create Button */}
+      <EnhancedTenantManagementHeader
+        onCreateTenant={handleCreateTenant}
+        onRefresh={handleRefresh}
+        isSubmitting={isSubmitting}
+      />
 
-        {/* Overview Metrics Cards */}
-        <TenantOverviewMetrics 
-          tenants={tenants}
-          isLoading={isLoading}
-        />
+      {/* Overview Metrics Cards */}
+      <TenantOverviewMetrics 
+        tenants={tenants}
+        isLoading={isLoading}
+      />
 
-        {/* Controls */}
-        <TenantViewControls
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          filterType={filterType}
-          setFilterType={setFilterType}
-          filterStatus={filterStatus}
-          setFilterStatus={setFilterStatus}
-          viewPreferences={viewPreferences}
-          setViewPreferences={setViewPreferences}
-          totalCount={tenants.length}
-        />
+      {/* Controls */}
+      <TenantViewControls
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        filterType={filterType}
+        setFilterType={setFilterType}
+        filterStatus={filterStatus}
+        setFilterStatus={setFilterStatus}
+        viewPreferences={viewPreferences}
+        setViewPreferences={setViewPreferences}
+        totalCount={tenants.length}
+      />
 
-        {/* Tenant Grid/List */}
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">Loading tenants...</p>
-            </div>
+      {/* Tenant Grid/List */}
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">Loading tenants...</p>
           </div>
-        ) : tenants.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="text-center">
-                <p className="text-lg font-medium mb-2">No tenants found</p>
-                <p className="text-muted-foreground mb-4">
-                  {searchTerm || filterType !== 'all' || filterStatus !== 'all'
-                    ? 'Try adjusting your filters to see more results.'
-                    : 'Get started by creating your first tenant organization.'}
-                </p>
-                <Button onClick={() => handleCreateTenant}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create First Tenant
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <TenantViewRenderer
-            tenants={tenants}
-            formattedTenants={[]} // Will be computed inside the component
-            viewPreferences={viewPreferences}
-            onEdit={(tenant) => openDetailsModal(tenant)}
-            onDelete={handleSuspendTenant}
-            onViewDetails={openDetailsModal}
-            tenantMetrics={{}}
-          />
-        )}
-
-        {/* Modals */}
-        <TenantDetailsModal
-          tenant={selectedTenant}
-          isOpen={isDetailsModalOpen}
-          onClose={closeDetailsModal}
-          onEdit={handleDetailsEdit}
+        </div>
+      ) : tenants.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="text-center">
+              <p className="text-lg font-medium mb-2">No tenants found</p>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm || filterType !== 'all' || filterStatus !== 'all'
+                  ? 'Try adjusting your filters to see more results.'
+                  : 'Get started by creating your first tenant organization.'}
+              </p>
+              <Button onClick={() => handleCreateTenant}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create First Tenant
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <TenantViewRenderer
+          tenants={tenants}
+          formattedTenants={formattedTenants}
+          viewPreferences={viewPreferences}
+          onEdit={handleEditTenant}
+          onDelete={handleDeleteTenant}
+          onViewDetails={handleViewDetails}
+          tenantMetrics={tenantMetrics}
         />
+      )}
 
-        <TenantEditModal
-          tenant={selectedTenant}
-          isOpen={isEditModalOpen}
-          onClose={closeEditModal}
-          onSave={handleUpdateTenant}
+      {/* Enhanced Details Modal with Admin User Management */}
+      <TenantDetailsModal
+        tenant={detailsTenant}
+        isOpen={isDetailsModalOpen}
+        onClose={closeDetailsModal}
+        onEdit={handleDetailsEdit}
+      />
+
+      <TenantEditModal
+        tenant={editingTenant}
+        isOpen={isEditModalOpen}
+        onClose={closeEditModal}
+        onSave={handleSaveTenant}
+      />
+
+      {/* Creation Success Modal */}
+      {creationSuccess && (
+        <TenantCreationSuccess
+          tenantName={creationSuccess.tenantName}
+          adminEmail={creationSuccess.adminEmail}
+          hasEmailSent={creationSuccess.hasEmailSent}
+          onClose={clearCreationSuccess}
         />
-
-        {/* Creation Success Modal */}
-        {creationSuccess && (
-          <TenantCreationSuccess
-            tenantName={creationSuccess.tenantName}
-            adminEmail={creationSuccess.adminEmail}
-            hasEmailSent={creationSuccess.hasEmailSent}
-            onClose={clearCreationSuccess}
-          />
-        )}
-      </div>
-    </TenantErrorBoundary>
+      )}
+    </div>
   );
 };
 

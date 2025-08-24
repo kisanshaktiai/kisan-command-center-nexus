@@ -66,7 +66,7 @@ class TenantService {
     }
   }
 
-  async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
+  async updateTenant(id: TenantID, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
     try {
       const response = await ApiFactory.put<any>('tenants', id, data);
       
@@ -90,7 +90,7 @@ class TenantService {
     }
   }
 
-  async deleteTenant(id: string): Promise<ServiceResult<void>> {
+  async deleteTenant(id: TenantID): Promise<ServiceResult<void>> {
     try {
       const response = await ApiFactory.delete('tenants', id);
       
@@ -102,67 +102,6 @@ class TenantService {
       return {
         success: false,
         error: error.message || 'Failed to delete tenant'
-      };
-    }
-  }
-
-  async suspendTenant(id: string): Promise<ServiceResult<boolean>> {
-    try {
-      const response = await ApiFactory.put<any>('tenants', id, { 
-        status: TenantStatus.SUSPENDED 
-      });
-      
-      return {
-        success: response.success,
-        data: response.success,
-        error: response.error
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message || 'Failed to suspend tenant'
-      };
-    }
-  }
-
-  async reactivateTenant(id: string): Promise<ServiceResult<boolean>> {
-    try {
-      const response = await ApiFactory.put<any>('tenants', id, { 
-        status: TenantStatus.ACTIVE 
-      });
-      
-      return {
-        success: response.success,
-        data: response.success,
-        error: response.error
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message || 'Failed to reactivate tenant'
-      };
-    }
-  }
-
-  async getMetrics(tenantId: string): Promise<ServiceResult<any>> {
-    try {
-      const response = await ApiFactory.get<any>(`tenants/${tenantId}/metrics`);
-      
-      if (response.success && response.data) {
-        return {
-          success: true,
-          data: response.data
-        };
-      }
-      
-      return {
-        success: false,
-        error: response.error || 'Failed to fetch metrics'
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message || 'Failed to fetch metrics'
       };
     }
   }

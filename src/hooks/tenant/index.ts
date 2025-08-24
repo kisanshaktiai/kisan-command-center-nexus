@@ -1,7 +1,6 @@
 
-export { useTenantData } from './useTenantData';
-export { useTenantMutations } from './useTenantMutations';
-export { useTenantFilters } from './useTenantFilters';
+// Focused tenant hooks - single-purpose, no circular dependencies
+export { useTenantDataLayer } from './useTenantDataLayer';
+export { useTenantActions } from './useTenantActions';
 export { useTenantModals } from './useTenantModals';
-export { useTenantMetrics } from './useTenantMetrics';
-export { useTenantManagement } from './useTenantManagement';
+export { useSimplifiedTenantManagement } from './useSimplifiedTenantManagement';

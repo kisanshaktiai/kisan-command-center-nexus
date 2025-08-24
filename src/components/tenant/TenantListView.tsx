@@ -1,100 +1,136 @@
 
 import React from 'react';
-import { TenantCard } from './TenantCard';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Edit, Trash2, Building2 } from 'lucide-react';
 import { Tenant } from '@/types/tenant';
-import { TenantViewPreferences } from '@/types/tenantView';
+import { tenantService } from '@/services/tenantService';
+import { TenantMetrics } from '@/types/tenantView';
+import { UsageMeter } from './UsageMeter';
 
 interface TenantListViewProps {
   tenants: Tenant[];
-  viewPreferences: TenantViewPreferences;
-  onTenantSelect: (tenant: Tenant) => void;
-  onTenantEdit: (tenant: Tenant) => void;
-  onTenantSuspend: (id: string) => void;
-  onTenantReactivate: (id: string) => void;
+  metrics?: Record<string, TenantMetrics>;
   onEdit: (tenant: Tenant) => void;
   onDelete: (tenantId: string) => void;
   onViewDetails: (tenant: Tenant) => void;
-  isLoading?: boolean;
 }
 
 export const TenantListView: React.FC<TenantListViewProps> = ({
   tenants,
-  viewPreferences,
-  onTenantSelect,
-  onTenantEdit,
-  onTenantSuspend,
-  onTenantReactivate,
+  metrics,
   onEdit,
   onDelete,
   onViewDetails,
-  isLoading = false
 }) => {
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="bg-card rounded-lg p-6 animate-pulse">
-            <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
-            <div className="h-3 bg-muted rounded w-1/2 mb-4"></div>
-            <div className="space-y-2">
-              <div className="h-3 bg-muted rounded"></div>
-              <div className="h-3 bg-muted rounded w-5/6"></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (tenants.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">No tenants found matching your criteria.</p>
-      </div>
-    );
-  }
-
-  const getGridClasses = () => {
-    switch (viewPreferences.mode) {
-      case 'large-cards':
-        return 'grid grid-cols-1 lg:grid-cols-2 gap-6';
-      case 'small-cards':
-        return 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
-      case 'list':
-        return 'space-y-4';
-      default:
-        return 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
-    }
-  };
-
-  const handleEdit = (tenant: Tenant) => {
-    onTenantEdit(tenant);
-    onEdit(tenant);
-  };
-
-  const handleSelect = (tenant: Tenant) => {
-    onTenantSelect(tenant);
-    onViewDetails(tenant);
-  };
-
-  const handleSuspend = (id: string) => {
-    onTenantSuspend(id);
-    onDelete(id);
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Not set';
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
-    <div className={getGridClasses()}>
-      {tenants.map((tenant) => (
-        <TenantCard
-          key={tenant.id}
-          tenant={tenant}
-          viewMode={viewPreferences.mode}
-          onSelect={handleSelect}
-          onEdit={handleEdit}
-          onSuspend={handleSuspend}
-          onReactivate={onTenantReactivate}
-        />
-      ))}
+    <div className="border rounded-lg overflow-hidden">
+      <div className="bg-muted/50 px-4 py-3 border-b">
+        <div className="grid grid-cols-12 gap-4 text-sm font-medium text-muted-foreground">
+          <div className="col-span-3">Organization</div>
+          <div className="col-span-2">Type</div>
+          <div className="col-span-2">Status</div>
+          <div className="col-span-2">Plan</div>
+          <div className="col-span-2">Usage</div>
+          <div className="col-span-1">Actions</div>
+        </div>
+      </div>
+      
+      <div className="divide-y">
+        {tenants.map((tenant) => {
+          const tenantMetrics = metrics?.[tenant.id];
+          
+          return (
+            <div
+              key={tenant.id}
+              className="px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
+              onClick={() => onViewDetails(tenant)}
+            >
+              <div className="grid grid-cols-12 gap-4 items-center">
+                {/* Organization */}
+                <div className="col-span-3 flex items-center space-x-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Building2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-medium truncate">{tenant.name}</div>
+                    <div className="text-sm text-muted-foreground">{tenant.slug}</div>
+                  </div>
+                </div>
+
+                {/* Type */}
+                <div className="col-span-2">
+                  <span className="text-sm capitalize">{tenant.type?.replace('_', ' ')}</span>
+                </div>
+
+                {/* Status */}
+                <div className="col-span-2">
+                  <Badge variant={tenantService.getStatusBadgeVariant(tenant.status)}>
+                    {tenant.status?.toUpperCase()}
+                  </Badge>
+                </div>
+
+                {/* Plan */}
+                <div className="col-span-2">
+                  <Badge variant={tenantService.getPlanBadgeVariant(tenant.subscription_plan)}>
+                    {tenantService.getPlanDisplayName(tenant.subscription_plan)}
+                  </Badge>
+                </div>
+
+                {/* Usage */}
+                <div className="col-span-2">
+                  {tenantMetrics ? (
+                    <div className="space-y-1">
+                      <UsageMeter
+                        label=""
+                        current={tenantMetrics.usageMetrics.farmers.current}
+                        limit={tenantMetrics.usageMetrics.farmers.limit}
+                        showDetails={false}
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        {tenantMetrics.usageMetrics.farmers.current}/{tenantMetrics.usageMetrics.farmers.limit} farmers
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No data</span>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="col-span-1 flex space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(tenant);
+                    }}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(tenant.id);
+                    }}
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

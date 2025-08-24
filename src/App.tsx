@@ -1,37 +1,31 @@
 
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from '@/contexts/AuthProvider';
-import { TenantAuthProvider } from '@/contexts/TenantAuthProvider';
-import { Toaster } from '@/components/ui/sonner';
-import TenantManagement from '@/pages/super-admin/TenantManagement';
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+import SuperAdmin from "./pages/SuperAdmin";
+import AdminInviteRoute from "./pages/AdminInviteRoute";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TenantAuthProvider>
-          <Router>
-            <div className="min-h-screen bg-background">
-              <Routes>
-                <Route path="/" element={<Navigate to="/super-admin/tenant-management" replace />} />
-                <Route path="/super-admin/tenant-management" element={<TenantManagement />} />
-                <Route path="*" element={<Navigate to="/super-admin/tenant-management" replace />} />
-              </Routes>
-              <Toaster />
-            </div>
-          </Router>
-        </TenantAuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/super-admin/*" element={<SuperAdmin />} />
+              <Route path="/admin-invite/:token" element={<AdminInviteRoute />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
