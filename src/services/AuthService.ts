@@ -1,3 +1,4 @@
+
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -50,27 +51,32 @@ export class AuthService {
 
   async getCurrentAuthState(): Promise<SimpleAuthState> {
     try {
+      console.log('AuthService: Getting current auth state...');
       const sessionResult = await supabase.auth.getSession();
       
       if (sessionResult.error || !sessionResult.data.session?.user) {
+        console.log('AuthService: No valid session found');
         return this.getEmptyAuthState();
       }
 
       const session = sessionResult.data.session;
       const user = session.user;
+      console.log('AuthService: Valid session found for user:', user.id);
 
-      // Check admin status with complete type bypass to avoid deep expansion
+      // Check admin status with proper error handling
       const adminResult: any = await (supabase as any)
         .from('admin_users')
         .select('role, is_active')
-        .eq('user_id', user.id)
+        .eq('id', user.id) // Changed from user_id to id
         .eq('is_active', true)
         .maybeSingle();
+
+      console.log('AuthService: Admin check result:', adminResult);
 
       const isAdmin = !adminResult.error && adminResult.data !== null;
       const adminData = adminResult.data as AdminUserData | null;
       
-      return {
+      const authState = {
         user,
         session,
         isAuthenticated: true,
@@ -79,8 +85,17 @@ export class AuthService {
         adminRole: isAdmin ? adminData?.role ?? null : null,
         profile: null
       };
+
+      console.log('AuthService: Final auth state:', {
+        userId: user.id,
+        isAdmin,
+        isSuperAdmin: authState.isSuperAdmin,
+        adminRole: authState.adminRole
+      });
+
+      return authState;
     } catch (error) {
-      console.error('Error getting auth state:', error);
+      console.error('AuthService: Error getting auth state:', error);
       return this.getEmptyAuthState();
     }
   }
@@ -89,7 +104,8 @@ export class AuthService {
     this.authCallback = callback;
 
     const subscription = supabase.auth.onAuthStateChange(
-      async () => {
+      async (event, session) => {
+        console.log('AuthService: Auth state change event:', event, session?.user?.id);
         const authState = await this.getCurrentAuthState();
         callback(authState);
       }
@@ -103,12 +119,15 @@ export class AuthService {
 
   async signIn(email: string, password: string): Promise<SimpleResult<SimpleAuthState>> {
     try {
+      console.log('AuthService: Sign in attempt for:', email);
+
       const result = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (result.error) {
+        console.error('AuthService: Sign in error:', result.error);
         return { success: false, error: result.error.message };
       }
 
@@ -116,9 +135,17 @@ export class AuthService {
         return { success: false, error: 'Authentication failed' };
       }
 
+      console.log('AuthService: Sign in successful, getting auth state...');
       const authState = await this.getCurrentAuthState();
+      
+      // Trigger callback immediately for faster UI updates
+      if (this.authCallback) {
+        this.authCallback(authState);
+      }
+
       return { success: true, data: authState };
     } catch (error) {
+      console.error('AuthService: Sign in exception:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Sign in failed'
@@ -132,12 +159,15 @@ export class AuthService {
 
   async signInAdmin(email: string, password: string): Promise<SimpleResult<SimpleAuthState>> {
     try {
+      console.log('AuthService: Admin sign in attempt for:', email);
+
       const result = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (result.error) {
+        console.error('AuthService: Admin sign in error:', result.error);
         return { success: false, error: result.error.message };
       }
 
@@ -145,15 +175,22 @@ export class AuthService {
         return { success: false, error: 'Authentication failed' };
       }
 
-      // Check admin privileges with complete type bypass
+      console.log('AuthService: Admin sign in successful, checking admin privileges...');
+
+      // Check admin privileges with proper error handling
       const adminResult: any = await (supabase as any)
         .from('admin_users')
         .select('role, is_active')
-        .eq('user_id', result.data.user.id)
+        .eq('id', result.data.user.id) // Changed from user_id to id
         .eq('is_active', true)
         .maybeSingle();
 
+      console.log('AuthService: Admin privilege check result:', adminResult);
+
       if (adminResult.error || !adminResult.data) {
+        console.error('AuthService: Admin privilege check failed:', adminResult.error);
+        // Sign out the user since they're not an admin
+        await supabase.auth.signOut();
         return { success: false, error: 'Access denied: Administrator privileges required' };
       }
 
@@ -169,8 +206,20 @@ export class AuthService {
         profile: null
       };
 
+      console.log('AuthService: Admin sign in complete:', {
+        userId: result.data.user.id,
+        role: adminData.role,
+        isSuperAdmin: adminData.role === 'super_admin'
+      });
+
+      // Trigger callback immediately for faster UI updates
+      if (this.authCallback) {
+        this.authCallback(authState);
+      }
+
       return { success: true, data: authState };
     } catch (error) {
+      console.error('AuthService: Admin sign in exception:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Admin sign in failed'
@@ -377,14 +426,19 @@ export class AuthService {
 
   async checkAdminStatus(userId: string): Promise<SimpleResult<{ isAdmin: boolean; isSuperAdmin: boolean; role: string | null }>> {
     try {
+      console.log('AuthService: Checking admin status for user:', userId);
+      
       const result: any = await (supabase as any)
         .from('admin_users')
         .select('role, is_active')
-        .eq('user_id', userId)
+        .eq('id', userId) // Changed from user_id to id
         .eq('is_active', true)
         .maybeSingle();
 
+      console.log('AuthService: Admin status check result:', result);
+
       if (result.error) {
+        console.error('AuthService: Admin status check error:', result.error);
         return { success: false, error: result.error.message };
       }
 
@@ -403,6 +457,7 @@ export class AuthService {
         }
       };
     } catch (error) {
+      console.error('AuthService: Admin status check exception:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to check admin status'

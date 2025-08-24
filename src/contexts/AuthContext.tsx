@@ -50,13 +50,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    // Initialize auth state
+    // Initialize auth state immediately
     const initAuth = async () => {
       try {
+        console.log('AuthProvider: Initializing auth state...');
         setIsLoading(true);
         const currentAuthState = await authService.getCurrentAuthState();
         
         if (mounted) {
+          console.log('AuthProvider: Setting initial auth state:', {
+            user: currentAuthState.user?.id,
+            isAdmin: currentAuthState.isAdmin,
+            isSuperAdmin: currentAuthState.isSuperAdmin
+          });
           setAuthState(currentAuthState);
           setError(null);
         }
@@ -72,14 +78,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // Subscribe to auth state changes
+    // Subscribe to auth state changes first
     const unsubscribe = authService.subscribeToAuthStateChanges((newAuthState) => {
       if (mounted) {
+        console.log('AuthProvider: Auth state changed:', {
+          user: newAuthState.user?.id,
+          isAdmin: newAuthState.isAdmin,
+          isSuperAdmin: newAuthState.isSuperAdmin
+        });
         setAuthState(newAuthState);
         setError(null);
+        setIsLoading(false); // Always set loading to false when we get a state change
       }
     });
 
+    // Then initialize auth
     initAuth();
 
     return () => {
@@ -91,6 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       setError(null);
+      setIsLoading(true);
       const result = await authService.signOut();
       if (!result.success && result.error) {
         setError(result.error);
@@ -98,6 +112,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Sign out failed';
       setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 

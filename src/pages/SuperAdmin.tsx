@@ -14,53 +14,52 @@ import SubscriptionManagement from './super-admin/SubscriptionManagement';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
 import FeatureFlags from './super-admin/FeatureFlags';
 import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { Loader2, Shield } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 const SuperAdmin = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isAdmin, isSuperAdmin } = useAuth();
 
-  // Get current admin user data
-  const { data: adminUser, isLoading: isAdminLoading } = useQuery({
-    queryKey: ['current-admin-user'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
-
-      const { data: adminData, error } = await supabase
-        .from('admin_users')
-        .select('*')
-        .eq('email', user.email)
-        .single();
-
-      if (error) throw error;
-      return adminData;
-    },
-    enabled: !!user,
+  console.log('SuperAdmin: Render state:', { 
+    user: user?.id, 
+    isLoading, 
+    isAdmin, 
+    isSuperAdmin 
   });
 
-  // Show loading state
-  if (isLoading || isAdminLoading) {
+  // Show loading state while checking authentication
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div>Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
+        <Card className="w-full max-w-md mx-auto">
+          <CardContent className="p-8 text-center">
+            <div className="flex items-center justify-center mb-4">
+              <Shield className="h-8 w-8 text-primary mr-2" />
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+            <div className="text-lg font-semibold mb-2 text-foreground">
+              Verifying Admin Access
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Checking your administrative privileges...
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  // Show auth form if not authenticated or no admin user
-  if (!user || !adminUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
-        <SuperAdminAuth />
-      </div>
-    );
+  // Redirect to auth if not authenticated or not admin
+  if (!user || !isAdmin) {
+    console.log('SuperAdmin: User not authenticated or not admin, redirecting to auth');
+    return <Navigate to="/auth" replace />;
   }
 
-  // Show admin dashboard when authenticated
+  // Show admin dashboard when authenticated and authorized
+  console.log('SuperAdmin: Showing admin dashboard');
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <SuperAdminSidebar 
@@ -75,7 +74,12 @@ const SuperAdmin = () => {
       }`}>
         <SuperAdminHeader 
           setSidebarOpen={setSidebarOpen}
-          adminUser={adminUser}
+          adminUser={{ 
+            id: user.id, 
+            email: user.email || '', 
+            full_name: user.user_metadata?.full_name || 'Admin User',
+            role: isSuperAdmin ? 'super_admin' : 'admin'
+          }}
           sidebarOpen={sidebarOpen}
         />
         
