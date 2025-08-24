@@ -9,5 +9,5 @@ export * from './UserTenantService';
 // User-tenant services (refactored)
 export * from './user-tenant';
 
-// API Factory
-export * from './ApiFactory';
+// API Factory - explicitly export to avoid conflicts
+export { ApiFactory } from './ApiFactory';
