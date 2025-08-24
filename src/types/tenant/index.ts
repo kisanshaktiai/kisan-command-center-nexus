@@ -1,56 +1,50 @@
-
 // Single source of truth for all tenant types
 
-// Import everything from sub-modules first
-import { TenantType, TenantStatus, SubscriptionPlan, TenantStatusValue, TenantTypeValue, SubscriptionPlanValue, tenantTypeOptions, tenantStatusOptions, subscriptionPlanOptions } from './enums';
-import { Tenant, TenantID, TenantBranding, TenantFeatures, TenantFilters, TenantFormData, RpcResponse, createTenantID } from './interfaces';
-import { CreateTenantDTO, UpdateTenantDTO } from './dto';
-import { convertDatabaseTenant, convertEnumToString } from './utils';
+// Direct exports from enums
+export {
+  TenantType,
+  TenantStatus, 
+  SubscriptionPlan,
+  tenantTypeOptions,
+  tenantStatusOptions,
+  subscriptionPlanOptions
+} from './enums';
 
-// Re-export everything explicitly to ensure TypeScript can find them
 export type {
-  // Core interfaces
+  TenantStatusValue,
+  TenantTypeValue,
+  SubscriptionPlanValue
+} from './enums';
+
+// Direct exports from interfaces
+export {
+  createTenantID
+} from './interfaces';
+
+export type {
   Tenant,
   TenantID,
   TenantBranding,
   TenantFeatures,
   TenantFilters,
   TenantFormData,
-  RpcResponse,
-  
-  // DTOs
+  RpcResponse
+} from './interfaces';
+
+// Direct exports from DTOs
+export type {
   CreateTenantDTO,
-  UpdateTenantDTO,
-  
-  // Enum types and values
-  TenantType,
-  TenantStatus,
-  SubscriptionPlan,
-  TenantStatusValue,
-  TenantTypeValue,
-  SubscriptionPlanValue
-};
+  UpdateTenantDTO
+} from './dto';
 
-// Re-export functions and constants
+// Direct exports from utils
 export {
-  // Enum constants
-  TenantType,
-  TenantStatus,
-  SubscriptionPlan,
-  
-  // Option arrays
-  tenantTypeOptions,
-  tenantStatusOptions,
-  subscriptionPlanOptions,
-  
-  // Utility functions
   convertDatabaseTenant,
-  convertEnumToString,
-  createTenantID
-};
+  convertEnumToString
+} from './utils';
 
-// Backward compatibility - ensure everything is accessible
+// Keep the wildcard exports for complete backward compatibility
 export * from './enums';
-export * from './interfaces';
+export * from './interfaces'; 
 export * from './dto';
 export * from './utils';
