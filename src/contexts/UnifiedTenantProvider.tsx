@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Tenant, TenantBranding, TenantFeatures, TenantID, createTenantID } from '@/types/tenant';
+import { Tenant, TenantBranding, TenantFeatures, TenantID, createTenantID, convertDatabaseTenant } from '@/types/tenant';
 import { supabase } from '@/integrations/supabase/client';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
 
@@ -52,12 +52,8 @@ export const UnifiedTenantProvider: React.FC<UnifiedTenantProviderProps> = ({ ch
 
       if (fetchError) throw fetchError;
 
-      const loadedTenant: Tenant = {
-        ...data,
-        id: createTenantID(data.id),
-        branding: data.tenant_branding?.[0] || null,
-        features: data.tenant_features?.[0] || null,
-      };
+      // Use the convertDatabaseTenant utility to properly convert types
+      const loadedTenant: Tenant = convertDatabaseTenant(data);
 
       setTenant(loadedTenant);
       setTenantId(createTenantID(id));

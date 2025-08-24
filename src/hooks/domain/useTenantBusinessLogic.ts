@@ -2,7 +2,7 @@
 import { useCallback } from 'react';
 import { useUnifiedTenant } from '@/contexts/UnifiedTenantProvider';
 import { tenantManagementService } from '@/features/tenant/services/TenantManagementService';
-import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO, Tenant } from '@/types/tenant';
 
 interface TenantBusinessResult<T = void> {
   success: boolean;
@@ -13,7 +13,7 @@ interface TenantBusinessResult<T = void> {
 export const useTenantBusinessLogic = () => {
   const { tenant, refreshTenant } = useUnifiedTenant();
 
-  const createTenant = useCallback(async (data: CreateTenantDTO): Promise<TenantBusinessResult> => {
+  const createTenant = useCallback(async (data: CreateTenantDTO): Promise<TenantBusinessResult<Tenant>> => {
     try {
       const result = await tenantManagementService.createTenant(data);
       
@@ -30,7 +30,7 @@ export const useTenantBusinessLogic = () => {
     }
   }, []);
 
-  const updateTenant = useCallback(async (id: string, data: UpdateTenantDTO): Promise<TenantBusinessResult> => {
+  const updateTenant = useCallback(async (id: string, data: UpdateTenantDTO): Promise<TenantBusinessResult<Tenant>> => {
     try {
       const result = await tenantManagementService.updateTenant(id, data);
       
