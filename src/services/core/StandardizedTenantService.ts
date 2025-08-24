@@ -32,7 +32,10 @@ export class StandardizedTenantService extends BaseService {
     return this.executeOperation(
       async () => {
         const result = await this.repository.getTenants(filters);
-        return result;
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
       },
       'getAllTenants'
     );
@@ -42,7 +45,10 @@ export class StandardizedTenantService extends BaseService {
     return this.executeOperation(
       async () => {
         const result = await this.repository.getTenant(id);
-        return result;
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
       },
       'getTenantById'
     );
@@ -52,7 +58,10 @@ export class StandardizedTenantService extends BaseService {
     return this.executeOperation(
       async () => {
         const result = await this.repository.createTenant(data);
-        return result;
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
       },
       'createTenant'
     );
@@ -62,7 +71,10 @@ export class StandardizedTenantService extends BaseService {
     return this.executeOperation(
       async () => {
         const result = await this.repository.updateTenant(id, data);
-        return result;
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data!;
       },
       'updateTenant'
     );
