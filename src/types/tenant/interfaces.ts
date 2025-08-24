@@ -123,3 +123,16 @@ export interface RpcResponse {
   tenant_id?: string;
   data?: any;
 }
+
+// Type conversion utilities
+export const convertDatabaseTenant = (dbTenant: any): Tenant => {
+  return {
+    ...dbTenant,
+    id: createTenantID(dbTenant.id),
+    type: Object.values(TenantType).find(t => t === dbTenant.type) || TenantType.AGRI_COMPANY,
+    status: Object.values(TenantStatus).find(s => s === dbTenant.status) || TenantStatus.TRIAL,
+    subscription_plan: Object.values(SubscriptionPlan).find(p => p === dbTenant.subscription_plan) || SubscriptionPlan.KISAN_BASIC,
+    branding: dbTenant.tenant_branding?.[0] || null,
+    features: dbTenant.tenant_features?.[0] || null,
+  };
+};

@@ -1,4 +1,6 @@
 
-// DEPRECATED: This file is now a re-export for backward compatibility
+// DEPRECATED: This file now re-exports from centralized types for backward compatibility
 // All types have been moved to /types/tenant/index.ts
-export * from './tenant';
+
+// Re-export everything from the centralized tenant types
+export * from './tenant/index';
