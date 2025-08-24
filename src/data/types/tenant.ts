@@ -5,33 +5,5 @@
 // Re-export everything from the centralized tenant types
 export * from '@/types/tenant';
 
-// Explicit re-exports to ensure no missing imports
-export type {
-  Tenant,
-  TenantID,
-  TenantBranding,
-  TenantFeatures,
-  TenantFilters,
-  TenantFormData,
-  CreateTenantDTO,
-  UpdateTenantDTO,
-  RpcResponse,
-  TenantType,
-  TenantStatus,
-  SubscriptionPlan,
-  TenantStatusValue,
-  TenantTypeValue,
-  SubscriptionPlanValue
-} from '@/types/tenant';
-
-export {
-  tenantTypeOptions,
-  tenantStatusOptions,
-  subscriptionPlanOptions,
-  convertDatabaseTenant,
-  convertEnumToString,
-  createTenantID,
-  TenantType,
-  TenantStatus,
-  SubscriptionPlan
-} from '@/types/tenant';
+// Note: We don't need explicit re-exports here anymore since we're using export * above
+// This eliminates the "Duplicate identifier" errors while maintaining backward compatibility
