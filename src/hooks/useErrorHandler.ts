@@ -1,63 +1,62 @@
 
-import { useCallback } from 'react';
-import { useNotifications } from '@/hooks/useNotifications';
-import { unifiedErrorService } from '@/services/core/UnifiedErrorService';
-import { errorProcessor } from '@/services/core/ErrorProcessor';
+import { useState, useCallback } from 'react';
+import { errorLogger } from '@/services/error/ErrorLogger';
 
-export interface UseErrorHandlerOptions {
-  component?: string;
-  fallbackMessage?: string;
-  logToServer?: boolean;
+interface ErrorState {
+  hasError: boolean;
+  errorId: string;
+  error: Error | null;
+}
+
+interface UseErrorHandlerOptions {
+  context?: {
+    component?: string;
+    level?: 'low' | 'medium' | 'high' | 'critical';
+    metadata?: Record<string, any>;
+  };
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
 
 export const useErrorHandler = (options: UseErrorHandlerOptions = {}) => {
-  const { showError, showWarning } = useNotifications();
-  
-  const handleError = useCallback((
-    error: unknown,
-    action?: string,
-    customOptions?: Partial<UseErrorHandlerOptions>
-  ) => {
-    const mergedOptions = { ...options, ...customOptions };
+  const [errorState, setErrorState] = useState<ErrorState>({
+    hasError: false,
+    errorId: '',
+    error: null
+  });
+
+  const handleError = useCallback((error: Error, errorInfo: React.ErrorInfo) => {
+    const errorId = errorLogger.logError(error, errorInfo, options.context);
     
-    const errorResult = unifiedErrorService.processError(
-      error,
-      errorProcessor.createContext(
-        mergedOptions.component || 'Unknown',
-        action
-      ),
-      {
-        logToConsole: true,
-        logToServer: mergedOptions.logToServer || false,
-        fallbackMessage: mergedOptions.fallbackMessage
-      }
-    );
+    setErrorState({
+      hasError: true,
+      errorId,
+      error
+    });
 
-    // Show appropriate notification
-    if (errorResult.notificationType === 'warning') {
-      showWarning(errorResult.userMessage);
-    } else {
-      showError(errorResult.userMessage);
+    if (options.onError) {
+      options.onError(error, errorInfo);
     }
+  }, [options]);
 
-    return errorResult;
-  }, [showError, showWarning, options]);
+  const resetError = useCallback(() => {
+    setErrorState({
+      hasError: false,
+      errorId: '',
+      error: null
+    });
+  }, []);
 
-  const handleAsyncError = useCallback(async <T>(
-    asyncOperation: () => Promise<T>,
-    action?: string,
-    customOptions?: Partial<UseErrorHandlerOptions>
-  ): Promise<T | null> => {
-    try {
-      return await asyncOperation();
-    } catch (error) {
-      handleError(error, action, customOptions);
-      return null;
+  const copyErrorDetails = useCallback(() => {
+    if (errorState.error) {
+      const errorText = `Error: ${errorState.error.message}\nID: ${errorState.errorId}\nTime: ${new Date().toISOString()}`;
+      navigator.clipboard.writeText(errorText);
     }
-  }, [handleError]);
+  }, [errorState]);
 
   return {
+    errorState,
     handleError,
-    handleAsyncError
+    resetError,
+    copyErrorDetails
   };
 };
