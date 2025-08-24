@@ -1,14 +1,16 @@
 
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { unifiedAuthService } from '@/services/auth/UnifiedAuthService';
+import { authService } from '@/auth/AuthService';
 import { AuthState, TenantData } from '@/types/auth';
-import { unifiedErrorService } from '@/services/core/UnifiedErrorService';
 import { toast } from 'sonner';
 
 export const useCurrentAuth = () => {
   return useQuery({
     queryKey: ['auth', 'current'],
-    queryFn: () => unifiedAuthService.getCurrentAuthState(),
+    queryFn: async () => {
+      const session = await authService.getCurrentSession();
+      return session;
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: false // Don't retry auth queries
   });
@@ -17,7 +19,7 @@ export const useCurrentAuth = () => {
 export const useSignInMutation = () => {
   return useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) => 
-      unifiedAuthService.signIn(email, password),
+      authService.signInAdmin(email, password),
     onSuccess: (result) => {
       if (result.success) {
         toast.success('Successfully signed in!');
@@ -26,25 +28,25 @@ export const useSignInMutation = () => {
       }
     },
     onError: (error) => {
-      const errorResult = unifiedErrorService.handleAuthError(error, 'signIn');
-      if (errorResult.shouldShowNotification) {
-        toast.error(errorResult.userMessage);
-      }
+      const errorMessage = error instanceof Error ? error.message : 'Sign in failed';
+      toast.error(errorMessage);
     }
   });
 };
 
 export const useSignOutMutation = () => {
   return useMutation({
-    mutationFn: () => unifiedAuthService.signOut(),
-    onSuccess: () => {
-      toast.success('Successfully signed out');
+    mutationFn: () => authService.signOut(),
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success('Successfully signed out');
+      } else {
+        toast.error(result.error || 'Sign out failed');
+      }
     },
     onError: (error) => {
-      const errorResult = unifiedErrorService.handleAuthError(error, 'signOut');
-      if (errorResult.shouldShowNotification) {
-        toast.error(errorResult.userMessage);
-      }
+      const errorMessage = error instanceof Error ? error.message : 'Sign out failed';
+      toast.error(errorMessage);
     }
   });
 };
@@ -55,19 +57,13 @@ export const useSignUpMutation = () => {
       email: string; 
       password: string; 
       tenantData?: TenantData;
-    }) => unifiedAuthService.signUp(email, password, tenantData),
-    onSuccess: (result) => {
-      if (result.success) {
-        toast.success('Registration successful!');
-      } else {
-        toast.error(result.error || 'Registration failed');
-      }
+    }) => {
+      // For now, sign up is not implemented in the new auth service
+      throw new Error('Sign up not yet implemented');
     },
     onError: (error) => {
-      const errorResult = unifiedErrorService.handleAuthError(error, 'signUp');
-      if (errorResult.shouldShowNotification) {
-        toast.error(errorResult.userMessage);
-      }
+      const errorMessage = error instanceof Error ? error.message : 'Sign up failed';
+      toast.error(errorMessage);
     }
   });
 };
@@ -75,7 +71,11 @@ export const useSignUpMutation = () => {
 export const useUserRole = (userId?: string) => {
   return useQuery({
     queryKey: ['auth', 'role', userId],
-    queryFn: () => userId ? unifiedAuthService.checkUserRole(userId) : null,
+    queryFn: async () => {
+      if (!userId) return null;
+      // This functionality needs to be implemented in AuthService
+      return null;
+    },
     enabled: !!userId,
     staleTime: 10 * 60 * 1000, // 10 minutes
   });

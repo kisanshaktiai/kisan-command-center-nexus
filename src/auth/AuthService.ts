@@ -9,6 +9,10 @@ export interface AuthServiceResult<T = void> {
   error?: string;
 }
 
+interface BootstrapStatus {
+  completed?: boolean;
+}
+
 /**
  * Unified Authentication Service
  * Single source of truth for all authentication operations
@@ -112,7 +116,9 @@ export class AuthService {
     try {
       // Check if bootstrap is needed
       const { data: bootstrapCheck } = await supabase.rpc('get_bootstrap_status');
-      if (bootstrapCheck?.completed) {
+      const bootstrapStatus = bootstrapCheck as BootstrapStatus;
+      
+      if (bootstrapStatus?.completed) {
         return { success: false, error: 'System is already initialized' };
       }
 
@@ -205,7 +211,8 @@ export class AuthService {
         console.error('Bootstrap check error:', error);
         return true; // Default to showing bootstrap if check fails
       }
-      return !data?.completed;
+      const bootstrapStatus = data as BootstrapStatus;
+      return !bootstrapStatus?.completed;
     } catch (error) {
       console.error('Bootstrap check exception:', error);
       return true;

@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { CreateTenantDTO, UpdateTenantDTO, Tenant } from '@/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO, Tenant, createTenantID, convertDatabaseTenant } from '@/types/tenant';
 
 export interface TenantBusinessResult<T = void> {
   success: boolean;
@@ -44,7 +44,7 @@ export class TenantBusinessService {
         return { success: false, error: error.message };
       }
 
-      return { success: true, data: tenant };
+      return { success: true, data: convertDatabaseTenant(tenant) };
     } catch (error) {
       return {
         success: false,
@@ -76,7 +76,7 @@ export class TenantBusinessService {
         return { success: false, error: error.message };
       }
 
-      return { success: true, data: tenant };
+      return { success: true, data: convertDatabaseTenant(tenant) };
     } catch (error) {
       return {
         success: false,
@@ -193,20 +193,6 @@ export class TenantBusinessService {
     // Email format validation if provided
     if (data.owner_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.owner_email)) {
       errors.push('Invalid email format');
-    }
-
-    // Check slug availability if changing
-    if (data.slug) {
-      const { data: existing } = await supabase
-        .from('tenants')
-        .select('id')
-        .eq('slug', data.slug)
-        .neq('id', id)
-        .single();
-
-      if (existing) {
-        errors.push('Slug is already taken');
-      }
     }
 
     if (errors.length > 0) {
