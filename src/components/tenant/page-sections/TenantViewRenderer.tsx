@@ -62,6 +62,15 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
       return (
         <TenantListView
           tenants={tenants}
+          viewPreferences={viewPreferences}
+          onTenantSelect={onViewDetails}
+          onTenantEdit={onEdit}
+          onTenantSuspend={onDelete}
+          onTenantReactivate={(id: string) => {
+            // Find the tenant and call reactivate
+            const tenant = tenants.find(t => t.id === id);
+            if (tenant) onViewDetails(tenant);
+          }}
           onEdit={onEdit}
           onDelete={onDelete}
           onViewDetails={onViewDetails}

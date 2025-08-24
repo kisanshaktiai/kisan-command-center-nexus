@@ -1,5 +1,6 @@
+
 import { BaseService, ServiceResult } from '@/services/BaseService';
-import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant, convertDatabaseTenant, TenantType, TenantStatus, SubscriptionPlan } from '@/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant, convertDatabaseTenant, TenantType, TenantStatus } from '@/types/tenant';
 import { supabase } from '@/integrations/supabase/client';
 
 /**

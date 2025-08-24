@@ -1,7 +1,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { tenantService } from '@/services/tenantService';
-import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO, createTenantID } from '@/types/tenant';
 import { toast } from 'sonner';
 
 export const useTenantMutations = () => {
