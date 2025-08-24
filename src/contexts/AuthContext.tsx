@@ -2,7 +2,8 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { AuthState } from '@/types/auth';
-import { useSessionTimeout } from '@/hooks/useSessionTimeout';
+import { authService } from '@/auth/AuthService';
+import { supabase } from '@/integrations/supabase/client';
 
 const AuthContext = createContext<AuthState & {
   signOut: () => Promise<void>;
@@ -33,59 +34,105 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const authStore = useAuthStore();
-  
-  // Use session timeout to prevent infinite loading states
-  const { forceReload } = useSessionTimeout(15000); // 15 second timeout
 
   useEffect(() => {
-    let initPromise: Promise<void> | null = null;
-    
-    // Initialize auth state on mount
-    const initAuth = async () => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
       try {
         console.log('AuthProvider: Starting initialization...');
-        const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
+        authStore.setLoading(true);
         
-        // Prevent multiple concurrent initializations
-        if (!initPromise) {
-          initPromise = unifiedAuthService.initialize();
-        }
+        // Initialize the auth service
+        await authService.initialize();
         
-        await initPromise;
-        console.log('AuthProvider: Initialization completed');
-      } catch (error) {
-        console.error('AuthProvider: Error initializing auth:', error);
-        authStore.setError('Authentication system failed to initialize');
+        // Get initial session
+        const session = await authService.getCurrentSession();
         
-        // If initialization fails completely, provide recovery option
-        setTimeout(() => {
-          if (authStore.isLoading && !authStore.user) {
-            console.error('AuthProvider: Initialization stuck, offering reload');
-            authStore.setError('Authentication failed to load. Please refresh the page.');
+        if (mounted) {
+          if (session) {
+            console.log('AuthProvider: Session found, updating store');
+            authStore.setSession(session);
+            // Load admin status will be handled by the auth state listener
+          } else {
+            console.log('AuthProvider: No session found');
+            authStore.reset();
           }
-        }, 10000);
+        }
+      } catch (error) {
+        console.error('AuthProvider: Initialization error:', error);
+        if (mounted) {
+          authStore.setError('Authentication initialization failed');
+        }
       } finally {
-        authStore.setLoading(false);
+        if (mounted) {
+          authStore.setLoading(false);
+        }
       }
     };
 
-    initAuth();
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        
+        console.log('AuthProvider: Auth state change:', event);
+        
+        try {
+          if (session?.user) {
+            // Update session in store
+            authStore.setSession(session);
+            
+            // Check admin status
+            const { data, error } = await supabase
+              .from('admin_users')
+              .select('role, is_active')
+              .eq('id', session.user.id)
+              .single();
 
-    // Cleanup on unmount
+            if (!error && data?.is_active) {
+              authStore.setAuthState({
+                isAdmin: true,
+                isSuperAdmin: data.role === 'super_admin',
+                adminRole: data.role
+              });
+            } else {
+              authStore.setAuthState({
+                isAdmin: false,
+                isSuperAdmin: false,
+                adminRole: null
+              });
+            }
+          } else {
+            console.log('AuthProvider: User signed out');
+            authStore.reset();
+          }
+        } catch (error) {
+          console.error('AuthProvider: Error handling auth state change:', error);
+        }
+      }
+    );
+
+    // Initialize after setting up listener
+    initializeAuth();
+
     return () => {
-      initPromise = null;
+      mounted = false;
+      subscription.unsubscribe();
     };
   }, []);
 
-  // Add debugging for auth state changes
-  useEffect(() => {
-    console.log('AuthProvider: Auth state changed:', {
-      hasUser: !!authStore.user,
-      isAdmin: authStore.isAdmin,
-      isLoading: authStore.isLoading,
-      hasError: !!authStore.error
-    });
-  }, [authStore.user, authStore.isAdmin, authStore.isLoading, authStore.error]);
+  const handleSignOut = async () => {
+    const result = await authService.signOut();
+    if (!result.success) {
+      authStore.setError(result.error || 'Sign out failed');
+    }
+  };
+
+  const handleSignUp = async (email: string, password: string, tenantData: any) => {
+    // This will be implemented later for tenant registration
+    return { error: new Error('User registration not yet implemented') };
+  };
 
   return (
     <AuthContext.Provider value={{
@@ -96,8 +143,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isSuperAdmin: authStore.isSuperAdmin,
       adminRole: authStore.adminRole,
       profile: authStore.profile,
-      signOut: authStore.signOut,
-      signUp: authStore.signUp,
+      signOut: handleSignOut,
+      signUp: handleSignUp,
       isLoading: authStore.isLoading,
       error: authStore.error,
     }}>

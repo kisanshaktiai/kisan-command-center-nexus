@@ -1,148 +1,110 @@
+
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Shield, Eye, EyeOff } from 'lucide-react';
-import { toast } from 'sonner';
-import { useAuthenticationService } from '@/hooks/useAuthenticationService';
-import { AuthErrorBoundary } from '../auth/AuthErrorBoundary';
+import { Loader2, Shield, AlertCircle } from 'lucide-react';
+import { authService } from '@/auth/AuthService';
 
-interface SuperAdminAuthProps {
-  onToggleMode?: () => void;
-}
-
-export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) => {
+export const SuperAdminAuth: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate();
-  
-  const { signInAdmin, isLoading, error, clearError } = useAuthenticationService();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
-      toast.error('Please enter both email and password');
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter both email and password');
       return;
     }
 
-    clearError();
-    
-    await signInAdmin(
-      email,
-      password,
-      () => {
-        toast.success('Successfully logged in as admin');
-        navigate('/super-admin');
-      },
-      (error) => {
-        toast.error(error);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await authService.signInAdmin(email, password);
+      
+      if (!result.success) {
+        setError(result.error || 'Authentication failed');
+        return;
       }
-    );
+
+      // Success - user will be redirected by the auth context
+      console.log('SuperAdminAuth: Login successful');
+    } catch (error) {
+      console.error('SuperAdminAuth: Login error:', error);
+      setError('An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <AuthErrorBoundary>
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-            <Shield className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <CardTitle className="text-2xl font-bold">Super Admin Access</CardTitle>
-            <CardDescription>
-              Secure access to administrative functions
-            </CardDescription>
-          </div>
-        </CardHeader>
-        
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Admin Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
-                disabled={isLoading}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  disabled={isLoading}
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-            
-            <Button
-              type="submit"
-              className="w-full"
+    <Card className="w-full max-w-md">
+      <CardHeader className="text-center">
+        <div className="flex items-center justify-center mb-2">
+          <Shield className="w-8 h-8 text-primary" />
+        </div>
+        <CardTitle>Admin Sign In</CardTitle>
+        <CardDescription>
+          Enter your administrator credentials to continue
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@example.com"
               disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Authenticating...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </Button>
-
-            {onToggleMode && (
-              <div className="text-center">
-                <Button
-                  type="button"
-                  variant="link"
-                  onClick={onToggleMode}
-                  className="text-sm"
-                >
-                  Need to create an admin account? Register here
-                </Button>
-              </div>
+              required
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              disabled={isLoading}
+              required
+            />
+          </div>
+          
+          <Button 
+            type="submit" 
+            className="w-full"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Signing In...
+              </>
+            ) : (
+              'Sign In'
             )}
-          </form>
-        </CardContent>
-      </Card>
-    </AuthErrorBoundary>
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 };
