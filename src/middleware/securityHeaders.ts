@@ -38,25 +38,15 @@ export class SecurityHeadersService {
   }
 
   /**
-   * Apply appropriate headers to fetch requests (excludes response-only headers)
+   * Apply appropriate headers to fetch requests (minimal set to avoid CORS issues)
    */
   public applyToFetchRequest(headers: Headers): Headers {
     const securityHeaders = new Headers(headers);
 
-    // Only apply headers that are appropriate for outgoing requests
-    // Strict-Transport-Security is a response-only header and should not be sent in requests
+    // Only apply minimal security headers that won't cause CORS preflight issues
+    // Most security headers are response-only and should not be sent in requests
     
-    if (this.config.xContentTypeOptions) {
-      securityHeaders.set('X-Content-Type-Options', this.config.xContentTypeOptions);
-    }
-
-    if (this.config.referrerPolicy) {
-      securityHeaders.set('Referrer-Policy', this.config.referrerPolicy);
-    }
-
-    // Note: CSP, X-Frame-Options, Permissions-Policy, and HSTS are typically response headers
-    // and should not be sent in outgoing requests to avoid CORS issues
-
+    // Only add headers that are commonly accepted by APIs and won't trigger CORS preflight
     return securityHeaders;
   }
 
@@ -113,6 +103,15 @@ export const initializeSecurityHeaders = () => {
     const headers = new Headers(init?.headers);
     
     // Only apply request-appropriate headers to avoid CORS preflight issues
+    // For Supabase requests, use minimal headers to prevent CORS conflicts
+    const isSupabaseRequest = typeof input === 'string' && input.includes('supabase.co');
+    
+    if (isSupabaseRequest) {
+      // For Supabase requests, don't add any custom headers that might cause CORS issues
+      return originalFetch(input, init);
+    }
+    
+    // For other requests, apply minimal security headers
     const secureHeaders = securityService.applyToFetchRequest(headers);
     
     return originalFetch(input, {
