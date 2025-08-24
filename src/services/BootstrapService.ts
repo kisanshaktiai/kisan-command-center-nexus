@@ -27,12 +27,19 @@ export class BootstrapService {
     password: string,
     fullName: string
   ): Promise<BootstrapServiceResult> {
-    const result = await authService.bootstrapSuperAdmin(email, password, fullName);
-    return {
-      success: result.success,
-      data: result.data,
-      error: result.error
-    };
+    try {
+      const result = await authService.bootstrapSuperAdmin(email, password, fullName);
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Bootstrap failed'
+      };
+    }
   }
 }
 

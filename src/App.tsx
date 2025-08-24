@@ -7,7 +7,7 @@ import AuthCallback from './pages/auth/AuthCallback';
 import ResetPassword from './pages/auth/ResetPassword';
 import AdminRegister from './pages/AdminRegister';
 import OnboardPartner from './pages/OnboardPartner';
-import { AdminInviteRegistration } from '@/components/auth/AdminInviteRegistration';
+import AdminInviteRoute from './pages/AdminInviteRoute';
 import Register from './pages/Register';
 import NotFound from './pages/NotFound';
 import AdminLeads from './pages/admin/AdminLeads';
@@ -25,7 +25,7 @@ const App = () => (
         <Route path="/admin-register" element={<AdminRegister />} />
         <Route path="/admin/leads" element={<AdminLeads />} />
         <Route path="/onboard/:token" element={<OnboardPartner />} />
-        <Route path="/invite/:token" element={<AdminInviteRegistration />} />
+        <Route path="/invite/:token" element={<AdminInviteRoute />} />
         <Route path="/super-admin/*" element={<SuperAdmin />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
