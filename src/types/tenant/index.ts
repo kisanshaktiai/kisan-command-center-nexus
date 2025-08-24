@@ -1,50 +1,56 @@
 
 // Single source of truth for all tenant types
-export * from './enums';
-export * from './interfaces';
-export * from './dto';
-export * from './utils';
 
-// Explicit exports to ensure they're available (fixing the missing exports)
-export type {
-  TenantType,
-  TenantStatus, 
-  SubscriptionPlan,
-  TenantStatusValue,
-  TenantTypeValue,
-  SubscriptionPlanValue
-} from './enums';
+// Import everything from sub-modules first
+import { TenantType, TenantStatus, SubscriptionPlan, TenantStatusValue, TenantTypeValue, SubscriptionPlanValue, tenantTypeOptions, tenantStatusOptions, subscriptionPlanOptions } from './enums';
+import { Tenant, TenantID, TenantBranding, TenantFeatures, TenantFilters, TenantFormData, RpcResponse, createTenantID } from './interfaces';
+import { CreateTenantDTO, UpdateTenantDTO } from './dto';
+import { convertDatabaseTenant, convertEnumToString } from './utils';
 
+// Re-export everything explicitly to ensure TypeScript can find them
 export type {
+  // Core interfaces
   Tenant,
   TenantID,
   TenantBranding,
   TenantFeatures,
   TenantFilters,
   TenantFormData,
-  RpcResponse
-} from './interfaces';
-
-export type {
+  RpcResponse,
+  
+  // DTOs
   CreateTenantDTO,
-  UpdateTenantDTO
-} from './dto';
+  UpdateTenantDTO,
+  
+  // Enum types and values
+  TenantType,
+  TenantStatus,
+  SubscriptionPlan,
+  TenantStatusValue,
+  TenantTypeValue,
+  SubscriptionPlanValue
+};
 
+// Re-export functions and constants
 export {
+  // Enum constants
+  TenantType,
+  TenantStatus,
+  SubscriptionPlan,
+  
+  // Option arrays
   tenantTypeOptions,
   tenantStatusOptions,
-  subscriptionPlanOptions
-} from './enums';
-
-export {
+  subscriptionPlanOptions,
+  
+  // Utility functions
   convertDatabaseTenant,
   convertEnumToString,
   createTenantID
-} from './utils';
+};
 
 // Backward compatibility - ensure everything is accessible
-export {
-  TenantType,
-  TenantStatus,
-  SubscriptionPlan
-} from './enums';
+export * from './enums';
+export * from './interfaces';
+export * from './dto';
+export * from './utils';

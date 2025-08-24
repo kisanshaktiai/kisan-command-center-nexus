@@ -21,6 +21,3 @@ export const convertEnumToString = {
   status: (status: TenantStatus): TenantStatusValue => status as TenantStatusValue,
   subscriptionPlan: (plan: SubscriptionPlan): SubscriptionPlanValue => plan as SubscriptionPlanValue,
 };
-
-// Re-export createTenantID from interfaces for convenience
-export { createTenantID } from './interfaces';
