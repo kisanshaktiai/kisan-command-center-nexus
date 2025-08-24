@@ -2,6 +2,7 @@
 import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
+import { vi } from 'vitest';
 
 /**
  * Testing utilities for mock-friendly hook testing
@@ -58,19 +59,19 @@ export const createMockTenantList = (count = 3) => {
 
 // Mock service interfaces
 export interface MockTenantRepository {
-  getTenants: jest.Mock;
-  getTenant: jest.Mock;
-  createTenant: jest.Mock;
-  updateTenant: jest.Mock;
-  deleteTenant: jest.Mock;
+  getTenants: ReturnType<typeof vi.fn>;
+  getTenant: ReturnType<typeof vi.fn>;
+  createTenant: ReturnType<typeof vi.fn>;
+  updateTenant: ReturnType<typeof vi.fn>;
+  deleteTenant: ReturnType<typeof vi.fn>;
 }
 
 export const createMockTenantRepository = (): MockTenantRepository => ({
-  getTenants: jest.fn(),
-  getTenant: jest.fn(),
-  createTenant: jest.fn(),
-  updateTenant: jest.fn(),
-  deleteTenant: jest.fn(),
+  getTenants: vi.fn(),
+  getTenant: vi.fn(),
+  createTenant: vi.fn(),
+  updateTenant: vi.fn(),
+  deleteTenant: vi.fn(),
 });
 
 // Test hook wrapper with mocked dependencies
@@ -81,7 +82,7 @@ export const renderHookWithMocks = <T>(
     mockRepository?: MockTenantRepository;
   } = {}
 ) => {
-  const { queryClient, mockRepository } = options;
+  const { queryClient } = options;
   
   return renderHook(hook, {
     wrapper: createQueryWrapper(queryClient),

@@ -30,28 +30,40 @@ export class StandardizedTenantService extends BaseService {
 
   async getAllTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
     return this.executeOperation(
-      () => this.repository.getTenants(filters),
+      async () => {
+        const result = await this.repository.getTenants(filters);
+        return result;
+      },
       'getAllTenants'
     );
   }
 
   async getTenantById(id: string): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      () => this.repository.getTenant(id),
+      async () => {
+        const result = await this.repository.getTenant(id);
+        return result;
+      },
       'getTenantById'
     );
   }
 
   async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      () => this.repository.createTenant(data),
+      async () => {
+        const result = await this.repository.createTenant(data);
+        return result;
+      },
       'createTenant'
     );
   }
 
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
     return this.executeOperation(
-      () => this.repository.updateTenant(id, data),
+      async () => {
+        const result = await this.repository.updateTenant(id, data);
+        return result;
+      },
       'updateTenant'
     );
   }
@@ -61,7 +73,7 @@ export class StandardizedTenantService extends BaseService {
       async () => {
         // Implementation would call repository method for suspension
         // For now, we'll use a placeholder
-        return { success: true, data: true };
+        return true;
       },
       'suspendTenant'
     );
@@ -72,7 +84,7 @@ export class StandardizedTenantService extends BaseService {
       async () => {
         // Implementation would call repository method for reactivation
         // For now, we'll use a placeholder
-        return { success: true, data: true };
+        return true;
       },
       'reactivateTenant'
     );

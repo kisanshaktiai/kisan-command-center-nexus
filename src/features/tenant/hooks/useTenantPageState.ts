@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { Tenant, UpdateTenantDTO } from '@/types/tenant';
 import { useTenantData } from './useTenantData';
 import { useTenantUI } from './useTenantUI';
-import { useTenantActions } from './useTenantActions';
 import { useTenantAnalytics } from './useTenantAnalytics';
+import { useTenantActions } from '@/hooks/tenant/useTenantActions';
 import { TenantDisplayService, FormattedTenantData } from '@/services/TenantDisplayService';
 
 interface UseTenantPageStateOptions {
@@ -62,7 +62,7 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
 
   const handleSaveTenant = async (id: string, data: UpdateTenantDTO): Promise<boolean> => {
     console.log('useTenantPageState: Saving tenant:', id, data);
-    const success = await actions.handleUpdateTenant(id, data);
+    const success = await actions.updateTenant(id, data);
     if (success) {
       uiState.closeEditModal();
       refreshMetrics();
@@ -91,7 +91,7 @@ export const useTenantPageState = (options: UseTenantPageStateOptions = {}) => {
     detailsFormattedData,
 
     // Actions
-    handleCreateTenant: actions.handleCreateTenant,
+    handleCreateTenant: actions.createTenant,
     handleViewDetails,
     handleDetailsEdit,
     handleEditTenant,
