@@ -31,7 +31,6 @@ export class BootstrapService {
       const result = await authService.bootstrapSuperAdmin(email, password, fullName);
       return {
         success: result.success,
-        data: result.data,
         error: result.error
       };
     } catch (error) {

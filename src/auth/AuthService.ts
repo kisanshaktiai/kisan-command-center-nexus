@@ -64,6 +64,26 @@ export class AuthService {
   }
 
   /**
+   * Refresh session
+   */
+  async refreshSession(): Promise<AuthServiceResult<Session>> {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data: data.session };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to refresh session'
+      };
+    }
+  }
+
+  /**
    * Admin sign in with validation
    */
   async signInAdmin(email: string, password: string): Promise<AuthServiceResult<AuthState>> {
