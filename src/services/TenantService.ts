@@ -1,6 +1,6 @@
 
 import { BaseService, ServiceResult } from '@/services/BaseService';
-import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant, convertDatabaseTenant } from '@/types/tenant';
+import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant, convertDatabaseTenant, TenantType, TenantStatus, SubscriptionPlan } from '@/types/tenant';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -123,7 +123,10 @@ export class TenantService extends BaseService {
         });
 
         if (error) throw error;
-        return data?.success || false;
+        
+        // Type assertion for RPC response
+        const result = data as { success: boolean; error?: string };
+        return result?.success || false;
       },
       'suspendTenant'
     );
@@ -137,7 +140,10 @@ export class TenantService extends BaseService {
         });
 
         if (error) throw error;
-        return data?.success || false;
+        
+        // Type assertion for RPC response
+        const result = data as { success: boolean; error?: string };
+        return result?.success || false;
       },
       'reactivateTenant'
     );

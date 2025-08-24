@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
-import { Tenant } from '@/types/tenant';
+import { Tenant, convertDatabaseTenant } from '@/types/tenant';
 
 interface TenantAuthState {
   userTenants: Tenant[];
@@ -65,24 +65,29 @@ export const TenantAuthProvider: React.FC<TenantAuthProviderProps> = ({ children
           .order('created_at', { ascending: false });
 
         if (tenantsError) throw tenantsError;
-        setUserTenants(allTenants || []);
+        
+        // Convert database tenants to properly typed Tenant objects
+        const convertedTenants = (allTenants || []).map(convertDatabaseTenant);
+        setUserTenants(convertedTenants);
       } else {
-        // Regular users - get their assigned tenants
+        // Regular users - get their assigned tenants with proper column hint
         const { data: userTenantRelations, error: relationsError } = await supabase
           .from('user_tenants')
           .select(`
             role,
             is_active,
-            tenants (*)
+            tenants:tenant_id (*)
           `)
           .eq('user_id', user.id)
           .eq('is_active', true);
 
         if (relationsError) throw relationsError;
 
+        // Extract and convert tenant data
         const tenants = userTenantRelations
           ?.map(relation => relation.tenants)
-          .filter(Boolean) || [];
+          .filter(Boolean)
+          .map(convertDatabaseTenant) || [];
         
         setUserTenants(tenants);
       }
