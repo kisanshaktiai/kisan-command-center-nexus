@@ -1,7 +1,6 @@
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Tenant } from '@/types/tenant';
-import { tenantDataTransformationService } from '@/services/TenantDataTransformationService';
 
 interface CreationSuccessState {
   tenantName: string;
@@ -11,61 +10,46 @@ interface CreationSuccessState {
   warnings?: string[];
 }
 
-/**
- * Focused hook for tenant modal management
- * Handles: Modal states, selected tenant, success states
- */
 export const useTenantModals = () => {
-  // Modal states
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [creationSuccess, setCreationSuccess] = useState<CreationSuccessState | null>(null);
 
-  // Computed values
-  const detailsFormattedData = selectedTenant 
-    ? tenantDataTransformationService.formatTenantForDisplay(selectedTenant)
-    : null;
-
-  // Modal actions
-  const openDetailsModal = useCallback((tenant: Tenant) => {
+  const openDetailsModal = (tenant: Tenant) => {
     setSelectedTenant(tenant);
     setIsDetailsModalOpen(true);
-  }, []);
+  };
 
-  const closeDetailsModal = useCallback(() => {
+  const closeDetailsModal = () => {
     setIsDetailsModalOpen(false);
     setSelectedTenant(null);
-  }, []);
+  };
 
-  const openEditModal = useCallback((tenant: Tenant) => {
+  const openEditModal = (tenant: Tenant) => {
     setSelectedTenant(tenant);
     setIsEditModalOpen(true);
-  }, []);
+  };
 
-  const closeEditModal = useCallback(() => {
+  const closeEditModal = () => {
     setIsEditModalOpen(false);
     setSelectedTenant(null);
-  }, []);
+  };
 
-  const handleDetailsEdit = useCallback((tenant: Tenant) => {
+  const handleDetailsEdit = (tenant: Tenant) => {
     closeDetailsModal();
     openEditModal(tenant);
-  }, [closeDetailsModal, openEditModal]);
+  };
 
-  const clearCreationSuccess = useCallback(() => {
+  const clearCreationSuccess = () => {
     setCreationSuccess(null);
-  }, []);
+  };
 
   return {
-    // State
     selectedTenant,
     isDetailsModalOpen,
     isEditModalOpen,
     creationSuccess,
-    detailsFormattedData,
-
-    // Actions
     openDetailsModal,
     closeDetailsModal,
     openEditModal,

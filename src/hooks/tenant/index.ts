@@ -1,11 +1,7 @@
 
-// Standardized tenant hooks - consistent naming and testable architecture
-export { useTenantDataLayer } from './useTenantDataLayer';
-export { useTenantActions } from './useTenantActions';
+export { useTenantData } from './useTenantData';
+export { useTenantMutations } from './useTenantMutations';
+export { useTenantFilters } from './useTenantFilters';
 export { useTenantModals } from './useTenantModals';
-
-// Legacy hook for backward compatibility
-export { useSimplifiedTenantManagement } from './useSimplifiedTenantManagement';
-
-// New standardized hook with consistent naming
-export { useStandardizedTenantManagement } from './useStandardizedTenantManagement';
+export { useTenantMetrics } from './useTenantMetrics';
+export { useTenantManagement } from './useTenantManagement';
