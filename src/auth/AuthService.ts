@@ -106,7 +106,7 @@ export class AuthService {
 
       console.log('AuthService: Sign in successful, checking admin status');
 
-      // Check admin status with error handling using the correct database function
+      // Check admin status using the correct admin_users table
       const adminStatus = await this.checkAdminStatus(data.user.id);
       
       if (!adminStatus.isAdmin) {
