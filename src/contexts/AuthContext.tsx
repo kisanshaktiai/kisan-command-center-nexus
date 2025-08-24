@@ -1,120 +1,160 @@
 
-import React, { createContext, useContext, useEffect } from 'react';
-import { useAuthStore } from '@/lib/stores/authStore';
-import { AuthState } from '@/types/auth';
-import { authService } from '@/auth/AuthService';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { authService } from '@/auth/AuthService';
+import { AuthState } from '@/types/auth';
 
-const AuthContext = createContext<AuthState & {
+interface AuthContextType extends AuthState {
   signOut: () => Promise<void>;
-  signUp: (email: string, password: string, tenantData: any) => Promise<{ data?: any; error?: any }>;
+  refreshAuth: () => Promise<void>;
   isLoading: boolean;
   error: string | null;
-}>({
-  user: null,
-  session: null,
-  isAuthenticated: false,
-  isAdmin: false,
-  isSuperAdmin: false,
-  adminRole: null,
-  profile: null,
-  signOut: async () => {},
-  signUp: async () => ({ error: new Error('Not implemented') }),
-  isLoading: false,
-  error: null,
-});
+}
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+const AuthContext = createContext<AuthContextType | null>(null);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const authStore = useAuthStore();
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    session: null,
+    isAuthenticated: false,
+    isAdmin: false,
+    isSuperAdmin: false,
+    adminRole: null,
+    profile: null,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshAuth = async () => {
+    try {
+      setError(null);
+      const session = await authService.getCurrentSession();
+      
+      if (session?.user) {
+        // Check admin status
+        const adminStatus = await checkAdminStatus(session.user.id);
+        
+        setAuthState({
+          user: session.user,
+          session: session,
+          isAuthenticated: true,
+          isAdmin: adminStatus.isAdmin,
+          isSuperAdmin: adminStatus.isSuperAdmin,
+          adminRole: adminStatus.adminRole,
+          profile: null, // Will be loaded separately if needed
+        });
+      } else {
+        setAuthState({
+          user: null,
+          session: null,
+          isAuthenticated: false,
+          isAdmin: false,
+          isSuperAdmin: false,
+          adminRole: null,
+          profile: null,
+        });
+      }
+    } catch (error) {
+      console.error('AuthContext: Failed to refresh auth:', error);
+      setError(error instanceof Error ? error.message : 'Authentication error');
+      
+      // Reset to unauthenticated state on error
+      setAuthState({
+        user: null,
+        session: null,
+        isAuthenticated: false,
+        isAdmin: false,
+        isSuperAdmin: false,
+        adminRole: null,
+        profile: null,
+      });
+    }
+  };
+
+  const checkAdminStatus = async (userId: string): Promise<{
+    isAdmin: boolean;
+    isSuperAdmin: boolean;
+    adminRole: string | null;
+  }> => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('role, is_active')
+        .eq('id', userId)
+        .single();
+
+      if (error || !data || !data.is_active) {
+        return { isAdmin: false, isSuperAdmin: false, adminRole: null };
+      }
+
+      return {
+        isAdmin: true,
+        isSuperAdmin: data.role === 'super_admin',
+        adminRole: data.role
+      };
+    } catch (error) {
+      console.error('Failed to check admin status:', error);
+      return { isAdmin: false, isSuperAdmin: false, adminRole: null };
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      setError(null);
+      await authService.signOut();
+      setAuthState({
+        user: null,
+        session: null,
+        isAuthenticated: false,
+        isAdmin: false,
+        isSuperAdmin: false,
+        adminRole: null,
+        profile: null,
+      });
+    } catch (error) {
+      console.error('AuthContext: Sign out error:', error);
+      setError(error instanceof Error ? error.message : 'Sign out failed');
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
 
     const initializeAuth = async () => {
-      try {
-        console.log('AuthProvider: Starting initialization...');
-        authStore.setLoading(true);
-        
-        // Initialize the auth service
-        await authService.initialize();
-        
-        // Get initial session
-        const session = await authService.getCurrentSession();
-        
-        if (mounted) {
-          if (session) {
-            console.log('AuthProvider: Session found, updating store');
-            authStore.setSession(session);
-            // Load admin status will be handled by the auth state listener
-          } else {
-            console.log('AuthProvider: No session found');
-            authStore.reset();
-          }
-        }
-      } catch (error) {
-        console.error('AuthProvider: Initialization error:', error);
-        if (mounted) {
-          authStore.setError('Authentication initialization failed');
-        }
-      } finally {
-        if (mounted) {
-          authStore.setLoading(false);
-        }
+      await refreshAuth();
+      if (mounted) {
+        setIsLoading(false);
       }
     };
 
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-        
-        console.log('AuthProvider: Auth state change:', event);
-        
-        try {
-          if (session?.user) {
-            // Update session in store
-            authStore.setSession(session);
-            
-            // Check admin status
-            const { data, error } = await supabase
-              .from('admin_users')
-              .select('role, is_active')
-              .eq('id', session.user.id)
-              .single();
+    initializeAuth();
 
-            if (!error && data?.is_active) {
-              authStore.setAuthState({
-                isAdmin: true,
-                isSuperAdmin: data.role === 'super_admin',
-                adminRole: data.role
-              });
-            } else {
-              authStore.setAuthState({
-                isAdmin: false,
-                isSuperAdmin: false,
-                adminRole: null
-              });
-            }
-          } else {
-            console.log('AuthProvider: User signed out');
-            authStore.reset();
-          }
-        } catch (error) {
-          console.error('AuthProvider: Error handling auth state change:', error);
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('AuthContext: Auth state changed:', event);
+      
+      if (mounted) {
+        if (event === 'SIGNED_OUT' || !session) {
+          setAuthState({
+            user: null,
+            session: null,
+            isAuthenticated: false,
+            isAdmin: false,
+            isSuperAdmin: false,
+            adminRole: null,
+            profile: null,
+          });
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          await refreshAuth();
         }
       }
-    );
-
-    // Initialize after setting up listener
-    initializeAuth();
+    });
 
     return () => {
       mounted = false;
@@ -122,33 +162,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const handleSignOut = async () => {
-    const result = await authService.signOut();
-    if (!result.success) {
-      authStore.setError(result.error || 'Sign out failed');
-    }
-  };
-
-  const handleSignUp = async (email: string, password: string, tenantData: any) => {
-    // This will be implemented later for tenant registration
-    return { error: new Error('User registration not yet implemented') };
+  const contextValue: AuthContextType = {
+    ...authState,
+    signOut,
+    refreshAuth,
+    isLoading,
+    error,
   };
 
   return (
-    <AuthContext.Provider value={{
-      user: authStore.user,
-      session: authStore.session,
-      isAuthenticated: authStore.isAuthenticated,
-      isAdmin: authStore.isAdmin,
-      isSuperAdmin: authStore.isSuperAdmin,
-      adminRole: authStore.adminRole,
-      profile: authStore.profile,
-      signOut: handleSignOut,
-      signUp: handleSignUp,
-      isLoading: authStore.isLoading,
-      error: authStore.error,
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

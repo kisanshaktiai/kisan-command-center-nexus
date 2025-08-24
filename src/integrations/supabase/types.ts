@@ -1004,6 +1004,71 @@ export type Database = {
           },
         ]
       }
+      custom_reports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          filters: Json | null
+          id: string
+          is_public: boolean | null
+          is_scheduled: boolean | null
+          last_run_at: string | null
+          next_run_at: string | null
+          query_config: Json
+          report_name: string
+          report_type: string
+          schedule_config: Json | null
+          tenant_id: string
+          updated_at: string
+          visualization_config: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json | null
+          id?: string
+          is_public?: boolean | null
+          is_scheduled?: boolean | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          query_config?: Json
+          report_name: string
+          report_type: string
+          schedule_config?: Json | null
+          tenant_id: string
+          updated_at?: string
+          visualization_config?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json | null
+          id?: string
+          is_public?: boolean | null
+          is_scheduled?: boolean | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          query_config?: Json
+          report_name?: string
+          report_type?: string
+          schedule_config?: Json | null
+          tenant_id?: string
+          updated_at?: string
+          visualization_config?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_custom_reports_tenant"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dashboard_configs: {
         Row: {
           created_at: string | null
@@ -1075,6 +1140,65 @@ export type Database = {
           update_type?: string
         }
         Relationships: []
+      }
+      data_export_logs: {
+        Row: {
+          created_at: string
+          data_source: string
+          download_count: number | null
+          expires_at: string | null
+          export_format: string
+          export_type: string
+          exported_by: string
+          file_size_bytes: number | null
+          file_url: string | null
+          filters_applied: Json | null
+          id: string
+          row_count: number | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_source: string
+          download_count?: number | null
+          expires_at?: string | null
+          export_format: string
+          export_type: string
+          exported_by: string
+          file_size_bytes?: number | null
+          file_url?: string | null
+          filters_applied?: Json | null
+          id?: string
+          row_count?: number | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_source?: string
+          download_count?: number | null
+          expires_at?: string | null
+          export_format?: string
+          export_type?: string
+          exported_by?: string
+          file_size_bytes?: number | null
+          file_url?: string | null
+          filters_applied?: Json | null
+          id?: string
+          row_count?: number | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_data_export_logs_tenant"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       data_migration_jobs: {
         Row: {
@@ -1851,6 +1975,127 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "email_verifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      executive_dashboard_metrics: {
+        Row: {
+          created_at: string
+          dimensions: Json | null
+          id: string
+          metadata: Json | null
+          metric_name: string
+          metric_type: string
+          metric_value: number
+          recorded_date: string
+          tenant_id: string
+          time_period: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dimensions?: Json | null
+          id?: string
+          metadata?: Json | null
+          metric_name: string
+          metric_type: string
+          metric_value: number
+          recorded_date: string
+          tenant_id: string
+          time_period: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dimensions?: Json | null
+          id?: string
+          metadata?: Json | null
+          metric_name?: string
+          metric_type?: string
+          metric_value?: number
+          recorded_date?: string
+          tenant_id?: string
+          time_period?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_executive_metrics_tenant"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      farmer_analytics: {
+        Row: {
+          adoption_score: number | null
+          app_usage_days: number | null
+          calculated_at: string
+          churn_risk_score: number | null
+          created_at: string
+          engagement_score: number | null
+          farmer_id: string
+          features_used: Json | null
+          id: string
+          last_activity_date: string | null
+          lifetime_value: number | null
+          performance_metrics: Json | null
+          predicted_metrics: Json | null
+          segment: string | null
+          tenant_id: string
+          total_spent: number | null
+          total_transactions: number | null
+          updated_at: string
+        }
+        Insert: {
+          adoption_score?: number | null
+          app_usage_days?: number | null
+          calculated_at?: string
+          churn_risk_score?: number | null
+          created_at?: string
+          engagement_score?: number | null
+          farmer_id: string
+          features_used?: Json | null
+          id?: string
+          last_activity_date?: string | null
+          lifetime_value?: number | null
+          performance_metrics?: Json | null
+          predicted_metrics?: Json | null
+          segment?: string | null
+          tenant_id: string
+          total_spent?: number | null
+          total_transactions?: number | null
+          updated_at?: string
+        }
+        Update: {
+          adoption_score?: number | null
+          app_usage_days?: number | null
+          calculated_at?: string
+          churn_risk_score?: number | null
+          created_at?: string
+          engagement_score?: number | null
+          farmer_id?: string
+          features_used?: Json | null
+          id?: string
+          last_activity_date?: string | null
+          lifetime_value?: number | null
+          performance_metrics?: Json | null
+          predicted_metrics?: Json | null
+          segment?: string | null
+          tenant_id?: string
+          total_spent?: number | null
+          total_transactions?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_farmer_analytics_tenant"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4204,6 +4449,68 @@ export type Database = {
           },
         ]
       }
+      predictive_analytics: {
+        Row: {
+          actual_value: number | null
+          confidence_score: number | null
+          created_at: string
+          id: string
+          input_features: Json | null
+          model_type: string
+          model_version: string | null
+          predicted_value: number | null
+          prediction_date: string
+          prediction_horizon: number
+          prediction_metadata: Json | null
+          target_entity_id: string | null
+          target_entity_type: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          actual_value?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          input_features?: Json | null
+          model_type: string
+          model_version?: string | null
+          predicted_value?: number | null
+          prediction_date: string
+          prediction_horizon: number
+          prediction_metadata?: Json | null
+          target_entity_id?: string | null
+          target_entity_type: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          actual_value?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          input_features?: Json | null
+          model_type?: string
+          model_version?: string | null
+          predicted_value?: number | null
+          prediction_date?: string
+          prediction_horizon?: number
+          prediction_metadata?: Json | null
+          target_entity_id?: string | null
+          target_entity_type?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_predictive_analytics_tenant"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prescription_maps: {
         Row: {
           application_method: string | null
@@ -4361,6 +4668,80 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_analytics: {
+        Row: {
+          average_order_value: number | null
+          competitive_metrics: Json | null
+          conversion_rate: number | null
+          created_at: string
+          geographic_performance: Json | null
+          id: string
+          inquiries_count: number | null
+          inventory_turnover: number | null
+          orders_count: number | null
+          period_end: string
+          period_start: string
+          product_id: string
+          profit_margin: number | null
+          revenue: number | null
+          seasonal_trends: Json | null
+          tenant_id: string
+          time_period: string
+          updated_at: string
+          views_count: number | null
+        }
+        Insert: {
+          average_order_value?: number | null
+          competitive_metrics?: Json | null
+          conversion_rate?: number | null
+          created_at?: string
+          geographic_performance?: Json | null
+          id?: string
+          inquiries_count?: number | null
+          inventory_turnover?: number | null
+          orders_count?: number | null
+          period_end: string
+          period_start: string
+          product_id: string
+          profit_margin?: number | null
+          revenue?: number | null
+          seasonal_trends?: Json | null
+          tenant_id: string
+          time_period: string
+          updated_at?: string
+          views_count?: number | null
+        }
+        Update: {
+          average_order_value?: number | null
+          competitive_metrics?: Json | null
+          conversion_rate?: number | null
+          created_at?: string
+          geographic_performance?: Json | null
+          id?: string
+          inquiries_count?: number | null
+          inventory_turnover?: number | null
+          orders_count?: number | null
+          period_end?: string
+          period_start?: string
+          product_id?: string
+          profit_margin?: number | null
+          revenue?: number | null
+          seasonal_trends?: Json | null
+          tenant_id?: string
+          time_period?: string
+          updated_at?: string
+          views_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_product_analytics_tenant"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4536,6 +4917,69 @@ export type Database = {
           window_start?: string
         }
         Relationships: []
+      }
+      report_executions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          executed_by: string | null
+          execution_status: string
+          execution_time_ms: number | null
+          file_url: string | null
+          id: string
+          report_id: string
+          result_data: Json | null
+          row_count: number | null
+          started_at: string
+          tenant_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          executed_by?: string | null
+          execution_status?: string
+          execution_time_ms?: number | null
+          file_url?: string | null
+          id?: string
+          report_id: string
+          result_data?: Json | null
+          row_count?: number | null
+          started_at?: string
+          tenant_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          executed_by?: string | null
+          execution_status?: string
+          execution_time_ms?: number | null
+          file_url?: string | null
+          id?: string
+          report_id?: string
+          result_data?: Json | null
+          row_count?: number | null
+          started_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_report_executions_report"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "custom_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_report_executions_tenant"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       resource_usage: {
         Row: {
@@ -5308,6 +5752,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          is_system_role: boolean | null
+          permissions: Json | null
+          role_code: string
+          role_description: string | null
+          role_level: number
+          role_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system_role?: boolean | null
+          permissions?: Json | null
+          role_code: string
+          role_description?: string | null
+          role_level?: number
+          role_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system_role?: boolean | null
+          permissions?: Json | null
+          role_code?: string
+          role_description?: string | null
+          role_level?: number
+          role_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       team_invitations: {
         Row: {
@@ -6373,11 +6856,12 @@ export type Database = {
           is_active: boolean | null
           is_primary: boolean | null
           joined_at: string | null
+          metadata: Json | null
           permissions: Json | null
           role: Database["public"]["Enums"]["user_role"]
-          tenant_id: string | null
+          tenant_id: string
           updated_at: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string | null
@@ -6390,11 +6874,12 @@ export type Database = {
           is_active?: boolean | null
           is_primary?: boolean | null
           joined_at?: string | null
+          metadata?: Json | null
           permissions?: Json | null
           role: Database["public"]["Enums"]["user_role"]
-          tenant_id?: string | null
+          tenant_id: string
           updated_at?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           created_at?: string | null
@@ -6407,13 +6892,21 @@ export type Database = {
           is_active?: boolean | null
           is_primary?: boolean | null
           joined_at?: string | null
+          metadata?: Json | null
           permissions?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
-          tenant_id?: string | null
+          tenant_id?: string
           updated_at?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_user_tenants_tenant_id"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_tenants_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -7382,13 +7875,11 @@ export type Database = {
         Returns: string
       }
       advance_onboarding_step: {
-        Args:
-          | {
-              p_new_status: Database["public"]["Enums"]["onboarding_step_status"]
-              p_step_data?: Json
-              p_step_id: string
-            }
-          | { p_new_status: string; p_step_data?: Json; p_step_id: string }
+        Args: {
+          p_new_status: Database["public"]["Enums"]["onboarding_step_status"]
+          p_step_data?: Json
+          p_step_id: string
+        }
         Returns: Json
       }
       archive_tenant_data: {
@@ -7619,6 +8110,10 @@ export type Database = {
       ensure_onboarding_workflow: {
         Args: { p_tenant_id: string }
         Returns: string
+      }
+      ensure_user_tenant_access: {
+        Args: { p_tenant_id: string; p_user_id?: string }
+        Returns: boolean
       }
       equals: {
         Args: { geom1: unknown; geom2: unknown }
@@ -8107,6 +8602,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_current_user_email: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_jwt_farmer_id: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -8222,6 +8721,10 @@ export type Database = {
       }
       is_tenant_admin: {
         Args: { _tenant_id: string }
+        Returns: boolean
+      }
+      is_user_tenant_admin: {
+        Args: { target_tenant_id: string }
         Returns: boolean
       }
       json: {
@@ -8521,6 +9024,10 @@ export type Database = {
       }
       record_failed_login: {
         Args: { p_email: string; p_ip_address?: unknown }
+        Returns: Json
+      }
+      remove_onboarding_workflow: {
+        Args: { p_workflow_id: string }
         Returns: Json
       }
       send_admin_notification: {
@@ -9717,6 +10224,17 @@ export type Database = {
       validate_registration_token_secure: {
         Args: { p_token: string }
         Returns: Json
+      }
+      validate_tenant_ownership: {
+        Args: { p_email: string }
+        Returns: {
+          is_owner: boolean
+          onboarding_complete: boolean
+          owner_email: string
+          tenant_id: string
+          tenant_name: string
+          tenant_slug: string
+        }[]
       }
       verify_admin_user_setup: {
         Args: Record<PropertyKey, never>
