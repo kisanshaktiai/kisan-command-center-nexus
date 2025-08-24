@@ -108,16 +108,43 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Transform the data to match our Tenant interface with TenantID
           const transformedTenants = userTenants?.map(ut => {
             const tenant = ut.tenants;
-            if (!tenant || typeof tenant !== 'object') return null;
+            
+            // Type guard to ensure tenant exists and has required properties
+            if (!tenant || typeof tenant !== 'object' || !tenant.id || !tenant.name) {
+              console.warn('Invalid tenant data:', tenant);
+              return null;
+            }
+            
+            // Now TypeScript knows tenant is not null and has the required properties
+            const safeTenant = tenant as any; // Cast to bypass complex type checking
             
             return {
-              ...tenant,
-              id: createTenantID(tenant.id),
-              type: tenant.type as TenantType,
-              status: tenant.status as TenantStatus,
-              subscription_plan: tenant.subscription_plan as SubscriptionPlan,
-              metadata: (tenant.metadata as Record<string, any>) || {}
-            };
+              id: createTenantID(safeTenant.id),
+              name: safeTenant.name,
+              slug: safeTenant.slug || '',
+              type: (safeTenant.type as TenantType) || TenantType.AGRI_COMPANY,
+              status: (safeTenant.status as TenantStatus) || TenantStatus.TRIAL,
+              subscription_plan: (safeTenant.subscription_plan as SubscriptionPlan) || SubscriptionPlan.KISAN_BASIC,
+              owner_name: safeTenant.owner_name,
+              owner_email: safeTenant.owner_email,
+              owner_phone: safeTenant.owner_phone,
+              business_registration: safeTenant.business_registration,
+              business_address: safeTenant.business_address,
+              established_date: safeTenant.established_date,
+              subscription_start_date: safeTenant.subscription_start_date,
+              subscription_end_date: safeTenant.subscription_end_date,
+              trial_ends_at: safeTenant.trial_ends_at,
+              max_farmers: safeTenant.max_farmers,
+              max_dealers: safeTenant.max_dealers,
+              max_products: safeTenant.max_products,
+              max_storage_gb: safeTenant.max_storage_gb,
+              max_api_calls_per_day: safeTenant.max_api_calls_per_day,
+              subdomain: safeTenant.subdomain,
+              custom_domain: safeTenant.custom_domain,
+              metadata: (safeTenant.metadata as Record<string, any>) || {},
+              created_at: safeTenant.created_at || new Date().toISOString(),
+              updated_at: safeTenant.updated_at || new Date().toISOString()
+            } as Tenant;
           }).filter((tenant): tenant is Tenant => tenant !== null) || [];
 
           return transformedTenants;
