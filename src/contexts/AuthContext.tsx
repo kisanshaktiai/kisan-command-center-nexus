@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (session?.user) {
         console.log('AuthContext: Session found, checking admin status');
         
-        // Check admin status
+        // Check admin status using the admin_users table
         const adminStatus = await checkAdminStatus(session.user.id);
         
         setAuthState({
@@ -91,6 +91,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     adminRole: string | null;
   }> => {
     try {
+      // Query the admin_users table which has the is_active field
       const { data, error } = await supabase
         .from('admin_users')
         .select('role, is_active')

@@ -106,7 +106,7 @@ export class AuthService {
 
       console.log('AuthService: Sign in successful, checking admin status');
 
-      // Check admin status with error handling
+      // Check admin status with error handling using the correct database function
       const adminStatus = await this.checkAdminStatus(data.user.id);
       
       if (!adminStatus.isAdmin) {
@@ -145,7 +145,7 @@ export class AuthService {
     try {
       console.log('AuthService: Starting bootstrap for:', email);
       
-      // Check if bootstrap is needed using the new safe function
+      // Check if bootstrap is needed using the safe database function
       const { data: bootstrapStatus } = await supabase.rpc('get_bootstrap_status');
       
       // Safely check the completed property with type guards
@@ -182,7 +182,7 @@ export class AuthService {
 
       console.log('AuthService: Auth user created, creating admin record');
 
-      // Create admin user record with better error handling
+      // Create admin user record in admin_users table (which has is_active field)
       const { error: adminError } = await supabase
         .from('admin_users')
         .insert({
@@ -190,7 +190,7 @@ export class AuthService {
           email,
           full_name: fullName,
           role: 'super_admin',
-          is_active: true
+          is_active: true // This field exists in admin_users table
         });
 
       if (adminError) {
@@ -200,7 +200,7 @@ export class AuthService {
 
       console.log('AuthService: Admin record created, completing bootstrap');
 
-      // Complete bootstrap
+      // Complete bootstrap using the database function
       const { error: bootstrapError } = await supabase.rpc('complete_bootstrap');
       if (bootstrapError) {
         console.warn('AuthService: Bootstrap completion warning:', bootstrapError);
@@ -246,7 +246,7 @@ export class AuthService {
   }
 
   /**
-   * Check if bootstrap is needed using the new safe function
+   * Check if bootstrap is needed using the safe database function
    */
   async isBootstrapNeeded(): Promise<boolean> {
     try {
@@ -270,7 +270,7 @@ export class AuthService {
   }
 
   /**
-   * Check admin status for a user with improved error handling
+   * Check admin status for a user using the admin_users table (which has is_active field)
    */
   private async checkAdminStatus(userId: string): Promise<{
     isAdmin: boolean;
@@ -278,6 +278,7 @@ export class AuthService {
     adminRole: string | null;
   }> {
     try {
+      // Query admin_users table which has the is_active field
       const { data, error } = await supabase
         .from('admin_users')
         .select('role, is_active')
