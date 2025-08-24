@@ -1,13 +1,13 @@
 
-import { supabase } from '@/integrations/supabase/client';
-import { BaseService } from '@/services/BaseService';
-import { CreateTenantDTO, UpdateTenantDTO, convertEnumToString } from '@/types/tenant';
+import { BaseTenantRepository } from './BaseTenantRepository';
+import { ServiceResult } from '@/services/BaseService';
+import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
 
-export class TenantRepository extends BaseService {
+export class TenantRepository extends BaseTenantRepository {
   private static instance: TenantRepository;
 
   private constructor() {
-    super();
+    super('tenants');
   }
 
   public static getInstance(): TenantRepository {
@@ -17,10 +17,9 @@ export class TenantRepository extends BaseService {
     return TenantRepository.instance;
   }
 
-  async getTenants(filters?: any) {
-    const { data, error } = await supabase
-      .from('tenants')
-      .select(`
+  async getTenants(filters?: any): Promise<ServiceResult<any[]>> {
+    return this.executeQuery(() => 
+      this.buildSelectQuery(`
         *,
         tenant_subscriptions (
           id,
@@ -30,76 +29,39 @@ export class TenantRepository extends BaseService {
           current_period_end
         ),
         tenant_features (*)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
+      `).order('created_at', { ascending: false })
+    );
   }
 
-  async getTenant(id: string) {
-    const { data, error } = await supabase
-      .from('tenants')
-      .select(`
+  async getTenant(id: string): Promise<ServiceResult<any>> {
+    return this.executeQuery(() => 
+      this.buildSelectQuery(`
         *,
         tenant_subscriptions (*),
         tenant_features (*),
         tenant_branding (*)
-      `)
-      .eq('id', id)
-      .single();
-
-    if (error) throw error;
-    return data;
+      `).eq('id', id).single()
+    );
   }
 
-  async createTenant(tenantData: CreateTenantDTO) {
-    // Ensure status, type, and subscription_plan are the correct string literals
-    const dbData = {
-      ...tenantData,
-      status: tenantData.status, // Already correct type
-      type: tenantData.type, // Already correct type
-      subscription_plan: tenantData.subscription_plan // Already correct type
-    };
-
-    const { data, error } = await supabase
-      .from('tenants')
-      .insert(dbData)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+  async createTenant(tenantData: CreateTenantDTO): Promise<ServiceResult<any>> {
+    return this.executeQuery(() => 
+      this.buildInsertQuery(tenantData).single()
+    );
   }
 
-  async updateTenant(id: string, tenantData: UpdateTenantDTO) {
-    // Ensure status, type, and subscription_plan are the correct string literals if provided
-    const dbData = {
-      ...tenantData,
-      ...(tenantData.status && { status: tenantData.status }),
-      ...(tenantData.type && { type: tenantData.type }),
-      ...(tenantData.subscription_plan && { subscription_plan: tenantData.subscription_plan })
-    };
-
-    const { data, error } = await supabase
-      .from('tenants')
-      .update(dbData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+  async updateTenant(id: string, tenantData: UpdateTenantDTO): Promise<ServiceResult<any>> {
+    return this.executeQuery(() => 
+      this.buildUpdateQuery(id, tenantData).single()
+    );
   }
 
-  async deleteTenant(id: string) {
-    const { error } = await supabase
-      .from('tenants')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-    return true;
+  async deleteTenant(id: string): Promise<ServiceResult<boolean>> {
+    return this.executeOperation(async () => {
+      const { error } = await this.buildDeleteQuery(id);
+      if (error) throw error;
+      return true;
+    }, 'deleteTenant');
   }
 }
 

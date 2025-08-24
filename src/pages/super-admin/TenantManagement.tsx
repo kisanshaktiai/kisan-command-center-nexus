@@ -29,15 +29,11 @@ const TenantManagement: React.FC = () => {
     creationSuccess,
     clearCreationSuccess,
 
-    // Details modal
+    // UI state
     detailsTenant,
     isDetailsModalOpen,
-
-    // Edit modal
     editingTenant,
     isEditModalOpen,
-
-    // View preferences
     viewPreferences,
     setViewPreferences,
     searchTerm,

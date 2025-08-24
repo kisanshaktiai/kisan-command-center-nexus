@@ -2,7 +2,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { enhancedApiFactory } from '@/services/api/EnhancedApiFactory';
 import { Tenant, TenantFilters, convertDatabaseTenant } from '@/types/tenant';
-import { TenantType, TenantStatus, SubscriptionPlan } from '@/types/enums';
 
 interface UseTenantDataOptions {
   filters?: {
@@ -12,19 +11,6 @@ interface UseTenantDataOptions {
   };
   enabled?: boolean;
 }
-
-// Helper functions to validate and convert filter strings to enums
-const validateTenantType = (type: string): TenantType | undefined => {
-  return Object.values(TenantType).includes(type as TenantType) 
-    ? (type as TenantType) 
-    : undefined;
-};
-
-const validateTenantStatus = (status: string): TenantStatus | undefined => {
-  return Object.values(TenantStatus).includes(status as TenantStatus) 
-    ? (status as TenantStatus) 
-    : undefined;
-};
 
 export const useTenantData = (options: UseTenantDataOptions = {}) => {
   const { filters = {}, enabled = true } = options;
