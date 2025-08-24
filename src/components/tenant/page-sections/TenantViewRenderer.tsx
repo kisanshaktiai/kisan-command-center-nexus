@@ -25,7 +25,8 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
   onViewDetails,
   tenantMetrics
 }) => {
-  if (tenants.length === 0) {
+  // Safety check for data consistency
+  if (!tenants || tenants.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground text-lg">No tenants found</p>
@@ -36,12 +37,52 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
     );
   }
 
+  // Ensure formattedTenants array matches tenants array length
+  const safeFormattedTenants = formattedTenants || [];
+  
+  const renderTenantCard = (tenant: Tenant, index: number) => {
+    // Safety check for tenant object
+    if (!tenant || !tenant.id || !tenant.name) {
+      console.warn('Invalid tenant object at index:', index, tenant);
+      return null;
+    }
+
+    const formattedData = safeFormattedTenants[index] || {
+      displayName: tenant.name,
+      statusLabel: tenant.status || 'Unknown',
+      planLabel: tenant.subscription_plan || 'Unknown',
+      ownerLabel: tenant.owner_email || 'No owner',
+      createdLabel: tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : 'Unknown'
+    };
+
+    return (
+      <TenantCardRefactored
+        key={tenant.id}
+        tenant={tenant}
+        formattedData={formattedData}
+        size="small"
+        onEdit={() => onEdit(tenant)}
+        onDelete={() => onDelete(tenant.id)}
+        onViewDetails={() => onViewDetails(tenant)}
+        metrics={tenantMetrics[tenant.id]}
+      />
+    );
+  };
+
   switch (viewPreferences.mode) {
     case 'large-cards':
       return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {tenants.map((tenant, index) => {
-            const formattedData = formattedTenants[index];
+            if (!tenant) return null;
+            const formattedData = safeFormattedTenants[index] || {
+              displayName: tenant.name,
+              statusLabel: tenant.status || 'Unknown',
+              planLabel: tenant.subscription_plan || 'Unknown',
+              ownerLabel: tenant.owner_email || 'No owner',
+              createdLabel: tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : 'Unknown'
+            };
+            
             return (
               <TenantCardRefactored
                 key={tenant.id}
@@ -61,14 +102,13 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
     case 'list':
       return (
         <TenantListView
-          tenants={tenants}
+          tenants={tenants.filter(tenant => tenant && tenant.id && tenant.name)}
           viewPreferences={viewPreferences}
           onTenantSelect={onViewDetails}
           onTenantEdit={onEdit}
           onTenantSuspend={onDelete}
           onTenantReactivate={(id: string) => {
-            // Find the tenant and call reactivate
-            const tenant = tenants.find(t => t.id === id);
+            const tenant = tenants.find(t => t && t.id === id);
             if (tenant) onViewDetails(tenant);
           }}
           onEdit={onEdit}
@@ -81,7 +121,15 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {tenants.map((tenant, index) => {
-            const formattedData = formattedTenants[index];
+            if (!tenant) return null;
+            const formattedData = safeFormattedTenants[index] || {
+              displayName: tenant.name,
+              statusLabel: tenant.status || 'Unknown',
+              planLabel: tenant.subscription_plan || 'Unknown',
+              ownerLabel: tenant.owner_email || 'No owner',
+              createdLabel: tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : 'Unknown'
+            };
+            
             return (
               <TenantCardRefactored
                 key={tenant.id}
@@ -103,21 +151,7 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
     default:
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-          {tenants.map((tenant, index) => {
-            const formattedData = formattedTenants[index];
-            return (
-              <TenantCardRefactored
-                key={tenant.id}
-                tenant={tenant}
-                formattedData={formattedData}
-                size="small"
-                onEdit={() => onEdit(tenant)}
-                onDelete={() => onDelete(tenant.id)}
-                onViewDetails={() => onViewDetails(tenant)}
-                metrics={tenantMetrics[tenant.id]}
-              />
-            );
-          })}
+          {tenants.map(renderTenantCard).filter(Boolean)}
         </div>
       );
   }

@@ -25,7 +25,8 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
   onViewDetails,
   tenantMetrics
 }) => {
-  if (tenants.length === 0) {
+  // Safety check for data consistency
+  if (!tenants || tenants.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground text-lg">No tenants found</p>
@@ -36,40 +37,64 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
     );
   }
 
+  // Filter out invalid tenants and ensure data consistency
+  const validTenants = tenants.filter(tenant => tenant && tenant.id && tenant.name);
+  const safeFormattedTenants = formattedTenants || [];
+
+  if (validTenants.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground text-lg">No valid tenants found</p>
+        <p className="text-muted-foreground text-sm mt-2">
+          There seems to be an issue with the tenant data. Please refresh the page.
+        </p>
+      </div>
+    );
+  }
+
+  const renderTenantCard = (tenant: Tenant, index: number, size: "small" | "large" | "analytics" = "small", showAnalytics = false) => {
+    const formattedData = safeFormattedTenants[index] || {
+      displayName: tenant.name,
+      statusLabel: tenant.status || 'Unknown',
+      planLabel: tenant.subscription_plan || 'Unknown',
+      ownerLabel: tenant.owner_email || 'No owner',
+      createdLabel: tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : 'Unknown'
+    };
+
+    return (
+      <TenantCardRefactored
+        key={tenant.id}
+        tenant={tenant}
+        formattedData={formattedData}
+        size={size}
+        onEdit={() => onEdit(tenant)}
+        onDelete={() => onDelete(tenant.id)}
+        onViewDetails={() => onViewDetails(tenant)}
+        onCardClick={() => onViewDetails(tenant)}
+        metrics={tenantMetrics[tenant.id]}
+        showAnalytics={showAnalytics}
+      />
+    );
+  };
+
   switch (viewPreferences.mode) {
     case 'large-cards':
       return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {tenants.map((tenant, index) => {
-            const formattedData = formattedTenants[index];
-            return (
-              <TenantCardRefactored
-                key={tenant.id}
-                tenant={tenant}
-                formattedData={formattedData}
-                size="large"
-                onEdit={() => onEdit(tenant)}
-                onDelete={() => onDelete(tenant.id)}
-                onViewDetails={() => onViewDetails(tenant)}
-                onCardClick={() => onViewDetails(tenant)}
-                metrics={tenantMetrics[tenant.id]}
-              />
-            );
-          })}
+          {validTenants.map((tenant, index) => renderTenantCard(tenant, index, "large"))}
         </div>
       );
 
     case 'list':
       return (
         <TenantListView
-          tenants={tenants}
+          tenants={validTenants}
           viewPreferences={viewPreferences}
           onTenantSelect={onViewDetails}
           onTenantEdit={onEdit}
           onTenantSuspend={onDelete}
           onTenantReactivate={(id: string) => {
-            // Find the tenant and call reactivate
-            const tenant = tenants.find(t => t.id === id);
+            const tenant = validTenants.find(t => t.id === id);
             if (tenant) onViewDetails(tenant);
           }}
           onEdit={onEdit}
@@ -81,23 +106,7 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
     case 'analytics':
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {tenants.map((tenant, index) => {
-            const formattedData = formattedTenants[index];
-            return (
-              <TenantCardRefactored
-                key={tenant.id}
-                tenant={tenant}
-                formattedData={formattedData}
-                size="analytics"
-                onEdit={() => onEdit(tenant)}
-                onDelete={() => onDelete(tenant.id)}
-                onViewDetails={() => onViewDetails(tenant)}
-                onCardClick={() => onViewDetails(tenant)}
-                metrics={tenantMetrics[tenant.id]}
-                showAnalytics={true}
-              />
-            );
-          })}
+          {validTenants.map((tenant, index) => renderTenantCard(tenant, index, "analytics", true))}
         </div>
       );
 
@@ -105,22 +114,7 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
     default:
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-          {tenants.map((tenant, index) => {
-            const formattedData = formattedTenants[index];
-            return (
-              <TenantCardRefactored
-                key={tenant.id}
-                tenant={tenant}
-                formattedData={formattedData}
-                size="small"
-                onEdit={() => onEdit(tenant)}
-                onDelete={() => onDelete(tenant.id)}
-                onViewDetails={() => onViewDetails(tenant)}
-                onCardClick={() => onViewDetails(tenant)}
-                metrics={tenantMetrics[tenant.id]}
-              />
-            );
-          })}
+          {validTenants.map((tenant, index) => renderTenantCard(tenant, index, "small"))}
         </div>
       );
   }

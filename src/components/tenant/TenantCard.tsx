@@ -25,6 +25,12 @@ export const TenantCard: React.FC<TenantCardProps> = ({
   onSuspend,
   onReactivate
 }) => {
+  // Safety check for tenant object
+  if (!tenant || !tenant.id) {
+    console.warn('Invalid tenant object passed to TenantCard:', tenant);
+    return null;
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -64,9 +70,17 @@ export const TenantCard: React.FC<TenantCardProps> = ({
       case 'custom':
         return 'Custom Plan';
       default:
-        return plan;
+        return plan || 'Unknown Plan';
     }
   };
+
+  // Safe accessors with defaults
+  const tenantName = tenant.name || 'Unknown Tenant';
+  const tenantSlug = tenant.slug || 'no-slug';
+  const tenantStatus = tenant.status || 'unknown';
+  const tenantPlan = tenant.subscription_plan || 'unknown';
+  const tenantOwnerEmail = tenant.owner_email || '';
+  const tenantCreatedAt = tenant.created_at || new Date().toISOString();
 
   if (viewMode === 'list') {
     return (
@@ -75,14 +89,14 @@ export const TenantCard: React.FC<TenantCardProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div>
-                <h3 className="font-medium">{tenant.name}</h3>
-                <p className="text-sm text-muted-foreground">{tenant.slug}</p>
+                <h3 className="font-medium">{tenantName}</h3>
+                <p className="text-sm text-muted-foreground">{tenantSlug}</p>
               </div>
-              <Badge className={getStatusColor(tenant.status)}>
-                {tenant.status.replace('_', ' ')}
+              <Badge className={getStatusColor(tenantStatus)}>
+                {tenantStatus.replace('_', ' ')}
               </Badge>
-              <Badge className={getPlanColor(tenant.subscription_plan)}>
-                {getPlanDisplayName(tenant.subscription_plan)}
+              <Badge className={getPlanColor(tenantPlan)}>
+                {getPlanDisplayName(tenantPlan)}
               </Badge>
             </div>
             <DropdownMenu>
@@ -100,7 +114,7 @@ export const TenantCard: React.FC<TenantCardProps> = ({
                   <Edit className="w-4 h-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
-                {tenant.status === 'suspended' ? (
+                {tenantStatus === 'suspended' ? (
                   <DropdownMenuItem onClick={() => onReactivate(tenant.id)}>
                     <Play className="w-4 h-4 mr-2" />
                     Reactivate
@@ -124,8 +138,8 @@ export const TenantCard: React.FC<TenantCardProps> = ({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-lg">{tenant.name}</CardTitle>
-            <p className="text-sm text-muted-foreground">{tenant.slug}</p>
+            <CardTitle className="text-lg">{tenantName}</CardTitle>
+            <p className="text-sm text-muted-foreground">{tenantSlug}</p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -142,7 +156,7 @@ export const TenantCard: React.FC<TenantCardProps> = ({
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
               </DropdownMenuItem>
-              {tenant.status === 'suspended' ? (
+              {tenantStatus === 'suspended' ? (
                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onReactivate(tenant.id); }}>
                   <Play className="w-4 h-4 mr-2" />
                   Reactivate
@@ -161,26 +175,26 @@ export const TenantCard: React.FC<TenantCardProps> = ({
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Status</span>
-            <Badge className={getStatusColor(tenant.status)}>
-              {tenant.status.replace('_', ' ')}
+            <Badge className={getStatusColor(tenantStatus)}>
+              {tenantStatus.replace('_', ' ')}
             </Badge>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Plan</span>
-            <Badge className={getPlanColor(tenant.subscription_plan)}>
-              {getPlanDisplayName(tenant.subscription_plan)}
+            <Badge className={getPlanColor(tenantPlan)}>
+              {getPlanDisplayName(tenantPlan)}
             </Badge>
           </div>
-          {tenant.owner_email && (
+          {tenantOwnerEmail && (
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Owner</span>
-              <span className="text-sm truncate max-w-32">{tenant.owner_email}</span>
+              <span className="text-sm truncate max-w-32">{tenantOwnerEmail}</span>
             </div>
           )}
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Created</span>
             <span className="text-sm">
-              {new Date(tenant.created_at).toLocaleDateString()}
+              {new Date(tenantCreatedAt).toLocaleDateString()}
             </span>
           </div>
         </div>
