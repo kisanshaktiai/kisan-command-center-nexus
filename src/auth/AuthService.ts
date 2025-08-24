@@ -9,7 +9,7 @@ export interface AuthServiceResult<T = void> {
   error?: string;
 }
 
-interface BootstrapStatus {
+interface BootstrapStatusResponse {
   completed?: boolean;
 }
 
@@ -148,7 +148,13 @@ export class AuthService {
       // Check if bootstrap is needed using the new safe function
       const { data: bootstrapStatus } = await supabase.rpc('get_bootstrap_status');
       
-      if (bootstrapStatus?.completed) {
+      // Safely check the completed property with type guards
+      const isBootstrapCompleted = bootstrapStatus && 
+        typeof bootstrapStatus === 'object' && 
+        'completed' in bootstrapStatus && 
+        Boolean((bootstrapStatus as BootstrapStatusResponse).completed);
+      
+      if (isBootstrapCompleted) {
         return { success: false, error: 'System is already initialized' };
       }
 
@@ -249,7 +255,14 @@ export class AuthService {
         console.error('AuthService: Bootstrap check error:', error);
         return true; // Default to showing bootstrap if check fails
       }
-      return !data?.completed;
+      
+      // Safely check the completed property with type guards
+      const isCompleted = data && 
+        typeof data === 'object' && 
+        'completed' in data && 
+        Boolean((data as BootstrapStatusResponse).completed);
+      
+      return !isCompleted;
     } catch (error) {
       console.error('AuthService: Bootstrap check exception:', error);
       return true;
