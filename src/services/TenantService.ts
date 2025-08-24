@@ -1,4 +1,3 @@
-
 import { BaseService, ServiceResult } from '@/services/BaseService';
 import { CreateTenantDTO, UpdateTenantDTO, TenantFilters, Tenant, convertDatabaseTenant, TenantType, TenantStatus, SubscriptionPlan } from '@/types/tenant';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,22 +20,22 @@ export class TenantService extends BaseService {
     return TenantService.instance;
   }
 
-  async getAllTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
+  async getTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
     return this.executeOperation(
       async () => {
         let query = supabase
           .from('tenants')
           .select(`
             *,
-            tenant_subscriptions (
+            tenant_subscriptions:tenant_subscriptions!tenants_id (
               id,
               subscription_plan,
               status,
               current_period_start,
               current_period_end
             ),
-            tenant_features (*),
-            tenant_branding (*)
+            tenant_features:tenant_features!tenant_features_tenant_id_fkey (*),
+            tenant_branding:tenant_branding!tenant_branding_tenant_id_fkey (*)
           `)
           .order('created_at', { ascending: false });
 
@@ -58,7 +57,7 @@ export class TenantService extends BaseService {
 
         return (data || []).map(convertDatabaseTenant);
       },
-      'getAllTenants'
+      'getTenants'
     );
   }
 
@@ -127,7 +126,10 @@ export class TenantService extends BaseService {
         if (error) throw error;
         
         // Type assertion for RPC response
-        const result = data as { success: boolean; error?: string };
+        const result = data as { success: boolean; error?: string } | boolean;
+        if (typeof result === 'boolean') {
+          return result;
+        }
         return result?.success || false;
       },
       'suspendTenant'
@@ -144,7 +146,10 @@ export class TenantService extends BaseService {
         if (error) throw error;
         
         // Type assertion for RPC response
-        const result = data as { success: boolean; error?: string };
+        const result = data as { success: boolean; error?: string } | boolean;
+        if (typeof result === 'boolean') {
+          return result;
+        }
         return result?.success || false;
       },
       'reactivateTenant'

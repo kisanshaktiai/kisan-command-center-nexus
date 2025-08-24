@@ -14,7 +14,7 @@ export const useTenantData = (options: UseTenantDataOptions = {}) => {
   return useQuery({
     queryKey: ['tenants', filters],
     queryFn: async () => {
-      const result = await tenantService.getAllTenants(filters);
+      const result = await tenantService.getTenants(filters);
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch tenants');
       }

@@ -11,6 +11,9 @@ interface TenantListViewProps {
   onTenantEdit: (tenant: Tenant) => void;
   onTenantSuspend: (id: string) => void;
   onTenantReactivate: (id: string) => void;
+  onEdit: (tenant: Tenant) => void;
+  onDelete: (tenantId: string) => void;
+  onViewDetails: (tenant: Tenant) => void;
   isLoading?: boolean;
 }
 
@@ -21,6 +24,9 @@ export const TenantListView: React.FC<TenantListViewProps> = ({
   onTenantEdit,
   onTenantSuspend,
   onTenantReactivate,
+  onEdit,
+  onDelete,
+  onViewDetails,
   isLoading = false
 }) => {
   if (isLoading) {
@@ -61,6 +67,21 @@ export const TenantListView: React.FC<TenantListViewProps> = ({
     }
   };
 
+  const handleEdit = (tenant: Tenant) => {
+    onTenantEdit(tenant);
+    onEdit(tenant);
+  };
+
+  const handleSelect = (tenant: Tenant) => {
+    onTenantSelect(tenant);
+    onViewDetails(tenant);
+  };
+
+  const handleSuspend = (id: string) => {
+    onTenantSuspend(id);
+    onDelete(id);
+  };
+
   return (
     <div className={getGridClasses()}>
       {tenants.map((tenant) => (
@@ -68,9 +89,9 @@ export const TenantListView: React.FC<TenantListViewProps> = ({
           key={tenant.id}
           tenant={tenant}
           viewMode={viewPreferences.mode}
-          onSelect={onTenantSelect}
-          onEdit={onTenantEdit}
-          onSuspend={onTenantSuspend}
+          onSelect={handleSelect}
+          onEdit={handleEdit}
+          onSuspend={handleSuspend}
           onReactivate={onTenantReactivate}
         />
       ))}
