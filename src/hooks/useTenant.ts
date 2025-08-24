@@ -64,11 +64,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return transformedTenants;
         } else {
           // Regular users can only access their assigned tenants
+          // Fix the query by specifying the exact columns from tenants table
           const { data: userTenants, error: userTenantsError } = await supabase
             .from('user_tenants')
             .select(`
               tenant_id,
-              tenants (
+              tenants:tenant_id (
                 id,
                 name,
                 slug,
@@ -105,14 +106,19 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
 
           // Transform the data to match our Tenant interface with TenantID
-          const transformedTenants = userTenants?.map(ut => ({
-            ...ut.tenants,
-            id: createTenantID(ut.tenants.id),
-            type: ut.tenants.type as TenantType,
-            status: ut.tenants.status as TenantStatus,
-            subscription_plan: ut.tenants.subscription_plan as SubscriptionPlan,
-            metadata: (ut.tenants.metadata as Record<string, any>) || {}
-          })).filter(Boolean) || [];
+          const transformedTenants = userTenants?.map(ut => {
+            const tenant = ut.tenants;
+            if (!tenant || typeof tenant !== 'object') return null;
+            
+            return {
+              ...tenant,
+              id: createTenantID(tenant.id),
+              type: tenant.type as TenantType,
+              status: tenant.status as TenantStatus,
+              subscription_plan: tenant.subscription_plan as SubscriptionPlan,
+              metadata: (tenant.metadata as Record<string, any>) || {}
+            };
+          }).filter((tenant): tenant is Tenant => tenant !== null) || [];
 
           return transformedTenants;
         }

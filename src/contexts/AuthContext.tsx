@@ -3,10 +3,11 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { authService } from '@/auth/AuthService';
-import { AuthState } from '@/types/auth';
+import { AuthState, TenantData } from '@/types/auth';
 
 interface AuthContextType extends AuthState {
   signOut: () => Promise<void>;
+  signUp: (email: string, password: string, tenantData?: TenantData) => Promise<{ success: boolean; error?: string; data?: AuthState }>;
   refreshAuth: () => Promise<void>;
   isLoading: boolean;
   error: string | null;
@@ -104,6 +105,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const signUp = async (email: string, password: string, tenantData?: TenantData) => {
+    try {
+      setError(null);
+      // Use bootstrap for admin creation
+      const result = await authService.bootstrapSuperAdmin(email, password, tenantData?.fullName || '');
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Sign up failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const signOut = async () => {
     try {
       setError(null);
@@ -165,6 +179,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const contextValue: AuthContextType = {
     ...authState,
     signOut,
+    signUp,
     refreshAuth,
     isLoading,
     error,
