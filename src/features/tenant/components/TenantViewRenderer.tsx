@@ -52,14 +52,35 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
     );
   }
 
+  const createFallbackFormattedData = (tenant: Tenant): FormattedTenantData => ({
+    id: tenant.id || '',
+    name: tenant.name || 'Unknown Tenant',
+    slug: tenant.slug || 'no-slug',
+    displayType: tenant.type || 'Unknown',
+    displayStatus: tenant.status || 'Unknown',
+    statusBadgeVariant: 'secondary',
+    planBadgeVariant: 'outline',
+    planDisplayName: tenant.subscription_plan || 'Unknown Plan',
+    ownerEmail: tenant.owner_email || 'Not provided',
+    ownerName: tenant.owner_name || 'Not provided',
+    ownerPhone: tenant.owner_phone || 'Not provided',
+    formattedCreatedAt: tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : 'Unknown',
+    formattedUpdatedAt: tenant.updated_at ? new Date(tenant.updated_at).toLocaleDateString() : 'Unknown',
+    formattedBusinessAddress: 'Not provided',
+    limitsDisplay: {
+      farmers: tenant.max_farmers?.toString() || 'Unlimited',
+      dealers: tenant.max_dealers?.toString() || 'Unlimited',
+      storage: tenant.max_storage_gb ? `${tenant.max_storage_gb} GB` : 'Unlimited',
+      apiCalls: tenant.max_api_calls_per_day?.toString() || 'Unlimited'
+    },
+    domainInfo: {
+      subdomain: tenant.subdomain,
+      customDomain: tenant.custom_domain
+    }
+  });
+
   const renderTenantCard = (tenant: Tenant, index: number, size: "small" | "large" | "analytics" = "small", showAnalytics = false) => {
-    const formattedData = safeFormattedTenants[index] || {
-      displayName: tenant.name,
-      statusLabel: tenant.status || 'Unknown',
-      planLabel: tenant.subscription_plan || 'Unknown',
-      ownerLabel: tenant.owner_email || 'No owner',
-      createdLabel: tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : 'Unknown'
-    };
+    const formattedData = safeFormattedTenants[index] || createFallbackFormattedData(tenant);
 
     return (
       <TenantCardRefactored
