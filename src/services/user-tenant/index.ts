@@ -13,6 +13,9 @@ export type {
 } from './TenantRelationshipService';
 export type { UserTenantStatus } from './UserTenantStatusService';
 
+// Import supabase client
+import { supabase } from '@/integrations/supabase/client';
+
 // Backward compatibility - create a facade that maintains the original API
 import { UserTenantStatusService } from './UserTenantStatusService';
 import { TenantRelationshipService } from './TenantRelationshipService';

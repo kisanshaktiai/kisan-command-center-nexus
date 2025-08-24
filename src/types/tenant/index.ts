@@ -25,9 +25,12 @@ export type {
 
 export {
   createTenantID,
-  convertDatabaseTenant,
-  convertEnumToString
+  convertDatabaseTenant
 } from './interfaces';
+
+export {
+  convertEnumToString
+} from './utils';
 
 export type {
   Tenant,
