@@ -1,152 +1,100 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AuthState, TenantData } from '@/types/auth';
-import { authService } from '@/services/AuthService';
+import { User, Session } from '@supabase/supabase-js';
+import { AuthState, UserProfile, TenantData } from '@/types/auth';
 
 interface AuthStore extends AuthState {
   isLoading: boolean;
   error: string | null;
   
   // Actions
-  initialize: () => Promise<void>;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ success: boolean; error?: string }>;
-  signOut: () => Promise<void>;
+  setUser: (user: User | null) => void;
+  setSession: (session: Session | null) => void;
+  setAuthState: (authState: Partial<AuthState>) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
   clearError: () => void;
-  setAuthState: (state: Partial<AuthState>) => void;
+  reset: () => void;
+  signOut: () => Promise<void>;
+  signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data?: any; error?: any }>;
 }
+
+const initialState: AuthState = {
+  user: null,
+  session: null,
+  isAuthenticated: false,
+  isAdmin: false,
+  isSuperAdmin: false,
+  adminRole: null,
+  profile: null,
+};
 
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
-      // Initial state
-      user: null,
-      session: null,
-      isAuthenticated: false,
-      isAdmin: false,
-      isSuperAdmin: false,
-      adminRole: null,
-      profile: null,
-      isLoading: false,
+      ...initialState,
+      isLoading: true,
       error: null,
 
-      // Actions
-      initialize: async () => {
-        set({ isLoading: true, error: null });
-        try {
-          const authState = await authService.getCurrentAuthState();
-          set({
-            user: authState.user,
-            session: authState.session,
-            isAuthenticated: authState.isAuthenticated,
-            isAdmin: authState.isAdmin,
-            isSuperAdmin: authState.isSuperAdmin,
-            adminRole: authState.adminRole,
-            profile: authState.profile,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({
-            error: error instanceof Error ? error.message : 'Failed to initialize auth',
-            isLoading: false,
-          });
-        }
-      },
+      setUser: (user) => set((state) => ({
+        user,
+        isAuthenticated: !!user,
+        // Keep other auth state if user is being updated
+        isAdmin: user ? state.isAdmin : false,
+        isSuperAdmin: user ? state.isSuperAdmin : false,
+        adminRole: user ? state.adminRole : null,
+      })),
 
-      signIn: async (email: string, password: string) => {
-        set({ isLoading: true, error: null });
-        try {
-          const result = await authService.signIn(email, password);
-          if (result.success && result.data) {
-            set({
-              user: result.data.user,
-              session: result.data.session,
-              isAuthenticated: result.data.isAuthenticated,
-              isAdmin: result.data.isAdmin,
-              isSuperAdmin: result.data.isSuperAdmin,
-              adminRole: result.data.adminRole,
-              profile: result.data.profile,
-              isLoading: false,
-            });
-            return { success: true };
-          } else {
-            set({
-              error: result.error || 'Sign in failed',
-              isLoading: false,
-            });
-            return { success: false, error: result.error };
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Sign in failed';
-          set({
-            error: errorMessage,
-            isLoading: false,
-          });
-          return { success: false, error: errorMessage };
-        }
-      },
+      setSession: (session) => set({
+        session,
+        user: session?.user || null,
+        isAuthenticated: !!session,
+      }),
 
-      signUp: async (email: string, password: string, tenantData: TenantData) => {
-        set({ isLoading: true, error: null });
-        try {
-          const result = await authService.signUp(email, password, tenantData);
-          if (result.success) {
-            set({ isLoading: false });
-            return { success: true };
-          } else {
-            set({
-              error: result.error || 'Sign up failed',
-              isLoading: false,
-            });
-            return { success: false, error: result.error };
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Sign up failed';
-          set({
-            error: errorMessage,
-            isLoading: false,
-          });
-          return { success: false, error: errorMessage };
-        }
-      },
+      setAuthState: (authState) => set((state) => ({
+        ...state,
+        ...authState,
+      })),
 
-      signOut: async () => {
-        set({ isLoading: true });
-        try {
-          await authService.signOut();
-          set({
-            user: null,
-            session: null,
-            isAuthenticated: false,
-            isAdmin: false,
-            isSuperAdmin: false,
-            adminRole: null,
-            profile: null,
-            isLoading: false,
-            error: null,
-          });
-        } catch (error) {
-          set({
-            error: error instanceof Error ? error.message : 'Sign out failed',
-            isLoading: false,
-          });
-        }
-      },
+      setLoading: (isLoading) => set({ isLoading }),
+
+      setError: (error) => set({ error }),
 
       clearError: () => set({ error: null }),
 
-      setAuthState: (state: Partial<AuthState>) => {
-        set((current) => ({
-          ...current,
-          user: state.user !== undefined ? state.user : current.user,
-          session: state.session !== undefined ? state.session : current.session,
-          isAuthenticated: state.isAuthenticated !== undefined ? state.isAuthenticated : current.isAuthenticated,
-          isAdmin: state.isAdmin !== undefined ? state.isAdmin : current.isAdmin,
-          isSuperAdmin: state.isSuperAdmin !== undefined ? state.isSuperAdmin : current.isSuperAdmin,
-          adminRole: state.adminRole !== undefined ? state.adminRole : current.adminRole,
-          profile: state.profile !== undefined ? state.profile : current.profile,
-        }));
+      reset: () => set({
+        ...initialState,
+        isLoading: false,
+        error: null,
+      }),
+
+      signOut: async () => {
+        const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
+        await unifiedAuthService.signOut();
+      },
+
+      signUp: async (email: string, password: string, tenantData: TenantData) => {
+        try {
+          set({ isLoading: true, error: null });
+          
+          const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
+          const result = await unifiedAuthService.signUp(email, password, tenantData);
+          
+          if (result.success && result.data) {
+            return { data: result.data };
+          } else {
+            const error = new Error(result.error || 'Registration failed');
+            set({ error: result.error || 'Registration failed' });
+            return { error };
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+          set({ error: errorMessage });
+          return { error: new Error(errorMessage) };
+        } finally {
+          set({ isLoading: false });
+        }
       },
     }),
     {

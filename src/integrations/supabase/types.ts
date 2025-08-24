@@ -5309,45 +5309,6 @@ export type Database = {
           },
         ]
       }
-      system_roles: {
-        Row: {
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          is_system_role: boolean | null
-          permissions: Json | null
-          role_code: string
-          role_description: string | null
-          role_level: number
-          role_name: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_system_role?: boolean | null
-          permissions?: Json | null
-          role_code: string
-          role_description?: string | null
-          role_level?: number
-          role_name: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_system_role?: boolean | null
-          permissions?: Json | null
-          role_code?: string
-          role_description?: string | null
-          role_level?: number
-          role_name?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       team_invitations: {
         Row: {
           accepted_at: string | null
@@ -6412,12 +6373,11 @@ export type Database = {
           is_active: boolean | null
           is_primary: boolean | null
           joined_at: string | null
-          metadata: Json | null
           permissions: Json | null
           role: Database["public"]["Enums"]["user_role"]
-          tenant_id: string
+          tenant_id: string | null
           updated_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -6430,12 +6390,11 @@ export type Database = {
           is_active?: boolean | null
           is_primary?: boolean | null
           joined_at?: string | null
-          metadata?: Json | null
           permissions?: Json | null
           role: Database["public"]["Enums"]["user_role"]
-          tenant_id: string
+          tenant_id?: string | null
           updated_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -6448,21 +6407,13 @@ export type Database = {
           is_active?: boolean | null
           is_primary?: boolean | null
           joined_at?: string | null
-          metadata?: Json | null
           permissions?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
-          tenant_id?: string
+          tenant_id?: string | null
           updated_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_user_tenants_tenant_id"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "user_tenants_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -7431,11 +7382,13 @@ export type Database = {
         Returns: string
       }
       advance_onboarding_step: {
-        Args: {
-          p_new_status: Database["public"]["Enums"]["onboarding_step_status"]
-          p_step_data?: Json
-          p_step_id: string
-        }
+        Args:
+          | {
+              p_new_status: Database["public"]["Enums"]["onboarding_step_status"]
+              p_step_data?: Json
+              p_step_id: string
+            }
+          | { p_new_status: string; p_step_data?: Json; p_step_id: string }
         Returns: Json
       }
       archive_tenant_data: {
@@ -7666,10 +7619,6 @@ export type Database = {
       ensure_onboarding_workflow: {
         Args: { p_tenant_id: string }
         Returns: string
-      }
-      ensure_user_tenant_access: {
-        Args: { p_tenant_id: string; p_user_id?: string }
-        Returns: boolean
       }
       equals: {
         Args: { geom1: unknown; geom2: unknown }
@@ -8158,10 +8107,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
-      get_current_user_email: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
       get_jwt_farmer_id: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -8277,10 +8222,6 @@ export type Database = {
       }
       is_tenant_admin: {
         Args: { _tenant_id: string }
-        Returns: boolean
-      }
-      is_user_tenant_admin: {
-        Args: { target_tenant_id: string }
         Returns: boolean
       }
       json: {
@@ -8580,10 +8521,6 @@ export type Database = {
       }
       record_failed_login: {
         Args: { p_email: string; p_ip_address?: unknown }
-        Returns: Json
-      }
-      remove_onboarding_workflow: {
-        Args: { p_workflow_id: string }
         Returns: Json
       }
       send_admin_notification: {

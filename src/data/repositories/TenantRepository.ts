@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { BaseService, ServiceResult } from '@/services/BaseService';
-import { CreateTenantDTO, UpdateTenantDTO, Tenant, TenantFilters, convertDatabaseTenant, TenantType, TenantStatus, SubscriptionPlan } from '@/types/tenant';
+import { BaseService } from '@/services/BaseService';
+import { CreateTenantDTO, UpdateTenantDTO, convertEnumToString } from '@/types/tenant';
 
 export class TenantRepository extends BaseService {
   private static instance: TenantRepository;
@@ -17,118 +17,89 @@ export class TenantRepository extends BaseService {
     return TenantRepository.instance;
   }
 
-  async getTenants(filters?: TenantFilters): Promise<ServiceResult<Tenant[]>> {
-    return this.executeOperation(
-      async () => {
-        let query = supabase
-          .from('tenants')
-          .select(`
-            *,
-            tenant_branding (*),
-            tenant_features (*)
-          `)
-          .order('created_at', { ascending: false });
+  async getTenants(filters?: any) {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select(`
+        *,
+        tenant_subscriptions (
+          id,
+          subscription_plan,
+          status,
+          current_period_start,
+          current_period_end
+        ),
+        tenant_features (*)
+      `)
+      .order('created_at', { ascending: false });
 
-        // Apply filters
-        if (filters?.search) {
-          query = query.or(`name.ilike.%${filters.search}%,owner_email.ilike.%${filters.search}%`);
-        }
-        if (filters?.type && filters.type !== 'all') {
-          query = query.eq('type', filters.type as any);
-        }
-        if (filters?.status && filters.status !== 'all') {
-          query = query.eq('status', filters.status as any);
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
-        if (!data) return [];
-
-        return data.map((item: any) => convertDatabaseTenant(item));
-      },
-      'getTenants'
-    );
+    if (error) throw error;
+    return data;
   }
 
-  async getTenant(id: string): Promise<ServiceResult<Tenant>> {
-    return this.executeOperation(
-      async () => {
-        const { data, error } = await supabase
-          .from('tenants')
-          .select(`
-            *,
-            tenant_branding (*),
-            tenant_features (*)
-          `)
-          .eq('id', id)
-          .single();
+  async getTenant(id: string) {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select(`
+        *,
+        tenant_subscriptions (*),
+        tenant_features (*),
+        tenant_branding (*)
+      `)
+      .eq('id', id)
+      .single();
 
-        if (error) throw error;
-        if (!data) throw new Error('Tenant not found');
-
-        return convertDatabaseTenant(data);
-      },
-      'getTenant'
-    );
+    if (error) throw error;
+    return data;
   }
 
-  async createTenant(data: CreateTenantDTO): Promise<ServiceResult<Tenant>> {
-    return this.executeOperation(
-      async () => {
-        // Ensure required fields have defaults
-        const tenantData = {
-          type: TenantType.AGRI_COMPANY,
-          status: TenantStatus.TRIAL,
-          subscription_plan: SubscriptionPlan.KISAN_BASIC,
-          ...data,
-          metadata: data.metadata || {}
-        };
+  async createTenant(tenantData: CreateTenantDTO) {
+    // Ensure status, type, and subscription_plan are the correct string literals
+    const dbData = {
+      ...tenantData,
+      status: tenantData.status, // Already correct type
+      type: tenantData.type, // Already correct type
+      subscription_plan: tenantData.subscription_plan // Already correct type
+    };
 
-        const { data: tenant, error } = await supabase
-          .from('tenants')
-          .insert(tenantData as any)
-          .select()
-          .single();
+    const { data, error } = await supabase
+      .from('tenants')
+      .insert(dbData)
+      .select()
+      .single();
 
-        if (error) throw error;
-        return convertDatabaseTenant(tenant);
-      },
-      'createTenant'
-    );
+    if (error) throw error;
+    return data;
   }
 
-  async updateTenant(id: string, data: UpdateTenantDTO): Promise<ServiceResult<Tenant>> {
-    return this.executeOperation(
-      async () => {
-        const { id: _, ...updateData } = data;
-        const { data: tenant, error } = await supabase
-          .from('tenants')
-          .update(updateData as any)
-          .eq('id', id)
-          .select()
-          .single();
+  async updateTenant(id: string, tenantData: UpdateTenantDTO) {
+    // Ensure status, type, and subscription_plan are the correct string literals if provided
+    const dbData = {
+      ...tenantData,
+      ...(tenantData.status && { status: tenantData.status }),
+      ...(tenantData.type && { type: tenantData.type }),
+      ...(tenantData.subscription_plan && { subscription_plan: tenantData.subscription_plan })
+    };
 
-        if (error) throw error;
-        return convertDatabaseTenant(tenant);
-      },
-      'updateTenant'
-    );
+    const { data, error } = await supabase
+      .from('tenants')
+      .update(dbData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
-  async deleteTenant(id: string): Promise<ServiceResult<boolean>> {
-    return this.executeOperation(
-      async () => {
-        const { error } = await supabase
-          .from('tenants')
-          .delete()
-          .eq('id', id);
+  async deleteTenant(id: string) {
+    const { error } = await supabase
+      .from('tenants')
+      .delete()
+      .eq('id', id);
 
-        if (error) throw error;
-        return true;
-      },
-      'deleteTenant'
-    );
+    if (error) throw error;
+    return true;
   }
 }
 

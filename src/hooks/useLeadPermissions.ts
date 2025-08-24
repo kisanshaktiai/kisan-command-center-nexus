@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { useMultiTenant } from '@/hooks/useMultiTenant';
 import { supabase } from '@/integrations/supabase/client';
-import { SYSTEM_ROLE_CODES } from '@/types/roles';
 import type { Lead } from '@/types/leads';
 
 interface LeadPermissions {
@@ -52,7 +51,7 @@ export const useLeadPermissions = (lead?: Lead) => {
           return;
         }
 
-        // Calculate permissions based on system role
+        // Calculate permissions based on role
         const newPermissions = calculatePermissions(adminUser.role, lead);
         setPermissions(newPermissions);
       } catch (error) {
@@ -76,7 +75,7 @@ export const useLeadPermissions = (lead?: Lead) => {
     };
 
     switch (role) {
-      case SYSTEM_ROLE_CODES.SUPER_ADMIN:
+      case 'super_admin':
         return {
           ...basePermissions,
           canEdit: true,
@@ -85,7 +84,7 @@ export const useLeadPermissions = (lead?: Lead) => {
           canConvert: true,
         };
 
-      case SYSTEM_ROLE_CODES.PLATFORM_ADMIN:
+      case 'platform_admin':
         return {
           ...basePermissions,
           canEdit: true,
@@ -95,7 +94,7 @@ export const useLeadPermissions = (lead?: Lead) => {
           restrictedFields: ['ai_score', 'ai_recommended_action'],
         };
 
-      case SYSTEM_ROLE_CODES.TENANT_ADMIN:
+      case 'admin':
         return {
           ...basePermissions,
           canEdit: true,
@@ -105,7 +104,7 @@ export const useLeadPermissions = (lead?: Lead) => {
           restrictedFields: ['ai_score', 'ai_recommended_action', 'lead_score'],
         };
 
-      case SYSTEM_ROLE_CODES.TENANT_MANAGER:
+      case 'sales_manager':
         return {
           ...basePermissions,
           canEdit: true,
@@ -115,7 +114,7 @@ export const useLeadPermissions = (lead?: Lead) => {
           restrictedFields: ['ai_score', 'ai_recommended_action', 'lead_score'],
         };
 
-      case SYSTEM_ROLE_CODES.DEALER:
+      case 'sales_rep':
         return {
           ...basePermissions,
           canEdit: lead?.assigned_to === currentUser?.id,

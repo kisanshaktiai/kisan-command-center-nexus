@@ -63,7 +63,6 @@ export const TenantViewRenderer: React.FC<TenantViewRendererProps> = ({
         <TenantListView
           tenants={tenants}
           onEdit={onEdit}
-          onEditTenant={onEdit}
           onDelete={onDelete}
           onViewDetails={onViewDetails}
         />

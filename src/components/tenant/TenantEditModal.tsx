@@ -1,163 +1,265 @@
 
 import React, { useState, useEffect } from 'react';
-import { UpdateTenantDTO } from '@/types/tenant';
-import { TenantStatus, SubscriptionPlan, TenantStatusValue, SubscriptionPlanValue } from '@/types/enums';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Tenant, UpdateTenantDTO, TenantStatus, SubscriptionPlan } from '@/types/tenant';
+import { tenantStatusOptions, subscriptionPlanOptions } from '@/types/tenant';
 
 interface TenantEditModalProps {
-  tenant: any | null;
+  tenant: Tenant | null;
   isOpen: boolean;
   onClose: () => void;
   onSave: (id: string, data: UpdateTenantDTO) => Promise<boolean>;
+  isSubmitting?: boolean;
 }
 
-interface FormData {
-  name: string;
-  status: TenantStatusValue;
-  subscription_plan: SubscriptionPlanValue;
-}
-
-const TenantEditModal: React.FC<TenantEditModalProps> = ({
+export const TenantEditModal: React.FC<TenantEditModalProps> = ({
   tenant,
   isOpen,
   onClose,
   onSave,
+  isSubmitting = false
 }) => {
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<UpdateTenantDTO>({
     name: '',
-    status: TenantStatus.TRIAL as TenantStatusValue,
-    subscription_plan: SubscriptionPlan.KISAN_BASIC as SubscriptionPlanValue,
+    status: 'active' as TenantStatus,
+    subscription_plan: 'Kisan_Basic' as SubscriptionPlan,
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (tenant) {
       setFormData({
-        name: tenant.name || '',
-        status: tenant.status || TenantStatus.TRIAL as TenantStatusValue,
-        subscription_plan: tenant.subscription_plan || SubscriptionPlan.KISAN_BASIC as SubscriptionPlanValue,
+        name: tenant.name,
+        status: tenant.status,
+        subscription_plan: tenant.subscription_plan,
+        owner_phone: tenant.owner_phone || '',
+        business_registration: tenant.business_registration || '',
+        established_date: tenant.established_date || '',
+        max_farmers: tenant.max_farmers || 1000,
+        max_dealers: tenant.max_dealers || 50,
+        max_products: tenant.max_products || 100,
+        max_storage_gb: tenant.max_storage_gb || 10,
+        max_api_calls_per_day: tenant.max_api_calls_per_day || 10000,
+        subdomain: tenant.subdomain || '',
+        custom_domain: tenant.custom_domain || '',
       });
     }
   }, [tenant]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleStatusChange = (value: string) => {
-    setFormData(prev => ({ ...prev, status: value as TenantStatusValue }));
-  };
-
-  const handlePlanChange = (value: string) => {
-    setFormData(prev => ({ ...prev, subscription_plan: value as SubscriptionPlanValue }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tenant) return;
 
-    setIsSubmitting(true);
-    try {
-      const updateData: UpdateTenantDTO = {
-        id: tenant.id,
-        name: formData.name,
-        status: formData.status,
-        subscription_plan: formData.subscription_plan,
-      };
-      
-      const success = await onSave(tenant.id, updateData);
-      if (success) {
-        onClose();
-      }
-    } finally {
-      setIsSubmitting(false);
+    const success = await onSave(tenant.id, formData);
+    if (success) {
+      onClose();
     }
   };
 
+  const handleInputChange = (field: keyof UpdateTenantDTO, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  if (!tenant) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Tenant</DialogTitle>
-          <DialogDescription>
-            Make changes to the tenant information here.
-          </DialogDescription>
+          <DialogTitle>Edit Tenant: {tenant.name}</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Tenant Name</Label>
-            <Input
-              id="name"
-              name="name"
-              value={formData.name || ''}
-              onChange={handleChange}
-              placeholder="Enter tenant name"
-            />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Basic Information</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Organization Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name || ''}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => handleInputChange('status', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tenantStatusOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="subscription_plan">Subscription Plan</Label>
+              <Select
+                value={formData.subscription_plan}
+                onValueChange={(value) => handleInputChange('subscription_plan', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {subscriptionPlanOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
-            <Select value={formData.status} onValueChange={handleStatusChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={TenantStatus.TRIAL}>Trial</SelectItem>
-                <SelectItem value={TenantStatus.ACTIVE}>Active</SelectItem>
-                <SelectItem value={TenantStatus.SUSPENDED}>Suspended</SelectItem>
-                <SelectItem value={TenantStatus.ARCHIVED}>Archived</SelectItem>
-                <SelectItem value={TenantStatus.PENDING_APPROVAL}>Pending Approval</SelectItem>
-                <SelectItem value={TenantStatus.CANCELLED}>Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Contact Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Contact Information</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="owner_phone">Owner Phone</Label>
+                <Input
+                  id="owner_phone"
+                  value={formData.owner_phone || ''}
+                  onChange={(e) => handleInputChange('owner_phone', e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="business_registration">Business Registration</Label>
+                <Input
+                  id="business_registration"
+                  value={formData.business_registration || ''}
+                  onChange={(e) => handleInputChange('business_registration', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="established_date">Established Date</Label>
+              <Input
+                id="established_date"
+                type="date"
+                value={formData.established_date || ''}
+                onChange={(e) => handleInputChange('established_date', e.target.value)}
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="subscription_plan">Subscription Plan</Label>
-            <Select value={formData.subscription_plan} onValueChange={handlePlanChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select plan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SubscriptionPlan.KISAN_BASIC}>Kisan Basic</SelectItem>
-                <SelectItem value={SubscriptionPlan.SHAKTI_GROWTH}>Shakti Growth</SelectItem>
-                <SelectItem value={SubscriptionPlan.AI_ENTERPRISE}>AI Enterprise</SelectItem>
-                <SelectItem value={SubscriptionPlan.CUSTOM_ENTERPRISE}>Custom Enterprise</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Limits */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Subscription Limits</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="max_farmers">Max Farmers</Label>
+                <Input
+                  id="max_farmers"
+                  type="number"
+                  value={formData.max_farmers || ''}
+                  onChange={(e) => handleInputChange('max_farmers', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="max_dealers">Max Dealers</Label>
+                <Input
+                  id="max_dealers"
+                  type="number"
+                  value={formData.max_dealers || ''}
+                  onChange={(e) => handleInputChange('max_dealers', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="max_products">Max Products</Label>
+                <Input
+                  id="max_products"
+                  type="number"
+                  value={formData.max_products || ''}
+                  onChange={(e) => handleInputChange('max_products', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="max_storage_gb">Max Storage (GB)</Label>
+                <Input
+                  id="max_storage_gb"
+                  type="number"
+                  value={formData.max_storage_gb || ''}
+                  onChange={(e) => handleInputChange('max_storage_gb', parseInt(e.target.value) || 0)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="max_api_calls_per_day">Max API Calls/Day</Label>
+                <Input
+                  id="max_api_calls_per_day"
+                  type="number"
+                  value={formData.max_api_calls_per_day || ''}
+                  onChange={(e) => handleInputChange('max_api_calls_per_day', parseInt(e.target.value) || 0)}
+                />
+              </div>
+            </div>
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+          {/* Domain Settings */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Domain Settings</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="subdomain">Subdomain</Label>
+                <Input
+                  id="subdomain"
+                  value={formData.subdomain || ''}
+                  onChange={(e) => handleInputChange('subdomain', e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="custom_domain">Custom Domain</Label>
+                <Input
+                  id="custom_domain"
+                  value={formData.custom_domain || ''}
+                  onChange={(e) => handleInputChange('custom_domain', e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
   );
 };
-
-export default TenantEditModal;

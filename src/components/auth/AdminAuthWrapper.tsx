@@ -3,18 +3,17 @@ import React from 'react';
 import { RoleBasedAccess } from './RoleBasedAccess';
 import { SessionGuard } from './SessionGuard';
 import { SessionMonitor } from '@/components/session/SessionMonitor';
-import { SystemRoleCode } from '@/types/roles';
 
 interface AdminAuthWrapperProps {
   children: React.ReactNode;
-  requiredRole?: SystemRoleCode;
-  allowedRoles?: SystemRoleCode[];
+  requiredRole?: 'admin' | 'platform_admin' | 'super_admin';
+  allowedRoles?: string[];
   showSessionMonitor?: boolean;
 }
 
 export const AdminAuthWrapper: React.FC<AdminAuthWrapperProps> = ({
   children,
-  requiredRole = 'super_admin',
+  requiredRole = 'admin',
   allowedRoles = [],
   showSessionMonitor = true
 }) => {

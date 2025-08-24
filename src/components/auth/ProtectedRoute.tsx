@@ -1,13 +1,13 @@
 
 import React from 'react';
+import { Navigate } from 'react-router-dom';
 import { AdminAuthWrapper } from './AdminAuthWrapper';
-import { SystemRoleCode } from '@/types/roles';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
-  requiredRole?: SystemRoleCode;
-  allowedRoles?: SystemRoleCode[];
+  requiredRole?: 'admin' | 'platform_admin' | 'super_admin';
+  allowedRoles?: string[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
@@ -19,7 +19,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (requireAdmin || requiredRole || allowedRoles.length > 0) {
     return (
       <AdminAuthWrapper 
-        requiredRole={requiredRole || (requireAdmin ? 'super_admin' : undefined)}
+        requiredRole={requiredRole || (requireAdmin ? 'admin' : undefined)}
         allowedRoles={allowedRoles}
       >
         {children}

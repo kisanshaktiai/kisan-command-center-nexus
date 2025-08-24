@@ -34,14 +34,11 @@ interface OptimizedTenantOnboardingWizardProps {
   workflowId?: string;
 }
 
-// Fixed stable component mapping - moved outside to prevent recreation
+// Stable component mapping - moved outside to prevent recreation
 const STEP_COMPONENT_MAP: Record<string, React.ComponentType<any>> = {
   'Company Profile': CompanyProfileStep,
   'Branding & Design': EnhancedBrandingStep,
   'Team & Permissions': EnhancedUsersRolesStep,
-  'Users & Roles': EnhancedUsersRolesStep,
-  'Team Setup': EnhancedUsersRolesStep,
-  'User Management': EnhancedUsersRolesStep,
   'Billing & Plan': BillingPlanStep,
   'Domain & White-label': DomainWhitelabelStep,
   'Domain & Branding': DomainWhitelabelStep,
@@ -98,7 +95,7 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
     enabled: isOpen && !!tenantId
   });
 
-  // Fixed stable component getter - memoized to prevent recreation
+  // Stable component getter - memoized to prevent recreation
   const getStepComponent = useCallback((stepName: string) => {
     return STEP_COMPONENT_MAP[stepName] || CompanyProfileStep;
   }, []);
@@ -409,7 +406,7 @@ export const OptimizedTenantOnboardingWizard: React.FC<OptimizedTenantOnboarding
                   Tenant Onboarding
                 </DialogTitle>
                 <DialogDescription className="text-sm text-muted-foreground mt-1">
-                  {Array.isArray(tenantInfo) ? 'Loading...' : (tenantInfo?.name || 'Loading...')} • {Array.isArray(tenantInfo) ? 'Loading...' : (tenantInfo?.subscription_plan || 'Loading...')} Plan
+                  {tenantInfo?.name || 'Loading...'} • {tenantInfo?.subscription_plan || 'Loading...'} Plan
                 </DialogDescription>
               </div>
               <div className="text-right">

@@ -1,261 +1,289 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { BaseService, ServiceResult } from './BaseService';
 
-export interface UserTenantData {
-  id: string;
-  email: string;
-  role_code: string;
-  is_active: boolean;
-  is_primary: boolean;
-  created_at: string;
-  updated_at: string;
+export interface ManageUserTenantRequest {
+  user_id: string;
+  tenant_id: string;
+  role: 'super_admin' | 'platform_admin' | 'tenant_admin' | 'tenant_user' | 'farmer' | 'dealer';
+  is_active?: boolean;
+  metadata?: Record<string, any>;
+  operation?: 'insert' | 'update' | 'upsert';
+}
+
+export interface UserTenantResponse {
+  success: boolean;
+  error?: string;
+  code?: string;
+  relationship_id?: string;
+  operation?: string;
+  user_id?: string;
+  tenant_id?: string;
+  role?: string;
+  is_active?: boolean;
+  message?: string;
+  request_id?: string;
+  correlation_id?: string;
 }
 
 export interface UserTenantStatus {
   authExists: boolean;
   tenantRelationshipExists: boolean;
   roleMatches: boolean;
-  userId?: string;
   currentRole?: string;
-  expectedRole?: string;
+  expectedRole: string;
+  userId?: string;
   issues: string[];
 }
 
-export interface TenantUserInvite {
-  tenant_id: string;
-  email: string;
-  role_code: string;
-  invited_by: string;
-  expires_at?: string;
-}
-
-export class UserTenantService extends BaseService {
-  private static instance: UserTenantService;
-
-  private constructor() {
-    super();
-  }
-
-  public static getInstance(): UserTenantService {
-    if (!UserTenantService.instance) {
-      UserTenantService.instance = new UserTenantService();
-    }
-    return UserTenantService.instance;
-  }
-
-  async getUsersByTenant(tenantId: string): Promise<ServiceResult<UserTenantData[]>> {
-    return this.executeOperation(async () => {
-      const { data: userTenants, error: userTenantsError } = await supabase
-        .from('user_tenants')
-        .select(`
-          id,
-          user_id,
-          tenant_id,
-          role,
-          is_active,
-          is_primary,
-          created_at,
-          updated_at
-        `)
-        .eq('tenant_id', tenantId);
-
-      if (userTenantsError) {
-        throw new Error(`Failed to fetch user tenants: ${userTenantsError.message}`);
-      }
-
-      const userData: UserTenantData[] = [];
-
-      for (const userTenant of userTenants || []) {
-        try {
-          // Get user data from admin_users table instead of profiles
-          const { data: adminUser, error: adminUserError } = await supabase
-            .from('admin_users')
-            .select('email, full_name')
-            .eq('id', userTenant.user_id)
-            .single();
-
-          if (adminUserError || !adminUser) {
-            console.warn(`Failed to get admin user for user ${userTenant.user_id}:`, adminUserError);
-            continue;
-          }
-
-          userData.push({
-            id: userTenant.id,
-            email: adminUser.email || 'Unknown',
-            role_code: userTenant.role || 'tenant_user',
-            is_active: userTenant.is_active || false,
-            is_primary: userTenant.is_primary || false,
-            created_at: userTenant.created_at,
-            updated_at: userTenant.updated_at,
-          });
-        } catch (error) {
-          console.error(`Error processing user tenant ${userTenant.id}:`, error);
-        }
-      }
-
-      return userData;
-    }, 'getUsersByTenant');
-  }
-
-  static async checkUserTenantStatus(email: string, tenantId: string): Promise<UserTenantStatus> {
-    const issues: string[] = [];
-    let authExists = false;
-    let tenantRelationshipExists = false;
-    let roleMatches = false;
-    let userId: string | undefined;
-    let currentRole: string | undefined;
-    const expectedRole = 'tenant_admin';
-
+export class UserTenantService {
+  /**
+   * Create or update a user-tenant relationship using the global manage-user-tenant function
+   */
+  static async manageUserTenantRelationship(
+    request: ManageUserTenantRequest
+  ): Promise<UserTenantResponse> {
     try {
-      // Check if user exists in admin_users table
-      const { data: adminUser, error: adminUserError } = await supabase
-        .from('admin_users')
-        .select('id, email')
-        .eq('email', email)
-        .single();
-      
-      if (!adminUserError && adminUser) {
-        authExists = true;
-        userId = adminUser.id;
-      } else {
-        issues.push('User not found in system');
+      console.log('UserTenantService: Managing user-tenant relationship via global function:', request);
+
+      const { data, error } = await supabase.functions.invoke('manage-user-tenant', {
+        body: request,
+        headers: {
+          'x-request-id': `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          'x-correlation-id': `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        }
+      });
+
+      if (error) {
+        console.error('UserTenantService: Edge function error:', error);
+        return {
+          success: false,
+          error: error.message || 'Failed to manage user-tenant relationship',
+          code: 'EDGE_FUNCTION_ERROR'
+        };
       }
 
-      // Check tenant relationship if user exists
-      if (userId) {
-        const { data: userTenant, error: relationError } = await supabase
+      console.log('UserTenantService: Successfully managed relationship via global function:', data);
+      return data as UserTenantResponse;
+
+    } catch (error: any) {
+      console.error('UserTenantService: Unexpected error:', error);
+      return {
+        success: false,
+        error: error.message || 'Unexpected error occurred',
+        code: 'UNEXPECTED_ERROR'
+      };
+    }
+  }
+
+  /**
+   * Create a tenant admin relationship when a new tenant is created
+   */
+  static async createTenantAdminRelationship(
+    userId: string,
+    tenantId: string,
+    metadata?: Record<string, any>
+  ): Promise<UserTenantResponse> {
+    return this.manageUserTenantRelationship({
+      user_id: userId,
+      tenant_id: tenantId,
+      role: 'tenant_admin',
+      is_active: true,
+      metadata: {
+        ...metadata,
+        created_via: 'tenant_creation',
+        auto_assigned: true,
+        created_at: new Date().toISOString()
+      },
+      operation: 'insert'
+    });
+  }
+
+  /**
+   * Check comprehensive user-tenant status across both auth.users and user_tenants tables
+   */
+  static async checkUserTenantStatus(
+    email: string,
+    tenantId: string
+  ): Promise<UserTenantStatus> {
+    try {
+      console.log('UserTenantService: Checking comprehensive status for:', { email, tenantId });
+
+      if (!email || !email.trim()) {
+        console.error('UserTenantService: Email is required');
+        return {
+          authExists: false,
+          tenantRelationshipExists: false,
+          roleMatches: false,
+          expectedRole: 'tenant_admin',
+          issues: ['Email is required']
+        };
+      }
+
+      if (!tenantId || !tenantId.trim()) {
+        console.error('UserTenantService: Tenant ID is required');
+        return {
+          authExists: false,
+          tenantRelationshipExists: false,
+          roleMatches: false,
+          expectedRole: 'tenant_admin',
+          issues: ['Tenant ID is required']
+        };
+      }
+
+      // Check auth.users table using the get-user-by-email edge function
+      const { data: authUserResponse, error: authError } = await supabase.functions.invoke('get-user-by-email', {
+        body: { user_email: email.trim() }
+      });
+
+      if (authError) {
+        console.error('UserTenantService: Error checking auth user:', authError);
+        return {
+          authExists: false,
+          tenantRelationshipExists: false,
+          roleMatches: false,
+          expectedRole: 'tenant_admin',
+          issues: [`Error checking authentication: ${authError.message}`]
+        };
+      }
+
+      const authUser = authUserResponse && Array.isArray(authUserResponse) && authUserResponse.length > 0 ? authUserResponse[0] : null;
+      console.log('UserTenantService: Auth user result:', authUser);
+
+      // Check user_tenants table if user exists
+      let tenantRelationship = null;
+      if (authUser) {
+        console.log('UserTenantService: Checking tenant relationship for user:', authUser.id);
+        
+        const { data: relationship, error: relationshipError } = await supabase
           .from('user_tenants')
-          .select('role')
-          .eq('user_id', userId)
+          .select('*')
+          .eq('user_id', authUser.id)
           .eq('tenant_id', tenantId)
           .single();
 
-        if (!relationError && userTenant) {
-          tenantRelationshipExists = true;
-          currentRole = userTenant.role || 'tenant_user';
-          roleMatches = currentRole === expectedRole;
+        if (!relationshipError) {
+          tenantRelationship = relationship;
+          console.log('UserTenantService: Found tenant relationship:', tenantRelationship);
+        } else if (relationshipError.code !== 'PGRST116') {
+          // PGRST116 means no rows returned, which is expected if no relationship exists
+          console.error('UserTenantService: Error checking tenant relationship:', relationshipError);
+          return {
+            authExists: !!authUser,
+            tenantRelationshipExists: false,
+            roleMatches: false,
+            expectedRole: 'tenant_admin',
+            userId: authUser?.id,
+            issues: [`Error checking tenant relationship: ${relationshipError.message}`]
+          };
         } else {
-          issues.push('User-tenant relationship missing');
+          console.log('UserTenantService: No tenant relationship found (expected for new relationships)');
         }
       }
 
-      return {
+      const expectedRole = 'tenant_admin';
+      const authExists = !!authUser;
+      const tenantRelationshipExists = !!tenantRelationship;
+      const roleMatches = tenantRelationship?.role === expectedRole;
+
+      const issues = [];
+      if (!authExists) {
+        issues.push('User not found in authentication system');
+      }
+      if (authExists && !tenantRelationshipExists) {
+        issues.push('User-tenant relationship missing');
+      }
+      if (tenantRelationshipExists && !roleMatches) {
+        issues.push(`Role mismatch: expected ${expectedRole}, found ${tenantRelationship.role}`);
+      }
+
+      const result = {
         authExists,
         tenantRelationshipExists,
         roleMatches,
-        userId,
-        currentRole,
+        currentRole: tenantRelationship?.role,
         expectedRole,
+        userId: authUser?.id,
         issues
       };
+
+      console.log('UserTenantService: Final status result:', result);
+      return result;
     } catch (error) {
-      console.error('Error checking user tenant status:', error);
-      issues.push('Error checking status');
+      console.error('UserTenantService: Error checking user-tenant status:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         authExists: false,
         tenantRelationshipExists: false,
         roleMatches: false,
-        issues
+        expectedRole: 'tenant_admin',
+        issues: [`Error checking status: ${errorMessage}`]
       };
     }
   }
 
-  static async ensureUserTenantRecord(userId: string, tenantId: string): Promise<ServiceResult<boolean>> {
+  /**
+   * Ensure user-tenant record exists with correct role using global function
+   * This will create the relationship if user exists but relationship is missing
+   */
+  static async ensureUserTenantRecord(
+    userId: string,
+    tenantId: string
+  ): Promise<UserTenantResponse> {
+    console.log('UserTenantService: Ensuring user-tenant record via global function for:', { userId, tenantId });
+    
+    return this.manageUserTenantRelationship({
+      user_id: userId,
+      tenant_id: tenantId,
+      role: 'tenant_admin',
+      is_active: true,
+      metadata: {
+        created_via: 'manual_fix',
+        fixed_at: new Date().toISOString(),
+        source: 'tenant_user_creator'
+      },
+      operation: 'upsert'
+    });
+  }
+
+  /**
+   * Get user-tenant relationships
+   */
+  static async getUserTenantRelationships(
+    userId?: string,
+    tenantId?: string,
+    includeInactive = false
+  ): Promise<UserTenantResponse> {
     try {
-      // Check if relationship already exists
-      const { data: existing } = await supabase
-        .from('user_tenants')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId)
-        .single();
+      const params = new URLSearchParams();
+      if (userId) params.append('user_id', userId);
+      if (tenantId) params.append('tenant_id', tenantId);
+      if (includeInactive) params.append('include_inactive', 'true');
 
-      if (existing) {
-        return { success: true, data: true };
-      }
-
-      // Create the relationship with required fields
-      const { error } = await supabase
-        .from('user_tenants')
-        .insert({
-          user_id: userId,
-          tenant_id: tenantId,
-          role: 'tenant_admin',
-          is_active: true,
-          is_primary: false
-        });
+      const { data, error } = await supabase.functions.invoke('manage-user-tenant', {
+        method: 'GET',
+        headers: {
+          'x-request-id': `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        }
+      });
 
       if (error) {
-        throw new Error(`Failed to create user-tenant relationship: ${error.message}`);
+        console.error('UserTenantService: Error fetching relationships:', error);
+        return {
+          success: false,
+          error: error.message || 'Failed to fetch user-tenant relationships',
+          code: 'FETCH_ERROR'
+        };
       }
 
-      return { success: true, data: true };
-    } catch (error) {
-      console.error('Error ensuring user tenant record:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to create relationship'
+      return data as UserTenantResponse;
+
+    } catch (error: any) {
+      console.error('UserTenantService: Unexpected error fetching relationships:', error);
+      return {
+        success: false,
+        error: error.message || 'Unexpected error occurred',
+        code: 'UNEXPECTED_ERROR'
       };
     }
-  }
-
-  async inviteUserToTenant(invite: TenantUserInvite): Promise<ServiceResult<boolean>> {
-    return this.executeOperation(async () => {
-      // Use admin_invites table with required fields
-      const { error: inviteError } = await supabase
-        .from('admin_invites')
-        .insert({
-          email: invite.email,
-          invite_token: crypto.randomUUID(),
-          role: invite.role_code as 'dealer' | 'tenant_admin' | 'super_admin' | 'tenant_owner' | 'tenant_manager' | 'agent' | 'farmer',
-          invited_by: invite.invited_by,
-          expires_at: invite.expires_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'pending'
-        });
-
-      if (inviteError) {
-        throw new Error(`Failed to create invitation: ${inviteError.message}`);
-      }
-
-      return true;
-    }, 'inviteUserToTenant');
-  }
-
-  async removeUserFromTenant(tenantId: string, userId: string): Promise<ServiceResult<boolean>> {
-    return this.executeOperation(async () => {
-      const { error } = await supabase
-        .from('user_tenants')
-        .delete()
-        .eq('tenant_id', tenantId)
-        .eq('user_id', userId);
-
-      if (error) {
-        throw new Error(`Failed to remove user from tenant: ${error.message}`);
-      }
-
-      return true;
-    }, 'removeUserFromTenant');
-  }
-
-  async updateUserTenantRole(tenantId: string, userId: string, roleId: string): Promise<ServiceResult<boolean>> {
-    return this.executeOperation(async () => {
-      const { error } = await supabase
-        .from('user_tenants')
-        .update({ 
-          role: roleId as 'dealer' | 'tenant_admin' | 'super_admin' | 'tenant_owner' | 'tenant_manager' | 'agent' | 'farmer',
-          updated_at: new Date().toISOString() 
-        })
-        .eq('tenant_id', tenantId)
-        .eq('user_id', userId);
-
-      if (error) {
-        throw new Error(`Failed to update user role: ${error.message}`);
-      }
-
-      return true;
-    }, 'updateUserTenantRole');
   }
 }
-
-export const userTenantService = UserTenantService.getInstance();

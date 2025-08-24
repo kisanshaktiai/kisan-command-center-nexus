@@ -1,8 +1,11 @@
 
-// Domain layer exports - centralized access point
-export * from './entities';
-export * from './services';  
-export * from './repositories';
+// Services
+export * from './metrics/metricsService';
+export * from './billing/billingService';
+export * from './tenants/tenantService';
 
-// Types are exported separately to avoid conflicts
-export type { DomainEntity, DomainService, DomainRepository } from './types';
+// Business logic
+export * from './metrics/calculations';
+export * from './metrics/formatters';
+export * from './auth/permissions';
+export * from './tenants/validation';

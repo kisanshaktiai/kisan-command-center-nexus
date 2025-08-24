@@ -1,8 +1,8 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { TenantMetrics } from '@/types/tenantView';
 import { Tenant } from '@/types/tenant';
-import { useNotifications } from '@/hooks/useNotifications';
 
 interface UseTenantAnalyticsOptions {
   tenants: Tenant[];
@@ -18,51 +18,32 @@ export const useTenantAnalytics = ({
   const [tenantMetrics, setTenantMetrics] = useState<Record<string, TenantMetrics>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState<Record<string, number>>({});
-  const [errorMessages, setErrorMessages] = useState<Record<string, string>>({});
-  const { showError } = useNotifications();
 
   const fetchTenantMetrics = useCallback(async (tenantId: string): Promise<TenantMetrics | null> => {
     try {
-      console.log(`Fetching metrics for tenant: ${tenantId}`);
+      // Use the configured Supabase URL and key from the client
+      const SUPABASE_URL = "https://qfklkkzxemsbeniyugiz.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFma2xra3p4ZW1zYmVuaXl1Z2l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjcxNjUsImV4cCI6MjA2ODAwMzE2NX0.dUnGp7wbwYom1FPbn_4EGf3PWjgmr8mXwL2w2SdYOh4";
       
-      // Send tenant_id directly in JSON body format
-      const { data, error } = await supabase.functions.invoke('tenant-real-time-metrics', {
-        body: { tenant_id: tenantId }
-      });
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/tenant-real-time-metrics?tenant_id=${tenantId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'apikey': SUPABASE_ANON_KEY,
+          }
+        }
+      );
 
-      if (error) {
-        console.error(`Error fetching metrics for tenant ${tenantId}:`, error);
-        
-        // Store specific error message for this tenant
-        setErrorMessages(prev => ({
-          ...prev,
-          [tenantId]: error.message || 'Failed to fetch metrics'
-        }));
-        
-        // Increment retry count for this tenant
-        setRetryCount(prev => ({
-          ...prev,
-          [tenantId]: (prev[tenantId] || 0) + 1
-        }));
-        
+      if (!response.ok) {
+        console.error(`Error fetching metrics for tenant ${tenantId}:`, response.status, response.statusText);
         return null;
       }
 
-      if (!data) {
-        console.warn(`No data received for tenant ${tenantId}`);
-        setErrorMessages(prev => ({
-          ...prev,
-          [tenantId]: 'No data received from server'
-        }));
-        return null;
-      }
+      const data = await response.json();
 
-      // Clear error message for successful fetch
-      setErrorMessages(prev => {
-        const { [tenantId]: _, ...rest } = prev;
-        return rest;
-      });
+      if (!data) return null;
 
       return {
         usageMetrics: {
@@ -102,19 +83,6 @@ export const useTenantAnalytics = ({
       };
     } catch (error) {
       console.error(`Error fetching metrics for tenant ${tenantId}:`, error);
-      
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch metrics';
-      setErrorMessages(prev => ({
-        ...prev,
-        [tenantId]: errorMessage
-      }));
-      
-      // Increment retry count for this tenant
-      setRetryCount(prev => ({
-        ...prev,
-        [tenantId]: (prev[tenantId] || 0) + 1
-      }));
-      
       return null;
     }
   }, []);
@@ -132,51 +100,24 @@ export const useTenantAnalytics = ({
 
       const results = await Promise.all(metricsPromises);
       const newMetrics: Record<string, TenantMetrics> = {};
-      let failedCount = 0;
 
       results.forEach(result => {
         if (result.metrics) {
           newMetrics[result.tenantId] = result.metrics;
-        } else {
-          failedCount++;
         }
       });
 
       setTenantMetrics(newMetrics);
-
-      if (failedCount > 0) {
-        const errorMsg = `Failed to load metrics for ${failedCount} tenant${failedCount > 1 ? 's' : ''}`;
-        setError(errorMsg);
-      }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to fetch metrics';
-      setError(errorMsg);
-      showError('Failed to load tenant metrics', { description: errorMsg });
+      setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
     } finally {
       setIsLoading(false);
     }
-  }, [tenants, fetchTenantMetrics, showError]);
+  }, [tenants, fetchTenantMetrics]);
 
   const refreshMetrics = useCallback(() => {
-    setRetryCount({}); // Reset retry counts
-    setErrorMessages({}); // Reset error messages
     fetchAllMetrics();
   }, [fetchAllMetrics]);
-
-  const retryTenantMetrics = useCallback((tenantId: string) => {
-    fetchTenantMetrics(tenantId).then(metrics => {
-      if (metrics) {
-        setTenantMetrics(prev => ({
-          ...prev,
-          [tenantId]: metrics
-        }));
-        setRetryCount(prev => ({
-          ...prev,
-          [tenantId]: 0
-        }));
-      }
-    });
-  }, [fetchTenantMetrics]);
 
   // Initial fetch
   useEffect(() => {
@@ -195,10 +136,7 @@ export const useTenantAnalytics = ({
     tenantMetrics,
     isLoading,
     error,
-    retryCount,
-    errorMessages,
     refreshMetrics,
-    fetchTenantMetrics,
-    retryTenantMetrics
+    fetchTenantMetrics
   };
 };

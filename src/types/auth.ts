@@ -1,9 +1,6 @@
 
 import { User, Session } from '@supabase/supabase-js';
 
-// Re-export User from Supabase
-export type { User } from '@supabase/supabase-js';
-
 // Consolidated AuthState interface - single source of truth
 export interface AuthState {
   user: User | null;
@@ -93,33 +90,4 @@ export interface BootstrapStatusResult {
 export interface SupabaseRpcResponse<T> {
   data: T | null;
   error: any;
-}
-
-// Auth context type
-export interface AuthContextType extends AuthState {
-  signOut: () => Promise<void>;
-  signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data?: any; error?: any }>;
-  isLoading: boolean;
-  error: string | null;
-  clearError: () => void;
-}
-
-// Additional types for compatibility
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface AdminRegistrationData {
-  email: string;
-  full_name: string;
-  token: string;
-  password?: string;
-  role?: string;
-}
-
-export interface SuperAdminSetupData {
-  email: string;
-  password: string;
-  full_name: string;
 }

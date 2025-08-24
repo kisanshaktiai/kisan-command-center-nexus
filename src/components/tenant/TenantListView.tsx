@@ -1,83 +1,136 @@
 
 import React from 'react';
-import { Tenant } from '@/types/tenant';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Eye, Edit } from 'lucide-react';
+import { Edit, Trash2, Building2 } from 'lucide-react';
+import { Tenant } from '@/types/tenant';
+import { tenantService } from '@/services/tenantService';
+import { TenantMetrics } from '@/types/tenantView';
+import { UsageMeter } from './UsageMeter';
 
 interface TenantListViewProps {
-  tenants: any[];
+  tenants: Tenant[];
+  metrics?: Record<string, TenantMetrics>;
+  onEdit: (tenant: Tenant) => void;
+  onDelete: (tenantId: string) => void;
   onViewDetails: (tenant: Tenant) => void;
-  onEditTenant: (tenant: Tenant) => void;
-  onEdit?: (tenant: Tenant) => void;
-  onDelete?: (tenantId: string) => void;
 }
 
 export const TenantListView: React.FC<TenantListViewProps> = ({
   tenants,
-  onViewDetails,
-  onEditTenant,
+  metrics,
   onEdit,
-  onDelete
+  onDelete,
+  onViewDetails,
 }) => {
-  if (!tenants?.length) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">No tenants found.</p>
-      </div>
-    );
-  }
-
-  const handleEdit = (tenant: Tenant) => {
-    if (onEdit) {
-      onEdit(tenant);
-    } else if (onEditTenant) {
-      onEditTenant(tenant);
-    }
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Not set';
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
-    <div className="space-y-4">
-      {tenants.map((tenant) => (
-        <Card key={tenant.id} className="hover:shadow-md transition-shadow">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-4">
-                  <div>
-                    <h3 className="font-semibold text-lg">{tenant.name}</h3>
-                    <p className="text-muted-foreground">{tenant.owner_email}</p>
+    <div className="border rounded-lg overflow-hidden">
+      <div className="bg-muted/50 px-4 py-3 border-b">
+        <div className="grid grid-cols-12 gap-4 text-sm font-medium text-muted-foreground">
+          <div className="col-span-3">Organization</div>
+          <div className="col-span-2">Type</div>
+          <div className="col-span-2">Status</div>
+          <div className="col-span-2">Plan</div>
+          <div className="col-span-2">Usage</div>
+          <div className="col-span-1">Actions</div>
+        </div>
+      </div>
+      
+      <div className="divide-y">
+        {tenants.map((tenant) => {
+          const tenantMetrics = metrics?.[tenant.id];
+          
+          return (
+            <div
+              key={tenant.id}
+              className="px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
+              onClick={() => onViewDetails(tenant)}
+            >
+              <div className="grid grid-cols-12 gap-4 items-center">
+                {/* Organization */}
+                <div className="col-span-3 flex items-center space-x-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Building2 className="h-4 w-4 text-primary" />
                   </div>
-                  <div className="flex gap-2">
-                    <Badge variant="outline">{tenant.type}</Badge>
-                    <Badge variant="secondary">{tenant.status}</Badge>
-                    <Badge variant="default">{tenant.subscription_plan}</Badge>
+                  <div>
+                    <div className="font-medium truncate">{tenant.name}</div>
+                    <div className="text-sm text-muted-foreground">{tenant.slug}</div>
                   </div>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onViewDetails(tenant)}
-                >
-                  <Eye className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEdit(tenant)}
-                >
-                  <Edit className="w-4 h-4" />
-                </Button>
+
+                {/* Type */}
+                <div className="col-span-2">
+                  <span className="text-sm capitalize">{tenant.type?.replace('_', ' ')}</span>
+                </div>
+
+                {/* Status */}
+                <div className="col-span-2">
+                  <Badge variant={tenantService.getStatusBadgeVariant(tenant.status)}>
+                    {tenant.status?.toUpperCase()}
+                  </Badge>
+                </div>
+
+                {/* Plan */}
+                <div className="col-span-2">
+                  <Badge variant={tenantService.getPlanBadgeVariant(tenant.subscription_plan)}>
+                    {tenantService.getPlanDisplayName(tenant.subscription_plan)}
+                  </Badge>
+                </div>
+
+                {/* Usage */}
+                <div className="col-span-2">
+                  {tenantMetrics ? (
+                    <div className="space-y-1">
+                      <UsageMeter
+                        label=""
+                        current={tenantMetrics.usageMetrics.farmers.current}
+                        limit={tenantMetrics.usageMetrics.farmers.limit}
+                        showDetails={false}
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        {tenantMetrics.usageMetrics.farmers.current}/{tenantMetrics.usageMetrics.farmers.limit} farmers
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No data</span>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="col-span-1 flex space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(tenant);
+                    }}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(tenant.id);
+                    }}
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      ))}
+          );
+        })}
+      </div>
     </div>
   );
 };
-
-export default TenantListView;

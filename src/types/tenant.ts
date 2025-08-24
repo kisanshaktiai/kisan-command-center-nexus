@@ -1,29 +1,25 @@
+import { TenantType, TenantStatus, SubscriptionPlan } from './enums';
 
-// Import from centralized enums and types
-export * from './enums';
+// Branded type for tenant ID to prevent mixing with generic strings
+export type TenantID = string & { readonly brand: unique symbol };
 
-// Base tenant interface with all properties
-export interface Tenant {
-  id: string;
+export const createTenantID = (id: string): TenantID => id as TenantID;
+
+// Strict status union type matching Supabase schema
+export type TenantStatusValue = "active" | "trial" | "suspended" | "cancelled" | "archived" | "pending_approval";
+export type TenantTypeValue = "agri_company" | "dealer" | "ngo" | "government" | "university" | "sugar_factory" | "cooperative" | "insurance";
+export type SubscriptionPlanValue = "Kisan_Basic" | "Shakti_Growth" | "AI_Enterprise" | "custom";
+
+export interface TenantFormData {
   name: string;
   slug: string;
-  type: string;
-  status: string;
-  subscription_plan: string;
-  created_at: string;
-  updated_at: string;
-  
-  // Contact and owner information
+  type: TenantType;
+  status: TenantStatus;
   owner_name?: string;
   owner_email?: string;
   owner_phone?: string;
-  contact_email?: string;
-  contact_phone?: string;
-  
-  // Business information
-  organization_name?: string;
   business_registration?: string;
-  business_address?: string | {
+  business_address?: {
     street?: string;
     city?: string;
     state?: string;
@@ -31,316 +27,202 @@ export interface Tenant {
     country?: string;
   };
   established_date?: string;
-  
-  // Subscription details
+  subscription_plan: SubscriptionPlan;
   subscription_start_date?: string;
   subscription_end_date?: string;
   trial_ends_at?: string;
-  
-  // Limits and quotas
   max_farmers?: number;
   max_dealers?: number;
   max_products?: number;
   max_storage_gb?: number;
   max_api_calls_per_day?: number;
-  
-  // Domain settings
   subdomain?: string;
   custom_domain?: string;
-  
-  // Branding and customization
-  branding?: {
-    logo_url?: string;
-    primary_color?: string;
-    secondary_color?: string;
-    accent_color?: string;
-    app_name?: string;
-    app_tagline?: string;
-    theme_settings?: Record<string, unknown>;
-  };
-  
-  // Additional settings
-  settings?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-  features?: Record<string, unknown>;
-}
-
-// Additional branding interface
-export interface TenantBranding {
-  logo_url?: string;
-  primary_color?: string;
-  secondary_color?: string;
-  accent_color?: string;
-  app_name?: string;
-  app_tagline?: string;
-  theme_settings?: Record<string, unknown>;
-}
-
-// Features interface
-export interface TenantFeatures {
-  [key: string]: boolean | string | number;
-}
-
-// Tenant ID type
-export type TenantID = string;
-
-// Create tenant ID function
-export const createTenantID = (id: string): TenantID => id;
-
-export interface TenantFilters {
-  search?: string;
-  type?: string;
-  status?: string;
-  subscription_plan?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface CreateTenantDTO {
   name: string;
   slug: string;
-  type: string;
-  status?: string;
-  
-  // Optional owner information
-  owner_name?: string;
-  owner_email?: string;
+  type: TenantTypeValue; // Strict union type for database
+  status: TenantStatusValue; // Strict union type for database
+  subscription_plan: SubscriptionPlanValue; // Strict union type for database
+  owner_email?: string; // Made optional to match TenantFormData
+  owner_name?: string; // Made optional to match TenantFormData
   owner_phone?: string;
-  
-  // Optional business information
-  organization_name?: string;
   business_registration?: string;
-  business_address?: string | {
-    street?: string;
-    city?: string;
-    state?: string;
-    postal_code?: string;
-    country?: string;
-  };
+  business_address?: any;
   established_date?: string;
-  
-  // Optional subscription details
   subscription_start_date?: string;
   subscription_end_date?: string;
   trial_ends_at?: string;
-  
-  // Optional limits
   max_farmers?: number;
   max_dealers?: number;
   max_products?: number;
   max_storage_gb?: number;
   max_api_calls_per_day?: number;
-  
-  // Optional domain settings
   subdomain?: string;
   custom_domain?: string;
-  
-  // Optional settings
-  settings?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, any>;
 }
 
 export interface UpdateTenantDTO {
-  id?: string;
   name?: string;
-  slug?: string;
-  type?: string;
-  status?: string;
-  subscription_plan?: string;
-  
-  // Optional owner information
-  owner_name?: string;
-  owner_email?: string;
+  type?: TenantTypeValue; // Strict union type for database
+  status?: TenantStatusValue; // Strict union type for database
+  subscription_plan?: SubscriptionPlanValue; // Strict union type for database
+  owner_name?: string; // Added missing field
+  owner_email?: string; // Added missing field
   owner_phone?: string;
-  
-  // Optional business information
-  organization_name?: string;
   business_registration?: string;
-  business_address?: string | {
-    street?: string;
-    city?: string;
-    state?: string;
-    postal_code?: string;
-    country?: string;
-  };
+  business_address?: any;
   established_date?: string;
-  
-  // Optional subscription details
   subscription_start_date?: string;
   subscription_end_date?: string;
   trial_ends_at?: string;
-  
-  // Optional limits
   max_farmers?: number;
   max_dealers?: number;
   max_products?: number;
   max_storage_gb?: number;
   max_api_calls_per_day?: number;
-  
-  // Optional domain settings
   subdomain?: string;
   custom_domain?: string;
-  
-  // Service-specific fields
-  suspended_at?: string;
-  reactivated_at?: string;
-  
-  // Optional settings
-  settings?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, any>;
 }
 
-export interface DatabaseTenant {
-  id: string;
+export interface TenantFilters {
+  search?: string;
+  type?: TenantType | TenantTypeValue | string;
+  status?: TenantStatus | TenantStatusValue | string;
+  subscription_plan?: SubscriptionPlan | SubscriptionPlanValue | string;
+  limit?: number;
+  offset?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface Tenant {
+  id: TenantID;
   name: string;
   slug: string;
-  type: string;
-  status: string;
-  subscription_plan: string;
-  organization_name: string | null;
-  owner_name: string | null;
-  owner_email: string | null;
-  owner_phone: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
-  business_registration: string | null;
-  business_address: any | null;
-  established_date: string | null;
-  subscription_start_date: string | null;
-  subscription_end_date: string | null;
-  trial_ends_at: string | null;
-  max_farmers: number | null;
-  max_dealers: number | null;
-  max_products: number | null;
-  max_storage_gb: number | null;
-  max_api_calls_per_day: number | null;
-  subdomain: string | null;
-  custom_domain: string | null;
-  settings: Record<string, unknown> | null;
-  metadata: Record<string, unknown> | null;
+  type: TenantType;
+  status: TenantStatus;
+  subscription_plan: SubscriptionPlan;
+  owner_name?: string;
+  owner_email?: string;
+  owner_phone?: string;
+  business_registration?: string;
+  business_address?: any;
+  established_date?: string;
+  subscription_start_date?: string;
+  subscription_end_date?: string;
+  trial_ends_at?: string;
+  max_farmers?: number;
+  max_dealers?: number;
+  max_products?: number;
+  max_storage_gb?: number;
+  max_api_calls_per_day?: number;
+  subdomain?: string;
+  custom_domain?: string;
+  metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
-  tenant_branding?: Array<{
-    logo_url?: string;
-    primary_color?: string;
-    secondary_color?: string;
-    accent_color?: string;
-    app_name?: string;
-    app_tagline?: string;
-    theme_settings?: Record<string, unknown>;
-  }>;
-  tenant_features?: Array<Record<string, unknown>>;
+  deleted_at?: string;
+  branding?: TenantBranding | null;
+  features?: TenantFeatures | null;
 }
 
-// Form data interface for create/edit forms
-export interface TenantFormData {
-  name: string;
-  slug: string;
-  type: string;
-  status: string;
-  subscription_plan: string;
-  owner_name?: string;
-  owner_email?: string;
-  owner_phone?: string;
-  organization_name?: string;
-  business_registration?: string;
-  business_address?: string | {
-    street?: string;
-    city?: string;
-    state?: string;
-    postal_code?: string;
-    country?: string;
-  };
-  established_date?: string;
-  subscription_start_date?: string;
-  subscription_end_date?: string;
-  trial_ends_at?: string;
-  max_farmers?: number;
-  max_dealers?: number;
-  max_products?: number;
-  max_storage_gb?: number;
-  max_api_calls_per_day?: number;
-  subdomain?: string;
-  custom_domain?: string;
-  metadata?: Record<string, unknown>;
+export interface TenantBranding {
+  primary_color?: string;
+  secondary_color?: string;
+  accent_color?: string;
+  background_color?: string;
+  text_color?: string;
+  app_name?: string;
+  app_tagline?: string;
+  logo_url?: string;
+  font_family?: string;
 }
 
-// Option interfaces for select components  
+export interface TenantFeatures {
+  ai_chat?: boolean;
+  weather_forecast?: boolean;
+  marketplace?: boolean;
+  community_forum?: boolean;
+  satellite_imagery?: boolean;
+  soil_testing?: boolean;
+  drone_monitoring?: boolean;
+  iot_integration?: boolean;
+  ecommerce?: boolean;
+  payment_gateway?: boolean;
+  inventory_management?: boolean;
+  logistics_tracking?: boolean;
+  basic_analytics?: boolean;
+  advanced_analytics?: boolean;
+  predictive_analytics?: boolean;
+  custom_reports?: boolean;
+  api_access?: boolean;
+  webhook_support?: boolean;
+  third_party_integrations?: boolean;
+  white_label_mobile_app?: boolean;
+}
+
+// RPC Response type for database operations
+export interface RpcResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+  tenant_id?: string;
+  data?: any;
+}
+
+// Helper options for forms and filters
 export const tenantTypeOptions = [
-  { value: 'Agri_Company', label: 'Agri Company' },
-  { value: 'Farmer_Collective', label: 'Farmer Collective' },
-  { value: 'Cooperative', label: 'Cooperative' },
-  { value: 'Government_Agency', label: 'Government Agency' },
-  { value: 'NGO', label: 'NGO' },
-  { value: 'Research_Institute', label: 'Research Institute' },
-  { value: 'Technology_Provider', label: 'Technology Provider' },
-  { value: 'Financial_Institution', label: 'Financial Institution' },
-  { value: 'Marketplace', label: 'Marketplace' },
-  { value: 'Consultant', label: 'Consultant' }
+  { value: TenantType.AGRI_COMPANY, label: 'Agricultural Company' },
+  { value: TenantType.DEALER, label: 'Dealer' },
+  { value: TenantType.NGO, label: 'NGO' },
+  { value: TenantType.GOVERNMENT, label: 'Government' },
+  { value: TenantType.UNIVERSITY, label: 'University' },
+  { value: TenantType.SUGAR_FACTORY, label: 'Sugar Factory' },
+  { value: TenantType.COOPERATIVE, label: 'Cooperative' },
+  { value: TenantType.INSURANCE, label: 'Insurance' },
 ];
 
 export const tenantStatusOptions = [
-  { value: 'trial', label: 'Trial' },
-  { value: 'active', label: 'Active' },
-  { value: 'suspended', label: 'Suspended' },
-  { value: 'archived', label: 'Archived' },
-  { value: 'pending_approval', label: 'Pending Approval' },
-  { value: 'cancelled', label: 'Cancelled' }
+  { value: TenantStatus.TRIAL, label: 'Trial' },
+  { value: TenantStatus.ACTIVE, label: 'Active' },
+  { value: TenantStatus.SUSPENDED, label: 'Suspended' },
+  { value: TenantStatus.CANCELLED, label: 'Cancelled' },
+  { value: TenantStatus.ARCHIVED, label: 'Archived' },
+  { value: TenantStatus.PENDING_APPROVAL, label: 'Pending Approval' },
 ];
 
 export const subscriptionPlanOptions = [
-  { value: 'Kisan_Basic', label: 'Kisan Basic' },
-  { value: 'Shakti_Growth', label: 'Shakti Growth' },
-  { value: 'AI_Enterprise', label: 'AI Enterprise' },
-  { value: 'Custom_Enterprise', label: 'Custom Enterprise' }
+  { value: SubscriptionPlan.KISAN_BASIC, label: 'Kisan – Starter' },
+  { value: SubscriptionPlan.SHAKTI_GROWTH, label: 'Shakti – Growth' },
+  { value: SubscriptionPlan.AI_ENTERPRISE, label: 'AI – Enterprise' },
+  { value: SubscriptionPlan.CUSTOM, label: 'Custom Plan' },
 ];
 
-// Type aliases for enum values
-export type TenantTypeValue = string;
-export type TenantStatusValue = string;
-export type SubscriptionPlanValue = string;
-
-// Conversion function from database format to application format
+// Type conversion utilities
 export const convertDatabaseTenant = (dbTenant: any): Tenant => {
-  const branding = dbTenant.tenant_branding?.[0] || {};
-  
   return {
-    id: dbTenant.id,
-    name: dbTenant.name,
-    slug: dbTenant.slug,
-    type: dbTenant.type,
-    status: dbTenant.status,
-    subscription_plan: dbTenant.subscription_plan,
-    created_at: dbTenant.created_at,
-    updated_at: dbTenant.updated_at,
-    organization_name: dbTenant.organization_name || undefined,
-    owner_name: dbTenant.owner_name || undefined,
-    owner_email: dbTenant.owner_email || undefined,
-    owner_phone: dbTenant.owner_phone || undefined,
-    contact_email: dbTenant.contact_email || undefined,
-    contact_phone: dbTenant.contact_phone || undefined,
-    business_registration: dbTenant.business_registration || undefined,
-    business_address: dbTenant.business_address || undefined,
-    established_date: dbTenant.established_date || undefined,
-    subscription_start_date: dbTenant.subscription_start_date || undefined,
-    subscription_end_date: dbTenant.subscription_end_date || undefined,
-    trial_ends_at: dbTenant.trial_ends_at || undefined,
-    max_farmers: dbTenant.max_farmers || undefined,
-    max_dealers: dbTenant.max_dealers || undefined,
-    max_products: dbTenant.max_products || undefined,
-    max_storage_gb: dbTenant.max_storage_gb || undefined,
-    max_api_calls_per_day: dbTenant.max_api_calls_per_day || undefined,
-    subdomain: dbTenant.subdomain || undefined,
-    custom_domain: dbTenant.custom_domain || undefined,
-    settings: dbTenant.settings || undefined,
-    metadata: dbTenant.metadata || undefined,
-    features: dbTenant.tenant_features?.[0] || undefined,
-    branding: Object.keys(branding).length > 0 ? {
-      logo_url: branding.logo_url,
-      primary_color: branding.primary_color,
-      secondary_color: branding.secondary_color,
-      accent_color: branding.accent_color,
-      app_name: branding.app_name,
-      app_tagline: branding.app_tagline,
-      theme_settings: branding.theme_settings,
-    } : undefined,
+    ...dbTenant,
+    id: createTenantID(dbTenant.id),
+    type: Object.values(TenantType).find(t => t === dbTenant.type) || TenantType.AGRI_COMPANY,
+    status: Object.values(TenantStatus).find(s => s === dbTenant.status) || TenantStatus.TRIAL,
+    subscription_plan: Object.values(SubscriptionPlan).find(p => p === dbTenant.subscription_plan) || SubscriptionPlan.KISAN_BASIC,
+    branding: dbTenant.tenant_branding?.[0] || null,
+    features: dbTenant.tenant_features?.[0] || null,
   };
 };
+
+// Enum to string converters for API calls
+export const convertEnumToString = {
+  type: (type: TenantType): TenantTypeValue => type as TenantTypeValue,
+  status: (status: TenantStatus): TenantStatusValue => status as TenantStatusValue,
+  subscriptionPlan: (plan: SubscriptionPlan): SubscriptionPlanValue => plan as SubscriptionPlanValue,
+};
+
+// Re-export enums for convenience
+export { TenantType, TenantStatus, SubscriptionPlan };

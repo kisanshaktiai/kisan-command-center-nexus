@@ -3,10 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Activity, Users, Zap, HardDrive, AlertTriangle, RefreshCw } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Activity, Users, Zap, HardDrive, Globe, AlertTriangle } from 'lucide-react';
 
 interface RealTimeMetrics {
   current_metrics: {
@@ -39,30 +37,19 @@ interface RealTimeMetricsWidgetProps {
 export const RealTimeMetricsWidget: React.FC<RealTimeMetricsWidgetProps> = ({ tenantId }) => {
   const [metrics, setMetrics] = useState<RealTimeMetrics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const [retryCount, setRetryCount] = useState(0);
 
   const fetchMetrics = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
-      const { data, error: fetchError } = await supabase.functions.invoke('tenant-real-time-metrics', {
+      const { data, error } = await supabase.functions.invoke('tenant-real-time-metrics', {
         body: { tenant_id: tenantId }
       });
 
-      if (fetchError) {
-        throw new Error(fetchError.message || 'Failed to fetch metrics');
-      }
-
+      if (error) throw error;
       setMetrics(data);
       setLastUpdated(new Date());
-      setRetryCount(0);
     } catch (error) {
       console.error('Error fetching real-time metrics:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch metrics');
-      setRetryCount(prev => prev + 1);
     } finally {
       setLoading(false);
     }
@@ -91,93 +78,28 @@ export const RealTimeMetricsWidget: React.FC<RealTimeMetricsWidgetProps> = ({ te
     }
   };
 
-  if (loading && !metrics) {
+  if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-10 w-10 rounded-full" />
-                </div>
-                <Skeleton className="h-8 w-16 mb-2" />
-                <Skeleton className="h-3 w-24" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-32" />
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="text-center">
-                  <Skeleton className="h-4 w-16 mx-auto mb-2" />
-                  <Skeleton className="h-6 w-20 mx-auto" />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i} className="animate-pulse">
+            <CardContent className="p-6">
+              <div className="h-16 bg-gray-200 rounded"></div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   }
 
-  if (error) {
+  if (!metrics) {
     return (
-      <div className="space-y-4">
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription className="flex items-center justify-between">
-            <div>
-              <div>Metrics unavailable. Please retry.</div>
-              {retryCount > 0 && (
-                <div className="text-xs mt-1">Failed attempts: {retryCount}</div>
-              )}
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={fetchMetrics}
-              disabled={loading}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
-
-        {/* Fallback skeleton metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { title: 'Active Users', icon: Users, value: '—' },
-            { title: 'API Calls', icon: Activity, value: '—' },
-            { title: 'Response Time', icon: Zap, value: '—' },
-            { title: 'Storage Usage', icon: HardDrive, value: '—' }
-          ].map((metric, i) => (
-            <Card key={i} className="opacity-50">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium">{metric.title}</CardTitle>
-                  <metric.icon className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-muted-foreground">{metric.value}</div>
-                <p className="text-xs text-muted-foreground">Unavailable</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>Failed to load real-time metrics</AlertDescription>
+      </Alert>
     );
   }
-
-  if (!metrics) return null;
 
   return (
     <div className="space-y-6">

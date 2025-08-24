@@ -85,7 +85,7 @@ export const useTenantUserManagement = () => {
       console.log('useTenantUserManagement: User-tenant status result:', status);
       
       // Check if there were any errors in the status check
-      if (status?.issues && status.issues.length > 0) {
+      if (status.issues.length > 0) {
         const hasOnlyMissingRelationshipIssue = status.issues.length === 1 && 
           status.issues[0] === 'User-tenant relationship missing' && 
           status.authExists;
@@ -134,10 +134,8 @@ export const useTenantUserManagement = () => {
         showSuccess('User-tenant relationship created successfully');
         return true;
       } else {
-        console.error('useTenantUserManagement: Failed to ensure user-tenant record:', result);
-        // Show more detailed error message from the enhanced error handling
-        const errorMessage = result.error || 'Failed to create user-tenant relationship';
-        showError(errorMessage);
+        console.error('useTenantUserManagement: Failed to ensure user-tenant record:', result.error);
+        showError(result.error || 'Failed to create user-tenant relationship');
         return false;
       }
     } catch (error) {

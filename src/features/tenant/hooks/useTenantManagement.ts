@@ -6,7 +6,6 @@ import { useTenantData } from './useTenantData';
 import { useTenantMutations } from './useTenantMutations';
 import { useTenantFiltering } from './useTenantFiltering';
 import { TenantDisplayService, FormattedTenantData } from '@/services/TenantDisplayService';
-import { TenantStatus, SubscriptionPlan, TenantStatusValue, SubscriptionPlanValue } from '@/types/enums';
 
 interface UseTenantManagementOptions {
   initialFilters?: {
@@ -27,11 +26,7 @@ interface CreationSuccessState {
 
 export const useTenantManagement = (options: UseTenantManagementOptions = {}) => {
   // Data and mutations
-  const { data: tenantData, isLoading, error } = useTenantData({ filters: options.initialFilters });
-  
-  // Ensure we always work with an array - fix the type conversion
-  const tenants = Array.isArray(tenantData) ? tenantData : (tenantData ? [tenantData] : []) as Tenant[];
-  
+  const { data: tenants = [], isLoading, error } = useTenantData({ filters: options.initialFilters });
   const { createTenantMutation, updateTenantMutation, deleteTenantMutation, isSubmitting } = useTenantMutations();
   
   // Filtering and sorting
@@ -74,7 +69,7 @@ export const useTenantManagement = (options: UseTenantManagementOptions = {}) =>
       if (result) {
         setCreationSuccess({
           tenantName: data.name,
-          adminEmail: data.owner_email || '',
+          adminEmail: data.owner_email,
           hasEmailSent: true,
           correlationId: `create-${Date.now()}`
         });
@@ -87,24 +82,7 @@ export const useTenantManagement = (options: UseTenantManagementOptions = {}) =>
 
   const handleUpdateTenant = useCallback(async (id: string, data: UpdateTenantDTO): Promise<boolean> => {
     try {
-      // Ensure proper type conversion
-      const updateData: UpdateTenantDTO = {
-        ...data,
-        status: data.status as TenantStatusValue,
-        subscription_plan: data.subscription_plan as SubscriptionPlanValue,
-        metadata: {
-          ...data.metadata,
-          updated_via: 'tenant_management_hook',
-          security_context: {
-            user_id: 'current_user',
-            timestamp: new Date().toISOString(),
-            source: 'web_interface'
-          },
-          last_updated: new Date().toISOString()
-        }
-      };
-
-      await updateTenantMutation.mutateAsync({ id, data: updateData });
+      await updateTenantMutation.mutateAsync({ id, data });
       return true;
     } catch {
       return false;

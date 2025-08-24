@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Shield, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { authService } from '@/services/AuthService';
+import { useAuthenticationService } from '@/hooks/useAuthenticationService';
 import { AuthErrorBoundary } from '../auth/AuthErrorBoundary';
 
 interface SuperAdminAuthProps {
@@ -18,9 +17,9 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  
+  const { signInAdmin, isLoading, error, clearError } = useAuthenticationService();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,31 +29,19 @@ export const SuperAdminAuth: React.FC<SuperAdminAuthProps> = ({ onToggleMode }) 
       return;
     }
 
-    setError(null);
-    setIsLoading(true);
+    clearError();
     
-    try {
-      console.log('SuperAdminAuth: Starting admin login for:', email);
-      
-      const result = await authService.signInAdmin(email, password);
-      
-      if (result.success) {
-        console.log('SuperAdminAuth: Admin login successful');
+    await signInAdmin(
+      email,
+      password,
+      () => {
         toast.success('Successfully logged in as admin');
         navigate('/super-admin');
-      } else {
-        console.error('SuperAdminAuth: Admin login failed:', result.error);
-        setError(result.error || 'Authentication failed');
-        toast.error(result.error || 'Authentication failed');
+      },
+      (error) => {
+        toast.error(error);
       }
-    } catch (error) {
-      console.error('SuperAdminAuth: Login exception:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
+    );
   };
 
   return (

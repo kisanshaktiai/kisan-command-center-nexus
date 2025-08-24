@@ -61,15 +61,12 @@ export const TenantOnboardingWizard: React.FC<TenantOnboardingWizardProps> = ({
     autoCreate: true
   });
 
-  // Fixed component mapping for different step types
+  // Component mapping for different step types
   const getStepComponent = (stepName: string) => {
     const componentMap: Record<string, React.ComponentType<any>> = {
       'Company Profile': CompanyProfileStep,
       'Branding & Design': EnhancedBrandingStep,
       'Team & Permissions': EnhancedUsersRolesStep,
-      'Users & Roles': EnhancedUsersRolesStep,
-      'Team Setup': EnhancedUsersRolesStep,
-      'User Management': EnhancedUsersRolesStep,
       'Billing & Plan': BillingPlanStep,
       'Domain & White-label': DomainWhitelabelStep,
       'Domain & Branding': DomainWhitelabelStep,

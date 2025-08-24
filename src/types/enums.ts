@@ -1,49 +1,60 @@
 
-// Tenant Type Enumeration
+// Centralized enums for type safety
 export enum TenantType {
-  AGRI_COMPANY = 'Agri_Company',
-  FARMER_COLLECTIVE = 'Farmer_Collective',
-  COOPERATIVE = 'Cooperative',
-  GOVERNMENT_AGENCY = 'Government_Agency',
-  NGO = 'NGO',
-  RESEARCH_INSTITUTE = 'Research_Institute',
-  TECHNOLOGY_PROVIDER = 'Technology_Provider',
-  FINANCIAL_INSTITUTION = 'Financial_Institution',
-  MARKETPLACE = 'Marketplace',
-  CONSULTANT = 'Consultant'
+  AGRI_COMPANY = 'agri_company',
+  DEALER = 'dealer',
+  NGO = 'ngo',
+  GOVERNMENT = 'government',
+  UNIVERSITY = 'university',
+  SUGAR_FACTORY = 'sugar_factory',
+  COOPERATIVE = 'cooperative',
+  INSURANCE = 'insurance'
 }
 
-// Tenant Status Enumeration
 export enum TenantStatus {
   TRIAL = 'trial',
   ACTIVE = 'active',
   SUSPENDED = 'suspended',
+  CANCELLED = 'cancelled',
   ARCHIVED = 'archived',
-  PENDING_APPROVAL = 'pending_approval',
-  CANCELLED = 'cancelled'
+  PENDING_APPROVAL = 'pending_approval'
 }
 
-// Subscription Plan Enumeration
 export enum SubscriptionPlan {
   KISAN_BASIC = 'Kisan_Basic',
   SHAKTI_GROWTH = 'Shakti_Growth',
   AI_ENTERPRISE = 'AI_Enterprise',
-  CUSTOM_ENTERPRISE = 'Custom_Enterprise'
+  CUSTOM = 'custom'
 }
 
-// Permission Enumeration for RBAC
+export enum UserRole {
+  SUPER_ADMIN = 'super_admin',
+  PLATFORM_ADMIN = 'platform_admin',
+  TENANT_ADMIN = 'tenant_admin',
+  TENANT_USER = 'tenant_user',
+  FARMER = 'farmer',
+  DEALER = 'dealer'
+}
+
 export enum Permission {
-  READ_TENANT = 'read:tenant',
-  WRITE_TENANT = 'write:tenant',
-  DELETE_TENANT = 'delete:tenant',
-  MANAGE_USERS = 'manage:users',
-  READ_ANALYTICS = 'read:analytics',
-  MANAGE_SETTINGS = 'manage:settings',
-  SYSTEM_ADMIN = 'system:admin'
+  // System permissions
+  SYSTEM_ADMIN = 'system:admin',
+  SYSTEM_CONFIG = 'system:config',
+  
+  // Tenant permissions
+  TENANT_CREATE = 'tenant:create',
+  TENANT_READ = 'tenant:read',
+  TENANT_UPDATE = 'tenant:update',
+  TENANT_DELETE = 'tenant:delete',
+  
+  // User permissions
+  USER_CREATE = 'user:create',
+  USER_READ = 'user:read',
+  USER_UPDATE = 'user:update',
+  USER_DELETE = 'user:delete',
+  
+  // Billing permissions
+  BILLING_READ = 'billing:read',
+  BILLING_UPDATE = 'billing:update',
+  BILLING_ADMIN = 'billing:admin'
 }
-
-// Type aliases for convenience
-export type TenantTypeValue = `${TenantType}`;
-export type TenantStatusValue = `${TenantStatus}`;
-export type SubscriptionPlanValue = `${SubscriptionPlan}`;
-export type PermissionValue = `${Permission}`;

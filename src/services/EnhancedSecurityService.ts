@@ -1,169 +1,246 @@
 
-import { supabase } from '@/integrations/supabase/client';
 import { BaseService, ServiceResult } from './BaseService';
+import { supabase } from '@/integrations/supabase/client';
+import { EnhancedSecurityUtils } from '@/utils/enhancedSecurity';
 
-interface RateLimitCheck {
-  userId?: string;
-  ipAddress?: string;
-  userAgent?: string;
-  requestCount: number;
-  timeWindow: number;
-  failedAttempts?: number;
+export interface SecurityEventData {
+  event_type: string;
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  event_details: any;
+  user_id?: string;
+  ip_address?: string;
+  user_agent?: string;
 }
 
-interface SecurityEvent {
-  userId?: string;
-  eventType: string;
-  ipAddress?: string;
-  userAgent?: string;
-  metadata?: Record<string, any>;
-}
-
-interface PasswordPolicy {
-  minLength: number;
-  requireUppercase: boolean;
-  requireLowercase: boolean;
-  requireNumbers: boolean;
-  requireSpecialChars: boolean;
-  preventCommonPasswords: boolean;
+export interface SecurityAlert {
+  id: string;
+  alert_type: string;
+  severity: 'info' | 'warning' | 'error' | 'critical';
+  message: string;
+  created_at: string;
+  resolved_at?: string;
 }
 
 export class EnhancedSecurityService extends BaseService {
   private static instance: EnhancedSecurityService;
+  private monitoringEnabled = true;
 
   private constructor() {
     super();
   }
 
-  static getInstance(): EnhancedSecurityService {
+  public static getInstance(): EnhancedSecurityService {
     if (!EnhancedSecurityService.instance) {
       EnhancedSecurityService.instance = new EnhancedSecurityService();
     }
     return EnhancedSecurityService.instance;
   }
 
-  async checkRateLimit(params: RateLimitCheck): Promise<ServiceResult<boolean>> {
+  /**
+   * Log security events to the database using the new function signature
+   */
+  async logSecurityEvent(eventData: SecurityEventData): Promise<ServiceResult<string>> {
     return this.executeOperation(async () => {
-      // Rate limiting logic would go here
-      // For now, return true (allowed)
-      return true;
-    }, 'check rate limit');
-  }
+      const { data, error } = await supabase.rpc('log_security_event', {
+        p_user_id: eventData.user_id || null,
+        p_event_type: eventData.event_type,
+        p_event_details: eventData.event_details,
+        p_ip_address: eventData.ip_address || null,
+        p_user_agent: eventData.user_agent || null,
+        p_risk_level: eventData.risk_level
+      });
 
-  async logSecurityEvent(event: SecurityEvent): Promise<ServiceResult<void>> {
-    return this.executeOperation(async () => {
-      const { error } = await supabase
-        .from('security_events')
-        .insert({
-          user_id: event.userId,
-          event_type: event.eventType,
-          ip_address: event.ipAddress,
-          user_agent: event.userAgent,
-          metadata: event.metadata || {},
-          created_at: new Date().toISOString()
-        });
-
-      if (error) {
-        throw error;
+      if (error) throw error;
+      
+      // Trigger real-time alerts for high-risk events
+      if (eventData.risk_level === 'critical' || eventData.risk_level === 'high') {
+        await this.triggerSecurityAlert(eventData);
       }
-    }, 'log security event');
+
+      return data;
+    }, 'logSecurityEvent');
   }
 
-  async trackFailedLogin(params: {
+  /**
+   * Monitor suspicious activities in real-time
+   */
+  async monitorSuspiciousActivity(activityData: {
     userId?: string;
     ipAddress?: string;
     userAgent?: string;
-    requestCount: number;
-    timeWindow: number;
+    requestCount?: number;
+    timeWindow?: number;
     failedAttempts?: number;
-  }): Promise<ServiceResult<void>> {
+  }): Promise<ServiceResult<{ isSuspicious: boolean; riskLevel: string; reasons: string[] }>> {
     return this.executeOperation(async () => {
-      await this.logSecurityEvent({
-        userId: params.userId,
-        eventType: 'failed_login',
-        ipAddress: params.ipAddress,
-        userAgent: params.userAgent,
-        metadata: {
-          requestCount: params.requestCount,
-          timeWindow: params.timeWindow,
-          failedAttempts: params.failedAttempts
-        }
+      const analysis = EnhancedSecurityUtils.detectSuspiciousActivity(activityData);
+      
+      if (analysis.isSuspicious) {
+        await this.logSecurityEvent({
+          event_type: 'suspicious_activity_detected',
+          risk_level: analysis.riskLevel as 'low' | 'medium' | 'high' | 'critical',
+          event_details: {
+            reasons: analysis.reasons,
+            activityData,
+            timestamp: new Date().toISOString()
+          },
+          user_id: activityData.userId,
+          ip_address: activityData.ipAddress,
+          user_agent: activityData.userAgent
+        });
+      }
+
+      return analysis;
+    }, 'monitorSuspiciousActivity');
+  }
+
+  /**
+   * Check account lockout status
+   */
+  async checkAccountLockout(email: string, ipAddress?: string): Promise<ServiceResult<any>> {
+    return this.executeOperation(async () => {
+      const { data, error } = await supabase.rpc('check_account_lockout', {
+        p_email: email,
+        p_ip_address: ipAddress || null
       });
-    }, 'track failed login');
+
+      if (error) throw error;
+      return data;
+    }, 'checkAccountLockout');
   }
 
-  async validatePasswordStrength(password: string, policy?: PasswordPolicy): Promise<ServiceResult<{ isValid: boolean; violations: string[] }>> {
+  /**
+   * Record failed login attempt
+   */
+  async recordFailedLogin(email: string, ipAddress?: string): Promise<ServiceResult<any>> {
     return this.executeOperation(async () => {
-      const defaultPolicy: PasswordPolicy = {
-        minLength: 8,
-        requireUppercase: true,
-        requireLowercase: true,
-        requireNumbers: true,
-        requireSpecialChars: true,
-        preventCommonPasswords: true
+      const { data, error } = await supabase.rpc('record_failed_login', {
+        p_email: email,
+        p_ip_address: ipAddress || null
+      });
+
+      if (error) throw error;
+      
+      // Log security event
+      await this.logSecurityEvent({
+        event_type: 'failed_login_attempt',
+        risk_level: 'medium',
+        event_details: {
+          email,
+          timestamp: new Date().toISOString()
+        },
+        ip_address: ipAddress
+      });
+
+      return data;
+    }, 'recordFailedLogin');
+  }
+
+  /**
+   * Validate CSRF token
+   */
+  async validateCSRFToken(token: string, sessionData: any): Promise<ServiceResult<boolean>> {
+    return this.executeOperation(async () => {
+      const isValid = EnhancedSecurityUtils.validateCSRFToken(token, sessionData?.sessionToken);
+      
+      if (!isValid) {
+        await this.logSecurityEvent({
+          event_type: 'invalid_csrf_token',
+          risk_level: 'high',
+          event_details: {
+            token: token.substring(0, 10) + '...',
+            timestamp: new Date().toISOString()
+          },
+          user_id: sessionData?.userId
+        });
+      }
+
+      return isValid;
+    }, 'validateCSRFToken');
+  }
+
+  /**
+   * Get security metrics
+   */
+  async getSecurityMetrics(timeRange: string = '24h'): Promise<ServiceResult<any>> {
+    return this.executeOperation(async () => {
+      let dateFilter = new Date();
+      
+      switch (timeRange) {
+        case '1h':
+          dateFilter.setHours(dateFilter.getHours() - 1);
+          break;
+        case '24h':
+          dateFilter.setDate(dateFilter.getDate() - 1);
+          break;
+        case '7d':
+          dateFilter.setDate(dateFilter.getDate() - 7);
+          break;
+        case '30d':
+          dateFilter.setDate(dateFilter.getDate() - 30);
+          break;
+      }
+
+      const { data, error } = await supabase
+        .from('security_events')
+        .select('event_type, risk_level, created_at')
+        .gte('created_at', dateFilter.toISOString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Process metrics
+      const metrics = {
+        totalEvents: data.length,
+        criticalEvents: data.filter(e => e.risk_level === 'critical').length,
+        highRiskEvents: data.filter(e => e.risk_level === 'high').length,
+        eventsByType: data.reduce((acc: any, event) => {
+          acc[event.event_type] = (acc[event.event_type] || 0) + 1;
+          return acc;
+        }, {}),
+        timeline: data.slice(0, 20) // Last 20 events for timeline
       };
 
-      const activePolicy = policy || defaultPolicy;
-      const violations: string[] = [];
-
-      if (password.length < activePolicy.minLength) {
-        violations.push(`Password must be at least ${activePolicy.minLength} characters long`);
-      }
-
-      if (activePolicy.requireUppercase && !/[A-Z]/.test(password)) {
-        violations.push('Password must contain at least one uppercase letter');
-      }
-
-      if (activePolicy.requireLowercase && !/[a-z]/.test(password)) {
-        violations.push('Password must contain at least one lowercase letter');
-      }
-
-      if (activePolicy.requireNumbers && !/\d/.test(password)) {
-        violations.push('Password must contain at least one number');
-      }
-
-      if (activePolicy.requireSpecialChars && !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-        violations.push('Password must contain at least one special character');
-      }
-
-      return {
-        isValid: violations.length === 0,
-        violations
-      };
-    }, 'validate password strength');
+      return metrics;
+    }, 'getSecurityMetrics');
   }
 
-  async generateSecureToken(length: number = 32): Promise<ServiceResult<string>> {
-    return this.executeOperation(async () => {
-      const array = new Uint8Array(length);
-      crypto.getRandomValues(array);
-      return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-    }, 'generate secure token');
+  /**
+   * Trigger security alert for critical events
+   */
+  private async triggerSecurityAlert(eventData: SecurityEventData): Promise<void> {
+    try {
+      // Check if security_alerts table exists by attempting to insert
+      const { error } = await supabase
+        .from('security_alerts')
+        .insert({
+          alert_type: eventData.event_type,
+          severity: eventData.risk_level === 'critical' ? 'critical' : 'error',
+          message: `Security event detected: ${eventData.event_type}`,
+          event_details: eventData.event_details
+        });
+
+      if (error && error.code !== '42P01') { // Ignore if table doesn't exist
+        console.error('Failed to create security alert:', error);
+      }
+    } catch (error) {
+      console.error('Error triggering security alert:', error);
+    }
   }
 
-  async validateSession(sessionToken: string): Promise<ServiceResult<boolean>> {
-    return this.executeOperation(async () => {
-      // Session validation logic would go here
-      // For now, return true if token exists
-      return !!sessionToken;
-    }, 'validate session');
+  /**
+   * Enable/disable security monitoring
+   */
+  setMonitoringEnabled(enabled: boolean): void {
+    this.monitoringEnabled = enabled;
   }
 
-  async encryptSensitiveData(data: string, key?: string): Promise<ServiceResult<string>> {
-    return this.executeOperation(async () => {
-      // Encryption logic would go here
-      // For now, return base64 encoded data
-      return btoa(data);
-    }, 'encrypt sensitive data');
-  }
-
-  async decryptSensitiveData(encryptedData: string, key?: string): Promise<ServiceResult<string>> {
-    return this.executeOperation(async () => {
-      // Decryption logic would go here
-      // For now, return base64 decoded data
-      return atob(encryptedData);
-    }, 'decrypt sensitive data');
+  /**
+   * Check if monitoring is enabled
+   */
+  isMonitoringEnabled(): boolean {
+    return this.monitoringEnabled;
   }
 }
 
-export const securityService = EnhancedSecurityService.getInstance();
+export const enhancedSecurityService = EnhancedSecurityService.getInstance();

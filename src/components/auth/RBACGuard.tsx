@@ -1,26 +1,88 @@
 
 import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentAuth } from '@/data/hooks/useAuthData';
+import { RBACService, Permission, UserRole, RBACContext } from '@/utils/rbac';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Shield } from 'lucide-react';
 
 interface RBACGuardProps {
   children: React.ReactNode;
-  requiredRole?: string;
+  permissions?: Permission[];
+  roles?: UserRole[];
+  requireAll?: boolean;
   fallback?: React.ReactNode;
 }
 
+// Helper function to convert AuthState to RBACContext
+const buildRBACContextFromAuthState = (authState: any): RBACContext | null => {
+  if (!authState?.user?.id) return null;
+  
+  const userRole = authState.user.role || UserRole.TENANT_USER;
+  const userId = authState.user.id;
+  const tenantId = authState.user.tenant_id;
+  const tenantRole = authState.user.tenant_role;
+  
+  return RBACService.buildContext(userId, userRole, tenantId, tenantRole);
+};
+
 export const RBACGuard: React.FC<RBACGuardProps> = ({
   children,
-  requiredRole,
-  fallback = <div>Access denied</div>
+  permissions = [],
+  roles = [],
+  requireAll = false,
+  fallback
 }) => {
-  const { isAuthenticated, isAdmin, isSuperAdmin, adminRole } = useAuth();
+  const { data: authState, isLoading } = useCurrentAuth();
 
-  if (!isAuthenticated) {
-    return <>{fallback}</>;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
-  if (requiredRole && adminRole !== requiredRole && !isSuperAdmin) {
-    return <>{fallback}</>;
+  const rbacContext = buildRBACContextFromAuthState(authState);
+  
+  if (!rbacContext) {
+    return fallback || (
+      <Alert variant="destructive">
+        <Shield className="h-4 w-4" />
+        <AlertDescription>
+          Authentication required to access this content.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Check role-based access
+  if (roles.length > 0 && !RBACService.hasRole(rbacContext, roles)) {
+    return fallback || (
+      <Alert variant="destructive">
+        <Shield className="h-4 w-4" />
+        <AlertDescription>
+          You don't have the required role to access this content.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Check permission-based access
+  if (permissions.length > 0) {
+    const hasAccess = requireAll 
+      ? RBACService.hasAllPermissions(rbacContext, permissions)
+      : RBACService.hasAnyPermission(rbacContext, permissions);
+
+    if (!hasAccess) {
+      return fallback || (
+        <Alert variant="destructive">
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to access this content.
+          </AlertDescription>
+        </Alert>
+      );
+    }
   }
 
   return <>{children}</>;

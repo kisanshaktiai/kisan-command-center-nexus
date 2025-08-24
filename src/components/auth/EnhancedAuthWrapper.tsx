@@ -83,7 +83,17 @@ export const EnhancedAuthWrapper: React.FC<EnhancedAuthWrapperProps> = ({ childr
 
   const checkAccountLockout = async (email: string) => {
     try {
-      const status = await EnhancedSecurityUtils.checkAccountLockout(email);
+      const status = await EnhancedSecurityUtils.checkAccountLockout(
+        email,
+        EnhancedSecurityUtils.getClientIP(
+          Object.fromEntries(
+            Array.from(document.querySelectorAll('meta')).map(meta => [
+              meta.name || meta.httpEquiv,
+              meta.content
+            ])
+          )
+        ) || undefined
+      );
       setAccountLockoutStatus(status);
       return status;
     } catch (error) {

@@ -84,71 +84,15 @@ class TenantContextService {
 
       if (error) throw error;
 
-      // Safely parse business_address
-      let businessAddress: Record<string, any> = {};
-      if (data.business_address) {
-        if (typeof data.business_address === 'string') {
-          try {
-            businessAddress = JSON.parse(data.business_address);
-          } catch {
-            businessAddress = {};
-          }
-        } else if (typeof data.business_address === 'object') {
-          businessAddress = data.business_address as Record<string, any>;
-        }
-      }
-
-      // Safely parse settings
-      let settings: Record<string, unknown> = {};
-      if (data.settings) {
-        if (typeof data.settings === 'string') {
-          try {
-            settings = JSON.parse(data.settings);
-          } catch {
-            settings = {};
-          }
-        } else if (typeof data.settings === 'object' && data.settings !== null) {
-          settings = data.settings as Record<string, unknown>;
-        }
-      }
-
-      // Safely parse metadata
-      let metadata: Record<string, unknown> = {};
-      if (data.metadata) {
-        if (typeof data.metadata === 'string') {
-          try {
-            metadata = JSON.parse(data.metadata);
-          } catch {
-            metadata = {};
-          }
-        } else if (typeof data.metadata === 'object' && data.metadata !== null) {
-          metadata = data.metadata as Record<string, unknown>;
-        }
-      }
-
-      // Safely parse features
-      const features: TenantFeatures = {};
-      if (data.tenant_features?.[0]) {
-        const featureData = data.tenant_features[0];
-        Object.keys(featureData).forEach(key => {
-          const value = featureData[key];
-          if (typeof value === 'boolean' || typeof value === 'string' || typeof value === 'number') {
-            features[key] = value;
-          }
-        });
-      }
-
       const tenant: Tenant = {
         ...data,
-        id: brandedTenantId,
+        id: createTenantID(data.id),
         type: data.type as TenantType,
         status: data.status as TenantStatus,
         subscription_plan: data.subscription_plan as SubscriptionPlan,
-        business_address: businessAddress,
-        settings,
-        metadata,
+        metadata: (data.metadata as Record<string, any>) || {},
         branding: data.tenant_branding?.[0] || null,
-        features,
+        features: data.tenant_features?.[0] || null,
       };
 
       // Cache the tenant
@@ -158,7 +102,7 @@ class TenantContextService {
         tenantId: brandedTenantId,
         tenant,
         branding: tenant.branding,
-        features,
+        features: tenant.features,
         isLoading: false,
         error: null,
       });

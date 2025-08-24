@@ -1,6 +1,6 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { tenantService } from '@/services/TenantService';
+import { tenantManagementService } from '../services/TenantManagementService';
 import { tenantQueries } from '@/data/queries/tenantQueries';
 import { CreateTenantDTO, UpdateTenantDTO } from '@/data/types/tenant';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
@@ -16,7 +16,7 @@ export const useTenantMutations = () => {
 
   const createTenantMutation = useMutation({
     mutationFn: async (data: CreateTenantDTO) => {
-      const result = await tenantService.createTenant(data);
+      const result = await tenantManagementService.createTenant(data);
       if (!result.success) {
         throw new Error(result.error || 'Failed to create tenant');
       }
@@ -37,7 +37,7 @@ export const useTenantMutations = () => {
 
   const updateTenantMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateTenantDTO }) => {
-      const result = await tenantService.updateTenant(id, data);
+      const result = await tenantManagementService.updateTenant(id, data);
       if (!result.success) {
         throw new Error(result.error || 'Failed to update tenant');
       }
@@ -57,9 +57,10 @@ export const useTenantMutations = () => {
     },
   });
 
+  // Updated to use suspension instead of hard delete
   const deleteTenantMutation = useMutation({
     mutationFn: async (id: string) => {
-      const result = await tenantService.suspendTenant(id, 'Suspended by admin');
+      const result = await tenantManagementService.suspendTenant(id, 'Suspended by admin');
       if (!result.success) {
         throw new Error(result.error || 'Failed to suspend tenant');
       }
@@ -78,9 +79,10 @@ export const useTenantMutations = () => {
     },
   });
 
+  // New mutation for reactivation
   const reactivateTenantMutation = useMutation({
     mutationFn: async (id: string) => {
-      const result = await tenantService.reactivateTenant(id);
+      const result = await tenantManagementService.reactivateTenant(id);
       if (!result.success) {
         throw new Error(result.error || 'Failed to reactivate tenant');
       }
@@ -107,7 +109,7 @@ export const useTenantMutations = () => {
   return {
     createTenantMutation,
     updateTenantMutation,
-    deleteTenantMutation,
+    deleteTenantMutation, // Now handles suspension
     reactivateTenantMutation,
     isSubmitting
   };
