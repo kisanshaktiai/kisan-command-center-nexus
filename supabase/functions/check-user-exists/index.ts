@@ -1,13 +1,16 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders, handleCors } from '../_shared/cors.ts'
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
 import { handleError } from '../_shared/errorHandler.ts'
 
 serve(async (req) => {
   // Handle CORS preflight requests
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Get CORS headers for this specific request
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     // Create Supabase client with service role key for admin operations
@@ -39,7 +42,13 @@ serve(async (req) => {
     
     if (authError) {
       console.error('Error fetching auth users:', authError)
-      return handleError(authError, 500);
+      return new Response(
+        JSON.stringify({ error: 'Failed to check user existence' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
     const userExists = authUsers.users.some(user => user.email === email)
@@ -91,6 +100,12 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in check-user-exists function:', error)
-    return handleError(error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
   }
 })
