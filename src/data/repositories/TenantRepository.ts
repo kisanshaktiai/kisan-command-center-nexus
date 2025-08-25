@@ -2,6 +2,7 @@
 import { BaseTenantRepository } from './BaseTenantRepository';
 import { ServiceResult } from '@/services/BaseService';
 import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
+import { supabase } from '@/integrations/supabase/client';
 
 export class TenantRepository extends BaseTenantRepository {
   private static instance: TenantRepository;
@@ -45,16 +46,22 @@ export class TenantRepository extends BaseTenantRepository {
   }
 
   async createTenant(tenantData: CreateTenantDTO): Promise<ServiceResult<any>> {
-    // Include created_by in the tenant data
-    const dataWithCreator = {
-      ...tenantData,
-      // If created_by is not provided, we'll let the database handle it
-      // (it will be null, which is fine for audit trail)
-    };
-    
-    return this.executeQuery(() => 
-      this.buildInsertQuery(dataWithCreator).single()
-    );
+    return this.executeOperation(async () => {
+      // Get current authenticated user if created_by is not provided
+      let finalTenantData = { ...tenantData };
+      
+      if (!finalTenantData.created_by) {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (user && !userError) {
+          finalTenantData.created_by = user.id;
+        }
+        // If no user or error, created_by will remain null (which is acceptable)
+      }
+      
+      const { data, error } = await this.buildInsertQuery(finalTenantData).single();
+      if (error) throw error;
+      return data;
+    }, 'createTenant');
   }
 
   async updateTenant(id: string, tenantData: UpdateTenantDTO): Promise<ServiceResult<any>> {

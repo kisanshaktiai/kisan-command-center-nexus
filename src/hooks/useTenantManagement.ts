@@ -246,14 +246,20 @@ export const useTenantManagement = () => {
       // Generate idempotency key
       const idempotencyKey = generateIdempotencyKey(formData);
       
-      // Map form data to CreateTenantDTO with security context and creator info
+      // Get current authenticated user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('Authentication required to create tenant');
+      }
+      
+      // Map form data to CreateTenantDTO with security context and proper creator info
       const createData = {
         name: formData.name.trim(),
         slug: formData.slug.trim(),
         type: formData.type,
         status: formData.status,
         subscription_plan: formData.subscription_plan,
-        created_by: securityContext.userAgent, // This will be set properly by the Edge Function
+        created_by: user.id, // Use actual authenticated user ID
         owner_email: formData.owner_email.trim(),
         owner_name: formData.owner_name.trim(),
         metadata: {
@@ -338,6 +344,8 @@ export const useTenantManagement = () => {
         errorMessage = "Too many requests. Please wait before creating another tenant";
       } else if (error.message?.includes('DUPLICATE_REQUEST')) {
         errorMessage = "A tenant creation is already in progress with the same details";
+      } else if (error.message?.includes('Authentication required')) {
+        errorMessage = "You must be logged in to create tenants";
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -363,6 +371,12 @@ export const useTenantManagement = () => {
       setIsSubmitting(true);
       console.log('Updating tenant with enhanced security:', formData);
       
+      // Get current authenticated user for audit trail
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('Authentication required to update tenant');
+      }
+      
       // Map form data to UpdateTenantDTO with security context
       const updateData = {
         name: formData.name,
@@ -371,7 +385,8 @@ export const useTenantManagement = () => {
         metadata: {
           updated_via: 'admin_ui',
           security_context: securityContext,
-          last_updated: new Date().toISOString()
+          last_updated: new Date().toISOString(),
+          updated_by: user.id
         }
       };
 
