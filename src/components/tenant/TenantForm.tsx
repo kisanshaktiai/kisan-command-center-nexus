@@ -175,6 +175,16 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     setValue(field, value);
   };
 
+  // Prepare admin section data with proper typing
+  const adminSectionData = {
+    owner_name: formData.owner_name || '',
+    owner_email: formData.owner_email || '',
+    owner_phone: formData.owner_phone || '',
+    business_registration: formData.business_registration || '',
+    subdomain: formData.subdomain || '',
+    custom_domain: formData.custom_domain || '',
+  };
+
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
       {/* Basic Information */}
@@ -287,7 +297,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
 
       {/* Owner Information */}
       <TenantAdminSection 
-        formData={formData} 
+        formData={adminSectionData}
         onFieldChange={handleFieldChange}
         errors={formErrors}
       />
