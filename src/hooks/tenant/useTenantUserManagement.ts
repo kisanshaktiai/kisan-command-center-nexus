@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useTenantUserManagement as useUserManagement } from '@/hooks/useTenantUserManagement';
 import { UserTenantStatus } from '@/services/UserTenantService';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +18,10 @@ export const useTenantUserManagement = () => {
   const [tenantStatus, setTenantStatus] = useState<UserTenantStatus | null>(null);
   const { toast } = useToast();
   
+  // Use refs to prevent infinite loops
+  const isCheckingRef = useRef(false);
+  const lastCheckedRef = useRef<string>('');
+  
   const {
     isCheckingUser,
     isCreatingUser,
@@ -32,10 +36,19 @@ export const useTenantUserManagement = () => {
   } = useUserManagement();
 
   const checkUser = useCallback(async (tenantOwnerEmail: string, tenantId: string) => {
-    if (!tenantOwnerEmail) {
+    if (!tenantOwnerEmail || !tenantId) {
       setUserStatus('error');
       return;
     }
+
+    // Prevent duplicate calls
+    const checkKey = `${tenantOwnerEmail}-${tenantId}`;
+    if (isCheckingRef.current || lastCheckedRef.current === checkKey) {
+      return;
+    }
+
+    isCheckingRef.current = true;
+    lastCheckedRef.current = checkKey;
     
     setUserStatus('checking');
     setUserInfo(null);
@@ -82,8 +95,16 @@ export const useTenantUserManagement = () => {
         description: "An unexpected error occurred while checking user status",
         variant: "destructive",
       });
+    } finally {
+      isCheckingRef.current = false;
     }
   }, [checkUserExists, checkUserTenantStatus, toast]);
+
+  // Reset refs when needed
+  const resetCheck = useCallback(() => {
+    isCheckingRef.current = false;
+    lastCheckedRef.current = '';
+  }, []);
 
   return {
     userStatus,
@@ -94,6 +115,7 @@ export const useTenantUserManagement = () => {
     createAdminUser,
     ensureUserTenantRecord,
     sendPasswordReset,
+    resetCheck,
     toast
   };
 };

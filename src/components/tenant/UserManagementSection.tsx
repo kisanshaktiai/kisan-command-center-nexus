@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -36,14 +36,34 @@ const UserManagementContent: React.FC<UserManagementSectionProps> = ({ tenant })
     createAdminUser,
     ensureUserTenantRecord,
     sendPasswordReset,
+    resetCheck,
     toast
   } = useTenantUserManagement();
 
+  // Use ref to track if initial check has been done
+  const hasInitiallyChecked = useRef(false);
+  const currentTenantRef = useRef<string>('');
+
   useEffect(() => {
-    if (tenant?.owner_email) {
+    if (tenant?.owner_email && tenant?.id) {
+      const tenantKey = `${tenant.owner_email}-${tenant.id}`;
+      
+      // Only check if we haven't checked this tenant yet or if tenant changed
+      if (!hasInitiallyChecked.current || currentTenantRef.current !== tenantKey) {
+        hasInitiallyChecked.current = true;
+        currentTenantRef.current = tenantKey;
+        checkUser(tenant.owner_email, tenant.id);
+      }
+    }
+  }, [tenant?.owner_email, tenant?.id]); // Removed checkUser from dependencies to prevent loops
+
+  const handleManualRefresh = () => {
+    if (tenant?.owner_email && tenant?.id) {
+      resetCheck();
+      hasInitiallyChecked.current = false;
       checkUser(tenant.owner_email, tenant.id);
     }
-  }, [tenant?.owner_email, tenant?.id, checkUser]);
+  };
 
   const handleCreateUser = async () => {
     if (!tenant?.owner_email || !tenant?.owner_name) {
@@ -68,7 +88,11 @@ const UserManagementContent: React.FC<UserManagementSectionProps> = ({ tenant })
           description: "Admin user created successfully",
           variant: "default",
         });
-        setTimeout(() => checkUser(tenant.owner_email, tenant.id), 2000);
+        // Delay the recheck to allow backend processing
+        setTimeout(() => {
+          resetCheck();
+          checkUser(tenant.owner_email, tenant.id);
+        }, 2000);
       }
     } catch (error) {
       console.error('UserManagementSection: Error creating user:', error);
@@ -98,7 +122,11 @@ const UserManagementContent: React.FC<UserManagementSectionProps> = ({ tenant })
           description: "User-tenant relationship fixed successfully",
           variant: "default",
         });
-        setTimeout(() => checkUser(tenant.owner_email, tenant.id), 2000);
+        // Delay the recheck to allow backend processing
+        setTimeout(() => {
+          resetCheck();
+          checkUser(tenant.owner_email, tenant.id);
+        }, 2000);
       }
     } catch (error) {
       console.error('UserManagementSection: Error fixing relationship:', error);
@@ -145,7 +173,7 @@ const UserManagementContent: React.FC<UserManagementSectionProps> = ({ tenant })
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => checkUser(tenant.owner_email, tenant.id)}
+          onClick={handleManualRefresh}
           disabled={isLoading}
         >
           <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
