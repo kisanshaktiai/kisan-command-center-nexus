@@ -16,6 +16,7 @@ export const useTenantAnalytics = ({
   // Use refs to prevent duplicate requests
   const requestsInProgress = useRef<Set<string>>(new Set());
   const lastFetchTime = useRef<Record<string, number>>({});
+  const lastTenantIds = useRef<string>(''); // Move this to top level
 
   const fetchMetrics = useCallback(async (tenantId: string) => {
     if (!tenantId) return null;
@@ -138,14 +139,13 @@ export const useTenantAnalytics = ({
     // Only fetch on initial load or when tenants change significantly
     if (tenants.length > 0) {
       const currentTenantIds = tenants.map(t => t.id).sort().join(',');
-      const lastTenantIds = useRef('');
       
       if (lastTenantIds.current !== currentTenantIds) {
         lastTenantIds.current = currentTenantIds;
         refreshMetrics();
       }
     }
-  }, [tenants.length]); // Only depend on tenant count, not the full tenants array
+  }, [tenants.length, refreshMetrics]); // Added refreshMetrics to dependencies
 
   useEffect(() => {
     if (!autoRefresh) return;
