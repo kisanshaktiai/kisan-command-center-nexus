@@ -7,12 +7,12 @@ import { CheckCircle, XCircle, Loader2, Mail, User, AlertTriangle } from 'lucide
 import { useAdminEmailValidation } from '@/hooks/useAdminEmailValidation';
 
 interface TenantAdminData {
-  owner_name: string;
-  owner_email: string;
-  owner_phone: string;
-  business_registration: string;
-  subdomain: string;
-  custom_domain: string;
+  owner_name?: string;
+  owner_email?: string;
+  owner_phone?: string;
+  business_registration?: string;
+  subdomain?: string;
+  custom_domain?: string;
 }
 
 interface TenantAdminSectionProps {
