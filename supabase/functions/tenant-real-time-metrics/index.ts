@@ -1,7 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 
 interface RealTimeMetricsResponse {
   current_metrics: {
@@ -54,20 +53,35 @@ interface RealTimeMetricsResponse {
   };
 }
 
-serve(async (req) => {
-  // Handle CORS preflight requests
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+const allowedOrigins = [
+  "https://f7f3ec00-3a42-4b69-b48b-a0622a7f7b10.lovableproject.com", // production
+  "https://id-preview--f7f3ec00-3a42-4b69-b48b-a0622a7f7b10.lovable.app", // preview
+];
 
-  // Get CORS headers for this specific request
-  const corsHeaders = getCorsHeaders(req);
+function getCorsHeaders(origin: string) {
+  return {
+    "Access-Control-Allow-Origin": allowedOrigins.includes(origin) ? origin : "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, referrer-policy",
+  };
+}
+
+serve(async (req) => {
+  const origin = req.headers.get("origin") || "*";
+  const corsHeaders = getCorsHeaders(origin);
+
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { status: 200, headers: corsHeaders });
+  }
 
   try {
+    // Validate tenant_id parameter
     const url = new URL(req.url);
     const tenantId = url.searchParams.get('tenant_id');
 
     if (!tenantId) {
-      return new Response(JSON.stringify({ error: 'Tenant ID is required' }), {
+      return new Response(JSON.stringify({ error: 'Missing tenant_id parameter' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
