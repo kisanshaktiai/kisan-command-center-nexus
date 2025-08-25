@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -171,8 +170,8 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     return acc;
   }, {} as Record<string, string[]>);
 
-  const handleFieldChange = (field: keyof TenantFormData, value: string | number) => {
-    setValue(field, value);
+  const handleFieldChange = (field: string, value: string | number) => {
+    setValue(field as keyof TenantFormData, value);
   };
 
   // Prepare admin section data with proper typing

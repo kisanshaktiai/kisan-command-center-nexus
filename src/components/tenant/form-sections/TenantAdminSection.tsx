@@ -4,12 +4,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, XCircle, Loader2, Mail, User, AlertTriangle } from 'lucide-react';
-import { TenantFormData } from '@/types/tenant';
 import { useAdminEmailValidation } from '@/hooks/useAdminEmailValidation';
 
+interface TenantAdminData {
+  owner_name: string;
+  owner_email: string;
+  owner_phone: string;
+  business_registration: string;
+  subdomain: string;
+  custom_domain: string;
+}
+
 interface TenantAdminSectionProps {
-  formData: TenantFormData;
-  onFieldChange: (field: keyof TenantFormData, value: string | number) => void;
+  formData: TenantAdminData;
+  onFieldChange: (field: keyof TenantAdminData, value: string | number) => void;
   errors?: Record<string, string[]>;
 }
 
