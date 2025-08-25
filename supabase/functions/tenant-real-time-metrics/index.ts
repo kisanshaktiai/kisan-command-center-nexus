@@ -77,15 +77,24 @@ serve(async (req) => {
 
   try {
     // Validate tenant_id parameter
-    const url = new URL(req.url);
-    const tenantId = url.searchParams.get('tenant_id');
+const url = new URL(req.url);
+let tenantId = url.searchParams.get('tenant_id');
 
-    if (!tenantId) {
-      return new Response(JSON.stringify({ error: 'Missing tenant_id parameter' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      });
-    }
+if (!tenantId && req.method === 'POST') {
+  try {
+    const body = await req.json();
+    tenantId = body?.tenant_id;
+  } catch {
+    // ignore parse errors
+  }
+}
+
+if (!tenantId) {
+  return new Response(JSON.stringify({ error: 'Missing tenant_id parameter' }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status: 400,
+  });
+}
 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
