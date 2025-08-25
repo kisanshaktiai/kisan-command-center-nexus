@@ -6387,6 +6387,7 @@ export type Database = {
           business_address: Json | null
           business_registration: string | null
           created_at: string | null
+          created_by: string | null
           custom_domain: string | null
           deleted_at: string | null
           established_date: string | null
@@ -6424,6 +6425,7 @@ export type Database = {
           business_address?: Json | null
           business_registration?: string | null
           created_at?: string | null
+          created_by?: string | null
           custom_domain?: string | null
           deleted_at?: string | null
           established_date?: string | null
@@ -6461,6 +6463,7 @@ export type Database = {
           business_address?: Json | null
           business_registration?: string | null
           created_at?: string | null
+          created_by?: string | null
           custom_domain?: string | null
           deleted_at?: string | null
           established_date?: string | null

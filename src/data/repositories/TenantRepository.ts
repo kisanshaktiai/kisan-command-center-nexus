@@ -45,8 +45,15 @@ export class TenantRepository extends BaseTenantRepository {
   }
 
   async createTenant(tenantData: CreateTenantDTO): Promise<ServiceResult<any>> {
+    // Include created_by in the tenant data
+    const dataWithCreator = {
+      ...tenantData,
+      // If created_by is not provided, we'll let the database handle it
+      // (it will be null, which is fine for audit trail)
+    };
+    
     return this.executeQuery(() => 
-      this.buildInsertQuery(tenantData).single()
+      this.buildInsertQuery(dataWithCreator).single()
     );
   }
 

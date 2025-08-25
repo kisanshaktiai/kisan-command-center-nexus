@@ -7,6 +7,7 @@ export interface CreateTenantDTO {
   type: TenantTypeValue;
   status: TenantStatusValue;
   subscription_plan: SubscriptionPlanValue;
+  created_by?: string; // UUID of auth.users who is creating this tenant
   owner_email?: string;
   owner_name?: string;
   owner_phone?: string;
@@ -31,6 +32,7 @@ export interface UpdateTenantDTO {
   type?: TenantTypeValue;
   status?: TenantStatusValue;
   subscription_plan?: SubscriptionPlanValue;
+  created_by?: string; // Allow updating the creator if needed
   owner_name?: string;
   owner_email?: string;
   owner_phone?: string;

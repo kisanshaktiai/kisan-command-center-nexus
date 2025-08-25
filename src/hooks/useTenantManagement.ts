@@ -246,13 +246,14 @@ export const useTenantManagement = () => {
       // Generate idempotency key
       const idempotencyKey = generateIdempotencyKey(formData);
       
-      // Map form data to CreateTenantDTO with security context
+      // Map form data to CreateTenantDTO with security context and creator info
       const createData = {
         name: formData.name.trim(),
         slug: formData.slug.trim(),
         type: formData.type,
         status: formData.status,
         subscription_plan: formData.subscription_plan,
+        created_by: securityContext.userAgent, // This will be set properly by the Edge Function
         owner_email: formData.owner_email.trim(),
         owner_name: formData.owner_name.trim(),
         metadata: {

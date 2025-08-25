@@ -48,6 +48,7 @@ export interface Tenant {
   type: TenantType;
   status: TenantStatus;
   subscription_plan: SubscriptionPlan;
+  created_by?: string; // UUID of auth.users who created this tenant
   owner_name?: string;
   owner_email?: string;
   owner_phone?: string;
@@ -77,6 +78,7 @@ export interface TenantFilters {
   type?: TenantType | string;
   status?: TenantStatus | string;
   subscription_plan?: SubscriptionPlan | string;
+  created_by?: string; // Filter by creator
   limit?: number;
   offset?: number;
   sort_by?: string;
@@ -132,6 +134,7 @@ export const convertDatabaseTenant = (dbTenant: any): Tenant => {
     type: Object.values(TenantType).find(t => t === dbTenant.type) || TenantType.AGRI_COMPANY,
     status: Object.values(TenantStatus).find(s => s === dbTenant.status) || TenantStatus.TRIAL,
     subscription_plan: Object.values(SubscriptionPlan).find(p => p === dbTenant.subscription_plan) || SubscriptionPlan.KISAN_BASIC,
+    created_by: dbTenant.created_by || undefined,
     branding: dbTenant.tenant_branding?.[0] || null,
     features: dbTenant.tenant_features?.[0] || null,
   };
