@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Tenant } from '@/types/tenant';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -31,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
 import { UserTenantStatus } from '@/services/UserTenantService';
+import { useToast } from '@/hooks/use-toast';
 
 interface TenantDetailsModalProps {
   tenant: Tenant | null;
@@ -48,6 +48,7 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
   const [userStatus, setUserStatus] = useState<'checking' | 'found' | 'not_found' | 'error'>('checking');
   const [userInfo, setUserInfo] = useState<any>(null);
   const [tenantStatus, setTenantStatus] = useState<UserTenantStatus | null>(null);
+  const { toast } = useToast();
   
   const {
     isCheckingUser,
@@ -70,65 +71,143 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
   }, [tenant?.owner_email, isOpen]);
 
   const checkUser = async () => {
-    if (!tenant?.owner_email) return;
+    if (!tenant?.owner_email) {
+      setUserStatus('error');
+      return;
+    }
     
     setUserStatus('checking');
+    setUserInfo(null);
+    setTenantStatus(null);
     
-    // Check auth.users first
-    const result = await checkUserExists(tenant.owner_email);
-    
-    if (result?.error) {
-      setUserStatus('error');
-    } else if (result?.exists) {
-      setUserStatus('found');
-      setUserInfo({
-        email: tenant.owner_email,
-        userId: result.userId,
-        created_at: new Date().toISOString(),
-        isAdmin: result.isAdmin,
-        userStatus: result.userStatus
-      });
+    try {
+      // Check auth.users first
+      console.log('TenantDetailsModal: Checking user exists for:', tenant.owner_email);
+      const result = await checkUserExists(tenant.owner_email);
       
-      // Then check user_tenants table
-      if (result.userId && tenant.id) {
+      if (result?.error) {
+        console.error('TenantDetailsModal: Error checking user:', result.error);
+        setUserStatus('error');
+        toast({
+          title: "Error",
+          description: `Failed to check user status: ${result.error}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (result?.exists && result?.userId) {
+        setUserStatus('found');
+        setUserInfo({
+          email: tenant.owner_email,
+          userId: result.userId,
+          created_at: new Date().toISOString(),
+          isAdmin: result.isAdmin,
+          userStatus: result.userStatus
+        });
+        
+        // Then check user_tenants table using UUID
+        console.log('TenantDetailsModal: Checking user-tenant status for userId:', result.userId);
         const tenantStatusResult = await checkUserTenantStatus(tenant.owner_email, tenant.id);
         setTenantStatus(tenantStatusResult);
+      } else {
+        setUserStatus('not_found');
+        setUserInfo(null);
+        setTenantStatus(null);
       }
-    } else {
-      setUserStatus('not_found');
-      setUserInfo(null);
-      setTenantStatus(null);
+    } catch (error) {
+      console.error('TenantDetailsModal: Error in checkUser:', error);
+      setUserStatus('error');
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while checking user status",
+        variant: "destructive",
+      });
     }
   };
 
   const handleCreateUser = async () => {
-    if (!tenant?.owner_email || !tenant?.owner_name) return;
+    if (!tenant?.owner_email || !tenant?.owner_name) {
+      toast({
+        title: "Error",
+        description: "Missing owner email or name",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    const result = await createAdminUser(
-      tenant.owner_email, 
-      tenant.owner_name, 
-      tenant.id
-    );
-    
-    if (result?.success) {
-      // Refresh user status after successful creation
-      setTimeout(() => checkUser(), 1000);
+    try {
+      const result = await createAdminUser(
+        tenant.owner_email, 
+        tenant.owner_name, 
+        tenant.id
+      );
+      
+      if (result?.success) {
+        toast({
+          title: "Success",
+          description: "Admin user created successfully",
+          variant: "default",
+        });
+        // Refresh user status after successful creation
+        setTimeout(() => checkUser(), 2000);
+      }
+    } catch (error) {
+      console.error('TenantDetailsModal: Error creating user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create admin user",
+        variant: "destructive",
+      });
     }
   };
 
   const handleFixRelationship = async () => {
-    if (!userInfo?.userId || !tenant?.id) return;
+    if (!userInfo?.userId || !tenant?.id) {
+      toast({
+        title: "Error",
+        description: "Missing user ID or tenant ID",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    const success = await ensureUserTenantRecord(userInfo.userId, tenant.id);
-    if (success) {
-      // Refresh status after fixing
-      setTimeout(() => checkUser(), 1000);
+    try {
+      const success = await ensureUserTenantRecord(userInfo.userId, tenant.id);
+      if (success) {
+        toast({
+          title: "Success",
+          description: "User-tenant relationship fixed successfully",
+          variant: "default",
+        });
+        // Refresh status after fixing
+        setTimeout(() => checkUser(), 2000);
+      }
+    } catch (error) {
+      console.error('TenantDetailsModal: Error fixing relationship:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fix user-tenant relationship",
+        variant: "destructive",
+      });
     }
   };
 
   const handleSendReset = async () => {
-    if (!tenant?.owner_email) return;
-    await sendPasswordReset(tenant.owner_email);
+    if (!tenant?.owner_email) {
+      toast({
+        title: "Error",
+        description: "Missing owner email",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      await sendPasswordReset(tenant.owner_email);
+    } catch (error) {
+      console.error('TenantDetailsModal: Error sending password reset:', error);
+    }
   };
 
   if (!tenant) return null;
@@ -525,7 +604,7 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
                     <HardDrive className="h-4 w-4 text-orange-500" />
                     <span className="text-xs font-medium">Storage</span>
                   </div>
-                  <p className="text-sm">0 GB / {tenant.max_storage_gb || 'Unlimited'} GB</p>
+                  <p className="text-sm">0 GB / {tenant.max_storage_gb?.toLocaleString() || 'Unlimited'} GB</p>
                 </div>
               </div>
             </CardContent>

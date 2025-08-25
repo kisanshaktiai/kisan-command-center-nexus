@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
@@ -260,7 +261,27 @@ serve(async (req) => {
         );
       }
 
-      // Log successful operation
+      // Log successful operation (only if admin_users record exists)
+      if (adminUser) {
+        try {
+          await supabase.rpc('log_enhanced_admin_action', {
+            p_action: 'manage_user_tenant_relationship',
+            p_target_admin_id: null,
+            p_details: {
+              user_id: requestBody.user_id,
+              tenant_id: requestBody.tenant_id,
+              role: requestBody.role,
+              operation: requestBody.operation || 'upsert'
+            },
+            p_request_id: securityContext.requestId,
+            p_correlation_id: securityContext.correlationId
+          });
+        } catch (auditError) {
+          // Log audit error but don't fail the main operation
+          console.warn(`[${securityContext.requestId}] Audit logging failed:`, auditError);
+        }
+      }
+
       console.log(`[${securityContext.requestId}] Successfully managed user-tenant relationship:`, result);
 
       return new Response(

@@ -68,10 +68,10 @@ export class UserTenantStatusService {
         issues: []
       };
 
-      // Check tenant relationship if user exists
+      // Check tenant relationship if user exists using UUID
       if (authStatus.authExists && authStatus.userId) {
         try {
-          relationshipStatus = await TenantRelationshipService.checkTenantRelationship(
+          relationshipStatus = await TenantRelationshipService.checkTenantRelationshipByUserId(
             authStatus.userId, 
             tenantId
           );

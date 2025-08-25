@@ -38,14 +38,14 @@ export interface RelationshipResponse {
  */
 export class TenantRelationshipService {
   /**
-   * Check tenant relationship status for a user
+   * Check tenant relationship status for a user using UUID
    */
-  static async checkTenantRelationship(
+  static async checkTenantRelationshipByUserId(
     userId: string, 
     tenantId: string
   ): Promise<TenantRelationshipStatus> {
     try {
-      console.log('TenantRelationshipService: Checking relationship for:', { userId, tenantId });
+      console.log('TenantRelationshipService: Checking relationship by userId for:', { userId, tenantId });
 
       if (!userId || !tenantId) {
         return {
@@ -55,15 +55,35 @@ export class TenantRelationshipService {
           issues: ['User ID and Tenant ID are required']
         };
       }
+
+      // Validate UUID formats
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(userId)) {
+        return {
+          relationshipExists: false,
+          roleMatches: false,
+          expectedRole: 'tenant_admin',
+          issues: ['Invalid User ID format']
+        };
+      }
+
+      if (!uuidRegex.test(tenantId)) {
+        return {
+          relationshipExists: false,
+          roleMatches: false,
+          expectedRole: 'tenant_admin',
+          issues: ['Invalid Tenant ID format']
+        };
+      }
       
       const { data: relationship, error: relationshipError } = await supabase
         .from('user_tenants')
         .select('*')
         .eq('user_id', userId)
         .eq('tenant_id', tenantId)
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid errors when no record exists
 
-      if (relationshipError && relationshipError.code !== 'PGRST116') {
+      if (relationshipError) {
         console.error('TenantRelationshipService: Error checking relationship:', relationshipError);
         return {
           relationshipExists: false,
@@ -105,6 +125,16 @@ export class TenantRelationshipService {
   }
 
   /**
+   * Check tenant relationship status for a user (legacy method for backward compatibility)
+   */
+  static async checkTenantRelationship(
+    userId: string, 
+    tenantId: string
+  ): Promise<TenantRelationshipStatus> {
+    return this.checkTenantRelationshipByUserId(userId, tenantId);
+  }
+
+  /**
    * Manage user-tenant relationship via global edge function
    */
   static async manageRelationship(
@@ -112,6 +142,33 @@ export class TenantRelationshipService {
   ): Promise<RelationshipResponse> {
     try {
       console.log('TenantRelationshipService: Managing relationship via global function:', request);
+
+      // Validate required fields
+      if (!request.user_id || !request.tenant_id || !request.role) {
+        return {
+          success: false,
+          error: 'Missing required fields: user_id, tenant_id, role',
+          code: 'VALIDATION_ERROR'
+        };
+      }
+
+      // Validate UUID formats
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(request.user_id)) {
+        return {
+          success: false,
+          error: 'Invalid user_id format',
+          code: 'VALIDATION_ERROR'
+        };
+      }
+
+      if (!uuidRegex.test(request.tenant_id)) {
+        return {
+          success: false,
+          error: 'Invalid tenant_id format',
+          code: 'VALIDATION_ERROR'
+        };
+      }
 
       const { data, error } = await supabase.functions.invoke('manage-user-tenant', {
         body: request,
@@ -174,6 +231,33 @@ export class TenantRelationshipService {
     tenantId: string
   ): Promise<RelationshipResponse> {
     console.log('TenantRelationshipService: Ensuring user-tenant record for:', { userId, tenantId });
+    
+    // Validate inputs
+    if (!userId || !tenantId) {
+      return {
+        success: false,
+        error: 'User ID and Tenant ID are required',
+        code: 'VALIDATION_ERROR'
+      };
+    }
+
+    // Validate UUID formats
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      return {
+        success: false,
+        error: 'Invalid user ID format',
+        code: 'VALIDATION_ERROR'
+      };
+    }
+
+    if (!uuidRegex.test(tenantId)) {
+      return {
+        success: false,
+        error: 'Invalid tenant ID format',
+        code: 'VALIDATION_ERROR'
+      };
+    }
     
     return this.manageRelationship({
       user_id: userId,
