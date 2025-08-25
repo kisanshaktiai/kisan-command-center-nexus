@@ -1,36 +1,15 @@
-import React, { useState, useEffect } from 'react';
+
+import React from 'react';
 import { Tenant } from '@/types/tenant';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Calendar, 
-  CreditCard, 
-  Building, 
-  Users, 
-  Package, 
-  HardDrive,
-  Activity,
-  UserPlus,
-  KeyRound,
-  Loader2,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
-  AlertTriangle,
-  Shield,
-  Database
-} from 'lucide-react';
-import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
-import { UserTenantStatus } from '@/services/UserTenantService';
-import { useToast } from '@/hooks/use-toast';
+import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
+import { UserManagementSection } from './UserManagementSection';
+import { TenantBasicInfo } from './TenantBasicInfo';
+import { TenantOwnerInfo } from './TenantOwnerInfo';
+import { TenantSubscriptionInfo } from './TenantSubscriptionInfo';
+import { ResourceMetrics } from './ResourceMetrics';
 
 interface TenantDetailsModalProps {
   tenant: Tenant | null;
@@ -39,177 +18,12 @@ interface TenantDetailsModalProps {
   onEdit?: (tenant: Tenant) => void;
 }
 
-export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
+const TenantDetailsModalContent: React.FC<TenantDetailsModalProps> = ({
   tenant,
   isOpen,
   onClose,
   onEdit
 }) => {
-  const [userStatus, setUserStatus] = useState<'checking' | 'found' | 'not_found' | 'error'>('checking');
-  const [userInfo, setUserInfo] = useState<any>(null);
-  const [tenantStatus, setTenantStatus] = useState<UserTenantStatus | null>(null);
-  const { toast } = useToast();
-  
-  const {
-    isCheckingUser,
-    isCreatingUser,
-    isSendingReset,
-    isCheckingStatus,
-    isFixingRelationship,
-    checkUserExists,
-    checkUserTenantStatus,
-    ensureUserTenantRecord,
-    createAdminUser,
-    sendPasswordReset
-  } = useTenantUserManagement();
-
-  // Check user existence and tenant status when modal opens with tenant
-  useEffect(() => {
-    if (tenant?.owner_email && isOpen) {
-      checkUser();
-    }
-  }, [tenant?.owner_email, isOpen]);
-
-  const checkUser = async () => {
-    if (!tenant?.owner_email) {
-      setUserStatus('error');
-      return;
-    }
-    
-    setUserStatus('checking');
-    setUserInfo(null);
-    setTenantStatus(null);
-    
-    try {
-      // Check auth.users first
-      console.log('TenantDetailsModal: Checking user exists for:', tenant.owner_email);
-      const result = await checkUserExists(tenant.owner_email);
-      
-      if (result?.error) {
-        console.error('TenantDetailsModal: Error checking user:', result.error);
-        setUserStatus('error');
-        toast({
-          title: "Error",
-          description: `Failed to check user status: ${result.error}`,
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (result?.exists && result?.userId) {
-        setUserStatus('found');
-        setUserInfo({
-          email: tenant.owner_email,
-          userId: result.userId,
-          created_at: new Date().toISOString(),
-          isAdmin: result.isAdmin,
-          userStatus: result.userStatus
-        });
-        
-        // Then check user_tenants table using UUID
-        console.log('TenantDetailsModal: Checking user-tenant status for userId:', result.userId);
-        const tenantStatusResult = await checkUserTenantStatus(tenant.owner_email, tenant.id);
-        setTenantStatus(tenantStatusResult);
-      } else {
-        setUserStatus('not_found');
-        setUserInfo(null);
-        setTenantStatus(null);
-      }
-    } catch (error) {
-      console.error('TenantDetailsModal: Error in checkUser:', error);
-      setUserStatus('error');
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while checking user status",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleCreateUser = async () => {
-    if (!tenant?.owner_email || !tenant?.owner_name) {
-      toast({
-        title: "Error",
-        description: "Missing owner email or name",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      const result = await createAdminUser(
-        tenant.owner_email, 
-        tenant.owner_name, 
-        tenant.id
-      );
-      
-      if (result?.success) {
-        toast({
-          title: "Success",
-          description: "Admin user created successfully",
-          variant: "default",
-        });
-        // Refresh user status after successful creation
-        setTimeout(() => checkUser(), 2000);
-      }
-    } catch (error) {
-      console.error('TenantDetailsModal: Error creating user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create admin user",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleFixRelationship = async () => {
-    if (!userInfo?.userId || !tenant?.id) {
-      toast({
-        title: "Error",
-        description: "Missing user ID or tenant ID",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      const success = await ensureUserTenantRecord(userInfo.userId, tenant.id);
-      if (success) {
-        toast({
-          title: "Success",
-          description: "User-tenant relationship fixed successfully",
-          variant: "default",
-        });
-        // Refresh status after fixing
-        setTimeout(() => checkUser(), 2000);
-      }
-    } catch (error) {
-      console.error('TenantDetailsModal: Error fixing relationship:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fix user-tenant relationship",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSendReset = async () => {
-    if (!tenant?.owner_email) {
-      toast({
-        title: "Error",
-        description: "Missing owner email",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      await sendPasswordReset(tenant.owner_email);
-    } catch (error) {
-      console.error('TenantDetailsModal: Error sending password reset:', error);
-    }
-  };
-
   if (!tenant) return null;
 
   const getStatusBadge = (status: string) => {
@@ -222,214 +36,6 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
     } as const;
     
     return <Badge variant={variants[status as keyof typeof variants] || 'outline'}>{status}</Badge>;
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const UserStatusSection = () => {
-    if (!tenant.owner_email) {
-      return (
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <p className="text-sm text-gray-600">No admin email configured for this tenant</p>
-        </div>
-      );
-    }
-
-    const isLoading = isCheckingUser || isCreatingUser || isSendingReset || isCheckingStatus || isFixingRelationship;
-
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium text-sm flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Admin User Management
-          </h4>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={checkUser}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-3 w-3 ${isCheckingUser || isCheckingStatus ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-
-        {userStatus === 'checking' && (
-          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
-            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-            <span className="text-sm text-blue-700">Checking user status...</span>
-          </div>
-        )}
-
-        {userStatus === 'found' && userInfo && (
-          <div className="space-y-4">
-            {/* Auth Status */}
-            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <Shield className="h-4 w-4 text-green-600" />
-              <span className="text-sm text-green-700">User found in authentication system</span>
-            </div>
-
-            {/* Tenant Relationship Status */}
-            {tenantStatus && (
-              <div className="space-y-3">
-                <div className={`flex items-center gap-2 p-3 rounded-lg ${
-                  tenantStatus.tenantRelationshipExists && tenantStatus.roleMatches
-                    ? 'bg-green-50'
-                    : 'bg-orange-50'
-                }`}>
-                  {tenantStatus.tenantRelationshipExists && tenantStatus.roleMatches ? (
-                    <>
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <Database className="h-4 w-4 text-green-600" />
-                      <span className="text-sm text-green-700">
-                        User-tenant relationship configured correctly (Role: {tenantStatus.currentRole})
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="h-4 w-4 text-orange-600" />
-                      <Database className="h-4 w-4 text-orange-600" />
-                      <span className="text-sm text-orange-700">
-                        User-tenant relationship needs attention
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                {/* Issues */}
-                {tenantStatus.issues.length > 0 && (
-                  <div className="bg-red-50 p-3 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <XCircle className="h-4 w-4 text-red-600" />
-                      <span className="text-sm font-medium text-red-700">Issues Found:</span>
-                    </div>
-                    <ul className="text-xs text-red-600 space-y-1 ml-6">
-                      {tenantStatus.issues.map((issue, index) => (
-                        <li key={index}>• {issue}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Fix Actions */}
-                {(!tenantStatus.tenantRelationshipExists || !tenantStatus.roleMatches) && userInfo.userId && (
-                  <Button
-                    onClick={handleFixRelationship}
-                    disabled={isFixingRelationship}
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                  >
-                    {isFixingRelationship ? (
-                      <>
-                        <Loader2 className="h-3 w-3 animate-spin mr-2" />
-                        Fixing Relationship...
-                      </>
-                    ) : (
-                      <>
-                        <Database className="h-3 w-3 mr-2" />
-                        {!tenantStatus.tenantRelationshipExists 
-                          ? 'Create User-Tenant Relationship' 
-                          : 'Fix Role Mismatch'}
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-            )}
-            
-            {/* User Details */}
-            <div className="flex items-center space-x-4 p-3 border rounded-lg">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={`https://avatar.vercel.sh/${userInfo.email}.png`} />
-                <AvatarFallback>{userInfo.email?.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <p className="text-sm font-medium">{tenant.owner_name || userInfo.email}</p>
-                <p className="text-xs text-gray-500 flex items-center gap-1">
-                  <Mail className="h-3 w-3" />
-                  {userInfo.email}
-                </p>
-                <div className="flex items-center gap-3 mt-1">
-                  <p className="text-xs text-gray-500 flex items-center gap-1">
-                    <Shield className="h-3 w-3" />
-                    Auth: ✓
-                  </p>
-                  <p className="text-xs text-gray-500 flex items-center gap-1">
-                    <Database className="h-3 w-3" />
-                    Tenant: {tenantStatus?.tenantRelationshipExists ? '✓' : '✗'}
-                  </p>
-                  {tenantStatus?.currentRole && (
-                    <Badge variant="outline" className="text-xs">
-                      {tenantStatus.currentRole}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Password Reset Action */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSendReset}
-              disabled={isSendingReset}
-              className="w-full"
-            >
-              {isSendingReset ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin mr-2" />
-                  Sending Reset Email...
-                </>
-              ) : (
-                <>
-                  <KeyRound className="h-3 w-3 mr-2" />
-                  Send Password Reset
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-
-        {userStatus === 'not_found' && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg">
-              <XCircle className="h-4 w-4 text-orange-600" />
-              <span className="text-sm text-orange-700">No admin user found for {tenant.owner_email}</span>
-            </div>
-            
-            <Button
-              onClick={handleCreateUser}
-              disabled={isCreatingUser}
-              className="w-full"
-            >
-              {isCreatingUser ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin mr-2" />
-                  Creating Admin User...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="h-3 w-3 mr-2" />
-                  Create Admin User & Send Welcome Email
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-
-        {userStatus === 'error' && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg">
-            <XCircle className="h-4 w-4 text-red-600" />
-            <span className="text-sm text-red-700">Error checking user status. Please try again.</span>
-          </div>
-        )}
-      </div>
-    );
   };
 
   return (
@@ -450,167 +56,42 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
         </DialogHeader>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Basic Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Building className="h-4 w-4" />
-                Basic Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs font-medium text-gray-500">Organization Name</p>
-                  <p className="text-sm">{tenant.name}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500">Slug</p>
-                  <p className="text-sm font-mono">{tenant.slug}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500">Type</p>
-                  <p className="text-sm capitalize">{tenant.type.replace('_', ' ')}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500">Created</p>
-                  <p className="text-sm">{formatDate(tenant.created_at)}</p>
-                </div>
+          <TenantBasicInfo tenant={tenant} />
+          
+          <ErrorBoundary
+            context={{
+              component: 'UserManagementCard',
+              level: 'high',
+              metadata: { tenantId: tenant.id }
+            }}
+          >
+            <div className="bg-white border rounded-lg">
+              <div className="p-6">
+                <h3 className="text-base font-semibold mb-4">Admin User Management</h3>
+                <UserManagementSection tenant={tenant} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </ErrorBoundary>
 
-          {/* Admin User Management */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Admin User Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <UserStatusSection />
-            </CardContent>
-          </Card>
-
-          {/* Owner Information */}
-          {(tenant.owner_name || tenant.owner_email || tenant.owner_phone) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Owner Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {tenant.owner_name && (
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm">{tenant.owner_name}</span>
-                  </div>
-                )}
-                {tenant.owner_email && (
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm">{tenant.owner_email}</span>
-                  </div>
-                )}
-                {tenant.owner_phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm">{tenant.owner_phone}</span>
-                  </div>
-                )}
-                {tenant.business_address && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm">
-                      {typeof tenant.business_address === 'string' 
-                        ? tenant.business_address 
-                        : Object.values(tenant.business_address).filter(Boolean).join(', ')
-                      }
-                    </span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Subscription Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                Subscription Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-xs font-medium text-gray-500">Plan</p>
-                <p className="text-sm font-medium">{tenant.subscription_plan.replace('_', ' ')}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs font-medium text-gray-500">Start Date</p>
-                  <p className="text-sm">{formatDate(tenant.subscription_start_date)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500">End Date</p>
-                  <p className="text-sm">{formatDate(tenant.subscription_end_date)}</p>
-                </div>
-              </div>
-              {tenant.trial_ends_at && (
-                <div>
-                  <p className="text-xs font-medium text-gray-500">Trial Ends</p>
-                  <p className="text-sm">{formatDate(tenant.trial_ends_at)}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Resource Limits */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Resource Limits & Usage
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-blue-500" />
-                    <span className="text-xs font-medium">Farmers</span>
-                  </div>
-                  <p className="text-sm">0 / {tenant.max_farmers?.toLocaleString() || 'Unlimited'}</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Building className="h-4 w-4 text-green-500" />
-                    <span className="text-xs font-medium">Dealers</span>
-                  </div>
-                  <p className="text-sm">0 / {tenant.max_dealers?.toLocaleString() || 'Unlimited'}</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-purple-500" />
-                    <span className="text-xs font-medium">Products</span>
-                  </div>
-                  <p className="text-sm">0 / {tenant.max_products?.toLocaleString() || 'Unlimited'}</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <HardDrive className="h-4 w-4 text-orange-500" />
-                    <span className="text-xs font-medium">Storage</span>
-                  </div>
-                  <p className="text-sm">0 GB / {tenant.max_storage_gb?.toLocaleString() || 'Unlimited'} GB</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <TenantOwnerInfo tenant={tenant} />
+          <TenantSubscriptionInfo tenant={tenant} />
+          <ResourceMetrics tenant={tenant} />
         </div>
       </DialogContent>
     </Dialog>
+  );
+};
+
+export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = (props) => {
+  return (
+    <ErrorBoundary
+      context={{
+        component: 'TenantDetailsModal',
+        level: 'high',
+        metadata: { tenantId: props.tenant?.id }
+      }}
+    >
+      <TenantDetailsModalContent {...props} />
+    </ErrorBoundary>
   );
 };
