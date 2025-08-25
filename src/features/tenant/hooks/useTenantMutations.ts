@@ -1,4 +1,3 @@
-
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CreateTenantDTO, UpdateTenantDTO, Tenant } from '@/types/tenant';
 import { tenantBusinessService } from '@/tenant/TenantBusinessService';
@@ -15,13 +14,16 @@ export const useTenantMutations = () => {
       // Get current authenticated user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
+        console.error('Authentication check failed:', authError);
         throw new Error('Authentication required to create tenant');
       }
 
-      console.log('Authenticated user:', user.id);
+      console.log('Authenticated user:', user.id, user.email);
 
       // Generate correlation ID for tracking
       const correlationId = `tenant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      console.log('Calling create-tenant-with-admin edge function with correlation ID:', correlationId);
       
       // Call the enhanced Edge Function
       const { data: response, error } = await supabase.functions.invoke('create-tenant-with-admin', {
@@ -39,20 +41,45 @@ export const useTenantMutations = () => {
         }
       });
 
+      console.log('Edge function response:', { response, error });
+
       if (error) {
         console.error('Edge function error:', error);
-        throw new Error(error.message || 'Failed to create tenant');
+        // Provide more specific error messages based on the error
+        if (error.message?.includes('Authentication')) {
+          throw new Error('Authentication failed. Please log in and try again.');
+        } else if (error.message?.includes('Failed to fetch')) {
+          throw new Error('Network error. Please check your connection and try again.');
+        } else {
+          throw new Error(error.message || 'Failed to create tenant');
+        }
       }
 
       if (!response?.success) {
         console.error('Tenant creation failed:', response);
-        throw new Error(response?.error || 'Failed to create tenant');
+        const errorMessage = response?.error || 'Failed to create tenant';
+        
+        // Provide user-friendly error messages based on error codes
+        if (response?.code === 'INSUFFICIENT_PRIVILEGES') {
+          throw new Error('You do not have permission to create tenants.');
+        } else if (response?.code === 'MISSING_FIELDS') {
+          throw new Error('Please fill in all required fields.');
+        } else if (response?.code === 'TENANT_CREATION_ERROR') {
+          throw new Error(`Failed to create tenant: ${response?.details?.message || errorMessage}`);
+        } else if (response?.code === 'ADMIN_USER_CREATION_ERROR') {
+          throw new Error(`Failed to create admin user: ${response?.details?.message || errorMessage}`);
+        } else if (response?.code === 'USER_TENANT_RELATIONSHIP_ERROR') {
+          throw new Error('Failed to set up tenant permissions. Please contact support.');
+        } else {
+          throw new Error(errorMessage);
+        }
       }
 
       console.log('Tenant creation successful:', response);
       return response;
     },
     onSuccess: (data) => {
+      console.log('Tenant creation mutation succeeded:', data);
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
       toast.success(`Tenant "${data.tenant_name}" created successfully!`);
     },

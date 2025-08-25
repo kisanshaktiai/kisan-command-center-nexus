@@ -52,10 +52,11 @@ serve(async (req) => {
     // Get current user from authorization header
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
+      console.error(`[${requestId}] No authorization header provided`);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Authorization required',
+          error: 'Authentication required - No authorization header',
           code: 'UNAUTHORIZED'
         }),
         { 
@@ -70,11 +71,13 @@ serve(async (req) => {
     );
 
     if (userError || !user) {
+      console.error(`[${requestId}] Authentication failed:`, userError);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Invalid authorization token',
-          code: 'INVALID_TOKEN'
+          error: 'Authentication required - Invalid token',
+          code: 'INVALID_TOKEN',
+          details: userError?.message
         }),
         { 
           status: 401, 
@@ -82,6 +85,8 @@ serve(async (req) => {
         }
       );
     }
+
+    console.log(`[${requestId}] Authenticated user: ${user.id} (${user.email})`);
 
     // Check admin permissions
     const { data: adminUser } = await supabase
@@ -92,6 +97,7 @@ serve(async (req) => {
       .single();
 
     if (!adminUser || !['super_admin', 'platform_admin'].includes(adminUser.role)) {
+      console.error(`[${requestId}] Insufficient privileges for user ${user.id}`);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -109,6 +115,7 @@ serve(async (req) => {
 
     // Validate required fields
     if (!requestBody.name || !requestBody.slug || !requestBody.owner_email || !requestBody.owner_name) {
+      console.error(`[${requestId}] Missing required fields`);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -122,15 +129,15 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] Creating tenant:`, requestBody.name);
+    console.log(`[${requestId}] Creating tenant: ${requestBody.name} with slug: ${requestBody.slug}`);
 
-    // Step 1: Create the tenant
+    // Step 1: Create the tenant with proper created_by and updated_by fields
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .insert({
         name: requestBody.name,
         slug: requestBody.slug,
-        type: requestBody.type || 'startup',
+        type: requestBody.type || 'agri_company',
         status: requestBody.status || 'trial',
         subscription_plan: requestBody.subscription_plan || 'Kisan_Basic',
         owner_email: requestBody.owner_email,
@@ -149,9 +156,10 @@ serve(async (req) => {
         max_api_calls_per_day: requestBody.max_api_calls_per_day || 10000,
         subdomain: requestBody.subdomain,
         custom_domain: requestBody.custom_domain,
+        created_by: user.id, // Fix: Set created_by to authenticated user's ID
+        updated_by: user.id, // Fix: Set updated_by for consistency
         metadata: {
           ...requestBody.metadata,
-          created_by: user.id,
           created_via: 'admin_portal',
           correlation_id: correlationId,
           idempotency_key: idempotencyKey
@@ -165,9 +173,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Failed to create tenant',
+          error: `Failed to create tenant: ${tenantError.message}`,
           code: 'TENANT_CREATION_ERROR',
-          details: tenantError.message
+          details: tenantError
         }),
         { 
           status: 500, 
@@ -176,12 +184,13 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] Tenant created successfully:`, tenant.id);
+    console.log(`[${requestId}] Tenant created successfully: ${tenant.id}`);
 
     // Step 2: Create admin user account
+    const randomPassword = Math.random().toString(36).slice(-12) + '!A1';
     const { data: adminUserData, error: adminUserError } = await supabase.auth.admin.createUser({
       email: requestBody.owner_email,
-      password: Math.random().toString(36).slice(-12) + '!A1', // Generate secure random password
+      password: randomPassword,
       email_confirm: true,
       user_metadata: {
         full_name: requestBody.owner_name,
@@ -201,9 +210,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Failed to create admin user account',
+          error: `Failed to create admin user: ${adminUserError.message}`,
           code: 'ADMIN_USER_CREATION_ERROR',
-          details: adminUserError.message
+          details: adminUserError
         }),
         { 
           status: 500, 
@@ -212,7 +221,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] Admin user created:`, adminUserData.user.id);
+    console.log(`[${requestId}] Admin user created: ${adminUserData.user.id}`);
 
     // Step 3: Call manage-user-tenant function to create the relationship
     const { data: relationshipData, error: relationshipError } = await supabase.functions.invoke('manage-user-tenant', {
@@ -247,9 +256,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Failed to create user-tenant relationship',
+          error: `Failed to create user-tenant relationship: ${relationshipError?.message || relationshipData?.error}`,
           code: 'USER_TENANT_RELATIONSHIP_ERROR',
-          details: relationshipError?.message || relationshipData?.error
+          details: relationshipError || relationshipData
         }),
         { 
           status: 500, 
@@ -258,9 +267,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] User-tenant relationship created:`, relationshipData);
+    console.log(`[${requestId}] User-tenant relationship created successfully`);
 
-    // Step 4: Send welcome email (optional - you can implement this later)
+    // Step 4: Send welcome email (optional - placeholder for future implementation)
     let emailSent = false;
     try {
       // TODO: Implement email sending logic here
@@ -283,7 +292,7 @@ serve(async (req) => {
       message: 'Tenant and admin user created successfully'
     };
 
-    console.log(`[${requestId}] Tenant creation completed successfully:`, response);
+    console.log(`[${requestId}] Tenant creation completed successfully`);
 
     return new Response(
       JSON.stringify(response),
