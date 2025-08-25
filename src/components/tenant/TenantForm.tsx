@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { CreateTenantDTO, UpdateTenantDTO, Tenant, TenantType, TenantStatus, SubscriptionPlan } from '@/types/tenant';
 import { Loader2 } from 'lucide-react';
+import { TenantAdminSection } from './form-sections/TenantAdminSection';
 
 const createTenantSchema = z.object({
   name: z.string().min(1, 'Organization name is required').max(100, 'Name too long'),
@@ -83,6 +84,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
   });
 
   const organizationName = watch('name');
+  const formData = watch();
 
   // Auto-generate slug from organization name
   useEffect(() => {
@@ -160,6 +162,18 @@ export const TenantForm: React.FC<TenantFormProps> = ({
   };
 
   const isDisabled = isSubmitting || isProcessing;
+
+  // Convert errors to the format expected by TenantAdminSection
+  const formErrors = Object.entries(errors).reduce((acc, [key, error]) => {
+    if (error?.message) {
+      acc[key] = [error.message];
+    }
+    return acc;
+  }, {} as Record<string, string[]>);
+
+  const handleFieldChange = (field: keyof TenantFormData, value: string | number) => {
+    setValue(field, value);
+  };
 
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
@@ -272,63 +286,11 @@ export const TenantForm: React.FC<TenantFormProps> = ({
       </Card>
 
       {/* Owner Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Owner Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="owner_name">Owner Name *</Label>
-              <Input
-                id="owner_name"
-                {...register('owner_name')}
-                placeholder="Enter owner name"
-                disabled={isDisabled}
-              />
-              {errors.owner_name && (
-                <p className="text-sm text-red-600">{errors.owner_name.message}</p>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="owner_email">Owner Email *</Label>
-              <Input
-                id="owner_email"
-                type="email"
-                {...register('owner_email')}
-                placeholder="Enter owner email"
-                disabled={isDisabled}
-              />
-              {errors.owner_email && (
-                <p className="text-sm text-red-600">{errors.owner_email.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="owner_phone">Owner Phone</Label>
-              <Input
-                id="owner_phone"
-                {...register('owner_phone')}
-                placeholder="Enter owner phone"
-                disabled={isDisabled}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="business_registration">Business Registration</Label>
-              <Input
-                id="business_registration"
-                {...register('business_registration')}
-                placeholder="Enter business registration number"
-                disabled={isDisabled}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <TenantAdminSection 
+        formData={formData} 
+        onFieldChange={handleFieldChange}
+        errors={formErrors}
+      />
 
       {/* Limits Configuration */}
       <Card>

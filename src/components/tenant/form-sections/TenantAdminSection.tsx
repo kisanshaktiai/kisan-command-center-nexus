@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,11 +10,13 @@ import { useAdminEmailValidation } from '@/hooks/useAdminEmailValidation';
 interface TenantAdminSectionProps {
   formData: TenantFormData;
   onFieldChange: (field: keyof TenantFormData, value: string | number) => void;
+  errors?: Record<string, string[]>;
 }
 
 export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
   formData,
-  onFieldChange
+  onFieldChange,
+  errors
 }) => {
   const { isValidating, validationResult, validateAdminEmail, clearValidation } = useAdminEmailValidation();
 
@@ -55,6 +58,9 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
   };
 
   const getEmailErrorMessage = () => {
+    if (errors?.owner_email && errors.owner_email.length > 0) {
+      return errors.owner_email[0];
+    }
     if (!formData.owner_email) return null;
     if (!validateEmail(formData.owner_email)) return 'Please enter a valid email address';
     if (validationResult?.error && !validationResult?.exists) return validationResult.error;
@@ -70,6 +76,10 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
       return 'Email is available';
     }
     return null;
+  };
+
+  const hasEmailError = () => {
+    return !!(errors?.owner_email || getEmailErrorMessage());
   };
 
   return (
@@ -97,7 +107,11 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
               onChange={(e) => onFieldChange('owner_name', e.target.value)}
               placeholder="Enter administrator full name"
               required
+              className={errors?.owner_name ? 'border-red-500' : ''}
             />
+            {errors?.owner_name && (
+              <p className="text-sm text-red-600">{errors.owner_name[0]}</p>
+            )}
             <p className="text-xs text-muted-foreground">This person will be the primary tenant administrator</p>
           </div>
           <div className="space-y-2">
@@ -115,7 +129,7 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
                 placeholder="admin@example.com"
                 required
                 className={`pr-10 ${
-                  getEmailErrorMessage() ? 'border-red-500' : 
+                  hasEmailError() ? 'border-red-500' : 
                   getEmailSuccessMessage() ? 'border-green-500' : ''
                 }`}
               />
@@ -145,7 +159,11 @@ export const TenantAdminSection: React.FC<TenantAdminSectionProps> = ({
             value={formData.owner_phone || ''}
             onChange={(e) => onFieldChange('owner_phone', e.target.value)}
             placeholder="+1 (555) 123-4567"
+            className={errors?.owner_phone ? 'border-red-500' : ''}
           />
+          {errors?.owner_phone && (
+            <p className="text-sm text-red-600">{errors.owner_phone[0]}</p>
+          )}
         </div>
 
         <div className="bg-blue-100 border border-blue-200 rounded-lg p-3">
