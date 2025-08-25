@@ -27,16 +27,28 @@ export class TenantBusinessService {
    */
   async createTenant(data: CreateTenantDTO): Promise<TenantBusinessResult<Tenant>> {
     try {
+      // Get current authenticated user - this is required
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        return { success: false, error: 'Authentication required to create tenant' };
+      }
+
       // Validate business rules
       const validation = await this.validateTenantCreation(data);
       if (!validation.success) {
         return { success: false, error: validation.error };
       }
 
+      // Prepare tenant data with authenticated user's ID
+      const tenantDataWithCreator = {
+        ...data,
+        created_by: user.id
+      };
+
       // Create tenant
       const { data: tenant, error } = await supabase
         .from('tenants')
-        .insert(data)
+        .insert(tenantDataWithCreator)
         .select()
         .single();
 
@@ -58,16 +70,34 @@ export class TenantBusinessService {
    */
   async updateTenant(id: string, data: UpdateTenantDTO): Promise<TenantBusinessResult<Tenant>> {
     try {
+      // Get current authenticated user for audit trail
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
       // Validate business rules
       const validation = await this.validateTenantUpdate(id, data);
       if (!validation.success) {
         return { success: false, error: validation.error };
       }
 
+      // Prepare update data with audit information
+      const updateDataWithAudit = {
+        ...data,
+        updated_at: new Date().toISOString()
+      };
+
+      // Add updated_by if we have an authenticated user
+      if (!authError && user) {
+        updateDataWithAudit.metadata = {
+          ...updateDataWithAudit.metadata,
+          updated_by: user.id,
+          last_updated: new Date().toISOString()
+        };
+      }
+
       // Update tenant
       const { data: tenant, error } = await supabase
         .from('tenants')
-        .update(data)
+        .update(updateDataWithAudit)
         .eq('id', id)
         .select()
         .single();

@@ -7,7 +7,7 @@ export interface CreateTenantDTO {
   type: TenantTypeValue;
   status: TenantStatusValue;
   subscription_plan: SubscriptionPlanValue;
-  created_by?: string; // UUID of auth.users who is creating this tenant
+  // created_by is now handled automatically by the service layer - not passed in DTO
   owner_email?: string;
   owner_name?: string;
   owner_phone?: string;

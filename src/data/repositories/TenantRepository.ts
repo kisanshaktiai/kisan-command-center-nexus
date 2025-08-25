@@ -1,4 +1,3 @@
-
 import { BaseTenantRepository } from './BaseTenantRepository';
 import { ServiceResult } from '@/services/BaseService';
 import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
@@ -47,16 +46,17 @@ export class TenantRepository extends BaseTenantRepository {
 
   async createTenant(tenantData: CreateTenantDTO): Promise<ServiceResult<any>> {
     return this.executeOperation(async () => {
-      // Get current authenticated user if created_by is not provided
-      let finalTenantData = { ...tenantData };
-      
-      if (!finalTenantData.created_by) {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (user && !userError) {
-          finalTenantData.created_by = user.id;
-        }
-        // If no user or error, created_by will remain null (which is acceptable)
+      // Get current authenticated user - this is required
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('Authentication required to create tenant');
       }
+      
+      // Prepare tenant data with authenticated user's ID
+      const finalTenantData = { 
+        ...tenantData, 
+        created_by: user.id 
+      };
       
       const { data, error } = await this.buildInsertQuery(finalTenantData).single();
       if (error) throw error;
@@ -65,9 +65,29 @@ export class TenantRepository extends BaseTenantRepository {
   }
 
   async updateTenant(id: string, tenantData: UpdateTenantDTO): Promise<ServiceResult<any>> {
-    return this.executeQuery(() => 
-      this.buildUpdateQuery(id, tenantData).single()
-    );
+    return this.executeOperation(async () => {
+      // Get current authenticated user for audit trail
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      // Prepare update data with audit information
+      const finalUpdateData = { 
+        ...tenantData,
+        updated_at: new Date().toISOString()
+      };
+      
+      // Add updated_by if we have an authenticated user
+      if (!userError && user) {
+        finalUpdateData.metadata = {
+          ...finalUpdateData.metadata,
+          updated_by: user.id,
+          last_updated: new Date().toISOString()
+        };
+      }
+      
+      const { data, error } = await this.buildUpdateQuery(id, finalUpdateData).single();
+      if (error) throw error;
+      return data;
+    }, 'updateTenant');
   }
 
   async deleteTenant(id: string): Promise<ServiceResult<boolean>> {

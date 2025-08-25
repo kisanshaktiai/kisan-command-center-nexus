@@ -214,7 +214,7 @@ export const useTenantManagement = () => {
       
       const correlationId = `tenant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
-      console.log('Creating tenant with enhanced security:', { 
+      console.log('Creating tenant with authentication validation:', { 
         ...formData, 
         correlationId,
         securityContext 
@@ -243,23 +243,22 @@ export const useTenantManagement = () => {
         throw new Error(emailValidation.error);
       }
 
-      // Generate idempotency key
-      const idempotencyKey = generateIdempotencyKey(formData);
-      
-      // Get current authenticated user
+      // Verify user is authenticated before proceeding
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         throw new Error('Authentication required to create tenant');
       }
+
+      // Generate idempotency key
+      const idempotencyKey = generateIdempotencyKey(formData);
       
-      // Map form data to CreateTenantDTO with security context and proper creator info
+      // Map form data to CreateTenantDTO - created_by will be handled automatically by the service
       const createData = {
         name: formData.name.trim(),
         slug: formData.slug.trim(),
         type: formData.type,
         status: formData.status,
         subscription_plan: formData.subscription_plan,
-        created_by: user.id, // Use actual authenticated user ID
         owner_email: formData.owner_email.trim(),
         owner_name: formData.owner_name.trim(),
         metadata: {
@@ -332,7 +331,9 @@ export const useTenantManagement = () => {
       // Enhanced error handling with security context
       let errorMessage = "Failed to create tenant";
       
-      if (error.message?.includes('Slug already exists')) {
+      if (error.message?.includes('Authentication required')) {
+        errorMessage = "You must be logged in to create tenants";
+      } else if (error.message?.includes('Slug already exists')) {
         errorMessage = "A tenant with this slug already exists";
       } else if (error.message?.includes('Admin access required')) {
         errorMessage = "You don't have permission to create tenants";
@@ -344,8 +345,6 @@ export const useTenantManagement = () => {
         errorMessage = "Too many requests. Please wait before creating another tenant";
       } else if (error.message?.includes('DUPLICATE_REQUEST')) {
         errorMessage = "A tenant creation is already in progress with the same details";
-      } else if (error.message?.includes('Authentication required')) {
-        errorMessage = "You must be logged in to create tenants";
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -369,9 +368,9 @@ export const useTenantManagement = () => {
 
     try {
       setIsSubmitting(true);
-      console.log('Updating tenant with enhanced security:', formData);
+      console.log('Updating tenant with authentication validation:', formData);
       
-      // Get current authenticated user for audit trail
+      // Verify user is authenticated
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         throw new Error('Authentication required to update tenant');
@@ -405,9 +404,17 @@ export const useTenantManagement = () => {
       return true;
     } catch (error: any) {
       console.error('Enhanced tenant update error:', error);
+      
+      let errorMessage = "Failed to update tenant";
+      if (error.message?.includes('Authentication required')) {
+        errorMessage = "You must be logged in to update tenants";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to update tenant",
+        description: errorMessage,
         variant: "destructive",
       });
       return false;
