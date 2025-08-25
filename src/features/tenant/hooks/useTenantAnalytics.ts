@@ -23,19 +23,21 @@ export const useTenantAnalytics = ({
 
   const fetchTenantMetrics = useCallback(async (tenantId: string): Promise<TenantMetrics | null> => {
     try {
-      console.log(`Fetching metrics for tenant: ${tenantId}`);
+      console.log(`[useTenantAnalytics] Fetching metrics for tenant: ${tenantId}`);
       
-      // Use the Supabase client to invoke the function properly
+      // Call the edge function with tenant_id as query parameter
       const { data, error } = await supabase.functions.invoke('tenant-real-time-metrics', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ tenant_id: tenantId })
+      }, {
+        // Add tenant_id as query parameter
+        query: { tenant_id: tenantId }
       });
 
       if (error) {
-        console.error(`Error fetching metrics for tenant ${tenantId}:`, error);
+        console.error(`[useTenantAnalytics] Error fetching metrics for tenant ${tenantId}:`, error);
         
         // Return fallback data on error
         return {
@@ -57,9 +59,11 @@ export const useTenantAnalytics = ({
       }
 
       if (!data) {
-        console.warn(`No data returned for tenant ${tenantId}`);
+        console.warn(`[useTenantAnalytics] No data returned for tenant ${tenantId}`);
         return null;
       }
+
+      console.log(`[useTenantAnalytics] Successfully fetched metrics for tenant ${tenantId}`);
 
       // Transform the response to match TenantMetrics interface
       return {
@@ -99,7 +103,7 @@ export const useTenantAnalytics = ({
         lastActivityDate: data.last_activity || new Date().toISOString()
       };
     } catch (error) {
-      console.error(`Error fetching metrics for tenant ${tenantId}:`, error);
+      console.error(`[useTenantAnalytics] Exception fetching metrics for tenant ${tenantId}:`, error);
       
       // Return fallback metrics on any error
       return {
@@ -128,7 +132,7 @@ export const useTenantAnalytics = ({
     setError(null);
 
     try {
-      console.log(`Fetching metrics for ${tenants.length} tenants`);
+      console.log(`[useTenantAnalytics] Fetching metrics for ${tenants.length} tenants`);
       
       // Process tenants in smaller batches to avoid overwhelming the server
       const batchSize = 3;
@@ -158,17 +162,17 @@ export const useTenantAnalytics = ({
 
       setTenantMetrics(newMetrics);
       setRetryCount(0); // Reset retry count on success
-      console.log(`Successfully fetched metrics for ${Object.keys(newMetrics).length} tenants`);
+      console.log(`[useTenantAnalytics] Successfully fetched metrics for ${Object.keys(newMetrics).length} tenants`);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch metrics';
-      console.error('Error in fetchAllMetrics:', errorMessage);
+      console.error('[useTenantAnalytics] Error in fetchAllMetrics:', errorMessage);
       setError(errorMessage);
       
       // Implement exponential backoff retry
       if (retryCount < maxRetries) {
         const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-        console.log(`Retrying in ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`);
+        console.log(`[useTenantAnalytics] Retrying in ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`);
         setTimeout(() => {
           setRetryCount(prev => prev + 1);
           fetchAllMetrics();

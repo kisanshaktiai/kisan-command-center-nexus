@@ -37,25 +37,50 @@ interface RealTimeMetricsWidgetProps {
 export const RealTimeMetricsWidget: React.FC<RealTimeMetricsWidgetProps> = ({ tenantId }) => {
   const [metrics, setMetrics] = useState<RealTimeMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   const fetchMetrics = async () => {
+    if (!tenantId) {
+      console.warn('[RealTimeMetricsWidget] No tenant ID provided');
+      setError('No tenant ID provided');
+      setLoading(false);
+      return;
+    }
+
     try {
+      setError(null);
+      console.log(`[RealTimeMetricsWidget] Fetching metrics for tenant: ${tenantId}`);
+      
       const { data, error } = await supabase.functions.invoke('tenant-real-time-metrics', {
-        body: { tenant_id: tenantId }
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }, {
+        // Pass tenant_id as query parameter
+        query: { tenant_id: tenantId }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[RealTimeMetricsWidget] Error fetching metrics:', error);
+        throw error;
+      }
+
+      console.log(`[RealTimeMetricsWidget] Successfully fetched metrics for tenant ${tenantId}`);
       setMetrics(data);
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Error fetching real-time metrics:', error);
+      console.error('[RealTimeMetricsWidget] Error in fetchMetrics:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch metrics');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    if (!tenantId) return;
+    
     fetchMetrics();
     const interval = setInterval(fetchMetrics, 30000); // Update every 30 seconds
     return () => clearInterval(interval);
@@ -92,11 +117,28 @@ export const RealTimeMetricsWidget: React.FC<RealTimeMetricsWidgetProps> = ({ te
     );
   }
 
-  if (!metrics) {
+  if (error) {
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>Failed to load real-time metrics</AlertDescription>
+        <AlertDescription>
+          Failed to load real-time metrics: {error}
+          <button 
+            onClick={fetchMetrics}
+            className="ml-2 underline hover:no-underline"
+          >
+            Retry
+          </button>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (!metrics) {
+    return (
+      <Alert>
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>No metrics data available for this tenant.</AlertDescription>
       </Alert>
     );
   }

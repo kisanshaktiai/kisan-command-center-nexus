@@ -54,8 +54,9 @@ interface RealTimeMetricsResponse {
 }
 
 const allowedOrigins = [
-  "https://f7f3ec00-3a42-4b69-b48b-a0622a7f7b10.lovableproject.com", // production
-  "https://id-preview--f7f3ec00-3a42-4b69-b48b-a0622a7f7b10.lovable.app", // preview
+  "https://f7f3ec00-3a42-4b69-b48b-a0622a7f7b10.lovableproject.com",
+  "https://id-preview--f7f3ec00-3a42-4b69-b48b-a0622a7f7b10.lovable.app",
+  "https://f7f3ec00-3a42-4b69-b48b-a0622a7f7b10.sandbox.lovable.dev",
 ];
 
 function getCorsHeaders(origin: string) {
@@ -70,40 +71,70 @@ serve(async (req) => {
   const origin = req.headers.get("origin") || "*";
   const corsHeaders = getCorsHeaders(origin);
 
+  console.log(`[${new Date().toISOString()}] Request: ${req.method} ${req.url}`);
+
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
   try {
-    // Validate tenant_id parameter
-const url = new URL(req.url);
-let tenantId = url.searchParams.get('tenant_id');
+    const url = new URL(req.url);
+    let tenantId = url.searchParams.get('tenant_id');
 
-if (!tenantId && req.method === 'POST') {
-  try {
-    const body = await req.json();
-    tenantId = body?.tenant_id;
-  } catch {
-    // ignore parse errors
-  }
-}
+    console.log(`[DEBUG] Method: ${req.method}, Query tenant_id: ${tenantId}`);
 
-if (!tenantId) {
-  return new Response(JSON.stringify({ error: 'Missing tenant_id parameter' }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    status: 400,
-  });
-}
+    // Handle POST requests with body
+    if (!tenantId && req.method === 'POST') {
+      try {
+        const body = await req.json();
+        tenantId = body?.tenant_id;
+        console.log(`[DEBUG] POST body tenant_id: ${tenantId}`);
+      } catch (error) {
+        console.warn(`[DEBUG] Failed to parse POST body: ${error.message}`);
+      }
+    }
+
+    // Handle GET requests with path parameter (e.g., /tenant-id)
+    if (!tenantId) {
+      const pathParts = url.pathname.split('/').filter(Boolean);
+      if (pathParts.length > 1) {
+        const lastPart = pathParts[pathParts.length - 1];
+        // Check if it looks like a UUID
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(lastPart)) {
+          tenantId = lastPart;
+          console.log(`[DEBUG] Path tenant_id: ${tenantId}`);
+        }
+      }
+    }
+
+    if (!tenantId) {
+      console.error(`[ERROR] No tenant_id found in query params, POST body, or path`);
+      return new Response(JSON.stringify({ 
+        error: 'Missing tenant_id parameter',
+        debug: {
+          method: req.method,
+          queryParams: Object.fromEntries(url.searchParams.entries()),
+          pathname: url.pathname,
+          timestamp: new Date().toISOString()
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(tenantId)) {
+      console.error(`[ERROR] Invalid tenant ID format: ${tenantId}`);
       return new Response(JSON.stringify({ error: 'Invalid tenant ID format' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
     }
+
+    console.log(`[INFO] Processing metrics for tenant: ${tenantId}`);
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -119,12 +150,14 @@ if (!tenantId) {
       .single();
 
     if (tenantError || !tenant) {
-      console.error('Tenant lookup error:', tenantError);
+      console.error(`[ERROR] Tenant lookup failed:`, tenantError);
       return new Response(JSON.stringify({ error: 'Tenant not found' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 404,
       });
     }
+
+    console.log(`[INFO] Found tenant: ${tenant.name} (${tenant.status})`);
 
     // Get recent API activity (last hour) with error handling
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -136,7 +169,7 @@ if (!tenantId) {
       .limit(1000);
 
     if (apiError) {
-      console.warn('API logs fetch error:', apiError);
+      console.warn(`[WARN] API logs fetch error:`, apiError);
     }
 
     // Get current usage counts with fallbacks
@@ -278,16 +311,19 @@ if (!tenantId) {
       limits: defaultLimits
     };
 
+    console.log(`[INFO] Successfully generated metrics for tenant ${tenantId}`);
+
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
 
   } catch (error) {
-    console.error('Error in tenant-real-time-metrics:', error);
+    console.error(`[ERROR] Exception in tenant-real-time-metrics:`, error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
