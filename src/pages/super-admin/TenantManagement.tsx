@@ -54,16 +54,24 @@ const TenantManagement: React.FC = () => {
   } = useTenantPageState();
 
   const handleDeleteTenant = async (tenantId: string): Promise<boolean> => {
+    console.log('TenantManagement: Delete tenant requested:', tenantId);
     // TODO: Implement delete functionality
-    console.log('Delete tenant:', tenantId);
     return false;
   };
 
   const handleRefresh = () => {
+    console.log('TenantManagement: Refreshing data');
     refreshMetrics();
     // Force re-fetch of tenants data
     window.location.reload();
   };
+
+  console.log('TenantManagement: Rendering with state:', {
+    tenantCount: tenants.length,
+    isLoading,
+    error: error?.message,
+    isSubmitting
+  });
 
   if (error) {
     return (
