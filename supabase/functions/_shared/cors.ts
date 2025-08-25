@@ -1,4 +1,3 @@
-
 // supabase/functions/_shared/cors.ts
 
 // Load allowed origins dynamically from environment variable (comma-separated)
@@ -23,17 +22,16 @@ export function getCorsHeaders(request: Request): Record<string, string> {
     "Access-Control-Allow-Origin": allowedOrigin || "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, referrer-policy, x-request-id",
+      "authorization, x-client-info, apikey, content-type, referrer-policy, x-request-id, x-correlation-id",
   };
 }
-
 
 // Default fallback if used without request
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, referrer-policy",
+    "authorization, x-client-info, apikey, content-type, referrer-policy, x-request-id, x-correlation-id",
 };
 
 export function handleCors(req: Request): Response | null {
