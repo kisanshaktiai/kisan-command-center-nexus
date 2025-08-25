@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant } from '@/types/tenant';
@@ -22,7 +23,8 @@ export const useTenantAnalytics = ({
   autoRefresh = false, 
   refreshInterval = 30000 
 }) => {
-  const [tenantMetrics, setTenantMetrics] = useState<TenantMetrics | null>(null);
+  // Change to Record<string, TenantMetrics> to match expected interface
+  const [tenantMetrics, setTenantMetrics] = useState<Record<string, TenantMetrics>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<any>(null);
 
@@ -38,7 +40,8 @@ export const useTenantAnalytics = ({
       const { data, error: fetchError } = await supabase.functions.invoke(
         'tenant-real-time-metrics',
         {
-          method: 'GET'
+          method: 'GET',
+          body: JSON.stringify({ tenant_id: tenantId })
         }
       );
       
@@ -49,7 +52,13 @@ export const useTenantAnalytics = ({
       }
 
       console.log('useTenantAnalytics: Metrics data received:', data);
-      setTenantMetrics(data);
+      
+      // Update the metrics for this specific tenant
+      setTenantMetrics(prev => ({
+        ...prev,
+        [tenantId]: data
+      }));
+      
       return data;
     } catch (err) {
       console.error('useTenantAnalytics: Unexpected error:', err);
@@ -62,10 +71,12 @@ export const useTenantAnalytics = ({
 
   const refreshMetrics = useCallback(() => {
     if (tenants.length > 0) {
-      const firstTenant = tenants[0];
-      if (firstTenant?.id) {
-        fetchMetrics(firstTenant.id);
-      }
+      // Fetch metrics for all tenants, not just the first one
+      tenants.forEach(tenant => {
+        if (tenant?.id) {
+          fetchMetrics(tenant.id);
+        }
+      });
     }
   }, [tenants, fetchMetrics]);
 
@@ -81,7 +92,7 @@ export const useTenantAnalytics = ({
   }, [autoRefresh, refreshInterval, refreshMetrics]);
 
   return {
-    tenantMetrics,
+    tenantMetrics, // Now correctly typed as Record<string, TenantMetrics>
     isLoading,
     error,
     refreshMetrics,
