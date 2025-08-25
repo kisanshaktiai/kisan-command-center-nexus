@@ -8,22 +8,25 @@ const allowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") || "*")
 
 export function getCorsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("origin");
-  
-  // Allow if origin is explicitly listed OR if "*" is configured
-  const allowedOrigin = 
-    allowedOrigins.includes("*") 
-      ? origin || "*" 
-      : allowedOrigins.includes(origin || "") 
-        ? origin 
-        : allowedOrigins[0]; // default to first configured one
-  
+  const allowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") || "*")
+    .split(",")
+    .map(o => o.trim());
+
+  const allowedOrigin =
+    allowedOrigins.includes("*")
+      ? origin || "*"
+      : allowedOrigins.includes(origin || "")
+        ? origin
+        : allowedOrigins[0];
+
   return {
     "Access-Control-Allow-Origin": allowedOrigin || "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, referrer-policy",
+      "authorization, x-client-info, apikey, content-type, referrer-policy, x-request-id",
   };
 }
+
 
 // Default fallback if used without request
 export const corsHeaders = {
