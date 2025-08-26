@@ -12,6 +12,14 @@ export interface DuplicateCheckOptions {
   tenantId?: string;
 }
 
+// Type for slug availability RPC response
+interface SlugAvailabilityResponse {
+  available: boolean;
+  error?: string;
+  code?: string;
+  message?: string;
+}
+
 /**
  * Secure validation service with tenant isolation
  * Provides reusable validation functions across the application
@@ -67,6 +75,15 @@ export class SecureValidationService {
 
       if (error) {
         throw error;
+      }
+
+      // Type guard to ensure data is the expected format
+      const isSlugResponse = (data: any): data is SlugAvailabilityResponse => {
+        return data && typeof data === 'object' && 'available' in data;
+      };
+
+      if (!isSlugResponse(data)) {
+        throw new Error('Invalid response format from slug validation');
       }
 
       return {
