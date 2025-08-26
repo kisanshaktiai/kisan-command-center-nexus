@@ -21,43 +21,51 @@ interface ConsolidatedTenantOnboardingWizardProps {
   workflowId?: string;
 }
 
-// Updated to use database step names as keys
+// Fixed step components mapping - each step now maps to its specific component
 const STEP_COMPONENTS: Record<string, React.ComponentType<any>> = {
-  // Database step names (normalized)
+  // Company Profile Step
   'company_profile': CompanyProfileStep,
   'company-profile': CompanyProfileStep,
+  'Company Profile': CompanyProfileStep,
+  
+  // Branding Step
   'branding': EnhancedBrandingStep,
   'branding_design': EnhancedBrandingStep,
   'branding-design': EnhancedBrandingStep,
   'enhanced_branding': EnhancedBrandingStep,
   'enhanced-branding': EnhancedBrandingStep,
-  'team_permissions': EnhancedUsersRolesStep,
-  'team-permissions': EnhancedUsersRolesStep,
+  'Branding & Design': EnhancedBrandingStep,
+  'Enhanced Branding': EnhancedBrandingStep,
+  
+  // Users and Roles Step - FIXED: Now correctly maps to EnhancedUsersRolesStep
   'users_roles': EnhancedUsersRolesStep,
   'users-roles': EnhancedUsersRolesStep,
+  'team_permissions': EnhancedUsersRolesStep,
+  'team-permissions': EnhancedUsersRolesStep,
   'enhanced_users_roles': EnhancedUsersRolesStep,
   'enhanced-users-roles': EnhancedUsersRolesStep,
+  'Team & Permissions': EnhancedUsersRolesStep,
+  'Enhanced Users & Roles': EnhancedUsersRolesStep,
+  
+  // Billing Step
   'billing_plan': BillingPlanStep,
   'billing-plan': BillingPlanStep,
   'billing': BillingPlanStep,
+  'Billing & Plan': BillingPlanStep,
+  
+  // Domain and White-label Step - FIXED: Now correctly maps to DomainWhitelabelStep
   'domain_whitelabel': DomainWhitelabelStep,
   'domain-whitelabel': DomainWhitelabelStep,
   'domain_branding': DomainWhitelabelStep,
   'domain-branding': DomainWhitelabelStep,
+  'Domain & White-label': DomainWhitelabelStep,
+  'Domain & Branding': DomainWhitelabelStep,
+  
+  // Review and Go Live Step - FIXED: Now correctly maps to ReviewGoLiveStep
   'review_launch': ReviewGoLiveStep,
   'review-launch': ReviewGoLiveStep,
   'review_go_live': ReviewGoLiveStep,
   'review-go-live': ReviewGoLiveStep,
-  
-  // Display names (for backward compatibility)
-  'Company Profile': CompanyProfileStep,
-  'Branding & Design': EnhancedBrandingStep,
-  'Enhanced Branding': EnhancedBrandingStep,
-  'Team & Permissions': EnhancedUsersRolesStep,
-  'Enhanced Users & Roles': EnhancedUsersRolesStep,
-  'Billing & Plan': BillingPlanStep,
-  'Domain & White-label': DomainWhitelabelStep,
-  'Domain & Branding': DomainWhitelabelStep,
   'Review & Launch': ReviewGoLiveStep,
   'Review & Go Live': ReviewGoLiveStep
 };
@@ -127,7 +135,7 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     // Try exact match first
     let component = STEP_COMPONENTS[stepName];
     if (component) {
-      console.log('✅ Found exact match for:', stepName);
+      console.log('✅ Found exact match for:', stepName, '→', component.name);
       return component;
     }
 
@@ -135,7 +143,7 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     const normalized = normalizeStepName(stepName);
     component = STEP_COMPONENTS[normalized];
     if (component) {
-      console.log('✅ Found normalized match for:', stepName, '→', normalized);
+      console.log('✅ Found normalized match for:', stepName, '→', normalized, '→', component.name);
       return component;
     }
 
@@ -143,25 +151,26 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     const underscored = stepName.toLowerCase().replace(/\s+/g, '_');
     component = STEP_COMPONENTS[underscored];
     if (component) {
-      console.log('✅ Found underscore match for:', stepName, '→', underscored);
+      console.log('✅ Found underscore match for:', stepName, '→', underscored, '→', component.name);
       return component;
     }
 
     console.warn('❌ No component found for step:', stepName);
     console.log('Available component keys:', Object.keys(STEP_COMPONENTS));
     
-    // Fallback to CompanyProfileStep
+    // Fallback to CompanyProfileStep only if no other match found
+    console.log('⚠️ Falling back to CompanyProfileStep for:', stepName);
     return CompanyProfileStep;
   }, []);
 
   const transformedSteps = useMemo(() => {
     console.log('🔄 Transforming steps:', steps);
     
-    return steps.map((dbStep) => {
+    return steps.map((dbStep, index) => {
       const stepData = dbStep.step_data || {};
       const component = getStepComponent(dbStep.step_name);
       
-      console.log('📋 Step:', dbStep.step_name, 'Component:', component?.name || 'undefined');
+      console.log(`📋 Step ${index + 1}:`, dbStep.step_name, '→ Component:', component?.name || 'undefined');
       
       return {
         id: normalizeStepName(dbStep.step_name),
@@ -177,10 +186,25 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     });
   }, [steps, getStepComponent]);
 
+  // Enhanced progress calculation - more accurate completion tracking
   const currentProgress = useMemo(() => {
     if (transformedSteps.length === 0) return 0;
+    
     const completedSteps = transformedSteps.filter(s => s.status === 'completed').length;
-    return Math.round((completedSteps / transformedSteps.length) * 100);
+    const inProgressSteps = transformedSteps.filter(s => s.status === 'in_progress').length;
+    
+    // Give partial credit for in-progress steps
+    const totalProgress = completedSteps + (inProgressSteps * 0.5);
+    const percentage = Math.round((totalProgress / transformedSteps.length) * 100);
+    
+    console.log('📊 Progress calculation:', {
+      total: transformedSteps.length,
+      completed: completedSteps,
+      inProgress: inProgressSteps,
+      percentage
+    });
+    
+    return percentage;
   }, [transformedSteps]);
 
   const totalEstimatedTime = useMemo(() => {
@@ -192,7 +216,6 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     return remainingSteps.reduce((total, step) => total + step.estimatedTime, 0);
   }, [transformedSteps, currentStepIndex]);
 
-  // Stable callbacks to prevent component re-renders
   const handleStepComplete = useCallback(async (data: any) => {
     const currentStep = transformedSteps[currentStepIndex];
     if (!currentStep) return;
@@ -259,10 +282,14 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
   const hasError = workflowError || tenantError;
   const CurrentStepComponent = transformedSteps[currentStepIndex]?.component;
 
-  // Add debugging for current step
-  console.log('🎯 Current step index:', currentStepIndex);
-  console.log('🎯 Current step:', transformedSteps[currentStepIndex]);
-  console.log('🎯 Current component:', CurrentStepComponent?.name);
+  // Enhanced debugging for current step
+  const currentStep = transformedSteps[currentStepIndex];
+  console.log('🎯 Current step details:', {
+    index: currentStepIndex,
+    step: currentStep,
+    component: CurrentStepComponent?.name,
+    stepName: currentStep?.title
+  });
 
   if (isLoading) {
     return (
