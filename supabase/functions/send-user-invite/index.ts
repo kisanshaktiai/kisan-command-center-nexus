@@ -69,7 +69,7 @@ const handler = async (req: Request): Promise<Response> => {
         first_name: firstName,
         last_name: lastName || '',
         inviter_name: inviterName,
-        created_by: user.id,
+        created_by: user.id, // Using created_by instead of invited_by
         tenant_name: tenantName,
         role,
         invitation_type: 'onboarding',
@@ -78,7 +78,10 @@ const handler = async (req: Request): Promise<Response> => {
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
         metadata: {
           tenantName,
-          inviterName
+          inviterName,
+          firstName,
+          lastName,
+          role
         }
       })
       .select()
