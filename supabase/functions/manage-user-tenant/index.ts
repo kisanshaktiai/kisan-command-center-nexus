@@ -223,7 +223,7 @@ serve(async (req) => {
         }
       }
 
-      // Call the database function
+      // Use the database function we created to manage the relationship
       const { data: result, error: dbError } = await supabase.rpc(
         'manage_user_tenant_relationship',
         {
@@ -261,7 +261,7 @@ serve(async (req) => {
         );
       }
 
-      // Log successful operation (only if admin_users record exists)
+      // Only try to log audit if admin_users record exists
       if (adminUser) {
         try {
           await supabase.rpc('log_enhanced_admin_action', {
@@ -334,14 +334,24 @@ serve(async (req) => {
         }
       }
 
-      const { data: relationships, error: fetchError } = await supabase.rpc(
-        'get_user_tenant_relationships',
-        {
-          p_user_id: userId,
-          p_tenant_id: tenantId,
-          p_include_inactive: includeInactive
-        }
-      );
+      // Build query for user-tenant relationships
+      let query = supabase
+        .from('user_tenants')
+        .select('*');
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data: relationships, error: fetchError } = await query;
 
       if (fetchError) {
         console.error(`[${securityContext.requestId}] Error fetching relationships:`, fetchError);
