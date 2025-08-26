@@ -43,10 +43,10 @@ export const TenantBillingOverview: React.FC<TenantBillingOverviewProps> = ({ te
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {activeSubscription?.billing_plan?.name || 'No Plan'}
+              {activeSubscription?.billing_plans?.name || 'Basic Plan'}
             </div>
             <Badge variant={activeSubscription?.status === 'active' ? 'default' : 'secondary'}>
-              {activeSubscription?.status || 'inactive'}
+              {activeSubscription?.status || 'active'}
             </Badge>
           </CardContent>
         </Card>
@@ -123,7 +123,7 @@ export const TenantBillingOverview: React.FC<TenantBillingOverviewProps> = ({ te
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {billingData?.payment_records?.slice(0, 5).map((payment) => (
+              {billingData?.payment_records?.slice(0, 5).map((payment: any) => (
                 <div key={payment.id} className="flex items-center justify-between p-2 border rounded">
                   <div>
                     <p className="font-medium">${payment.amount}</p>
@@ -147,7 +147,7 @@ export const TenantBillingOverview: React.FC<TenantBillingOverviewProps> = ({ te
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {billingData?.invoices?.slice(0, 5).map((invoice) => (
+              {billingData?.invoices?.slice(0, 5).map((invoice: any) => (
                 <div key={invoice.id} className="flex items-center justify-between p-2 border rounded">
                   <div>
                     <p className="font-medium">{invoice.invoice_number}</p>
