@@ -14,7 +14,7 @@ import { useAdminEmailValidation } from '@/hooks/useAdminEmailValidation';
 import { TenantFormBranding } from './TenantFormBranding';
 
 interface TenantFormData extends CreateTenantDTO {
-  id?: string; // Add optional id for edit mode
+  id?: string;
   branding?: {
     app_name?: string;
     app_tagline?: string;
@@ -26,7 +26,7 @@ interface TenantFormData extends CreateTenantDTO {
 
 interface TenantFormProps {
   mode: 'create' | 'edit';
-  initialData?: Partial<TenantFormData>; // Use the extended type
+  initialData?: Partial<TenantFormData>;
   onSubmit: (data: CreateTenantDTO | UpdateTenantDTO) => Promise<boolean>;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -95,7 +95,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [currentTab, setCurrentTab] = useState('basic');
 
-  // Use existing validation hooks - now with proper typing
+  // Use existing validation hooks
   const { isValid: isSlugValid, isChecking: isSlugChecking, error: slugError } = useSlugValidation(
     formData.slug, 
     mode === 'edit' ? initialData?.id : undefined
@@ -108,7 +108,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     if (mode === 'create' && formData.owner_email && formData.owner_email.trim()) {
       const timeoutId = setTimeout(() => {
         validateAdminEmail(formData.owner_email);
-      }, 500); // Debounce validation
+      }, 500);
       
       return () => clearTimeout(timeoutId);
     }
@@ -135,7 +135,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
       newErrors.name = 'Organization name is required';
     }
 
-    // Slug validation using existing hook
+    // Slug validation
     if (!formData.slug?.trim()) {
       newErrors.slug = 'Slug is required';
     } else if (slugError) {
@@ -144,7 +144,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
       newErrors.slug = 'Slug is not available';
     }
 
-    // Enhanced email validation logic for create mode
+    // Fixed email validation logic for create mode
     if (mode === 'create') {
       if (!formData.owner_email?.trim()) {
         newErrors.owner_email = 'Administrator email is required';
@@ -480,17 +480,28 @@ export const TenantForm: React.FC<TenantFormProps> = ({
                             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                           ) : emailValidationResult?.valid && !emailValidationResult?.exists ? (
                             <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          ) : errors.owner_email ? (
+                          ) : (emailValidationResult?.exists || errors.owner_email) ? (
                             <AlertCircle className="h-4 w-4 text-red-500" />
                           ) : null}
                         </div>
                       </div>
-                      {errors.owner_email && <p className="text-sm text-red-500 mt-1">{errors.owner_email}</p>}
-                      {emailValidationResult?.valid && !emailValidationResult?.exists && !errors.owner_email && (
-                        <p className="text-sm text-green-600 mt-1">Email is available</p>
+                      
+                      {errors.owner_email && (
+                        <p className="text-sm text-red-500 mt-1">{errors.owner_email}</p>
                       )}
-                      {emailValidationResult?.exists && (
-                        <p className="text-sm text-red-500 mt-1">This email is already used by another tenant</p>
+                      
+                      {!errors.owner_email && emailValidationResult && formData.owner_email && (
+                        <>
+                          {emailValidationResult.valid && !emailValidationResult.exists && (
+                            <p className="text-sm text-green-600 mt-1">Email is available</p>
+                          )}
+                          {emailValidationResult.exists && (
+                            <p className="text-sm text-red-500 mt-1">This email is already used by another tenant</p>
+                          )}
+                          {!emailValidationResult.valid && emailValidationResult.error && (
+                            <p className="text-sm text-red-500 mt-1">{emailValidationResult.error}</p>
+                          )}
+                        </>
                       )}
                     </div>
 
@@ -574,7 +585,10 @@ export const TenantForm: React.FC<TenantFormProps> = ({
           </TabsContent>
 
           <TabsContent value="branding" className="space-y-6 mt-0">
-            <TenantFormBranding formData={formData} />
+            <TenantFormBranding 
+              formData={formData} 
+              onChange={handleInputChange}
+            />
           </TabsContent>
 
           <TabsContent value="limits" className="space-y-6 mt-0">
