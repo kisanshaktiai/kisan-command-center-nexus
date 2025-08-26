@@ -60,17 +60,17 @@ const handler = async (req: Request): Promise<Response> => {
     // Generate invitation token
     const invitationToken = crypto.randomUUID();
 
-    // Create invitation record using the correct table schema
+    // Create invitation record - ensuring we only use columns that exist in the table
     const { data: invitation, error: inviteError } = await supabase
       .from('user_invitations')
       .insert({
         tenant_id: tenantId,
         email: email.toLowerCase().trim(),
-        created_by: user.id, // Using created_by instead of invited_by
+        created_by: user.id,
         invitation_type: 'onboarding',
         status: 'pending',
         invitation_token: invitationToken,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         metadata: {
           first_name: firstName,
           last_name: lastName || '',
