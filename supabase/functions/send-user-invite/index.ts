@@ -98,7 +98,7 @@ const handler = async (req: Request): Promise<Response> => {
     const inviteUrl = `${Deno.env.get('SITE_URL')}/auth?invite=${invitationToken}`;
     
     const emailResponse = await resend.emails.send({
-      from: "KisanShakti <noreply@kisanshakti.com>",
+      from: "KisanShakti <admin@kisanshaktiai.in>",
       to: [email],
       subject: `You're invited to join ${tenantName}`,
       html: `
