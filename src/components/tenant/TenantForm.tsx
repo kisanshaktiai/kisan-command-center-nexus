@@ -8,12 +8,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
 import { TenantType, TenantStatus, SubscriptionPlan, tenantTypeOptions, tenantStatusOptions, subscriptionPlanOptions } from '@/types/tenant';
-import { Building2, Users, Sprout, GraduationCap, Shield, Factory, Handshake, Heart, CheckCircle2, ArrowRight, ArrowLeft, AlertCircle, Loader2 } from 'lucide-react';
+import { Building2, Users, Sprout, GraduationCap, Shield, Factory, Handshake, Heart, CheckCircle2, ArrowRight, ArrowLeft, AlertCircle, Loader2, Palette } from 'lucide-react';
 import { useSlugValidation } from '@/hooks/useSlugValidation';
 import { useAdminEmailValidation } from '@/hooks/useAdminEmailValidation';
+import { TenantFormBranding } from './TenantFormBranding';
 
 interface TenantFormData extends CreateTenantDTO {
   id?: string; // Add optional id for edit mode
+  branding?: {
+    app_name?: string;
+    app_tagline?: string;
+    primary_color?: string;
+    secondary_color?: string;
+    logo_url?: string;
+  };
 }
 
 interface TenantFormProps {
@@ -51,7 +59,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
   onCancel,
   isSubmitting = false
 }) => {
-  const [formData, setFormData] = useState<CreateTenantDTO>({
+  const [formData, setFormData] = useState<CreateTenantDTO & { branding?: any }>({
     name: '',
     slug: '',
     type: 'agri_company',
@@ -74,6 +82,13 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     subdomain: '',
     custom_domain: '',
     metadata: {},
+    branding: {
+      app_name: '',
+      app_tagline: '',
+      primary_color: '#10B981',
+      secondary_color: '#065F46',
+      logo_url: ''
+    },
     ...initialData
   });
 
@@ -129,14 +144,16 @@ export const TenantForm: React.FC<TenantFormProps> = ({
       newErrors.slug = 'Slug is not available';
     }
 
-    // Email validation using existing hook for create mode
+    // Enhanced email validation logic for create mode
     if (mode === 'create') {
       if (!formData.owner_email?.trim()) {
         newErrors.owner_email = 'Administrator email is required';
-      } else if (emailValidationResult && !emailValidationResult.valid) {
-        newErrors.owner_email = emailValidationResult.error || 'Invalid email';
-      } else if (emailValidationResult && emailValidationResult.exists) {
-        newErrors.owner_email = emailValidationResult.message || 'Email already exists';
+      } else if (emailValidationResult) {
+        if (!emailValidationResult.valid) {
+          newErrors.owner_email = emailValidationResult.error || 'Invalid email format';
+        } else if (emailValidationResult.exists) {
+          newErrors.owner_email = emailValidationResult.message || 'This email is already used by another tenant';
+        }
       }
 
       if (!formData.owner_name?.trim()) {
@@ -203,7 +220,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
       return;
     }
 
-    // Clean and prepare data
+    // Clean and prepare data including branding
     const cleanedData = {
       ...formData,
       name: formData.name.trim(),
@@ -222,8 +239,19 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     }
   };
 
-  const handleInputChange = (field: keyof CreateTenantDTO, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: keyof CreateTenantDTO | string, value: any) => {
+    if (field.startsWith('branding.')) {
+      const brandingField = field.replace('branding.', '');
+      setFormData(prev => ({ 
+        ...prev, 
+        branding: { 
+          ...prev.branding, 
+          [brandingField]: value 
+        } 
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
     
     // Clear error when user starts typing
     if (errors[field]) {
@@ -234,6 +262,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
   const tabs = [
     { id: 'basic', label: 'Basic Info', icon: Building2 },
     { id: 'business', label: 'Business Details', icon: Users },
+    { id: 'branding', label: 'Branding', icon: Palette },
     { id: 'limits', label: 'Limits & Features', icon: Shield },
     { id: 'metadata', label: 'Advanced', icon: CheckCircle2 }
   ];
@@ -460,6 +489,9 @@ export const TenantForm: React.FC<TenantFormProps> = ({
                       {emailValidationResult?.valid && !emailValidationResult?.exists && !errors.owner_email && (
                         <p className="text-sm text-green-600 mt-1">Email is available</p>
                       )}
+                      {emailValidationResult?.exists && (
+                        <p className="text-sm text-red-500 mt-1">This email is already used by another tenant</p>
+                      )}
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
@@ -539,6 +571,10 @@ export const TenantForm: React.FC<TenantFormProps> = ({
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="branding" className="space-y-6 mt-0">
+            <TenantFormBranding formData={formData} />
           </TabsContent>
 
           <TabsContent value="limits" className="space-y-6 mt-0">
