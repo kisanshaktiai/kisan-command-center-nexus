@@ -55,20 +55,23 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
         .from('tenant_branding')
         .select('*')
         .eq('tenant_id', tenantId)
-        .single();
+        .maybeSingle();
 
       // Load domain configuration
-      const { data: domain } = await supabase
+      const { data: domains } = await supabase
         .from('tenant_domains')
         .select('*')
-        .eq('tenant_id', tenantId)
-        .single();
+        .eq('tenant_id', tenantId);
 
       // Load user invitations
       const { data: invitations } = await supabase
         .from('user_invitations')
         .select('*')
         .eq('tenant_id', tenantId);
+
+      // Check if domain is verified
+      const domainVerified = domains && domains.length > 0 && 
+        domains.some(d => d.domain_verified === true);
 
       // Generate checklist
       const checklistItems: ChecklistItem[] = [
@@ -90,7 +93,7 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
           id: 'domain',
           title: 'Domain Configuration',
           description: 'Domain and SSL configuration completed',
-          status: domain?.domain_verified ? 'complete' : 'warning',
+          status: domainVerified ? 'complete' : 'warning',
           required: false
         },
         {

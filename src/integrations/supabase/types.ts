@@ -5798,12 +5798,16 @@ export type Database = {
           created_at: string | null
           email: string
           expires_at: string | null
+          first_name: string | null
           id: string
           invitation_token: string
           invited_by: string | null
+          inviter_name: string | null
+          last_name: string | null
           role: string
           status: string | null
           tenant_id: string | null
+          tenant_name: string | null
           updated_at: string | null
         }
         Insert: {
@@ -5811,12 +5815,16 @@ export type Database = {
           created_at?: string | null
           email: string
           expires_at?: string | null
+          first_name?: string | null
           id?: string
           invitation_token: string
           invited_by?: string | null
+          inviter_name?: string | null
+          last_name?: string | null
           role: string
           status?: string | null
           tenant_id?: string | null
+          tenant_name?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -5824,12 +5832,16 @@ export type Database = {
           created_at?: string | null
           email?: string
           expires_at?: string | null
+          first_name?: string | null
           id?: string
           invitation_token?: string
           invited_by?: string | null
+          inviter_name?: string | null
+          last_name?: string | null
           role?: string
           status?: string | null
           tenant_id?: string | null
+          tenant_name?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -5949,6 +5961,7 @@ export type Database = {
           logo_url: string | null
           primary_color: string | null
           secondary_color: string | null
+          settings: Json | null
           splash_screen_url: string | null
           tenant_id: string | null
           text_color: string | null
@@ -5972,6 +5985,7 @@ export type Database = {
           logo_url?: string | null
           primary_color?: string | null
           secondary_color?: string | null
+          settings?: Json | null
           splash_screen_url?: string | null
           tenant_id?: string | null
           text_color?: string | null
@@ -5995,6 +6009,7 @@ export type Database = {
           logo_url?: string | null
           primary_color?: string | null
           secondary_color?: string | null
+          settings?: Json | null
           splash_screen_url?: string | null
           tenant_id?: string | null
           text_color?: string | null
@@ -6094,6 +6109,56 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: []
+      }
+      tenant_domains: {
+        Row: {
+          created_at: string | null
+          custom_domain: string | null
+          dns_records: Json | null
+          domain_verified: boolean | null
+          id: string
+          ssl_enabled: boolean | null
+          subdomain: string | null
+          tenant_id: string
+          updated_at: string | null
+          verification_token: string | null
+          whitelabel_config: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          custom_domain?: string | null
+          dns_records?: Json | null
+          domain_verified?: boolean | null
+          id?: string
+          ssl_enabled?: boolean | null
+          subdomain?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          verification_token?: string | null
+          whitelabel_config?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          custom_domain?: string | null
+          dns_records?: Json | null
+          domain_verified?: boolean | null
+          id?: string
+          ssl_enabled?: boolean | null
+          subdomain?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          verification_token?: string | null
+          whitelabel_config?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_domains_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_features: {
         Row: {
@@ -6261,6 +6326,66 @@ export type Database = {
             columns: ["verified_by"]
             isOneToOne: false
             referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_onboarding_status: {
+        Row: {
+          billing_completed: boolean | null
+          branding_completed: boolean | null
+          company_profile_completed: boolean | null
+          created_at: string | null
+          domain_completed: boolean | null
+          id: string
+          overall_completion_percentage: number | null
+          review_completed: boolean | null
+          tenant_id: string
+          updated_at: string | null
+          users_roles_completed: boolean | null
+          workflow_id: string | null
+        }
+        Insert: {
+          billing_completed?: boolean | null
+          branding_completed?: boolean | null
+          company_profile_completed?: boolean | null
+          created_at?: string | null
+          domain_completed?: boolean | null
+          id?: string
+          overall_completion_percentage?: number | null
+          review_completed?: boolean | null
+          tenant_id: string
+          updated_at?: string | null
+          users_roles_completed?: boolean | null
+          workflow_id?: string | null
+        }
+        Update: {
+          billing_completed?: boolean | null
+          branding_completed?: boolean | null
+          company_profile_completed?: boolean | null
+          created_at?: string | null
+          domain_completed?: boolean | null
+          id?: string
+          overall_completion_percentage?: number | null
+          review_completed?: boolean | null
+          tenant_id?: string
+          updated_at?: string | null
+          users_roles_completed?: boolean | null
+          workflow_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_onboarding_status_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_onboarding_status_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_workflows"
             referencedColumns: ["id"]
           },
         ]

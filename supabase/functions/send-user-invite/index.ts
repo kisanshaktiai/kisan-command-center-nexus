@@ -51,7 +51,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Generate invitation token
     const invitationToken = crypto.randomUUID();
 
-    // Create invitation record - using correct field names from the schema
+    // Create invitation record - using the correct field names from the new schema
     const { data: invitation, error: inviteError } = await supabase
       .from('user_invitations')
       .insert({
