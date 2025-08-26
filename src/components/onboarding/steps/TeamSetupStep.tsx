@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -80,7 +79,6 @@ export const TeamSetupStep: React.FC<TeamSetupStepProps> = ({
     if (!member) return;
 
     try {
-      // Simulate invitation sending
       setTeamMembers(prev =>
         prev.map(m =>
           m.id === memberId ? { ...m, status: 'invited' } : m
