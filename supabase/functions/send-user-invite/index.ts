@@ -66,22 +66,17 @@ const handler = async (req: Request): Promise<Response> => {
       .insert({
         tenant_id: tenantId,
         email: email.toLowerCase().trim(),
-        first_name: firstName,
-        last_name: lastName || '',
-        inviter_name: inviterName,
         created_by: user.id, // Using created_by instead of invited_by
-        tenant_name: tenantName,
-        role,
         invitation_type: 'onboarding',
         status: 'pending',
         invitation_token: invitationToken,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
         metadata: {
-          tenantName,
-          inviterName,
-          firstName,
-          lastName,
-          role
+          first_name: firstName,
+          last_name: lastName || '',
+          role,
+          tenant_name: tenantName,
+          inviter_name: inviterName
         }
       })
       .select()
