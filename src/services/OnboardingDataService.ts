@@ -178,6 +178,7 @@ export class OnboardingDataService {
         const subscriptionData = {
           tenant_id: tenantId,
           subscription_plan: data.selectedPlan,
+          billing_interval: data.billingInterval || 'monthly', // Add required billing_interval
           status: 'active',
           current_period_start: data.startDate,
           current_period_end: data.endDate,

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -40,19 +41,74 @@ interface OnboardingStep {
   step_data: any;
 }
 
-// Component resolver - maps step names to React components
-const stepComponents: { [key: string]: React.ComponentType<StepComponentProps> } = {
+// Enhanced step component mapping with pattern matching
+const STEP_COMPONENTS: { [key: string]: React.ComponentType<StepComponentProps> } = {
+  // Company Profile variations
   'company-profile': CompanyProfileStep,
+  'company_profile': CompanyProfileStep,
+  'companyprofile': CompanyProfileStep,
+  
+  // Branding variations  
   'branding-design': EnhancedBrandingStep,
+  'branding_design': EnhancedBrandingStep,
   'enhanced-branding': EnhancedBrandingStep,
+  'enhanced_branding': EnhancedBrandingStep,
+  'brandingdesign': EnhancedBrandingStep,
+  'enhancedbranding': EnhancedBrandingStep,
+  
+  // Domain variations
   'domain-whitelabel': DomainWhitelabelStep,
+  'domain_whitelabel': DomainWhitelabelStep,
   'domain-branding': DomainWhitelabelStep,
+  'domain_branding': DomainWhitelabelStep,
+  'domainwhitelabel': DomainWhitelabelStep,
+  'domainbranding': DomainWhitelabelStep,
+  
+  // Review variations
   'review-launch': ReviewGoLiveStep,
-  'review-go-live': ReviewGoLiveStep
+  'review_launch': ReviewGoLiveStep,
+  'review-go-live': ReviewGoLiveStep,
+  'review_go_live': ReviewGoLiveStep,
+  'reviewlaunch': ReviewGoLiveStep,
+  'reviewgolive': ReviewGoLiveStep
 };
 
+// Intelligent component resolver with pattern matching
 const resolveStepComponent = (stepName: string): React.ComponentType<StepComponentProps> | undefined => {
-  return stepComponents[stepName];
+  console.log('Resolving component for step:', stepName);
+  
+  // Direct lookup first
+  const normalized = stepName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  let component = STEP_COMPONENTS[normalized];
+  
+  if (component) {
+    console.log('Found component via direct lookup:', normalized);
+    return component;
+  }
+  
+  // Pattern matching for variations
+  if (normalized.includes('company') || normalized.includes('profile')) {
+    console.log('Matched company profile pattern');
+    return CompanyProfileStep;
+  }
+  
+  if (normalized.includes('brand') || normalized.includes('design')) {
+    console.log('Matched branding pattern');
+    return EnhancedBrandingStep;
+  }
+  
+  if (normalized.includes('domain') || normalized.includes('whitelabel')) {
+    console.log('Matched domain pattern');
+    return DomainWhitelabelStep;
+  }
+  
+  if (normalized.includes('review') || normalized.includes('launch') || normalized.includes('live')) {
+    console.log('Matched review pattern');
+    return ReviewGoLiveStep;
+  }
+  
+  console.warn('No component found for step:', stepName, 'normalized:', normalized);
+  return undefined;
 };
 
 export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnboardingWizardProps> = ({
@@ -64,13 +120,15 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
   const {
     workflow,
     steps,
-    isLoading,
+    isLoading: workflowLoading,
     error,
     updateStepStatus,
     retryInitialization,
     normalizeStepName
   } = useStabilizedOnboardingWorkflow({ tenantId, workflowId });
+  
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const { showSuccess, showError } = useNotifications();
 
   useEffect(() => {
@@ -205,7 +263,7 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
       );
     }
 
-    const StepComponent = resolveStepComponent(normalizeStepName(currentStep.step_name));
+    const StepComponent = resolveStepComponent(currentStep.step_name);
     
     if (!StepComponent) {
       return (
@@ -216,7 +274,7 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
             Step: {currentStep.step_name}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Normalized: {normalizeStepName(currentStep.step_name)}
+            Available components: {Object.keys(STEP_COMPONENTS).join(', ')}
           </p>
         </div>
       );
@@ -229,7 +287,7 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
       tenantId,
       workflowId: workflow?.id,
       stepData: currentStep.step_data || {},
-      isLoading,
+      isLoading: isLoading || workflowLoading,
       canProceed: true,
       stepNumber: currentStep.step_number,
       totalSteps: steps.length
@@ -238,27 +296,54 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     return <StepComponent {...stepProps} />;
   };
 
+  const calculateProgress = () => {
+    if (!steps || steps.length === 0) return 0;
+    
+    const completedSteps = steps.filter(step => 
+      step.step_status === 'completed' || step.step_status === 'skipped'
+    ).length;
+    
+    return Math.round((completedSteps / steps.length) * 100);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Tenant Onboarding Wizard</DialogTitle>
           <DialogDescription>
-            Complete the following steps to configure your tenant
+            Complete the following steps to configure your tenant ({calculateProgress()}% complete)
           </DialogDescription>
-          <Tabs defaultValue={String(currentStepIndex)} className="mt-4">
-            <TabsList>
-              {steps.map((step, index) => (
-                <TabsTrigger value={String(index)} key={step.id}>
-                  Step {step.step_number}: {step.step_name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          {steps && steps.length > 0 && (
+            <Tabs value={String(currentStepIndex)} className="mt-4">
+              <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${steps.length}, 1fr)` }}>
+                {steps.map((step, index) => (
+                  <TabsTrigger 
+                    value={String(index)} 
+                    key={step.id}
+                    className={`text-xs ${
+                      step.step_status === 'completed' ? 'bg-green-100 text-green-800' :
+                      step.step_status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                      step.step_status === 'failed' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-600'
+                    }`}
+                    onClick={() => {
+                      // Allow navigation to any step that's not pending
+                      if (step.step_status !== 'pending' || index <= currentStepIndex) {
+                        setCurrentStepIndex(index);
+                      }
+                    }}
+                  >
+                    {step.step_number}: {step.step_name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          )}
         </DialogHeader>
         
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {isLoading && !workflow ? (
+          {workflowLoading && !workflow ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
