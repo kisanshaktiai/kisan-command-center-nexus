@@ -1,5 +1,4 @@
 
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@2.0.0";
@@ -60,17 +59,7 @@ const handler = async (req: Request): Promise<Response> => {
     const token = authHeader.replace('Bearer ', '');
     console.log('Extracted JWT token (first 20 chars):', token.substring(0, 20) + '...');
 
-    // Create two Supabase clients:
-    // 1. User client with JWT for authentication
-    // 2. Service role client for database operations
-    const userSupabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') || '', {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    });
-
+    // Create service role client for all database operations
     const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
@@ -120,9 +109,9 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get current user using the user client
-    console.log('Getting authenticated user...');
-    const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+    // Validate JWT token and get user using service client with the token
+    console.log('Validating JWT token and getting authenticated user...');
+    const { data: { user }, error: authError } = await serviceSupabase.auth.getUser(token);
     
     if (authError) {
       console.error('Authentication error:', authError);
@@ -147,6 +136,18 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log('Authenticated user:', { id: user.id, email: user.email });
+
+    // Create security context for audit trail
+    const securityContext = {
+      userId: user.id,
+      userEmail: user.email,
+      requestId: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      action: 'send_user_invite',
+      tenantId: tenantId
+    };
+
+    console.log('Security context established:', securityContext);
 
     // Verify tenant exists using service client
     console.log('Verifying tenant exists...');
@@ -222,7 +223,8 @@ const handler = async (req: Request): Promise<Response> => {
       // Only put additional metadata in the metadata JSONB field
       metadata: {
         invitation_source: 'onboarding_step',
-        created_from: 'tenant_onboarding'
+        created_from: 'tenant_onboarding',
+        security_context: securityContext
       }
     };
 
