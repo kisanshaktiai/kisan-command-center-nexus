@@ -14,8 +14,8 @@ interface InviteUserRequest {
   firstName: string;
   lastName: string;
   role: string;
-  tenantName: string;
-  inviterName: string;
+  tenantName?: string;
+  inviterName?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -37,24 +37,38 @@ const handler = async (req: Request): Promise<Response> => {
       firstName,
       lastName,
       role,
-      tenantName,
-      inviterName
+      tenantName = 'KisanShakti Platform',
+      inviterName = 'Admin'
     }: InviteUserRequest = await req.json();
 
-    console.log('Processing user invitation:', { tenantId, email, role });
+    console.log('Processing user invitation:', { tenantId, email, role, firstName, lastName });
 
-    // Create invitation record
+    // Validate required fields
+    if (!tenantId || !email || !firstName || !role) {
+      throw new Error('Missing required fields: tenantId, email, firstName, role');
+    }
+
+    // Generate invitation token
+    const invitationToken = crypto.randomUUID();
+
+    // Create invitation record in user_invitations table
     const { data: invitation, error: inviteError } = await supabase
       .from('user_invitations')
       .insert({
         tenant_id: tenantId,
-        email,
-        first_name: firstName,
-        last_name: lastName,
+        email: email.toLowerCase().trim(),
+        invited_name: `${firstName} ${lastName}`.trim(),
         role,
         invitation_type: 'onboarding',
         status: 'pending',
-        invited_by: req.headers.get('user-id') || null
+        invitation_token: invitationToken,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+        metadata: {
+          firstName,
+          lastName,
+          inviterName,
+          tenantName
+        }
       })
       .select()
       .single();
@@ -64,8 +78,10 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to create invitation: ${inviteError.message}`);
     }
 
+    console.log('Invitation created successfully:', invitation.id);
+
     // Send invitation email
-    const inviteUrl = `${Deno.env.get('SITE_URL')}/auth?invite=${invitation.invitation_token}`;
+    const inviteUrl = `${Deno.env.get('SITE_URL')}/auth?invite=${invitationToken}`;
     
     const emailResponse = await resend.emails.send({
       from: "KisanShakti <noreply@kisanshakti.com>",
@@ -132,10 +148,22 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (emailResponse.error) {
       console.error('Error sending email:', emailResponse.error);
+      // Update invitation status to failed
+      await supabase
+        .from('user_invitations')
+        .update({ 
+          status: 'failed',
+          metadata: { 
+            ...invitation.metadata, 
+            emailError: emailResponse.error.message 
+          }
+        })
+        .eq('id', invitation.id);
+      
       throw new Error(`Failed to send invitation email: ${emailResponse.error.message}`);
     }
 
-    // Update invitation status
+    // Update invitation status to sent
     await supabase
       .from('user_invitations')
       .update({ 
@@ -144,7 +172,7 @@ const handler = async (req: Request): Promise<Response> => {
       })
       .eq('id', invitation.id);
 
-    console.log('User invitation sent successfully:', emailResponse);
+    console.log('User invitation sent successfully:', emailResponse.data?.id);
 
     return new Response(
       JSON.stringify({

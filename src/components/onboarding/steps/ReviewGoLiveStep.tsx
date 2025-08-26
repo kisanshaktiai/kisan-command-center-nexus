@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, AlertTriangle, Rocket, Eye } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Rocket, Eye, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -32,6 +31,7 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [isGoingLive, setIsGoingLive] = useState(false);
   const [tenantData, setTenantData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const { showSuccess, showError } = useNotifications();
 
   useEffect(() => {
@@ -39,23 +39,60 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
   }, [tenantId]);
 
   const loadTenantData = async () => {
+    if (!tenantId) {
+      showError('Tenant ID is required');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const { data: tenant, error } = await supabase
+      setIsLoading(true);
+
+      // Load tenant data with related information
+      const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
         .select(`
           *,
           tenant_branding(*),
-          user_tenants(count)
+          tenant_domains(*)
         `)
         .eq('id', tenantId)
         .single();
 
-      if (error) throw error;
+      if (tenantError) {
+        console.error('Error loading tenant:', tenantError);
+        showError('Failed to load tenant information');
+        return;
+      }
 
-      setTenantData(tenant);
-      generateChecklist(tenant);
+      // Count user invitations and user-tenant relationships
+      const { data: userInvites, error: inviteError } = await supabase
+        .from('user_invitations')
+        .select('id')
+        .eq('tenant_id', tenantId);
+
+      const { data: userTenants, error: userTenantsError } = await supabase
+        .from('user_tenants')
+        .select('id')
+        .eq('tenant_id', tenantId);
+
+      if (inviteError) console.warn('Error loading invites:', inviteError);
+      if (userTenantsError) console.warn('Error loading user tenants:', userTenantsError);
+
+      const enhancedTenant = {
+        ...tenant,
+        userInviteCount: userInvites?.length || 0,
+        userTenantCount: userTenants?.length || 0,
+        totalUsers: (userInvites?.length || 0) + (userTenants?.length || 0)
+      };
+
+      setTenantData(enhancedTenant);
+      generateChecklist(enhancedTenant);
     } catch (error) {
       console.error('Error loading tenant data:', error);
+      showError('Failed to load tenant information');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -65,7 +102,7 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
         id: 'company_profile',
         title: 'Company Profile',
         description: 'Business details and verification completed',
-        status: tenant.business_registration ? 'completed' : 'pending',
+        status: (tenant.business_registration && tenant.owner_name && tenant.owner_email) ? 'completed' : 'pending',
         required: true
       },
       {
@@ -79,21 +116,21 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
         id: 'branding',
         title: 'Branding Setup',
         description: 'App customization and branding configured',
-        status: tenant.tenant_branding?.length > 0 ? 'completed' : 'warning',
+        status: (tenant.tenant_branding && tenant.tenant_branding.length > 0) ? 'completed' : 'warning',
         required: false
       },
       {
         id: 'users',
         title: 'Team Members',
         description: 'Users and roles configured',
-        status: tenant.user_tenants?.length > 0 ? 'completed' : 'warning',
+        status: tenant.totalUsers > 0 ? 'completed' : 'warning',
         required: false
       },
       {
         id: 'domain',
         title: 'Domain Configuration',
         description: 'Custom domain or subdomain setup',
-        status: tenant.custom_domain || tenant.subdomain ? 'completed' : 'warning',
+        status: (tenant.custom_domain || tenant.subdomain || (tenant.tenant_domains && tenant.tenant_domains.length > 0)) ? 'completed' : 'warning',
         required: false
       },
       {
@@ -115,7 +152,7 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
       case 'warning':
         return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
       default:
-        return <div className="w-5 h-5 rounded-full border-2 border-gray-300" />;
+        return <Clock className="w-5 h-5 text-gray-400" />;
     }
   };
 
@@ -136,6 +173,11 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
   };
 
   const handleGoLive = async () => {
+    if (!tenantId || !tenantData) {
+      showError('Tenant information is required');
+      return;
+    }
+
     try {
       setIsGoingLive(true);
 
@@ -153,30 +195,53 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
         })
         .eq('id', tenantId);
 
-      if (tenantError) throw tenantError;
+      if (tenantError) {
+        console.error('Error updating tenant status:', tenantError);
+        throw new Error(`Failed to activate tenant: ${tenantError.message}`);
+      }
 
-      // Mark onboarding workflow as completed
-      const { error: workflowError } = await supabase
-        .from('onboarding_workflows')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString()
-        })
-        .eq('tenant_id', tenantId);
+      // Try to mark onboarding workflow as completed (non-critical)
+      try {
+        const { error: workflowError } = await supabase
+          .from('onboarding_workflows')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('tenant_id', tenantId);
 
-      if (workflowError) console.warn('Error updating workflow:', workflowError);
+        if (workflowError) {
+          console.warn('Error updating workflow (non-critical):', workflowError);
+        }
+      } catch (workflowErr) {
+        console.warn('Workflow update failed (non-critical):', workflowErr);
+      }
 
-      showSuccess('Congratulations! Your tenant is now live!');
-      onComplete({ goLive: true, completedAt: new Date().toISOString() });
+      const completionData = {
+        goLive: true,
+        completedAt: new Date().toISOString(),
+        tenantStatus: 'active',
+        checklist: checklist.map(item => ({
+          id: item.id,
+          status: item.status,
+          completed: item.status === 'completed'
+        }))
+      };
+
+      showSuccess('🎉 Congratulations! Your tenant is now live and ready to use!');
+      onComplete(completionData);
+
     } catch (error) {
       console.error('Error going live:', error);
-      showError('Failed to activate tenant');
+      showError(error instanceof Error ? error.message : 'Failed to activate tenant');
     } finally {
       setIsGoingLive(false);
     }
   };
 
   const handlePreviewTenant = () => {
+    if (!tenantData) return;
+    
     const previewUrl = tenantData?.custom_domain 
       ? `https://${tenantData.custom_domain}`
       : tenantData?.subdomain
@@ -185,6 +250,20 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
     
     window.open(previewUrl, '_blank');
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold">Review & Go Live</h3>
+          <p className="text-muted-foreground">Loading tenant information...</p>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <Clock className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -245,15 +324,15 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Tenant Summary</CardTitle>
-          <CardDescription>
-            Overview of your configured tenant
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {tenantData && (
+      {tenantData && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Tenant Summary</CardTitle>
+            <CardDescription>
+              Overview of your configured tenant
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-3">
                 <div>
@@ -287,14 +366,14 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
                 <div>
                   <Label className="text-xs font-medium text-muted-foreground">Team Size</Label>
                   <p className="text-sm font-medium">
-                    {tenantData.user_tenants?.length || 0} members
+                    {tenantData.totalUsers || 0} members
                   </p>
                 </div>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,7 +66,7 @@ export const UsersRolesStep: React.FC<UsersRolesStepProps> = ({
       if (error) throw error;
       
       // Filter out any items that don't have user_profiles data
-      const validUsers = users.filter(user => user.user_profiles);
+      const validUsers = users?.filter(user => user.user_profiles) || [];
       setExistingUsers(validUsers);
     } catch (error) {
       console.error('Error loading existing users:', error);
@@ -110,24 +109,54 @@ export const UsersRolesStep: React.FC<UsersRolesStepProps> = ({
   };
 
   const sendInvites = async () => {
+    if (!tenantId) {
+      showError('Tenant ID is required to send invitations');
+      return;
+    }
+
     try {
       setIsSendingInvites(true);
 
+      // Get tenant name for the invitation
+      const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .select('name')
+        .eq('id', tenantId)
+        .single();
+
+      if (tenantError) {
+        console.error('Error fetching tenant:', tenantError);
+        showError('Failed to fetch tenant information');
+        return;
+      }
+
+      const tenantName = tenant?.name || 'Your Organization';
+
       for (const invite of userInvites) {
         if (invite.status === 'pending') {
-          // Call edge function to send invitation
-          const { error } = await supabase.functions.invoke('send-user-invite', {
+          console.log('Sending invitation for:', invite);
+          
+          // Call edge function to send invitation with proper data structure
+          const { data: response, error } = await supabase.functions.invoke('send-user-invite', {
             body: {
               tenantId,
               email: invite.email,
               firstName: invite.firstName,
               lastName: invite.lastName,
-              role: invite.role
+              role: invite.role,
+              tenantName,
+              inviterName: 'Admin' // You might want to get this from current user
             }
           });
 
-          if (error) throw error;
+          if (error) {
+            console.error('Error sending invitation:', error);
+            showError(`Failed to send invitation to ${invite.email}: ${error.message}`);
+            continue;
+          }
 
+          console.log('Invitation sent successfully:', response);
+          
           // Update invite status
           invite.status = 'sent';
         }
