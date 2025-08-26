@@ -1,4 +1,5 @@
 
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@2.0.0";
@@ -92,7 +93,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get current user for created_by field
+    // Get current user for created_by field - this is required
     console.log('Getting authenticated user...');
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
@@ -176,7 +177,7 @@ const handler = async (req: Request): Promise<Response> => {
     const invitationToken = crypto.randomUUID();
     console.log('Generated invitation token:', invitationToken.substring(0, 8) + '...');
 
-    // Prepare invitation data according to the actual schema
+    // Prepare invitation data with direct columns (NOT in metadata)
     const invitationData = {
       tenant_id: tenantId,
       email: email.toLowerCase().trim(),
@@ -185,22 +186,30 @@ const handler = async (req: Request): Promise<Response> => {
       status: 'pending',
       invitation_token: invitationToken,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      // These are direct columns in the user_invitations table
+      first_name: firstName,
+      last_name: lastName || '',
+      role: role,
+      tenant_name: tenantName,
+      inviter_name: inviterName,
+      // Only put additional metadata in the metadata JSONB field
       metadata: {
-        first_name: firstName,
-        last_name: lastName || '',
-        role,
-        tenant_name: tenantName,
-        inviter_name: inviterName,
-        invitation_source: 'onboarding_step'
+        invitation_source: 'onboarding_step',
+        created_from: 'tenant_onboarding'
       }
     };
 
-    console.log('Inserting invitation with data:', {
+    console.log('Inserting invitation with data structure:', {
       tenant_id: invitationData.tenant_id,
       email: invitationData.email,
       created_by: invitationData.created_by,
       invitation_type: invitationData.invitation_type,
       status: invitationData.status,
+      first_name: invitationData.first_name,
+      last_name: invitationData.last_name,
+      role: invitationData.role,
+      tenant_name: invitationData.tenant_name,
+      inviter_name: invitationData.inviter_name,
       metadata_keys: Object.keys(invitationData.metadata)
     });
 
@@ -263,7 +272,7 @@ const handler = async (req: Request): Promise<Response> => {
         if (emailResponse.error) {
           console.error('Email sending error:', emailResponse.error);
           
-          // Update invitation status to failed
+          // Update invitation status to failed but preserve existing metadata
           await supabase
             .from('user_invitations')
             .update({ 
@@ -308,7 +317,7 @@ const handler = async (req: Request): Promise<Response> => {
       } catch (emailError) {
         console.error('Email service error:', emailError);
         
-        // Update invitation status but don't fail the request
+        // Update invitation status but don't fail the request, preserve existing metadata
         await supabase
           .from('user_invitations')
           .update({ 
@@ -362,3 +371,4 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 serve(handler);
+
