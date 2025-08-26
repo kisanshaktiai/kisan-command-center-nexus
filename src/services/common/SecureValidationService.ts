@@ -1,279 +1,281 @@
 
-import { BaseService, ServiceResult } from '@/services/BaseService';
 import { supabase } from '@/integrations/supabase/client';
-
-export interface ValidationRule {
-  field: string;
-  type: 'required' | 'email' | 'unique' | 'minLength' | 'maxLength' | 'pattern';
-  value?: any;
-  table?: string;
-  message?: string;
-}
 
 export interface ValidationResult {
   isValid: boolean;
-  errors: { field: string; message: string }[];
-  warnings?: { field: string; message: string }[];
+  error?: string;
+  code?: string;
+}
+
+export interface DuplicateCheckOptions {
+  excludeId?: string;
+  tenantId?: string;
 }
 
 /**
- * Secure Validation Service
- * Provides centralized validation with security checks
+ * Secure validation service with tenant isolation
+ * Provides reusable validation functions across the application
  */
-export class SecureValidationService extends BaseService {
-  private static instance: SecureValidationService;
+export class SecureValidationService {
+  /**
+   * Validate email format and existence
+   */
+  static async validateEmail(email: string): Promise<ValidationResult> {
+    try {
+      // Basic format validation
+      const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        return {
+          isValid: false,
+          error: 'Invalid email format',
+          code: 'INVALID_FORMAT'
+        };
+      }
 
-  private constructor() {
-    super();
-  }
+      // Check for common disposable email domains
+      const disposableDomains = ['tempmail.org', '10minutemail.com', 'guerrillamail.com'];
+      const domain = email.split('@')[1].toLowerCase();
+      if (disposableDomains.includes(domain)) {
+        return {
+          isValid: false,
+          error: 'Disposable email addresses are not allowed',
+          code: 'DISPOSABLE_EMAIL'
+        };
+      }
 
-  public static getInstance(): SecureValidationService {
-    if (!SecureValidationService.instance) {
-      SecureValidationService.instance = new SecureValidationService();
+      return { isValid: true };
+    } catch (error) {
+      console.error('Email validation error:', error);
+      return {
+        isValid: false,
+        error: 'Email validation failed',
+        code: 'VALIDATION_ERROR'
+      };
     }
-    return SecureValidationService.instance;
   }
 
   /**
-   * Validate data against multiple rules
+   * Validate slug format and availability using existing function
    */
-  async validateData(data: any, rules: ValidationRule[]): Promise<ServiceResult<ValidationResult>> {
-    return this.executeOperation(
-      async () => {
-        const errors: { field: string; message: string }[] = [];
-        const warnings: { field: string; message: string }[] = [];
+  static async validateSlug(slug: string, excludeId?: string): Promise<ValidationResult> {
+    try {
+      // Use existing check_slug_availability function
+      const { data, error } = await supabase.rpc('check_slug_availability', {
+        p_slug: slug,
+        p_tenant_id: excludeId || null
+      });
 
-        for (const rule of rules) {
-          const fieldValue = data[rule.field];
-          
-          switch (rule.type) {
-            case 'required':
-              if (!fieldValue || (typeof fieldValue === 'string' && fieldValue.trim() === '')) {
-                errors.push({
-                  field: rule.field,
-                  message: rule.message || `${rule.field} is required`
-                });
-              }
-              break;
+      if (error) {
+        throw error;
+      }
 
-            case 'email':
-              if (fieldValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fieldValue)) {
-                errors.push({
-                  field: rule.field,
-                  message: rule.message || 'Invalid email format'
-                });
-              }
-              break;
+      return {
+        isValid: data.available,
+        error: data.available ? undefined : data.error,
+        code: data.code
+      };
+    } catch (error: any) {
+      console.error('Slug validation error:', error);
+      return {
+        isValid: false,
+        error: error.message || 'Slug validation failed',
+        code: 'VALIDATION_ERROR'
+      };
+    }
+  }
 
-            case 'unique':
-              if (fieldValue && rule.table) {
-                const { data: existing } = await supabase
-                  .from(rule.table)
-                  .select('id')
-                  .eq(rule.field, fieldValue)
-                  .single();
-
-                if (existing) {
-                  errors.push({
-                    field: rule.field,
-                    message: rule.message || `${rule.field} already exists`
-                  });
-                }
-              }
-              break;
-
-            case 'minLength':
-              if (fieldValue && typeof fieldValue === 'string' && fieldValue.length < (rule.value || 0)) {
-                errors.push({
-                  field: rule.field,
-                  message: rule.message || `${rule.field} must be at least ${rule.value} characters`
-                });
-              }
-              break;
-
-            case 'maxLength':
-              if (fieldValue && typeof fieldValue === 'string' && fieldValue.length > (rule.value || 0)) {
-                errors.push({
-                  field: rule.field,
-                  message: rule.message || `${rule.field} must be no more than ${rule.value} characters`
-                });
-              }
-              break;
-
-            case 'pattern':
-              if (fieldValue && rule.value && !new RegExp(rule.value).test(fieldValue)) {
-                errors.push({
-                  field: rule.field,
-                  message: rule.message || `${rule.field} format is invalid`
-                });
-              }
-              break;
-          }
-        }
-
+  /**
+   * Validate business registration number
+   */
+  static async validateBusinessRegistration(registrationNumber: string): Promise<ValidationResult> {
+    try {
+      if (!registrationNumber || registrationNumber.trim().length === 0) {
         return {
-          isValid: errors.length === 0,
-          errors,
-          warnings
+          isValid: false,
+          error: 'Business registration number is required',
+          code: 'REQUIRED_FIELD'
         };
-      },
-      'validateData'
-    );
-  }
+      }
 
-  /**
-   * Validate email format and availability
-   */
-  async validateEmail(email: string, table?: string, excludeId?: string): Promise<ServiceResult<ValidationResult>> {
-    return this.executeOperation(
-      async () => {
-        const errors: { field: string; message: string }[] = [];
-
-        // Format validation
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          errors.push({
-            field: 'email',
-            message: 'Invalid email format'
-          });
-        }
-
-        // Uniqueness validation
-        if (table && email) {
-          let query = supabase.from(table).select('id').eq('email', email);
-          
-          if (excludeId) {
-            query = query.neq('id', excludeId);
-          }
-
-          const { data: existing } = await query.single();
-          
-          if (existing) {
-            errors.push({
-              field: 'email',
-              message: 'Email address is already in use'
-            });
-          }
-        }
-
+      // Basic format validation (adjust based on your country's format)
+      const cleaned = registrationNumber.replace(/[^a-zA-Z0-9]/g, '');
+      if (cleaned.length < 6 || cleaned.length > 20) {
         return {
-          isValid: errors.length === 0,
-          errors
+          isValid: false,
+          error: 'Invalid business registration number format',
+          code: 'INVALID_FORMAT'
         };
-      },
-      'validateEmail'
-    );
+      }
+
+      return { isValid: true };
+    } catch (error) {
+      console.error('Business registration validation error:', error);
+      return {
+        isValid: false,
+        error: 'Business registration validation failed',
+        code: 'VALIDATION_ERROR'
+      };
+    }
   }
 
   /**
-   * Validate slug format and availability
+   * Check for duplicate values in specific tables (type-safe approach)
    */
-  async validateSlug(slug: string, excludeId?: string): Promise<ServiceResult<ValidationResult>> {
-    return this.executeOperation(
-      async () => {
-        const errors: { field: string; message: string }[] = [];
+  static async checkTenantSlugDuplicate(slug: string, excludeId?: string): Promise<boolean> {
+    try {
+      let query = supabase
+        .from('tenants')
+        .select('id')
+        .eq('slug', slug);
 
-        // Format validation
-        if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
-          errors.push({
-            field: 'slug',
-            message: 'Slug must contain only lowercase letters, numbers, and hyphens'
-          });
-        }
+      if (excludeId) {
+        query = query.neq('id', excludeId);
+      }
 
-        if (slug && (slug.startsWith('-') || slug.endsWith('-'))) {
-          errors.push({
-            field: 'slug',
-            message: 'Slug cannot start or end with a hyphen'
-          });
-        }
+      const { data, error } = await query;
 
-        if (slug && slug.includes('--')) {
-          errors.push({
-            field: 'slug',
-            message: 'Slug cannot contain consecutive hyphens'
-          });
-        }
+      if (error) {
+        console.error('Duplicate check error:', error);
+        return true; // Assume duplicate on error for safety
+      }
 
-        // Length validation
-        if (slug && slug.length < 3) {
-          errors.push({
-            field: 'slug',
-            message: 'Slug must be at least 3 characters long'
-          });
-        }
+      return (data && data.length > 0);
+    } catch (error) {
+      console.error('Duplicate check error:', error);
+      return true; // Assume duplicate on error for safety
+    }
+  }
 
-        if (slug && slug.length > 50) {
-          errors.push({
-            field: 'slug',
-            message: 'Slug must be no more than 50 characters long'
-          });
-        }
+  /**
+   * Check for duplicate email in admin_users
+   */
+  static async checkAdminEmailDuplicate(email: string, excludeId?: string): Promise<boolean> {
+    try {
+      let query = supabase
+        .from('admin_users')
+        .select('id')
+        .eq('email', email);
 
-        // Reserved words check
-        const reservedSlugs = ['api', 'www', 'admin', 'app', 'dashboard', 'mail', 'ftp', 'localhost'];
-        if (slug && reservedSlugs.includes(slug)) {
-          errors.push({
-            field: 'slug',
-            message: 'This slug is reserved and cannot be used'
-          });
-        }
+      if (excludeId) {
+        query = query.neq('id', excludeId);
+      }
 
-        // Uniqueness validation
-        if (slug && errors.length === 0) {
-          let query = supabase.from('tenants').select('id').eq('slug', slug);
-          
-          if (excludeId) {
-            query = query.neq('id', excludeId);
-          }
+      const { data, error } = await query;
 
-          const { data: existing } = await query.single();
-          
-          if (existing) {
-            errors.push({
-              field: 'slug',
-              message: 'This slug is already taken'
-            });
-          }
-        }
+      if (error) {
+        console.error('Admin email duplicate check error:', error);
+        return true; // Assume duplicate on error for safety
+      }
 
+      return (data && data.length > 0);
+    } catch (error) {
+      console.error('Admin email duplicate check error:', error);
+      return true; // Assume duplicate on error for safety
+    }
+  }
+
+  /**
+   * Validate tenant data comprehensively
+   */
+  static async validateTenantData(data: {
+    name: string;
+    slug: string;
+    owner_email?: string;
+    business_registration?: string;
+  }, excludeId?: string): Promise<ValidationResult> {
+    try {
+      // Validate name
+      if (!data.name || data.name.trim().length < 2) {
         return {
-          isValid: errors.length === 0,
-          errors
+          isValid: false,
+          error: 'Tenant name must be at least 2 characters long',
+          code: 'INVALID_NAME'
         };
-      },
-      'validateSlug'
-    );
+      }
+
+      // Validate slug
+      const slugValidation = await this.validateSlug(data.slug, excludeId);
+      if (!slugValidation.isValid) {
+        return slugValidation;
+      }
+
+      // Validate email if provided
+      if (data.owner_email) {
+        const emailValidation = await this.validateEmail(data.owner_email);
+        if (!emailValidation.isValid) {
+          return emailValidation;
+        }
+      }
+
+      // Validate business registration if provided
+      if (data.business_registration) {
+        const businessValidation = await this.validateBusinessRegistration(data.business_registration);
+        if (!businessValidation.isValid) {
+          return businessValidation;
+        }
+      }
+
+      return { isValid: true };
+    } catch (error: any) {
+      console.error('Tenant data validation error:', error);
+      return {
+        isValid: false,
+        error: error.message || 'Tenant data validation failed',
+        code: 'VALIDATION_ERROR'
+      };
+    }
   }
 
   /**
-   * Sanitize input data
+   * Sanitize input data to prevent injection attacks
    */
-  sanitizeInput(input: string): string {
-    if (typeof input !== 'string') return input;
+  static sanitizeInput(input: string): string {
+    if (typeof input !== 'string') return '';
     
     return input
       .trim()
-      .replace(/<script[^>]*>.*?<\/script>/gi, '')
-      .replace(/<[^>]*>/g, '')
-      .replace(/javascript:/gi, '')
-      .replace(/on\w+=/gi, '');
+      .replace(/[<>\"']/g, '') // Remove potential HTML/SQL injection characters
+      .substring(0, 1000); // Limit length
   }
 
   /**
-   * Validate business data
+   * Validate UUID format
    */
-  async validateBusinessData(data: any): Promise<ServiceResult<ValidationResult>> {
-    const rules: ValidationRule[] = [
-      { field: 'name', type: 'required' },
-      { field: 'email', type: 'email' },
-      { field: 'email', type: 'unique', table: 'tenants' },
-      { field: 'name', type: 'minLength', value: 2 },
-      { field: 'name', type: 'maxLength', value: 100 },
-    ];
+  static isValidUUID(uuid: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(uuid);
+  }
 
-    return this.validateData(data, rules);
+  /**
+   * Validate date format and range
+   */
+  static validateDate(dateString: string, allowPast: boolean = true): ValidationResult {
+    try {
+      const date = new Date(dateString);
+      
+      if (isNaN(date.getTime())) {
+        return {
+          isValid: false,
+          error: 'Invalid date format',
+          code: 'INVALID_DATE'
+        };
+      }
+
+      if (!allowPast && date < new Date()) {
+        return {
+          isValid: false,
+          error: 'Date cannot be in the past',
+          code: 'PAST_DATE'
+        };
+      }
+
+      return { isValid: true };
+    } catch (error) {
+      return {
+        isValid: false,
+        error: 'Date validation failed',
+        code: 'VALIDATION_ERROR'
+      };
+    }
   }
 }
-
-// Export singleton instance
-export const secureValidationService = SecureValidationService.getInstance();
