@@ -8,7 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
 import { TenantType, TenantStatus, SubscriptionPlan, tenantTypeOptions, tenantStatusOptions, subscriptionPlanOptions } from '@/types/tenant';
-import { Building2, Users, Sprout, GraduationCap, Shield, Factory, Handshake, Heart, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Building2, Users, Sprout, GraduationCap, Shield, Factory, Handshake, Heart, CheckCircle2, ArrowRight, ArrowLeft, AlertCircle, Loader2 } from 'lucide-react';
+import { useSlugValidation } from '@/hooks/useSlugValidation';
+import { useAdminEmailValidation } from '@/hooks/useAdminEmailValidation';
 
 interface TenantFormProps {
   mode: 'create' | 'edit';
@@ -74,6 +76,25 @@ export const TenantForm: React.FC<TenantFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [currentTab, setCurrentTab] = useState('basic');
 
+  // Use existing validation hooks
+  const { isValid: isSlugValid, isChecking: isSlugChecking, error: slugError } = useSlugValidation(
+    formData.slug, 
+    mode === 'edit' ? initialData?.id : undefined
+  );
+  
+  const { isValidating: isEmailValidating, validationResult: emailValidationResult, validateAdminEmail } = useAdminEmailValidation();
+
+  // Validate email when it changes (only for create mode)
+  useEffect(() => {
+    if (mode === 'create' && formData.owner_email && formData.owner_email.trim()) {
+      const timeoutId = setTimeout(() => {
+        validateAdminEmail(formData.owner_email);
+      }, 500); // Debounce validation
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formData.owner_email, mode, validateAdminEmail]);
+
   useEffect(() => {
     if (formData.name && mode === 'create') {
       const generatedSlug = formData.name
@@ -95,17 +116,23 @@ export const TenantForm: React.FC<TenantFormProps> = ({
       newErrors.name = 'Organization name is required';
     }
 
+    // Slug validation using existing hook
     if (!formData.slug?.trim()) {
       newErrors.slug = 'Slug is required';
-    } else if (!/^[a-z0-9-]+$/.test(formData.slug)) {
-      newErrors.slug = 'Slug must contain only lowercase letters, numbers, and hyphens';
+    } else if (slugError) {
+      newErrors.slug = slugError;
+    } else if (!isSlugValid && !isSlugChecking) {
+      newErrors.slug = 'Slug is not available';
     }
 
+    // Email validation using existing hook for create mode
     if (mode === 'create') {
       if (!formData.owner_email?.trim()) {
         newErrors.owner_email = 'Administrator email is required';
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.owner_email)) {
-        newErrors.owner_email = 'Invalid email format';
+      } else if (emailValidationResult && !emailValidationResult.valid) {
+        newErrors.owner_email = emailValidationResult.error || 'Invalid email';
+      } else if (emailValidationResult && emailValidationResult.exists) {
+        newErrors.owner_email = emailValidationResult.message || 'Email already exists';
       }
 
       if (!formData.owner_name?.trim()) {
@@ -149,7 +176,26 @@ export const TenantForm: React.FC<TenantFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Don't submit if validations are still in progress
+    if (isSlugChecking || isEmailValidating) {
+      return;
+    }
+    
     if (!validateForm()) {
+      return;
+    }
+
+    // Final check for slug and email validation
+    if (!isSlugValid) {
+      setErrors(prev => ({ ...prev, slug: 'Slug is not available' }));
+      return;
+    }
+
+    if (mode === 'create' && emailValidationResult && (!emailValidationResult.valid || emailValidationResult.exists)) {
+      setErrors(prev => ({ 
+        ...prev, 
+        owner_email: emailValidationResult.error || emailValidationResult.message || 'Invalid email' 
+      }));
       return;
     }
 
@@ -269,15 +315,33 @@ export const TenantForm: React.FC<TenantFormProps> = ({
 
                   <div className="space-y-2">
                     <Label htmlFor="slug" className="text-sm font-semibold">Slug *</Label>
-                    <Input
-                      id="slug"
-                      value={formData.slug}
-                      onChange={(e) => handleInputChange('slug', e.target.value.toLowerCase())}
-                      className={`h-11 ${errors.slug ? 'border-red-500 focus-visible:ring-red-500' : 'focus-visible:ring-primary'}`}
-                      disabled={isSubmitting}
-                      placeholder="organization-slug"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="slug"
+                        value={formData.slug}
+                        onChange={(e) => handleInputChange('slug', e.target.value.toLowerCase())}
+                        className={`h-11 pr-10 ${
+                          errors.slug ? 'border-red-500 focus-visible:ring-red-500' : 
+                          isSlugValid && formData.slug ? 'border-green-500 focus-visible:ring-green-500' :
+                          'focus-visible:ring-primary'
+                        }`}
+                        disabled={isSubmitting}
+                        placeholder="organization-slug"
+                      />
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        {isSlugChecking ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : isSlugValid && formData.slug ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : errors.slug ? (
+                          <AlertCircle className="h-4 w-4 text-red-500" />
+                        ) : null}
+                      </div>
+                    </div>
                     {errors.slug && <p className="text-sm text-red-500 mt-1">{errors.slug}</p>}
+                    {isSlugValid && formData.slug && !errors.slug && (
+                      <p className="text-sm text-green-600 mt-1">Slug is available</p>
+                    )}
                   </div>
                 </div>
 
@@ -364,16 +428,34 @@ export const TenantForm: React.FC<TenantFormProps> = ({
 
                     <div className="space-y-2">
                       <Label htmlFor="owner_email" className="text-sm font-semibold">Administrator Email *</Label>
-                      <Input
-                        id="owner_email"
-                        type="email"
-                        value={formData.owner_email}
-                        onChange={(e) => handleInputChange('owner_email', e.target.value)}
-                        className={`h-11 ${errors.owner_email ? 'border-red-500 focus-visible:ring-red-500' : 'focus-visible:ring-primary'}`}
-                        disabled={isSubmitting}
-                        placeholder="admin@example.com"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="owner_email"
+                          type="email"
+                          value={formData.owner_email}
+                          onChange={(e) => handleInputChange('owner_email', e.target.value)}
+                          className={`h-11 pr-10 ${
+                            errors.owner_email ? 'border-red-500 focus-visible:ring-red-500' : 
+                            emailValidationResult?.valid && !emailValidationResult?.exists ? 'border-green-500 focus-visible:ring-green-500' :
+                            'focus-visible:ring-primary'
+                          }`}
+                          disabled={isSubmitting}
+                          placeholder="admin@example.com"
+                        />
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          {isEmailValidating ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          ) : emailValidationResult?.valid && !emailValidationResult?.exists ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : errors.owner_email ? (
+                            <AlertCircle className="h-4 w-4 text-red-500" />
+                          ) : null}
+                        </div>
+                      </div>
                       {errors.owner_email && <p className="text-sm text-red-500 mt-1">{errors.owner_email}</p>}
+                      {emailValidationResult?.valid && !emailValidationResult?.exists && !errors.owner_email && (
+                        <p className="text-sm text-green-600 mt-1">Email is available</p>
+                      )}
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
@@ -612,12 +694,12 @@ export const TenantForm: React.FC<TenantFormProps> = ({
             ) : (
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isSlugChecking || isEmailValidating || !isSlugValid || (mode === 'create' && emailValidationResult && (!emailValidationResult.valid || emailValidationResult.exists))}
                 className="flex items-center gap-2 h-11 px-6"
               >
                 {isSubmitting ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    <Loader2 className="animate-spin h-4 w-4" />
                     Creating...
                   </>
                 ) : (
