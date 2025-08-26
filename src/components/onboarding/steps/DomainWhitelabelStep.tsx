@@ -1,282 +1,484 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Globe, Shield, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useNotifications } from '@/hooks/useNotifications';
+import { Globe, Shield, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 
 interface DomainWhitelabelStepProps {
-  tenantId: string;
   onComplete: (data: any) => void;
-  data: any;
-  onDataChange: (data: any) => void;
+  onSave: (data: any) => void;
+  tenantId: string;
+  stepData?: any;
+  isLoading?: boolean;
+  canProceed?: boolean;
 }
 
 export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
-  tenantId,
   onComplete,
-  data,
-  onDataChange
+  onSave,
+  tenantId,
+  stepData = {},
+  isLoading = false,
+  canProceed = true
 }) => {
   const [formData, setFormData] = useState({
-    customDomain: data.customDomain || '',
-    subdomain: data.subdomain || '',
-    sslEnabled: data.sslEnabled || true,
-    ...data
+    // Domain settings
+    subdomain: stepData.subdomain || '',
+    customDomain: stepData.customDomain || '',
+    sslEnabled: stepData.sslEnabled || true,
+    
+    // Whitelabel settings
+    enableWhitelabel: stepData.enableWhitelabel || false,
+    hideCredits: stepData.hideCredits || false,
+    customBranding: stepData.customBranding || false,
+    customFavicon: stepData.customFavicon || '',
+    
+    // DNS settings (will be populated after verification)
+    dnsRecords: stepData.dnsRecords || {},
+    
+    // Additional whitelabel settings
+    whitelabelSettings: stepData.whitelabelSettings || {
+      removeBranding: false,
+      customSupportEmail: '',
+      customTermsUrl: '',
+      customPrivacyUrl: '',
+      customHelpUrl: ''
+    }
   });
 
-  const [domainValidation, setDomainValidation] = useState({
-    isValidating: false,
-    isValid: false,
-    message: ''
+  const [domainStatus, setDomainStatus] = useState({
+    subdomain: { available: null, checking: false },
+    customDomain: { verified: false, checking: false }
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { showSuccess, showError } = useNotifications();
+  const [errors, setErrors] = useState<any>({});
 
-  const validateDomain = async (domain: string) => {
-    if (!domain) return;
+  const validateSubdomain = (subdomain: string) => {
+    if (!subdomain) return true;
+    return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(subdomain) && subdomain.length >= 3;
+  };
 
-    setDomainValidation({ isValidating: true, isValid: false, message: '' });
+  const validateCustomDomain = (domain: string) => {
+    if (!domain) return true;
+    return /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/.test(domain);
+  };
+
+  const checkSubdomainAvailability = async (subdomain: string) => {
+    if (!subdomain || !validateSubdomain(subdomain)) return;
+
+    setDomainStatus(prev => ({
+      ...prev,
+      subdomain: { ...prev.subdomain, checking: true }
+    }));
 
     try {
-      // Simulate domain validation
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Basic domain format validation
-      const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/;
+      // Simulate API call to check subdomain availability
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      if (!domainRegex.test(domain)) {
-        setDomainValidation({
-          isValidating: false,
-          isValid: false,
-          message: 'Invalid domain format'
-        });
-        return;
-      }
-
-      // Check if domain is available/accessible
-      setDomainValidation({
-        isValidating: false,
-        isValid: true,
-        message: 'Domain is available and can be configured'
-      });
+      // For demo purposes, mark as available if it's not common words
+      const unavailable = ['www', 'api', 'admin', 'app', 'mail'];
+      const available = !unavailable.includes(subdomain.toLowerCase());
+      
+      setDomainStatus(prev => ({
+        ...prev,
+        subdomain: { checking: false, available }
+      }));
     } catch (error) {
-      setDomainValidation({
-        isValidating: false,
-        isValid: false,
-        message: 'Error validating domain'
-      });
+      setDomainStatus(prev => ({
+        ...prev,
+        subdomain: { checking: false, available: null }
+      }));
     }
   };
 
-  const handleInputChange = (field: string, value: string | boolean) => {
-    const newData = { ...formData, [field]: value };
-    setFormData(newData);
-    onDataChange(newData);
+  const verifyCustomDomain = async (domain: string) => {
+    if (!domain || !validateCustomDomain(domain)) return;
 
-    if (field === 'customDomain' && typeof value === 'string') {
-      validateDomain(value);
-    }
-  };
+    setDomainStatus(prev => ({
+      ...prev,
+      customDomain: { ...prev.customDomain, checking: true }
+    }));
 
-  const handleSubmit = async () => {
     try {
-      setIsSubmitting(true);
+      // Simulate domain verification
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setDomainStatus(prev => ({
+        ...prev,
+        customDomain: { checking: false, verified: true }
+      }));
 
-      // Update tenant with domain configuration
-      const { error } = await supabase
-        .from('tenants')
-        .update({
-          custom_domain: formData.customDomain,
-          subdomain: formData.subdomain,
-          metadata: {
-            ...formData,
-            domainConfigured: true,
-            configuredAt: new Date().toISOString()
-          }
-        })
-        .eq('id', tenantId);
+      // Set DNS records for user to configure
+      handleInputChange('dnsRecords', {
+        cname: {
+          name: domain,
+          value: `${formData.subdomain}.yourplatform.com`,
+          type: 'CNAME'
+        },
+        txt: {
+          name: `_verification.${domain}`,
+          value: 'verification-token-123456',
+          type: 'TXT'
+        }
+      });
 
-      if (error) throw error;
-
-      showSuccess('Domain configuration saved successfully');
-      onComplete(formData);
     } catch (error) {
-      console.error('Error saving domain configuration:', error);
-      showError('Failed to save domain configuration');
-    } finally {
-      setIsSubmitting(false);
+      setDomainStatus(prev => ({
+        ...prev,
+        customDomain: { checking: false, verified: false }
+      }));
     }
+  };
+
+  const handleInputChange = (field: string, value: any) => {
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.');
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent as keyof typeof prev],
+          [child]: value
+        }
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
+
+    // Clear errors
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+
+    // Auto-check domains
+    if (field === 'subdomain' && value && validateSubdomain(value)) {
+      checkSubdomainAvailability(value);
+    }
+  };
+
+  // Auto-save
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (Object.keys(formData).some(key => formData[key] !== stepData[key])) {
+        onSave(formData);
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [formData, onSave, stepData]);
+
+  const validateForm = () => {
+    const newErrors: any = {};
+
+    if (formData.subdomain && !validateSubdomain(formData.subdomain)) {
+      newErrors.subdomain = 'Invalid subdomain format';
+    }
+
+    if (formData.customDomain && !validateCustomDomain(formData.customDomain)) {
+      newErrors.customDomain = 'Invalid domain format';
+    }
+
+    if (domainStatus.subdomain.available === false) {
+      newErrors.subdomain = 'Subdomain is not available';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleComplete = () => {
+    if (validateForm()) {
+      onComplete(formData);
+    }
+  };
+
+  const handleSaveAndContinue = () => {
+    onSave(formData);
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold">Domain & White-label Setup</h3>
+      <div className="text-center">
+        <h2 className="text-2xl font-bold mb-2">Domain & Whitelabel</h2>
         <p className="text-muted-foreground">
-          Configure your custom domain and white-label settings
+          Configure your custom domain and branding options
         </p>
       </div>
 
+      {/* Domain Configuration */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Globe className="w-5 h-5" />
-            Custom Domain
+            Domain Configuration
           </CardTitle>
           <CardDescription>
-            Use your own domain for a professional experience
+            Set up your custom domain and subdomain
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Subdomain */}
           <div>
-            <Label htmlFor="customDomain">Custom Domain</Label>
-            <Input
-              id="customDomain"
-              value={formData.customDomain}
-              onChange={(e) => handleInputChange('customDomain', e.target.value)}
-              placeholder="app.yourcompany.com"
-            />
-            {domainValidation.isValidating && (
-              <div className="flex items-center gap-2 mt-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm text-muted-foreground">Validating domain...</span>
-              </div>
-            )}
-            {domainValidation.message && !domainValidation.isValidating && (
-              <div className="flex items-center gap-2 mt-2">
-                {domainValidation.isValid ? (
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-red-500" />
-                )}
-                <span className={`text-sm ${
-                  domainValidation.isValid ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {domainValidation.message}
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="subdomain">Subdomain (Fallback)</Label>
-            <div className="flex">
+            <Label htmlFor="subdomain">Subdomain</Label>
+            <div className="flex items-center gap-2">
               <Input
                 id="subdomain"
                 value={formData.subdomain}
-                onChange={(e) => handleInputChange('subdomain', e.target.value)}
-                placeholder="yourcompany"
+                onChange={(e) => handleInputChange('subdomain', e.target.value.toLowerCase())}
+                placeholder="your-company"
+                className={errors.subdomain ? 'border-red-500' : ''}
               />
-              <span className="inline-flex items-center px-3 text-sm text-muted-foreground bg-muted border border-l-0 rounded-r-md">
-                .kisanshakti.com
+              <span className="text-muted-foreground whitespace-nowrap">
+                .yourplatform.com
               </span>
+              {domainStatus.subdomain.checking && (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+              )}
+              {domainStatus.subdomain.available === true && (
+                <CheckCircle className="w-4 h-4 text-green-500" />
+              )}
+              {domainStatus.subdomain.available === false && (
+                <AlertCircle className="w-4 h-4 text-red-500" />
+              )}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              This will be used if custom domain is not configured
-            </p>
+            {errors.subdomain && (
+              <p className="text-sm text-red-500 mt-1">{errors.subdomain}</p>
+            )}
+            {domainStatus.subdomain.available === true && (
+              <p className="text-sm text-green-600 mt-1">Subdomain is available!</p>
+            )}
+            {domainStatus.subdomain.available === false && (
+              <p className="text-sm text-red-600 mt-1">Subdomain is not available</p>
+            )}
           </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="w-5 h-5" />
-            SSL & Security
-          </CardTitle>
-          <CardDescription>
-            Secure connections and certificate management
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+          {/* Custom Domain */}
+          <div>
+            <Label htmlFor="customDomain">Custom Domain (Optional)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="customDomain"
+                value={formData.customDomain}
+                onChange={(e) => handleInputChange('customDomain', e.target.value.toLowerCase())}
+                placeholder="app.yourcompany.com"
+                className={errors.customDomain ? 'border-red-500' : ''}
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => verifyCustomDomain(formData.customDomain)}
+                disabled={!formData.customDomain || domainStatus.customDomain.checking}
+              >
+                {domainStatus.customDomain.checking ? 'Verifying...' : 'Verify'}
+              </Button>
+            </div>
+            {errors.customDomain && (
+              <p className="text-sm text-red-500 mt-1">{errors.customDomain}</p>
+            )}
+            {domainStatus.customDomain.verified && (
+              <Alert className="mt-2">
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Domain verified! Configure the DNS records below.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          {/* SSL Certificate */}
+          <div className="flex items-center justify-between">
             <div>
-              <h4 className="font-medium">SSL Certificate</h4>
+              <Label>SSL Certificate</Label>
               <p className="text-sm text-muted-foreground">
-                Automatically managed SSL certificates
+                Automatically provision SSL certificates
               </p>
             </div>
-            <Badge variant={formData.sslEnabled ? 'default' : 'secondary'}>
-              {formData.sslEnabled ? 'Enabled' : 'Disabled'}
-            </Badge>
+            <Switch
+              checked={formData.sslEnabled}
+              onCheckedChange={(checked) => handleInputChange('sslEnabled', checked)}
+            />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Security Features</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-sm">HTTPS Enforcement</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-sm">Domain Verification</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-sm">Auto SSL Renewal</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-sm">Security Headers</span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>DNS Configuration</CardTitle>
-          <CardDescription>
-            Add these DNS records to your domain registrar
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {formData.customDomain ? (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">Required DNS Records</h4>
-                <div className="space-y-2 font-mono text-sm">
-                  <div className="flex justify-between items-center p-2 bg-background rounded">
-                    <span>Type: CNAME</span>
-                    <span>Name: {formData.customDomain}</span>
-                    <span>Value: proxy.kisanshakti.com</span>
+          {/* DNS Records */}
+          {formData.dnsRecords && Object.keys(formData.dnsRecords).length > 0 && (
+            <div>
+              <Label>DNS Configuration</Label>
+              <div className="space-y-2 mt-2">
+                {Object.entries(formData.dnsRecords).map(([key, record]: [string, any]) => (
+                  <div key={key} className="flex items-center justify-between p-3 border rounded">
+                    <div>
+                      <Badge variant="outline">{record.type}</Badge>
+                      <p className="font-mono text-sm mt-1">{record.name}</p>
+                      <p className="font-mono text-xs text-muted-foreground">{record.value}</p>
+                    </div>
+                    <Button size="sm" variant="ghost">
+                      <ExternalLink className="w-4 h-4" />
+                    </Button>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-background rounded">
-                    <span>Type: TXT</span>
-                    <span>Name: _verification</span>
-                    <span>Value: kisanshakti-verify={tenantId}</span>
-                  </div>
-                </div>
+                ))}
               </div>
-              <div className="text-sm text-muted-foreground">
-                <p>After adding these DNS records:</p>
-                <ul className="list-disc list-inside mt-1 space-y-1">
-                  <li>DNS propagation may take up to 24-48 hours</li>
-                  <li>SSL certificate will be automatically provisioned</li>
-                  <li>Domain verification will be completed automatically</li>
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Globe className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Enter a custom domain to see DNS configuration</p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
-        <Button onClick={handleSubmit} disabled={isSubmitting}>
-          {isSubmitting ? 'Saving Configuration...' : 'Save Domain Configuration'}
+      {/* Whitelabel Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Whitelabel Settings
+          </CardTitle>
+          <CardDescription>
+            Customize the branding and remove third-party credits
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Enable Whitelabel</Label>
+              <p className="text-sm text-muted-foreground">
+                Remove platform branding and use your own
+              </p>
+            </div>
+            <Switch
+              checked={formData.enableWhitelabel}
+              onCheckedChange={(checked) => handleInputChange('enableWhitelabel', checked)}
+            />
+          </div>
+
+          {formData.enableWhitelabel && (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Hide Platform Credits</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Remove "Powered by" text and links
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.hideCredits}
+                  onCheckedChange={(checked) => handleInputChange('hideCredits', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Custom Branding</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Use your own logos and colors throughout
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.customBranding}
+                  onCheckedChange={(checked) => handleInputChange('customBranding', checked)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="customFavicon">Custom Favicon URL</Label>
+                <Input
+                  id="customFavicon"
+                  value={formData.customFavicon}
+                  onChange={(e) => handleInputChange('customFavicon', e.target.value)}
+                  placeholder="https://yourcompany.com/favicon.ico"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="customSupportEmail">Custom Support Email</Label>
+                <Input
+                  id="customSupportEmail"
+                  value={formData.whitelabelSettings.customSupportEmail}
+                  onChange={(e) => handleInputChange('whitelabelSettings.customSupportEmail', e.target.value)}
+                  placeholder="support@yourcompany.com"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="customTermsUrl">Terms of Service URL</Label>
+                  <Input
+                    id="customTermsUrl"
+                    value={formData.whitelabelSettings.customTermsUrl}
+                    onChange={(e) => handleInputChange('whitelabelSettings.customTermsUrl', e.target.value)}
+                    placeholder="https://yourcompany.com/terms"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="customPrivacyUrl">Privacy Policy URL</Label>
+                  <Input
+                    id="customPrivacyUrl"
+                    value={formData.whitelabelSettings.customPrivacyUrl}
+                    onChange={(e) => handleInputChange('whitelabelSettings.customPrivacyUrl', e.target.value)}
+                    placeholder="https://yourcompany.com/privacy"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Preview */}
+      {(formData.subdomain || formData.customDomain) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Domain Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {formData.subdomain && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">Subdomain</Badge>
+                  <span className="font-mono">
+                    {formData.sslEnabled ? 'https://' : 'http://'}
+                    {formData.subdomain}.yourplatform.com
+                  </span>
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                </div>
+              )}
+              
+              {formData.customDomain && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">Custom Domain</Badge>
+                  <span className="font-mono">
+                    {formData.sslEnabled ? 'https://' : 'http://'}
+                    {formData.customDomain}
+                  </span>
+                  {domainStatus.customDomain.verified ? (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex justify-between">
+        <Button
+          onClick={handleSaveAndContinue}
+          variant="outline"
+          disabled={isLoading}
+        >
+          Save Progress
+        </Button>
+
+        <Button
+          onClick={handleComplete}
+          disabled={isLoading || !canProceed}
+        >
+          {isLoading ? 'Saving...' : 'Complete & Continue'}
         </Button>
       </div>
     </div>

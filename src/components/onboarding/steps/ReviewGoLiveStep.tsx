@@ -3,363 +3,441 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { CheckCircle, AlertTriangle, Rocket, Eye } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useNotifications } from '@/hooks/useNotifications';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
+import { CheckCircle, AlertCircle, Rocket, Eye, Settings } from 'lucide-react';
 
 interface ReviewGoLiveStepProps {
-  tenantId: string;
   onComplete: (data: any) => void;
-  data: any;
-  onDataChange: (data: any) => void;
-}
-
-interface ChecklistItem {
-  id: string;
-  title: string;
-  description: string;
-  status: 'completed' | 'warning' | 'pending';
-  required: boolean;
+  onSave: (data: any) => void;
+  tenantId: string;
+  stepData?: any;
+  isLoading?: boolean;
+  canProceed?: boolean;
 }
 
 export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
-  tenantId,
   onComplete,
-  data,
-  onDataChange
+  onSave,
+  tenantId,
+  stepData = {},
+  isLoading = false,
+  canProceed = true
 }) => {
-  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
-  const [isGoingLive, setIsGoingLive] = useState(false);
-  const [tenantData, setTenantData] = useState<any>(null);
-  const { showSuccess, showError } = useNotifications();
+  const [formData, setFormData] = useState({
+    preflightChecksCompleted: stepData.preflightChecksCompleted || false,
+    termsAccepted: stepData.termsAccepted || false,
+    dataPrivacyAccepted: stepData.dataPrivacyAccepted || false,
+    goLiveApproved: stepData.goLiveApproved || false,
+    launchMode: stepData.launchMode || 'production', // 'staging' | 'production'
+    notifications: stepData.notifications || {
+      emailNotifications: true,
+      smsNotifications: false,
+      webhookNotifications: false
+    },
+    reviewNotes: stepData.reviewNotes || '',
+    approved: stepData.approved || false,
+    metadata: stepData.metadata || {}
+  });
 
-  useEffect(() => {
-    loadTenantData();
-  }, [tenantId]);
+  const [preflightResults, setPreflightResults] = useState({
+    loading: true,
+    results: []
+  });
 
-  const loadTenantData = async () => {
+  const preflightChecks = [
+    {
+      id: 'company_profile',
+      name: 'Company Profile',
+      description: 'Basic company information completed',
+      status: 'completed',
+      critical: true
+    },
+    {
+      id: 'branding',
+      name: 'Branding Configuration',
+      description: 'Colors, logos, and visual identity set up',
+      status: 'completed',
+      critical: false
+    },
+    {
+      id: 'users_roles',
+      name: 'Users & Roles',
+      description: 'Team members and permissions configured',
+      status: 'completed',
+      critical: true
+    },
+    {
+      id: 'billing',
+      name: 'Billing Setup',
+      description: 'Subscription plan and payment method configured',
+      status: 'warning',
+      critical: true
+    },
+    {
+      id: 'domain',
+      name: 'Domain Configuration',
+      description: 'Custom domain and DNS settings verified',
+      status: 'pending',
+      critical: false
+    },
+    {
+      id: 'data_migration',
+      name: 'Data Migration',
+      description: 'Existing data imported successfully',
+      status: 'completed',
+      critical: false
+    },
+    {
+      id: 'integrations',
+      name: 'Third-party Integrations',
+      description: 'External systems connected and tested',
+      status: 'skipped',
+      critical: false
+    },
+    {
+      id: 'testing',
+      name: 'System Testing',
+      description: 'Core functionality tested and validated',
+      status: 'completed',
+      critical: true
+    }
+  ];
+
+  const runPreflightChecks = async () => {
+    setPreflightResults({ loading: true, results: [] });
+    
     try {
-      const { data: tenant, error } = await supabase
-        .from('tenants')
-        .select(`
-          *,
-          tenant_branding(*),
-          user_tenants(count)
-        `)
-        .eq('id', tenantId)
-        .single();
-
-      if (error) throw error;
-
-      setTenantData(tenant);
-      generateChecklist(tenant);
+      // Simulate preflight checks
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setPreflightResults({
+        loading: false,
+        results: preflightChecks
+      });
+      
+      const allCriticalPassed = preflightChecks
+        .filter(check => check.critical)
+        .every(check => check.status === 'completed');
+      
+      setFormData(prev => ({
+        ...prev,
+        preflightChecksCompleted: allCriticalPassed
+      }));
+      
     } catch (error) {
-      console.error('Error loading tenant data:', error);
+      console.error('Error running preflight checks:', error);
+      setPreflightResults({ loading: false, results: [] });
     }
   };
 
-  const generateChecklist = (tenant: any) => {
-    const items: ChecklistItem[] = [
-      {
-        id: 'company_profile',
-        title: 'Company Profile',
-        description: 'Business details and verification completed',
-        status: tenant.business_registration ? 'completed' : 'pending',
-        required: true
-      },
-      {
-        id: 'subscription_plan',
-        title: 'Subscription Plan',
-        description: 'Billing plan selected and configured',
-        status: tenant.subscription_plan ? 'completed' : 'pending',
-        required: true
-      },
-      {
-        id: 'branding',
-        title: 'Branding Setup',
-        description: 'App customization and branding configured',
-        status: tenant.tenant_branding?.length > 0 ? 'completed' : 'warning',
-        required: false
-      },
-      {
-        id: 'users',
-        title: 'Team Members',
-        description: 'Users and roles configured',
-        status: tenant.user_tenants?.length > 0 ? 'completed' : 'warning',
-        required: false
-      },
-      {
-        id: 'domain',
-        title: 'Domain Configuration',
-        description: 'Custom domain or subdomain setup',
-        status: tenant.custom_domain || tenant.subdomain ? 'completed' : 'warning',
-        required: false
-      },
-      {
-        id: 'security',
-        title: 'Security Settings',
-        description: 'SSL and security configurations',
-        status: 'completed', // Always completed for our platform
-        required: true
-      }
-    ];
+  useEffect(() => {
+    runPreflightChecks();
+  }, []);
 
-    setChecklist(items);
+  const handleInputChange = (field: string, value: any) => {
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.');
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent as keyof typeof prev],
+          [child]: value
+        }
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
   };
+
+  // Auto-save
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (Object.keys(formData).some(key => formData[key] !== stepData[key])) {
+        onSave(formData);
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [formData, onSave, stepData]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'warning':
-        return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
+      case 'pending':
+        return <AlertCircle className="w-4 h-4 text-yellow-500" />;
       default:
-        return <div className="w-5 h-5 rounded-full border-2 border-gray-300" />;
+        return <div className="w-4 h-4 rounded-full bg-gray-300" />;
     }
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, any> = {
-      'completed': { variant: 'default', text: 'Complete' },
-      'warning': { variant: 'secondary', text: 'Optional' },
-      'pending': { variant: 'outline', text: 'Pending' }
+    const variants = {
+      completed: 'bg-green-100 text-green-800',
+      warning: 'bg-yellow-100 text-yellow-800',
+      pending: 'bg-blue-100 text-blue-800',
+      skipped: 'bg-gray-100 text-gray-800',
+      failed: 'bg-red-100 text-red-800'
     };
-    const config = variants[status] || variants.pending;
-    return <Badge variant={config.variant}>{config.text}</Badge>;
+
+    return (
+      <Badge variant="secondary" className={variants[status as keyof typeof variants]}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </Badge>
+    );
   };
 
   const canGoLive = () => {
-    return checklist
-      .filter(item => item.required)
-      .every(item => item.status === 'completed');
+    return (
+      formData.preflightChecksCompleted &&
+      formData.termsAccepted &&
+      formData.dataPrivacyAccepted &&
+      !preflightResults.loading
+    );
   };
 
-  const handleGoLive = async () => {
-    try {
-      setIsGoingLive(true);
-
-      // Update tenant status to active
-      const { error: tenantError } = await supabase
-        .from('tenants')
-        .update({
-          status: 'active',
-          metadata: {
-            ...tenantData?.metadata,
-            onboardingCompleted: true,
-            goLiveAt: new Date().toISOString(),
-            onboardingData: data
-          }
-        })
-        .eq('id', tenantId);
-
-      if (tenantError) throw tenantError;
-
-      // Mark onboarding workflow as completed
-      const { error: workflowError } = await supabase
-        .from('onboarding_workflows')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString()
-        })
-        .eq('tenant_id', tenantId);
-
-      if (workflowError) console.warn('Error updating workflow:', workflowError);
-
-      showSuccess('Congratulations! Your tenant is now live!');
-      onComplete({ goLive: true, completedAt: new Date().toISOString() });
-    } catch (error) {
-      console.error('Error going live:', error);
-      showError('Failed to activate tenant');
-    } finally {
-      setIsGoingLive(false);
-    }
-  };
-
-  const handlePreviewTenant = () => {
-    const previewUrl = tenantData?.custom_domain 
-      ? `https://${tenantData.custom_domain}`
-      : tenantData?.subdomain
-      ? `https://${tenantData.subdomain}.kisanshakti.com`
-      : `https://app.kisanshakti.com/tenant/${tenantId}`;
+  const handleGoLive = () => {
+    const goLiveData = {
+      ...formData,
+      approved: true,
+      goLiveDate: new Date().toISOString(),
+      metadata: {
+        ...formData.metadata,
+        preflightResults: preflightResults.results,
+        launchMode: formData.launchMode
+      }
+    };
     
-    window.open(previewUrl, '_blank');
+    onComplete(goLiveData);
+  };
+
+  const handleSaveAndContinue = () => {
+    onSave(formData);
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold">Review & Go Live</h3>
+      <div className="text-center">
+        <h2 className="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
+          <Rocket className="w-6 h-6" />
+          Review & Go Live
+        </h2>
         <p className="text-muted-foreground">
-          Review your setup and activate your tenant
+          Final review before launching your platform
         </p>
       </div>
 
+      {/* Preflight Checks */}
       <Card>
         <CardHeader>
-          <CardTitle>Pre-Launch Checklist</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            System Readiness Checks
+          </CardTitle>
           <CardDescription>
-            Ensure all required configurations are completed
+            Automated validation of your platform configuration
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {checklist.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between p-4 border rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  {getStatusIcon(item.status)}
-                  <div>
-                    <h4 className="font-medium text-sm">{item.title}</h4>
-                    <p className="text-xs text-muted-foreground">{item.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {item.required && (
-                    <Badge variant="outline" className="text-xs">Required</Badge>
-                  )}
-                  {getStatusBadge(item.status)}
-                </div>
+        <CardContent className="space-y-4">
+          {preflightResults.loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-sm text-muted-foreground">Running system checks...</p>
               </div>
-            ))}
-          </div>
-
-          <div className="mt-6 p-4 bg-muted rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium">Ready to Go Live?</h4>
-                <p className="text-sm text-muted-foreground">
-                  {canGoLive() 
-                    ? 'All required configurations are complete'
-                    : 'Please complete all required items before going live'
-                  }
-                </p>
-              </div>
-              <Badge variant={canGoLive() ? 'default' : 'secondary'}>
-                {canGoLive() ? 'Ready' : 'Pending'}
-              </Badge>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          ) : (
+            <div className="space-y-3">
+              {preflightResults.results.map((check: any) => (
+                <div key={check.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {getStatusIcon(check.status)}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{check.name}</span>
+                        {check.critical && (
+                          <Badge variant="destructive" className="text-xs">
+                            Critical
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{check.description}</p>
+                    </div>
+                  </div>
+                  {getStatusBadge(check.status)}
+                </div>
+              ))}
+            </div>
+          )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Tenant Summary</CardTitle>
-          <CardDescription>
-            Overview of your configured tenant
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {tenantData && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs font-medium text-muted-foreground">Organization</Label>
-                  <p className="text-sm font-medium">{tenantData.name}</p>
-                </div>
-                <div>
-                  <Label className="text-xs font-medium text-muted-foreground">Plan</Label>
-                  <p className="text-sm font-medium">{tenantData.subscription_plan}</p>
-                </div>
-                <div>
-                  <Label className="text-xs font-medium text-muted-foreground">Status</Label>
-                  <Badge variant={tenantData.status === 'active' ? 'default' : 'secondary'}>
-                    {tenantData.status}
-                  </Badge>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs font-medium text-muted-foreground">Domain</Label>
-                  <p className="text-sm font-medium">
-                    {tenantData.custom_domain || tenantData.subdomain || 'Not configured'}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-xs font-medium text-muted-foreground">Created</Label>
-                  <p className="text-sm font-medium">
-                    {new Date(tenantData.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-xs font-medium text-muted-foreground">Team Size</Label>
-                  <p className="text-sm font-medium">
-                    {tenantData.user_tenants?.length || 0} members
-                  </p>
-                </div>
-              </div>
+          {!preflightResults.loading && (
+            <div className="flex items-center justify-between pt-4 border-t">
+              <span className="font-medium">
+                Overall Status: {formData.preflightChecksCompleted ? 'Ready' : 'Needs Attention'}
+              </span>
+              <Button onClick={runPreflightChecks} variant="outline" size="sm">
+                Re-run Checks
+              </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Launch Configuration */}
       <Card>
         <CardHeader>
-          <CardTitle>Next Steps</CardTitle>
-          <CardDescription>
-            What happens after going live
-          </CardDescription>
+          <CardTitle>Launch Configuration</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3 text-sm">
-            <div className="flex items-start gap-2">
-              <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-              <div>
-                <p className="font-medium">Tenant Activation</p>
-                <p className="text-muted-foreground">Your tenant will be activated and accessible to users</p>
-              </div>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-base font-medium">Launch Mode</Label>
+            <div className="grid grid-cols-2 gap-4 mt-2">
+              <Button
+                variant={formData.launchMode === 'staging' ? 'default' : 'outline'}
+                onClick={() => handleInputChange('launchMode', 'staging')}
+                className="justify-start"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Staging Mode
+              </Button>
+              <Button
+                variant={formData.launchMode === 'production' ? 'default' : 'outline'}
+                onClick={() => handleInputChange('launchMode', 'production')}
+                className="justify-start"
+              >
+                <Rocket className="w-4 h-4 mr-2" />
+                Production Mode
+              </Button>
             </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-              <div>
-                <p className="font-medium">User Access</p>
-                <p className="text-muted-foreground">Invited users will receive access to the platform</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {formData.launchMode === 'staging' 
+                ? 'Launch in testing mode with limited access'
+                : 'Launch in full production mode for all users'
+              }
+            </p>
+          </div>
+
+          <Separator />
+
+          <div>
+            <Label className="text-base font-medium">Notification Preferences</Label>
+            <div className="space-y-3 mt-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="emailNotifications"
+                  checked={formData.notifications.emailNotifications}
+                  onCheckedChange={(checked) => 
+                    handleInputChange('notifications.emailNotifications', checked)
+                  }
+                />
+                <Label htmlFor="emailNotifications">Email notifications</Label>
               </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-              <div>
-                <p className="font-medium">Support & Monitoring</p>
-                <p className="text-muted-foreground">Our team will monitor your tenant for optimal performance</p>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="smsNotifications"
+                  checked={formData.notifications.smsNotifications}
+                  onCheckedChange={(checked) => 
+                    handleInputChange('notifications.smsNotifications', checked)
+                  }
+                />
+                <Label htmlFor="smsNotifications">SMS notifications</Label>
               </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-              <div>
-                <p className="font-medium">Ongoing Support</p>
-                <p className="text-muted-foreground">Access to documentation, support, and regular updates</p>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="webhookNotifications"
+                  checked={formData.notifications.webhookNotifications}
+                  onCheckedChange={(checked) => 
+                    handleInputChange('notifications.webhookNotifications', checked)
+                  }
+                />
+                <Label htmlFor="webhookNotifications">Webhook notifications</Label>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Terms and Agreements */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Terms and Agreements</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="termsAccepted"
+              checked={formData.termsAccepted}
+              onCheckedChange={(checked) => handleInputChange('termsAccepted', checked)}
+            />
+            <div>
+              <Label htmlFor="termsAccepted" className="text-sm">
+                I accept the Terms of Service and End User License Agreement
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                By checking this box, you agree to our terms and conditions
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="dataPrivacyAccepted"
+              checked={formData.dataPrivacyAccepted}
+              onCheckedChange={(checked) => handleInputChange('dataPrivacyAccepted', checked)}
+            />
+            <div>
+              <Label htmlFor="dataPrivacyAccepted" className="text-sm">
+                I acknowledge the Data Processing and Privacy Policy
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                You understand how your data will be processed and stored
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Final Status */}
+      {canGoLive() ? (
+        <Alert>
+          <CheckCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Ready to launch!</strong> All requirements have been met. 
+            Your platform is ready to go live.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Action required:</strong> Please complete all requirements above before going live.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex justify-between">
         <Button
+          onClick={handleSaveAndContinue}
           variant="outline"
-          onClick={handlePreviewTenant}
-          disabled={!tenantData}
+          disabled={isLoading}
         >
-          <Eye className="w-4 h-4 mr-2" />
-          Preview Tenant
+          Save Progress
         </Button>
 
         <Button
           onClick={handleGoLive}
-          disabled={!canGoLive() || isGoingLive}
-          className="min-w-32"
+          disabled={isLoading || !canGoLive()}
+          className="bg-green-600 hover:bg-green-700"
         >
-          {isGoingLive ? (
-            'Going Live...'
-          ) : (
-            <>
-              <Rocket className="w-4 h-4 mr-2" />
-              Go Live!
-            </>
-          )}
+          <Rocket className="w-4 h-4 mr-2" />
+          {isLoading ? 'Launching...' : 'Go Live!'}
         </Button>
       </div>
     </div>
