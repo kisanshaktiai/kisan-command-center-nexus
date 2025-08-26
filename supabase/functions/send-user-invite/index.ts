@@ -27,7 +27,7 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     console.log('=== send-user-invite function started ===');
     
-    // Initialize Supabase client
+    // Initialize environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
@@ -44,7 +44,34 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Extract JWT token from Authorization header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      console.error('No authorization header found');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Authentication required. Please log in and try again.' 
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    console.log('Extracted JWT token (first 20 chars):', token.substring(0, 20) + '...');
+
+    // Create two Supabase clients:
+    // 1. User client with JWT for authentication
+    // 2. Service role client for database operations
+    const userSupabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') || '', {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    });
+
+    const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
     let requestBody: InviteUserRequest;
@@ -93,9 +120,9 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get current user for created_by field - this is required
+    // Get current user using the user client
     console.log('Getting authenticated user...');
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await userSupabase.auth.getUser();
     
     if (authError) {
       console.error('Authentication error:', authError);
@@ -121,9 +148,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Authenticated user:', { id: user.id, email: user.email });
 
-    // Verify tenant exists
+    // Verify tenant exists using service client
     console.log('Verifying tenant exists...');
-    const { data: tenant, error: tenantError } = await supabase
+    const { data: tenant, error: tenantError } = await serviceSupabase
       .from('tenants')
       .select('id, name')
       .eq('id', tenantId)
@@ -142,9 +169,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Tenant verified:', { id: tenant.id, name: tenant.name });
 
-    // Check for existing invitation
+    // Check for existing invitation using service client
     console.log('Checking for existing invitations...');
-    const { data: existingInvites, error: checkError } = await supabase
+    const { data: existingInvites, error: checkError } = await serviceSupabase
       .from('user_invitations')
       .select('id, email, status')
       .eq('tenant_id', tenantId)
@@ -213,8 +240,8 @@ const handler = async (req: Request): Promise<Response> => {
       metadata_keys: Object.keys(invitationData.metadata)
     });
 
-    // Insert invitation record
-    const { data: invitation, error: inviteError } = await supabase
+    // Insert invitation record using service client
+    const { data: invitation, error: inviteError } = await serviceSupabase
       .from('user_invitations')
       .insert(invitationData)
       .select()
@@ -273,7 +300,7 @@ const handler = async (req: Request): Promise<Response> => {
           console.error('Email sending error:', emailResponse.error);
           
           // Update invitation status to failed but preserve existing metadata
-          await supabase
+          await serviceSupabase
             .from('user_invitations')
             .update({ 
               status: 'failed',
@@ -296,7 +323,7 @@ const handler = async (req: Request): Promise<Response> => {
         console.log('Email sent successfully:', emailResponse.data?.id);
 
         // Update invitation status to sent
-        await supabase
+        await serviceSupabase
           .from('user_invitations')
           .update({ 
             status: 'sent', 
@@ -318,7 +345,7 @@ const handler = async (req: Request): Promise<Response> => {
         console.error('Email service error:', emailError);
         
         // Update invitation status but don't fail the request, preserve existing metadata
-        await supabase
+        await serviceSupabase
           .from('user_invitations')
           .update({ 
             status: 'failed',
@@ -371,4 +398,3 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 serve(handler);
-
