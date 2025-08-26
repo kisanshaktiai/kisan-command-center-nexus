@@ -4,490 +4,587 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { Palette, Upload, Type, Smartphone, Monitor } from 'lucide-react';
+import { Palette, Smartphone, Monitor, Upload, Wand2, Eye } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useNotifications } from '@/hooks/useNotifications';
+
+interface BrandingPreset {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+    text: string;
+  };
+  fonts: {
+    primary: string;
+    secondary: string;
+  };
+}
 
 interface EnhancedBrandingStepProps {
-  onComplete: (data: any) => void;
-  onSave: (data: any) => void;
   tenantId: string;
-  stepData?: any;
-  isLoading?: boolean;
-  canProceed?: boolean;
+  onComplete: (data: any) => void;
+  data: any;
+  onDataChange: (data: any) => void;
 }
 
 export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
-  onComplete,
-  onSave,
   tenantId,
-  stepData = {},
-  isLoading = false,
-  canProceed = true
+  onComplete,
+  data,
+  onDataChange
 }) => {
-  const [formData, setFormData] = useState({
-    // Basic branding
-    appName: stepData.appName || '',
-    appTagline: stepData.appTagline || '',
-    logoUrl: stepData.logoUrl || '',
-    
-    // Colors
-    primaryColor: stepData.primaryColor || '#22c55e',
-    secondaryColor: stepData.secondaryColor || '#16a34a',
-    accentColor: stepData.accentColor || '#65a30d',
-    backgroundColor: stepData.backgroundColor || '#ffffff',
-    textColor: stepData.textColor || '#1f2937',
-    
-    // Typography
-    fontFamily: stepData.fontFamily || 'Inter',
-    customFonts: stepData.customFonts || false,
-    
-    // Theme settings
-    theme: stepData.theme || 'light',
-    darkModeSupport: stepData.darkModeSupport || false,
-    
-    // Layout preferences
-    layout: stepData.layout || 'modern',
-    sidebarStyle: stepData.sidebarStyle || 'default',
-    
-    // Advanced settings
-    customCss: stepData.customCss || '',
-    faviconUrl: stepData.faviconUrl || '',
-    
-    // Mobile app branding
-    mobileAppIcon: stepData.mobileAppIcon || '',
-    splashScreenConfig: stepData.splashScreenConfig || {
-      backgroundColor: '#22c55e',
-      logoUrl: '',
-      text: ''
-    },
-    
-    // Email branding
-    emailTemplate: stepData.emailTemplate || {
-      headerColor: '#22c55e',
-      footerText: '',
-      logoUrl: ''
-    }
+  const [brandingData, setBrandingData] = useState({
+    logo_url: data.logo_url || '',
+    primary_color: data.primary_color || '#16a34a',
+    secondary_color: data.secondary_color || '#65a30d',
+    accent_color: data.accent_color || '#84cc16',
+    background_color: data.background_color || '#ffffff',
+    text_color: data.text_color || '#1f2937',
+    font_family: data.font_family || 'Inter',
+    enable_dark_mode: data.enable_dark_mode || false,
+    custom_css: data.custom_css || '',
+    ...data
   });
 
-  const [previewMode, setPreviewMode] = useState('desktop');
+  const [presets] = useState<BrandingPreset[]>([
+    {
+      id: '1',
+      name: 'Agriculture Green',
+      description: 'Fresh green theme perfect for agricultural businesses',
+      category: 'agriculture',
+      colors: {
+        primary: '#16a34a',
+        secondary: '#65a30d',
+        accent: '#84cc16',
+        background: '#f0fdf4',
+        text: '#166534'
+      },
+      fonts: { primary: 'Inter', secondary: 'Inter' }
+    },
+    {
+      id: '2',
+      name: 'Professional Blue',
+      description: 'Clean and professional blue theme for corporate use',
+      category: 'professional',
+      colors: {
+        primary: '#2563eb',
+        secondary: '#1d4ed8',
+        accent: '#3b82f6',
+        background: '#f8fafc',
+        text: '#1e293b'
+      },
+      fonts: { primary: 'Inter', secondary: 'Inter' }
+    },
+    {
+      id: '3',
+      name: 'Modern Purple',
+      description: 'Trendy purple theme for innovative companies',
+      category: 'modern',
+      colors: {
+        primary: '#7c3aed',
+        secondary: '#6d28d9',
+        accent: '#8b5cf6',
+        background: '#faf5ff',
+        text: '#581c87'
+      },
+      fonts: { primary: 'Inter', secondary: 'Inter' }
+    }
+  ]);
 
-  const handleInputChange = (field: string, value: any) => {
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent as keyof typeof prev],
-          [child]: value
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
+  const [isUploading, setIsUploading] = useState(false);
+  const { showSuccess, showError } = useNotifications();
+
+  const handlePresetSelect = (preset: BrandingPreset) => {
+    const newBrandingData = {
+      ...brandingData,
+      primary_color: preset.colors.primary,
+      secondary_color: preset.colors.secondary,
+      accent_color: preset.colors.accent,
+      background_color: preset.colors.background,
+      text_color: preset.colors.text,
+      font_family: preset.fonts.primary,
+    };
+    
+    setBrandingData(newBrandingData);
+    onDataChange(newBrandingData);
+    setSelectedPreset(preset.id);
+    showSuccess(`Applied ${preset.name} theme`);
+  };
+
+  const handleColorChange = (colorKey: string, value: string | boolean) => {
+    const newData = { ...brandingData, [colorKey]: value };
+    setBrandingData(newData);
+    onDataChange(newData);
+    setSelectedPreset(null);
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      showError('Logo file size must be less than 2MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileName = `tenant-${tenantId}/logo-${Date.now()}.${file.name.split('.').pop()}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('tenant-assets')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('tenant-assets')
+        .getPublicUrl(fileName);
+
+      const newData = { ...brandingData, logo_url: publicUrl };
+      setBrandingData(newData);
+      onDataChange(newData);
+      showSuccess('Logo uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      showError('Failed to upload logo');
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  // Auto-save periodically
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (Object.keys(formData).some(key => formData[key] !== stepData[key])) {
-        onSave(formData);
-      }
-    }, 2000);
+  const handleSave = async () => {
+    try {
+      const { error } = await supabase
+        .from('tenant_branding')
+        .upsert({
+          tenant_id: tenantId,
+          logo_url: brandingData.logo_url,
+          primary_color: brandingData.primary_color,
+          secondary_color: brandingData.secondary_color,
+          accent_color: brandingData.accent_color,
+          background_color: brandingData.background_color,
+          text_color: brandingData.text_color,
+          font_family: brandingData.font_family,
+          custom_css: brandingData.custom_css,
+          settings: {
+            enable_dark_mode: brandingData.enable_dark_mode,
+            selected_preset: selectedPreset
+          }
+        });
 
-    return () => clearTimeout(timer);
-  }, [formData, onSave, stepData]);
+      if (error) throw error;
 
-  const handleComplete = () => {
-    onComplete(formData);
+      showSuccess('Branding settings saved successfully');
+      onComplete(brandingData);
+    } catch (error) {
+      console.error('Error saving branding:', error);
+      showError('Failed to save branding settings');
+    }
   };
 
-  const handleSaveAndContinue = () => {
-    onSave(formData);
-  };
-
-  const colorPresets = [
-    { name: 'Green Agriculture', primary: '#22c55e', secondary: '#16a34a', accent: '#65a30d' },
-    { name: 'Blue Professional', primary: '#3b82f6', secondary: '#1d4ed8', accent: '#1e40af' },
-    { name: 'Orange Vibrant', primary: '#f97316', secondary: '#ea580c', accent: '#dc2626' },
-    { name: 'Purple Modern', primary: '#8b5cf6', secondary: '#7c3aed', accent: '#6d28d9' },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold mb-2">Enhanced Branding</h2>
-        <p className="text-muted-foreground">
-          Create a comprehensive brand identity for your platform
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column - Configuration */}
-        <div className="space-y-6">
-          {/* Basic Branding */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Type className="w-5 h-5" />
-                Basic Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="appName">App Name</Label>
-                <Input
-                  id="appName"
-                  value={formData.appName}
-                  onChange={(e) => handleInputChange('appName', e.target.value)}
-                  placeholder="Your App Name"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="appTagline">App Tagline</Label>
-                <Input
-                  id="appTagline"
-                  value={formData.appTagline}
-                  onChange={(e) => handleInputChange('appTagline', e.target.value)}
-                  placeholder="Your inspiring tagline"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="logoUrl">Logo URL</Label>
-                <Input
-                  id="logoUrl"
-                  value={formData.logoUrl}
-                  onChange={(e) => handleInputChange('logoUrl', e.target.value)}
-                  placeholder="https://example.com/logo.png"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Color Scheme */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="w-5 h-5" />
-                Color Scheme
-              </CardTitle>
-              <CardDescription>
-                Choose colors that represent your brand
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="primaryColor">Primary Color</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="primaryColor"
-                      type="color"
-                      value={formData.primaryColor}
-                      onChange={(e) => handleInputChange('primaryColor', e.target.value)}
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      value={formData.primaryColor}
-                      onChange={(e) => handleInputChange('primaryColor', e.target.value)}
-                      placeholder="#22c55e"
-                      className="flex-1"
-                    />
+  const renderMobilePreview = () => (
+    <div className="relative mx-auto" style={{ width: '280px', height: '560px' }}>
+      <div className="absolute inset-0 bg-gray-900 rounded-[2.5rem] p-2">
+        <div className="relative w-full h-full bg-white rounded-[2rem] overflow-hidden shadow-inner">
+          <div className="h-6 bg-black flex items-center justify-between px-6 text-white text-xs">
+            <span>9:41</span>
+            <div className="flex gap-1">
+              <div className="w-4 h-2 bg-white rounded-sm"></div>
+              <div className="w-6 h-2 bg-white rounded-sm"></div>
+            </div>
+          </div>
+          
+          <div className="flex-1 p-4" style={{ backgroundColor: brandingData.background_color }}>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                {brandingData.logo_url ? (
+                  <img src={brandingData.logo_url} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
+                ) : (
+                  <div 
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"
+                    style={{ backgroundColor: brandingData.primary_color }}
+                  >
+                    KS
                   </div>
-                </div>
+                )}
+                <h1 className="text-lg font-bold" style={{ color: brandingData.text_color }}>
+                  KisanShakti
+                </h1>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-gray-200"></div>
+            </div>
 
-                <div>
-                  <Label htmlFor="secondaryColor">Secondary Color</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="secondaryColor"
-                      type="color"
-                      value={formData.secondaryColor}
-                      onChange={(e) => handleInputChange('secondaryColor', e.target.value)}
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      value={formData.secondaryColor}
-                      onChange={(e) => handleInputChange('secondaryColor', e.target.value)}
-                      placeholder="#16a34a"
-                      className="flex-1"
-                    />
+            <div className="space-y-4">
+              <div 
+                className="p-4 rounded-xl shadow-sm"
+                style={{ backgroundColor: brandingData.primary_color }}
+              >
+                <h3 className="text-white font-semibold mb-2">Weather Today</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl text-white">28°C</span>
+                  <span className="text-white/80 text-sm">Sunny</span>
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl shadow-sm border">
+                <h3 className="font-semibold mb-2" style={{ color: brandingData.text_color }}>
+                  My Farms
+                </h3>
+                <div className="flex gap-2">
+                  <div 
+                    className="px-3 py-1 rounded-full text-xs font-medium text-white"
+                    style={{ backgroundColor: brandingData.secondary_color }}
+                  >
+                    Wheat
+                  </div>
+                  <div 
+                    className="px-3 py-1 rounded-full text-xs font-medium text-white"
+                    style={{ backgroundColor: brandingData.accent_color }}
+                  >
+                    Rice
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="accentColor">Accent Color</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="accentColor"
-                      type="color"
-                      value={formData.accentColor}
-                      onChange={(e) => handleInputChange('accentColor', e.target.value)}
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      value={formData.accentColor}
-                      onChange={(e) => handleInputChange('accentColor', e.target.value)}
-                      placeholder="#65a30d"
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="backgroundColor">Background Color</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="backgroundColor"
-                      type="color"
-                      value={formData.backgroundColor}
-                      onChange={(e) => handleInputChange('backgroundColor', e.target.value)}
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      value={formData.backgroundColor}
-                      onChange={(e) => handleInputChange('backgroundColor', e.target.value)}
-                      placeholder="#ffffff"
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Color Presets</Label>
+              <div className="bg-white p-4 rounded-xl shadow-sm border">
+                <h3 className="font-semibold mb-2" style={{ color: brandingData.text_color }}>
+                  Quick Actions
+                </h3>
                 <div className="grid grid-cols-2 gap-2">
-                  {colorPresets.map((preset) => (
-                    <Button
-                      key={preset.name}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        handleInputChange('primaryColor', preset.primary);
-                        handleInputChange('secondaryColor', preset.secondary);
-                        handleInputChange('accentColor', preset.accent);
-                      }}
-                      className="justify-start"
+                  {['Add Crop', 'View Reports'].map((action) => (
+                    <button
+                      key={action}
+                      className="p-2 rounded-lg text-sm font-medium text-white"
+                      style={{ backgroundColor: brandingData.primary_color }}
                     >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-4 h-4 rounded"
-                          style={{ backgroundColor: preset.primary }}
-                        />
-                        <span className="text-xs">{preset.name}</span>
-                      </div>
-                    </Button>
+                      {action}
+                    </button>
                   ))}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Typography & Layout */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Typography & Layout</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="fontFamily">Font Family</Label>
-                <select
-                  id="fontFamily"
-                  value={formData.fontFamily}
-                  onChange={(e) => handleInputChange('fontFamily', e.target.value)}
-                  className="w-full p-2 border rounded-md"
-                >
-                  <option value="Inter">Inter</option>
-                  <option value="Roboto">Roboto</option>
-                  <option value="Open Sans">Open Sans</option>
-                  <option value="Poppins">Poppins</option>
-                  <option value="Lato">Lato</option>
-                </select>
-              </div>
-
-              <div>
-                <Label htmlFor="layout">Layout Style</Label>
-                <select
-                  id="layout"
-                  value={formData.layout}
-                  onChange={(e) => handleInputChange('layout', e.target.value)}
-                  className="w-full p-2 border rounded-md"
-                >
-                  <option value="modern">Modern</option>
-                  <option value="classic">Classic</option>
-                  <option value="minimal">Minimal</option>
-                  <option value="compact">Compact</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <Label htmlFor="darkModeSupport">Dark Mode Support</Label>
-                <Switch
-                  id="darkModeSupport"
-                  checked={formData.darkModeSupport}
-                  onCheckedChange={(checked) => handleInputChange('darkModeSupport', checked)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Advanced Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Advanced Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="faviconUrl">Favicon URL</Label>
-                <Input
-                  id="faviconUrl"
-                  value={formData.faviconUrl}
-                  onChange={(e) => handleInputChange('faviconUrl', e.target.value)}
-                  placeholder="https://example.com/favicon.ico"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="customCss">Custom CSS</Label>
-                <Textarea
-                  id="customCss"
-                  value={formData.customCss}
-                  onChange={(e) => handleInputChange('customCss', e.target.value)}
-                  placeholder="/* Your custom CSS */&#10;.custom-class {&#10;  /* styles */&#10;}"
-                  rows={4}
-                />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
+      </div>
+    </div>
+  );
 
-        {/* Right Column - Preview */}
-        <div className="space-y-6">
+  const renderDesktopPreview = () => (
+    <div className="w-full h-80 bg-gray-100 rounded-lg overflow-hidden shadow-lg">
+      <div className="h-8 bg-gray-800 flex items-center px-4">
+        <div className="flex gap-2">
+          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+        </div>
+        <div className="flex-1 text-center text-white text-sm">KisanShakti Dashboard</div>
+      </div>
+      <div className="flex h-full">
+        <div className="w-64 border-r" style={{ backgroundColor: brandingData.background_color }}>
+          <div className="p-4 border-b">
+            <div className="flex items-center gap-2">
+              {brandingData.logo_url ? (
+                <img src={brandingData.logo_url} alt="Logo" className="w-8 h-8 rounded object-cover" />
+              ) : (
+                <div 
+                  className="w-8 h-8 rounded flex items-center justify-center text-white text-sm font-bold"
+                  style={{ backgroundColor: brandingData.primary_color }}
+                >
+                  KS
+                </div>
+              )}
+              <span className="font-semibold" style={{ color: brandingData.text_color }}>
+                KisanShakti
+              </span>
+            </div>
+          </div>
+          <nav className="p-4">
+            {['Dashboard', 'Farms', 'Weather', 'Reports'].map((item) => (
+              <div 
+                key={item}
+                className="py-2 px-3 rounded-lg mb-2 cursor-pointer"
+                style={{ 
+                  backgroundColor: item === 'Dashboard' ? brandingData.primary_color : 'transparent',
+                  color: item === 'Dashboard' ? 'white' : brandingData.text_color
+                }}
+              >
+                {item}
+              </div>
+            ))}
+          </nav>
+        </div>
+        <div className="flex-1 p-6" style={{ backgroundColor: brandingData.background_color }}>
+          <h1 className="text-2xl font-bold mb-6" style={{ color: brandingData.text_color }}>
+            Dashboard Overview
+          </h1>
+          <div className="grid grid-cols-3 gap-4">
+            {['Total Farms', 'Active Crops', 'Weather Alerts'].map((metric, index) => (
+              <div key={metric} className="bg-white p-4 rounded-lg shadow-sm border">
+                <h3 className="text-sm font-medium text-gray-600">{metric}</h3>
+                <div className="text-2xl font-bold mt-2" style={{ color: brandingData.primary_color }}>
+                  {[12, 8, 3][index]}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const groupedPresets = presets.reduce((acc, preset) => {
+    if (!acc[preset.category]) acc[preset.category] = [];
+    acc[preset.category].push(preset);
+    return acc;
+  }, {} as Record<string, BrandingPreset[]>);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold">Branding & Customization</h3>
+        <p className="text-muted-foreground">
+          Customize your tenant's appearance with logo, colors, and themes
+        </p>
+      </div>
+
+      <Tabs defaultValue="presets" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="presets" className="flex items-center gap-2">
+            <Wand2 className="w-4 h-4" />
+            Quick Themes
+          </TabsTrigger>
+          <TabsTrigger value="colors" className="flex items-center gap-2">
+            <Palette className="w-4 h-4" />
+            Colors
+          </TabsTrigger>
+          <TabsTrigger value="logo" className="flex items-center gap-2">
+            <Upload className="w-4 h-4" />
+            Logo & Assets
+          </TabsTrigger>
+          <TabsTrigger value="preview" className="flex items-center gap-2">
+            <Eye className="w-4 h-4" />
+            Live Preview
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="presets" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Live Preview</CardTitle>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant={previewMode === 'desktop' ? 'default' : 'outline'}
-                  onClick={() => setPreviewMode('desktop')}
-                >
-                  <Monitor className="w-4 h-4 mr-1" />
-                  Desktop
-                </Button>
-                <Button
-                  size="sm"
-                  variant={previewMode === 'mobile' ? 'default' : 'outline'}
-                  onClick={() => setPreviewMode('mobile')}
-                >
-                  <Smartphone className="w-4 h-4 mr-1" />
-                  Mobile
-                </Button>
-              </div>
+              <CardTitle>Quick Theme Presets</CardTitle>
+              <CardDescription>
+                Choose from professionally designed themes tailored for different industries
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div
-                className={`border rounded-lg overflow-hidden ${
-                  previewMode === 'mobile' ? 'max-w-sm mx-auto' : ''
-                }`}
-                style={{ backgroundColor: formData.backgroundColor }}
-              >
-                {/* Preview Header */}
-                <div
-                  className="p-4 text-white"
-                  style={{ backgroundColor: formData.primaryColor }}
-                >
-                  <div className="flex items-center gap-3">
-                    {formData.logoUrl && (
-                      <img
-                        src={formData.logoUrl}
-                        alt="Logo"
-                        className="w-8 h-8 rounded"
-                      />
-                    )}
-                    <div>
-                      <h3 className="font-semibold">
-                        {formData.appName || 'Your App Name'}
-                      </h3>
-                      {formData.appTagline && (
-                        <p className="text-sm opacity-90">{formData.appTagline}</p>
-                      )}
-                    </div>
+              {Object.entries(groupedPresets).map(([category, categoryPresets]) => (
+                <div key={category} className="mb-6">
+                  <h4 className="text-sm font-medium text-gray-700 uppercase tracking-wide mb-3">
+                    {category}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {categoryPresets.map((preset) => (
+                      <div
+                        key={preset.id}
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
+                          selectedPreset === preset.id ? 'border-primary bg-primary/5' : 'border-gray-200'
+                        }`}
+                        onClick={() => handlePresetSelect(preset)}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="font-medium">{preset.name}</h5>
+                          {selectedPreset === preset.id && (
+                            <Badge variant="default" className="text-xs">Active</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 mb-3">{preset.description}</p>
+                        <div className="flex gap-2">
+                          {Object.entries(preset.colors).slice(0, 4).map(([key, color]) => (
+                            <div
+                              key={key}
+                              className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                              style={{ backgroundColor: color }}
+                              title={key}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                {/* Preview Content */}
-                <div className="p-4 space-y-4" style={{ color: formData.textColor }}>
-                  <div className="flex gap-2">
-                    <div
-                      className="w-4 h-4 rounded"
-                      style={{ backgroundColor: formData.primaryColor }}
-                    />
-                    <div
-                      className="w-4 h-4 rounded"
-                      style={{ backgroundColor: formData.secondaryColor }}
-                    />
-                    <div
-                      className="w-4 h-4 rounded"
-                      style={{ backgroundColor: formData.accentColor }}
-                    />
+        <TabsContent value="colors" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Color Customization</CardTitle>
+              <CardDescription>
+                Fine-tune your brand colors for a perfect match
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[
+                  { key: 'primary_color', label: 'Primary Color', description: 'Main brand color for buttons and highlights' },
+                  { key: 'secondary_color', label: 'Secondary Color', description: 'Supporting brand color' },
+                  { key: 'accent_color', label: 'Accent Color', description: 'For badges and special elements' },
+                  { key: 'background_color', label: 'Background Color', description: 'Main background color' },
+                  { key: 'text_color', label: 'Text Color', description: 'Primary text color' },
+                ].map(({ key, label, description }) => (
+                  <div key={key} className="space-y-2">
+                    <Label htmlFor={key}>{label}</Label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        id={key}
+                        value={brandingData[key]}
+                        onChange={(e) => handleColorChange(key, e.target.value)}
+                        className="w-16 h-10 rounded-lg border border-gray-300 cursor-pointer"
+                      />
+                      <div className="flex-1">
+                        <Input
+                          value={brandingData[key]}
+                          onChange={(e) => handleColorChange(key, e.target.value)}
+                          placeholder="#000000"
+                          className="font-mono"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">{description}</p>
+                      </div>
+                    </div>
                   </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                  <div className="space-y-2">
-                    <div
-                      className="h-2 rounded"
-                      style={{ backgroundColor: formData.primaryColor, opacity: 0.8 }}
+        <TabsContent value="logo" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Logo & Brand Assets</CardTitle>
+              <CardDescription>
+                Upload your logo and manage brand assets
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <Label htmlFor="logo-upload">Company Logo</Label>
+                <div className="mt-2 flex items-center gap-4">
+                  {brandingData.logo_url ? (
+                    <img 
+                      src={brandingData.logo_url} 
+                      alt="Current logo" 
+                      className="w-16 h-16 rounded-lg object-cover border"
                     />
-                    <div
-                      className="h-2 rounded w-3/4"
-                      style={{ backgroundColor: formData.secondaryColor, opacity: 0.6 }}
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                      <Upload className="w-6 h-6 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <Input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      disabled={isUploading}
+                      className="cursor-pointer"
                     />
-                    <div
-                      className="h-2 rounded w-1/2"
-                      style={{ backgroundColor: formData.accentColor, opacity: 0.4 }}
-                    />
-                  </div>
-
-                  <div
-                    className="p-3 rounded border"
-                    style={{
-                      borderColor: formData.primaryColor,
-                      fontFamily: formData.fontFamily
-                    }}
-                  >
-                    <p className="text-sm">
-                      Preview content with {formData.fontFamily} font
+                    <p className="text-xs text-gray-500 mt-1">
+                      Recommended: 512x512px, PNG or JPG, max 2MB
                     </p>
                   </div>
                 </div>
               </div>
+
+              <div>
+                <Label htmlFor="font-family">Font Family</Label>
+                <select
+                  id="font-family"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  value={brandingData.font_family}
+                  onChange={(e) => handleColorChange('font_family', e.target.value)}
+                >
+                  <option value="Inter">Inter (Default)</option>
+                  <option value="Poppins">Poppins</option>
+                  <option value="Roboto">Roboto</option>
+                  <option value="Open Sans">Open Sans</option>
+                  <option value="Lato">Lato</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="dark-mode">Enable Dark Mode Support</Label>
+                  <p className="text-sm text-gray-500">Allow users to switch to dark theme</p>
+                </div>
+                <Switch
+                  id="dark-mode"
+                  checked={brandingData.enable_dark_mode}
+                  onCheckedChange={(checked) => handleColorChange('enable_dark_mode', checked)}
+                />
+              </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
 
-      <div className="flex justify-between">
-        <Button
-          onClick={handleSaveAndContinue}
-          variant="outline"
-          disabled={isLoading}
-        >
-          Save Progress
-        </Button>
+        <TabsContent value="preview" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="w-5 h-5" />
+                Live Preview
+              </CardTitle>
+              <CardDescription>
+                See how your branding will look across different devices
+              </CardDescription>
+              <div className="flex gap-2">
+                <Button
+                  variant={previewDevice === 'mobile' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPreviewDevice('mobile')}
+                  className="flex items-center gap-2"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  Mobile
+                </Button>
+                <Button
+                  variant={previewDevice === 'desktop' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPreviewDevice('desktop')}
+                  className="flex items-center gap-2"
+                >
+                  <Monitor className="w-4 h-4" />
+                  Desktop
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-center p-8 bg-gray-50 rounded-lg">
+                {previewDevice === 'mobile' ? renderMobilePreview() : renderDesktopPreview()}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-        <Button
-          onClick={handleComplete}
-          disabled={isLoading || !canProceed}
-        >
-          {isLoading ? 'Saving...' : 'Complete & Continue'}
+      <div className="flex justify-end">
+        <Button onClick={handleSave} className="min-w-32">
+          Save Branding Settings
         </Button>
       </div>
     </div>
