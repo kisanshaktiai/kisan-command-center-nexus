@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -36,7 +35,7 @@ export const useStabilizedOnboardingWorkflow = ({
   const [steps, setSteps] = useState<OnboardingStep[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { showSuccess, showError } = useNotifications();
+  const { showError } = useNotifications();
 
   const createWorkflow = useCallback(async (): Promise<OnboardingWorkflow | null> => {
     try {
@@ -160,8 +159,8 @@ export const useStabilizedOnboardingWorkflow = ({
         throw new Error(`Step ${stepNumber} not found`);
       }
 
-      // Save step data to business tables if completing
-      if (status === 'completed') {
+      // Only save to business tables when explicitly completing a step
+      if (status === 'completed' && !stepData.auto_saved) {
         const saveResult = await OnboardingDataService.saveStepData({
           stepName: stepToUpdate.step_name,
           stepData,
@@ -171,8 +170,8 @@ export const useStabilizedOnboardingWorkflow = ({
 
         if (!saveResult.success) {
           console.warn('Failed to save to business tables:', saveResult.error || saveResult.message);
-          showError('Warning: ' + (saveResult.error || saveResult.message));
-          // Continue with workflow update even if business table save fails
+          // Don't show error toast here, let the calling component handle it
+          throw new Error(saveResult.error || saveResult.message || 'Failed to save step data');
         }
       }
 
@@ -203,7 +202,7 @@ export const useStabilizedOnboardingWorkflow = ({
       console.error('Error updating step:', error);
       throw error;
     }
-  }, [workflow?.id, steps, tenantId, showError]);
+  }, [workflow?.id, steps, tenantId]);
 
   const normalizeStepName = useCallback((stepName: string) => {
     return stepName.toLowerCase().replace(/[^a-z0-9]/g, '-');

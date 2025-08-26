@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw, Check, Clock, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useStabilizedOnboardingWorkflow } from '@/hooks/useStabilizedOnboardingWorkflow';
@@ -30,16 +29,7 @@ interface StepComponentProps {
   totalSteps: number;
 }
 
-interface OnboardingStep {
-  id: string;
-  workflow_id: string;
-  step_number: number;
-  step_name: string;
-  step_status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
-  step_data: any;
-}
-
-// Simple step component mapping
+// Step component mapping
 const STEP_COMPONENTS: { [key: string]: React.ComponentType<StepComponentProps> } = {
   'company-profile': CompanyProfileStep,
   'enhanced-branding': EnhancedBrandingStep,
@@ -47,31 +37,9 @@ const STEP_COMPONENTS: { [key: string]: React.ComponentType<StepComponentProps> 
   'review-go-live': ReviewGoLiveStep,
 };
 
-// Get step component with fallback
 const getStepComponent = (stepName: string): React.ComponentType<StepComponentProps> => {
   const normalizedName = stepName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-  
-  // Direct match
-  if (STEP_COMPONENTS[normalizedName]) {
-    return STEP_COMPONENTS[normalizedName];
-  }
-  
-  // Pattern matching for common variations
-  if (normalizedName.includes('company') || normalizedName.includes('profile')) {
-    return CompanyProfileStep;
-  }
-  if (normalizedName.includes('brand') || normalizedName.includes('design')) {
-    return EnhancedBrandingStep;
-  }
-  if (normalizedName.includes('domain') || normalizedName.includes('whitelabel')) {
-    return DomainWhitelabelStep;
-  }
-  if (normalizedName.includes('review') || normalizedName.includes('launch') || normalizedName.includes('live')) {
-    return ReviewGoLiveStep;
-  }
-  
-  // Default fallback
-  return CompanyProfileStep;
+  return STEP_COMPONENTS[normalizedName] || CompanyProfileStep;
 };
 
 export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnboardingWizardProps> = ({
@@ -93,12 +61,17 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
   const [isLoading, setIsLoading] = useState(false);
   const { showSuccess, showError } = useNotifications();
 
+  // Only set initial step once when steps load, don't auto-navigate
   useEffect(() => {
-    if (steps && steps.length > 0) {
-      const firstPendingStep = steps.findIndex(step => step.step_status === 'pending');
-      setCurrentStepIndex(firstPendingStep >= 0 ? firstPendingStep : 0);
+    if (steps && steps.length > 0 && currentStepIndex === 0) {
+      const firstPendingStep = steps.findIndex(step => 
+        step.step_status === 'pending' || step.step_status === 'in_progress'
+      );
+      if (firstPendingStep >= 0) {
+        setCurrentStepIndex(firstPendingStep);
+      }
     }
-  }, [steps]);
+  }, [steps]); // Removed currentStepIndex dependency to prevent auto-navigation
 
   const handleStepComplete = async (stepData: any) => {
     if (!workflow || !tenantId) {
@@ -115,7 +88,6 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     try {
       setIsLoading(true);
       
-      // Update step status
       await updateStepStatus(
         currentStep.step_number,
         'completed',
@@ -128,14 +100,8 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
 
       showSuccess(`${currentStep.step_name} completed successfully!`);
       
-      // Move to next step
-      if (currentStepIndex < steps.length - 1) {
-        setCurrentStepIndex(currentStepIndex + 1);
-      } else {
-        showSuccess('Onboarding completed successfully!');
-        setTimeout(() => onClose(), 2000);
-      }
-
+      // Don't auto-navigate to next step - let user control navigation
+      
     } catch (error: any) {
       console.error('Error completing step:', error);
       showError(`Failed to complete step: ${error.message}`);
@@ -145,10 +111,16 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
   };
 
   const handleStepSave = async (stepData: any) => {
-    if (!workflow || !tenantId) return;
+    if (!workflow || !tenantId) {
+      showError('Missing workflow or tenant information');
+      return;
+    }
 
     const currentStep = steps[currentStepIndex];
-    if (!currentStep) return;
+    if (!currentStep) {
+      showError('Current step not found');
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -159,7 +131,7 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
         {
           ...stepData,
           saved_at: new Date().toISOString(),
-          auto_saved: true
+          auto_saved: false // Explicitly mark as manual save
         }
       );
 
@@ -170,6 +142,18 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
       showError(`Failed to save progress: ${error.message}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleNextStep = () => {
+    if (currentStepIndex < steps.length - 1) {
+      setCurrentStepIndex(currentStepIndex + 1);
+    }
+  };
+
+  const handlePreviousStep = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
     }
   };
 
@@ -219,15 +203,19 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
   const getStepIcon = (status: string) => {
     switch (status) {
       case 'completed': return <Check className="w-4 h-4 text-green-600" />;
-      case 'in_progress': return <Clock className="w-4 h-4 text-blue-600 animate-pulse" />;
+      case 'in_progress': return <Clock className="w-4 h-4 text-blue-600" />;
       default: return <div className="w-4 h-4 rounded-full border-2 border-muted-foreground" />;
     }
   };
 
   const canNavigateToStep = (stepIndex: number) => {
     if (stepIndex === 0) return true;
-    return steps[stepIndex - 1]?.step_status === 'completed';
+    // Allow navigation to completed steps and the next immediate step
+    const previousStep = steps[stepIndex - 1];
+    return previousStep?.step_status === 'completed' || stepIndex <= currentStepIndex;
   };
+
+  if (!isOpen) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -328,7 +316,7 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
               <div className="flex justify-between">
                 <Button
                   variant="outline"
-                  onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))}
+                  onClick={handlePreviousStep}
                   disabled={currentStepIndex === 0 || isLoading}
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
@@ -339,10 +327,10 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
                   {currentStepIndex < (steps?.length || 0) - 1 ? (
                     <Button
                       variant="outline"
-                      onClick={() => setCurrentStepIndex(Math.min((steps?.length || 0) - 1, currentStepIndex + 1))}
+                      onClick={handleNextStep}
                       disabled={isLoading}
                     >
-                      Skip for Now
+                      Next Step
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   ) : (
