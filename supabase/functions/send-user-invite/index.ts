@@ -48,8 +48,16 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Missing required fields: tenantId, email, firstName, role');
     }
 
-    // Get current user ID for created_by field
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get current user for authentication check
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      throw new Error('Authentication required');
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+    
     if (authError || !user) {
       console.error('Authentication check failed:', authError);
       throw new Error('Authentication required to send invitations');
@@ -60,25 +68,24 @@ const handler = async (req: Request): Promise<Response> => {
     // Generate invitation token
     const invitationToken = crypto.randomUUID();
 
-    // Create invitation record using the correct table schema
+    // Create invitation record using only the columns that exist in the table
+    // Store additional data in metadata field
     const { data: invitation, error: inviteError } = await supabase
       .from('user_invitations')
       .insert({
         tenant_id: tenantId,
         email: email.toLowerCase().trim(),
-        first_name: firstName,
-        last_name: lastName || '',
-        inviter_name: inviterName,
-        created_by: user.id,
-        tenant_name: tenantName,
-        role,
         invitation_type: 'onboarding',
         status: 'pending',
         invitation_token: invitationToken,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
         metadata: {
-          tenantName,
-          inviterName
+          first_name: firstName,
+          last_name: lastName || '',
+          role: role,
+          tenant_name: tenantName,
+          inviter_name: inviterName,
+          created_by: user.id
         }
       })
       .select()
