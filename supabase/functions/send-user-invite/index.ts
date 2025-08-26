@@ -210,7 +210,7 @@ const handler = async (req: Request): Promise<Response> => {
       tenant_id: tenantId,
       email: email.toLowerCase().trim(),
       created_by: user.id,
-      invitation_type: 'onboarding',
+      invitation_type: 'admin_invite', // Changed from 'onboarding' to valid value
       status: 'pending',
       invitation_token: invitationToken,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
