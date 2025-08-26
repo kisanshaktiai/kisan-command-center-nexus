@@ -30,6 +30,17 @@ export interface SendInvitationRequest {
   inviterName?: string;
 }
 
+export interface SendInvitationResponse {
+  success: boolean;
+  invitation_id?: string;
+  email_id?: string;
+  message?: string;
+  warning?: string;
+  error?: string;
+  details?: string;
+  code?: string;
+}
+
 export class InvitationService {
   static async validateInvitationToken(token: string): Promise<ValidateInvitationResponse> {
     try {
@@ -57,21 +68,58 @@ export class InvitationService {
     }
   }
 
-  static async sendUserInvite(request: SendInvitationRequest) {
+  static async sendUserInvite(request: SendInvitationRequest): Promise<SendInvitationResponse> {
     try {
+      console.log('InvitationService: Sending invite with request:', {
+        tenantId: request.tenantId,
+        email: request.email,
+        role: request.role,
+        firstName: request.firstName
+      });
+
       const { data, error } = await supabase.functions.invoke('send-user-invite', {
         body: request
       });
 
+      console.log('InvitationService: Edge function response:', { data, error });
+
       if (error) {
-        console.error('Error sending user invite:', error);
-        throw new Error(error.message);
+        console.error('InvitationService: Edge function error:', error);
+        
+        // Handle different types of errors
+        let errorMessage = 'Failed to send invitation';
+        
+        if (error.message) {
+          errorMessage = error.message;
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        }
+
+        throw new Error(errorMessage);
       }
 
+      if (!data) {
+        throw new Error('No response data received from invitation service');
+      }
+
+      if (!data.success) {
+        console.error('InvitationService: Invitation failed:', data);
+        throw new Error(data.error || 'Unknown error occurred while sending invitation');
+      }
+
+      console.log('InvitationService: Invitation sent successfully:', data);
       return data;
+
     } catch (error) {
-      console.error('Failed to send user invite:', error);
-      throw error;
+      console.error('InvitationService: Failed to send user invite:', error);
+      
+      // Return a structured error response
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      return {
+        success: false,
+        error: errorMessage
+      };
     }
   }
 

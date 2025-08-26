@@ -1,4 +1,4 @@
-// --- unchanged imports ---
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@2.0.0";
@@ -24,12 +24,45 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    console.log('=== send-user-invite function started ===');
+    
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    const siteUrl = Deno.env.get('SITE_URL');
 
-    const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+    console.log('Environment check:', {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasServiceKey: !!supabaseServiceKey,
+      hasResendKey: !!resendApiKey,
+      hasSiteUrl: !!siteUrl
+    });
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Parse request body
+    let requestBody: InviteUserRequest;
+    try {
+      requestBody = await req.json();
+      console.log('Parsed request body:', {
+        tenantId: requestBody.tenantId,
+        email: requestBody.email,
+        role: requestBody.role,
+        firstName: requestBody.firstName,
+        lastName: requestBody.lastName
+      });
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid request body' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
 
     const {
       tenantId,
@@ -39,100 +72,290 @@ const handler = async (req: Request): Promise<Response> => {
       role,
       tenantName = 'KisanShakti Platform',
       inviterName = 'Admin'
-    }: InviteUserRequest = await req.json();
+    } = requestBody;
 
-    console.log('Processing user invitation:', { tenantId, email, role, firstName, lastName });
-
+    // Validate required fields
     if (!tenantId || !email || !firstName || !role) {
-      throw new Error('Missing required fields: tenantId, email, firstName, role');
+      const missingFields = [];
+      if (!tenantId) missingFields.push('tenantId');
+      if (!email) missingFields.push('email');
+      if (!firstName) missingFields.push('firstName');
+      if (!role) missingFields.push('role');
+      
+      console.error('Missing required fields:', missingFields);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Missing required fields: ${missingFields.join(', ')}` 
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
     }
 
-    // Get current user ID
+    // Get current user for created_by field
+    console.log('Getting authenticated user...');
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      console.error('Authentication check failed:', authError);
-      throw new Error('Authentication required to send invitations');
+    
+    if (authError) {
+      console.error('Authentication error:', authError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Authentication failed: ' + authError.message 
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
     }
 
-    console.log('Authenticated user:', user.id, user.email);
+    if (!user) {
+      console.error('No authenticated user found');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Authentication required to send invitations' 
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
 
-    const invitationToken = crypto.randomUUID();
+    console.log('Authenticated user:', { id: user.id, email: user.email });
 
-    // ✅ FIXED: use actual table columns, not just metadata
-    const { data: invitation, error: inviteError } = await supabase
+    // Verify tenant exists
+    console.log('Verifying tenant exists...');
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .select('id, name')
+      .eq('id', tenantId)
+      .single();
+
+    if (tenantError) {
+      console.error('Tenant verification error:', tenantError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Tenant not found: ' + tenantError.message 
+        }),
+        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    console.log('Tenant verified:', { id: tenant.id, name: tenant.name });
+
+    // Check for existing invitation
+    console.log('Checking for existing invitations...');
+    const { data: existingInvites, error: checkError } = await supabase
       .from('user_invitations')
-      .insert({
-        tenant_id: tenantId,
-        email: email.toLowerCase().trim(),
-        created_by: user.id,
-        invitation_type: 'onboarding',
-        status: 'pending',
-        invitation_token: invitationToken,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      .select('id, email, status')
+      .eq('tenant_id', tenantId)
+      .eq('email', email.toLowerCase().trim())
+      .in('status', ['pending', 'sent']);
+
+    if (checkError) {
+      console.error('Error checking existing invitations:', checkError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Failed to check existing invitations: ' + checkError.message 
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    if (existingInvites && existingInvites.length > 0) {
+      console.log('Found existing invitation:', existingInvites[0]);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'An active invitation for this email already exists' 
+        }),
+        { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // Generate invitation token
+    const invitationToken = crypto.randomUUID();
+    console.log('Generated invitation token:', invitationToken.substring(0, 8) + '...');
+
+    // Prepare invitation data according to the actual schema
+    const invitationData = {
+      tenant_id: tenantId,
+      email: email.toLowerCase().trim(),
+      created_by: user.id,
+      invitation_type: 'onboarding',
+      status: 'pending',
+      invitation_token: invitationToken,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      metadata: {
         first_name: firstName,
         last_name: lastName || '',
         role,
         tenant_name: tenantName,
-        inviter_name: inviterName
-      })
+        inviter_name: inviterName,
+        invitation_source: 'onboarding_step'
+      }
+    };
+
+    console.log('Inserting invitation with data:', {
+      tenant_id: invitationData.tenant_id,
+      email: invitationData.email,
+      created_by: invitationData.created_by,
+      invitation_type: invitationData.invitation_type,
+      status: invitationData.status,
+      metadata_keys: Object.keys(invitationData.metadata)
+    });
+
+    // Insert invitation record
+    const { data: invitation, error: inviteError } = await supabase
+      .from('user_invitations')
+      .insert(invitationData)
       .select()
       .single();
 
     if (inviteError) {
-      console.error('Error creating invitation:', inviteError);
+      console.error('Database insertion error:', {
+        message: inviteError.message,
+        details: inviteError.details,
+        hint: inviteError.hint,
+        code: inviteError.code
+      });
+      
       return new Response(
-        JSON.stringify({ success: false, error: inviteError.message }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        JSON.stringify({ 
+          success: false, 
+          error: `Failed to create invitation: ${inviteError.message}`,
+          details: inviteError.details,
+          code: inviteError.code
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    console.log('Invitation created successfully:', invitation.id);
+    console.log('Invitation created successfully:', { id: invitation.id });
 
-    const inviteUrl = `${Deno.env.get('SITE_URL')}/auth?invite=${invitationToken}`;
+    // Send email if Resend is configured
+    if (resendApiKey && siteUrl) {
+      try {
+        const resend = new Resend(resendApiKey);
+        const inviteUrl = `${siteUrl}/auth?invite=${invitationToken}`;
 
-    const emailResponse = await resend.emails.send({
-      from: "KisanShakti <admin@kisanshaktiai.in>",
-      to: [email],
-      subject: `You're invited to join ${tenantName}`,
-      html: `...your full email template stays unchanged...`
-    });
+        console.log('Sending email invitation...');
+        const emailResponse = await resend.emails.send({
+          from: "KisanShakti <admin@kisanshaktiai.in>",
+          to: [email],
+          subject: `You're invited to join ${tenantName}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>You're invited to join ${tenantName}!</h2>
+              <p>Hello ${firstName},</p>
+              <p>${inviterName} has invited you to join ${tenantName} as a ${role}.</p>
+              <p>Click the link below to accept your invitation:</p>
+              <a href="${inviteUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">
+                Accept Invitation
+              </a>
+              <p>This invitation will expire in 7 days.</p>
+              <p>If you have any questions, please contact your administrator.</p>
+              <hr>
+              <p style="color: #666; font-size: 12px;">This invitation was sent from KisanShakti Platform.</p>
+            </div>
+          `
+        });
 
-    if (emailResponse.error) {
-      console.error('Error sending email:', emailResponse.error);
-      await supabase
-        .from('user_invitations')
-        .update({ 
-          status: 'failed',
-          metadata: { emailError: emailResponse.error.message }
-        })
-        .eq('id', invitation.id);
+        if (emailResponse.error) {
+          console.error('Email sending error:', emailResponse.error);
+          
+          // Update invitation status to failed
+          await supabase
+            .from('user_invitations')
+            .update({ 
+              status: 'failed',
+              metadata: { 
+                ...invitationData.metadata,
+                email_error: emailResponse.error.message 
+              }
+            })
+            .eq('id', invitation.id);
 
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: `Invitation created but email failed: ${emailResponse.error.message}` 
+            }),
+            { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+          );
+        }
+
+        console.log('Email sent successfully:', emailResponse.data?.id);
+
+        // Update invitation status to sent
+        await supabase
+          .from('user_invitations')
+          .update({ 
+            status: 'sent', 
+            sent_at: new Date().toISOString() 
+          })
+          .eq('id', invitation.id);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            invitation_id: invitation.id,
+            email_id: emailResponse.data?.id,
+            message: 'Invitation sent successfully'
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+
+      } catch (emailError) {
+        console.error('Email service error:', emailError);
+        
+        // Update invitation status but don't fail the request
+        await supabase
+          .from('user_invitations')
+          .update({ 
+            status: 'failed',
+            metadata: { 
+              ...invitationData.metadata,
+              email_error: emailError instanceof Error ? emailError.message : 'Unknown email error'
+            }
+          })
+          .eq('id', invitation.id);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            invitation_id: invitation.id,
+            message: 'Invitation created but email sending failed',
+            warning: 'Email could not be sent'
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+    } else {
+      console.log('Email not configured, invitation created without sending email');
+      
       return new Response(
-        JSON.stringify({ success: false, error: emailResponse.error.message }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        JSON.stringify({
+          success: true,
+          invitation_id: invitation.id,
+          message: 'Invitation created successfully (email not configured)'
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
-
-    await supabase
-      .from('user_invitations')
-      .update({ status: 'sent', sent_at: new Date().toISOString() })
-      .eq('id', invitation.id);
-
-    console.log('User invitation sent successfully:', emailResponse.data?.id);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        invitation_id: invitation.id,
-        email_id: emailResponse.data?.id
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-    );
 
   } catch (error: any) {
-    console.error('Error in send-user-invite function:', error);
+    console.error('Unexpected error in send-user-invite function:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ 
+        success: false, 
+        error: `Unexpected error: ${error.message}`,
+        timestamp: new Date().toISOString()
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
