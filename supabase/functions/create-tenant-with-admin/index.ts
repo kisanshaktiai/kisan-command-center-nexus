@@ -45,7 +45,6 @@ serve(async (req) => {
   try {
     const requestId = req.headers.get('x-request-id') || `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const correlationId = req.headers.get('x-correlation-id') || `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const idempotencyKey = req.headers.get('idempotency-key');
 
     console.log(`[${requestId}] Creating tenant with admin user`);
 
@@ -76,8 +75,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: false, 
           error: 'Authentication required - Invalid token',
-          code: 'INVALID_TOKEN',
-          details: userError?.message
+          code: 'INVALID_TOKEN'
         }),
         { 
           status: 401, 
@@ -113,14 +111,55 @@ serve(async (req) => {
 
     const requestBody: CreateTenantRequest = await req.json();
 
-    // Validate required fields
-    if (!requestBody.name || !requestBody.slug || !requestBody.owner_email || !requestBody.owner_name) {
-      console.error(`[${requestId}] Missing required fields`);
+    // Enhanced validation for required fields
+    const requiredFields = ['name', 'slug', 'owner_email', 'owner_name'];
+    const missingFields = requiredFields.filter(field => !requestBody[field] || !requestBody[field].toString().trim());
+    
+    if (missingFields.length > 0) {
+      console.error(`[${requestId}] Missing required fields: ${missingFields.join(', ')}`);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Missing required fields: name, slug, owner_email, owner_name',
-          code: 'MISSING_FIELDS'
+          error: `Missing required fields: ${missingFields.join(', ')}`,
+          code: 'MISSING_FIELDS',
+          missing_fields: missingFields
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(requestBody.owner_email)) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid email format',
+          code: 'INVALID_EMAIL'
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Check if slug is available
+    const { data: existingTenant } = await supabase
+      .from('tenants')
+      .select('id')
+      .eq('slug', requestBody.slug)
+      .single();
+
+    if (existingTenant) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Slug already exists',
+          code: 'SLUG_EXISTS'
         }),
         { 
           status: 400, 
@@ -131,19 +170,19 @@ serve(async (req) => {
 
     console.log(`[${requestId}] Creating tenant: ${requestBody.name} with slug: ${requestBody.slug}`);
 
-    // Step 1: Create the tenant with proper created_by and updated_by fields
+    // Step 1: Create the tenant with proper created_by field
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .insert({
-        name: requestBody.name,
-        slug: requestBody.slug,
+        name: requestBody.name.trim(),
+        slug: requestBody.slug.trim(),
         type: requestBody.type || 'agri_company',
         status: requestBody.status || 'trial',
         subscription_plan: requestBody.subscription_plan || 'Kisan_Basic',
-        owner_email: requestBody.owner_email,
-        owner_name: requestBody.owner_name,
-        owner_phone: requestBody.owner_phone,
-        business_registration: requestBody.business_registration,
+        owner_email: requestBody.owner_email.trim(),
+        owner_name: requestBody.owner_name.trim(),
+        owner_phone: requestBody.owner_phone?.trim(),
+        business_registration: requestBody.business_registration?.trim(),
         business_address: requestBody.business_address,
         established_date: requestBody.established_date,
         subscription_start_date: requestBody.subscription_start_date,
@@ -154,15 +193,15 @@ serve(async (req) => {
         max_products: requestBody.max_products || 100,
         max_storage_gb: requestBody.max_storage_gb || 10,
         max_api_calls_per_day: requestBody.max_api_calls_per_day || 10000,
-        subdomain: requestBody.subdomain,
-        custom_domain: requestBody.custom_domain,
-        created_by: user.id, // Fix: Set created_by to authenticated user's ID
-        updated_by: user.id, // Fix: Set updated_by for consistency
+        subdomain: requestBody.subdomain?.trim(),
+        custom_domain: requestBody.custom_domain?.trim(),
+        created_by: user.id, // Critical: Set created_by to authenticated user's ID
+        updated_by: user.id,
         metadata: {
           ...requestBody.metadata,
           created_via: 'admin_portal',
           correlation_id: correlationId,
-          idempotency_key: idempotencyKey
+          created_by_email: user.email
         }
       })
       .select()
@@ -189,11 +228,11 @@ serve(async (req) => {
     // Step 2: Create admin user account
     const randomPassword = Math.random().toString(36).slice(-12) + '!A1';
     const { data: adminUserData, error: adminUserError } = await supabase.auth.admin.createUser({
-      email: requestBody.owner_email,
+      email: requestBody.owner_email.trim(),
       password: randomPassword,
       email_confirm: true,
       user_metadata: {
-        full_name: requestBody.owner_name,
+        full_name: requestBody.owner_name.trim(),
         tenant_id: tenant.id,
         role: 'tenant_admin',
         created_via: 'tenant_creation',
@@ -223,9 +262,10 @@ serve(async (req) => {
 
     console.log(`[${requestId}] Admin user created: ${adminUserData.user.id}`);
 
-    // Step 3: Call manage-user-tenant function to create the relationship
-    const { data: relationshipData, error: relationshipError } = await supabase.functions.invoke('manage-user-tenant', {
-      body: {
+    // Step 3: Create user-tenant relationship directly without calling external function
+    const { data: relationship, error: relationshipError } = await supabase
+      .from('user_tenants')
+      .insert({
         user_id: adminUserData.user.id,
         tenant_id: tenant.id,
         role: 'tenant_admin',
@@ -236,17 +276,12 @@ serve(async (req) => {
           created_by: user.id,
           correlation_id: correlationId,
           created_at: new Date().toISOString()
-        },
-        operation: 'insert'
-      },
-      headers: {
-        'x-request-id': requestId,
-        'x-correlation-id': correlationId,
-        'authorization': req.headers.get('authorization') || ''
-      }
-    });
+        }
+      })
+      .select()
+      .single();
 
-    if (relationshipError || !relationshipData?.success) {
+    if (relationshipError) {
       console.error(`[${requestId}] Error creating user-tenant relationship:`, relationshipError);
       
       // Rollback - delete tenant and user
@@ -256,9 +291,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Failed to create user-tenant relationship: ${relationshipError?.message || relationshipData?.error}`,
+          error: `Failed to create user-tenant relationship: ${relationshipError.message}`,
           code: 'USER_TENANT_RELATIONSHIP_ERROR',
-          details: relationshipError || relationshipData
+          details: relationshipError
         }),
         { 
           status: 500, 
@@ -267,7 +302,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] User-tenant relationship created successfully`);
+    console.log(`[${requestId}] User-tenant relationship created successfully: ${relationship.id}`);
 
     // Step 4: Send welcome email (optional - placeholder for future implementation)
     let emailSent = false;
@@ -283,7 +318,7 @@ serve(async (req) => {
       success: true,
       tenant_id: tenant.id,
       admin_user_id: adminUserData.user.id,
-      relationship_id: relationshipData.relationship_id,
+      relationship_id: relationship.id,
       tenant_name: tenant.name,
       admin_email: requestBody.owner_email,
       emailSent,
