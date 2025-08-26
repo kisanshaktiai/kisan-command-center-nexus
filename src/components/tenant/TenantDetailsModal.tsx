@@ -1,15 +1,13 @@
 
 import React from 'react';
-import { Tenant } from '@/types/tenant';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
-import { UserManagementSection } from './UserManagementSection';
-import { TenantBasicInfo } from './TenantBasicInfo';
-import { TenantOwnerInfo } from './TenantOwnerInfo';
-import { TenantSubscriptionInfo } from './TenantSubscriptionInfo';
-import { ResourceMetrics } from './ResourceMetrics';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { TenantBillingTab } from './TenantBillingTab';
+import { Edit, ExternalLink, Calendar, Users, Building2 } from 'lucide-react';
+import type { Tenant } from '@/types/tenant';
 
 interface TenantDetailsModalProps {
   tenant: Tenant | null;
@@ -18,7 +16,7 @@ interface TenantDetailsModalProps {
   onEdit?: (tenant: Tenant) => void;
 }
 
-const TenantDetailsModalContent: React.FC<TenantDetailsModalProps> = ({
+export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
   tenant,
   isOpen,
   onClose,
@@ -26,72 +24,188 @@ const TenantDetailsModalContent: React.FC<TenantDetailsModalProps> = ({
 }) => {
   if (!tenant) return null;
 
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      active: 'default',
-      trial: 'secondary', 
-      suspended: 'destructive',
-      cancelled: 'outline',
-      archived: 'outline'
-    } as const;
-    
-    return <Badge variant={variants[status as keyof typeof variants] || 'outline'}>{status}</Badge>;
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-semibold">{tenant.name}</DialogTitle>
-            <div className="flex items-center gap-2">
-              {getStatusBadge(tenant.status)}
-              {onEdit && (
-                <Button variant="outline" size="sm" onClick={() => onEdit(tenant)}>
-                  Edit Tenant
-                </Button>
-              )}
-            </div>
-          </div>
+          <DialogTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            {tenant.name}
+          </DialogTitle>
+          <DialogDescription>
+            Comprehensive tenant information and management
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <TenantBasicInfo tenant={tenant} />
-          
-          <ErrorBoundary
-            context={{
-              component: 'UserManagementCard',
-              level: 'high',
-              metadata: { tenantId: tenant.id }
-            }}
-          >
-            <div className="bg-white border rounded-lg">
-              <div className="p-6">
-                <h3 className="text-base font-semibold mb-4">Admin User Management</h3>
-                <UserManagementSection tenant={tenant} />
-              </div>
-            </div>
-          </ErrorBoundary>
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
 
-          <TenantOwnerInfo tenant={tenant} />
-          <TenantSubscriptionInfo tenant={tenant} />
-          <ResourceMetrics tenant={tenant} />
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Basic Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Status:</span>
+                    <Badge variant={tenant.status === 'active' ? 'default' : 'secondary'}>
+                      {tenant.status}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Type:</span>
+                    <span className="text-sm">{tenant.type}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Slug:</span>
+                    <span className="text-sm font-mono">{tenant.slug}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Plan:</span>
+                    <Badge variant="outline">{tenant.subscription_plan}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Owner Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Name:</span>
+                    <span className="text-sm">{tenant.owner_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Email:</span>
+                    <span className="text-sm">{tenant.owner_email}</span>
+                  </div>
+                  {tenant.owner_phone && (
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium">Phone:</span>
+                      <span className="text-sm">{tenant.owner_phone}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Important Dates
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Created:</span>
+                    <span className="text-sm">
+                      {new Date(tenant.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {tenant.trial_ends_at && (
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium">Trial Ends:</span>
+                      <span className="text-sm">
+                        {new Date(tenant.trial_ends_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  {tenant.subscription_end_date && (
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium">Subscription Ends:</span>
+                      <span className="text-sm">
+                        {new Date(tenant.subscription_end_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Resource Limits</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>Farmers: {tenant.max_farmers || 'Unlimited'}</div>
+                    <div>Dealers: {tenant.max_dealers || 'Unlimited'}</div>
+                    <div>Products: {tenant.max_products || 'Unlimited'}</div>
+                    <div>Storage: {tenant.max_storage_gb || 'Unlimited'} GB</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="billing">
+            <TenantBillingTab tenant={tenant} />
+          </TabsContent>
+
+          <TabsContent value="users">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Tenant Users
+                </CardTitle>
+                <CardDescription>
+                  Manage users associated with this tenant
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  User management functionality coming soon...
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tenant Settings</CardTitle>
+                <CardDescription>
+                  Advanced configuration and management options
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  Advanced settings coming soon...
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        <div className="flex justify-between pt-4 border-t">
+          <div className="flex gap-2">
+            {tenant.subdomain && (
+              <Button variant="outline" size="sm">
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Visit Site
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+            {onEdit && (
+              <Button onClick={() => onEdit(tenant)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
-  );
-};
-
-export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = (props) => {
-  return (
-    <ErrorBoundary
-      context={{
-        component: 'TenantDetailsModal',
-        level: 'high',
-        metadata: { tenantId: props.tenant?.id }
-      }}
-    >
-      <TenantDetailsModalContent {...props} />
-    </ErrorBoundary>
   );
 };
