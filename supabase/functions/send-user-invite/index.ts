@@ -48,18 +48,26 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Missing required fields: tenantId, email, firstName, role');
     }
 
+    // Get current user ID for invited_by field
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error('Authentication check failed:', authError);
+      throw new Error('Authentication required to send invitations');
+    }
+
     // Generate invitation token
     const invitationToken = crypto.randomUUID();
 
-    // Create invitation record using the actual table schema with first_name, last_name, and invited_name
+    // Create invitation record using the actual table schema with first_name, last_name, invited_name, and invited_by
     const { data: invitation, error: inviteError } = await supabase
       .from('user_invitations')
       .insert({
         tenant_id: tenantId,
         email: email.toLowerCase().trim(),
-        first_name: firstName, // Use first_name field as it exists in the table
-        last_name: lastName || '', // Use last_name field as it exists in the table  
+        first_name: firstName,
+        last_name: lastName || '',
         invited_name: inviterName, // This is the admin user who sent the invite
+        invited_by: user.id, // Add the missing invited_by field
         role,
         invitation_type: 'onboarding',
         status: 'pending',
