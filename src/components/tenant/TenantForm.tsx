@@ -12,9 +12,13 @@ import { Building2, Users, Sprout, GraduationCap, Shield, Factory, Handshake, He
 import { useSlugValidation } from '@/hooks/useSlugValidation';
 import { useAdminEmailValidation } from '@/hooks/useAdminEmailValidation';
 
+interface TenantFormData extends CreateTenantDTO {
+  id?: string; // Add optional id for edit mode
+}
+
 interface TenantFormProps {
   mode: 'create' | 'edit';
-  initialData?: Partial<CreateTenantDTO>;
+  initialData?: Partial<TenantFormData>; // Use the extended type
   onSubmit: (data: CreateTenantDTO | UpdateTenantDTO) => Promise<boolean>;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -76,7 +80,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [currentTab, setCurrentTab] = useState('basic');
 
-  // Use existing validation hooks
+  // Use existing validation hooks - now with proper typing
   const { isValid: isSlugValid, isChecking: isSlugChecking, error: slugError } = useSlugValidation(
     formData.slug, 
     mode === 'edit' ? initialData?.id : undefined
