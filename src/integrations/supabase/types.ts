@@ -6417,6 +6417,7 @@ export type Database = {
           trial_ends_at: string | null
           type: Database["public"]["Enums"]["tenant_type"]
           updated_at: string | null
+          updated_by: string | null
         }
         Insert: {
           archived_at?: string | null
@@ -6455,6 +6456,7 @@ export type Database = {
           trial_ends_at?: string | null
           type: Database["public"]["Enums"]["tenant_type"]
           updated_at?: string | null
+          updated_by?: string | null
         }
         Update: {
           archived_at?: string | null
@@ -6493,6 +6495,7 @@ export type Database = {
           trial_ends_at?: string | null
           type?: Database["public"]["Enums"]["tenant_type"]
           updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: []
       }
