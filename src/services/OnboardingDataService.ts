@@ -8,12 +8,19 @@ export interface OnboardingStepData {
   workflowId?: string;
 }
 
+interface ServiceResponse {
+  success: boolean;
+  message: string;
+  data?: any;
+  error?: string;
+}
+
 export class OnboardingDataService {
   
   /**
    * Save company profile data to tenants table
    */
-  static async saveCompanyProfile(data: any, tenantId: string) {
+  static async saveCompanyProfile(data: any, tenantId: string): Promise<ServiceResponse> {
     try {
       const updateData = {
         name: data.companyName || data.name,
@@ -34,17 +41,17 @@ export class OnboardingDataService {
         .single();
 
       if (error) throw error;
-      return { success: true, data: result };
+      return { success: true, message: 'Company profile saved successfully', data: result };
     } catch (error: any) {
       console.error('Error saving company profile:', error);
-      return { success: false, error: error.message };
+      return { success: false, message: 'Failed to save company profile', error: error.message };
     }
   }
 
   /**
    * Save branding data to tenant_branding table
    */
-  static async saveBrandingData(data: any, tenantId: string) {
+  static async saveBrandingData(data: any, tenantId: string): Promise<ServiceResponse> {
     try {
       const brandingData = {
         tenant_id: tenantId,
@@ -72,17 +79,17 @@ export class OnboardingDataService {
         .single();
 
       if (error) throw error;
-      return { success: true, data: result };
+      return { success: true, message: 'Branding data saved successfully', data: result };
     } catch (error: any) {
       console.error('Error saving branding data:', error);
-      return { success: false, error: error.message };
+      return { success: false, message: 'Failed to save branding data', error: error.message };
     }
   }
 
   /**
    * Save domain and whitelabel configuration
    */
-  static async saveDomainWhitelabel(data: any, tenantId: string) {
+  static async saveDomainWhitelabel(data: any, tenantId: string): Promise<ServiceResponse> {
     try {
       const domainData = {
         tenant_id: tenantId,
@@ -117,17 +124,17 @@ export class OnboardingDataService {
         })
         .eq('id', tenantId);
 
-      return { success: true, data: result };
+      return { success: true, message: 'Domain configuration saved successfully', data: result };
     } catch (error: any) {
       console.error('Error saving domain configuration:', error);
-      return { success: false, error: error.message };
+      return { success: false, message: 'Failed to save domain configuration', error: error.message };
     }
   }
 
   /**
    * Complete review and go live step
    */
-  static async completeReviewGoLive(data: any, tenantId: string, workflowId?: string) {
+  static async completeReviewGoLive(data: any, tenantId: string, workflowId?: string): Promise<ServiceResponse> {
     try {
       if (data.approved) {
         const { error: tenantError } = await supabase
@@ -155,21 +162,21 @@ export class OnboardingDataService {
         }
       }
 
-      return { success: true };
+      return { success: true, message: 'Review and go-live completed successfully' };
     } catch (error: any) {
       console.error('Error completing review and go live:', error);
-      return { success: false, error: error.message };
+      return { success: false, message: 'Failed to complete review and go-live', error: error.message };
     }
   }
 
   /**
    * Generic step data saver that routes to specific handlers
    */
-  static async saveStepData({ stepName, stepData, tenantId, workflowId }: OnboardingStepData) {
+  static async saveStepData({ stepName, stepData, tenantId, workflowId }: OnboardingStepData): Promise<ServiceResponse> {
     console.log(`Saving data for step: ${stepName}`);
     
     try {
-      let result = { success: true, message: 'Step data saved' };
+      let result: ServiceResponse = { success: true, message: 'Step data saved successfully' };
       
       // Simple routing based on step name
       if (stepName.toLowerCase().includes('company') || stepName.toLowerCase().includes('profile')) {
@@ -183,14 +190,14 @@ export class OnboardingDataService {
       }
 
       // Always save to step_data as backup
-      if (workflowId) {
+      if (workflowId && result.success) {
         await this.updateStepData(workflowId, stepName, stepData);
       }
 
       return result;
     } catch (error: any) {
       console.error(`Error saving step data for ${stepName}:`, error);
-      return { success: false, error: error.message };
+      return { success: false, message: `Failed to save step data for ${stepName}`, error: error.message };
     }
   }
 

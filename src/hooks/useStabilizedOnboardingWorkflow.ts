@@ -170,7 +170,8 @@ export const useStabilizedOnboardingWorkflow = ({
         });
 
         if (!saveResult.success) {
-          console.warn('Failed to save to business tables:', saveResult.error);
+          console.warn('Failed to save to business tables:', saveResult.error || saveResult.message);
+          showError('Warning: ' + (saveResult.error || saveResult.message));
           // Continue with workflow update even if business table save fails
         }
       }
@@ -202,7 +203,7 @@ export const useStabilizedOnboardingWorkflow = ({
       console.error('Error updating step:', error);
       throw error;
     }
-  }, [workflow?.id, steps, tenantId]);
+  }, [workflow?.id, steps, tenantId, showError]);
 
   const normalizeStepName = useCallback((stepName: string) => {
     return stepName.toLowerCase().replace(/[^a-z0-9]/g, '-');
