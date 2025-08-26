@@ -68,9 +68,9 @@ const handler = async (req: Request): Promise<Response> => {
         email: email.toLowerCase().trim(),
         first_name: firstName,
         last_name: lastName || '',
-        inviter_name: inviterName, // Correct column name for admin who sent invite
-        created_by: user.id, // Correct column name for user ID
-        tenant_name: tenantName, // Add tenant name to store
+        inviter_name: inviterName,
+        created_by: user.id,
+        tenant_name: tenantName,
         role,
         invitation_type: 'onboarding',
         status: 'pending',
