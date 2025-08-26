@@ -51,13 +51,16 @@ const handler = async (req: Request): Promise<Response> => {
     // Generate invitation token
     const invitationToken = crypto.randomUUID();
 
-    // Create invitation record - using the correct field names from the new schema
+    // Combine first and last name for invited_name field
+    const invitedName = `${firstName} ${lastName}`.trim();
+
+    // Create invitation record - using the correct field names from our actual schema
     const { data: invitation, error: inviteError } = await supabase
       .from('user_invitations')
       .insert({
         tenant_id: tenantId,
         email: email.toLowerCase().trim(),
-        invited_name: `${firstName} ${lastName}`.trim(),
+        invited_name: invitedName, // Use invited_name instead of separate first/last name fields
         role,
         invitation_type: 'onboarding',
         status: 'pending',

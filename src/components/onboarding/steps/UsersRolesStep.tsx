@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -137,7 +136,7 @@ export const UsersRolesStep: React.FC<UsersRolesStepProps> = ({
         if (invite.status === 'pending') {
           console.log('Sending invitation for:', invite);
           
-          // Call edge function to send invitation with proper data structure
+          // Call edge function with correct data structure matching our schema
           const { data: response, error } = await supabase.functions.invoke('send-user-invite', {
             body: {
               tenantId,
@@ -146,7 +145,7 @@ export const UsersRolesStep: React.FC<UsersRolesStepProps> = ({
               lastName: invite.lastName,
               role: invite.role,
               tenantName,
-              inviterName: 'Admin' // You might want to get this from current user
+              inviterName: 'Admin'
             }
           });
 
