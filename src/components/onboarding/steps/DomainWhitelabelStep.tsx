@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Globe, Shield, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
+import { platformConfigService } from '@/services/platformConfig';
 
 interface DomainWhitelabelStepProps {
   tenantId: string;
@@ -37,6 +38,9 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showSuccess, showError } = useNotifications();
+
+  // Get platform configuration
+  const platformConfig = platformConfigService.getConfig();
 
   const validateDomain = async (domain: string) => {
     if (!domain) return;
@@ -174,7 +178,7 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
                 placeholder="yourcompany"
               />
               <span className="inline-flex items-center px-3 text-sm text-muted-foreground bg-muted border border-l-0 rounded-r-md">
-                .kisanshakti.com
+                .{platformConfig.baseDomain}
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -247,12 +251,12 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
                   <div className="flex justify-between items-center p-2 bg-background rounded">
                     <span>Type: CNAME</span>
                     <span>Name: {formData.customDomain}</span>
-                    <span>Value: proxy.kisanshakti.com</span>
+                    <span>Value: {platformConfig.proxyDomain}</span>
                   </div>
                   <div className="flex justify-between items-center p-2 bg-background rounded">
                     <span>Type: TXT</span>
                     <span>Name: _verification</span>
-                    <span>Value: kisanshakti-verify={tenantId}</span>
+                    <span>Value: {platformConfig.verificationPrefix}={tenantId}</span>
                   </div>
                 </div>
               </div>

@@ -205,22 +205,20 @@ const handler = async (req: Request): Promise<Response> => {
     const invitationToken = crypto.randomUUID();
     console.log('Generated invitation token:', invitationToken.substring(0, 8) + '...');
 
-    // Prepare invitation data with direct columns (NOT in metadata)
+    // Simplified invitation data with only essential fields first
     const invitationData = {
       tenant_id: tenantId,
       email: email.toLowerCase().trim(),
       created_by: user.id,
-      invitation_type: 'admin_invite', // Changed from 'onboarding' to valid value
+      invitation_type: 'admin_invite',
       status: 'pending',
       invitation_token: invitationToken,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      // These are direct columns in the user_invitations table
       first_name: firstName,
       last_name: lastName || '',
       role: role,
       tenant_name: tenantName,
       inviter_name: inviterName,
-      // Only put additional metadata in the metadata JSONB field
       metadata: {
         invitation_source: 'onboarding_step',
         created_from: 'tenant_onboarding',
@@ -228,7 +226,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     };
 
-    console.log('Inserting invitation with data structure:', {
+    console.log('Attempting to insert invitation with simplified data:', {
       tenant_id: invitationData.tenant_id,
       email: invitationData.email,
       created_by: invitationData.created_by,
@@ -236,10 +234,7 @@ const handler = async (req: Request): Promise<Response> => {
       status: invitationData.status,
       first_name: invitationData.first_name,
       last_name: invitationData.last_name,
-      role: invitationData.role,
-      tenant_name: invitationData.tenant_name,
-      inviter_name: invitationData.inviter_name,
-      metadata_keys: Object.keys(invitationData.metadata)
+      role: invitationData.role
     });
 
     // Insert invitation record using service client
@@ -250,11 +245,12 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (inviteError) {
-      console.error('Database insertion error:', {
+      console.error('Database insertion error details:', {
         message: inviteError.message,
         details: inviteError.details,
         hint: inviteError.hint,
-        code: inviteError.code
+        code: inviteError.code,
+        invitationData: invitationData
       });
       
       return new Response(
