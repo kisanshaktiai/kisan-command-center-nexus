@@ -105,21 +105,38 @@ const UserManagementContent: React.FC<UserManagementSectionProps> = ({ tenant })
   };
 
   const handleFixRelationship = async () => {
+    console.log('UserManagementSection: handleFixRelationship called with:', {
+      userInfo,
+      tenantId: tenant?.id,
+      tenantOwnerId: tenant?.owner_email
+    });
+
     if (!userInfo?.userId || !tenant?.id) {
+      console.error('UserManagementSection: Missing required data:', {
+        userId: userInfo?.userId,
+        tenantId: tenant?.id
+      });
       toast({
         title: "Error",
-        description: "Missing user ID or tenant ID",
+        description: "Missing user ID or tenant ID for relationship creation",
         variant: "destructive",
       });
       return;
     }
     
     try {
+      console.log('UserManagementSection: Calling ensureUserTenantRecord with:', {
+        userId: userInfo.userId,
+        tenantId: tenant.id
+      });
+
       const success = await ensureUserTenantRecord(userInfo.userId, tenant.id);
+      
       if (success) {
+        console.log('UserManagementSection: Successfully created relationship');
         toast({
           title: "Success",
-          description: "User-tenant relationship fixed successfully",
+          description: "User-tenant relationship created successfully",
           variant: "default",
         });
         // Delay the recheck to allow backend processing
@@ -127,12 +144,19 @@ const UserManagementContent: React.FC<UserManagementSectionProps> = ({ tenant })
           resetCheck();
           checkUser(tenant.owner_email, tenant.id);
         }, 2000);
+      } else {
+        console.error('UserManagementSection: Failed to create relationship - success was false');
+        toast({
+          title: "Error",
+          description: "Failed to create user-tenant relationship",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error('UserManagementSection: Error fixing relationship:', error);
+      console.error('UserManagementSection: Exception in handleFixRelationship:', error);
       toast({
         title: "Error",
-        description: "Failed to fix user-tenant relationship",
+        description: `Failed to create relationship: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     }
@@ -250,14 +274,12 @@ const UserManagementContent: React.FC<UserManagementSectionProps> = ({ tenant })
                   {isLoading ? (
                     <>
                       <Loader2 className="h-3 w-3 animate-spin mr-2" />
-                      Fixing Relationship...
+                      Creating Relationship...
                     </>
                   ) : (
                     <>
                       <Database className="h-3 w-3 mr-2" />
-                      {!tenantStatus.tenantRelationshipExists 
-                        ? 'Create User-Tenant Relationship' 
-                        : 'Fix Role Mismatch'}
+                      Create User-Tenant Relationship
                     </>
                   )}
                 </Button>

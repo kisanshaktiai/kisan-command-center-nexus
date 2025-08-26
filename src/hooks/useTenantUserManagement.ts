@@ -118,16 +118,21 @@ export const useTenantUserManagement = () => {
     userId: string,
     tenantId: string
   ): Promise<boolean> => {
+    console.log('useTenantUserManagement: ensureUserTenantRecord called with:', { userId, tenantId });
+    
     if (!userId || !tenantId) {
+      console.error('useTenantUserManagement: Missing userId or tenantId:', { userId, tenantId });
       showError('User ID and tenant ID are required');
       return false;
     }
     
     setIsFixingRelationship(true);
     try {
-      console.log('useTenantUserManagement: Ensuring user-tenant record for:', { userId, tenantId });
+      console.log('useTenantUserManagement: Calling UserTenantService.ensureUserTenantRecord');
       
       const result = await UserTenantService.ensureUserTenantRecord(userId, tenantId);
+      
+      console.log('useTenantUserManagement: UserTenantService result:', result);
       
       if (result.success) {
         console.log('useTenantUserManagement: Successfully ensured user-tenant record:', result);
@@ -139,7 +144,7 @@ export const useTenantUserManagement = () => {
         return false;
       }
     } catch (error) {
-      console.error('useTenantUserManagement: Failed to ensure user-tenant record:', error);
+      console.error('useTenantUserManagement: Exception in ensureUserTenantRecord:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create user-tenant relationship';
       showError(errorMessage);
       return false;
