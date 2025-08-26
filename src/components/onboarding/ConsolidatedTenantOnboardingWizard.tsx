@@ -1,18 +1,19 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Progress } from '@/components/ui/progress';
+
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, AlertCircle, ArrowLeft, ArrowRight, Sparkles, RefreshCw } from 'lucide-react';
-import { CompanyProfileStep } from './steps/CompanyProfileStep';
-import { EnhancedBrandingStep } from './steps/EnhancedBrandingStep';
-import { EnhancedUsersRolesStep } from './steps/EnhancedUsersRolesStep';
-import { BillingPlanStep } from './steps/BillingPlanStep';
-import { DomainWhitelabelStep } from './steps/DomainWhitelabelStep';
-import { ReviewGoLiveStep } from './steps/ReviewGoLiveStep';
-import { useSimpleTenantData } from '@/hooks/useSimpleTenantData';
+import { ArrowLeft, ArrowRight, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { useOnboardingWorkflow } from '@/hooks/useOnboardingWorkflow';
-import { OnboardingErrorBoundary } from './OnboardingErrorBoundary';
+import { useNotifications } from '@/hooks/useNotifications';
+
+// Import step-specific components
+import { BusinessVerificationStep } from './steps/BusinessVerificationStep';
+import { TeamSetupStep } from './steps/TeamSetupStep';
+import { DomainSetupStep } from './steps/DomainSetupStep';
+import { WhiteLabelSetupStep } from './steps/WhiteLabelSetupStep';
+import { ReviewStep } from './steps/ReviewStep';
 
 interface ConsolidatedTenantOnboardingWizardProps {
   isOpen: boolean;
@@ -21,228 +22,30 @@ interface ConsolidatedTenantOnboardingWizardProps {
   workflowId?: string;
 }
 
-// Updated to use database step names as keys
-const STEP_COMPONENTS: Record<string, React.ComponentType<any>> = {
-  // Database step names (normalized)
-  'company_profile': CompanyProfileStep,
-  'company-profile': CompanyProfileStep,
-  'branding': EnhancedBrandingStep,
-  'branding_design': EnhancedBrandingStep,
-  'branding-design': EnhancedBrandingStep,
-  'enhanced_branding': EnhancedBrandingStep,
-  'enhanced-branding': EnhancedBrandingStep,
-  'team_permissions': EnhancedUsersRolesStep,
-  'team-permissions': EnhancedUsersRolesStep,
-  'users_roles': EnhancedUsersRolesStep,
-  'users-roles': EnhancedUsersRolesStep,
-  'enhanced_users_roles': EnhancedUsersRolesStep,
-  'enhanced-users-roles': EnhancedUsersRolesStep,
-  'billing_plan': BillingPlanStep,
-  'billing-plan': BillingPlanStep,
-  'billing': BillingPlanStep,
-  'domain_whitelabel': DomainWhitelabelStep,
-  'domain-whitelabel': DomainWhitelabelStep,
-  'domain_branding': DomainWhitelabelStep,
-  'domain-branding': DomainWhitelabelStep,
-  'review_launch': ReviewGoLiveStep,
-  'review-launch': ReviewGoLiveStep,
-  'review_go_live': ReviewGoLiveStep,
-  'review-go-live': ReviewGoLiveStep,
-  
-  // Display names (for backward compatibility)
-  'Company Profile': CompanyProfileStep,
-  'Branding & Design': EnhancedBrandingStep,
-  'Enhanced Branding': EnhancedBrandingStep,
-  'Team & Permissions': EnhancedUsersRolesStep,
-  'Enhanced Users & Roles': EnhancedUsersRolesStep,
-  'Billing & Plan': BillingPlanStep,
-  'Domain & White-label': DomainWhitelabelStep,
-  'Domain & Branding': DomainWhitelabelStep,
-  'Review & Launch': ReviewGoLiveStep,
-  'Review & Go Live': ReviewGoLiveStep
-};
-
-const normalizeStepName = (stepName: string): string => {
-  return stepName.toLowerCase().replace(/\s+/g, '-');
-};
-
-const safeGetProperty = (obj: any, path: string, defaultValue: any = undefined) => {
-  try {
-    if (!obj || typeof obj !== 'object') return defaultValue;
-    
-    const keys = path.split('.');
-    let current = obj;
-    
-    for (const key of keys) {
-      if (current && typeof current === 'object' && key in current) {
-        current = current[key];
-      } else {
-        return defaultValue;
-      }
-    }
-    
-    return current ?? defaultValue;
-  } catch (error) {
-    console.warn(`Error accessing property ${path}:`, error);
-    return defaultValue;
-  }
-};
-
 export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnboardingWizardProps> = ({
   isOpen,
   onClose,
   tenantId,
-  workflowId: initialWorkflowId
+  workflowId
 }) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [stepData, setStepData] = useState<Record<string, any>>({});
-
-  // Single source of truth for tenant data
-  const {
-    data: tenantInfo,
-    isLoading: tenantLoading,
-    error: tenantError
-  } = useSimpleTenantData({
+  const { workflow, steps, isLoading, error, updateStepStatus } = useOnboardingWorkflow({
     tenantId,
-    enabled: isOpen && !!tenantId
-  });
-
-  // Single source of truth for workflow data
-  const {
-    workflow,
-    steps,
-    isLoading: workflowLoading,
-    error: workflowError,
-    updateStepStatus,
-    retryInitialization
-  } = useOnboardingWorkflow({
-    tenantId,
-    workflowId: initialWorkflowId,
+    workflowId,
     autoCreate: true
   });
+  const { showSuccess, showError } = useNotifications();
 
-  const getStepComponent = useCallback((stepName: string) => {
-    console.log('🔍 Looking for component for step name:', stepName);
-    
-    // Try exact match first
-    let component = STEP_COMPONENTS[stepName];
-    if (component) {
-      console.log('✅ Found exact match for:', stepName);
-      return component;
-    }
+  // Calculate actual completion percentage based on completed steps
+  const completedSteps = steps.filter(step => step.step_status === 'completed');
+  const completionPercentage = steps.length > 0 ? Math.round((completedSteps.length / steps.length) * 100) : 0;
 
-    // Try normalized version
-    const normalized = normalizeStepName(stepName);
-    component = STEP_COMPONENTS[normalized];
-    if (component) {
-      console.log('✅ Found normalized match for:', stepName, '→', normalized);
-      return component;
-    }
+  const currentStep = steps[currentStepIndex];
+  const isCurrentStepCompleted = currentStep?.step_status === 'completed';
+  const canProceedToNext = currentStepIndex < steps.length - 1;
+  const canGoBack = currentStepIndex > 0;
 
-    // Try underscore version
-    const underscored = stepName.toLowerCase().replace(/\s+/g, '_');
-    component = STEP_COMPONENTS[underscored];
-    if (component) {
-      console.log('✅ Found underscore match for:', stepName, '→', underscored);
-      return component;
-    }
-
-    console.warn('❌ No component found for step:', stepName);
-    console.log('Available component keys:', Object.keys(STEP_COMPONENTS));
-    
-    // Fallback to CompanyProfileStep
-    return CompanyProfileStep;
-  }, []);
-
-  const transformedSteps = useMemo(() => {
-    console.log('🔄 Transforming steps:', steps);
-    
-    return steps.map((dbStep) => {
-      const stepData = dbStep.step_data || {};
-      const component = getStepComponent(dbStep.step_name);
-      
-      console.log('📋 Step:', dbStep.step_name, 'Component:', component?.name || 'undefined');
-      
-      return {
-        id: normalizeStepName(dbStep.step_name),
-        title: dbStep.step_name,
-        description: safeGetProperty(stepData, 'help_text', `Step ${dbStep.step_number} of the onboarding process`),
-        status: dbStep.step_status,
-        component,
-        isRequired: safeGetProperty(stepData, 'is_required', true),
-        estimatedTime: safeGetProperty(stepData, 'estimated_time', 15),
-        helpText: safeGetProperty(stepData, 'help_text'),
-        dbStepNumber: dbStep.step_number
-      };
-    });
-  }, [steps, getStepComponent]);
-
-  const currentProgress = useMemo(() => {
-    if (transformedSteps.length === 0) return 0;
-    const completedSteps = transformedSteps.filter(s => s.status === 'completed').length;
-    return Math.round((completedSteps / transformedSteps.length) * 100);
-  }, [transformedSteps]);
-
-  const totalEstimatedTime = useMemo(() => {
-    return transformedSteps.reduce((total, step) => total + step.estimatedTime, 0);
-  }, [transformedSteps]);
-
-  const remainingTime = useMemo(() => {
-    const remainingSteps = transformedSteps.slice(currentStepIndex).filter(s => s.status !== 'completed');
-    return remainingSteps.reduce((total, step) => total + step.estimatedTime, 0);
-  }, [transformedSteps, currentStepIndex]);
-
-  // Stable callbacks to prevent component re-renders
-  const handleStepComplete = useCallback(async (data: any) => {
-    const currentStep = transformedSteps[currentStepIndex];
-    if (!currentStep) return;
-
-    try {
-      await updateStepStatus(currentStep.dbStepNumber, 'completed', data);
-      
-      setTimeout(() => {
-        if (currentStepIndex < transformedSteps.length - 1) {
-          setCurrentStepIndex(currentStepIndex + 1);
-        }
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to complete step:', error);
-    }
-  }, [currentStepIndex, transformedSteps, updateStepStatus]);
-
-  const handleNextStep = useCallback(() => {
-    console.log('➡️ Next step clicked, current index:', currentStepIndex);
-    if (currentStepIndex < transformedSteps.length - 1) {
-      const newIndex = currentStepIndex + 1;
-      console.log('Moving to step index:', newIndex);
-      setCurrentStepIndex(newIndex);
-    }
-  }, [currentStepIndex, transformedSteps.length]);
-
-  const handlePreviousStep = useCallback(() => {
-    if (currentStepIndex > 0) {
-      setCurrentStepIndex(currentStepIndex - 1);
-    }
-  }, [currentStepIndex]);
-
-  const handleStepClick = useCallback((index: number) => {
-    const step = transformedSteps[index];
-    if (step && (step.status === 'completed' || Math.abs(index - currentStepIndex) <= 1)) {
-      setCurrentStepIndex(index);
-    }
-  }, [transformedSteps, currentStepIndex]);
-
-  const handleDataChange = useCallback((data: any) => {
-    const currentStep = transformedSteps[currentStepIndex];
-    if (currentStep) {
-      setStepData(prev => ({
-        ...prev,
-        [currentStep.id]: data
-      }));
-    }
-  }, [transformedSteps, currentStepIndex]);
-
-  const getStatusIcon = useCallback((status: string) => {
+  const getStepIcon = (status: string) => {
     switch (status) {
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
@@ -251,35 +54,100 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
       case 'failed':
         return <AlertCircle className="w-4 h-4 text-red-500" />;
       default:
-        return <div className="w-4 h-4 rounded-full border-2 border-gray-300" />;
+        return <Clock className="w-4 h-4 text-gray-400" />;
     }
-  }, []);
+  };
 
-  const isLoading = workflowLoading || tenantLoading;
-  const hasError = workflowError || tenantError;
-  const CurrentStepComponent = transformedSteps[currentStepIndex]?.component;
+  const getStepComponent = (step: any) => {
+    if (!step) return null;
 
-  // Add debugging for current step
-  console.log('🎯 Current step index:', currentStepIndex);
-  console.log('🎯 Current step:', transformedSteps[currentStepIndex]);
-  console.log('🎯 Current component:', CurrentStepComponent?.name);
+    const commonProps = {
+      stepData: step.step_data || {},
+      onComplete: handleStepComplete,
+      onNext: handleNextStep,
+      isCompleted: step.step_status === 'completed'
+    };
+
+    switch (step.step_name.toLowerCase()) {
+      case 'business verification':
+        return <BusinessVerificationStep {...commonProps} />;
+      case 'team setup':
+        return <TeamSetupStep {...commonProps} />;
+      case 'domain setup':
+        return <DomainSetupStep {...commonProps} />;
+      case 'white-label setup':
+      case 'white label setup':
+      case 'branding setup':
+        return <WhiteLabelSetupStep {...commonProps} />;
+      case 'review':
+      case 'review & launch':
+      case 'go-live testing':
+        return <ReviewStep {...commonProps} allStepsData={steps} />;
+      default:
+        return (
+          <div className="text-center py-8">
+            <h3 className="text-lg font-medium mb-2">{step.step_name}</h3>
+            <p className="text-muted-foreground mb-4">
+              {step.step_data?.description || 'This step is being configured.'}
+            </p>
+            <Button onClick={() => handleStepComplete({})}>
+              Mark as Complete
+            </Button>
+          </div>
+        );
+    }
+  };
+
+  const handleStepComplete = async (stepData: any) => {
+    if (!currentStep) return;
+
+    try {
+      await updateStepStatus(currentStep.step_number, 'completed', stepData);
+      showSuccess(`${currentStep.step_name} completed successfully`);
+    } catch (error) {
+      showError(`Failed to complete ${currentStep.step_name}`);
+    }
+  };
+
+  const handleNextStep = () => {
+    if (canProceedToNext) {
+      setCurrentStepIndex(prev => prev + 1);
+    }
+  };
+
+  const handlePreviousStep = () => {
+    if (canGoBack) {
+      setCurrentStepIndex(prev => prev - 1);
+    }
+  };
+
+  const handleStepClick = (stepIndex: number) => {
+    // Allow navigation to any step that's completed or is the next step in sequence
+    const targetStep = steps[stepIndex];
+    const isAccessible = targetStep.step_status === 'completed' || 
+                        stepIndex === 0 || 
+                        steps.slice(0, stepIndex).every(s => s.step_status === 'completed');
+    
+    if (isAccessible) {
+      setCurrentStepIndex(stepIndex);
+    }
+  };
+
+  const handleClose = () => {
+    if (completionPercentage === 100) {
+      showSuccess('Onboarding completed successfully! 🎉');
+    }
+    onClose();
+  };
 
   if (isLoading) {
     return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Loading Onboarding Wizard</DialogTitle>
-            <DialogDescription>
-              {tenantLoading ? 'Loading tenant information...' : 'Setting up your onboarding workflow...'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center space-y-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="text-sm text-muted-foreground">
-                {tenantLoading ? 'Fetching tenant data...' : 'Initializing workflow...'}
-              </p>
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <div className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p>Loading onboarding workflow...</p>
             </div>
           </div>
         </DialogContent>
@@ -287,215 +155,131 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
     );
   }
 
-  if (hasError) {
+  if (error) {
     return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Error Loading Onboarding</DialogTitle>
-            <DialogDescription>
-              There was an error loading the onboarding wizard.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center space-y-4">
-              <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
-              <div>
-                <h3 className="font-medium text-lg">Failed to Load</h3>
-                <p className="text-sm text-muted-foreground mt-2">
-                  {workflowError || tenantError?.message || 'Unknown error occurred'}
-                </p>
-              </div>
-              <Button onClick={retryInitialization} className="mt-4">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Retry
-              </Button>
-            </div>
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <div className="text-center py-8">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">Error Loading Onboarding</h3>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={handleClose}>Close</Button>
           </div>
         </DialogContent>
       </Dialog>
     );
   }
 
-  if (transformedSteps.length === 0) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>No Onboarding Steps</DialogTitle>
-            <DialogDescription>
-              No onboarding steps were found for this tenant.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center justify-center py-12">
-            <Button onClick={retryInitialization}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Reload Steps
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  // Show main wizard interface
   return (
-    <OnboardingErrorBoundary>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-7xl max-h-[95vh] flex flex-col">
-          <DialogHeader className="border-b pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="flex items-center gap-2 text-xl">
-                  <Sparkles className="w-6 h-6 text-primary" />
-                  Tenant Onboarding
-                </DialogTitle>
-                <DialogDescription className="text-sm text-muted-foreground mt-1">
-                  {tenantInfo?.name || 'Loading...'} • {tenantInfo?.subscription_plan || 'Basic'} Plan
-                </DialogDescription>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-medium">{currentProgress}% Complete</div>
-                <div className="text-xs text-muted-foreground">
-                  ~{remainingTime} minutes remaining
-                </div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Progress value={currentProgress} className="w-full h-2" />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Step {currentStepIndex + 1} of {transformedSteps.length}</span>
-                <span>Total time: ~{totalEstimatedTime} minutes</span>
-              </div>
-            </div>
-          </DialogHeader>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Tenant Onboarding Wizard</span>
+            <Badge variant="secondary" className="ml-2">
+              {completionPercentage}% Complete
+            </Badge>
+          </DialogTitle>
+          <DialogDescription>
+            Complete your tenant setup with our guided onboarding process
+          </DialogDescription>
+        </DialogHeader>
 
-          <div className="flex flex-1 gap-6 overflow-hidden">
-            {/* Steps Sidebar */}
-            <div className="w-80 space-y-2 overflow-y-auto pr-2">
-              <div className="sticky top-0 bg-background py-2 mb-4">
-                <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                  Onboarding Steps
-                </h3>
-              </div>
-              {transformedSteps.map((step, index) => (
-                <div
+        <div className="flex flex-col h-full max-h-[80vh]">
+          {/* Progress Bar */}
+          <div className="mb-6">
+            <div className="flex justify-between text-sm mb-2">
+              <span>Progress</span>
+              <span>{completedSteps.length} of {steps.length} steps completed</span>
+            </div>
+            <Progress value={completionPercentage} className="h-2" />
+          </div>
+
+          {/* Step Navigation */}
+          <div className="flex overflow-x-auto gap-2 mb-6 pb-2">
+            {steps.map((step, index) => {
+              const isActive = index === currentStepIndex;
+              const isCompleted = step.step_status === 'completed';
+              const isAccessible = isCompleted || index === 0 || 
+                                 steps.slice(0, index).every(s => s.step_status === 'completed');
+
+              return (
+                <button
                   key={step.id}
-                  className={`group relative p-4 rounded-xl border transition-all cursor-pointer ${
-                    index === currentStepIndex
-                      ? 'border-primary bg-primary/5 shadow-sm'
-                      : step.status === 'completed'
-                      ? 'border-green-200 bg-green-50/50 hover:bg-green-100/50'
-                      : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300'
-                  }`}
                   onClick={() => handleStepClick(index)}
+                  disabled={!isAccessible}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
+                    isActive 
+                      ? 'bg-primary text-primary-foreground' 
+                      : isCompleted
+                      ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                      : isAccessible
+                      ? 'bg-muted hover:bg-muted/80'
+                      : 'bg-muted/50 text-muted-foreground cursor-not-allowed'
+                  }`}
                 >
-                  {index < transformedSteps.length - 1 && (
-                    <div className={`absolute left-7 top-16 w-0.5 h-8 ${
-                      step.status === 'completed' ? 'bg-green-300' : 'bg-gray-200'
-                    }`} />
-                  )}
-                  
-                  <div className="flex items-start gap-3">
-                    <div className="relative">
-                      {getStatusIcon(step.status)}
-                      {index === currentStepIndex && (
-                        <div className="absolute -inset-1 rounded-full bg-primary/20 animate-pulse" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium text-sm truncate">{step.title}</h4>
-                        {step.isRequired && (
-                          <Badge variant="secondary" className="text-xs">Required</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                        {step.description}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <Badge 
-                          variant={step.status === 'completed' ? 'default' : 'outline'} 
-                          className="text-xs"
-                        >
-                          {step.status.replace('_', ' ')}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          ~{step.estimatedTime}min
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  {getStepIcon(step.step_status)}
+                  <span>{step.step_name}</span>
+                  {isCompleted && <CheckCircle className="w-3 h-3" />}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Current Step Content */}
+          <div className="flex-1 overflow-y-auto">
+            {currentStep ? (
+              getStepComponent(currentStep)
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No steps available</p>
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Footer */}
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Step {currentStepIndex + 1} of {steps.length}
+              </span>
+              {currentStep && (
+                <>
+                  <span className="text-muted-foreground">•</span>
+                  <Badge variant={isCurrentStepCompleted ? 'default' : 'secondary'}>
+                    {isCurrentStepCompleted ? 'Completed' : 'In Progress'}
+                  </Badge>
+                </>
+              )}
             </div>
-
-            {/* Main Content Area */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto">
-                <div className="max-w-4xl mx-auto p-6">
-                  {CurrentStepComponent && transformedSteps[currentStepIndex] ? (
-                    <CurrentStepComponent
-                      tenantId={tenantId}
-                      onComplete={handleStepComplete}
-                      data={stepData[transformedSteps[currentStepIndex].id] || {}}
-                      onDataChange={handleDataChange}
-                      helpText={transformedSteps[currentStepIndex].helpText}
-                      tenantInfo={tenantInfo}
-                    />
-                  ) : (
-                    <div className="text-center py-12">
-                      <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Component Not Found</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        No component found for step: {transformedSteps[currentStepIndex]?.title || 'Unknown'}
-                      </p>
-                      <Button variant="outline" onClick={() => setCurrentStepIndex(0)}>
-                        Go to First Step
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Navigation Footer */}
-              <div className="border-t bg-background/80 backdrop-blur-sm">
-                <div className="flex justify-between items-center p-6">
-                  <Button
-                    variant="outline"
-                    onClick={handlePreviousStep}
-                    disabled={currentStepIndex === 0}
-                    className="flex items-center gap-2"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Previous
-                  </Button>
-
-                  <div className="flex items-center gap-4">
-                    <div className="text-center">
-                      <div className="font-medium text-sm">
-                        {transformedSteps[currentStepIndex]?.title || 'Loading...'}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Step {currentStepIndex + 1} of {transformedSteps.length}
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button
-                    onClick={handleNextStep}
-                    disabled={currentStepIndex === transformedSteps.length - 1}
-                    className="flex items-center gap-2"
-                  >
-                    Next
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
+            
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handlePreviousStep}
+                disabled={!canGoBack}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Previous
+              </Button>
+              
+              {canProceedToNext ? (
+                <Button
+                  onClick={handleNextStep}
+                  disabled={!isCurrentStepCompleted}
+                >
+                  Next
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              ) : (
+                <Button onClick={handleClose}>
+                  {completionPercentage === 100 ? 'Finish' : 'Close'}
+                </Button>
+              )}
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    </OnboardingErrorBoundary>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
