@@ -33,6 +33,28 @@ const handler = async (req: Request): Promise<Response> => {
     // Create Supabase client with hardcoded values
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
+    // Get the authorization header to validate JWT and get user info
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      console.error('No authorization header provided');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Authentication required' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // Validate JWT and get user info
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (authError || !user) {
+      console.error('Invalid JWT token:', authError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid authentication token' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    console.log('Authenticated user:', { id: user.id, email: user.email });
+    
     // Parse request body
     let requestBody: InviteRequest;
     try {
@@ -90,9 +112,63 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Generate invitation token
-    const invitationToken = crypto.randomUUID();
-    console.log('Generated invitation token for:', email);
+    // Verify tenant exists and user has access
+    console.log('Checking tenant existence and user access...');
+    const { data: tenantData, error: tenantError } = await supabase
+      .from('user_tenants')
+      .select('tenant_id, role, is_active')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single();
+
+    if (tenantError || !tenantData) {
+      console.error('Tenant access check failed:', tenantError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'You do not have access to this tenant or tenant does not exist' 
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    console.log('User has access to tenant:', tenantData);
+
+    // Generate unique invitation token
+    let invitationToken: string;
+    let tokenIsUnique = false;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (!tokenIsUnique && attempts < maxAttempts) {
+      invitationToken = crypto.randomUUID();
+      
+      // Check if token already exists
+      const { data: existingToken } = await supabase
+        .from('user_invitations')
+        .select('id')
+        .eq('invitation_token', invitationToken)
+        .single();
+      
+      if (!existingToken) {
+        tokenIsUnique = true;
+      }
+      attempts++;
+    }
+
+    if (!tokenIsUnique) {
+      console.error('Failed to generate unique invitation token after', maxAttempts, 'attempts');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Failed to generate unique invitation token' 
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    console.log('Generated unique invitation token');
 
     // Check for existing active invitations
     console.log('Checking for existing invitations...');
@@ -125,6 +201,18 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Create security context for metadata
+    const requestId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+    const securityContext = {
+      userId: user.id,
+      userEmail: user.email,
+      requestId: requestId,
+      timestamp: timestamp,
+      action: 'create_invitation',
+      tenantId: tenantId
+    };
+
     // Prepare invitation data for insertion
     const invitationData = {
       tenant_id: tenantId,
@@ -137,7 +225,14 @@ const handler = async (req: Request): Promise<Response> => {
       invitation_token: invitationToken,
       status: 'pending',
       invited_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+      created_by: user.id,
+      metadata: {
+        security_context: securityContext,
+        invitation_source: 'admin_panel',
+        tenant_name: tenantName,
+        inviter_name: inviterName
+      }
     };
 
     console.log('Inserting invitation data:', {
@@ -146,7 +241,8 @@ const handler = async (req: Request): Promise<Response> => {
       first_name: invitationData.first_name,
       last_name: invitationData.last_name,
       role: invitationData.role,
-      status: invitationData.status
+      status: invitationData.status,
+      created_by: invitationData.created_by
     });
 
     // Insert invitation record
@@ -175,13 +271,92 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Invitation created successfully with ID:', invitation.id);
 
+    // Try to send email if Resend API key and SITE_URL are configured
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    const siteUrl = Deno.env.get('SITE_URL');
+    let emailSent = false;
+    let emailError = null;
+
+    if (resendApiKey && siteUrl) {
+      try {
+        console.log('Attempting to send invitation email...');
+        
+        const inviteUrl = `${siteUrl}/accept-invitation?token=${invitationToken}`;
+        
+        const emailResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'noreply@yourdomain.com',
+            to: [email],
+            subject: `You're invited to join ${tenantName}`,
+            html: `
+              <h1>You're invited to join ${tenantName}</h1>
+              <p>Hi ${firstName},</p>
+              <p>${inviterName} has invited you to join ${tenantName} as a ${role}.</p>
+              <p><a href="${inviteUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Accept Invitation</a></p>
+              <p>Or copy and paste this link in your browser: ${inviteUrl}</p>
+              <p>This invitation expires in 7 days.</p>
+              <p>Best regards,<br>The ${tenantName} Team</p>
+            `,
+          }),
+        });
+
+        if (emailResponse.ok) {
+          console.log('Email sent successfully');
+          emailSent = true;
+          
+          // Update invitation status to 'sent'
+          await supabase
+            .from('user_invitations')
+            .update({ 
+              status: 'sent',
+              sent_at: new Date().toISOString()
+            })
+            .eq('id', invitation.id);
+        } else {
+          const errorText = await emailResponse.text();
+          console.error('Failed to send email:', errorText);
+          emailError = errorText;
+        }
+      } catch (error) {
+        console.error('Error sending email:', error);
+        emailError = error.message;
+      }
+    } else {
+      console.log('Email not sent - missing RESEND_API_KEY or SITE_URL configuration');
+    }
+
+    // If email failed to send, update status to 'failed'
+    if (resendApiKey && siteUrl && !emailSent) {
+      await supabase
+        .from('user_invitations')
+        .update({ 
+          status: 'failed',
+          metadata: {
+            ...invitationData.metadata,
+            email_error: emailError
+          }
+        })
+        .eq('id', invitation.id);
+    }
+
     // Return success response
+    const response = {
+      success: true,
+      invitationId: invitation.id,
+      message: 'Invitation created successfully',
+      emailSent: emailSent,
+      ...(emailError && { emailError: emailError })
+    };
+
+    console.log('Returning success response:', response);
+
     return new Response(
-      JSON.stringify({
-        success: true,
-        invitationId: invitation.id,
-        message: 'Invitation created successfully'
-      }),
+      JSON.stringify(response),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
 
