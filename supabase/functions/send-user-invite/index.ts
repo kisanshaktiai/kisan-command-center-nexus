@@ -9,7 +9,7 @@ const corsHeaders = {
 
 // Hardcoded values to avoid environment variable issues
 const SUPABASE_URL = "https://qfklkkzxemsbeniyugiz.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFma2xra3p4ZW1zYmVuaXl1Z2l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjcxNjUsImV4cCI6MjA2ODAwMzE2NX0.dUnGp7wbwYom1FPbn_4EGf3PWjgmr8mXwL2w2SdYOh4";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFma2xra3p4ZW1zYmVuaXl1Z2l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2NTI0MjcxNjUsImV4cCI6MjA2ODAwMzE2NX0.dUnGp7wbwYom1FPbn_4EGf3PWjgmr8mXwL2w2SdYOh4";
 
 interface InviteRequest {
   tenantId: string;
@@ -136,7 +136,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('User has access to tenant:', tenantData);
 
     // Generate unique invitation token
-    let invitationToken = crypto.randomUUID();
+    let invitationToken: string = crypto.randomUUID();
     let tokenIsUnique = false;
     let attempts = 0;
     const maxAttempts = 5;
@@ -156,22 +156,24 @@ const handler = async (req: Request): Promise<Response> => {
         console.log('Token check error:', tokenCheckError.message);
       }
       
-      if (!existingToken) {
-        tokenIsUnique = true;
-        console.log('✅ Token is unique:', invitationToken);
-      } else {
+      tokenIsUnique = !existingToken;
+      if (!tokenIsUnique) {
         console.log('❌ Token exists, generating new one');
         invitationToken = crypto.randomUUID();
+      } else {
+        console.log('✅ Token is unique:', invitationToken);
       }
       attempts++;
     }
 
-    if (!tokenIsUnique) {
-      console.error('Failed to generate unique token after', maxAttempts, 'attempts');
+    // Strict guard after the loop to fail early if token generation failed
+    if (!invitationToken || !tokenIsUnique) {
+      console.error('Failed to generate a unique invitation token');
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Failed to generate unique invitation token' 
+        JSON.stringify({
+          success: false,
+          error: 'Failed to generate a unique invitation token',
+          code: 'TOKEN_GENERATION_ERROR'
         }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
@@ -208,7 +210,10 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Prepare invitation data - use minimal required fields only
+    // Explicitly log invitationToken value right before insert for debugging
+    console.log('Inserting invitation record with token:', invitationToken);
+
+    // Prepare invitation data - essential fields only
     const invitationData = {
       tenant_id: tenantId,
       email: email.toLowerCase().trim(),
@@ -216,7 +221,7 @@ const handler = async (req: Request): Promise<Response> => {
       last_name: lastName || '',
       role: role,
       invitation_token: invitationToken,
-      invitation_type: 'tenant_activation', // Use default enum value
+      invitation_type: 'tenant_activation',
       status: 'pending',
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       created_by: user.id,
