@@ -135,14 +135,16 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('User has access to tenant:', tenantData);
 
-    // Generate unique invitation token
-    let invitationToken: string;
+    // Generate unique invitation token with fallback
+    let invitationToken: string = crypto.randomUUID(); // Initialize with fallback
     let tokenIsUnique = false;
     let attempts = 0;
     const maxAttempts = 5;
 
+    console.log('Starting token generation, initial token:', invitationToken);
+
     while (!tokenIsUnique && attempts < maxAttempts) {
-      invitationToken = crypto.randomUUID();
+      console.log(`Token generation attempt ${attempts + 1}, current token:`, invitationToken);
       
       // Check if token already exists
       const { data: existingToken } = await supabase
@@ -153,8 +155,25 @@ const handler = async (req: Request): Promise<Response> => {
       
       if (!existingToken) {
         tokenIsUnique = true;
+        console.log('Token is unique:', invitationToken);
+      } else {
+        console.log('Token already exists, generating new one');
+        invitationToken = crypto.randomUUID();
       }
       attempts++;
+    }
+
+    // Final validation before insert
+    if (!invitationToken) {
+      console.error('Failed to generate invitation token after initialization');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Failed to generate invitation token',
+          code: 'TOKEN_GENERATION_ERROR'
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
     }
 
     if (!tokenIsUnique) {
@@ -162,13 +181,14 @@ const handler = async (req: Request): Promise<Response> => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Failed to generate unique invitation token' 
+          error: 'Failed to generate unique invitation token',
+          code: 'TOKEN_GENERATION_ERROR'
         }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    console.log('Generated unique invitation token');
+    console.log('Generated unique invitation token:', invitationToken);
 
     // Check for existing active invitations
     console.log('Checking for existing invitations...');
@@ -213,6 +233,31 @@ const handler = async (req: Request): Promise<Response> => {
       tenantId: tenantId
     };
 
+    // Validate all required fields before database operation
+    const requiredFields = { 
+      tenantId, 
+      email: email.toLowerCase().trim(), 
+      firstName, 
+      role, 
+      invitationToken 
+    };
+    
+    console.log('Validating required fields before insert:', requiredFields);
+    
+    for (const [key, value] of Object.entries(requiredFields)) {
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        console.error(`Missing or empty required field: ${key}`, value);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Missing required field: ${key}`,
+            code: 'VALIDATION_ERROR'
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+    }
+
     // Prepare invitation data for insertion
     const invitationData = {
       tenant_id: tenantId,
@@ -242,6 +287,7 @@ const handler = async (req: Request): Promise<Response> => {
       last_name: invitationData.last_name,
       role: invitationData.role,
       status: invitationData.status,
+      invitation_token: invitationData.invitation_token,
       created_by: invitationData.created_by
     });
 
