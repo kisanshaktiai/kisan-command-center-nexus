@@ -112,28 +112,47 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Verify tenant exists and user has access
-    console.log('Checking tenant existence and user access...');
+    // CRITICAL FIX: Verify tenant exists and get admin user ID
+    console.log('Verifying tenant existence...');
     const { data: tenantData, error: tenantError } = await supabase
-      .from('user_tenants')
-      .select('tenant_id, role, is_active')
-      .eq('tenant_id', tenantId)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
+      .from('tenants')
+      .select('id, name')
+      .eq('id', tenantId)
       .single();
 
     if (tenantError || !tenantData) {
-      console.error('Tenant access check failed:', tenantError);
+      console.error('Tenant verification failed:', tenantError);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'You do not have access to this tenant or tenant does not exist' 
+          error: 'Tenant does not exist or access denied' 
         }),
         { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    console.log('User has access to tenant:', tenantData);
+    console.log('Tenant verified:', tenantData);
+
+    // CRITICAL FIX: Get admin_users record for the authenticated user
+    console.log('Getting admin user record...');
+    const { data: adminUser, error: adminError } = await supabase
+      .from('admin_users')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (adminError || !adminUser) {
+      console.error('Admin user not found:', adminError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'User is not authorized as admin' 
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    console.log('Admin user verified:', adminUser);
 
     // Generate unique invitation token
     let invitationToken: string = crypto.randomUUID();
@@ -213,7 +232,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Explicitly log invitationToken value right before insert for debugging
     console.log('Inserting invitation record with token:', invitationToken);
 
-    // Prepare invitation data - essential fields only
+    // FIXED: Prepare invitation data with correct foreign key references
     const invitationData = {
       tenant_id: tenantId,
       email: email.toLowerCase().trim(),
@@ -221,10 +240,11 @@ const handler = async (req: Request): Promise<Response> => {
       last_name: lastName || '',
       role: role,
       invitation_token: invitationToken,
-      invitation_type: 'tenant_activation',
+      invitation_type: 'tenant_activation', // Valid enum value
       status: 'pending',
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      created_by: user.id,
+      created_by: adminUser.id, // FIXED: Use admin_users.id, not auth.users.id
+      invited_by: adminUser.id, // FIXED: Use admin_users.id, not string
       inviter_name: inviterName,
       tenant_name: tenantName,
       metadata: {
@@ -237,7 +257,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('=== ATTEMPTING DATABASE INSERT ===');
     console.log('Insert data:', JSON.stringify(invitationData, null, 2));
 
-    // Insert invitation record
+    // Insert invitation record with proper error handling
     const { data: invitation, error: insertError } = await supabase
       .from('user_invitations')
       .insert(invitationData)
