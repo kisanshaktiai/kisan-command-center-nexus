@@ -24,49 +24,58 @@ interface InviteRequest {
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
+    console.log('🔍 CORS preflight request received');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('=== send-user-invite function started ===');
+    console.log('=== 🚀 SEND-USER-INVITE FUNCTION STARTED ===');
+    console.log('📝 Request method:', req.method);
+    console.log('📝 Request URL:', req.url);
+    console.log('📝 Request headers:', Object.fromEntries(req.headers.entries()));
     
     // Validate Service Role Key is available
     if (!SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('SUPABASE_SERVICE_ROLE_KEY not configured');
+      console.error('❌ CRITICAL: SUPABASE_SERVICE_ROLE_KEY not configured');
       return new Response(
         JSON.stringify({ success: false, error: 'Service configuration error' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
+    console.log('✅ Service Role Key is configured');
 
     // Create Supabase client with Service Role Key (bypasses RLS)
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    console.log('✅ Supabase client created with Service Role Key');
     
     // Get inviter user ID from header
     const inviterUserId = req.headers.get('user-id');
     if (!inviterUserId) {
-      console.error('No user-id header provided');
+      console.error('❌ No user-id header provided');
       return new Response(
         JSON.stringify({ success: false, error: 'User ID required in header' }),
         { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
-
-    console.log('Inviter user ID from header:', inviterUserId);
+    console.log('✅ Inviter user ID from header:', inviterUserId);
     
     // Parse request body
     let requestBody: InviteRequest;
     try {
-      requestBody = await req.json() as InviteRequest;
-      console.log('Parsed request body:', {
+      const rawBody = await req.text();
+      console.log('📄 Raw request body:', rawBody);
+      requestBody = JSON.parse(rawBody) as InviteRequest;
+      console.log('✅ Parsed request body:', {
         tenantId: requestBody.tenantId,
         email: requestBody.email,
         firstName: requestBody.firstName,
         lastName: requestBody.lastName,
-        role: requestBody.role
+        role: requestBody.role,
+        tenantName: requestBody.tenantName,
+        inviterName: requestBody.inviterName
       });
     } catch (parseError) {
-      console.error('Error parsing request body:', parseError);
+      console.error('❌ Error parsing request body:', parseError);
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid request body' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -84,6 +93,7 @@ const handler = async (req: Request): Promise<Response> => {
     } = requestBody;
 
     // Validate required fields
+    console.log('🔍 Validating required fields...');
     if (!tenantId || !email || !firstName || !role) {
       const missingFields = [];
       if (!tenantId) missingFields.push('tenantId');
@@ -91,7 +101,7 @@ const handler = async (req: Request): Promise<Response> => {
       if (!firstName) missingFields.push('firstName');
       if (!role) missingFields.push('role');
       
-      console.error('Missing required fields:', missingFields);
+      console.error('❌ Missing required fields:', missingFields);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -100,27 +110,33 @@ const handler = async (req: Request): Promise<Response> => {
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
+    console.log('✅ All required fields validated');
 
     // Validate email format
+    console.log('🔍 Validating email format...');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      console.error('Invalid email format:', email);
+      console.error('❌ Invalid email format:', email);
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid email format' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
+    console.log('✅ Email format is valid');
 
     // Verify tenant exists
-    console.log('Verifying tenant existence...');
+    console.log('🔍 Verifying tenant existence...');
+    console.log('🔍 Querying tenants table for ID:', tenantId);
     const { data: tenantData, error: tenantError } = await supabase
       .from('tenants')
       .select('id, name')
       .eq('id', tenantId)
       .single();
 
+    console.log('📊 Tenant query result:', { data: tenantData, error: tenantError });
+
     if (tenantError || !tenantData) {
-      console.error('Tenant verification failed:', tenantError);
+      console.error('❌ Tenant verification failed:', tenantError);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -129,19 +145,21 @@ const handler = async (req: Request): Promise<Response> => {
         { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
-
-    console.log('Tenant verified:', tenantData);
+    console.log('✅ Tenant verified:', tenantData);
 
     // Get admin user record for the inviter
-    console.log('Getting admin user record...');
+    console.log('🔍 Getting admin user record...');
+    console.log('🔍 Querying admin_users table for ID:', inviterUserId);
     const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
       .select('id, email, full_name')
       .eq('id', inviterUserId)
       .single();
 
+    console.log('📊 Admin user query result:', { data: adminUser, error: adminError });
+
     if (adminError || !adminUser) {
-      console.error('Admin user not found:', adminError);
+      console.error('❌ Admin user not found:', adminError);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -150,19 +168,17 @@ const handler = async (req: Request): Promise<Response> => {
         { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
-
-    console.log('Admin user verified:', adminUser);
+    console.log('✅ Admin user verified:', adminUser);
 
     // Generate unique invitation token
+    console.log('🔍 === TOKEN GENERATION START ===');
     let invitationToken: string = crypto.randomUUID();
     let tokenIsUnique = false;
     let attempts = 0;
     const maxAttempts = 5;
-
-    console.log('=== TOKEN GENERATION START ===');
     
     while (!tokenIsUnique && attempts < maxAttempts) {
-      console.log(`Checking token uniqueness, attempt ${attempts + 1}:`, invitationToken);
+      console.log(`🔍 Checking token uniqueness, attempt ${attempts + 1}:`, invitationToken);
       
       const { data: existingToken, error: tokenCheckError } = await supabase
         .from('user_invitations')
@@ -170,8 +186,10 @@ const handler = async (req: Request): Promise<Response> => {
         .eq('invitation_token', invitationToken)
         .maybeSingle();
       
+      console.log('📊 Token check result:', { data: existingToken, error: tokenCheckError });
+      
       if (tokenCheckError) {
-        console.log('Token check error:', tokenCheckError.message);
+        console.log('⚠️ Token check error:', tokenCheckError.message);
       }
       
       tokenIsUnique = !existingToken;
@@ -186,7 +204,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Strict guard after the loop
     if (!invitationToken || !tokenIsUnique) {
-      console.error('Failed to generate a unique invitation token');
+      console.error('❌ Failed to generate a unique invitation token');
       return new Response(
         JSON.stringify({
           success: false,
@@ -196,9 +214,12 @@ const handler = async (req: Request): Promise<Response> => {
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
+    console.log('🔍 === TOKEN GENERATION END ===');
 
     // Check for existing active invitations
-    console.log('Checking for existing invitations...');
+    console.log('🔍 Checking for existing invitations...');
+    console.log('🔍 Query params - tenantId:', tenantId, 'email:', email.toLowerCase().trim());
+    
     const { data: existingInvites, error: checkError } = await supabase
       .from('user_invitations')
       .select('id, email, status')
@@ -206,8 +227,10 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('email', email.toLowerCase().trim())
       .in('status', ['pending', 'sent']);
 
+    console.log('📊 Existing invites check result:', { data: existingInvites, error: checkError });
+
     if (checkError) {
-      console.error('Error checking existing invitations:', checkError);
+      console.error('❌ Error checking existing invitations:', checkError);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -218,7 +241,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (existingInvites && existingInvites.length > 0) {
-      console.log('Found existing invitation:', existingInvites[0]);
+      console.log('⚠️ Found existing invitation:', existingInvites[0]);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -227,6 +250,7 @@ const handler = async (req: Request): Promise<Response> => {
         { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
+    console.log('✅ No existing active invitations found');
 
     // Prepare invitation data
     const invitationData = {
@@ -250,8 +274,17 @@ const handler = async (req: Request): Promise<Response> => {
       }
     };
 
-    console.log('=== ATTEMPTING DATABASE INSERT ===');
-    console.log('Insert data:', JSON.stringify(invitationData, null, 2));
+    console.log('🔍 === ATTEMPTING DATABASE INSERT ===');
+    console.log('📝 Insert data:', JSON.stringify(invitationData, null, 2));
+
+    // First, let's check the user_invitations table structure
+    console.log('🔍 Checking user_invitations table structure...');
+    const { data: tableInfo, error: tableError } = await supabase
+      .from('user_invitations')
+      .select('*')
+      .limit(1);
+    
+    console.log('📊 Table structure check:', { data: tableInfo, error: tableError });
 
     // Insert invitation record
     const { data: invitation, error: insertError } = await supabase
@@ -293,7 +326,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (resendApiKey) {
       try {
-        console.log('Attempting to send invitation email...');
+        console.log('📧 Attempting to send invitation email...');
         
         const inviteUrl = `${siteUrl}/accept-invitation?token=${invitationToken}`;
         
@@ -320,7 +353,7 @@ const handler = async (req: Request): Promise<Response> => {
         });
 
         if (emailResponse.ok) {
-          console.log('Email sent successfully');
+          console.log('✅ Email sent successfully');
           emailSent = true;
           
           // Update invitation status to 'sent'
@@ -333,15 +366,15 @@ const handler = async (req: Request): Promise<Response> => {
             .eq('id', invitation.id);
         } else {
           const errorText = await emailResponse.text();
-          console.error('Failed to send email:', errorText);
+          console.error('❌ Failed to send email:', errorText);
           emailError = errorText;
         }
       } catch (error) {
-        console.error('Error sending email:', error);
+        console.error('❌ Error sending email:', error);
         emailError = error.message;
       }
     } else {
-      console.log('Email not sent - RESEND_API_KEY not configured');
+      console.log('📧 Email not sent - RESEND_API_KEY not configured');
     }
 
     // Return success response
@@ -355,6 +388,7 @@ const handler = async (req: Request): Promise<Response> => {
     };
 
     console.log('✅ Returning success response:', response);
+    console.log('=== 🎉 SEND-USER-INVITE FUNCTION COMPLETED SUCCESSFULLY ===');
 
     return new Response(
       JSON.stringify(response),
