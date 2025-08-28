@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface InvitationData {
@@ -77,7 +76,7 @@ export class InvitationService {
         firstName: request.firstName
       });
 
-      // Get the current user to pass their ID in the header
+      // Get the current user to pass their ID in the request body
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('User not authenticated');
@@ -85,10 +84,11 @@ export class InvitationService {
 
       console.log('InvitationService: Current user ID:', user.id);
 
+      // Include userId in the request body instead of headers
       const { data, error } = await supabase.functions.invoke('send-user-invite', {
-        body: request,
-        headers: {
-          'user-id': user.id
+        body: {
+          ...request,
+          userId: user.id
         }
       });
 

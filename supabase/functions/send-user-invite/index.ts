@@ -1,10 +1,9 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, user-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 // Use Service Role Key - bypasses RLS
@@ -19,6 +18,7 @@ interface InviteRequest {
   role: string;
   tenantName?: string;
   inviterName?: string;
+  userId: string; // User ID is now in the request body
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -32,7 +32,6 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('=== 🚀 SEND-USER-INVITE FUNCTION STARTED ===');
     console.log('📝 Request method:', req.method);
     console.log('📝 Request URL:', req.url);
-    console.log('📝 Request headers:', Object.fromEntries(req.headers.entries()));
     
     // 🔧 CRITICAL DEBUG: Check Service Role Key availability
     console.log('🔍 === SERVICE ROLE KEY CHECK ===');
@@ -89,32 +88,6 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
     
-    // Get inviter user ID from header
-    const inviterUserId = req.headers.get('user-id');
-    console.log('🔍 === USER AUTHENTICATION CHECK ===');
-    console.log('📝 Raw user-id header:', inviterUserId);
-    console.log('📝 user-id header exists:', !!inviterUserId);
-    console.log('📝 user-id header length:', inviterUserId?.length || 0);
-    
-    if (!inviterUserId) {
-      console.error('❌ No user-id header provided');
-      return new Response(
-        JSON.stringify({ success: false, error: 'User ID required in header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
-    }
-    
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(inviterUserId)) {
-      console.error('❌ Invalid UUID format for user-id:', inviterUserId);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid User ID format' }),
-        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
-    }
-    console.log('✅ Valid user ID format:', inviterUserId);
-    
     // Parse request body
     let requestBody: InviteRequest;
     try {
@@ -128,7 +101,8 @@ const handler = async (req: Request): Promise<Response> => {
         lastName: requestBody.lastName,
         role: requestBody.role,
         tenantName: requestBody.tenantName,
-        inviterName: requestBody.inviterName
+        inviterName: requestBody.inviterName,
+        userId: requestBody.userId
       });
     } catch (parseError) {
       console.error('❌ Error parsing request body:', parseError);
@@ -145,8 +119,34 @@ const handler = async (req: Request): Promise<Response> => {
       lastName,
       role,
       tenantName = 'Your Organization',
-      inviterName = 'Admin'
+      inviterName = 'Admin',
+      userId
     } = requestBody;
+
+    // Get inviter user ID from request body
+    console.log('🔍 === USER AUTHENTICATION CHECK ===');
+    console.log('📝 User ID from request body:', userId);
+    console.log('📝 User ID exists:', !!userId);
+    console.log('📝 User ID length:', userId?.length || 0);
+    
+    if (!userId) {
+      console.error('❌ No userId provided in request body');
+      return new Response(
+        JSON.stringify({ success: false, error: 'User ID required in request body' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+    
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      console.error('❌ Invalid UUID format for userId:', userId);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid User ID format' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+    console.log('✅ Valid user ID format:', userId);
 
     // Validate required fields
     console.log('🔍 === FIELD VALIDATION ===');
@@ -205,11 +205,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Get admin user record for the inviter
     console.log('🔍 === ADMIN USER VERIFICATION ===');
-    console.log('🔍 Querying admin_users table for ID:', inviterUserId);
+    console.log('🔍 Querying admin_users table for ID:', userId);
     const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
       .select('id, email, full_name')
-      .eq('id', inviterUserId)
+      .eq('id', userId)
       .single();
 
     console.log('📊 Admin user query result:', { data: adminUser, error: adminError });
