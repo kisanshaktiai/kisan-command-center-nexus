@@ -236,7 +236,7 @@ const handler = async (req: Request): Promise<Response> => {
       last_name: lastName || '',
       role: role,
       invitation_token: invitationToken,
-      invitation_type: 'tenant_activation', // Using valid enum value (not 'onboarding' which violates constraint)
+      invitation_type: 'tenant_activation', // Using valid enum value
       status: 'pending',
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       created_by: adminUser.id,
