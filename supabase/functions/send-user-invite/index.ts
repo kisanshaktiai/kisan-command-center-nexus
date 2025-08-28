@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -141,54 +140,83 @@ const handler = async (req: Request): Promise<Response> => {
     let attempts = 0;
     const maxAttempts = 5;
 
-    console.log('Starting token generation, initial token:', invitationToken);
+    console.log('=== TOKEN GENERATION START ===');
+    console.log('Initial invitationToken value:', invitationToken);
+    console.log('Initial invitationToken type:', typeof invitationToken);
+    console.log('Initial invitationToken length:', invitationToken ? invitationToken.length : 'NULL/UNDEFINED');
 
     while (!tokenIsUnique && attempts < maxAttempts) {
-      console.log(`Token generation attempt ${attempts + 1}, current token:`, invitationToken);
+      console.log(`=== TOKEN ATTEMPT ${attempts + 1} ===`);
+      console.log('Current invitationToken before check:', invitationToken);
+      console.log('Current invitationToken type:', typeof invitationToken);
       
       // Check if token already exists
-      const { data: existingToken } = await supabase
+      const { data: existingToken, error: tokenCheckError } = await supabase
         .from('user_invitations')
         .select('id')
         .eq('invitation_token', invitationToken)
         .single();
       
+      if (tokenCheckError) {
+        console.log('Token check error (this is expected for unique tokens):', tokenCheckError.message);
+      }
+      
       if (!existingToken) {
         tokenIsUnique = true;
-        console.log('Token is unique:', invitationToken);
+        console.log('✅ Token is unique:', invitationToken);
       } else {
-        console.log('Token already exists, generating new one');
+        console.log('❌ Token already exists, generating new one. Existing token ID:', existingToken.id);
         invitationToken = crypto.randomUUID();
+        console.log('New generated token:', invitationToken);
       }
       attempts++;
     }
 
+    console.log('=== TOKEN GENERATION END ===');
+    console.log('Final invitationToken value:', invitationToken);
+    console.log('Final invitationToken type:', typeof invitationToken);
+    console.log('Final tokenIsUnique:', tokenIsUnique);
+    console.log('Final attempts made:', attempts);
+
     // Final validation before insert
     if (!invitationToken) {
-      console.error('Failed to generate invitation token after initialization');
+      console.error('❌ CRITICAL: invitationToken is falsy after generation!');
+      console.error('invitationToken value:', invitationToken);
+      console.error('invitationToken type:', typeof invitationToken);
       return new Response(
         JSON.stringify({ 
           success: false, 
           error: 'Failed to generate invitation token',
-          code: 'TOKEN_GENERATION_ERROR'
+          code: 'TOKEN_GENERATION_ERROR',
+          debug: {
+            tokenValue: invitationToken,
+            tokenType: typeof invitationToken,
+            attempts: attempts
+          }
         }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
     if (!tokenIsUnique) {
-      console.error('Failed to generate unique invitation token after', maxAttempts, 'attempts');
+      console.error('❌ Failed to generate unique invitation token after', maxAttempts, 'attempts');
+      console.error('Final token value:', invitationToken);
       return new Response(
         JSON.stringify({ 
           success: false, 
           error: 'Failed to generate unique invitation token',
-          code: 'TOKEN_GENERATION_ERROR'
+          code: 'TOKEN_GENERATION_ERROR',
+          debug: {
+            tokenValue: invitationToken,
+            maxAttempts: maxAttempts,
+            actualAttempts: attempts
+          }
         }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    console.log('Generated unique invitation token:', invitationToken);
+    console.log('✅ Successfully generated unique invitation token:', invitationToken);
 
     // Check for existing active invitations
     console.log('Checking for existing invitations...');
@@ -242,21 +270,36 @@ const handler = async (req: Request): Promise<Response> => {
       invitationToken 
     };
     
-    console.log('Validating required fields before insert:', requiredFields);
+    console.log('=== PRE-INSERT VALIDATION ===');
+    console.log('All required fields before validation:', requiredFields);
     
     for (const [key, value] of Object.entries(requiredFields)) {
+      console.log(`Validating field "${key}":`, {
+        value: value,
+        type: typeof value,
+        length: typeof value === 'string' ? value.length : 'N/A',
+        isEmpty: !value || (typeof value === 'string' && value.trim() === '')
+      });
+      
       if (!value || (typeof value === 'string' && value.trim() === '')) {
-        console.error(`Missing or empty required field: ${key}`, value);
+        console.error(`❌ Missing or empty required field: ${key}`, value);
         return new Response(
           JSON.stringify({ 
             success: false, 
             error: `Missing required field: ${key}`,
-            code: 'VALIDATION_ERROR'
+            code: 'VALIDATION_ERROR',
+            debug: {
+              fieldName: key,
+              fieldValue: value,
+              fieldType: typeof value
+            }
           }),
           { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
         );
       }
     }
+
+    console.log('✅ All required fields validated successfully');
 
     // Prepare invitation data for insertion
     const invitationData = {
@@ -280,16 +323,37 @@ const handler = async (req: Request): Promise<Response> => {
       }
     };
 
-    console.log('Inserting invitation data:', {
-      tenant_id: invitationData.tenant_id,
-      email: invitationData.email,
-      first_name: invitationData.first_name,
-      last_name: invitationData.last_name,
-      role: invitationData.role,
-      status: invitationData.status,
-      invitation_token: invitationData.invitation_token,
-      created_by: invitationData.created_by
+    console.log('=== CRITICAL: PRE-INSERT DATA LOGGING ===');
+    console.log('Complete invitationData object:', JSON.stringify(invitationData, null, 2));
+    console.log('Specific invitation_token field:', {
+      value: invitationData.invitation_token,
+      type: typeof invitationData.invitation_token,
+      length: invitationData.invitation_token ? invitationData.invitation_token.length : 'NULL/UNDEFINED',
+      isNull: invitationData.invitation_token === null,
+      isUndefined: invitationData.invitation_token === undefined,
+      isFalsy: !invitationData.invitation_token
     });
+
+    // Additional safety check right before insert
+    if (!invitationData.invitation_token) {
+      console.error('❌ CRITICAL ERROR: invitation_token is null/undefined in invitationData!');
+      console.error('This should never happen after our validations');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Critical error: invitation_token became null before insert',
+          code: 'CRITICAL_TOKEN_ERROR',
+          debug: {
+            invitationDataKeys: Object.keys(invitationData),
+            tokenField: invitationData.invitation_token
+          }
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    console.log('=== ATTEMPTING DATABASE INSERT ===');
+    console.log('About to insert with invitation_token:', invitationData.invitation_token);
 
     // Insert invitation record
     const { data: invitation, error: insertError } = await supabase
@@ -299,23 +363,31 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (insertError) {
-      console.error('Database insertion error:', {
+      console.error('❌ DATABASE INSERTION ERROR:', {
         message: insertError.message,
         details: insertError.details,
         hint: insertError.hint,
         code: insertError.code
       });
       
+      // Log the data that failed to insert
+      console.error('Failed insertion data:', JSON.stringify(invitationData, null, 2));
+      
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Failed to create invitation: ${insertError.message}`
+          error: `Failed to create invitation: ${insertError.message}`,
+          debug: {
+            errorCode: insertError.code,
+            errorDetails: insertError.details,
+            sentData: invitationData
+          }
         }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    console.log('Invitation created successfully with ID:', invitation.id);
+    console.log('✅ Invitation created successfully with ID:', invitation.id);
 
     // Try to send email if Resend API key and SITE_URL are configured
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
@@ -399,7 +471,7 @@ const handler = async (req: Request): Promise<Response> => {
       ...(emailError && { emailError: emailError })
     };
 
-    console.log('Returning success response:', response);
+    console.log('✅ Returning success response:', response);
 
     return new Response(
       JSON.stringify(response),
@@ -407,7 +479,7 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
   } catch (error: any) {
-    console.error('Unexpected error in send-user-invite function:', {
+    console.error('❌ Unexpected error in send-user-invite function:', {
       message: error.message,
       stack: error.stack,
       name: error.name
