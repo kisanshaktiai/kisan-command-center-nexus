@@ -232,7 +232,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Explicitly log invitationToken value right before insert for debugging
     console.log('Inserting invitation record with token:', invitationToken);
 
-    // FIXED: Prepare invitation data with correct foreign key references
+    // FIXED: Prepare invitation data with correct foreign key references and valid invitation_type
     const invitationData = {
       tenant_id: tenantId,
       email: email.toLowerCase().trim(),
@@ -240,7 +240,7 @@ const handler = async (req: Request): Promise<Response> => {
       last_name: lastName || '',
       role: role,
       invitation_token: invitationToken,
-      invitation_type: 'tenant_activation', // Valid enum value
+      invitation_type: 'tenant_activation', // FIXED: Must be one of: 'tenant_activation','admin_invite','password_reset'
       status: 'pending',
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       created_by: adminUser.id, // FIXED: Use admin_users.id, not auth.users.id
