@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -135,7 +136,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('User has access to tenant:', tenantData);
 
     // Generate unique invitation token with fallback
-    let invitationToken: string = crypto.randomUUID(); // Initialize with fallback
+    let invitationToken: string = crypto.randomUUID();
     let tokenIsUnique = false;
     let attempts = 0;
     const maxAttempts = 5;
@@ -261,47 +262,7 @@ const handler = async (req: Request): Promise<Response> => {
       tenantId: tenantId
     };
 
-    // Validate all required fields before database operation
-    const requiredFields = { 
-      tenantId, 
-      email: email.toLowerCase().trim(), 
-      firstName, 
-      role, 
-      invitationToken 
-    };
-    
-    console.log('=== PRE-INSERT VALIDATION ===');
-    console.log('All required fields before validation:', requiredFields);
-    
-    for (const [key, value] of Object.entries(requiredFields)) {
-      console.log(`Validating field "${key}":`, {
-        value: value,
-        type: typeof value,
-        length: typeof value === 'string' ? value.length : 'N/A',
-        isEmpty: !value || (typeof value === 'string' && value.trim() === '')
-      });
-      
-      if (!value || (typeof value === 'string' && value.trim() === '')) {
-        console.error(`❌ Missing or empty required field: ${key}`, value);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: `Missing required field: ${key}`,
-            code: 'VALIDATION_ERROR',
-            debug: {
-              fieldName: key,
-              fieldValue: value,
-              fieldType: typeof value
-            }
-          }),
-          { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-        );
-      }
-    }
-
-    console.log('✅ All required fields validated successfully');
-
-    // Prepare invitation data for insertion
+    // Prepare invitation data for insertion - FIXED: Remove invited_at and add invitation_type
     const invitationData = {
       tenant_id: tenantId,
       email: email.toLowerCase().trim(),
@@ -311,8 +272,8 @@ const handler = async (req: Request): Promise<Response> => {
       inviter_name: inviterName,
       tenant_name: tenantName,
       invitation_token: invitationToken,
+      invitation_type: 'onboarding', // FIXED: Add required field
       status: 'pending',
-      invited_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
       created_by: user.id,
       metadata: {
