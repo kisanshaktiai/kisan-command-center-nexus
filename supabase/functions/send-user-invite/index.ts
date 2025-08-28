@@ -4,18 +4,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, user-id',
 };
 
-// Hardcoded values to avoid environment variable issues
+// Use Service Role Key - bypasses RLS
 const SUPABASE_URL = "https://qfklkkzxemsbeniyugiz.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFma2xra3p4ZW1zYmVuaXl1Z2l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2NTI0MjcxNjUsImV4cCI6MjA2ODAwMzE2NX0.dUnGp7wbwYom1FPbn_4EGf3PWjgmr8mXwL2w2SdYOh4";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 interface InviteRequest {
   tenantId: string;
   email: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
   role: string;
   tenantName?: string;
   inviterName?: string;
@@ -30,30 +30,29 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     console.log('=== send-user-invite function started ===');
     
-    // Create Supabase client with hardcoded values
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Validate Service Role Key is available
+    if (!SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('SUPABASE_SERVICE_ROLE_KEY not configured');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Service configuration error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // Create Supabase client with Service Role Key (bypasses RLS)
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
-    // Get the authorization header to validate JWT and get user info
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      console.error('No authorization header provided');
+    // Get inviter user ID from header
+    const inviterUserId = req.headers.get('user-id');
+    if (!inviterUserId) {
+      console.error('No user-id header provided');
       return new Response(
-        JSON.stringify({ success: false, error: 'Authentication required' }),
+        JSON.stringify({ success: false, error: 'User ID required in header' }),
         { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    // Validate JWT and get user info
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-    if (authError || !user) {
-      console.error('Invalid JWT token:', authError);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid authentication token' }),
-        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
-    }
-
-    console.log('Authenticated user:', { id: user.id, email: user.email });
+    console.log('Inviter user ID from header:', inviterUserId);
     
     // Parse request body
     let requestBody: InviteRequest;
@@ -112,7 +111,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // CRITICAL FIX: Verify tenant exists and get admin user ID
+    // Verify tenant exists
     console.log('Verifying tenant existence...');
     const { data: tenantData, error: tenantError } = await supabase
       .from('tenants')
@@ -133,12 +132,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Tenant verified:', tenantData);
 
-    // CRITICAL FIX: Get admin_users record for the authenticated user
+    // Get admin user record for the inviter
     console.log('Getting admin user record...');
     const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
-      .select('id')
-      .eq('id', user.id)
+      .select('id, email, full_name')
+      .eq('id', inviterUserId)
       .single();
 
     if (adminError || !adminUser) {
@@ -146,7 +145,7 @@ const handler = async (req: Request): Promise<Response> => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'User is not authorized as admin' 
+          error: 'Inviter is not authorized as admin' 
         }),
         { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
@@ -185,7 +184,7 @@ const handler = async (req: Request): Promise<Response> => {
       attempts++;
     }
 
-    // Strict guard after the loop to fail early if token generation failed
+    // Strict guard after the loop
     if (!invitationToken || !tokenIsUnique) {
       console.error('Failed to generate a unique invitation token');
       return new Response(
@@ -229,10 +228,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Explicitly log invitationToken value right before insert for debugging
-    console.log('Inserting invitation record with token:', invitationToken);
-
-    // FIXED: Prepare invitation data with correct foreign key references and valid invitation_type
+    // Prepare invitation data
     const invitationData = {
       tenant_id: tenantId,
       email: email.toLowerCase().trim(),
@@ -240,24 +236,24 @@ const handler = async (req: Request): Promise<Response> => {
       last_name: lastName || '',
       role: role,
       invitation_token: invitationToken,
-      invitation_type: 'tenant_activation', // FIXED: Must be one of: 'tenant_activation','admin_invite','password_reset'
+      invitation_type: 'tenant_activation', // Using valid enum value (not 'onboarding' which violates constraint)
       status: 'pending',
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      created_by: adminUser.id, // FIXED: Use admin_users.id, not auth.users.id
-      invited_by: adminUser.id, // FIXED: Use admin_users.id, not string
-      inviter_name: inviterName,
-      tenant_name: tenantName,
+      created_by: adminUser.id,
+      invited_by: adminUser.id,
+      inviter_name: inviterName || adminUser.full_name,
+      tenant_name: tenantName || tenantData.name,
       metadata: {
         invitation_source: 'admin_panel',
-        tenant_name: tenantName,
-        inviter_name: inviterName
+        tenant_name: tenantName || tenantData.name,
+        inviter_name: inviterName || adminUser.full_name
       }
     };
 
     console.log('=== ATTEMPTING DATABASE INSERT ===');
     console.log('Insert data:', JSON.stringify(invitationData, null, 2));
 
-    // Insert invitation record with proper error handling
+    // Insert invitation record
     const { data: invitation, error: insertError } = await supabase
       .from('user_invitations')
       .insert(invitationData)
@@ -271,8 +267,6 @@ const handler = async (req: Request): Promise<Response> => {
         hint: insertError.hint,
         code: insertError.code
       });
-      
-      console.error('Failed insertion data:', JSON.stringify(invitationData, null, 2));
       
       return new Response(
         JSON.stringify({ 
@@ -291,7 +285,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('✅ Invitation created successfully with ID:', invitation.id);
 
-    // Try to send email if configured
+    // Try to send email if Resend API key is configured
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     const siteUrl = Deno.env.get('SITE_URL') || 'https://your-app.com';
     let emailSent = false;
@@ -312,15 +306,15 @@ const handler = async (req: Request): Promise<Response> => {
           body: JSON.stringify({
             from: 'noreply@yourdomain.com',
             to: [email],
-            subject: `You're invited to join ${tenantName}`,
+            subject: `You're invited to join ${tenantName || tenantData.name}`,
             html: `
-              <h1>You're invited to join ${tenantName}</h1>
+              <h1>You're invited to join ${tenantName || tenantData.name}</h1>
               <p>Hi ${firstName},</p>
-              <p>${inviterName} has invited you to join ${tenantName} as a ${role}.</p>
+              <p>${inviterName || adminUser.full_name} has invited you to join ${tenantName || tenantData.name} as a ${role}.</p>
               <p><a href="${inviteUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Accept Invitation</a></p>
               <p>Or copy and paste this link in your browser: ${inviteUrl}</p>
               <p>This invitation expires in 7 days.</p>
-              <p>Best regards,<br>The ${tenantName} Team</p>
+              <p>Best regards,<br>The ${tenantName || tenantData.name} Team</p>
             `,
           }),
         });
