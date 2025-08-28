@@ -34,6 +34,12 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('📝 Request URL:', req.url);
     console.log('📝 Request headers:', Object.fromEntries(req.headers.entries()));
     
+    // 🔧 CRITICAL DEBUG: Check Service Role Key availability
+    console.log('🔍 === SERVICE ROLE KEY CHECK ===');
+    console.log('🔍 SUPABASE_SERVICE_ROLE_KEY exists:', !!SUPABASE_SERVICE_ROLE_KEY);
+    console.log('🔍 SUPABASE_SERVICE_ROLE_KEY length:', SUPABASE_SERVICE_ROLE_KEY?.length || 0);
+    console.log('🔍 SUPABASE_SERVICE_ROLE_KEY starts with:', SUPABASE_SERVICE_ROLE_KEY?.substring(0, 20) + '...');
+    
     // Validate Service Role Key is available
     if (!SUPABASE_SERVICE_ROLE_KEY) {
       console.error('❌ CRITICAL: SUPABASE_SERVICE_ROLE_KEY not configured');
@@ -44,12 +50,52 @@ const handler = async (req: Request): Promise<Response> => {
     }
     console.log('✅ Service Role Key is configured');
 
-    // Create Supabase client with Service Role Key (bypasses RLS)
+    // 🔧 CRITICAL DEBUG: Create Supabase client and test connection
+    console.log('🔍 === SUPABASE CLIENT CREATION ===');
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     console.log('✅ Supabase client created with Service Role Key');
     
+    // Test the connection immediately
+    console.log('🔍 Testing Supabase connection...');
+    try {
+      const { data: testData, error: testError } = await supabase
+        .from('admin_users')
+        .select('id')
+        .limit(1);
+      
+      console.log('📊 Connection test result:', { data: testData, error: testError });
+      
+      if (testError) {
+        console.error('❌ CRITICAL: Supabase connection failed:', testError);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Database connection failed',
+            details: testError.message 
+          }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+      console.log('✅ Supabase connection successful');
+    } catch (connectionError) {
+      console.error('❌ CRITICAL: Connection test exception:', connectionError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Database connection exception',
+          details: connectionError.message 
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+    
     // Get inviter user ID from header
     const inviterUserId = req.headers.get('user-id');
+    console.log('🔍 === USER AUTHENTICATION CHECK ===');
+    console.log('📝 Raw user-id header:', inviterUserId);
+    console.log('📝 user-id header exists:', !!inviterUserId);
+    console.log('📝 user-id header length:', inviterUserId?.length || 0);
+    
     if (!inviterUserId) {
       console.error('❌ No user-id header provided');
       return new Response(
@@ -57,7 +103,17 @@ const handler = async (req: Request): Promise<Response> => {
         { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
-    console.log('✅ Inviter user ID from header:', inviterUserId);
+    
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(inviterUserId)) {
+      console.error('❌ Invalid UUID format for user-id:', inviterUserId);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid User ID format' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+    console.log('✅ Valid user ID format:', inviterUserId);
     
     // Parse request body
     let requestBody: InviteRequest;
@@ -93,7 +149,7 @@ const handler = async (req: Request): Promise<Response> => {
     } = requestBody;
 
     // Validate required fields
-    console.log('🔍 Validating required fields...');
+    console.log('🔍 === FIELD VALIDATION ===');
     if (!tenantId || !email || !firstName || !role) {
       const missingFields = [];
       if (!tenantId) missingFields.push('tenantId');
@@ -125,7 +181,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('✅ Email format is valid');
 
     // Verify tenant exists
-    console.log('🔍 Verifying tenant existence...');
+    console.log('🔍 === TENANT VERIFICATION ===');
     console.log('🔍 Querying tenants table for ID:', tenantId);
     const { data: tenantData, error: tenantError } = await supabase
       .from('tenants')
@@ -148,7 +204,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('✅ Tenant verified:', tenantData);
 
     // Get admin user record for the inviter
-    console.log('🔍 Getting admin user record...');
+    console.log('🔍 === ADMIN USER VERIFICATION ===');
     console.log('🔍 Querying admin_users table for ID:', inviterUserId);
     const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
@@ -202,22 +258,17 @@ const handler = async (req: Request): Promise<Response> => {
       attempts++;
     }
 
-    // Strict guard after the loop
-    if (!invitationToken || !tokenIsUnique) {
-      console.error('❌ Failed to generate a unique invitation token');
+    if (!tokenIsUnique) {
+      console.error('❌ Failed to generate unique token after', maxAttempts, 'attempts');
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Failed to generate a unique invitation token',
-          code: 'TOKEN_GENERATION_ERROR'
-        }),
+        JSON.stringify({ success: false, error: 'Failed to generate unique invitation token' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
     console.log('🔍 === TOKEN GENERATION END ===');
 
     // Check for existing active invitations
-    console.log('🔍 Checking for existing invitations...');
+    console.log('🔍 === DUPLICATE INVITATION CHECK ===');
     console.log('🔍 Query params - tenantId:', tenantId, 'email:', email.toLowerCase().trim());
     
     const { data: existingInvites, error: checkError } = await supabase
@@ -260,7 +311,7 @@ const handler = async (req: Request): Promise<Response> => {
       last_name: lastName || '',
       role: role,
       invitation_token: invitationToken,
-      invitation_type: 'tenant_activation', // Using valid enum value
+      invitation_type: 'tenant_activation',
       status: 'pending',
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       created_by: adminUser.id,
@@ -274,17 +325,8 @@ const handler = async (req: Request): Promise<Response> => {
       }
     };
 
-    console.log('🔍 === ATTEMPTING DATABASE INSERT ===');
+    console.log('🔍 === DATABASE INSERTION ===');
     console.log('📝 Insert data:', JSON.stringify(invitationData, null, 2));
-
-    // First, let's check the user_invitations table structure
-    console.log('🔍 Checking user_invitations table structure...');
-    const { data: tableInfo, error: tableError } = await supabase
-      .from('user_invitations')
-      .select('*')
-      .limit(1);
-    
-    console.log('📊 Table structure check:', { data: tableInfo, error: tableError });
 
     // Insert invitation record
     const { data: invitation, error: insertError } = await supabase
@@ -308,8 +350,7 @@ const handler = async (req: Request): Promise<Response> => {
           debug: {
             errorCode: insertError.code,
             errorDetails: insertError.details,
-            errorHint: insertError.hint,
-            sentData: invitationData
+            errorHint: insertError.hint
           }
         }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
