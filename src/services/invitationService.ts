@@ -77,8 +77,19 @@ export class InvitationService {
         firstName: request.firstName
       });
 
+      // Get the current user to pass their ID in the header
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('InvitationService: Current user ID:', user.id);
+
       const { data, error } = await supabase.functions.invoke('send-user-invite', {
-        body: request
+        body: request,
+        headers: {
+          'user-id': user.id
+        }
       });
 
       console.log('InvitationService: Edge function response:', { data, error });

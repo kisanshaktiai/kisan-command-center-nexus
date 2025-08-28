@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -162,9 +161,13 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
 
       // Get current user info for the invitation
       const { data: { user } } = await supabase.auth.getUser();
-      const inviterName = user?.user_metadata?.full_name || 'Team Admin';
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
 
-      // Call the edge function to send invitation
+      const inviterName = user.user_metadata?.full_name || 'Team Admin';
+
+      // Call the edge function to send invitation with user-id header
       const { data, error } = await supabase.functions.invoke('send-user-invite', {
         body: {
           tenantId,
@@ -174,6 +177,9 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
           role: newUser.role,
           tenantName: tenantData?.name || 'Your Organization',
           inviterName
+        },
+        headers: {
+          'user-id': user.id
         }
       });
 
@@ -209,7 +215,11 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
       setIsSending(invitation.id);
 
       const { data: { user } } = await supabase.auth.getUser();
-      const inviterName = user?.user_metadata?.full_name || 'Team Admin';
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const inviterName = user.user_metadata?.full_name || 'Team Admin';
 
       const { data, error } = await supabase.functions.invoke('send-user-invite', {
         body: {
@@ -220,6 +230,9 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
           role: invitation.role,
           tenantName: tenantData?.name || 'Your Organization',
           inviterName
+        },
+        headers: {
+          'user-id': user.id
         }
       });
 
