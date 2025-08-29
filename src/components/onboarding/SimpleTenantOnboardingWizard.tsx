@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
@@ -6,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Clock, AlertCircle, ArrowLeft, ArrowRight, Sparkles, RefreshCw } from 'lucide-react';
 import { CompanyProfileStep } from './steps/CompanyProfileStep';
 import { EnhancedBrandingStep } from './steps/EnhancedBrandingStep';
-import { TeamUsersRolesStep } from './steps/TeamUsersRolesStep';
+import { EnhancedUsersRolesStep } from './steps/EnhancedUsersRolesStep';
 import { BillingPlanStep } from './steps/BillingPlanStep';
 import { DomainWhitelabelStep } from './steps/DomainWhitelabelStep';
 import { ReviewGoLiveStep } from './steps/ReviewGoLiveStep';
@@ -25,9 +26,8 @@ const STEP_COMPONENTS: Record<string, React.ComponentType<any>> = {
   'Company Profile': CompanyProfileStep,
   'Branding & Design': EnhancedBrandingStep,
   'Enhanced Branding': EnhancedBrandingStep,
-  'Team & Permissions': TeamUsersRolesStep,
-  'Enhanced Users & Roles': TeamUsersRolesStep,
-  'Team Users & Roles': TeamUsersRolesStep,
+  'Team & Permissions': EnhancedUsersRolesStep,
+  'Enhanced Users & Roles': EnhancedUsersRolesStep,
   'Billing & Plan': BillingPlanStep,
   'Domain & White-label': DomainWhitelabelStep,
   'Domain & Branding': DomainWhitelabelStep,
