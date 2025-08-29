@@ -7145,9 +7145,9 @@ export type Database = {
           id: string
           invitation_token: string
           invitation_type: string
+          invited_by: string | null
           inviter_name: string | null
           last_name: string | null
-          lead_id: string | null
           metadata: Json | null
           role: string | null
           sent_at: string | null
@@ -7166,11 +7166,11 @@ export type Database = {
           expires_at?: string
           first_name?: string | null
           id?: string
-          invitation_token: string
+          invitation_token?: string
           invitation_type?: string
+          invited_by?: string | null
           inviter_name?: string | null
           last_name?: string | null
-          lead_id?: string | null
           metadata?: Json | null
           role?: string | null
           sent_at?: string | null
@@ -7191,9 +7191,9 @@ export type Database = {
           id?: string
           invitation_token?: string
           invitation_type?: string
+          invited_by?: string | null
           inviter_name?: string | null
           last_name?: string | null
-          lead_id?: string | null
           metadata?: Json | null
           role?: string | null
           sent_at?: string | null
@@ -7212,10 +7212,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "user_invitations_lead_id_fkey"
-            columns: ["lead_id"]
+            foreignKeyName: "user_invitations_invited_by_fkey"
+            columns: ["invited_by"]
             isOneToOne: false
-            referencedRelation: "leads"
+            referencedRelation: "admin_users"
             referencedColumns: ["id"]
           },
           {
