@@ -127,7 +127,17 @@ export class TeamInvitationService {
 
   static async markInvitationClicked(token: string): Promise<boolean> {
     try {
-      const { error } = await supabase.rpc('mark_team_invitation_clicked', { token });
+      // Direct database update since we have the function in the database
+      const { data, error } = await supabase
+        .from('team_invitations')
+        .update({ 
+          status: 'clicked', 
+          clicked_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('invitation_token', token)
+        .eq('status', 'sent')
+        .gt('expires_at', new Date().toISOString());
 
       if (error) {
         console.error('Error marking team invitation as clicked:', error);
@@ -143,7 +153,17 @@ export class TeamInvitationService {
 
   static async markInvitationAccepted(token: string): Promise<boolean> {
     try {
-      const { error } = await supabase.rpc('mark_team_invitation_accepted', { token });
+      // Direct database update since we have the function in the database
+      const { data, error } = await supabase
+        .from('team_invitations')
+        .update({ 
+          status: 'accepted', 
+          accepted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('invitation_token', token)
+        .in('status', ['sent', 'clicked'])
+        .gt('expires_at', new Date().toISOString());
 
       if (error) {
         console.error('Error marking team invitation as accepted:', error);

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ const roleOptions = [
   },
   {
     value: 'tenant_admin',
-    label: 'Tenant Admin',
+    label: 'Tenant Admin', 
     description: 'Manage users, settings, and most features',
     icon: Shield,
     color: 'text-blue-600'
@@ -210,7 +211,7 @@ export const TeamUsersRolesStep: React.FC<TeamUsersRolesStepProps> = ({
   const handleComplete = () => {
     const completedData = {
       team_invitations: invitations.length,
-      roles_configured: true,
+      roles_configured: true,     
       team_setup_completed: true
     };
     
