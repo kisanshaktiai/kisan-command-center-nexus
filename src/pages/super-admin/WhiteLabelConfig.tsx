@@ -18,6 +18,10 @@ import { DomainHealthPanel } from '@/components/white-label/DomainHealthPanel';
 import { ContentManagementPanel } from '@/components/white-label/ContentManagementPanel';
 import { DistributionOptionsPanel } from '@/components/white-label/DistributionOptionsPanel';
 import { AdvancedAppCustomizationPanel } from '@/components/white-label/AdvancedAppCustomizationPanel';
+import { LogoUploadSection } from '@/components/white-label/LogoUploadSection';
+import { DomainValidationSection } from '@/components/white-label/DomainValidationSection';
+import { EmailTemplatesPanel } from '@/components/white-label/EmailTemplatesPanel';
+import { MobileThemeConfigPanel } from '@/components/white-label/MobileThemeConfigPanel';
 
 interface WhiteLabelConfig {
   id: string;
