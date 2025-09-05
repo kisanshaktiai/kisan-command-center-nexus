@@ -52,51 +52,55 @@ interface WhiteLabelConfig {
     app_name?: string;
     app_description?: string;
     app_icon?: string;
-    screenshots?: string[];
-    keywords?: string[];
     category?: string;
+    keywords?: string[];
+    screenshots?: string[];
+    privacy_policy_url?: string;
+    terms_url?: string;
   };
   pwa_config: {
-    app_name?: string;
+    name?: string;
     short_name?: string;
     description?: string;
     theme_color?: string;
     background_color?: string;
     display?: string;
     orientation?: string;
+    start_url?: string;
+    scope?: string;
     icons?: Array<{
       src: string;
       sizes: string;
       type: string;
+      purpose?: string;
     }>;
   };
   splash_screens: {
-    mobile_splash?: string;
-    tablet_splash?: string;
-    desktop_splash?: string;
-    loading_animation?: string;
+    ios_splash?: string;
+    android_splash?: string;
+    background_color?: string;
+    logo_size?: string;
   };
-  // New configuration sections
   css_injection?: {
     enabled?: boolean;
     custom_css?: string;
     mobile_css?: string;
     print_css?: string;
+    critical_css?: string;
+    css_minified?: boolean;
+    preprocessor?: string;
+    css_framework?: string;
+    css_variables?: string;
   };
   app_customization?: {
-    bundle_id?: string;
-    app_version?: string;
-    build_number?: number;
-    minimum_ios_version?: string;
-    minimum_android_version?: string;
-    supported_languages?: string;
-    custom_menu?: any[];
     visible_modules?: Record<string, boolean>;
-    custom_fields?: string;
-    business_rules?: string;
-    loading_animation_url?: string;
-    transition_duration?: number;
+    custom_branding?: boolean;
+    layout_customization?: string;
+    theme_mode?: string;
+    color_scheme?: string;
+    typography_scale?: number;
     animations_enabled?: boolean;
+    transition_duration?: number;
     respect_reduce_motion?: boolean;
     animation_preset?: string;
   };
@@ -252,9 +256,10 @@ export default function WhiteLabelConfig() {
           faq_items: []
         },
         distribution: {
-          pwa_enabled: true,
+          pwa_enabled: false,
+          pwa_offline_support: false,
+          private_store_enabled: false,
           auto_updates: true,
-          update_channel: 'stable',
           update_check_interval: 24
         },
         domain_health: {
@@ -264,17 +269,15 @@ export default function WhiteLabelConfig() {
           uptime_percentage: 0,
           last_checked: new Date().toISOString()
         },
-        created_at: '',
-        updated_at: ''
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       });
+      setHasUnsavedChanges(false);
     }
   }, [whiteLabelConfig, selectedTenant]);
 
   const handleSave = async () => {
-    if (!config || !selectedTenant) {
-      toast.error('Please select a tenant first');
-      return;
-    }
+    if (!config || !selectedTenant) return;
     
     const configData = {
       brand_identity: config.brand_identity,
@@ -350,352 +353,358 @@ export default function WhiteLabelConfig() {
         <div className="flex gap-2">
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setPreviewMode(!previewMode)}
           >
-            <Eye className="w-4 h-4 mr-2" />
-            {previewMode ? 'Exit Preview' : 'Preview'}
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={!config || isSaving}
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                Save Configuration
-              </>
-            )}
+            <Eye className="h-4 w-4 mr-1" />
+            {previewMode ? 'Edit Mode' : 'Preview'}
           </Button>
         </div>
       </div>
 
-      {/* Tenant Selection */}
+      {/* Tenant Selector */}
       <Card>
-        <CardHeader>
-          <CardTitle>Select Tenant</CardTitle>
-          <CardDescription>Choose a tenant to configure white-label settings</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <select
-            className="w-full p-2 border rounded-md"
-            value={selectedTenant}
-            onChange={(e) => handleTenantChange(e.target.value)}
-            disabled={tenantsLoading}
-          >
-            <option value="">Select a tenant...</option>
-            {tenants.map((tenant) => (
-              <option key={tenant.id} value={tenant.id}>
-                {tenant.name}
-              </option>
-            ))}
-          </select>
-          {configLoading && selectedTenant && (
-            <p className="text-sm text-muted-foreground mt-2">
-              <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
-              Loading configuration...
-            </p>
-          )}
-          {hasUnsavedChanges && (
-            <Badge variant="outline" className="mt-2">
-              Unsaved changes
-            </Badge>
-          )}
+        <CardContent className="pt-6">
+          <div className="space-y-2">
+            <Label htmlFor="tenant-select">Select Tenant</Label>
+            <select
+              id="tenant-select"
+              className="w-full p-2 border rounded-md"
+              value={selectedTenant}
+              onChange={(e) => handleTenantChange(e.target.value)}
+            >
+              <option value="">Choose a tenant...</option>
+              {tenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </CardContent>
       </Card>
 
-      {selectedTenant && config && (
-        <Tabs defaultValue="brand" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-8 text-xs">
-            <TabsTrigger value="brand" className="flex items-center gap-1">
-              <Palette className="w-3 h-3" />
-              Brand
-            </TabsTrigger>
-            <TabsTrigger value="domain" className="flex items-center gap-1">
-              <Globe className="w-3 h-3" />
-              Domain
-            </TabsTrigger>
-            <TabsTrigger value="email" className="flex items-center gap-1">
-              <Mail className="w-3 h-3" />
-              Email
-            </TabsTrigger>
-            <TabsTrigger value="mobile" className="flex items-center gap-1">
-              <Smartphone className="w-3 h-3" />
-              Mobile
-            </TabsTrigger>
-            <TabsTrigger value="pwa" className="flex items-center gap-1">
-              <Monitor className="w-3 h-3" />
-              PWA
-            </TabsTrigger>
-            <TabsTrigger value="advanced" className="flex items-center gap-1">
-              <Settings className="w-3 h-3" />
-              Advanced
-            </TabsTrigger>
-            <TabsTrigger value="content" className="flex items-center gap-1">
-              <Eye className="w-3 h-3" />
-              Content
-            </TabsTrigger>
-            <TabsTrigger value="distribution" className="flex items-center gap-1">
-              <Download className="w-3 h-3" />
-              Distribution
-            </TabsTrigger>
-          </TabsList>
+      {selectedTenant && (
+        <Tabs defaultValue="branding" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <TabsList className="grid grid-cols-8 w-full max-w-4xl">
+              <TabsTrigger value="branding">
+                <Palette className="h-4 w-4 mr-1" />
+                Branding
+              </TabsTrigger>
+              <TabsTrigger value="domain">
+                <Globe className="h-4 w-4 mr-1" />
+                Domain
+              </TabsTrigger>
+              <TabsTrigger value="email">
+                <Mail className="h-4 w-4 mr-1" />
+                Email
+              </TabsTrigger>
+              <TabsTrigger value="mobile">
+                <Smartphone className="h-4 w-4 mr-1" />
+                Mobile
+              </TabsTrigger>
+              <TabsTrigger value="pwa">
+                <Monitor className="h-4 w-4 mr-1" />
+                PWA
+              </TabsTrigger>
+              <TabsTrigger value="advanced">
+                <Code className="h-4 w-4 mr-1" />
+                Advanced
+              </TabsTrigger>
+              <TabsTrigger value="content">
+                <Settings className="h-4 w-4 mr-1" />
+                Content
+              </TabsTrigger>
+              <TabsTrigger value="distribution">
+                <Download className="h-4 w-4 mr-1" />
+                Distribution
+              </TabsTrigger>
+            </TabsList>
+            <div className="flex gap-2">
+              {hasUnsavedChanges && (
+                <Badge variant="outline" className="text-amber-600">
+                  Unsaved Changes
+                </Badge>
+              )}
+              <Button
+                onClick={handleSave}
+                disabled={!hasUnsavedChanges || isSaving}
+                className="min-w-[100px]"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
 
-          {/* Brand Identity */}
-          <TabsContent value="brand" className="space-y-4">
+          {/* Branding Tab */}
+          <TabsContent value="branding" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Brand Identity</CardTitle>
-                <CardDescription>Configure colors, fonts, and branding elements</CardDescription>
+                <CardDescription>Configure your brand colors, logo, and visual identity</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="company_name">Company Name</Label>
-                    <Input
-                      id="company_name"
-                      value={config.brand_identity.company_name || ''}
-                      onChange={(e) => updateConfig('brand_identity', 'company_name', e.target.value)}
-                      placeholder="Your Company Name"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="font_family">Font Family</Label>
-                    <select
-                      className="w-full p-2 border rounded-md"
-                      value={config.brand_identity.font_family || 'Inter'}
-                      onChange={(e) => updateConfig('brand_identity', 'font_family', e.target.value)}
-                    >
-                      <option value="Inter">Inter</option>
-                      <option value="Roboto">Roboto</option>
-                      <option value="Open Sans">Open Sans</option>
-                      <option value="Lato">Lato</option>
-                      <option value="Poppins">Poppins</option>
-                    </select>
-                  </div>
-                </div>
+                <LogoUploadSection 
+                  logoUrl={config?.brand_identity?.logo_url || ''} 
+                  onLogoChange={(url) => updateConfig('brand_identity', 'logo_url', url)} 
+                />
                 
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <Label htmlFor="primary_color">Primary Color</Label>
-                    <div className="flex gap-2 items-center">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="primary-color">Primary Color</Label>
+                    <div className="flex gap-2">
                       <Input
+                        id="primary-color"
                         type="color"
-                        value={config.brand_identity.primary_color || '#3b82f6'}
+                        value={config?.brand_identity?.primary_color || '#3b82f6'}
                         onChange={(e) => updateConfig('brand_identity', 'primary_color', e.target.value)}
-                        className="w-16 h-10"
+                        className="h-10 w-20"
                       />
                       <Input
-                        value={config.brand_identity.primary_color || '#3b82f6'}
+                        type="text"
+                        value={config?.brand_identity?.primary_color || '#3b82f6'}
                         onChange={(e) => updateConfig('brand_identity', 'primary_color', e.target.value)}
-                        placeholder="#3b82f6"
+                        className="flex-1"
                       />
                     </div>
                   </div>
-                  <div>
-                    <Label htmlFor="secondary_color">Secondary Color</Label>
-                    <div className="flex gap-2 items-center">
+
+                  <div className="space-y-2">
+                    <Label htmlFor="secondary-color">Secondary Color</Label>
+                    <div className="flex gap-2">
                       <Input
+                        id="secondary-color"
                         type="color"
-                        value={config.brand_identity.secondary_color || '#64748b'}
+                        value={config?.brand_identity?.secondary_color || '#64748b'}
                         onChange={(e) => updateConfig('brand_identity', 'secondary_color', e.target.value)}
-                        className="w-16 h-10"
+                        className="h-10 w-20"
                       />
                       <Input
-                        value={config.brand_identity.secondary_color || '#64748b'}
+                        type="text"
+                        value={config?.brand_identity?.secondary_color || '#64748b'}
                         onChange={(e) => updateConfig('brand_identity', 'secondary_color', e.target.value)}
-                        placeholder="#64748b"
+                        className="flex-1"
                       />
                     </div>
                   </div>
-                  <div>
-                    <Label htmlFor="accent_color">Accent Color</Label>
-                    <div className="flex gap-2 items-center">
+
+                  <div className="space-y-2">
+                    <Label htmlFor="accent-color">Accent Color</Label>
+                    <div className="flex gap-2">
                       <Input
+                        id="accent-color"
                         type="color"
-                        value={config.brand_identity.accent_color || '#10b981'}
+                        value={config?.brand_identity?.accent_color || '#10b981'}
                         onChange={(e) => updateConfig('brand_identity', 'accent_color', e.target.value)}
-                        className="w-16 h-10"
+                        className="h-10 w-20"
                       />
                       <Input
-                        value={config.brand_identity.accent_color || '#10b981'}
+                        type="text"
+                        value={config?.brand_identity?.accent_color || '#10b981'}
                         onChange={(e) => updateConfig('brand_identity', 'accent_color', e.target.value)}
-                        placeholder="#10b981"
+                        className="flex-1"
                       />
                     </div>
                   </div>
                 </div>
 
-                <LogoUploadSection
-                  logoUrl={config.brand_identity.logo_url || ''}
-                  onLogoChange={(url) => updateConfig('brand_identity', 'logo_url', url)}
-                  label="Company Logo"
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="company-name">Company Name</Label>
+                  <Input
+                    id="company-name"
+                    value={config?.brand_identity?.company_name || ''}
+                    onChange={(e) => updateConfig('brand_identity', 'company_name', e.target.value)}
+                    placeholder="Your Company Name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="font-family">Font Family</Label>
+                  <select
+                    id="font-family"
+                    className="w-full p-2 border rounded-md"
+                    value={config?.brand_identity?.font_family || 'Inter'}
+                    onChange={(e) => updateConfig('brand_identity', 'font_family', e.target.value)}
+                  >
+                    <option value="Inter">Inter</option>
+                    <option value="Roboto">Roboto</option>
+                    <option value="Open Sans">Open Sans</option>
+                    <option value="Lato">Lato</option>
+                    <option value="Poppins">Poppins</option>
+                  </select>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Domain Configuration */}
+          {/* Domain Tab */}
           <TabsContent value="domain" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Domain Configuration</CardTitle>
-                <CardDescription>Set up custom domains and SSL settings</CardDescription>
+                <CardDescription>Set up custom domain and subdomain settings</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <DomainValidationSection
-                    domain={config.domain_config.subdomain || ''}
-                    onDomainChange={(domain) => updateConfig('domain_config', 'subdomain', domain)}
-                    type="subdomain"
-                    tenantId={selectedTenant}
-                  />
-                  <DomainValidationSection
-                    domain={config.domain_config.custom_domain || ''}
-                    onDomainChange={(domain) => updateConfig('domain_config', 'custom_domain', domain)}
-                    type="custom_domain"
-                    tenantId={selectedTenant}
+                <DomainValidationSection 
+                  domain={config?.domain_config?.custom_domain || ''} 
+                  onDomainChange={(domain) => updateConfig('domain_config', 'custom_domain', domain)}
+                  type="custom_domain"
+                  tenantId={selectedTenant}
+                />
+                
+                <div className="space-y-2">
+                  <Label htmlFor="custom-domain">Custom Domain</Label>
+                  <Input
+                    id="custom-domain"
+                    value={config?.domain_config?.custom_domain || ''}
+                    onChange={(e) => updateConfig('domain_config', 'custom_domain', e.target.value)}
+                    placeholder="app.yourdomain.com"
                   />
                 </div>
-                
+
+                <div className="space-y-2">
+                  <Label htmlFor="subdomain">Subdomain</Label>
+                  <Input
+                    id="subdomain"
+                    value={config?.domain_config?.subdomain || ''}
+                    onChange={(e) => updateConfig('domain_config', 'subdomain', e.target.value)}
+                    placeholder="yourcompany"
+                  />
+                </div>
+
                 <div className="flex items-center space-x-2">
                   <Switch
-                    id="ssl_enabled"
-                    checked={config.domain_config.ssl_enabled || false}
+                    id="ssl-enabled"
+                    checked={config?.domain_config?.ssl_enabled || false}
                     onCheckedChange={(checked) => updateConfig('domain_config', 'ssl_enabled', checked)}
                   />
-                  <Label htmlFor="ssl_enabled">Enable SSL Certificate</Label>
+                  <Label htmlFor="ssl-enabled">Enable SSL/HTTPS</Label>
                 </div>
 
-                <div>
-                  <Label htmlFor="redirect_urls">Redirect URLs (one per line)</Label>
-                  <Textarea
-                    id="redirect_urls"
-                    value={(config.domain_config.redirect_urls || []).join('\n')}
-                    onChange={(e) => updateConfig('domain_config', 'redirect_urls', e.target.value.split('\n').filter(Boolean))}
-                    placeholder="https://yoursite.com/auth/callback"
-                    rows={3}
-                  />
-                </div>
+                <DomainHealthPanel config={config} />
               </CardContent>
             </Card>
-
-            <DomainHealthPanel config={config} updateConfig={updateConfig} />
           </TabsContent>
 
-          {/* Email Templates */}
+          {/* Email Tab */}
           <TabsContent value="email" className="space-y-4">
             <EmailTemplatesPanel config={config} updateConfig={updateConfig} />
           </TabsContent>
 
-          {/* Mobile App Configuration */}
+          {/* Mobile Tab */}
           <TabsContent value="mobile" className="space-y-4">
             <MobileThemeConfigPanel config={config} updateConfig={updateConfig} />
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>App Store Configuration</CardTitle>
+                <CardDescription>Configure app store listing details</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="app-name">App Name</Label>
+                    <Input
+                      id="app-name"
+                      value={config?.app_store_config?.app_name || ''}
+                      onChange={(e) => updateConfig('app_store_config', 'app_name', e.target.value)}
+                      placeholder="Your App Name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="app-category">Category</Label>
+                    <Input
+                      id="app-category"
+                      value={config?.app_store_config?.category || ''}
+                      onChange={(e) => updateConfig('app_store_config', 'category', e.target.value)}
+                      placeholder="Business"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="app-description">App Description</Label>
+                  <Textarea
+                    id="app-description"
+                    value={config?.app_store_config?.app_description || ''}
+                    onChange={(e) => updateConfig('app_store_config', 'app_description', e.target.value)}
+                    placeholder="Describe your app..."
+                    className="min-h-[100px]"
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
-          {/* PWA Configuration */}
+          {/* PWA Tab */}
           <TabsContent value="pwa" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>PWA Configuration</CardTitle>
-                <CardDescription>Configure Progressive Web App settings</CardDescription>
+                <CardTitle>Progressive Web App Settings</CardTitle>
+                <CardDescription>Configure PWA manifest and behavior</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="pwa_app_name">App Name</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pwa-name">App Name</Label>
                     <Input
-                      id="pwa_app_name"
-                      value={config.pwa_config.app_name || ''}
-                      onChange={(e) => updateConfig('pwa_config', 'app_name', e.target.value)}
-                      placeholder="KisanShaktiAI"
+                      id="pwa-name"
+                      value={config?.pwa_config?.name || ''}
+                      onChange={(e) => updateConfig('pwa_config', 'name', e.target.value)}
+                      placeholder="Your PWA Name"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="short_name">Short Name</Label>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="pwa-short-name">Short Name</Label>
                     <Input
-                      id="short_name"
-                      value={config.pwa_config.short_name || ''}
+                      id="pwa-short-name"
+                      value={config?.pwa_config?.short_name || ''}
                       onChange={(e) => updateConfig('pwa_config', 'short_name', e.target.value)}
-                      placeholder="KisanShakti"
+                      placeholder="ShortName"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="pwa_description">Description</Label>
-                  <Textarea
-                    id="pwa_description"
-                    value={config.pwa_config.description || ''}
-                    onChange={(e) => updateConfig('pwa_config', 'description', e.target.value)}
-                    placeholder="Agricultural management platform"
-                    rows={2}
-                  />
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="theme_color">Theme Color</Label>
-                    <div className="flex gap-2 items-center">
-                      <Input
-                        type="color"
-                        value={config.pwa_config.theme_color || '#3b82f6'}
-                        onChange={(e) => updateConfig('pwa_config', 'theme_color', e.target.value)}
-                        className="w-16 h-10"
-                      />
-                      <Input
-                        value={config.pwa_config.theme_color || '#3b82f6'}
-                        onChange={(e) => updateConfig('pwa_config', 'theme_color', e.target.value)}
-                        placeholder="#3b82f6"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="background_color">Background Color</Label>
-                    <div className="flex gap-2 items-center">
-                      <Input
-                        type="color"
-                        value={config.pwa_config.background_color || '#ffffff'}
-                        onChange={(e) => updateConfig('pwa_config', 'background_color', e.target.value)}
-                        className="w-16 h-10"
-                      />
-                      <Input
-                        value={config.pwa_config.background_color || '#ffffff'}
-                        onChange={(e) => updateConfig('pwa_config', 'background_color', e.target.value)}
-                        placeholder="#ffffff"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="display">Display Mode</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pwa-display">Display Mode</Label>
                     <select
+                      id="pwa-display"
                       className="w-full p-2 border rounded-md"
-                      value={config.pwa_config.display || 'standalone'}
+                      value={config?.pwa_config?.display || 'standalone'}
                       onChange={(e) => updateConfig('pwa_config', 'display', e.target.value)}
                     >
-                      <option value="standalone">Standalone</option>
                       <option value="fullscreen">Fullscreen</option>
+                      <option value="standalone">Standalone</option>
                       <option value="minimal-ui">Minimal UI</option>
                       <option value="browser">Browser</option>
                     </select>
                   </div>
-                  <div>
-                    <Label htmlFor="orientation">Orientation</Label>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="pwa-orientation">Orientation</Label>
                     <select
+                      id="pwa-orientation"
                       className="w-full p-2 border rounded-md"
-                      value={config.pwa_config.orientation || 'portrait'}
+                      value={config?.pwa_config?.orientation || 'any'}
                       onChange={(e) => updateConfig('pwa_config', 'orientation', e.target.value)}
                     >
+                      <option value="any">Any</option>
                       <option value="portrait">Portrait</option>
                       <option value="landscape">Landscape</option>
-                      <option value="any">Any</option>
                     </select>
                   </div>
                 </div>
