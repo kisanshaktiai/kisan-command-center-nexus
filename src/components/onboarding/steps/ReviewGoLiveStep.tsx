@@ -46,9 +46,17 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
         .from('tenants')
         .select('*')
         .eq('id', tenantId)
-        .single();
+        .maybeSingle();
 
-      if (tenantError) throw tenantError;
+      if (tenantError) {
+        console.error('Error loading tenant:', tenantError);
+        throw tenantError;
+      }
+
+      if (!tenant) {
+        console.error('Tenant not found:', tenantId);
+        throw new Error('Tenant not found');
+      }
 
       // Load branding data
       const { data: branding } = await supabase
