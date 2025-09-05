@@ -130,6 +130,13 @@ interface WhiteLabelConfig {
     minimum_version?: string;
     update_message?: string;
   };
+  domain_health?: {
+    ssl_status: 'valid' | 'invalid' | 'expired' | 'pending';
+    dns_status: 'configured' | 'misconfigured' | 'pending';
+    performance_score: number;
+    uptime_percentage: number;
+    last_checked: string;
+  };
   created_at: string;
   updated_at: string;
 }
@@ -236,6 +243,13 @@ export default function WhiteLabelConfig() {
           update_channel: 'stable',
           update_check_interval: 24
         },
+        domain_health: {
+          ssl_status: 'pending',
+          dns_status: 'pending',
+          performance_score: 0,
+          uptime_percentage: 0,
+          last_checked: new Date().toISOString()
+        },
         created_at: '',
         updated_at: ''
       });
@@ -290,7 +304,8 @@ export default function WhiteLabelConfig() {
       css_injection: config.css_injection,
       app_customization: config.app_customization,
       content_management: config.content_management,
-      distribution: config.distribution
+      distribution: config.distribution,
+      domain_health: config.domain_health
     };
     
     saveConfigMutation.mutate(configData);
@@ -563,7 +578,7 @@ export default function WhiteLabelConfig() {
               </CardContent>
             </Card>
 
-            <DomainHealthPanel config={config} />
+            <DomainHealthPanel config={config} updateConfig={updateConfig} />
           </TabsContent>
 
           {/* Email Templates */}
