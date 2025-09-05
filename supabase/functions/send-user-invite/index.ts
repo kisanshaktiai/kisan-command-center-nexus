@@ -2,7 +2,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Last updated: 2025-08-28 21:05 - Force redeployment after moving userId to request body
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -19,11 +18,11 @@ interface InviteRequest {
   role: string;
   tenantName?: string;
   inviterName?: string;
-  userId: string; // Admin user ID
+  userId: string;
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false } // Ensures server-side usage only
+  auth: { persistSession: false }
 });
 
 const handler = async (req: Request): Promise<Response> => {
@@ -32,21 +31,28 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    // Check Service Role Key
+    console.log('send-user-invite: Starting invitation process');
+    
     if (!SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('send-user-invite: Service Role Key not configured');
       return new Response(JSON.stringify({ success: false, error: 'Service Role Key not configured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
 
-    // Parse body
     const rawBody = await req.text();
     const body: InviteRequest = JSON.parse(rawBody);
+    console.log('send-user-invite: Request body parsed', { 
+      tenantId: body.tenantId, 
+      email: body.email, 
+      role: body.role 
+    });
 
     const { tenantId, email, firstName, lastName, role, tenantName, inviterName, userId } = body;
 
     if (!tenantId || !email || !firstName || !role || !userId) {
+      console.error('send-user-invite: Missing required fields');
       return new Response(JSON.stringify({ success: false, error: 'Missing required fields' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
@@ -55,8 +61,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Validate UUID
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(userId)) {
-      return new Response(JSON.stringify({ success: false, error: 'Invalid userId format' }), {
+    if (!uuidRegex.test(userId) || !uuidRegex.test(tenantId)) {
+      console.error('send-user-invite: Invalid UUID format');
+      return new Response(JSON.stringify({ success: false, error: 'Invalid ID format' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
@@ -65,13 +72,15 @@ const handler = async (req: Request): Promise<Response> => {
     // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
+      console.error('send-user-invite: Invalid email format');
       return new Response(JSON.stringify({ success: false, error: 'Invalid email format' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
 
-    // Verify tenant
+    // Verify tenant exists
+    console.log('send-user-invite: Verifying tenant exists');
     const { data: tenantData, error: tenantError } = await supabase
       .from('tenants')
       .select('id, name')
@@ -79,27 +88,33 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (tenantError || !tenantData) {
+      console.error('send-user-invite: Tenant verification failed', tenantError);
       return new Response(JSON.stringify({ success: false, error: 'Tenant does not exist' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
 
-    // Verify admin user
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('id, email, full_name')
-      .eq('id', userId)
+    // Verify the user is authorized to invite (has tenant access)
+    console.log('send-user-invite: Verifying user authorization');
+    const { data: userTenant, error: userTenantError } = await supabase
+      .from('user_tenants')
+      .select('id, role')
+      .eq('user_id', userId)
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
       .single();
 
-    if (adminError || !adminUser) {
-      return new Response(JSON.stringify({ success: false, error: 'Inviter not authorized as admin' }), {
+    if (userTenantError || !userTenant) {
+      console.error('send-user-invite: User not authorized for this tenant', userTenantError);
+      return new Response(JSON.stringify({ success: false, error: 'User not authorized to invite for this tenant' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
 
-    // Check duplicate invitation
+    // Check for existing active invitation
+    console.log('send-user-invite: Checking for existing invitations');
     const { data: existingInvites } = await supabase
       .from('user_invitations')
       .select('id')
@@ -108,7 +123,8 @@ const handler = async (req: Request): Promise<Response> => {
       .in('status', ['pending', 'sent']);
 
     if (existingInvites && existingInvites.length > 0) {
-      return new Response(JSON.stringify({ success: false, error: 'Active invitation already exists' }), {
+      console.log('send-user-invite: Active invitation already exists');
+      return new Response(JSON.stringify({ success: false, error: 'Active invitation already exists for this email' }), {
         status: 409,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
@@ -116,30 +132,32 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Generate unique invitation token
     const invitationToken = crypto.randomUUID();
+    console.log('send-user-invite: Generated invitation token');
 
-    // Prepare invitation data
+    // Prepare invitation data with metadata in the correct format
     const invitationData = {
       tenant_id: tenantId,
       email: email.toLowerCase().trim(),
-      first_name: firstName,
-      last_name: lastName || '',
-      role,
+      invited_name: `${firstName} ${lastName || ''}`.trim(),
+      role: role,
       invitation_token: invitationToken,
-      invitation_type: 'tenant_activation',
-      status: 'pending',
+      invitation_type: 'team_member',
+      status: 'sent',
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      created_by: adminUser.id,
-      invited_by: adminUser.id,
-      inviter_name: inviterName || adminUser.full_name,
-      tenant_name: tenantName || tenantData.name,
+      created_by: userId,
       metadata: {
-        invitation_source: 'admin_panel',
+        first_name: firstName,
+        last_name: lastName || '',
+        role: role,
+        invitation_source: 'onboarding',
         tenant_name: tenantName || tenantData.name,
-        inviter_name: inviterName || adminUser.full_name
-      }
+        inviter_name: inviterName || 'Team Admin'
+      },
+      sent_at: new Date().toISOString()
     };
 
     // Insert invitation
+    console.log('send-user-invite: Creating invitation record');
     const { data: invitation, error: insertError } = await supabase
       .from('user_invitations')
       .insert(invitationData)
@@ -147,24 +165,29 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (insertError) {
+      console.error('send-user-invite: Failed to create invitation', insertError);
       return new Response(JSON.stringify({ success: false, error: insertError.message }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
 
-    // Return response (email sending optional)
+    console.log('send-user-invite: Invitation created successfully', invitation.id);
+    
+    // Return success response
     const siteUrl = Deno.env.get('SITE_URL') || 'https://your-app.com';
     return new Response(JSON.stringify({
       success: true,
-      invitationId: invitation.id,
-      inviteUrl: `${siteUrl}/accept-invitation?token=${invitationToken}`
+      invitation_id: invitation.id,
+      inviteUrl: `${siteUrl}/accept-invitation?token=${invitationToken}`,
+      message: 'Invitation sent successfully'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
 
   } catch (err) {
+    console.error('send-user-invite: Unexpected error', err);
     return new Response(JSON.stringify({ success: false, error: (err as Error).message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
