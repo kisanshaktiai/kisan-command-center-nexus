@@ -135,12 +135,14 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
         return;
       }
 
-      // Update tenant status to active
+      // Update tenant status to active and mark onboarding as complete
       const { error: updateError } = await supabase
         .from('tenants')
         .update({
           status: 'active',
           activated_at: new Date().toISOString(),
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', tenantId);

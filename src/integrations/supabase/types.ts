@@ -7900,6 +7900,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          activated_at: string | null
           archived_at: string | null
           branding_updated_at: string | null
           branding_version: number | null
@@ -7919,6 +7920,8 @@ export type Database = {
           max_storage_gb: number | null
           metadata: Json | null
           name: string
+          onboarding_completed: boolean | null
+          onboarding_completed_at: string | null
           owner_email: string | null
           owner_name: string | null
           owner_phone: string | null
@@ -7939,6 +7942,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          activated_at?: string | null
           archived_at?: string | null
           branding_updated_at?: string | null
           branding_version?: number | null
@@ -7958,6 +7962,8 @@ export type Database = {
           max_storage_gb?: number | null
           metadata?: Json | null
           name: string
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
@@ -7978,6 +7984,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          activated_at?: string | null
           archived_at?: string | null
           branding_updated_at?: string | null
           branding_version?: number | null
@@ -7997,6 +8004,8 @@ export type Database = {
           max_storage_gb?: number | null
           metadata?: Json | null
           name?: string
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
