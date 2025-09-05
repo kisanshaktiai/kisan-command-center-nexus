@@ -513,20 +513,11 @@ export default function WhiteLabelConfig() {
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="logo_url">Logo URL</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="logo_url"
-                      value={config.brand_identity.logo_url || ''}
-                      onChange={(e) => updateConfig('brand_identity', 'logo_url', e.target.value)}
-                      placeholder="https://example.com/logo.png"
-                    />
-                    <Button variant="outline">
-                      <Upload className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
+                <LogoUploadSection
+                  logoUrl={config.brand_identity.logo_url || ''}
+                  onLogoChange={(url) => updateConfig('brand_identity', 'logo_url', url)}
+                  label="Company Logo"
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -540,24 +531,18 @@ export default function WhiteLabelConfig() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="custom_domain">Custom Domain</Label>
-                    <Input
-                      id="custom_domain"
-                      value={config.domain_config.custom_domain || ''}
-                      onChange={(e) => updateConfig('domain_config', 'custom_domain', e.target.value)}
-                      placeholder="app.yourcompany.com"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="subdomain">Subdomain</Label>
-                    <Input
-                      id="subdomain"
-                      value={config.domain_config.subdomain || ''}
-                      onChange={(e) => updateConfig('domain_config', 'subdomain', e.target.value)}
-                      placeholder="yourcompany"
-                    />
-                  </div>
+                  <DomainValidationSection
+                    domain={config.domain_config.subdomain || ''}
+                    onDomainChange={(domain) => updateConfig('domain_config', 'subdomain', domain)}
+                    type="subdomain"
+                    tenantId={selectedTenant}
+                  />
+                  <DomainValidationSection
+                    domain={config.domain_config.custom_domain || ''}
+                    onDomainChange={(domain) => updateConfig('domain_config', 'custom_domain', domain)}
+                    type="custom_domain"
+                    tenantId={selectedTenant}
+                  />
                 </div>
                 
                 <div className="flex items-center space-x-2">
@@ -587,143 +572,12 @@ export default function WhiteLabelConfig() {
 
           {/* Email Templates */}
           <TabsContent value="email" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Email Templates</CardTitle>
-                <CardDescription>Customize email templates and branding</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="header_color">Header Color</Label>
-                    <div className="flex gap-2 items-center">
-                      <Input
-                        type="color"
-                        value={config.email_templates.header_color || '#3b82f6'}
-                        onChange={(e) => updateConfig('email_templates', 'header_color', e.target.value)}
-                        className="w-16 h-10"
-                      />
-                      <Input
-                        value={config.email_templates.header_color || '#3b82f6'}
-                        onChange={(e) => updateConfig('email_templates', 'header_color', e.target.value)}
-                        placeholder="#3b82f6"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="footer_text">Footer Text</Label>
-                    <Input
-                      id="footer_text"
-                      value={config.email_templates.footer_text || ''}
-                      onChange={(e) => updateConfig('email_templates', 'footer_text', e.target.value)}
-                      placeholder="Powered by KisanShaktiAI"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="welcome_template">Welcome Email Template</Label>
-                  <Textarea
-                    id="welcome_template"
-                    value={config.email_templates.welcome_template || ''}
-                    onChange={(e) => updateConfig('email_templates', 'welcome_template', e.target.value)}
-                    placeholder="Welcome {{user_name}} to {{app_name}}! We're excited to have you on board."
-                    rows={4}
-                  />
-                  {config.email_templates.welcome_template && (
-                    <div className="mt-2 p-3 bg-gray-50 rounded-md">
-                      <Label className="text-sm font-medium">Preview:</Label>
-                      <div className="text-sm text-gray-600">
-                        {generateEmailPreview(config.email_templates.welcome_template)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="notification_template">Notification Email Template</Label>
-                  <Textarea
-                    id="notification_template"
-                    value={config.email_templates.notification_template || ''}
-                    onChange={(e) => updateConfig('email_templates', 'notification_template', e.target.value)}
-                    placeholder="Hi {{user_name}}, you have a new notification from {{app_name}}."
-                    rows={4}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <EmailTemplatesPanel config={config} updateConfig={updateConfig} />
           </TabsContent>
 
           {/* Mobile App Configuration */}
           <TabsContent value="mobile" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Mobile App Configuration</CardTitle>
-                <CardDescription>Configure app store listing and mobile app settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="app_name">App Name</Label>
-                    <Input
-                      id="app_name"
-                      value={config.app_store_config.app_name || ''}
-                      onChange={(e) => updateConfig('app_store_config', 'app_name', e.target.value)}
-                      placeholder="KisanShakti"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <select
-                      className="w-full p-2 border rounded-md"
-                      value={config.app_store_config.category || 'Agriculture'}
-                      onChange={(e) => updateConfig('app_store_config', 'category', e.target.value)}
-                    >
-                      <option value="Agriculture">Agriculture</option>
-                      <option value="Business">Business</option>
-                      <option value="Productivity">Productivity</option>
-                      <option value="Education">Education</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="app_description">App Description</Label>
-                  <Textarea
-                    id="app_description"
-                    value={config.app_store_config.app_description || ''}
-                    onChange={(e) => updateConfig('app_store_config', 'app_description', e.target.value)}
-                    placeholder="A comprehensive agricultural management platform..."
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="keywords">Keywords (comma-separated)</Label>
-                  <Input
-                    id="keywords"
-                    value={(config.app_store_config.keywords || []).join(', ')}
-                    onChange={(e) => updateConfig('app_store_config', 'keywords', e.target.value.split(',').map(k => k.trim()))}
-                    placeholder="agriculture, farming, crops, soil, weather"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="app_icon">App Icon URL</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="app_icon"
-                      value={config.app_store_config.app_icon || ''}
-                      onChange={(e) => updateConfig('app_store_config', 'app_icon', e.target.value)}
-                      placeholder="https://example.com/app-icon.png"
-                    />
-                    <Button variant="outline">
-                      <Upload className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <MobileThemeConfigPanel config={config} updateConfig={updateConfig} />
           </TabsContent>
 
           {/* PWA Configuration */}
