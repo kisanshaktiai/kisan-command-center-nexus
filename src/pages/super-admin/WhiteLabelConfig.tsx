@@ -7,10 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor, Code, Settings } from 'lucide-react';
+import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor, Code, Settings, Save, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useWhiteLabelConfig } from '@/hooks/useWhiteLabelConfig';
 
 // Import the new components
 import { CSSInjectionPanel } from '@/components/white-label/CSSInjectionPanel';
@@ -154,7 +155,7 @@ export default function WhiteLabelConfig() {
   const [selectedTenant, setSelectedTenant] = useState<string>('');
   const [config, setConfig] = useState<WhiteLabelConfig | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
-  const queryClient = useQueryClient();
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Fetch tenants
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery({
@@ -171,27 +172,36 @@ export default function WhiteLabelConfig() {
     }
   });
 
-  // Fetch white-label config for selected tenant
-  const { data: whiteLabelConfig, isLoading: configLoading } = useQuery({
-    queryKey: ['white-label-config', selectedTenant],
-    queryFn: async () => {
-      if (!selectedTenant) return null;
-      
-      const { data, error } = await supabase
-        .from('white_label_configs')
-        .select('*')
-        .eq('tenant_id', selectedTenant)
-        .maybeSingle();
-      
-      if (error && error.code !== 'PGRST116') throw error;
-      return data as WhiteLabelConfig | null;
-    },
-    enabled: !!selectedTenant
-  });
+  // Use the custom hook for white-label config management
+  const { 
+    config: whiteLabelConfig, 
+    isLoading: configLoading, 
+    saveConfig, 
+    isSaving,
+    refetch: refetchConfig 
+  } = useWhiteLabelConfig(selectedTenant);
 
   useEffect(() => {
     if (whiteLabelConfig) {
-      setConfig(whiteLabelConfig);
+      // Load existing config - convert from hook's data type
+      setConfig({
+        id: whiteLabelConfig.id || '',
+        tenant_id: whiteLabelConfig.tenant_id,
+        brand_identity: whiteLabelConfig.brand_identity || {},
+        domain_config: whiteLabelConfig.domain_config || {},
+        email_templates: whiteLabelConfig.email_templates || {},
+        app_store_config: whiteLabelConfig.app_store_config || {},
+        pwa_config: whiteLabelConfig.pwa_config || {},
+        splash_screens: whiteLabelConfig.splash_screens || {},
+        css_injection: whiteLabelConfig.css_injection || {},
+        app_customization: whiteLabelConfig.app_customization || {},
+        content_management: whiteLabelConfig.content_management || {},
+        distribution: whiteLabelConfig.distribution || {},
+        domain_health: whiteLabelConfig.domain_health || {},
+        created_at: whiteLabelConfig.created_at || '',
+        updated_at: whiteLabelConfig.updated_at || ''
+      } as WhiteLabelConfig);
+      setHasUnsavedChanges(false);
     } else if (selectedTenant) {
       // Initialize with default config including new sections
       setConfig({
@@ -260,43 +270,11 @@ export default function WhiteLabelConfig() {
     }
   }, [whiteLabelConfig, selectedTenant]);
 
-  // Save configuration mutation
-  const saveConfigMutation = useMutation({
-    mutationFn: async (configData: Partial<WhiteLabelConfig>) => {
-      if (whiteLabelConfig) {
-        // Update existing config
-        const { data, error } = await supabase
-          .from('white_label_configs')
-          .update(configData)
-          .eq('id', whiteLabelConfig.id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        return data;
-      } else {
-        // Create new config
-        const { data, error } = await supabase
-          .from('white_label_configs')
-          .insert([{ ...configData, tenant_id: selectedTenant }])
-          .select()
-          .single();
-        
-        if (error) throw error;
-        return data;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['white-label-config'] });
-      toast.success('Configuration saved successfully');
-    },
-    onError: (error: any) => {
-      toast.error('Failed to save configuration: ' + error.message);
+  const handleSave = async () => {
+    if (!config || !selectedTenant) {
+      toast.error('Please select a tenant first');
+      return;
     }
-  });
-
-  const handleSave = () => {
-    if (!config) return;
     
     const configData = {
       brand_identity: config.brand_identity,
@@ -312,7 +290,12 @@ export default function WhiteLabelConfig() {
       domain_health: config.domain_health
     };
     
-    saveConfigMutation.mutate(configData);
+    try {
+      await saveConfig(configData);
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error('Failed to save config:', error);
+    }
   };
 
   const updateConfig = (section: keyof WhiteLabelConfig, field: string, value: any) => {
@@ -328,6 +311,18 @@ export default function WhiteLabelConfig() {
         [field]: value
       }
     });
+    setHasUnsavedChanges(true);
+  };
+
+  // Handle tenant selection change
+  const handleTenantChange = (newTenantId: string) => {
+    if (hasUnsavedChanges) {
+      if (!confirm('You have unsaved changes. Do you want to discard them?')) {
+        return;
+      }
+    }
+    setSelectedTenant(newTenantId);
+    setHasUnsavedChanges(false);
   };
 
   const generateEmailPreview = (template: string) => {
@@ -362,9 +357,19 @@ export default function WhiteLabelConfig() {
           </Button>
           <Button
             onClick={handleSave}
-            disabled={!config || saveConfigMutation.isPending}
+            disabled={!config || isSaving}
           >
-            {saveConfigMutation.isPending ? 'Saving...' : 'Save Configuration'}
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Save Configuration
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -379,7 +384,8 @@ export default function WhiteLabelConfig() {
           <select
             className="w-full p-2 border rounded-md"
             value={selectedTenant}
-            onChange={(e) => setSelectedTenant(e.target.value)}
+            onChange={(e) => handleTenantChange(e.target.value)}
+            disabled={tenantsLoading}
           >
             <option value="">Select a tenant...</option>
             {tenants.map((tenant) => (
@@ -388,6 +394,17 @@ export default function WhiteLabelConfig() {
               </option>
             ))}
           </select>
+          {configLoading && selectedTenant && (
+            <p className="text-sm text-muted-foreground mt-2">
+              <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
+              Loading configuration...
+            </p>
+          )}
+          {hasUnsavedChanges && (
+            <Badge variant="outline" className="mt-2">
+              Unsaved changes
+            </Badge>
+          )}
         </CardContent>
       </Card>
 
