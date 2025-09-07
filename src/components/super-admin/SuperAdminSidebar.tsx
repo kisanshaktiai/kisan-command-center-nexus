@@ -15,7 +15,10 @@ import {
   ChevronDown,
   LogOut,
   Shield,
-  Briefcase
+  Briefcase,
+  Building,
+  Package,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -33,6 +36,14 @@ const navigationItems = [
       { title: 'Tenant Onboarding', tab: 'tenant-onboarding', route: '/super-admin/tenant-onboarding', icon: UserPlus },
       { title: 'Admin Users', tab: 'admin-user-management', route: '/super-admin/admin-user-management', icon: Shield },
       { title: 'Platform Monitoring', tab: 'platform-monitoring', route: '/super-admin/platform-monitoring', icon: Activity },
+    ]
+  },
+  {
+    title: 'Master Data',
+    items: [
+      { title: 'Master Companies', tab: 'master-companies', route: '/super-admin/master-companies', icon: Building },
+      { title: 'Master Products', tab: 'master-products', route: '/super-admin/master-products', icon: Package },
+      { title: 'Product Categories', tab: 'product-categories', route: '/super-admin/product-categories', icon: Layers },
     ]
   },
   {
