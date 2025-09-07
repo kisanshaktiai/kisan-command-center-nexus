@@ -66,7 +66,7 @@ export const CompanyFormWizard: React.FC<CompanyFormWizardProps> = ({
     website: '',
     gst_number: '',
     pan_number: '',
-    established_date: '',
+    founded_year: '',
     annual_revenue: '',
     certifications: [] as string[],
     address: {
@@ -290,12 +290,15 @@ export const CompanyFormWizard: React.FC<CompanyFormWizardProps> = ({
                   />
                 </div>
                 <div>
-                  <Label htmlFor="established_date">Established Date</Label>
+                  <Label htmlFor="founded_year">Founded Year</Label>
                   <Input
-                    id="established_date"
-                    type="date"
-                    value={formData.established_date}
-                    onChange={(e) => setFormData({ ...formData, established_date: e.target.value })}
+                    id="founded_year"
+                    type="number"
+                    min="1900"
+                    max={new Date().getFullYear()}
+                    value={formData.founded_year}
+                    onChange={(e) => setFormData({ ...formData, founded_year: e.target.value })}
+                    placeholder="2020"
                   />
                 </div>
                 <div>

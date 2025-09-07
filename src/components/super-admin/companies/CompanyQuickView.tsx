@@ -77,14 +77,11 @@ export const CompanyQuickView: React.FC<CompanyQuickViewProps> = ({
               {company.status === 'verified' && <CheckCircle className="mr-1 h-3 w-3" />}
               {company.status}
             </Badge>
-            <Badge variant="secondary">{company.type}</Badge>
+            <Badge variant="secondary">{company.company_type || 'Other'}</Badge>
             {company.is_potential_tenant && (
               <Badge className="bg-gradient-to-r from-primary to-primary/80 text-white">
                 Potential Tenant
               </Badge>
-            )}
-            {company.is_ai_recommendable && (
-              <Badge variant="outline">AI Recommendable</Badge>
             )}
           </div>
 
@@ -138,10 +135,10 @@ export const CompanyQuickView: React.FC<CompanyQuickViewProps> = ({
                   <p className="font-mono">{company.pan_number}</p>
                 </div>
               )}
-              {company.established_date && (
+              {company.founded_year && (
                 <div>
-                  <p className="text-sm text-muted-foreground">Established</p>
-                  <p>{new Date(company.established_date).toLocaleDateString()}</p>
+                  <p className="text-sm text-muted-foreground">Founded</p>
+                  <p>{company.founded_year}</p>
                 </div>
               )}
               {company.annual_revenue && (

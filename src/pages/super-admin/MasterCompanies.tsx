@@ -49,7 +49,7 @@ interface MasterCompany {
   id: string;
   name: string;
   slug: string;
-  type: string;
+  company_type: string | null;
   description: string | null;
   logo_url: string | null;
   website: string | null;
@@ -58,17 +58,16 @@ interface MasterCompany {
   address: any;
   gst_number: string | null;
   pan_number: string | null;
-  certifications: any[];
-  status: 'active' | 'inactive' | 'pending' | 'verified';
-  is_potential_tenant: boolean;
-  converted_to_tenant: boolean;
+  certifications: any[] | null;
+  status: string | null;
+  is_potential_tenant: boolean | null;
+  converted_to_tenant: boolean | null;
   tenant_id: string | null;
-  is_ai_recommendable: boolean;
-  established_date: string | null;
+  founded_year: number | null;
   annual_revenue: number | null;
   metadata: any;
-  created_at: string;
-  updated_at: string;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 const MasterCompanies: React.FC = () => {
@@ -99,7 +98,7 @@ const MasterCompanies: React.FC = () => {
       }
 
       if (typeFilter !== 'all') {
-        query = query.eq('type', typeFilter);
+        query = query.eq('company_type', typeFilter);
       }
 
       if (searchTerm) {
@@ -109,14 +108,9 @@ const MasterCompanies: React.FC = () => {
       const { data, error } = await query;
       if (error) throw error;
       
-      // Map company_type to type for consistency
-      const mappedData = (data || []).map((company: any) => ({
-        ...company,
-        type: company.company_type || company.type || 'other',
-        is_ai_recommendable: company.is_ai_recommendable ?? true,
-      }));
+      if (!data) return [];
       
-      return mappedData as MasterCompany[];
+      return data as MasterCompany[];
     },
   });
 
@@ -281,7 +275,7 @@ const MasterCompanies: React.FC = () => {
       ...companies.map(c => [
         c.name,
         c.slug,
-        c.type,
+        c.company_type || '',
         c.email || '',
         c.phone || '',
         c.status,
@@ -545,7 +539,7 @@ const MasterCompanies: React.FC = () => {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{company.type}</TableCell>
+                    <TableCell>{company.company_type || 'N/A'}</TableCell>
                     <TableCell>
                       <div className="text-sm">
                         {company.email && <div>{company.email}</div>}

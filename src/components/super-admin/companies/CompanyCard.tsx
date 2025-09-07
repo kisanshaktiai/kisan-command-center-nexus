@@ -56,8 +56,9 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
     }
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
+  const getTypeColor = (type: string | null) => {
+    const typeValue = type || 'other';
+    switch (typeValue) {
       case 'manufacturer':
         return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
       case 'distributor':
@@ -142,16 +143,13 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
             {company.status === 'verified' && <CheckCircle className="mr-1 h-3 w-3" />}
             {company.status}
           </Badge>
-          <Badge className={getTypeColor(company.type)}>
-            {company.type}
+          <Badge className={getTypeColor(company.company_type)}>
+            {company.company_type || 'Other'}
           </Badge>
           {company.is_potential_tenant && (
             <Badge className="bg-gradient-to-r from-primary to-primary/80 text-white">
               Potential Tenant
             </Badge>
-          )}
-          {company.is_ai_recommendable && (
-            <Badge variant="secondary">AI Ready</Badge>
           )}
         </div>
 
