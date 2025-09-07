@@ -4925,6 +4925,7 @@ export type Database = {
       master_companies: {
         Row: {
           address: Json | null
+          annual_revenue: number | null
           certifications: Json | null
           company_type: string | null
           converted_to_tenant: boolean | null
@@ -4932,22 +4933,40 @@ export type Database = {
           created_by: string | null
           description: string | null
           email: string | null
+          financials: Json | null
+          founded_year: number | null
+          founder: string | null
           gst_number: string | null
+          headquarters_address: Json | null
+          hq_location: string | null
           id: string
+          industry_category: string | null
+          industry_subtype: string | null
           is_potential_tenant: boolean | null
+          listing_status: string | null
           logo_url: string | null
           metadata: Json | null
           name: string
+          num_employees: number | null
+          ownership: string | null
+          ownership_structure: string | null
           pan_number: string | null
           phone: string | null
+          product_categories: string[] | null
+          sector: string | null
           slug: string
           status: string | null
+          subsidiaries: Json | null
+          subtype: string | null
           tenant_id: string | null
           updated_at: string | null
+          volume_metrics: Json | null
           website: string | null
+          year_of_incorporation: number | null
         }
         Insert: {
           address?: Json | null
+          annual_revenue?: number | null
           certifications?: Json | null
           company_type?: string | null
           converted_to_tenant?: boolean | null
@@ -4955,22 +4974,40 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           email?: string | null
+          financials?: Json | null
+          founded_year?: number | null
+          founder?: string | null
           gst_number?: string | null
+          headquarters_address?: Json | null
+          hq_location?: string | null
           id?: string
+          industry_category?: string | null
+          industry_subtype?: string | null
           is_potential_tenant?: boolean | null
+          listing_status?: string | null
           logo_url?: string | null
           metadata?: Json | null
           name: string
+          num_employees?: number | null
+          ownership?: string | null
+          ownership_structure?: string | null
           pan_number?: string | null
           phone?: string | null
+          product_categories?: string[] | null
+          sector?: string | null
           slug: string
           status?: string | null
+          subsidiaries?: Json | null
+          subtype?: string | null
           tenant_id?: string | null
           updated_at?: string | null
+          volume_metrics?: Json | null
           website?: string | null
+          year_of_incorporation?: number | null
         }
         Update: {
           address?: Json | null
+          annual_revenue?: number | null
           certifications?: Json | null
           company_type?: string | null
           converted_to_tenant?: boolean | null
@@ -4978,19 +5015,36 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           email?: string | null
+          financials?: Json | null
+          founded_year?: number | null
+          founder?: string | null
           gst_number?: string | null
+          headquarters_address?: Json | null
+          hq_location?: string | null
           id?: string
+          industry_category?: string | null
+          industry_subtype?: string | null
           is_potential_tenant?: boolean | null
+          listing_status?: string | null
           logo_url?: string | null
           metadata?: Json | null
           name?: string
+          num_employees?: number | null
+          ownership?: string | null
+          ownership_structure?: string | null
           pan_number?: string | null
           phone?: string | null
+          product_categories?: string[] | null
+          sector?: string | null
           slug?: string
           status?: string | null
+          subsidiaries?: Json | null
+          subtype?: string | null
           tenant_id?: string | null
           updated_at?: string | null
+          volume_metrics?: Json | null
           website?: string | null
+          year_of_incorporation?: number | null
         }
         Relationships: [
           {
@@ -5058,6 +5112,7 @@ export type Database = {
           ai_metadata: Json | null
           ai_recommendable: boolean | null
           application_method: string | null
+          approval_authority: string | null
           approved_at: string | null
           approved_by: string | null
           brand: string | null
@@ -5067,22 +5122,28 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           description: string | null
+          distributor_id: string | null
           documents: Json | null
           dosage_instructions: string | null
           effectiveness_rating: number | null
+          expiry_date: string | null
           id: string
           images: Json | null
+          manufacturer_id: string | null
           metadata: Json | null
           name: string
           organic_certified: boolean | null
+          origin_country: string | null
           packaging_options: Json | null
           price_range: Json | null
           product_type: string | null
+          registration_number: string | null
           safety_level: string | null
           sku: string
           status: string | null
           suitable_crops: Json | null
           suitable_soil_types: Json | null
+          translations: Json | null
           updated_at: string | null
           weather_conditions: Json | null
         }
@@ -5091,6 +5152,7 @@ export type Database = {
           ai_metadata?: Json | null
           ai_recommendable?: boolean | null
           application_method?: string | null
+          approval_authority?: string | null
           approved_at?: string | null
           approved_by?: string | null
           brand?: string | null
@@ -5100,22 +5162,28 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          distributor_id?: string | null
           documents?: Json | null
           dosage_instructions?: string | null
           effectiveness_rating?: number | null
+          expiry_date?: string | null
           id?: string
           images?: Json | null
+          manufacturer_id?: string | null
           metadata?: Json | null
           name: string
           organic_certified?: boolean | null
+          origin_country?: string | null
           packaging_options?: Json | null
           price_range?: Json | null
           product_type?: string | null
+          registration_number?: string | null
           safety_level?: string | null
           sku: string
           status?: string | null
           suitable_crops?: Json | null
           suitable_soil_types?: Json | null
+          translations?: Json | null
           updated_at?: string | null
           weather_conditions?: Json | null
         }
@@ -5124,6 +5192,7 @@ export type Database = {
           ai_metadata?: Json | null
           ai_recommendable?: boolean | null
           application_method?: string | null
+          approval_authority?: string | null
           approved_at?: string | null
           approved_by?: string | null
           brand?: string | null
@@ -5133,22 +5202,28 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          distributor_id?: string | null
           documents?: Json | null
           dosage_instructions?: string | null
           effectiveness_rating?: number | null
+          expiry_date?: string | null
           id?: string
           images?: Json | null
+          manufacturer_id?: string | null
           metadata?: Json | null
           name?: string
           organic_certified?: boolean | null
+          origin_country?: string | null
           packaging_options?: Json | null
           price_range?: Json | null
           product_type?: string | null
+          registration_number?: string | null
           safety_level?: string | null
           sku?: string
           status?: string | null
           suitable_crops?: Json | null
           suitable_soil_types?: Json | null
+          translations?: Json | null
           updated_at?: string | null
           weather_conditions?: Json | null
         }
@@ -5163,6 +5238,20 @@ export type Database = {
           {
             foreignKeyName: "master_products_company_id_fkey"
             columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "master_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_products_distributor_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "master_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_products_manufacturer_fkey"
+            columns: ["manufacturer_id"]
             isOneToOne: false
             referencedRelation: "master_companies"
             referencedColumns: ["id"]
