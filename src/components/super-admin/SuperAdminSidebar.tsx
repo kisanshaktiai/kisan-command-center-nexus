@@ -41,8 +41,8 @@ const navigationItems = [
   {
     title: 'Master Data',
     items: [
-      { title: 'Product Categories', tab: 'product-categories', route: '/super-admin/product-categories', icon: Layers },
       { title: 'Master Companies', tab: 'master-companies', route: '/super-admin/master-companies', icon: Building },
+      { title: 'Product Categories', tab: 'product-categories', route: '/super-admin/product-categories', icon: Layers },
       { title: 'Master Products', tab: 'master-products', route: '/super-admin/master-products', icon: Package },
     ]
   },
