@@ -2,7 +2,21 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Search, Layers, Edit, Trash2, ChevronRight } from 'lucide-react';
+import { 
+  Plus, 
+  Search, 
+  Layers, 
+  Edit, 
+  Trash2, 
+  ChevronRight,
+  Grid3X3,
+  List,
+  Download,
+  Filter,
+  Package,
+  CheckCircle,
+  XCircle
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +27,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CategoryCard } from '@/components/super-admin/categories/CategoryCard';
+import { CategoryQuickView } from '@/components/super-admin/categories/CategoryQuickView';
 
 interface ProductCategory {
   id: string;
@@ -25,14 +41,24 @@ interface ProductCategory {
   metadata: any;
   created_at: string;
   updated_at: string;
-  parent?: ProductCategory;
+  parent?: { id: string; name: string };
+  parent_category?: { id: string; name: string };
+  product_count?: number;
+  subcategory_count?: number;
 }
 
 export default function ProductCategories() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
+  const [quickViewCategory, setQuickViewCategory] = useState<ProductCategory | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
+  
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -44,9 +70,9 @@ export default function ProductCategories() {
 
   const queryClient = useQueryClient();
 
-  // Fetch categories
+  // Fetch categories with enhanced data
   const { data: categories, isLoading } = useQuery({
-    queryKey: ['master-product-categories', searchTerm],
+    queryKey: ['master-product-categories', searchTerm, filterStatus],
     queryFn: async () => {
       let query = supabase
         .from('master_product_categories')
@@ -57,11 +83,55 @@ export default function ProductCategories() {
         query = query.or(`name.ilike.%${searchTerm}%,slug.ilike.%${searchTerm}%`);
       }
 
-      const { data, error } = await query;
+      if (filterStatus !== 'all') {
+        query = query.eq('is_active', filterStatus === 'active');
+      }
+
+      const { data: categoriesData, error } = await query;
       if (error) throw error;
-      return data as any[];
+
+      // Enhance data with counts
+      const enhancedCategories = await Promise.all(
+        (categoriesData || []).map(async (category) => {
+          // Get product count
+          const { count: productCount } = await supabase
+            .from('master_products')
+            .select('*', { count: 'exact', head: true })
+            .eq('category_id', category.id);
+
+          // Get subcategory count
+          const { count: subcategoryCount } = await supabase
+            .from('master_product_categories')
+            .select('*', { count: 'exact', head: true })
+            .eq('parent_id', category.id);
+
+          return {
+            ...category,
+            parent_category: category.parent,
+            product_count: productCount || 0,
+            subcategory_count: subcategoryCount || 0,
+          };
+        })
+      );
+
+      return enhancedCategories;
     },
   });
+
+  // Calculate stats
+  const stats = {
+    total: categories?.length || 0,
+    active: categories?.filter(c => c.is_active).length || 0,
+    root: categories?.filter(c => !c.parent_id).length || 0,
+    withProducts: categories?.filter(c => c.product_count > 0).length || 0,
+  };
+
+  // Pagination
+  const paginatedCategories = categories?.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+  const totalPages = Math.ceil((categories?.length || 0) / itemsPerPage);
 
   // Add category mutation
   const addCategoryMutation = useMutation({
@@ -126,6 +196,25 @@ export default function ProductCategories() {
     },
   });
 
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('master_product_categories')
+        .delete()
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['master-product-categories'] });
+      toast.success('Categories deleted successfully');
+      setSelectedCategories(new Set());
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete categories');
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -166,122 +255,346 @@ export default function ProductCategories() {
       .replace(/^-+|-+$/g, '');
   };
 
+  const handleSelectCategory = (id: string) => {
+    const newSelected = new Set(selectedCategories);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedCategories(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedCategories.size === paginatedCategories?.length) {
+      setSelectedCategories(new Set());
+    } else {
+      setSelectedCategories(new Set(paginatedCategories?.map(c => c.id) || []));
+    }
+  };
+
+  const handleExport = () => {
+    if (!categories) return;
+    
+    const csv = [
+      ['Name', 'Slug', 'Parent', 'Status', 'Products', 'Subcategories', 'Created'],
+      ...categories.map(c => [
+        c.name,
+        c.slug,
+        c.parent_category?.name || 'Root',
+        c.is_active ? 'Active' : 'Inactive',
+        c.product_count || 0,
+        c.subcategory_count || 0,
+        new Date(c.created_at).toLocaleDateString(),
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'product-categories.csv';
+    a.click();
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Product Categories</h1>
-          <p className="text-muted-foreground mt-1">
-            Organize products into categories for better management
-          </p>
+      {/* Header with gradient */}
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary/10 via-primary/5 to-background p-8">
+        <div className="relative z-10">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold">Product Categories</h1>
+              <p className="text-muted-foreground mt-2">
+                Organize products into categories for better management
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleExport}>
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+              <Button onClick={() => setIsAddModalOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Category
+              </Button>
+            </div>
+          </div>
+
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <Card className="bg-background/50 backdrop-blur">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Categories</p>
+                    <p className="text-2xl font-bold">{stats.total}</p>
+                  </div>
+                  <Layers className="h-8 w-8 text-primary/20" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-background/50 backdrop-blur">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Active</p>
+                    <p className="text-2xl font-bold text-emerald-600">{stats.active}</p>
+                  </div>
+                  <CheckCircle className="h-8 w-8 text-emerald-600/20" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-background/50 backdrop-blur">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Root Categories</p>
+                    <p className="text-2xl font-bold">{stats.root}</p>
+                  </div>
+                  <Layers className="h-8 w-8 text-primary/20" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-background/50 backdrop-blur">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">With Products</p>
+                    <p className="text-2xl font-bold">{stats.withProducts}</p>
+                  </div>
+                  <Package className="h-8 w-8 text-primary/20" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-        <Button onClick={() => setIsAddModalOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Category
-        </Button>
       </div>
 
-      {/* Search */}
+      {/* Filters and Search */}
       <Card>
-        <CardHeader>
-          <CardTitle>Search Categories</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search categories..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search categories..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Filter status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex border rounded-lg">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => setViewMode('grid')}
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => setViewMode('table')}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
+
+          {/* Bulk Actions */}
+          {selectedCategories.size > 0 && (
+            <div className="flex items-center gap-4 mt-4 p-4 bg-muted/50 rounded-lg">
+              <span className="text-sm font-medium">
+                {selectedCategories.size} selected
+              </span>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => bulkDeleteMutation.mutate(Array.from(selectedCategories))}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Selected
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedCategories(new Set())}
+              >
+                Clear Selection
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Categories Table */}
+      {/* Categories Display */}
       <Card>
         <CardHeader>
-          <CardTitle>Categories ({categories?.length || 0})</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>Categories ({categories?.length || 0})</CardTitle>
+            {viewMode === 'table' && (
+              <Checkbox
+                checked={selectedCategories.size === paginatedCategories?.length && paginatedCategories?.length > 0}
+                onCheckedChange={handleSelectAll}
+              />
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="text-center py-8">Loading...</div>
-          ) : categories && categories.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Parent</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {categories.map((category) => (
-                  <TableRow key={category.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Layers className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <div className="font-medium">{category.name}</div>
-                          <div className="text-sm text-muted-foreground">{category.slug}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {category.parent ? (
-                        <div className="flex items-center gap-1 text-sm">
-                          <ChevronRight className="h-3 w-3" />
-                          {(category.parent as any).name}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">Root</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {category.description ? (
-                        <span className="text-sm">{category.description}</span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={category.is_active ? 'default' : 'secondary'}>
-                        {category.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(category)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteCategoryMutation.mutate(category.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+          ) : paginatedCategories && paginatedCategories.length > 0 ? (
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {paginatedCategories.map((category) => (
+                  <CategoryCard
+                    key={category.id}
+                    category={category}
+                    onEdit={handleEdit}
+                    onDelete={(id) => deleteCategoryMutation.mutate(id)}
+                    onView={setQuickViewCategory}
+                    isSelected={selectedCategories.has(category.id)}
+                    onSelect={handleSelectCategory}
+                  />
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedCategories.size === paginatedCategories?.length && paginatedCategories?.length > 0}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Parent</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Products</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedCategories.map((category) => (
+                    <TableRow key={category.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedCategories.has(category.id)}
+                          onCheckedChange={() => handleSelectCategory(category.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <div className="font-medium">{category.name}</div>
+                            <div className="text-sm text-muted-foreground">{category.slug}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {category.parent_category ? (
+                          <div className="flex items-center gap-1 text-sm">
+                            <ChevronRight className="h-3 w-3" />
+                            {category.parent_category.name}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">Root</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {category.description ? (
+                          <span className="text-sm line-clamp-2">{category.description}</span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{category.product_count || 0}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={category.is_active ? 'default' : 'secondary'}>
+                          {category.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(category)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteCategoryMutation.mutate(category.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               No categories found. Add your first category to get started.
             </div>
           )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Quick View Modal */}
+      <CategoryQuickView
+        category={quickViewCategory}
+        isOpen={!!quickViewCategory}
+        onClose={() => setQuickViewCategory(null)}
+        onEdit={handleEdit}
+      />
 
       {/* Add/Edit Modal */}
       <Dialog open={isAddModalOpen || isEditModalOpen} onOpenChange={isAddModalOpen ? setIsAddModalOpen : setIsEditModalOpen}>
