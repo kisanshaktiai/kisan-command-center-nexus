@@ -59,7 +59,7 @@ export default function ProductCategories() {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as ProductCategory[];
+      return data as any[];
     },
   });
 
@@ -321,12 +321,12 @@ export default function ProductCategories() {
 
               <div className="space-y-2">
                 <Label htmlFor="parent_id">Parent Category (Optional)</Label>
-                <Select value={formData.parent_id} onValueChange={(value) => setFormData({ ...formData, parent_id: value })}>
+                <Select value={formData.parent_id || "none"} onValueChange={(value) => setFormData({ ...formData, parent_id: value === "none" ? '' : value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select parent category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None (Root Category)</SelectItem>
+                    <SelectItem value="none">None (Root Category)</SelectItem>
                     {categories?.filter(cat => cat.id !== selectedCategory?.id).map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}

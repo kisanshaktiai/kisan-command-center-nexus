@@ -53,7 +53,7 @@ export default function MasterCompanies() {
     phone: '',
     gst_number: '',
     pan_number: '',
-    status: 'pending' as const,
+    status: 'pending' as 'active' | 'inactive' | 'pending' | 'verified',
     is_potential_tenant: true,
   });
 
