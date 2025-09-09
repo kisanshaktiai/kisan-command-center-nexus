@@ -8690,7 +8690,8 @@ export type Database = {
           email: string | null
           email_verified_at: string | null
           expertise_areas: string[] | null
-          farmer_id: string | null
+          farmer_code: string | null
+          farmer_id: string
           farming_experience_years: number | null
           full_name: string | null
           gender: string | null
@@ -8736,7 +8737,8 @@ export type Database = {
           email?: string | null
           email_verified_at?: string | null
           expertise_areas?: string[] | null
-          farmer_id?: string | null
+          farmer_code?: string | null
+          farmer_id: string
           farming_experience_years?: number | null
           full_name?: string | null
           gender?: string | null
@@ -8782,7 +8784,8 @@ export type Database = {
           email?: string | null
           email_verified_at?: string | null
           expertise_areas?: string[] | null
-          farmer_id?: string | null
+          farmer_code?: string | null
+          farmer_id?: string
           farming_experience_years?: number | null
           full_name?: string | null
           gender?: string | null
@@ -8811,7 +8814,15 @@ export type Database = {
           updated_at?: string | null
           village?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_farmer_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_sessions: {
         Row: {
@@ -12242,7 +12253,9 @@ export type Database = {
         }[]
       }
       validate_farmer_pin: {
-        Args: { p_mobile_number: string; p_pin_hash: string }
+        Args:
+          | { p_farmer_id: string; p_pin: string; p_tenant_id: string }
+          | { p_mobile_number: string; p_pin_hash: string }
         Returns: boolean
       }
       validate_invitation_token: {
