@@ -146,22 +146,88 @@ export const MobileThemeConfigPanel: React.FC<MobileThemeConfigPanelProps> = ({
   ];
 
   const handleApplyTheme = (theme: MobileTheme) => {
-    // Apply theme to brand identity
-    updateConfig('brand_identity', 'primary_color', theme.colors.primary);
-    updateConfig('brand_identity', 'secondary_color', theme.colors.secondary);
-    updateConfig('brand_identity', 'accent_color', theme.colors.accent);
+    setAppliedTheme(theme.id);
     
-    // Apply to PWA config
+    // Store complete mobile theme configuration for mobile app
+    const mobileThemeConfig = {
+      id: theme.id,
+      name: theme.name,
+      colors: {
+        primary: theme.colors.primary,
+        secondary: theme.colors.secondary,
+        accent: theme.colors.accent,
+        background: theme.colors.background,
+        text: theme.colors.text,
+        // Additional mobile-specific colors
+        statusBar: theme.colors.primary,
+        navigationBar: theme.colors.background,
+        cardBackground: '#ffffff',
+        borderColor: '#e5e7eb',
+        successColor: '#10b981',
+        warningColor: '#f59e0b',
+        errorColor: '#ef4444',
+        infoColor: '#3b82f6'
+      },
+      typography: {
+        fontFamily: 'Inter, system-ui, sans-serif',
+        headingFontFamily: 'Inter, system-ui, sans-serif',
+        fontSize: {
+          xs: '12px',
+          sm: '14px',
+          base: '16px',
+          lg: '18px',
+          xl: '20px',
+          '2xl': '24px',
+          '3xl': '30px'
+        }
+      },
+      spacing: {
+        xs: '4px',
+        sm: '8px',
+        md: '16px',
+        lg: '24px',
+        xl: '32px'
+      },
+      borderRadius: {
+        sm: '4px',
+        md: '8px',
+        lg: '12px',
+        xl: '16px',
+        full: '9999px'
+      },
+      shadows: {
+        sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+        md: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+        xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+      }
+    };
+    
+    // Store the complete mobile theme configuration
+    updateConfig('pwa_config', 'mobile_theme', mobileThemeConfig);
     updateConfig('pwa_config', 'theme_color', theme.colors.primary);
     updateConfig('pwa_config', 'background_color', theme.colors.background);
     updateConfig('pwa_config', 'display', theme.displayMode);
     updateConfig('pwa_config', 'orientation', theme.orientation);
     
-    // Apply to app store config
-    updateConfig('app_store_config', 'app_icon', theme.appIcon);
-    updateConfig('splash_screens', 'mobile_splash', theme.splashScreen);
+    // Update brand identity with theme colors for consistency
+    updateConfig('brand_identity', 'primary_color', theme.colors.primary);
+    updateConfig('brand_identity', 'secondary_color', theme.colors.secondary);
+    updateConfig('brand_identity', 'accent_color', theme.colors.accent);
+    updateConfig('brand_identity', 'background_color', theme.colors.background);
+    updateConfig('brand_identity', 'text_color', theme.colors.text);
     
-    setAppliedTheme(theme.id);
+    // Update app icon and splash screen with proper structure
+    updateConfig('app_store_config', 'app_icon', theme.appIcon);
+    updateConfig('splash_screens', 'default', theme.splashScreen);
+    updateConfig('splash_screens', 'ios', {
+      url: theme.splashScreen,
+      backgroundColor: theme.colors.primary
+    });
+    updateConfig('splash_screens', 'android', {
+      url: theme.splashScreen,
+      backgroundColor: theme.colors.primary
+    });
   };
 
   // Get the currently selected or applied theme for preview
