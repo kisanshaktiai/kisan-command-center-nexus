@@ -80,7 +80,7 @@ const MasterCompanies: React.FC = () => {
   const [selectedCompany, setSelectedCompany] = useState<MasterCompany | null>(null);
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
 
   const queryClient = useQueryClient();
 
@@ -126,12 +126,15 @@ const MasterCompanies: React.FC = () => {
 
   // Paginated companies
   const paginatedCompanies = useMemo(() => {
+    if (itemsPerPage === 'all') {
+      return companies;
+    }
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     return companies.slice(startIndex, endIndex);
-  }, [companies, currentPage]);
+  }, [companies, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(companies.length / itemsPerPage);
+  const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(companies.length / itemsPerPage);
 
   // Add/Update company mutation
   const saveCompanyMutation = useMutation({
@@ -609,11 +612,34 @@ const MasterCompanies: React.FC = () => {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, companies.length)} of {companies.length} companies
+            {itemsPerPage === 'all' 
+              ? `Showing all ${companies.length} companies`
+              : `Showing ${((currentPage - 1) * itemsPerPage) + 1} to ${Math.min(currentPage * itemsPerPage, companies.length)} of ${companies.length} companies`
+            }
           </p>
+          <Select
+            value={String(itemsPerPage)}
+            onValueChange={(value) => {
+              setItemsPerPage(value === 'all' ? 'all' : Number(value));
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[100px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+              <SelectItem value="all">All</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {totalPages > 1 && (
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -657,8 +683,8 @@ const MasterCompanies: React.FC = () => {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Form Wizard */}
       <CompanyFormWizard

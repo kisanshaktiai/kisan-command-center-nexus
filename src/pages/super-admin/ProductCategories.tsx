@@ -57,7 +57,7 @@ export default function ProductCategories() {
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -127,11 +127,13 @@ export default function ProductCategories() {
   };
 
   // Pagination
-  const paginatedCategories = categories?.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-  const totalPages = Math.ceil((categories?.length || 0) / itemsPerPage);
+  const paginatedCategories = itemsPerPage === 'all' 
+    ? categories 
+    : categories?.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+      );
+  const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil((categories?.length || 0) / itemsPerPage);
 
   // Add category mutation
   const addCategoryMutation = useMutation({
@@ -562,29 +564,57 @@ export default function ProductCategories() {
           )}
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-6">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
+          <div className="flex justify-between items-center mt-6">
+            <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
+                {itemsPerPage === 'all'
+                  ? `Showing all ${categories?.length || 0} categories`
+                  : `Showing ${Math.min((currentPage - 1) * itemsPerPage + 1, categories?.length || 0)} to ${Math.min(currentPage * itemsPerPage, categories?.length || 0)} of ${categories?.length || 0} categories`
+                }
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
+              <Select
+                value={String(itemsPerPage)}
+                onValueChange={(value) => {
+                  setItemsPerPage(value === 'all' ? 'all' : Number(value));
+                  setCurrentPage(1);
+                }}
               >
-                Next
-              </Button>
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 

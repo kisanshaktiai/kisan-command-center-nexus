@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -57,6 +57,8 @@ export default function MasterProducts() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<MasterProduct | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
   const [formData, setFormData] = useState({
     company_id: '',
     category_id: '',
@@ -137,6 +139,19 @@ export default function MasterProducts() {
       return data as MasterProduct[];
     },
   });
+
+  // Paginated products
+  const paginatedProducts = useMemo(() => {
+    if (!products) return [];
+    if (itemsPerPage === 'all') {
+      return products;
+    }
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return products.slice(startIndex, endIndex);
+  }, [products, currentPage, itemsPerPage]);
+
+  const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil((products?.length || 0) / itemsPerPage);
 
   // Add product mutation
   const addProductMutation = useMutation({
@@ -346,7 +361,7 @@ export default function MasterProducts() {
         <CardContent>
           {isLoading ? (
             <div className="text-center py-8">Loading...</div>
-          ) : products && products.length > 0 ? (
+          ) : paginatedProducts && paginatedProducts.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -362,7 +377,7 @@ export default function MasterProducts() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {products.map((product) => (
+                {paginatedProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
