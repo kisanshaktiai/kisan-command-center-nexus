@@ -1459,6 +1459,85 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          attachments: Json | null
+          content: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          role: string
+          session_id: string
+        }
+        Insert: {
+          attachments?: Json | null
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role: string
+          session_id: string
+        }
+        Update: {
+          attachments?: Json | null
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          is_favorite: boolean | null
+          land_id: string | null
+          title: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_favorite?: boolean | null
+          land_id?: string | null
+          title: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_favorite?: boolean | null
+          land_id?: string | null
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_sessions_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collaborative_notes: {
         Row: {
           assigned_to: string | null
@@ -1519,6 +1598,42 @@ export type Database = {
           tags?: Json | null
           title?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      crop_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          group_icon: string
+          group_key: string
+          group_name: string
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          group_icon?: string
+          group_key: string
+          group_name: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          group_icon?: string
+          group_key?: string
+          group_name?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1662,6 +1777,62 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crops: {
+        Row: {
+          created_at: string | null
+          crop_group_id: string | null
+          description: string | null
+          display_order: number
+          duration_days: number | null
+          icon: string
+          id: string
+          is_active: boolean | null
+          label: string
+          label_local: string | null
+          season: string | null
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          crop_group_id?: string | null
+          description?: string | null
+          display_order?: number
+          duration_days?: number | null
+          icon: string
+          id?: string
+          is_active?: boolean | null
+          label: string
+          label_local?: string | null
+          season?: string | null
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          crop_group_id?: string | null
+          description?: string | null
+          display_order?: number
+          duration_days?: number | null
+          icon?: string
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          label_local?: string | null
+          season?: string | null
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crops_crop_group_id_fkey"
+            columns: ["crop_group_id"]
+            isOneToOne: false
+            referencedRelation: "crop_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -2443,6 +2614,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      edge_invocation_logs: {
+        Row: {
+          function_name: string
+          id: number
+          invoked_at: string | null
+          payload: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          function_name: string
+          id?: never
+          invoked_at?: string | null
+          payload?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          function_name?: string
+          id?: never
+          invoked_at?: string | null
+          payload?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       email_events: {
         Row: {
@@ -3435,6 +3630,42 @@ export type Database = {
           },
         ]
       }
+      farming_stages: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          sample_questions: Json
+          stage_description: string | null
+          stage_icon: string | null
+          stage_key: string
+          stage_name: string
+          stage_order: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          sample_questions?: Json
+          stage_description?: string | null
+          stage_icon?: string | null
+          stage_key: string
+          stage_name: string
+          stage_order: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          sample_questions?: Json
+          stage_description?: string | null
+          stage_icon?: string | null
+          stage_key?: string
+          stage_name?: string
+          stage_order?: number
+        }
+        Relationships: []
+      }
       feature_configs: {
         Row: {
           config_data: Json | null
@@ -3890,6 +4121,33 @@ export type Database = {
           },
         ]
       }
+      irrigation_types: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          label: string
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          label: string
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          value?: string
+        }
+        Relationships: []
+      }
       land_activities: {
         Row: {
           activity_date: string
@@ -3957,6 +4215,7 @@ export type Database = {
           center_point_old: Json | null
           created_at: string
           crop_stage: string | null
+          cultivation_date: string | null
           current_crop: string | null
           district: string | null
           elevation_meters: number | null
@@ -3966,14 +4225,18 @@ export type Database = {
           gps_recorded_at: string | null
           id: string
           irrigation_source: string | null
+          irrigation_type: string | null
           is_active: boolean | null
           land_documents: Json | null
           land_type: string | null
+          last_crop: string | null
+          last_harvest_date: string | null
           last_soil_test_date: string | null
           last_sowing_date: string | null
           location_context: Json | null
           name: string
           nitrogen_kg_per_ha: number | null
+          notes: string | null
           organic_carbon_percent: number | null
           ownership_type: string | null
           phosphorus_kg_per_ha: number | null
@@ -3998,6 +4261,7 @@ export type Database = {
           center_point_old?: Json | null
           created_at?: string
           crop_stage?: string | null
+          cultivation_date?: string | null
           current_crop?: string | null
           district?: string | null
           elevation_meters?: number | null
@@ -4007,14 +4271,18 @@ export type Database = {
           gps_recorded_at?: string | null
           id?: string
           irrigation_source?: string | null
+          irrigation_type?: string | null
           is_active?: boolean | null
           land_documents?: Json | null
           land_type?: string | null
+          last_crop?: string | null
+          last_harvest_date?: string | null
           last_soil_test_date?: string | null
           last_sowing_date?: string | null
           location_context?: Json | null
           name: string
           nitrogen_kg_per_ha?: number | null
+          notes?: string | null
           organic_carbon_percent?: number | null
           ownership_type?: string | null
           phosphorus_kg_per_ha?: number | null
@@ -4039,6 +4307,7 @@ export type Database = {
           center_point_old?: Json | null
           created_at?: string
           crop_stage?: string | null
+          cultivation_date?: string | null
           current_crop?: string | null
           district?: string | null
           elevation_meters?: number | null
@@ -4048,14 +4317,18 @@ export type Database = {
           gps_recorded_at?: string | null
           id?: string
           irrigation_source?: string | null
+          irrigation_type?: string | null
           is_active?: boolean | null
           land_documents?: Json | null
           land_type?: string | null
+          last_crop?: string | null
+          last_harvest_date?: string | null
           last_soil_test_date?: string | null
           last_sowing_date?: string | null
           location_context?: Json | null
           name?: string
           nitrogen_kg_per_ha?: number | null
+          notes?: string | null
           organic_carbon_percent?: number | null
           ownership_type?: string | null
           phosphorus_kg_per_ha?: number | null
@@ -5058,6 +5331,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      master_languages: {
+        Row: {
+          code: string
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          native_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          native_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          native_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       master_product_categories: {
         Row: {
@@ -7182,6 +7488,33 @@ export type Database = {
           },
         ]
       }
+      soil_types: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          label: string
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          label: string
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          value?: string
+        }
+        Relationships: []
+      }
       spatial_ref_sys: {
         Row: {
           auth_name: string | null
@@ -8938,6 +9271,33 @@ export type Database = {
           },
         ]
       }
+      water_sources: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          label: string
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          label: string
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          value?: string
+        }
+        Relationships: []
+      }
       weather_activity_recommendations: {
         Row: {
           activity_type: string
@@ -9021,6 +9381,7 @@ export type Database = {
           affected_activities: string[] | null
           alert_id: string
           area_name: string
+          cache_data: Json | null
           certainty: string
           created_at: string
           crop_impact_level: string | null
@@ -9031,18 +9392,24 @@ export type Database = {
           id: string
           instruction: string | null
           is_active: boolean
+          last_fetched: string | null
           latitude: number | null
           longitude: number | null
           recommendations: string[] | null
           severity: string
           start_time: string
+          tenant_id: string | null
           title: string
+          updated_at: string | null
           urgency: string
+          user_location: Json | null
+          user_preferences: Json | null
         }
         Insert: {
           affected_activities?: string[] | null
           alert_id: string
           area_name: string
+          cache_data?: Json | null
           certainty: string
           created_at?: string
           crop_impact_level?: string | null
@@ -9053,18 +9420,24 @@ export type Database = {
           id?: string
           instruction?: string | null
           is_active?: boolean
+          last_fetched?: string | null
           latitude?: number | null
           longitude?: number | null
           recommendations?: string[] | null
           severity: string
           start_time: string
+          tenant_id?: string | null
           title: string
+          updated_at?: string | null
           urgency: string
+          user_location?: Json | null
+          user_preferences?: Json | null
         }
         Update: {
           affected_activities?: string[] | null
           alert_id?: string
           area_name?: string
+          cache_data?: Json | null
           certainty?: string
           created_at?: string
           crop_impact_level?: string | null
@@ -9075,13 +9448,18 @@ export type Database = {
           id?: string
           instruction?: string | null
           is_active?: boolean
+          last_fetched?: string | null
           latitude?: number | null
           longitude?: number | null
           recommendations?: string[] | null
           severity?: string
           start_time?: string
+          tenant_id?: string | null
           title?: string
+          updated_at?: string | null
           urgency?: string
+          user_location?: Json | null
+          user_preferences?: Json | null
         }
         Relationships: []
       }
@@ -9605,6 +9983,7 @@ export type Database = {
           pwa_config: Json | null
           splash_screens: Json | null
           tenant_id: string | null
+          theme_colors: Json | null
           updated_at: string | null
         }
         Insert: {
@@ -9622,6 +10001,7 @@ export type Database = {
           pwa_config?: Json | null
           splash_screens?: Json | null
           tenant_id?: string | null
+          theme_colors?: Json | null
           updated_at?: string | null
         }
         Update: {
@@ -9639,6 +10019,7 @@ export type Database = {
           pwa_config?: Json | null
           splash_screens?: Json | null
           tenant_id?: string | null
+          theme_colors?: Json | null
           updated_at?: string | null
         }
         Relationships: [
