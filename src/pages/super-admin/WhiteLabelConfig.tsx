@@ -148,6 +148,12 @@ interface WhiteLabelConfig {
     uptime_percentage: number;
     last_checked: string;
   };
+  mobile_theme?: any;
+  theme_colors?: any;
+  api_version?: string;
+  validation_errors?: any[];
+  is_validated?: boolean;
+  last_synced_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -204,6 +210,12 @@ export default function WhiteLabelConfig() {
         content_management: whiteLabelConfig.content_management || {},
         distribution: whiteLabelConfig.distribution || {},
         domain_health: whiteLabelConfig.domain_health || {},
+        mobile_theme: whiteLabelConfig.mobile_theme || (whiteLabelConfig as any)?.mobile_theme || undefined,
+        theme_colors: whiteLabelConfig.theme_colors || (whiteLabelConfig as any)?.theme_colors || undefined,
+        api_version: (whiteLabelConfig as any)?.api_version || 'v1',
+        validation_errors: (whiteLabelConfig as any)?.validation_errors || [],
+        is_validated: (whiteLabelConfig as any)?.is_validated || false,
+        last_synced_at: (whiteLabelConfig as any)?.last_synced_at || '',
         created_at: whiteLabelConfig.created_at || '',
         updated_at: whiteLabelConfig.updated_at || ''
       } as WhiteLabelConfig);

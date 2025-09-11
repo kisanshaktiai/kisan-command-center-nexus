@@ -26,6 +26,12 @@ export interface WhiteLabelConfigData {
   content_management?: Record<string, any>;
   distribution?: Record<string, any>;
   domain_health?: Record<string, any>;
+  mobile_theme?: Record<string, any>;
+  theme_colors?: Record<string, any>;
+  api_version?: string;
+  validation_errors?: any[];
+  is_validated?: boolean;
+  last_synced_at?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -89,6 +95,12 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         content_management: configData.content_management || {},
         distribution: configData.distribution || {},
         domain_health: configData.domain_health || {},
+        mobile_theme: configData.mobile_theme || undefined,
+        theme_colors: configData.theme_colors || undefined,
+        api_version: configData.api_version || undefined,
+        validation_errors: configData.validation_errors || undefined,
+        is_validated: configData.is_validated || undefined,
+        last_synced_at: configData.last_synced_at || undefined,
         updated_at: new Date().toISOString()
       };
 

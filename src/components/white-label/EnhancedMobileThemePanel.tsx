@@ -264,20 +264,16 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
   // Initialize theme from config when it changes
   useEffect(() => {
     if (config?.mobile_theme) {
+      console.log('Loading mobile theme from config:', config.mobile_theme);
       setCurrentTheme(config.mobile_theme);
     } else if (config?.app_store_config?.mobile_theme) {
+      console.log('Loading mobile theme from app_store_config:', config.app_store_config.mobile_theme);
       setCurrentTheme(config.app_store_config.mobile_theme);
     } else {
+      console.log('No saved theme found, using default theme');
       setCurrentTheme(defaultTheme);
     }
   }, [config, tenantId]);
-
-  // Initialize theme from config
-  useEffect(() => {
-    if (config?.mobile_theme) {
-      setCurrentTheme(config.mobile_theme);
-    }
-  }, [config]);
 
   const validateTheme = (theme: Modern2025Theme): string[] => {
     const errors: string[] = [];
