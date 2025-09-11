@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,33 +5,150 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { Palette, Smartphone, Monitor, Upload, Wand2, Eye } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useNotifications } from '@/hooks/useNotifications';
+import { Palette, Globe, Mail, Smartphone, Monitor, Code, Settings, Download, Save, Loader2, Eye } from 'lucide-react';
 import { useWhiteLabelConfig } from '@/hooks/useWhiteLabelConfig';
+import { toast } from 'sonner';
 
-interface BrandingPreset {
+// Import the white label configuration components
+import { CSSInjectionPanel } from '@/components/white-label/CSSInjectionPanel';
+import { DomainHealthPanel } from '@/components/white-label/DomainHealthPanel';
+import { ContentManagementPanel } from '@/components/white-label/ContentManagementPanel';
+import { DistributionOptionsPanel } from '@/components/white-label/DistributionOptionsPanel';
+import { AdvancedAppCustomizationPanel } from '@/components/white-label/AdvancedAppCustomizationPanel';
+import { LogoUploadSection } from '@/components/white-label/LogoUploadSection';
+import { DomainValidationSection } from '@/components/white-label/DomainValidationSection';
+import { EmailTemplatesPanel } from '@/components/white-label/EmailTemplatesPanel';
+import { EnhancedMobileThemePanel } from '@/components/white-label/EnhancedMobileThemePanel';
+
+interface WhiteLabelConfig {
   id: string;
-  name: string;
-  description: string;
-  category: string;
-  colors: {
-    primary: string;
-    secondary: string;
-    accent: string;
-    background: string;
-    text: string;
+  tenant_id: string;
+  brand_identity: {
+    logo_url?: string;
+    primary_color?: string;
+    secondary_color?: string;
+    accent_color?: string;
+    font_family?: string;
+    company_name?: string;
   };
-  fonts: {
-    primary: string;
-    secondary: string;
+  domain_config: {
+    custom_domain?: string;
+    subdomain?: string;
+    ssl_enabled?: boolean;
+    redirect_urls?: string[];
   };
+  email_templates: {
+    welcome_template?: string;
+    notification_template?: string;
+    invoice_template?: string;
+    header_color?: string;
+    footer_text?: string;
+  };
+  app_store_config: {
+    app_name?: string;
+    app_description?: string;
+    app_icon?: string;
+    category?: string;
+    keywords?: string[];
+    screenshots?: string[];
+    privacy_policy_url?: string;
+    terms_url?: string;
+  };
+  pwa_config: {
+    name?: string;
+    short_name?: string;
+    description?: string;
+    theme_color?: string;
+    background_color?: string;
+    display?: string;
+    orientation?: string;
+    start_url?: string;
+    scope?: string;
+    icons?: Array<{
+      src: string;
+      sizes: string;
+      type: string;
+      purpose?: string;
+    }>;
+  };
+  splash_screens: {
+    ios_splash?: string;
+    android_splash?: string;
+    background_color?: string;
+    logo_size?: string;
+  };
+  css_injection?: {
+    enabled?: boolean;
+    custom_css?: string;
+    mobile_css?: string;
+    print_css?: string;
+    critical_css?: string;
+    css_minified?: boolean;
+    preprocessor?: string;
+    css_framework?: string;
+    css_variables?: string;
+  };
+  app_customization?: {
+    visible_modules?: Record<string, boolean>;
+    custom_branding?: boolean;
+    layout_customization?: string;
+    theme_mode?: string;
+    color_scheme?: string;
+    typography_scale?: number;
+    animations_enabled?: boolean;
+    transition_duration?: number;
+    respect_reduce_motion?: boolean;
+    animation_preset?: string;
+  };
+  content_management?: {
+    help_center_url?: string;
+    documentation_url?: string;
+    getting_started_guide?: string;
+    onboarding_video?: string;
+    tutorial_videos?: string[];
+    terms_of_service?: string;
+    privacy_policy?: string;
+    data_processing_agreement?: string;
+    faq_items?: Array<{ question: string; answer: string }>;
+    custom_messaging_enabled?: boolean;
+    welcome_message?: string;
+    success_messages?: string;
+    error_messages?: string;
+  };
+  distribution?: {
+    pwa_enabled?: boolean;
+    pwa_install_prompt?: string;
+    pwa_offline_support?: boolean;
+    pwa_cache_strategy?: string;
+    private_store_enabled?: boolean;
+    store_url?: string;
+    store_name?: string;
+    distribution_groups?: string;
+    require_authentication?: boolean;
+    url_scheme?: string;
+    universal_links_domain?: string;
+    deep_link_routes?: string;
+    update_channel?: string;
+    auto_updates?: boolean;
+    update_check_interval?: number;
+    force_update?: boolean;
+    minimum_version?: string;
+    update_message?: string;
+  };
+  domain_health?: {
+    ssl_status: 'valid' | 'invalid' | 'expired' | 'pending';
+    dns_status: 'configured' | 'misconfigured' | 'pending';
+    performance_score: number;
+    uptime_percentage: number;
+    last_checked: string;
+  };
+  created_at: string;
+  updated_at: string;
 }
 
 interface EnhancedBrandingStepProps {
-  tenantId: string;
-  onComplete: (data: any) => void;
+  tenantId: string | null;
+  onComplete: () => void;
   data: any;
   onDataChange: (data: any) => void;
 }
@@ -43,622 +159,490 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
   data,
   onDataChange
 }) => {
-  // Use white label config hook for single source of truth
-  const { config, saveConfig, isSaving } = useWhiteLabelConfig(tenantId);
-  
-  // Initialize branding data from white label config
-  const [brandingData, setBrandingData] = useState({
-    logo_url: config?.app_customization?.favicon_url || data.logo_url || '',
-    primary_color: data.primary_color || '#16a34a',
-    secondary_color: data.secondary_color || '#65a30d',
-    accent_color: data.accent_color || '#84cc16',
-    background_color: data.background_color || '#ffffff',
-    text_color: data.text_color || '#1f2937',
-    font_family: data.font_family || 'Inter',
-    enable_dark_mode: data.enable_dark_mode || false,
-    custom_css: data.custom_css || '',
-    app_name: config?.app_customization?.app_name || 'KisanShakti',
-    tagline: config?.app_customization?.tagline || '',
-    ...data
-  });
-  
-  // Update branding data when config changes
+  const [config, setConfig] = useState<WhiteLabelConfig | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Use the custom hook for white-label config management
+  const { 
+    config: whiteLabelConfig, 
+    isLoading: configLoading, 
+    saveConfig, 
+    isSaving,
+    refetch: refetchConfig 
+  } = useWhiteLabelConfig(tenantId);
+
   useEffect(() => {
-    if (config) {
-      setBrandingData(prev => ({
-        ...prev,
-        logo_url: config.app_customization?.favicon_url || prev.logo_url,
-        custom_css: prev.custom_css,
-        app_name: config.app_customization?.app_name || prev.app_name,
-        tagline: config.app_customization?.tagline || prev.tagline,
-      }));
+    if (whiteLabelConfig) {
+      // Load existing config - convert from hook's data type
+      setConfig({
+        id: whiteLabelConfig.id || '',
+        tenant_id: whiteLabelConfig.tenant_id,
+        brand_identity: whiteLabelConfig.brand_identity || {},
+        domain_config: whiteLabelConfig.domain_config || {},
+        email_templates: whiteLabelConfig.email_templates || {},
+        app_store_config: whiteLabelConfig.app_store_config || {},
+        pwa_config: whiteLabelConfig.pwa_config || {},
+        splash_screens: whiteLabelConfig.splash_screens || {},
+        css_injection: whiteLabelConfig.css_injection || {},
+        app_customization: whiteLabelConfig.app_customization || {},
+        content_management: whiteLabelConfig.content_management || {},
+        distribution: whiteLabelConfig.distribution || {},
+        domain_health: whiteLabelConfig.domain_health || {},
+        created_at: whiteLabelConfig.created_at || '',
+        updated_at: whiteLabelConfig.updated_at || ''
+      } as WhiteLabelConfig);
+      setHasUnsavedChanges(false);
+    } else if (tenantId) {
+      // Initialize with default config including new sections
+      setConfig({
+        id: '',
+        tenant_id: tenantId,
+        brand_identity: {
+          primary_color: '#3b82f6',
+          secondary_color: '#64748b',
+          accent_color: '#10b981',
+          font_family: 'Inter',
+          company_name: ''
+        },
+        domain_config: {
+          ssl_enabled: true,
+          redirect_urls: []
+        },
+        email_templates: {
+          header_color: '#3b82f6',
+          footer_text: 'Powered by KisanShaktiAI'
+        },
+        app_store_config: {
+          category: 'Agriculture',
+          keywords: ['agriculture', 'farming', 'crops']
+        },
+        pwa_config: {
+          display: 'standalone',
+          orientation: 'portrait',
+          theme_color: '#3b82f6',
+          background_color: '#ffffff',
+          icons: []
+        },
+        splash_screens: {},
+        css_injection: {
+          enabled: false,
+          custom_css: '',
+          mobile_css: '',
+          print_css: ''
+        },
+        app_customization: {
+          animations_enabled: true,
+          respect_reduce_motion: true,
+          transition_duration: 300,
+          animation_preset: 'standard',
+          visible_modules: {}
+        },
+        content_management: {
+          custom_messaging_enabled: false,
+          faq_items: []
+        },
+        distribution: {
+          pwa_enabled: false,
+          pwa_offline_support: false,
+          private_store_enabled: false,
+          auto_updates: true,
+          update_check_interval: 24
+        },
+        domain_health: {
+          ssl_status: 'pending',
+          dns_status: 'pending',
+          performance_score: 0,
+          uptime_percentage: 0,
+          last_checked: new Date().toISOString()
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      setHasUnsavedChanges(false);
     }
-  }, [config]);
-
-  const [presets] = useState<BrandingPreset[]>([
-    {
-      id: '1',
-      name: 'Agriculture Green',
-      description: 'Fresh green theme perfect for agricultural businesses',
-      category: 'agriculture',
-      colors: {
-        primary: '#16a34a',
-        secondary: '#65a30d',
-        accent: '#84cc16',
-        background: '#f0fdf4',
-        text: '#166534'
-      },
-      fonts: { primary: 'Inter', secondary: 'Inter' }
-    },
-    {
-      id: '2',
-      name: 'Professional Blue',
-      description: 'Clean and professional blue theme for corporate use',
-      category: 'professional',
-      colors: {
-        primary: '#2563eb',
-        secondary: '#1d4ed8',
-        accent: '#3b82f6',
-        background: '#f8fafc',
-        text: '#1e293b'
-      },
-      fonts: { primary: 'Inter', secondary: 'Inter' }
-    },
-    {
-      id: '3',
-      name: 'Modern Purple',
-      description: 'Trendy purple theme for innovative companies',
-      category: 'modern',
-      colors: {
-        primary: '#7c3aed',
-        secondary: '#6d28d9',
-        accent: '#8b5cf6',
-        background: '#faf5ff',
-        text: '#581c87'
-      },
-      fonts: { primary: 'Inter', secondary: 'Inter' }
-    }
-  ]);
-
-  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
-  const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
-  const [isUploading, setIsUploading] = useState(false);
-  const { showSuccess, showError } = useNotifications();
-
-  const handlePresetSelect = (preset: BrandingPreset) => {
-    const newBrandingData = {
-      ...brandingData,
-      primary_color: preset.colors.primary,
-      secondary_color: preset.colors.secondary,
-      accent_color: preset.colors.accent,
-      background_color: preset.colors.background,
-      text_color: preset.colors.text,
-      font_family: preset.fonts.primary,
-    };
-    
-    setBrandingData(newBrandingData);
-    onDataChange(newBrandingData);
-    setSelectedPreset(preset.id);
-    showSuccess(`Applied ${preset.name} theme`);
-  };
-
-  const handleColorChange = (colorKey: string, value: string | boolean) => {
-    const newData = { ...brandingData, [colorKey]: value };
-    setBrandingData(newData);
-    onDataChange(newData);
-    setSelectedPreset(null);
-  };
-
-  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      showError('Logo file size must be less than 2MB');
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const fileName = `tenant-${tenantId}/logo-${Date.now()}.${file.name.split('.').pop()}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('tenant-assets')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('tenant-assets')
-        .getPublicUrl(fileName);
-
-      const newData = { ...brandingData, logo_url: publicUrl };
-      setBrandingData(newData);
-      onDataChange(newData);
-      showSuccess('Logo uploaded successfully');
-    } catch (error) {
-      console.error('Error uploading logo:', error);
-      showError('Failed to upload logo');
-    } finally {
-      setIsUploading(false);
-    }
-  };
+  }, [whiteLabelConfig, tenantId]);
 
   const handleSave = async () => {
+    if (!config || !tenantId) return;
+    
+    const configData = {
+      brand_identity: config.brand_identity,
+      domain_config: config.domain_config,
+      email_templates: config.email_templates,
+      app_store_config: config.app_store_config,
+      pwa_config: config.pwa_config,
+      splash_screens: config.splash_screens,
+      css_injection: config.css_injection,
+      app_customization: config.app_customization,
+      content_management: config.content_management,
+      distribution: config.distribution,
+      domain_health: config.domain_health
+    };
+    
     try {
-      // Save to white_label_configs table as single source of truth
-      const configData = {
-        app_customization: {
-          app_name: brandingData.app_name || 'KisanShakti',
-          tagline: brandingData.tagline || '',
-          favicon_url: brandingData.logo_url,
-          apple_touch_icon_url: brandingData.logo_url,
-          meta_description: `${brandingData.app_name || 'KisanShakti'} - ${brandingData.tagline || 'Agricultural Management Platform'}`,
-          footer_text: `© ${new Date().getFullYear()} ${brandingData.app_name || 'KisanShakti'}. All rights reserved.`,
-          copyright_text: `${brandingData.app_name || 'KisanShakti'}`
-        },
-        css_injection: {
-          custom_css: brandingData.custom_css,
-          css_variables: {
-            '--primary-color': brandingData.primary_color,
-            '--secondary-color': brandingData.secondary_color,
-            '--accent-color': brandingData.accent_color,
-            '--background-color': brandingData.background_color,
-            '--text-color': brandingData.text_color,
-            '--font-family': brandingData.font_family
-          },
-          theme_overrides: {
-            colors: {
-              primary: brandingData.primary_color,
-              secondary: brandingData.secondary_color,
-              accent: brandingData.accent_color,
-              background: brandingData.background_color,
-              text: brandingData.text_color
-            },
-            fonts: {
-              primary: brandingData.font_family
-            },
-            dark_mode_enabled: brandingData.enable_dark_mode,
-            selected_preset: selectedPreset
-          }
-        }
-      };
-
       await saveConfig(configData);
-      onComplete(brandingData);
+      setHasUnsavedChanges(false);
+      onComplete();
     } catch (error) {
-      console.error('Error saving branding:', error);
-      showError('Failed to save branding settings');
+      console.error('Failed to save config:', error);
     }
   };
 
-  const renderMobilePreview = () => (
-    <div className="relative mx-auto" style={{ width: '280px', height: '560px' }}>
-      <div className="absolute inset-0 bg-gray-900 rounded-[2.5rem] p-2">
-        <div className="relative w-full h-full bg-white rounded-[2rem] overflow-hidden shadow-inner">
-          <div className="h-6 bg-black flex items-center justify-between px-6 text-white text-xs">
-            <span>9:41</span>
-            <div className="flex gap-1">
-              <div className="w-4 h-2 bg-white rounded-sm"></div>
-              <div className="w-6 h-2 bg-white rounded-sm"></div>
-            </div>
-          </div>
-          
-          <div className="flex-1 p-4" style={{ backgroundColor: brandingData.background_color }}>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                {brandingData.logo_url ? (
-                  <img src={brandingData.logo_url} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
-                ) : (
-                  <div 
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"
-                    style={{ backgroundColor: brandingData.primary_color }}
-                  >
-                    KS
-                  </div>
-                )}
-                <h1 className="text-lg font-bold" style={{ color: brandingData.text_color }}>
-                  {brandingData.app_name || 'KisanShakti'}
-                </h1>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-gray-200"></div>
-            </div>
+  const updateConfig = (section: keyof WhiteLabelConfig, field: string, value: any) => {
+    if (!config) return;
+    
+    const currentSection = config[section];
+    const sectionValue = typeof currentSection === 'object' && currentSection !== null ? currentSection : {};
+    
+    setConfig({
+      ...config,
+      [section]: {
+        ...sectionValue,
+        [field]: value
+      }
+    });
+    setHasUnsavedChanges(true);
+  };
 
-            <div className="space-y-4">
-              <div 
-                className="p-4 rounded-xl shadow-sm"
-                style={{ backgroundColor: brandingData.primary_color }}
-              >
-                <h3 className="text-white font-semibold mb-2">Weather Today</h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl text-white">28°C</span>
-                  <span className="text-white/80 text-sm">Sunny</span>
-                </div>
-              </div>
+  const generateEmailPreview = (template: string) => {
+    const userName = 'John Doe';
+    const appName = config?.app_store_config?.app_name || 'KisanShaktiAI';
+    const companyName = config?.brand_identity?.company_name || 'Your Company';
+    
+    return template
+      .replace(/\{\{user_name\}\}/g, userName)
+      .replace(/\{\{app_name\}\}/g, appName)
+      .replace(/\{\{company_name\}\}/g, companyName);
+  };
 
-              <div className="bg-white p-4 rounded-xl shadow-sm border">
-                <h3 className="font-semibold mb-2" style={{ color: brandingData.text_color }}>
-                  My Farms
-                </h3>
-                <div className="flex gap-2">
-                  <div 
-                    className="px-3 py-1 rounded-full text-xs font-medium text-white"
-                    style={{ backgroundColor: brandingData.secondary_color }}
-                  >
-                    Wheat
-                  </div>
-                  <div 
-                    className="px-3 py-1 rounded-full text-xs font-medium text-white"
-                    style={{ backgroundColor: brandingData.accent_color }}
-                  >
-                    Rice
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl shadow-sm border">
-                <h3 className="font-semibold mb-2" style={{ color: brandingData.text_color }}>
-                  Quick Actions
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {['Add Crop', 'View Reports'].map((action) => (
-                    <button
-                      key={action}
-                      className="p-2 rounded-lg text-sm font-medium text-white"
-                      style={{ backgroundColor: brandingData.primary_color }}
-                    >
-                      {action}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderDesktopPreview = () => (
-    <div className="w-full h-80 bg-gray-100 rounded-lg overflow-hidden shadow-lg">
-      <div className="h-8 bg-gray-800 flex items-center px-4">
-        <div className="flex gap-2">
-          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-        </div>
-        <div className="flex-1 text-center text-white text-sm">{brandingData.app_name || 'KisanShakti'} Dashboard</div>
-      </div>
-      <div className="flex h-full">
-        <div className="w-64 border-r" style={{ backgroundColor: brandingData.background_color }}>
-          <div className="p-4 border-b">
-            <div className="flex items-center gap-2">
-              {brandingData.logo_url ? (
-                <img src={brandingData.logo_url} alt="Logo" className="w-8 h-8 rounded object-cover" />
-              ) : (
-                <div 
-                  className="w-8 h-8 rounded flex items-center justify-center text-white text-sm font-bold"
-                  style={{ backgroundColor: brandingData.primary_color }}
-                >
-                  KS
-                </div>
-              )}
-              <span className="font-semibold" style={{ color: brandingData.text_color }}>
-                {brandingData.app_name || 'KisanShakti'}
-              </span>
-            </div>
-          </div>
-          <nav className="p-4">
-            {['Dashboard', 'Farms', 'Weather', 'Reports'].map((item) => (
-              <div 
-                key={item}
-                className="py-2 px-3 rounded-lg mb-2 cursor-pointer"
-                style={{ 
-                  backgroundColor: item === 'Dashboard' ? brandingData.primary_color : 'transparent',
-                  color: item === 'Dashboard' ? 'white' : brandingData.text_color
-                }}
-              >
-                {item}
-              </div>
-            ))}
-          </nav>
-        </div>
-        <div className="flex-1 p-6" style={{ backgroundColor: brandingData.background_color }}>
-          <h1 className="text-2xl font-bold mb-6" style={{ color: brandingData.text_color }}>
-            Dashboard Overview
-          </h1>
-          <div className="grid grid-cols-3 gap-4">
-            {['Total Farms', 'Active Crops', 'Weather Alerts'].map((metric, index) => (
-              <div key={metric} className="bg-white p-4 rounded-lg shadow-sm border">
-                <h3 className="text-sm font-medium text-gray-600">{metric}</h3>
-                <div className="text-2xl font-bold mt-2" style={{ color: brandingData.primary_color }}>
-                  {[12, 8, 3][index]}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const groupedPresets = presets.reduce((acc, preset) => {
-    if (!acc[preset.category]) acc[preset.category] = [];
-    acc[preset.category].push(preset);
-    return acc;
-  }, {} as Record<string, BrandingPreset[]>);
+  if (configLoading) {
+    return <div className="text-center py-8">Loading configuration...</div>;
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold">Branding & Customization</h3>
-        <p className="text-muted-foreground">
-          Customize your tenant's appearance with logo, colors, and themes
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Branding & Customization</h2>
+          <p className="text-muted-foreground">Configure your white-label settings</p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPreviewMode(!previewMode)}
+          >
+            <Eye className="h-4 w-4 mr-1" />
+            {previewMode ? 'Edit Mode' : 'Preview'}
+          </Button>
+        </div>
       </div>
 
-      <Tabs defaultValue="presets" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="presets" className="flex items-center gap-2">
-            <Wand2 className="w-4 h-4" />
-            Quick Themes
-          </TabsTrigger>
-          <TabsTrigger value="colors" className="flex items-center gap-2">
-            <Palette className="w-4 h-4" />
-            Colors
-          </TabsTrigger>
-          <TabsTrigger value="logo" className="flex items-center gap-2">
-            <Upload className="w-4 h-4" />
-            Logo & Assets
-          </TabsTrigger>
-          <TabsTrigger value="preview" className="flex items-center gap-2">
-            <Eye className="w-4 h-4" />
-            Live Preview
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="branding" className="space-y-4">
+        <div className="flex justify-between items-center">
+          <TabsList className="grid grid-cols-8 w-full max-w-4xl">
+            <TabsTrigger value="branding">
+              <Palette className="h-4 w-4 mr-1" />
+              Branding
+            </TabsTrigger>
+            <TabsTrigger value="domain">
+              <Globe className="h-4 w-4 mr-1" />
+              Domain
+            </TabsTrigger>
+            <TabsTrigger value="email">
+              <Mail className="h-4 w-4 mr-1" />
+              Email
+            </TabsTrigger>
+            <TabsTrigger value="mobile">
+              <Smartphone className="h-4 w-4 mr-1" />
+              Mobile
+            </TabsTrigger>
+            <TabsTrigger value="pwa">
+              <Monitor className="h-4 w-4 mr-1" />
+              PWA
+            </TabsTrigger>
+            <TabsTrigger value="advanced">
+              <Code className="h-4 w-4 mr-1" />
+              Advanced
+            </TabsTrigger>
+            <TabsTrigger value="content">
+              <Settings className="h-4 w-4 mr-1" />
+              Content
+            </TabsTrigger>
+            <TabsTrigger value="distribution">
+              <Download className="h-4 w-4 mr-1" />
+              Distribution
+            </TabsTrigger>
+          </TabsList>
+          <div className="flex gap-2">
+            {hasUnsavedChanges && (
+              <Badge variant="outline" className="text-amber-600">
+                Unsaved Changes
+              </Badge>
+            )}
+            <Button
+              onClick={handleSave}
+              disabled={!hasUnsavedChanges || isSaving}
+              className="min-w-[100px]"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save & Continue
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
 
-        <TabsContent value="presets" className="space-y-6">
+        {/* Branding Tab */}
+        <TabsContent value="branding" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Quick Theme Presets</CardTitle>
-              <CardDescription>
-                Choose from professionally designed themes tailored for different industries
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {Object.entries(groupedPresets).map(([category, categoryPresets]) => (
-                <div key={category} className="mb-6">
-                  <h4 className="text-sm font-medium text-gray-700 uppercase tracking-wide mb-3">
-                    {category}
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {categoryPresets.map((preset) => (
-                      <div
-                        key={preset.id}
-                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                          selectedPreset === preset.id ? 'border-primary bg-primary/5' : 'border-gray-200'
-                        }`}
-                        onClick={() => handlePresetSelect(preset)}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <h5 className="font-medium">{preset.name}</h5>
-                          {selectedPreset === preset.id && (
-                            <Badge variant="default" className="text-xs">Active</Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 mb-3">{preset.description}</p>
-                        <div className="flex gap-2">
-                          {Object.entries(preset.colors).slice(0, 4).map(([key, color]) => (
-                            <div
-                              key={key}
-                              className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
-                              style={{ backgroundColor: color }}
-                              title={key}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="colors" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Color Customization</CardTitle>
-              <CardDescription>
-                Fine-tune your brand colors for a perfect match
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[
-                  { key: 'primary_color', label: 'Primary Color', description: 'Main brand color for buttons and highlights' },
-                  { key: 'secondary_color', label: 'Secondary Color', description: 'Supporting brand color' },
-                  { key: 'accent_color', label: 'Accent Color', description: 'For badges and special elements' },
-                  { key: 'background_color', label: 'Background Color', description: 'Main background color' },
-                  { key: 'text_color', label: 'Text Color', description: 'Primary text color' },
-                ].map(({ key, label, description }) => (
-                  <div key={key} className="space-y-2">
-                    <Label htmlFor={key}>{label}</Label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="color"
-                        id={key}
-                        value={brandingData[key]}
-                        onChange={(e) => handleColorChange(key, e.target.value)}
-                        className="w-16 h-10 rounded-lg border border-gray-300 cursor-pointer"
-                      />
-                      <div className="flex-1">
-                        <Input
-                          value={brandingData[key]}
-                          onChange={(e) => handleColorChange(key, e.target.value)}
-                          placeholder="#000000"
-                          className="font-mono"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">{description}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="logo" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Logo & Brand Assets</CardTitle>
-              <CardDescription>
-                Upload your logo and manage brand assets
-              </CardDescription>
+              <CardTitle>Brand Identity</CardTitle>
+              <CardDescription>Configure your brand colors, logo, and visual identity</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="app-name">App Name</Label>
-                  <Input
-                    id="app-name"
-                    type="text"
-                    value={brandingData.app_name}
-                    onChange={(e) => {
-                      const newData = { ...brandingData, app_name: e.target.value };
-                      setBrandingData(newData);
-                      onDataChange(newData);
-                    }}
-                    placeholder="Your App Name"
-                    className="mt-2"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="tagline">Tagline</Label>
-                  <Input
-                    id="tagline"
-                    type="text"
-                    value={brandingData.tagline}
-                    onChange={(e) => {
-                      const newData = { ...brandingData, tagline: e.target.value };
-                      setBrandingData(newData);
-                      onDataChange(newData);
-                    }}
-                    placeholder="Your app tagline"
-                    className="mt-2"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="logo-upload">Company Logo</Label>
-                <div className="mt-2 flex items-center gap-4">
-                  {brandingData.logo_url ? (
-                    <img 
-                      src={brandingData.logo_url} 
-                      alt="Current logo" 
-                      className="w-16 h-16 rounded-lg object-cover border"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                      <Upload className="w-6 h-6 text-gray-400" />
-                    </div>
-                  )}
-                  <div className="flex-1">
+              <LogoUploadSection 
+                logoUrl={config?.brand_identity?.logo_url || ''} 
+                onLogoChange={(url) => updateConfig('brand_identity', 'logo_url', url)} 
+              />
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="primary-color">Primary Color</Label>
+                  <div className="flex gap-2">
                     <Input
-                      id="logo-upload"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      disabled={isUploading}
-                      className="cursor-pointer"
+                      id="primary-color"
+                      type="color"
+                      value={config?.brand_identity?.primary_color || '#3b82f6'}
+                      onChange={(e) => updateConfig('brand_identity', 'primary_color', e.target.value)}
+                      className="h-10 w-20"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Recommended: 512x512px, PNG or JPG, max 2MB
-                    </p>
+                    <Input
+                      type="text"
+                      value={config?.brand_identity?.primary_color || '#3b82f6'}
+                      onChange={(e) => updateConfig('brand_identity', 'primary_color', e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="secondary-color">Secondary Color</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="secondary-color"
+                      type="color"
+                      value={config?.brand_identity?.secondary_color || '#64748b'}
+                      onChange={(e) => updateConfig('brand_identity', 'secondary_color', e.target.value)}
+                      className="h-10 w-20"
+                    />
+                    <Input
+                      type="text"
+                      value={config?.brand_identity?.secondary_color || '#64748b'}
+                      onChange={(e) => updateConfig('brand_identity', 'secondary_color', e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="accent-color">Accent Color</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="accent-color"
+                      type="color"
+                      value={config?.brand_identity?.accent_color || '#10b981'}
+                      onChange={(e) => updateConfig('brand_identity', 'accent_color', e.target.value)}
+                      className="h-10 w-20"
+                    />
+                    <Input
+                      type="text"
+                      value={config?.brand_identity?.accent_color || '#10b981'}
+                      onChange={(e) => updateConfig('brand_identity', 'accent_color', e.target.value)}
+                      className="flex-1"
+                    />
                   </div>
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="font-family">Font Family</Label>
-                <select
-                  id="font-family"
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                  value={brandingData.font_family}
-                  onChange={(e) => handleColorChange('font_family', e.target.value)}
-                >
-                  <option value="Inter">Inter (Default)</option>
-                  <option value="Poppins">Poppins</option>
-                  <option value="Roboto">Roboto</option>
-                  <option value="Open Sans">Open Sans</option>
-                  <option value="Lato">Lato</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="dark-mode">Enable Dark Mode Support</Label>
-                  <p className="text-sm text-gray-500">Allow users to switch to dark theme</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="company-name">Company Name</Label>
+                  <Input
+                    id="company-name"
+                    value={config?.brand_identity?.company_name || ''}
+                    onChange={(e) => updateConfig('brand_identity', 'company_name', e.target.value)}
+                    placeholder="Enter company name"
+                  />
                 </div>
-                <Switch
-                  id="dark-mode"
-                  checked={brandingData.enable_dark_mode}
-                  onCheckedChange={(checked) => handleColorChange('enable_dark_mode', checked)}
-                />
+
+                <div className="space-y-2">
+                  <Label htmlFor="font-family">Font Family</Label>
+                  <Input
+                    id="font-family"
+                    value={config?.brand_identity?.font_family || 'Inter'}
+                    onChange={(e) => updateConfig('brand_identity', 'font_family', e.target.value)}
+                    placeholder="Enter font family"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="preview" className="space-y-6">
+        {/* Domain Tab */}
+        <TabsContent value="domain" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5" />
-                Live Preview
-              </CardTitle>
-              <CardDescription>
-                See how your branding will look across different devices
-              </CardDescription>
-              <div className="flex gap-2">
-                <Button
-                  variant={previewDevice === 'mobile' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setPreviewDevice('mobile')}
-                  className="flex items-center gap-2"
-                >
-                  <Smartphone className="w-4 h-4" />
-                  Mobile
-                </Button>
-                <Button
-                  variant={previewDevice === 'desktop' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setPreviewDevice('desktop')}
-                  className="flex items-center gap-2"
-                >
-                  <Monitor className="w-4 h-4" />
-                  Desktop
-                </Button>
-              </div>
+              <CardTitle>Domain Configuration</CardTitle>
+              <CardDescription>Set up custom domain and SSL settings</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex justify-center p-8 bg-gray-50 rounded-lg">
-                {previewDevice === 'mobile' ? renderMobilePreview() : renderDesktopPreview()}
+            <CardContent className="space-y-4">
+              <DomainValidationSection 
+                domain={config?.domain_config?.custom_domain || ''} 
+                onDomainChange={(domain) => updateConfig('domain_config', 'custom_domain', domain)}
+                type="custom_domain"
+                tenantId={tenantId || ''}
+              />
+              
+              <DomainHealthPanel config={config} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Email Tab */}
+        <TabsContent value="email" className="space-y-4">
+          <EmailTemplatesPanel config={config} updateConfig={updateConfig} />
+        </TabsContent>
+
+        {/* Mobile Tab */}
+        <TabsContent value="mobile" className="space-y-4">
+          <EnhancedMobileThemePanel 
+            config={config} 
+            updateConfig={updateConfig}
+            tenantId={tenantId || ''}
+          />
+        </TabsContent>
+
+        {/* PWA Tab */}
+        <TabsContent value="pwa" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Progressive Web App Configuration</CardTitle>
+              <CardDescription>Configure PWA settings for app-like experience</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pwa-name">App Name</Label>
+                  <Input
+                    id="pwa-name"
+                    value={config?.pwa_config?.name || ''}
+                    onChange={(e) => updateConfig('pwa_config', 'name', e.target.value)}
+                    placeholder="KisanShaktiAI"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pwa-short-name">Short Name</Label>
+                  <Input
+                    id="pwa-short-name"
+                    value={config?.pwa_config?.short_name || ''}
+                    onChange={(e) => updateConfig('pwa_config', 'short_name', e.target.value)}
+                    placeholder="KisanShakti"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="pwa-description">Description</Label>
+                <Input
+                  id="pwa-description"
+                  value={config?.pwa_config?.description || ''}
+                  onChange={(e) => updateConfig('pwa_config', 'description', e.target.value)}
+                  placeholder="Agricultural management platform"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pwa-theme-color">Theme Color</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="pwa-theme-color"
+                      type="color"
+                      value={config?.pwa_config?.theme_color || '#3b82f6'}
+                      onChange={(e) => updateConfig('pwa_config', 'theme_color', e.target.value)}
+                      className="h-10 w-20"
+                    />
+                    <Input
+                      type="text"
+                      value={config?.pwa_config?.theme_color || '#3b82f6'}
+                      onChange={(e) => updateConfig('pwa_config', 'theme_color', e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pwa-bg-color">Background Color</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="pwa-bg-color"
+                      type="color"
+                      value={config?.pwa_config?.background_color || '#ffffff'}
+                      onChange={(e) => updateConfig('pwa_config', 'background_color', e.target.value)}
+                      className="h-10 w-20"
+                    />
+                    <Input
+                      type="text"
+                      value={config?.pwa_config?.background_color || '#ffffff'}
+                      onChange={(e) => updateConfig('pwa_config', 'background_color', e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
 
-      <div className="flex justify-end">
-        <Button onClick={handleSave} className="min-w-32">
-          Save Branding Settings
-        </Button>
-      </div>
+        {/* Advanced Tab */}
+        <TabsContent value="advanced" className="space-y-4">
+          <AdvancedAppCustomizationPanel
+            config={config}
+            updateConfig={updateConfig}
+          />
+          
+          <CSSInjectionPanel
+            config={config}
+            updateConfig={updateConfig}
+          />
+        </TabsContent>
+
+        {/* Content Tab */}
+        <TabsContent value="content" className="space-y-4">
+          <ContentManagementPanel
+            config={config}
+            updateConfig={updateConfig}
+          />
+        </TabsContent>
+
+        {/* Distribution Tab */}
+        <TabsContent value="distribution" className="space-y-4">
+          <DistributionOptionsPanel
+            config={config}
+            updateConfig={updateConfig}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
