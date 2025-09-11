@@ -34,6 +34,8 @@ interface WhiteLabelConfig {
     accent_color?: string;
     font_family?: string;
     company_name?: string;
+    app_name?: string;
+    tag_line?: string;
   };
   domain_config: {
     custom_domain?: string;
@@ -460,61 +462,96 @@ export default function WhiteLabelConfig() {
                   onLogoChange={(url) => updateConfig('brand_identity', 'logo_url', url)} 
                 />
                 
-                <div className="grid grid-cols-3 gap-4">
+                {/* App Name and Tag Line */}
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="primary-color">Primary Color</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="primary-color"
-                        type="color"
-                        value={config?.brand_identity?.primary_color || '#3b82f6'}
-                        onChange={(e) => updateConfig('brand_identity', 'primary_color', e.target.value)}
-                        className="h-10 w-20"
-                      />
-                      <Input
-                        type="text"
-                        value={config?.brand_identity?.primary_color || '#3b82f6'}
-                        onChange={(e) => updateConfig('brand_identity', 'primary_color', e.target.value)}
-                        className="flex-1"
-                      />
-                    </div>
+                    <Label htmlFor="app-name">App Name</Label>
+                    <Input
+                      id="app-name"
+                      type="text"
+                      placeholder="Enter your app name"
+                      value={config?.brand_identity?.app_name || ''}
+                      onChange={(e) => updateConfig('brand_identity', 'app_name', e.target.value)}
+                    />
                   </div>
-
+                  
                   <div className="space-y-2">
-                    <Label htmlFor="secondary-color">Secondary Color</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="secondary-color"
-                        type="color"
-                        value={config?.brand_identity?.secondary_color || '#64748b'}
-                        onChange={(e) => updateConfig('brand_identity', 'secondary_color', e.target.value)}
-                        className="h-10 w-20"
-                      />
-                      <Input
-                        type="text"
-                        value={config?.brand_identity?.secondary_color || '#64748b'}
-                        onChange={(e) => updateConfig('brand_identity', 'secondary_color', e.target.value)}
-                        className="flex-1"
-                      />
-                    </div>
+                    <Label htmlFor="tag-line">Tag Line</Label>
+                    <Input
+                      id="tag-line"
+                      type="text"
+                      placeholder="Enter your tag line"
+                      value={config?.brand_identity?.tag_line || ''}
+                      onChange={(e) => updateConfig('brand_identity', 'tag_line', e.target.value)}
+                    />
                   </div>
+                </div>
+                
+                {/* Color Configuration */}
+                <div className="space-y-4">
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Note:</strong> These brand colors serve as the default theme for your application. 
+                      The mobile theme section allows you to override these colors specifically for mobile app experiences.
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="primary-color">Primary Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="primary-color"
+                          type="color"
+                          value={config?.brand_identity?.primary_color || '#3b82f6'}
+                          onChange={(e) => updateConfig('brand_identity', 'primary_color', e.target.value)}
+                          className="h-10 w-20"
+                        />
+                        <Input
+                          type="text"
+                          value={config?.brand_identity?.primary_color || '#3b82f6'}
+                          onChange={(e) => updateConfig('brand_identity', 'primary_color', e.target.value)}
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="accent-color">Accent Color</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="accent-color"
-                        type="color"
-                        value={config?.brand_identity?.accent_color || '#10b981'}
-                        onChange={(e) => updateConfig('brand_identity', 'accent_color', e.target.value)}
-                        className="h-10 w-20"
-                      />
-                      <Input
-                        type="text"
-                        value={config?.brand_identity?.accent_color || '#10b981'}
-                        onChange={(e) => updateConfig('brand_identity', 'accent_color', e.target.value)}
-                        className="flex-1"
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="secondary-color">Secondary Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="secondary-color"
+                          type="color"
+                          value={config?.brand_identity?.secondary_color || '#64748b'}
+                          onChange={(e) => updateConfig('brand_identity', 'secondary_color', e.target.value)}
+                          className="h-10 w-20"
+                        />
+                        <Input
+                          type="text"
+                          value={config?.brand_identity?.secondary_color || '#64748b'}
+                          onChange={(e) => updateConfig('brand_identity', 'secondary_color', e.target.value)}
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="accent-color">Accent Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="accent-color"
+                          type="color"
+                          value={config?.brand_identity?.accent_color || '#10b981'}
+                          onChange={(e) => updateConfig('brand_identity', 'accent_color', e.target.value)}
+                          className="h-10 w-20"
+                        />
+                        <Input
+                          type="text"
+                          value={config?.brand_identity?.accent_color || '#10b981'}
+                          onChange={(e) => updateConfig('brand_identity', 'accent_color', e.target.value)}
+                          className="flex-1"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
