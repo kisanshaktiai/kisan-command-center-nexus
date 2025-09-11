@@ -50,6 +50,18 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         throw error;
       }
       
+      // Convert tag_line to tagline if it exists in brand_identity
+      if (data?.brand_identity && typeof data.brand_identity === 'object' && !Array.isArray(data.brand_identity)) {
+        const brandIdentity = data.brand_identity as any;
+        if ('tag_line' in brandIdentity) {
+          const { tag_line, ...restBrandIdentity } = brandIdentity;
+          data.brand_identity = {
+            ...restBrandIdentity,
+            tagline: tag_line
+          };
+        }
+      }
+      
       return data as WhiteLabelConfigData | null;
     },
     enabled: !!tenantId,
