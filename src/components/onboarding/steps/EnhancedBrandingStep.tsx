@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Palette, Smartphone, Monitor, Upload, Wand2, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useWhiteLabelConfig } from '@/hooks/useWhiteLabelConfig';
 
 interface BrandingPreset {
   id: string;
@@ -42,8 +43,12 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
   data,
   onDataChange
 }) => {
+  // Use white label config hook for single source of truth
+  const { config, saveConfig, isSaving } = useWhiteLabelConfig(tenantId);
+  
+  // Initialize branding data from white label config
   const [brandingData, setBrandingData] = useState({
-    logo_url: data.logo_url || '',
+    logo_url: config?.app_customization?.favicon_url || data.logo_url || '',
     primary_color: data.primary_color || '#16a34a',
     secondary_color: data.secondary_color || '#65a30d',
     accent_color: data.accent_color || '#84cc16',
@@ -52,8 +57,23 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
     font_family: data.font_family || 'Inter',
     enable_dark_mode: data.enable_dark_mode || false,
     custom_css: data.custom_css || '',
+    app_name: config?.app_customization?.app_name || 'KisanShakti',
+    tagline: config?.app_customization?.tagline || '',
     ...data
   });
+  
+  // Update branding data when config changes
+  useEffect(() => {
+    if (config) {
+      setBrandingData(prev => ({
+        ...prev,
+        logo_url: config.app_customization?.favicon_url || prev.logo_url,
+        custom_css: prev.custom_css,
+        app_name: config.app_customization?.app_name || prev.app_name,
+        tagline: config.app_customization?.tagline || prev.tagline,
+      }));
+    }
+  }, [config]);
 
   const [presets] = useState<BrandingPreset[]>([
     {
@@ -166,27 +186,45 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
 
   const handleSave = async () => {
     try {
-      const { error } = await supabase
-        .from('tenant_branding')
-        .upsert({
-          tenant_id: tenantId,
-          logo_url: brandingData.logo_url,
-          primary_color: brandingData.primary_color,
-          secondary_color: brandingData.secondary_color,
-          accent_color: brandingData.accent_color,
-          background_color: brandingData.background_color,
-          text_color: brandingData.text_color,
-          font_family: brandingData.font_family,
+      // Save to white_label_configs table as single source of truth
+      const configData = {
+        app_customization: {
+          app_name: brandingData.app_name || 'KisanShakti',
+          tagline: brandingData.tagline || '',
+          favicon_url: brandingData.logo_url,
+          apple_touch_icon_url: brandingData.logo_url,
+          meta_description: `${brandingData.app_name || 'KisanShakti'} - ${brandingData.tagline || 'Agricultural Management Platform'}`,
+          footer_text: `© ${new Date().getFullYear()} ${brandingData.app_name || 'KisanShakti'}. All rights reserved.`,
+          copyright_text: `${brandingData.app_name || 'KisanShakti'}`
+        },
+        css_injection: {
           custom_css: brandingData.custom_css,
-          settings: {
-            enable_dark_mode: brandingData.enable_dark_mode,
+          css_variables: {
+            '--primary-color': brandingData.primary_color,
+            '--secondary-color': brandingData.secondary_color,
+            '--accent-color': brandingData.accent_color,
+            '--background-color': brandingData.background_color,
+            '--text-color': brandingData.text_color,
+            '--font-family': brandingData.font_family
+          },
+          theme_overrides: {
+            colors: {
+              primary: brandingData.primary_color,
+              secondary: brandingData.secondary_color,
+              accent: brandingData.accent_color,
+              background: brandingData.background_color,
+              text: brandingData.text_color
+            },
+            fonts: {
+              primary: brandingData.font_family
+            },
+            dark_mode_enabled: brandingData.enable_dark_mode,
             selected_preset: selectedPreset
           }
-        });
+        }
+      };
 
-      if (error) throw error;
-
-      showSuccess('Branding settings saved successfully');
+      await saveConfig(configData);
       onComplete(brandingData);
     } catch (error) {
       console.error('Error saving branding:', error);
@@ -220,7 +258,7 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
                   </div>
                 )}
                 <h1 className="text-lg font-bold" style={{ color: brandingData.text_color }}>
-                  KisanShakti
+                  {brandingData.app_name || 'KisanShakti'}
                 </h1>
               </div>
               <div className="w-8 h-8 rounded-full bg-gray-200"></div>
@@ -289,7 +327,7 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
           <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
           <div className="w-3 h-3 bg-green-500 rounded-full"></div>
         </div>
-        <div className="flex-1 text-center text-white text-sm">KisanShakti Dashboard</div>
+        <div className="flex-1 text-center text-white text-sm">{brandingData.app_name || 'KisanShakti'} Dashboard</div>
       </div>
       <div className="flex h-full">
         <div className="w-64 border-r" style={{ backgroundColor: brandingData.background_color }}>
@@ -306,7 +344,7 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
                 </div>
               )}
               <span className="font-semibold" style={{ color: brandingData.text_color }}>
-                KisanShakti
+                {brandingData.app_name || 'KisanShakti'}
               </span>
             </div>
           </div>
@@ -481,6 +519,40 @@ export const EnhancedBrandingStep: React.FC<EnhancedBrandingStepProps> = ({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="app-name">App Name</Label>
+                  <Input
+                    id="app-name"
+                    type="text"
+                    value={brandingData.app_name}
+                    onChange={(e) => {
+                      const newData = { ...brandingData, app_name: e.target.value };
+                      setBrandingData(newData);
+                      onDataChange(newData);
+                    }}
+                    placeholder="Your App Name"
+                    className="mt-2"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="tagline">Tagline</Label>
+                  <Input
+                    id="tagline"
+                    type="text"
+                    value={brandingData.tagline}
+                    onChange={(e) => {
+                      const newData = { ...brandingData, tagline: e.target.value };
+                      setBrandingData(newData);
+                      onDataChange(newData);
+                    }}
+                    placeholder="Your app tagline"
+                    className="mt-2"
+                  />
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="logo-upload">Company Logo</Label>
                 <div className="mt-2 flex items-center gap-4">
