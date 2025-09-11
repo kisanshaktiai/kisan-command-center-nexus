@@ -702,76 +702,19 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
           </Card>
         </TabsContent>
 
-        <TabsContent value="preview">
+        <TabsContent value="preview" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Theme Preview</CardTitle>
-              <CardDescription>Preview your mobile theme configuration</CardDescription>
+              <CardTitle>Mobile App Preview</CardTitle>
+              <CardDescription>See how your theme looks on a real mobile app</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="bg-muted rounded-lg p-6">
-                <div className="max-w-sm mx-auto space-y-4">
-                  {/* Preview UI Elements */}
-                  <div 
-                    className="p-4 rounded-lg"
-                    style={{ 
-                      backgroundColor: `hsl(${currentTheme.neutral.surface})`,
-                      color: `hsl(${currentTheme.neutral.on_surface})`
-                    }}
-                  >
-                    <h3 className="font-bold mb-2">Card Title</h3>
-                    <p className="text-sm">This is how a card would look with your theme.</p>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      className="px-4 py-2 rounded"
-                      style={{ 
-                        backgroundColor: `hsl(${currentTheme.core.primary})`,
-                        color: 'white'
-                      }}
-                    >
-                      Primary Button
-                    </button>
-                    <button
-                      className="px-4 py-2 rounded"
-                      style={{ 
-                        backgroundColor: `hsl(${currentTheme.core.secondary})`,
-                        color: 'white'
-                      }}
-                    >
-                      Secondary
-                    </button>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <div 
-                      className="px-3 py-1 rounded text-white text-sm"
-                      style={{ backgroundColor: `hsl(${currentTheme.status.success})` }}
-                    >
-                      Success
-                    </div>
-                    <div 
-                      className="px-3 py-1 rounded text-white text-sm"
-                      style={{ backgroundColor: `hsl(${currentTheme.status.warning})` }}
-                    >
-                      Warning
-                    </div>
-                    <div 
-                      className="px-3 py-1 rounded text-white text-sm"
-                      style={{ backgroundColor: `hsl(${currentTheme.status.error})` }}
-                    >
-                      Error
-                    </div>
-                    <div 
-                      className="px-3 py-1 rounded text-white text-sm"
-                      style={{ backgroundColor: `hsl(${currentTheme.status.info})` }}
-                    >
-                      Info
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <MobileAppPreview 
+                theme={currentTheme}
+                deviceType="iphone"
+                appName={config?.branding?.app_name || "Your App"}
+                logoUrl={config?.branding?.logo_url}
+              />
             </CardContent>
           </Card>
         </TabsContent>
