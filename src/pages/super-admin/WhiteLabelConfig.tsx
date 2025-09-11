@@ -22,7 +22,7 @@ import { AdvancedAppCustomizationPanel } from '@/components/white-label/Advanced
 import { LogoUploadSection } from '@/components/white-label/LogoUploadSection';
 import { DomainValidationSection } from '@/components/white-label/DomainValidationSection';
 import { EmailTemplatesPanel } from '@/components/white-label/EmailTemplatesPanel';
-import { MobileThemeConfigPanel } from '@/components/white-label/MobileThemeConfigPanel';
+import { EnhancedMobileThemePanel } from '@/components/white-label/EnhancedMobileThemePanel';
 
 interface WhiteLabelConfig {
   id: string;
@@ -604,7 +604,11 @@ export default function WhiteLabelConfig() {
 
           {/* Mobile Tab */}
           <TabsContent value="mobile" className="space-y-4">
-            <MobileThemeConfigPanel config={config} updateConfig={updateConfig} />
+            <EnhancedMobileThemePanel 
+              config={config} 
+              updateConfig={updateConfig}
+              tenantId={selectedTenant}
+            />
             
             <Card>
               <CardHeader>
