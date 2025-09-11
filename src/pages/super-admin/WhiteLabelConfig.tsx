@@ -214,11 +214,13 @@ export default function WhiteLabelConfig() {
         id: '',
         tenant_id: selectedTenant,
         brand_identity: {
-          primary_color: '#3b82f6',
-          secondary_color: '#64748b',
-          accent_color: '#10b981',
+          primary_color: '#6366f1',  // Modern Indigo
+          secondary_color: '#a855f7', // Modern Purple
+          accent_color: '#f59e0b',    // Modern Amber
           font_family: 'Inter',
-          company_name: ''
+          company_name: '',
+          app_name: '',
+          tag_line: ''
         },
         domain_config: {
           ssl_enabled: true,
@@ -281,8 +283,18 @@ export default function WhiteLabelConfig() {
   const handleSave = async () => {
     if (!config || !selectedTenant) return;
     
+    // Ensure brand_identity includes all fields
     const configData = {
-      brand_identity: config.brand_identity,
+      brand_identity: {
+        logo_url: config.brand_identity?.logo_url || '',
+        primary_color: config.brand_identity?.primary_color || '#6366f1',
+        secondary_color: config.brand_identity?.secondary_color || '#a855f7',
+        accent_color: config.brand_identity?.accent_color || '#f59e0b',
+        font_family: config.brand_identity?.font_family || 'Inter',
+        company_name: config.brand_identity?.company_name || '',
+        app_name: config.brand_identity?.app_name || '',
+        tag_line: config.brand_identity?.tag_line || ''
+      },
       domain_config: config.domain_config,
       email_templates: config.email_templates,
       app_store_config: config.app_store_config,
