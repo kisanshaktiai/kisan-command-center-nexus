@@ -72,6 +72,8 @@ interface EnhancedMobileThemePanelProps {
   config: any;
   updateConfig: (section: string, field: string, value: any) => void;
   tenantId?: string;
+  appName?: string;
+  logoUrl?: string;
 }
 
 const defaultTheme: Modern2025Theme = {
@@ -250,14 +252,25 @@ const presetThemes = [
 export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> = ({
   config,
   updateConfig,
-  tenantId
+  tenantId,
+  appName,
+  logoUrl
 }) => {
-  const [currentTheme, setCurrentTheme] = useState<Modern2025Theme>(
-    config?.mobile_theme || defaultTheme
-  );
+  const [currentTheme, setCurrentTheme] = useState<Modern2025Theme>(defaultTheme);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+
+  // Initialize theme from config when it changes
+  useEffect(() => {
+    if (config?.mobile_theme) {
+      setCurrentTheme(config.mobile_theme);
+    } else if (config?.app_store_config?.mobile_theme) {
+      setCurrentTheme(config.app_store_config.mobile_theme);
+    } else {
+      setCurrentTheme(defaultTheme);
+    }
+  }, [config, tenantId]);
 
   // Initialize theme from config
   useEffect(() => {
@@ -422,34 +435,40 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
         </Alert>
       )}
 
-      <Tabs defaultValue="colors" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="colors">Colors</TabsTrigger>
-          <TabsTrigger value="typography">Typography</TabsTrigger>
-          <TabsTrigger value="spacing">Spacing</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="colors" className="space-y-6">
+      {/* All configuration in a single view */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column - Configuration */}
+        <div className="space-y-6">
           {/* Preset Themes */}
           <Card>
             <CardHeader>
               <CardTitle>Quick Start Themes</CardTitle>
-              <CardDescription>Apply a preset theme and customize</CardDescription>
+              <CardDescription>Select a preset theme to start with</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {presetThemes.map(preset => (
                   <Button
                     key={preset.id}
                     variant={selectedPreset === preset.id ? "default" : "outline"}
-                    className="h-auto flex-col p-4"
+                    className="h-auto flex items-center gap-3 p-3 justify-start"
                     onClick={() => applyPresetTheme(preset.id)}
                   >
-                    <span className="font-medium">{preset.name}</span>
-                    <span className="text-xs text-muted-foreground mt-1">
-                      {preset.description}
-                    </span>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <div 
+                        className="w-4 h-4 rounded-full border border-border" 
+                        style={{ backgroundColor: `hsl(${preset.theme.core.primary})` }}
+                      />
+                      <div 
+                        className="w-4 h-4 rounded-full border border-border" 
+                        style={{ backgroundColor: `hsl(${preset.theme.core.secondary})` }}
+                      />
+                      <div 
+                        className="w-4 h-4 rounded-full border border-border" 
+                        style={{ backgroundColor: `hsl(${preset.theme.core.accent})` }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium truncate">{preset.name}</span>
                   </Button>
                 ))}
               </div>
@@ -612,9 +631,8 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="typography" className="space-y-6">
+          {/* Typography Settings */}
           <Card>
             <CardHeader>
               <CardTitle>Typography Settings</CardTitle>
@@ -656,9 +674,8 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="spacing" className="space-y-6">
+          {/* Spacing System */}
           <Card>
             <CardHeader>
               <CardTitle>Spacing System</CardTitle>
@@ -679,30 +696,10 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
               </div>
             </CardContent>
           </Card>
+        </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Border Radius</CardTitle>
-              <CardDescription>Corner rounding values</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                {['sm', 'md', 'lg', 'full'].map(size => (
-                  <div key={size}>
-                    <Label>{size.toUpperCase()}</Label>
-                    <Input
-                      type="number"
-                      value={(currentTheme.border_radius as any)?.[size] || 8}
-                      onChange={(e) => handleColorChange('border_radius' as any, size, e.target.value)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="preview" className="space-y-6">
+        {/* Right Column - Preview */}
+        <div className="lg:sticky lg:top-4 lg:h-fit">
           <Card>
             <CardHeader>
               <CardTitle>Mobile App Preview</CardTitle>
@@ -712,13 +709,13 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
               <MobileAppPreview 
                 theme={currentTheme}
                 deviceType="iphone"
-                appName={config?.branding?.app_name || "Your App"}
-                logoUrl={config?.branding?.logo_url}
+                appName={appName || config?.app_store_config?.app_name || "Your App"}
+                logoUrl={logoUrl || config?.brand_identity?.logo_url}
               />
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
 
       <div className="flex justify-between">
         <Button onClick={copyThemeJSON} variant="outline">

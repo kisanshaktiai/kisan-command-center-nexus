@@ -608,6 +608,8 @@ export default function WhiteLabelConfig() {
               config={config} 
               updateConfig={updateConfig}
               tenantId={selectedTenant}
+              appName={config?.app_store_config?.app_name || 'Your App'}
+              logoUrl={config?.brand_identity?.logo_url || ''}
             />
             
             <Card>
