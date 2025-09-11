@@ -35,7 +35,7 @@ interface WhiteLabelConfig {
     font_family?: string;
     company_name?: string;
     app_name?: string;
-    tag_line?: string;
+    tagline?: string;
   };
   domain_config: {
     custom_domain?: string;
@@ -220,7 +220,7 @@ export default function WhiteLabelConfig() {
           font_family: 'Inter',
           company_name: '',
           app_name: '',
-          tag_line: ''
+          tagline: ''
         },
         domain_config: {
           ssl_enabled: true,
@@ -293,7 +293,7 @@ export default function WhiteLabelConfig() {
         font_family: config.brand_identity?.font_family || 'Inter',
         company_name: config.brand_identity?.company_name || '',
         app_name: config.brand_identity?.app_name || '',
-        tag_line: config.brand_identity?.tag_line || ''
+        tagline: config.brand_identity?.tagline || ''
       },
       domain_config: config.domain_config,
       email_templates: config.email_templates,
@@ -493,8 +493,8 @@ export default function WhiteLabelConfig() {
                       id="tag-line"
                       type="text"
                       placeholder="Enter your tag line"
-                      value={config?.brand_identity?.tag_line || ''}
-                      onChange={(e) => updateConfig('brand_identity', 'tag_line', e.target.value)}
+                      value={config?.brand_identity?.tagline || ''}
+                      onChange={(e) => updateConfig('brand_identity', 'tagline', e.target.value)}
                     />
                   </div>
                 </div>

@@ -5,7 +5,17 @@ import { toast } from 'sonner';
 export interface WhiteLabelConfigData {
   id?: string;
   tenant_id: string;
-  brand_identity?: Record<string, any>;
+  brand_identity?: {
+    logo_url?: string;
+    primary_color?: string;
+    secondary_color?: string;
+    accent_color?: string;
+    font_family?: string;
+    company_name?: string;
+    app_name?: string;
+    tagline?: string;
+    [key: string]: any;
+  };
   domain_config?: Record<string, any>;
   email_templates?: Record<string, any>;
   app_store_config?: Record<string, any>;
