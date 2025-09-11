@@ -8,8 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Palette, Smartphone, Wand2, Settings, CheckCircle, AlertCircle, Copy } from 'lucide-react';
+import { Palette, Smartphone, Wand2, Settings, CheckCircle, AlertCircle, Copy, Sparkles, Monitor, Tablet } from 'lucide-react';
 import { toast } from 'sonner';
+import { MobileAppPreview } from './MobileAppPreview';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface Modern2025Theme {
   core: {
@@ -129,57 +131,117 @@ const defaultTheme: Modern2025Theme = {
 
 const presetThemes = [
   {
-    id: 'agri-green',
-    name: 'Agriculture Green',
-    description: 'Fresh green theme for farming apps',
+    id: 'neo-minimal',
+    name: 'Neo Minimal',
+    description: 'Clean white/gray with subtle blue accents',
     theme: {
       ...defaultTheme,
       core: {
-        primary: "142 71% 45%",
-        primary_variant: "142 71% 35%",
-        secondary: "84 60% 45%",
-        secondary_variant: "84 60% 35%",
-        tertiary: "47 90% 50%",
-        accent: "25 95% 53%"
+        primary: "220 93% 60%",
+        primary_variant: "220 93% 50%",
+        secondary: "0 0% 96%",
+        secondary_variant: "0 0% 90%",
+        tertiary: "220 14% 71%",
+        accent: "220 83% 54%"
+      },
+      neutral: {
+        background: "0 0% 100%",
+        surface: "0 0% 98%",
+        on_background: "222 47% 11%",
+        on_surface: "222 47% 20%",
+        border: "220 13% 91%"
       }
     }
   },
   {
-    id: 'sky-blue',
-    name: 'Sky Blue',
-    description: 'Clean modern blue theme',
+    id: 'dark-elegance',
+    name: 'Dark Elegance',
+    description: 'Professional dark mode with purple accents',
+    theme: {
+      ...defaultTheme,
+      core: {
+        primary: "271 91% 65%",
+        primary_variant: "271 91% 55%",
+        secondary: "290 87% 47%",
+        secondary_variant: "290 87% 37%",
+        tertiary: "250 84% 67%",
+        accent: "271 76% 71%"
+      },
+      neutral: {
+        background: "222 47% 11%",
+        surface: "222 47% 15%",
+        on_background: "210 40% 98%",
+        on_surface: "210 40% 95%",
+        border: "217 19% 27%"
+      }
+    }
+  },
+  {
+    id: 'nature-fresh',
+    name: 'Nature Fresh',
+    description: 'Green earth tones for agriculture apps',
+    theme: {
+      ...defaultTheme,
+      core: {
+        primary: "142 76% 36%",
+        primary_variant: "142 76% 26%",
+        secondary: "88 61% 47%",
+        secondary_variant: "88 61% 37%",
+        tertiary: "55 83% 64%",
+        accent: "25 95% 53%"
+      },
+      neutral: {
+        background: "60 20% 99%",
+        surface: "60 7% 97%",
+        on_background: "222 47% 11%",
+        on_surface: "222 47% 20%",
+        border: "142 16% 90%"
+      }
+    }
+  },
+  {
+    id: 'sunrise-warmth',
+    name: 'Sunrise Warmth',
+    description: 'Orange/coral gradients with warm tones',
+    theme: {
+      ...defaultTheme,
+      core: {
+        primary: "24 95% 53%",
+        primary_variant: "24 95% 43%",
+        secondary: "11 91% 71%",
+        secondary_variant: "11 91% 61%",
+        tertiary: "48 96% 53%",
+        accent: "346 77% 55%"
+      },
+      neutral: {
+        background: "20 14% 99%",
+        surface: "24 24% 97%",
+        on_background: "222 47% 11%",
+        on_surface: "222 47% 20%",
+        border: "24 11% 91%"
+      }
+    }
+  },
+  {
+    id: 'ocean-depth',
+    name: 'Ocean Depth',
+    description: 'Deep blues and teals with aqua accents',
     theme: {
       ...defaultTheme,
       core: {
         primary: "199 89% 48%",
         primary_variant: "199 89% 38%",
-        secondary: "217 91% 60%",
-        secondary_variant: "217 91% 50%",
-        tertiary: "174 62% 56%",
-        accent: "45 93% 47%"
-      }
-    }
-  },
-  {
-    id: 'earth-brown',
-    name: 'Earth Brown',
-    description: 'Natural earth tones',
-    theme: {
-      ...defaultTheme,
-      core: {
-        primary: "30 41% 32%",
-        primary_variant: "30 41% 22%",
-        secondary: "25 45% 48%",
-        secondary_variant: "25 45% 38%",
-        tertiary: "38 92% 50%",
-        accent: "15 75% 51%"
+        secondary: "187 94% 43%",
+        secondary_variant: "187 94% 33%",
+        tertiary: "174 72% 56%",
+        accent: "166 76% 49%"
       },
       neutral: {
-        background: "39 39% 95%",
-        surface: "39 24% 98%",
-        on_background: "30 41% 15%",
-        on_surface: "30 41% 20%",
-        border: "30 20% 85%"
+        background: "199 18% 98%",
+        surface: "199 32% 96%",
+        on_background: "222 47% 11%",
+        on_surface: "222 47% 20%",
+        border: "199 18% 89%"
       }
     }
   }
