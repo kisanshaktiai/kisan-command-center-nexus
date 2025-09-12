@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TenantBillingTab } from './TenantBillingTab';
+import { TenantUsersTab } from './tabs/TenantUsersTab';
+import { TenantSettingsTab } from './tabs/TenantSettingsTab';
 import { Edit, ExternalLink, Calendar, Users, Building2 } from 'lucide-react';
 import type { Tenant } from '@/types/tenant';
 
@@ -149,38 +151,11 @@ export const TenantDetailsModal: React.FC<TenantDetailsModalProps> = ({
           </TabsContent>
 
           <TabsContent value="users">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Tenant Users
-                </CardTitle>
-                <CardDescription>
-                  Manage users associated with this tenant
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  User management functionality coming soon...
-                </div>
-              </CardContent>
-            </Card>
+            <TenantUsersTab tenant={tenant} />
           </TabsContent>
 
           <TabsContent value="settings">
-            <Card>
-              <CardHeader>
-                <CardTitle>Tenant Settings</CardTitle>
-                <CardDescription>
-                  Advanced configuration and management options
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  Advanced settings coming soon...
-                </div>
-              </CardContent>
-            </Card>
+            <TenantSettingsTab tenant={tenant} />
           </TabsContent>
         </Tabs>
 
