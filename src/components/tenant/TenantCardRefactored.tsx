@@ -19,11 +19,14 @@ import {
   Building,
   Users,
   Calendar,
-  Database 
+  Database,
+  KeyRound 
 } from 'lucide-react';
 import { Tenant } from '@/types/tenant';
 import { TenantMetrics } from '@/types/tenantView';
 import { FormattedTenantData } from '@/services/TenantDisplayService';
+import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
+import { toast } from 'sonner';
 
 interface TenantCardRefacturedProps {
   tenant: Tenant;
@@ -49,6 +52,7 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
   onCardClick
 }) => {
   const isSuspended = tenant.status === 'suspended';
+  const { sendPasswordReset, isSendingReset } = useTenantUserManagement();
   
   const handleEdit = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -86,6 +90,30 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
     }
   };
 
+  const handleResetPassword = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!tenant.owner_email) {
+      toast.error('No email address found for this tenant');
+      return;
+    }
+    
+    const confirmed = window.confirm(
+      `Send password reset link to ${tenant.owner_email}?`
+    );
+    
+    if (confirmed) {
+      console.log('TenantCardRefactored: Sending password reset to:', tenant.owner_email);
+      const success = await sendPasswordReset(tenant.owner_email);
+      if (success) {
+        toast.success(`Password reset link sent to ${tenant.owner_email}`);
+      } else {
+        toast.error('Failed to send password reset link');
+      }
+    }
+  };
+
   const ActionMenu = () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -101,6 +129,14 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
         <DropdownMenuItem onClick={handleEdit}>
           <Edit className="mr-2 h-4 w-4" />
           Edit Tenant
+        </DropdownMenuItem>
+        <DropdownMenuItem 
+          onClick={handleResetPassword}
+          disabled={isSendingReset || !tenant.owner_email}
+          className="text-blue-600"
+        >
+          <KeyRound className="mr-2 h-4 w-4" />
+          Reset Password
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem 
