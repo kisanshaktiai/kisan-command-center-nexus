@@ -15,14 +15,28 @@ export const useLeadAnalytics = (request: AnalyticsRequest) => {
   return useQuery({
     queryKey: ['lead-analytics', request.type, request.dateRange, request.filters],
     queryFn: async () => {
+      console.log('Fetching lead analytics:', request);
+      
       const { data, error } = await supabase.functions.invoke('lead-analytics', {
         body: request,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Lead analytics error:', error);
+        throw new Error(error.message || 'Failed to fetch analytics data');
+      }
+      
+      console.log('Lead analytics response:', data);
       return data;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000, // 2 minutes for real-time feel
+    retry: (failureCount, error) => {
+      // Don't retry on specific errors
+      if (error?.message?.includes('permission') || error?.message?.includes('not found')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 };
 

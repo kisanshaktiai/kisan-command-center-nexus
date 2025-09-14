@@ -27,6 +27,7 @@ interface ConversionResponse {
   tempPassword?: string;
   isRecovery?: boolean;
   userTenantCreated?: boolean;
+  tenant_id?: string;
 }
 
 serve(async (req) => {
@@ -65,9 +66,75 @@ serve(async (req) => {
       });
     }
 
-    // Validate subscription plan enum - convert to proper enum format
-    const validPlans = ['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'Custom_Enterprise'];
+    // Validate subscription plan enum
+    const validPlans = ['Kisan_Basic', 'Shakti_Growth', 'AI_Enterprise', 'custom'];
     const normalizedPlan = validPlans.includes(subscriptionPlan) ? subscriptionPlan : 'Kisan_Basic';
+
+    // Pre-conversion validation: Check if lead exists and is qualified
+    const { data: leadData, error: leadFetchError } = await supabase
+      .from('leads')
+      .select('id, status, contact_name, email, converted_tenant_id')
+      .eq('id', leadId)
+      .single();
+
+    if (leadFetchError || !leadData) {
+      console.error('Lead fetch error:', leadFetchError);
+      const response: ConversionResponse = {
+        success: false,
+        error: 'Lead not found',
+        code: 'LEAD_NOT_FOUND'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (leadData.status !== 'qualified') {
+      console.error('Lead not qualified:', leadData.status);
+      const response: ConversionResponse = {
+        success: false,
+        error: `Lead must be qualified before conversion. Current status: ${leadData.status}`,
+        code: 'LEAD_NOT_QUALIFIED'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (leadData.converted_tenant_id) {
+      console.error('Lead already converted:', leadData.converted_tenant_id);
+      const response: ConversionResponse = {
+        success: false,
+        error: 'Lead has already been converted to a tenant',
+        code: 'LEAD_ALREADY_CONVERTED'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check if tenant slug is already taken
+    const { data: existingTenant, error: slugCheckError } = await supabase
+      .from('tenants')
+      .select('id, slug')
+      .eq('slug', tenantSlug)
+      .single();
+
+    if (existingTenant && !slugCheckError) {
+      console.error('Tenant slug already exists:', tenantSlug);
+      const response: ConversionResponse = {
+        success: false,
+        error: `Tenant slug '${tenantSlug}' is already taken`,
+        code: 'SLUG_CONFLICT'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     console.log('Calling enhanced conversion function...');
     const { data: conversionResult, error: conversionError } = await supabase.rpc(
@@ -76,7 +143,7 @@ serve(async (req) => {
         p_lead_id: leadId,
         p_tenant_name: tenantName,
         p_tenant_slug: tenantSlug,
-        p_subscription_plan: normalizedPlan, // Use normalized enum value
+        p_subscription_plan: normalizedPlan,
         p_admin_email: adminEmail,
         p_admin_name: adminName
       }
@@ -114,11 +181,13 @@ serve(async (req) => {
     if (!conversionResult.success) {
       console.error('Conversion failed:', conversionResult);
       
-      // Map specific error codes to appropriate HTTP status codes
       let statusCode = 400;
       switch (conversionResult.code) {
         case 'LEAD_NOT_FOUND':
           statusCode = 404;
+          break;
+        case 'LEAD_NOT_QUALIFIED':
+          statusCode = 422;
           break;
         case 'LEAD_ALREADY_CONVERTED':
         case 'SLUG_CONFLICT':
@@ -148,114 +217,30 @@ serve(async (req) => {
 
     console.log('Tenant created successfully:', tenantId, isRecovery ? '(recovery)' : '(new)');
 
-    // Always ensure user account and user-tenant relationship exist
-    let userId: string | undefined;
-    let userTenantCreated = false;
+    // Post-conversion verification: Ensure tenant was created
+    const { data: createdTenant, error: tenantVerifyError } = await supabase
+      .from('tenants')
+      .select('id, name, slug, status')
+      .eq('id', tenantId)
+      .single();
 
-    try {
-      // Check if user exists in auth
-      const { data: existingUser, error: userCheckError } = await supabase.auth.admin.getUserByEmail(adminEmail);
+    if (tenantVerifyError || !createdTenant) {
+      console.error('Tenant verification failed:', tenantVerifyError);
       
-      if (!existingUser?.user || userCheckError) {
-        // Create new user with proper metadata
-        console.log('Creating new auth user...');
-        const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
-          email: adminEmail,
-          password: tempPassword !== 'recovery-no-password' ? tempPassword : 'TempPass123!',
-          email_confirm: true,
-          user_metadata: {
-            full_name: adminName,
-            tenant_id: tenantId,
-            role: 'tenant_admin'
-          }
-        });
+      // Attempt to rollback lead status
+      await supabase
+        .from('leads')
+        .update({ 
+          status: 'qualified', 
+          converted_tenant_id: null, 
+          converted_at: null 
+        })
+        .eq('id', leadId);
 
-        if (createUserError) {
-          console.error('Failed to create auth user:', createUserError);
-          throw new Error(`Failed to create user: ${createUserError.message}`);
-        } else {
-          userId = newUser.user?.id;
-          console.log('Created auth user:', userId);
-        }
-      } else {
-        userId = existingUser.user?.id;
-        console.log('Using existing auth user:', userId);
-        
-        // Update existing user's metadata to include tenant info
-        if (userId) {
-          const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
-            user_metadata: {
-              full_name: adminName,
-              tenant_id: tenantId,
-              role: 'tenant_admin'
-            }
-          });
-
-          if (updateError) {
-            console.error('Failed to update user metadata:', updateError);
-          }
-        }
-      }
-
-      // CRITICAL: Always ensure user_tenants relationship exists
-      if (userId) {
-        // Check if relationship already exists
-        const { data: existingRelation, error: relationCheckError } = await supabase
-          .from('user_tenants')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('tenant_id', tenantId)
-          .single();
-
-        if (!existingRelation && !relationCheckError) {
-          // Create user_tenants relationship
-          console.log('Creating user-tenant relationship...');
-          const { error: tenantUserError } = await supabase
-            .from('user_tenants')
-            .insert({
-              user_id: userId,
-              tenant_id: tenantId,
-              role: 'tenant_admin',
-              is_active: true
-            });
-
-          if (tenantUserError) {
-            console.error('Failed to create tenant user relationship:', tenantUserError);
-            throw new Error(`Failed to create user-tenant relationship: ${tenantUserError.message}`);
-          } else {
-            userTenantCreated = true;
-            console.log('Created user-tenant relationship successfully');
-          }
-        } else if (existingRelation) {
-          console.log('User-tenant relationship already exists');
-          userTenantCreated = true;
-        } else {
-          console.error('Error checking user-tenant relationship:', relationCheckError);
-        }
-
-        // Final validation: Ensure relationship exists
-        const { data: finalCheck, error: finalCheckError } = await supabase
-          .from('user_tenants')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('tenant_id', tenantId)
-          .eq('is_active', true)
-          .single();
-
-        if (!finalCheck || finalCheckError) {
-          console.error('User-tenant relationship validation failed:', finalCheckError);
-          throw new Error('Failed to establish user-tenant relationship');
-        }
-      }
-
-    } catch (error) {
-      console.error('Error in user/relationship creation:', error);
-      
-      // Return error since user access is critical
       const response: ConversionResponse = {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to set up user access',
-        code: 'USER_SETUP_ERROR'
+        error: 'Tenant creation verification failed',
+        code: 'TENANT_VERIFICATION_FAILED'
       };
       return new Response(JSON.stringify(response), {
         status: 500,
@@ -263,67 +248,128 @@ serve(async (req) => {
       });
     }
 
-    // Send welcome email only for new conversions (not recovery)
-    if (!isRecovery && tempPassword !== 'recovery-no-password') {
-      try {
-        const loginUrl = `${Deno.env.get('SITE_URL') || 'https://yourapp.com'}/auth`;
+    // Use the new user registration service
+    let userId: string | undefined;
+    let userTenantCreated = false;
+
+    try {
+      console.log('Registering user with welcome email...');
+      
+      const registrationResponse = await supabase.functions.invoke('register-user-with-welcome', {
+        body: {
+          email: adminEmail,
+          fullName: adminName,
+          password: tempPassword !== 'recovery-no-password' ? tempPassword : undefined,
+          tenantId: tenantId,
+          role: 'tenant_admin',
+          metadata: {
+            converted_from_lead: leadId,
+            conversion_date: new Date().toISOString()
+          },
+          sendWelcomeEmail: !isRecovery && tempPassword !== 'recovery-no-password',
+          welcomeEmailData: {
+            tenantName: tenantName,
+            loginUrl: `${Deno.env.get('SITE_URL') || 'https://yourapp.com'}/auth`,
+            customMessage: 'Your lead has been successfully converted to a tenant account.'
+          }
+        }
+      });
+
+      if (registrationResponse.error) {
+        console.error('User registration failed:', registrationResponse.error);
+        throw new Error(`User registration failed: ${registrationResponse.error.message || registrationResponse.error}`);
+      }
+
+      const registrationData = registrationResponse.data;
+      if (!registrationData.success) {
+        throw new Error(`User registration failed: ${registrationData.error}`);
+      }
+
+      userId = registrationData.userId;
+      console.log('User registered successfully:', userId, registrationData.isNewUser ? '(new user)' : '(existing user)');
+
+      // Use the global manage-user-tenant function to create the relationship
+      if (userId) {
+        console.log('Creating user-tenant relationship using global manage-user-tenant function...');
         
-        console.log('Sending welcome email...');
-        const { error: emailError } = await supabase.functions.invoke('send-email', {
+        const relationshipResponse = await supabase.functions.invoke('manage-user-tenant', {
           body: {
-            to: adminEmail,
-            subject: `Welcome to ${tenantName} - Your Account is Ready!`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h1>Welcome to ${tenantName}!</h1>
-                <p>Dear ${adminName},</p>
-                <p>Congratulations! Your lead has been converted to a tenant account.</p>
-                
-                <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                  <h3>Login Credentials:</h3>
-                  <p><strong>Email:</strong> ${adminEmail}</p>
-                  <p><strong>Temporary Password:</strong> ${tempPassword}</p>
-                  <p><strong>Tenant:</strong> ${tenantName}</p>
-                </div>
-                
-                <p><strong>Important:</strong> Please change your password after your first login.</p>
-                
-                <div style="margin: 30px 0;">
-                  <a href="${loginUrl}" 
-                     style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                    Login to Your Account
-                  </a>
-                </div>
-                
-                <p>Best regards,<br>The KisanShaktiAI Team</p>
-              </div>
-            `,
-            text: `Welcome to ${tenantName}! Login Details: Email: ${adminEmail}, Password: ${tempPassword}. Login at: ${loginUrl}`,
+            user_id: userId,
+            tenant_id: tenantId,
+            role: 'tenant_admin',
+            is_active: true,
             metadata: {
-              type: 'lead_conversion',
-              tenant_id: tenantId,
-              lead_id: leadId,
-              user_id: userId
-            }
+              created_via: 'lead_conversion',
+              converted_from_lead: leadId,
+              conversion_date: new Date().toISOString(),
+              admin_email: adminEmail,
+              admin_name: adminName
+            },
+            operation: 'upsert'
+          },
+          headers: {
+            'authorization': req.headers.get('authorization') || '',
+            'x-request-id': `lead-conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            'x-correlation-id': `lead-${leadId}-tenant-${tenantId}`
           }
         });
 
-        if (emailError) {
-          console.error('Failed to send welcome email:', emailError);
-        } else {
-          console.log('Welcome email sent successfully');
+        if (relationshipResponse.error) {
+          console.error('User-tenant relationship creation failed:', relationshipResponse.error);
+          throw new Error(`Failed to create user-tenant relationship: ${relationshipResponse.error.message}`);
         }
-      } catch (emailError) {
-        console.error('Email sending failed:', emailError);
-        // Don't fail the conversion for email errors
+
+        const relationshipData = relationshipResponse.data;
+        if (!relationshipData.success) {
+          console.error('User-tenant relationship creation failed:', relationshipData.error);
+          throw new Error(`Failed to create user-tenant relationship: ${relationshipData.error}`);
+        }
+
+        userTenantCreated = true;
+        console.log('User-tenant relationship created successfully via global function:', relationshipData);
       }
+
+    } catch (error) {
+      console.error('Error in user registration or relationship creation:', error);
+      
+      const response: ConversionResponse = {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to register user or create relationship',
+        code: 'USER_REGISTRATION_ERROR'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Verify lead status was updated correctly
+    const { data: updatedLead, error: leadVerifyError } = await supabase
+      .from('leads')
+      .select('id, status, converted_tenant_id, converted_at')
+      .eq('id', leadId)
+      .single();
+
+    if (leadVerifyError || !updatedLead || updatedLead.status !== 'converted' || updatedLead.converted_tenant_id !== tenantId) {
+      console.error('Lead status verification failed:', leadVerifyError, updatedLead);
+      
+      const response: ConversionResponse = {
+        success: false,
+        error: 'Lead status verification failed',
+        code: 'LEAD_STATUS_VERIFICATION_FAILED'
+      };
+      return new Response(JSON.stringify(response), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Return comprehensive success response
     const response: ConversionResponse = {
       success: true,
-      message: conversionResult.message || 'Lead converted to tenant successfully',
+      message: 'Lead converted to tenant successfully with user registration and relationship creation via global function',
       tenantId: tenantId,
+      tenant_id: tenantId,
       userId: userId,
       tenantSlug: tenantSlug,
       tempPassword: isRecovery && tempPassword === 'recovery-no-password' ? undefined : tempPassword,
@@ -331,7 +377,7 @@ serve(async (req) => {
       userTenantCreated: userTenantCreated
     };
 
-    console.log('Conversion completed successfully with user access verified');
+    console.log('Conversion completed successfully using global manage-user-tenant function');
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

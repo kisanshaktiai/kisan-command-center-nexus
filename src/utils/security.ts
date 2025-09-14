@@ -1,8 +1,9 @@
 
 import { SECURITY_CONFIG, ROLE_PERMISSIONS, type Role, type Permission } from '@/lib/constants/security';
+import { EnhancedSecurityUtils } from './enhancedSecurity';
 
 /**
- * Security utility functions
+ * Security utility functions - Enhanced version
  */
 
 export class SecurityUtils {
@@ -29,36 +30,20 @@ export class SecurityUtils {
   }
 
   /**
-   * Validate password strength
+   * Enhanced password validation using new security utils
    */
   static validatePassword(password: string): {
     isValid: boolean;
     errors: string[];
+    score?: number;
+    suggestions?: string[];
   } {
-    const errors: string[] = [];
-    
-    if (password.length < SECURITY_CONFIG.PASSWORD_MIN_LENGTH) {
-      errors.push(`Password must be at least ${SECURITY_CONFIG.PASSWORD_MIN_LENGTH} characters long`);
-    }
-    
-    if (SECURITY_CONFIG.PASSWORD_REQUIRE_SPECIAL) {
-      if (!/[A-Z]/.test(password)) {
-        errors.push('Password must contain at least one uppercase letter');
-      }
-      if (!/[a-z]/.test(password)) {
-        errors.push('Password must contain at least one lowercase letter');
-      }
-      if (!/\d/.test(password)) {
-        errors.push('Password must contain at least one number');
-      }
-      if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-        errors.push('Password must contain at least one special character');
-      }
-    }
-    
+    const result = EnhancedSecurityUtils.validatePasswordStrength(password);
     return {
-      isValid: errors.length === 0,
-      errors,
+      isValid: result.isValid,
+      errors: result.errors,
+      score: result.score,
+      suggestions: result.suggestions
     };
   }
 
@@ -75,13 +60,17 @@ export class SecurityUtils {
   }
 
   /**
-   * Sanitize user input to prevent XSS
+   * Enhanced input sanitization
    */
   static sanitizeInput(input: string): string {
-    return input
-      .replace(/[<>]/g, '') // Remove potential HTML tags
-      .trim()
-      .slice(0, 1000); // Limit length
+    return EnhancedSecurityUtils.sanitizeInput(input);
+  }
+
+  /**
+   * Enhanced email validation
+   */
+  static validateEmail(email: string): { isValid: boolean; errors: string[] } {
+    return EnhancedSecurityUtils.validateEmail(email);
   }
 
   /**
@@ -91,5 +80,40 @@ export class SecurityUtils {
     const now = new Date();
     const timeDiff = now.getTime() - lastActivity.getTime();
     return timeDiff > SECURITY_CONFIG.SESSION_TIMEOUT;
+  }
+
+  /**
+   * Generate CSRF token
+   */
+  static generateCSRFToken(): string {
+    return EnhancedSecurityUtils.generateCSRFToken();
+  }
+
+  /**
+   * Validate CSRF token
+   */
+  static validateCSRFToken(token: string, sessionToken: string): boolean {
+    return EnhancedSecurityUtils.validateCSRFToken(token, sessionToken);
+  }
+
+  /**
+   * Check account lockout status
+   */
+  static async checkAccountLockout(email: string, ipAddress?: string) {
+    return EnhancedSecurityUtils.checkAccountLockout(email, ipAddress);
+  }
+
+  /**
+   * Record failed login attempt
+   */
+  static async recordFailedLogin(email: string, ipAddress?: string) {
+    return EnhancedSecurityUtils.recordFailedLogin(email, ipAddress);
+  }
+
+  /**
+   * Generate secure password
+   */
+  static generateSecurePassword(length: number = 16): string {
+    return EnhancedSecurityUtils.generateSecurePassword(length);
   }
 }

@@ -1,78 +1,60 @@
 
-import { useCallback } from 'react';
 import { toast } from 'sonner';
 
-export interface NotificationOptions {
-  title?: string;
+interface NotificationOptions {
   description?: string;
-  duration?: number;
   action?: {
     label: string;
     onClick: () => void;
   };
 }
 
-export interface ErrorNotificationOptions extends NotificationOptions {
-  fallbackMessage?: string;
-}
-
-/**
- * Centralized notification hook
- * Provides consistent notification handling across the application
- */
 export const useNotifications = () => {
-  const showSuccess = useCallback((message: string, options?: NotificationOptions) => {
-    toast.success(message, {
-      description: options?.description,
-      duration: options?.duration,
-      action: options?.action
-    });
-  }, []);
-
-  const showError = useCallback((message: string, options?: ErrorNotificationOptions) => {
-    toast.error(message, {
-      description: options?.description || 'Please try again later or contact support if the problem persists.',
-      duration: options?.duration,
-      action: options?.action
-    });
-  }, []);
-
-  const showWarning = useCallback((message: string, options?: NotificationOptions) => {
-    toast.warning(message, {
-      description: options?.description,
-      duration: options?.duration,
-      action: options?.action
-    });
-  }, []);
-
-  const showInfo = useCallback((message: string, options?: NotificationOptions) => {
-    toast.info(message, {
-      description: options?.description,
-      duration: options?.duration,
-      action: options?.action
-    });
-  }, []);
-
-  const showLoading = useCallback((message: string, options?: NotificationOptions) => {
-    return toast.loading(message, {
-      description: options?.description,
-      duration: options?.duration
-    });
-  }, []);
-
-  const dismiss = useCallback((toastId?: string | number) => {
-    if (toastId) {
-      toast.dismiss(toastId);
+  const showSuccess = (message: string, options?: NotificationOptions) => {
+    if (options?.description) {
+      toast.success(message, { description: options.description });
     } else {
-      toast.dismiss();
+      toast.success(message);
     }
-  }, []);
+  };
+
+  const showError = (message: string, options?: NotificationOptions) => {
+    if (options?.description) {
+      toast.error(message, { description: options.description });
+    } else {
+      toast.error(message);
+    }
+  };
+
+  const showInfo = (message: string, options?: NotificationOptions) => {
+    if (options?.description) {
+      toast.info(message, { description: options.description });
+    } else {
+      toast.info(message);
+    }
+  };
+
+  const showWarning = (message: string, options?: NotificationOptions) => {
+    if (options?.description) {
+      toast.warning(message, { description: options.description });
+    } else {
+      toast.warning(message);
+    }
+  };
+
+  const showLoading = (message: string) => {
+    return toast.loading(message);
+  };
+
+  const dismiss = (toastId?: string | number) => {
+    toast.dismiss(toastId);
+  };
 
   return {
     showSuccess,
     showError,
-    showWarning,
     showInfo,
+    showWarning,
     showLoading,
     dismiss
   };

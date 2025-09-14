@@ -1,302 +1,183 @@
-import React, { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, AlertCircle, Building2 } from 'lucide-react';
-import { TenantForm } from '@/components/tenant/TenantForm';
-import { TenantFilters } from '@/components/tenant/TenantFilters';
-import { TenantViewToggle } from '@/components/tenant/TenantViewToggle';
-import { TenantMetricsCard } from '@/components/tenant/TenantMetricsCard';
-import { TenantListView } from '@/components/tenant/TenantListView';
-import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
-import { Tenant } from '@/types/tenant';
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useTenantManagement } from '@/hooks/useTenantManagement';
 
-export default function TenantManagement() {
+import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Plus, RefreshCw } from 'lucide-react';
+import { TenantViewControls } from '@/components/tenant/page-sections/TenantViewControls';
+import { TenantViewRenderer } from '@/features/tenant/components/TenantViewRenderer';
+import { TenantDetailsModal } from '@/components/tenant/TenantDetailsModal';
+import { TenantEditModal } from '@/components/tenant/TenantEditModal';
+import { TenantCreationSuccess } from '@/components/tenant/TenantCreationSuccess';
+import { TenantOverviewMetrics } from '@/components/tenant/TenantOverviewMetrics';
+import { EnhancedTenantManagementHeader } from '@/components/tenant/EnhancedTenantManagementHeader';
+import { useTenantPageState } from '@/features/tenant/hooks/useTenantPageState';
+
+const TenantManagement: React.FC = () => {
   const {
+    // Data
     tenants,
-    loading,
+    formattedTenants,
+    isLoading,
     error,
     isSubmitting,
+
+    // Analytics
     tenantMetrics,
+    refreshMetrics,
+
+    // Success state
+    creationSuccess,
+    clearCreationSuccess,
+
+    // UI state
+    detailsTenant,
+    isDetailsModalOpen,
+    editingTenant,
+    isEditModalOpen,
     viewPreferences,
-    formData,
     setViewPreferences,
-    setFormData,
-    handleCreateTenant: createTenant,
-    handleUpdateTenant: updateTenant,
-    handleDeleteTenant: deleteTenant,
-    resetForm,
-    populateFormForEdit,
-    setError,
-  } = useTenantManagement();
+    searchTerm,
+    setSearchTerm,
+    filterType,
+    setFilterType,
+    filterStatus,
+    setFilterStatus,
 
-  // Local dialog state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
-  const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+    // Actions
+    handleCreateTenant,
+    handleViewDetails,
+    handleDetailsEdit,
+    handleEditTenant,
+    handleSaveTenant,
+    closeDetailsModal,
+    closeEditModal,
+  } = useTenantPageState();
 
-  const handleCreateTenant = async () => {
-    const success = await createTenant();
-    if (success) {
-      setIsCreateDialogOpen(false);
-    }
+  const handleDeleteTenant = async (tenantId: string): Promise<boolean> => {
+    console.log('TenantManagement: Delete tenant requested:', tenantId);
+    // TODO: Implement delete functionality
+    return false;
   };
 
-  const handleUpdateTenant = async () => {
-    if (!editingTenant) return;
-    const success = await updateTenant(editingTenant);
-    if (success) {
-      setIsEditDialogOpen(false);
-      setEditingTenant(null);
-    }
+  const handleRefresh = () => {
+    console.log('TenantManagement: Refreshing data');
+    refreshMetrics();
+    // Force re-fetch of tenants data
+    window.location.reload();
   };
 
-  const openEditDialog = (tenant: Tenant) => {
-    console.log('Opening edit dialog for tenant:', tenant);
-    setEditingTenant(tenant);
-    populateFormForEdit(tenant);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleViewDetails = (tenant: Tenant) => {
-    setDetailsTenant(tenant);
-    setIsDetailsModalOpen(true);
-  };
-
-  const filteredTenants = tenants.filter(tenant => {
-    const matchesSearch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tenant.slug.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || tenant.type === filterType;
-    const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
-    return matchesSearch && matchesType && matchesStatus;
+  console.log('TenantManagement: Rendering with state:', {
+    tenantCount: tenants.length,
+    isLoading,
+    error: error?.message,
+    isSubmitting
   });
 
-  // Sort tenants based on preferences
-  const sortedTenants = [...filteredTenants].sort((a, b) => {
-    const { sortBy, sortOrder } = viewPreferences;
-    let aValue = a[sortBy as keyof Tenant] as string;
-    let bValue = b[sortBy as keyof Tenant] as string;
-    
-    if (sortBy === 'created_at') {
-      aValue = new Date(aValue).getTime().toString();
-      bValue = new Date(bValue).getTime().toString();
-    }
-    
-    const comparison = aValue?.localeCompare(bValue) || 0;
-    return sortOrder === 'desc' ? -comparison : comparison;
-  });
-
-  const renderTenantView = () => {
-    switch (viewPreferences.mode) {
-      case 'small-cards':
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {sortedTenants.map((tenant) => (
-              <TenantMetricsCard
-                key={tenant.id}
-                tenant={tenant}
-                metrics={tenantMetrics[tenant.id]}
-                size="small"
-                onEdit={openEditDialog}
-                onDelete={deleteTenant}
-                onViewDetails={handleViewDetails}
-              />
-            ))}
-          </div>
-        );
-      
-      case 'large-cards':
-        return (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {sortedTenants.map((tenant) => (
-              <TenantMetricsCard
-                key={tenant.id}
-                tenant={tenant}
-                metrics={tenantMetrics[tenant.id]}
-                size="large"
-                onEdit={openEditDialog}
-                onDelete={deleteTenant}
-                onViewDetails={handleViewDetails}
-              />
-            ))}
-          </div>
-        );
-      
-      case 'list':
-        return (
-          <TenantListView
-            tenants={sortedTenants}
-            metrics={tenantMetrics}
-            onEdit={openEditDialog}
-            onDelete={deleteTenant}
-            onViewDetails={handleViewDetails}
-          />
-        );
-      
-      case 'analytics':
-        return (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {sortedTenants.map((tenant) => (
-              <TenantMetricsCard
-                key={tenant.id}
-                tenant={tenant}
-                metrics={tenantMetrics[tenant.id]}
-                size="large"
-                onEdit={openEditDialog}
-                onDelete={deleteTenant}
-                onViewDetails={handleViewDetails}
-              />
-            ))}
-          </div>
-        );
-      
-      default:
-        return null;
-    }
-  };
-
-  if (loading) {
+  if (error) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error loading tenants: {error.message}</p>
+          <Button onClick={() => window.location.reload()}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Tenant Management</h1>
-          <p className="text-muted-foreground">Manage and configure tenant organizations</p>
-        </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => {
-              console.log('Opening create dialog');
-              resetForm();
-            }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Tenant
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Tenant</DialogTitle>
-              <DialogDescription>
-                Set up a new tenant organization with their subscription and limits.
-              </DialogDescription>
-            </DialogHeader>
-            <TenantForm 
-              formData={formData} 
-              setFormData={setFormData} 
-              onSubmit={handleCreateTenant}
-              isEditing={false}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
+      {/* Enhanced Header with Create Button */}
+      <EnhancedTenantManagementHeader
+        onCreateTenant={handleCreateTenant}
+        onRefresh={handleRefresh}
+        isSubmitting={isSubmitting}
+      />
 
-      {/* Error Alert */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {error}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="ml-2"
-              onClick={() => setError(null)}
-            >
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Overview Metrics Cards */}
+      <TenantOverviewMetrics 
+        tenants={tenants}
+        isLoading={isLoading}
+      />
 
-      {/* View Controls */}
-      <div className="flex flex-col lg:flex-row gap-4">
-        <div className="flex-1">
-          <TenantFilters
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            filterType={filterType}
-            setFilterType={setFilterType}
-            filterStatus={filterStatus}
-            setFilterStatus={setFilterStatus}
-          />
+      {/* Controls */}
+      <TenantViewControls
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        filterType={filterType}
+        setFilterType={setFilterType}
+        filterStatus={filterStatus}
+        setFilterStatus={setFilterStatus}
+        viewPreferences={viewPreferences}
+        setViewPreferences={setViewPreferences}
+        totalCount={tenants.length}
+      />
+
+      {/* Tenant Grid/List */}
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">Loading tenants...</p>
+          </div>
         </div>
-        <TenantViewToggle
-          preferences={viewPreferences}
-          onPreferencesChange={setViewPreferences}
-          totalCount={filteredTenants.length}
+      ) : tenants.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="text-center">
+              <p className="text-lg font-medium mb-2">No tenants found</p>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm || filterType !== 'all' || filterStatus !== 'all'
+                  ? 'Try adjusting your filters to see more results.'
+                  : 'Get started by creating your first tenant organization.'}
+              </p>
+              <Button onClick={() => handleCreateTenant}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create First Tenant
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <TenantViewRenderer
+          tenants={tenants}
+          formattedTenants={formattedTenants}
+          viewPreferences={viewPreferences}
+          onEdit={handleEditTenant}
+          onDelete={handleDeleteTenant}
+          onViewDetails={handleViewDetails}
+          tenantMetrics={tenantMetrics}
         />
-      </div>
-
-      {/* Tenant Views */}
-      {renderTenantView()}
-
-      {/* Empty State */}
-      {!loading && filteredTenants.length === 0 && (
-        <div className="text-center py-12">
-          <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-2 text-sm font-semibold text-muted-foreground">
-            {tenants.length === 0 ? 'No tenants found' : 'No tenants match your filters'}
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {tenants.length === 0 
-              ? 'Get started by creating your first tenant.' 
-              : 'Try adjusting your search or filters.'
-            }
-          </p>
-          {tenants.length === 0 && (
-            <Button 
-              className="mt-4" 
-              onClick={() => {
-                resetForm();
-                setIsCreateDialogOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create First Tenant
-            </Button>
-          )}
-        </div>
       )}
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Tenant</DialogTitle>
-            <DialogDescription>
-              Update tenant information, subscription, and limits.
-            </DialogDescription>
-          </DialogHeader>
-          <TenantForm 
-            formData={formData} 
-            setFormData={setFormData} 
-            onSubmit={handleUpdateTenant}
-            isEditing={true}
-            currentTenant={editingTenant}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Details Modal */}
+      {/* Enhanced Details Modal with Admin User Management */}
       <TenantDetailsModal
         tenant={detailsTenant}
         isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
-        onEdit={openEditDialog}
+        onClose={closeDetailsModal}
+        onEdit={handleDetailsEdit}
       />
+
+      <TenantEditModal
+        tenant={editingTenant}
+        isOpen={isEditModalOpen}
+        onClose={closeEditModal}
+        onSave={handleSaveTenant}
+      />
+
+      {/* Creation Success Modal */}
+      {creationSuccess && (
+        <TenantCreationSuccess
+          tenantName={creationSuccess.tenantName}
+          adminEmail={creationSuccess.adminEmail}
+          hasEmailSent={creationSuccess.hasEmailSent}
+          onClose={clearCreationSuccess}
+        />
+      )}
     </div>
   );
-}
+};
+
+export default TenantManagement;

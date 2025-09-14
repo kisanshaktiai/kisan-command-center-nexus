@@ -1,14 +1,13 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, Session } from '@supabase/supabase-js';
-import { AuthState, UserProfile, TenantData } from '@/types/auth';
+import { AuthState, UserProfile } from '@/types/auth';
 
 interface AuthStore extends AuthState {
   isLoading: boolean;
   error: string | null;
   
-  // Actions
+  // Actions - pure state management only
   setUser: (user: User | null) => void;
   setSession: (session: Session | null) => void;
   setAuthState: (authState: Partial<AuthState>) => void;
@@ -16,8 +15,6 @@ interface AuthStore extends AuthState {
   setError: (error: string | null) => void;
   clearError: () => void;
   reset: () => void;
-  signOut: () => Promise<void>;
-  signUp: (email: string, password: string, tenantData: TenantData) => Promise<{ data?: any; error?: any }>;
 }
 
 const initialState: AuthState = {
@@ -68,34 +65,6 @@ export const useAuthStore = create<AuthStore>()(
         isLoading: false,
         error: null,
       }),
-
-      signOut: async () => {
-        const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
-        await unifiedAuthService.signOut();
-      },
-
-      signUp: async (email: string, password: string, tenantData: TenantData) => {
-        try {
-          set({ isLoading: true, error: null });
-          
-          const { unifiedAuthService } = await import('@/lib/services/unifiedAuthService');
-          const result = await unifiedAuthService.signUp(email, password, tenantData);
-          
-          if (result.success && result.data) {
-            return { data: result.data };
-          } else {
-            const error = new Error(result.error || 'Registration failed');
-            set({ error: result.error || 'Registration failed' });
-            return { error };
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Registration failed';
-          set({ error: errorMessage });
-          return { error: new Error(errorMessage) };
-        } finally {
-          set({ isLoading: false });
-        }
-      },
     }),
     {
       name: 'auth-store',

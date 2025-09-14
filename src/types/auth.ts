@@ -1,3 +1,4 @@
+
 import { User, Session } from '@supabase/supabase-js';
 
 // Consolidated AuthState interface - single source of truth
@@ -72,4 +73,21 @@ export interface BootstrapData {
   email: string;
   password: string;
   fullName: string;
+}
+
+// New types for database function responses
+export interface AdminStatusResult {
+  is_admin: boolean;
+  role: string;
+  is_active: boolean;
+}
+
+export interface BootstrapStatusResult {
+  bootstrap_needed: boolean;
+}
+
+// Type for supabase RPC calls that our functions should use
+export interface SupabaseRpcResponse<T> {
+  data: T | null;
+  error: any;
 }

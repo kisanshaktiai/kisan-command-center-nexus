@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -12,15 +13,15 @@ export const EnhancedLeadManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Main Lead Management */}
+      {/* Compact Header - matching project design */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Lead Management</h1>
-          <p className="text-gray-600 mt-1">Manage and track leads through the conversion pipeline</p>
+          <h1 className="text-2xl font-bold tracking-tight">Lead Management</h1>
+          <p className="text-muted-foreground text-sm">Manage and track leads through the conversion pipeline</p>
         </div>
         <Dialog open={showAdvanced} onOpenChange={setShowAdvanced}>
           <DialogTrigger asChild>
-            <Button variant="outline">
+            <Button variant="outline" size="sm">
               <Settings className="h-4 w-4 mr-2" />
               Advanced Settings
             </Button>

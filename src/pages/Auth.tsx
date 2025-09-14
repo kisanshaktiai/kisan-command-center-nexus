@@ -4,15 +4,16 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { SuperAdminAuth } from '@/components/super-admin/SuperAdminAuth';
 import { BootstrapSetup } from '@/components/auth/BootstrapSetup';
-import { authenticationService } from '@/services/AuthenticationService';
-import { Loader2 } from 'lucide-react';
+import { authService } from '@/auth/AuthService';
+import { Loader2, Shield, AlertCircle } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export default function Auth() {
   const { user, isLoading, isAdmin } = useAuth();
   const [needsBootstrap, setNeedsBootstrap] = useState<boolean | null>(null);
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
-  const [hasRedirected, setHasRedirected] = useState(false);
 
   console.log('Auth.tsx: Render state:', { 
     user: user?.id, 
@@ -20,27 +21,13 @@ export default function Auth() {
     isAdmin,
     needsBootstrap, 
     checkingBootstrap,
-    bootstrapError,
-    hasRedirected
+    bootstrapError
   });
 
-  // Prevent infinite redirect loops
+  // Check bootstrap status
   useEffect(() => {
-    if (user && isAdmin && !isLoading && !hasRedirected) {
-      console.log('Auth.tsx: Setting redirect flag for authenticated admin');
-      setHasRedirected(true);
-    }
-  }, [user, isAdmin, isLoading, hasRedirected]);
-
-  useEffect(() => {
-    // Only check bootstrap if we don't have a user and auth is not loading
-    if (!isLoading && !user) {
-      checkBootstrapStatus();
-    } else if (!isLoading && user) {
-      // User is authenticated, no need to check bootstrap
-      setCheckingBootstrap(false);
-    }
-  }, [isLoading, user]);
+    checkBootstrapStatus();
+  }, []);
 
   const checkBootstrapStatus = async () => {
     try {
@@ -48,65 +35,80 @@ export default function Auth() {
       setBootstrapError(null);
       setCheckingBootstrap(true);
       
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Bootstrap check timeout')), 8000);
-      });
-
-      const bootstrapPromise = authenticationService.isBootstrapCompleted();
+      const isNeeded = await authService.isBootstrapNeeded();
+      console.log('Auth.tsx: Bootstrap needed:', isNeeded);
       
-      const isCompleted = await Promise.race([bootstrapPromise, timeoutPromise]) as boolean;
-      console.log('Auth.tsx: Bootstrap completed:', isCompleted);
-      
-      setNeedsBootstrap(!isCompleted);
+      setNeedsBootstrap(isNeeded);
     } catch (error) {
-      console.error('Auth.tsx: Error checking bootstrap status:', error);
-      setBootstrapError('Failed to check system status. Using default authentication.');
-      setNeedsBootstrap(false); // Default to normal auth if can't determine
+      console.error('Auth.tsx: Bootstrap check error:', error);
+      setBootstrapError('Failed to check system status');
+      setNeedsBootstrap(true); // Default to showing bootstrap on error
     } finally {
       setCheckingBootstrap(false);
     }
   };
 
   // Redirect authenticated admin users
-  if (user && isAdmin && !isLoading && hasRedirected) {
-    console.log('Auth.tsx: Redirecting authenticated admin user to super-admin');
+  if (user && isAdmin && !isLoading) {
+    console.log('Auth.tsx: Redirecting authenticated admin user');
     return <Navigate to="/super-admin" replace />;
   }
 
-  // Show loading state while checking auth or bootstrap
+  // Show loading state
   if (isLoading || checkingBootstrap) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
-        <div className="text-center max-w-md mx-auto p-8">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin mb-4" />
-          <div className="text-lg font-medium mb-2">
-            {isLoading ? 'Initializing authentication...' : 'Checking system status...'}
-          </div>
-          {bootstrapError && (
-            <div className="text-red-600 text-sm mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-              {bootstrapError}
-            </div>
-          )}
-          <div className="text-sm text-muted-foreground mt-4">
-            This may take a few moments
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-primary/10">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">
+              {isLoading ? 'Loading authentication...' : 'Checking system status...'}
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  // Show bootstrap setup if system needs initialization and no authenticated user
-  if (needsBootstrap && !user) {
-    console.log('Auth.tsx: Showing bootstrap setup');
-    return <BootstrapSetup />;
+  // Show error state
+  if (bootstrapError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-primary/10">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="w-8 h-8 text-destructive mb-4" />
+            <p className="text-destructive text-center mb-4">{bootstrapError}</p>
+            <Button onClick={checkBootstrapStatus} variant="outline">
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
-  // Show normal admin auth for non-authenticated users when bootstrap is complete
-  console.log('Auth.tsx: Showing super admin auth form');
+  // Show bootstrap setup if needed
+  if (needsBootstrap) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-primary/10">
+        <BootstrapSetup onComplete={() => setNeedsBootstrap(false)} />
+      </div>
+    );
+  }
+
+  // Show admin login
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
-      <SuperAdminAuth />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-primary/10">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
+          <h1 className="text-3xl font-bold text-gray-900">Admin Portal</h1>
+          <p className="text-muted-foreground mt-2">
+            Sign in to access the administration panel
+          </p>
+        </div>
+        <SuperAdminAuth />
+      </div>
     </div>
   );
 }

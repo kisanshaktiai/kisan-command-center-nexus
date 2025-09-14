@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,7 +28,8 @@ import {
 } from 'lucide-react';
 import { useLeads } from '@/hooks/useLeadManagement';
 import { useLeadAnalytics } from '@/hooks/useEnhancedLeadManagement';
-import { EnhancedLeadKanban } from './EnhancedLeadKanban';
+import { DraggableLeadKanban } from './DraggableLeadKanban';
+import { LeadTableView } from './LeadTableView';
 import { LeadAnalyticsDashboard } from './LeadAnalyticsDashboard';
 import { CreateLeadDialog } from './CreateLeadDialog';
 import { LeadImportDialog } from './LeadImportDialog';
@@ -37,7 +37,7 @@ import { LeadSettingsDialog } from './LeadSettingsDialog';
 import type { Lead } from '@/types/leads';
 
 export const WorldClassLeadManagement: React.FC = () => {
-  const { data: leads = [], isLoading, error } = useLeads();
+  const { data: leads = [], isLoading, error, refetch } = useLeads();
   const { data: analytics } = useLeadAnalytics();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Lead['status'] | 'all'>('all');
@@ -117,7 +117,7 @@ export const WorldClassLeadManagement: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <div className="space-y-8 p-8">
-        {/* World-Class Header with Premium Design */}
+        {/* World-Class Header with Premium Design - Made More Compact */}
         <div className="relative overflow-hidden bg-gradient-to-r from-blue-900 via-purple-900 to-indigo-900 rounded-3xl shadow-2xl">
           <div className="absolute inset-0 opacity-20">
             <div className="w-full h-full" style={{
@@ -131,18 +131,18 @@ export const WorldClassLeadManagement: React.FC = () => {
                 <div className="relative">
                   <div className="absolute -inset-1 bg-gradient-to-r from-pink-600 to-purple-600 rounded-full blur opacity-75 animate-pulse"></div>
                   <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-full">
-                    <Crown className="h-10 w-10 text-white" />
+                    <Crown className="h-8 w-8 text-white" />
                   </div>
                 </div>
                 <div>
-                  <h1 className="text-5xl font-bold text-white flex items-center gap-4">
+                  <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-4">
                     Lead Management
-                    <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-0 text-lg px-4 py-2">
-                      <Sparkles className="h-4 w-4 mr-2" />
+                    <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-0 text-xs px-2 py-1">
+                      <Sparkles className="h-3 w-3 mr-1" />
                       AI Powered
                     </Badge>
                   </h1>
-                  <p className="text-blue-100 text-xl mt-2 font-medium">
+                  <p className="text-blue-100 text-sm md:text-base mt-2 font-medium">
                     World-class lead management with intelligent automation and real-time insights
                   </p>
                 </div>
@@ -383,31 +383,23 @@ export const WorldClassLeadManagement: React.FC = () => {
           </TabsList>
 
           <TabsContent value="kanban" className="mt-8">
-            <EnhancedLeadKanban 
+            <DraggableLeadKanban 
               leads={filteredLeads}
               isLoading={isLoading}
               selectedLeads={selectedLeads}
               onSelectionChange={setSelectedLeads}
+              onRefresh={() => refetch()}
             />
           </TabsContent>
 
           <TabsContent value="table" className="mt-8">
-            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-2xl">
-              <CardContent className="p-12 text-center">
-                <div className="relative">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur opacity-25"></div>
-                  <Clock className="relative h-16 w-16 text-gray-400 mx-auto mb-6" />
-                </div>
-                <h3 className="text-2xl font-bold mb-3 text-gray-800">Table View Coming Soon</h3>
-                <p className="text-gray-600 text-lg">Advanced table view with sorting, filtering, and bulk actions.</p>
-                <div className="mt-6">
-                  <Badge variant="outline" className="px-4 py-2">
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Next Release
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
+            <LeadTableView
+              leads={filteredLeads}
+              isLoading={isLoading}
+              selectedLeads={selectedLeads}
+              onSelectionChange={setSelectedLeads}
+              onRefresh={() => refetch()}
+            />
           </TabsContent>
 
           <TabsContent value="analytics" className="mt-8">

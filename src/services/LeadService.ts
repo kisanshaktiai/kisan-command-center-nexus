@@ -253,11 +253,43 @@ export class LeadService extends BaseService {
           leadId: convertData.leadId,
           tenantName: convertData.tenantName,
           tenantSlug: convertData.tenantSlug,
-          subscriptionPlan: convertData.subscriptionPlan
+          subscriptionPlan: convertData.subscriptionPlan,
+          adminEmail: convertData.adminEmail,
+          adminName: convertData.adminName
         });
 
+        // First, verify the lead exists and is qualified
+        const { data: leadCheck, error: leadError } = await supabase
+          .from('leads')
+          .select('id, status, contact_name, email, converted_tenant_id')
+          .eq('id', convertData.leadId)
+          .single();
+
+        if (leadError || !leadCheck) {
+          console.error('LeadService: Lead not found:', leadError);
+          throw new Error('Lead not found');
+        }
+
+        if (leadCheck.status !== 'qualified') {
+          console.error('LeadService: Lead not qualified:', leadCheck.status);
+          throw new Error('Lead must be qualified before conversion');
+        }
+
+        if (leadCheck.converted_tenant_id) {
+          console.error('LeadService: Lead already converted:', leadCheck.converted_tenant_id);
+          throw new Error('Lead has already been converted to a tenant');
+        }
+
+        // Call the edge function for conversion
         const { data, error } = await supabase.functions.invoke('convert-lead-to-tenant', {
-          body: convertData,
+          body: {
+            leadId: convertData.leadId,
+            tenantName: convertData.tenantName,
+            tenantSlug: convertData.tenantSlug,
+            subscriptionPlan: convertData.subscriptionPlan || 'Kisan_Basic',
+            adminEmail: convertData.adminEmail,
+            adminName: convertData.adminName
+          },
         });
 
         if (error) {
@@ -285,8 +317,52 @@ export class LeadService extends BaseService {
           throw new Error(errorMessage);
         }
 
-        console.log('LeadService: Successfully converted lead to tenant:', data.tenant_id);
-        return { success: true, data };
+        console.log('LeadService: Successfully converted lead to tenant:', data);
+        
+        // Verify the conversion actually created a tenant
+        if (data.tenant_id || data.tenantId) {
+          const tenantId = data.tenant_id || data.tenantId;
+          const { data: tenantCheck, error: tenantError } = await supabase
+            .from('tenants')
+            .select('id, name, slug')
+            .eq('id', tenantId)
+            .single();
+
+          if (tenantError || !tenantCheck) {
+            console.error('LeadService: Tenant verification failed:', tenantError);
+            throw new Error('Tenant creation verification failed');
+          }
+
+          console.log('LeadService: Tenant verified:', tenantCheck);
+        }
+
+        // Verify the lead status was updated
+        const { data: leadVerify, error: verifyError } = await supabase
+          .from('leads')
+          .select('id, status, converted_tenant_id, converted_at')
+          .eq('id', convertData.leadId)
+          .single();
+
+        if (verifyError || !leadVerify) {
+          console.error('LeadService: Lead verification failed:', verifyError);
+          throw new Error('Lead status verification failed');
+        }
+
+        if (leadVerify.status !== 'converted' || !leadVerify.converted_tenant_id) {
+          console.error('LeadService: Lead status not properly updated:', leadVerify);
+          throw new Error('Lead conversion status not properly updated');
+        }
+
+        console.log('LeadService: Lead status verified:', leadVerify);
+        
+        // Normalize the response to ensure both tenantId and tenant_id are available
+        const normalizedData = {
+          ...data,
+          tenantId: data.tenantId || data.tenant_id,
+          tenant_id: data.tenant_id || data.tenantId
+        };
+
+        return { success: true, data: normalizedData };
 
       } catch (error) {
         console.error(`LeadService: Unexpected error converting lead (attempt ${attempt}):`, error);

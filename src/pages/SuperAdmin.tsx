@@ -14,6 +14,9 @@ import SubscriptionManagement from './super-admin/SubscriptionManagement';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
 import FeatureFlags from './super-admin/FeatureFlags';
 import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
+import MasterCompanies from './super-admin/MasterCompanies';
+import MasterProducts from './super-admin/MasterProducts';
+import ProductCategories from './super-admin/ProductCategories';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -92,6 +95,9 @@ const SuperAdmin = () => {
             <Route path="/platform-monitoring" element={<PlatformMonitoring />} />
             <Route path="/feature-flags" element={<FeatureFlags />} />
             <Route path="/white-label-config" element={<WhiteLabelConfig />} />
+            <Route path="/master-companies" element={<MasterCompanies />} />
+            <Route path="/master-products" element={<MasterProducts />} />
+            <Route path="/product-categories" element={<ProductCategories />} />
           </Routes>
         </main>
       </div>

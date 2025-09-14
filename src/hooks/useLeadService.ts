@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { LeadService } from '@/services/LeadService';
 import { useNotifications } from './useNotifications';
@@ -120,14 +119,19 @@ export const useLeadService = () => {
   const convertToTenant = async (convertData: ConvertToTenantData) => {
     setIsLoading(true);
     try {
+      console.log('useLeadService: Converting lead to tenant:', convertData);
+      
       const result = await LeadService.convertToTenant(convertData);
       if (!result.success) {
         showError('Failed to convert lead', { description: result.error });
         return null;
       }
-      showSuccess('Lead converted to tenant successfully');
+      
+      console.log('useLeadService: Conversion successful:', result.data);
+      showSuccess('Lead converted to tenant successfully! Welcome email sent.');
       return result.data;
     } catch (error) {
+      console.error('useLeadService: Error converting lead:', error);
       showError('Error converting lead');
       return null;
     } finally {

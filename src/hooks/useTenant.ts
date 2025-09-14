@@ -3,7 +3,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { isTenant } from '@/lib/supabase-helpers';
-import { Tenant, SubscriptionPlan } from '@/types/tenant';
+import { Tenant, createTenantID } from '@/types/tenant';
+import { SubscriptionPlan, TenantType, TenantStatus } from '@/types/enums';
 
 interface TenantContextType {
   currentTenant: Tenant | null;
@@ -50,9 +51,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw tenantsError;
           }
 
-          // Transform the data to match our Tenant interface
+          // Transform the data to match our Tenant interface with TenantID
           const transformedTenants = allTenants?.map(tenant => ({
             ...tenant,
+            id: createTenantID(tenant.id),
+            type: tenant.type as TenantType,
+            status: tenant.status as TenantStatus,
             subscription_plan: tenant.subscription_plan as SubscriptionPlan,
             metadata: (tenant.metadata as Record<string, any>) || {}
           })) || [];
@@ -60,11 +64,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return transformedTenants;
         } else {
           // Regular users can only access their assigned tenants
+          // Fix the query by specifying the exact columns from tenants table
           const { data: userTenants, error: userTenantsError } = await supabase
             .from('user_tenants')
             .select(`
               tenant_id,
-              tenants (
+              tenants:tenant_id (
                 id,
                 name,
                 slug,
@@ -100,12 +105,52 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw userTenantsError;
           }
 
-          // Transform the data to match our Tenant interface
-          const transformedTenants = userTenants?.map(ut => ({
-            ...ut.tenants,
-            subscription_plan: ut.tenants.subscription_plan as SubscriptionPlan,
-            metadata: (ut.tenants.metadata as Record<string, any>) || {}
-          })).filter(Boolean) || [];
+          // Transform the data to match our Tenant interface with TenantID
+          const transformedTenants = userTenants?.map(ut => {
+            const tenant = ut.tenants;
+            
+            // Type guard to ensure tenant exists and has required properties
+            if (!tenant || typeof tenant !== 'object' || Array.isArray(tenant)) {
+              console.warn('Invalid tenant data:', tenant);
+              return null;
+            }
+            
+            // Cast to any to avoid complex type checking, but ensure we have required fields
+            const safeTenant = tenant as any;
+            
+            if (!safeTenant.id || !safeTenant.name) {
+              console.warn('Missing required tenant fields:', safeTenant);
+              return null;
+            }
+            
+            return {
+              id: createTenantID(safeTenant.id),
+              name: safeTenant.name,
+              slug: safeTenant.slug || '',
+              type: (safeTenant.type as TenantType) || TenantType.AGRI_COMPANY,
+              status: (safeTenant.status as TenantStatus) || TenantStatus.TRIAL,
+              subscription_plan: (safeTenant.subscription_plan as SubscriptionPlan) || SubscriptionPlan.KISAN_BASIC,
+              owner_name: safeTenant.owner_name,
+              owner_email: safeTenant.owner_email,
+              owner_phone: safeTenant.owner_phone,
+              business_registration: safeTenant.business_registration,
+              business_address: safeTenant.business_address,
+              established_date: safeTenant.established_date,
+              subscription_start_date: safeTenant.subscription_start_date,
+              subscription_end_date: safeTenant.subscription_end_date,
+              trial_ends_at: safeTenant.trial_ends_at,
+              max_farmers: safeTenant.max_farmers,
+              max_dealers: safeTenant.max_dealers,
+              max_products: safeTenant.max_products,
+              max_storage_gb: safeTenant.max_storage_gb,
+              max_api_calls_per_day: safeTenant.max_api_calls_per_day,
+              subdomain: safeTenant.subdomain,
+              custom_domain: safeTenant.custom_domain,
+              metadata: (safeTenant.metadata as Record<string, any>) || {},
+              created_at: safeTenant.created_at || new Date().toISOString(),
+              updated_at: safeTenant.updated_at || new Date().toISOString()
+            } as Tenant;
+          }).filter((tenant): tenant is Tenant => tenant !== null) || [];
 
           return transformedTenants;
         }

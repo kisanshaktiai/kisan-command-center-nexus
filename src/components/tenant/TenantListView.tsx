@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Building2 } from 'lucide-react';
 import { Tenant } from '@/types/tenant';
-import { TenantService } from '@/services/tenantService';
+import { tenantService } from '@/services/tenantService';
 import { TenantMetrics } from '@/types/tenantView';
 import { UsageMeter } from './UsageMeter';
 
@@ -70,15 +70,15 @@ export const TenantListView: React.FC<TenantListViewProps> = ({
 
                 {/* Status */}
                 <div className="col-span-2">
-                  <Badge variant={TenantService.getStatusBadgeVariant(tenant.status)}>
+                  <Badge variant={tenantService.getStatusBadgeVariant(tenant.status)}>
                     {tenant.status?.toUpperCase()}
                   </Badge>
                 </div>
 
                 {/* Plan */}
                 <div className="col-span-2">
-                  <Badge variant={TenantService.getPlanBadgeVariant(tenant.subscription_plan)}>
-                    {TenantService.getPlanDisplayName(tenant.subscription_plan)}
+                  <Badge variant={tenantService.getPlanBadgeVariant(tenant.subscription_plan)}>
+                    {tenantService.getPlanDisplayName(tenant.subscription_plan)}
                   </Badge>
                 </div>
 

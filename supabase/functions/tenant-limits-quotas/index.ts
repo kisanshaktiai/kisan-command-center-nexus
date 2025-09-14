@@ -1,113 +1,109 @@
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface LimitsQuotasResponse {
-  limits: {
-    farmers: number;
-    dealers: number;
-    products: number;
-    storage: number;
-    api_calls: number;
-  };
-  usage: {
-    farmers: number;
-    dealers: number;
-    products: number;
-    storage: number;
-    api_calls: number;
-  };
-  subscription_plan: string;
-  tenant_id: string;
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const url = new URL(req.url);
-    const tenantId = url.pathname.split('/')[3]; // Extract tenant ID from path
-
-    if (!tenantId) {
-      return new Response(JSON.stringify({ error: 'Tenant ID is required' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      });
-    }
-
-    const supabaseClient = createClient(
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false } }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get tenant details with limits
-    const { data: tenant, error: tenantError } = await supabaseClient
+    const { tenantId } = await req.json();
+
+    if (!tenantId) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Tenant ID is required' 
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Get tenant data
+    const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
-      .select(`
-        id,
-        subscription_plan,
-        max_farmers,
-        max_dealers,
-        max_products,
-        max_storage_gb,
-        max_api_calls_per_day
-      `)
+      .select('*')
       .eq('id', tenantId)
       .single();
 
-    if (tenantError || !tenant) {
-      return new Response(JSON.stringify({ error: 'Tenant not found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 404,
-      });
+    if (tenantError) {
+      console.error('Error fetching tenant:', tenantError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Tenant not found' 
+        }),
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
-    // Get current usage counts
-    const [farmersCount, dealersCount, apiLogsCount] = await Promise.all([
-      supabaseClient.from('farmers').select('id', { count: 'exact' }).eq('tenant_id', tenantId),
-      supabaseClient.from('dealers').select('id', { count: 'exact' }).eq('tenant_id', tenantId),
-      supabaseClient.from('api_logs').select('id', { count: 'exact' }).eq('tenant_id', tenantId).gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-    ]);
-
-    const response: LimitsQuotasResponse = {
-      limits: {
-        farmers: tenant.max_farmers || 0,
-        dealers: tenant.max_dealers || 0,
-        products: tenant.max_products || 0,
-        storage: tenant.max_storage_gb || 0,
-        api_calls: tenant.max_api_calls_per_day || 0,
-      },
-      usage: {
-        farmers: farmersCount.count || 0,
-        dealers: dealersCount.count || 0,
-        products: 0, // Would need products table
-        storage: 0, // Would need storage calculation
-        api_calls: apiLogsCount.count || 0,
-      },
-      subscription_plan: tenant.subscription_plan,
-      tenant_id: tenantId,
+    // Mock usage data - in a real application, you would query actual usage from various tables
+    const mockUsage = {
+      farmers: Math.floor(Math.random() * (tenant.max_farmers || 1000)),
+      dealers: Math.floor(Math.random() * (tenant.max_dealers || 50)),
+      products: Math.floor(Math.random() * (tenant.max_products || 100)),
+      storage: Math.floor(Math.random() * (tenant.max_storage_gb || 10)),
+      api_calls: Math.floor(Math.random() * (tenant.max_api_calls_per_day || 10000)),
     };
 
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    });
+    const response = {
+      success: true,
+      tenantId,
+      limits: {
+        farmers: tenant.max_farmers || 1000,
+        dealers: tenant.max_dealers || 50,
+        products: tenant.max_products || 100,
+        storage: tenant.max_storage_gb || 10,
+        api_calls: tenant.max_api_calls_per_day || 10000,
+      },
+      usage: mockUsage,
+      quotas: {
+        farmers_percentage: (mockUsage.farmers / (tenant.max_farmers || 1000)) * 100,
+        dealers_percentage: (mockUsage.dealers / (tenant.max_dealers || 50)) * 100,
+        products_percentage: (mockUsage.products / (tenant.max_products || 100)) * 100,
+        storage_percentage: (mockUsage.storage / (tenant.max_storage_gb || 10)) * 100,
+        api_calls_percentage: (mockUsage.api_calls / (tenant.max_api_calls_per_day || 10000)) * 100,
+      }
+    };
+
+    return new Response(
+      JSON.stringify(response),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+
   } catch (error) {
-    console.error('Error in tenant-limits-quotas:', error);
-    return new Response(JSON.stringify({ 
-      error: 'Internal server error',
-      message: error.message 
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    console.error('Unexpected error in tenant-limits-quotas:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error occurred'
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 });

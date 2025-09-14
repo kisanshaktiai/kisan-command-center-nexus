@@ -1,231 +1,103 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { errorHandlingService } from '@/services/ErrorHandlingService';
 
-interface ErrorBoundaryProps {
+import React, { Component, ReactNode } from 'react';
+import { ErrorFallback, ErrorInfo } from '@/components/error-boundaries/ErrorFallback';
+import { errorLogger } from '@/services/error/ErrorLogger';
+
+interface Props {
   children: ReactNode;
-  fallback?: ReactNode;
+  fallback?: ReactNode | ((error: ErrorInfo, retry: () => void) => ReactNode);
   context?: {
-    component: string;
-    level: 'low' | 'medium' | 'high' | 'critical';
+    component?: string;
+    level?: 'low' | 'medium' | 'high' | 'critical';
     metadata?: Record<string, any>;
   };
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
 
-interface ErrorBoundaryState {
+interface State {
   hasError: boolean;
-  error?: Error;
-  errorInfo?: ErrorInfo;
+  error: Error | null;
+  errorId: string;
 }
 
-/**
- * Enhanced Error Boundary Component
- * Provides comprehensive error catching with context-aware handling
- */
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
+export class ErrorBoundary extends Component<Props, State> {
+  public state: State = {
+    hasError: false,
+    error: null,
+    errorId: ''
+  };
+
+  public static getDerivedStateFromError(error: Error): Partial<State> {
+    return {
+      hasError: true,
+      error,
+      errorId: `err-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    const { context, onError } = this.props;
-
-    // Log error with context - service now returns structured result instead of showing toasts
-    const errorResult = errorHandlingService.processError(error, {
-      component: context?.component || 'ErrorBoundary',
-      action: 'componentDidCatch',
-      metadata: {
-        ...context?.metadata,
-        level: context?.level || 'medium',
-        componentStack: errorInfo.componentStack,
-        errorBoundary: true
-      }
-    }, {
-      logToServer: true,
-      fallbackMessage: 'A component error occurred'
-    });
-
-    // Store error info in state
-    this.setState({ errorInfo });
-
-    // Call custom error handler if provided
-    onError?.(error, errorInfo);
-
-    // Log to console for development
-    if (process.env.NODE_ENV === 'development') {
-      console.group('🚨 Error Boundary Caught Error');
-      console.error('Error:', error);
-      console.error('Error Info:', errorInfo);
-      console.error('Context:', context);
-      console.error('Error Result:', errorResult);
-      console.groupEnd();
+  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    const errorId = errorLogger.logError(error, errorInfo, this.props.context);
+    
+    this.setState({ errorId });
+    
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
     }
   }
 
   private handleRetry = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined });
+    this.setState({
+      hasError: false,
+      error: null,
+      errorId: ''
+    });
   };
 
-  private handleReload = () => {
-    window.location.reload();
-  };
+  public render() {
+    if (this.state.hasError && this.state.error) {
+      const errorInfo: ErrorInfo = {
+        message: this.state.error.message,
+        stack: this.state.error.stack,
+        errorId: this.state.errorId,
+        timestamp: new Date().toISOString()
+      };
 
-  render() {
-    const { hasError, error, errorInfo } = this.state;
-    const { children, fallback, context } = this.props;
-
-    if (hasError) {
-      // Use custom fallback if provided
-      if (fallback) {
-        return fallback;
+      // Custom fallback function
+      if (typeof this.props.fallback === 'function') {
+        return this.props.fallback(errorInfo, this.handleRetry);
       }
 
-      // Default fallback based on error level
+      // Custom fallback component
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
+      // Default fallback
       return (
-        <DefaultErrorFallback
-          error={error}
-          errorInfo={errorInfo}
-          context={context}
+        <ErrorFallback
+          error={errorInfo}
           onRetry={this.handleRetry}
-          onReload={this.handleReload}
+          context={this.props.context}
         />
       );
     }
 
-    return children;
+    return this.props.children;
   }
 }
 
-/**
- * Default Error Fallback Component
- */
-interface DefaultErrorFallbackProps {
-  error?: Error;
-  errorInfo?: ErrorInfo;
-  context?: ErrorBoundaryProps['context'];
-  onRetry: () => void;
-  onReload: () => void;
-}
-
-const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
-  error,
-  errorInfo,
-  context,
-  onRetry,
-  onReload
-}) => {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const level = context?.level || 'medium';
-
-  // Different styling based on error level
-  const levelStyles = {
-    low: {
-      bgColor: 'bg-gray-50',
-      textColor: 'text-gray-800',
-      accentColor: 'text-gray-600',
-      buttonColor: 'bg-gray-600 hover:bg-gray-700'
-    },
-    medium: {
-      bgColor: 'bg-yellow-50',
-      textColor: 'text-yellow-800',
-      accentColor: 'text-yellow-600',
-      buttonColor: 'bg-yellow-600 hover:bg-yellow-700'
-    },
-    high: {
-      bgColor: 'bg-orange-50',
-      textColor: 'text-orange-800',
-      accentColor: 'text-orange-600',
-      buttonColor: 'bg-orange-600 hover:bg-orange-700'
-    },
-    critical: {
-      bgColor: 'bg-red-50',
-      textColor: 'text-red-800',
-      accentColor: 'text-red-600',
-      buttonColor: 'bg-red-600 hover:bg-red-700'
-    }
-  };
-
-  const styles = levelStyles[level];
-
-  return (
-    <div className={`min-h-[200px] flex items-center justify-center p-8 ${styles.bgColor}`}>
-      <div className="text-center max-w-md">
-        <div className={`text-4xl mb-4 ${styles.accentColor}`}>
-          {level === 'critical' ? '💥' : level === 'high' ? '⚠️' : level === 'medium' ? '🔧' : 'ℹ️'}
-        </div>
-        
-        <h2 className={`text-xl font-semibold mb-4 ${styles.textColor}`}>
-          {level === 'critical' && 'Critical Error'}
-          {level === 'high' && 'Application Error'}
-          {level === 'medium' && 'Component Error'}
-          {level === 'low' && 'Minor Issue'}
-        </h2>
-
-        <p className={`mb-6 ${styles.accentColor}`}>
-          {level === 'critical' && 'A critical error occurred that prevents the application from continuing.'}
-          {level === 'high' && 'An error occurred that may affect application functionality.'}
-          {level === 'medium' && 'A component error occurred. Some features may be temporarily unavailable.'}
-          {level === 'low' && 'A minor issue occurred but the application should continue to work normally.'}
-        </p>
-
-        {/* Show error details in development */}
-        {!isProduction && error && (
-          <details className={`mb-6 text-left text-sm ${styles.accentColor}`}>
-            <summary className="cursor-pointer font-medium mb-2">
-              Error Details (Development Only)
-            </summary>
-            <div className="bg-white p-3 rounded border text-xs font-mono">
-              <div className="font-semibold">Error:</div>
-              <div className="mb-2">{error.message}</div>
-              {error.stack && (
-                <>
-                  <div className="font-semibold">Stack:</div>
-                  <pre className="whitespace-pre-wrap">{error.stack}</pre>
-                </>
-              )}
-              {errorInfo?.componentStack && (
-                <>
-                  <div className="font-semibold mt-2">Component Stack:</div>
-                  <pre className="whitespace-pre-wrap">{errorInfo.componentStack}</pre>
-                </>
-              )}
-            </div>
-          </details>
-        )}
-
-        {/* Action buttons */}
-        <div className="space-y-2">
-          {level !== 'critical' && (
-            <button
-              onClick={onRetry}
-              className={`block w-full text-white px-6 py-2 rounded transition-colors ${styles.buttonColor}`}
-            >
-              Try Again
-            </button>
-          )}
-          
-          <button
-            onClick={onReload}
-            className="block w-full bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400 transition-colors"
-          >
-            {level === 'critical' ? 'Reload Application' : 'Refresh Page'}
-          </button>
-        </div>
-
-        {/* Context info for debugging */}
-        {!isProduction && context && (
-          <div className={`mt-4 text-xs ${styles.accentColor}`}>
-            Component: {context.component} | Level: {context.level}
-          </div>
-        )}
-      </div>
-    </div>
+// Higher-order component for wrapping components with error boundary
+export const withErrorBoundary = <P extends object>(
+  Component: React.ComponentType<P>,
+  errorBoundaryProps?: Omit<Props, 'children'>
+) => {
+  const WrappedComponent = (props: P) => (
+    <ErrorBoundary {...errorBoundaryProps}>
+      <Component {...props} />
+    </ErrorBoundary>
   );
-};
 
-export default ErrorBoundary;
+  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`;
+  
+  return WrappedComponent;
+};
