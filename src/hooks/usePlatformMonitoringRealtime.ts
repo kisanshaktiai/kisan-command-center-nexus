@@ -69,37 +69,58 @@ export const usePlatformMonitoringRealtime = (tenantId?: string) => {
     queryFn: async () => {
       try {
         // Fetch system health metrics
-        const { data: healthData } = await supabase
+        const healthQuery = supabase
           .from('system_health_metrics')
           .select('*')
-          .eq(tenantId ? 'tenant_id' : 'tenant_id', tenantId || null)
           .order('timestamp', { ascending: false })
           .limit(100);
+        
+        // Only add tenant filter if tenantId is provided
+        if (tenantId) {
+          healthQuery.eq('tenant_id', tenantId);
+        }
+        
+        const { data: healthData } = await healthQuery;
 
         // Fetch resource utilization
-        const { data: resourceData } = await supabase
+        const resourceQuery = supabase
           .from('resource_utilization')
           .select('*')
-          .eq(tenantId ? 'tenant_id' : 'tenant_id', tenantId || null)
           .order('created_at', { ascending: false })
           .limit(100);
+        
+        if (tenantId) {
+          resourceQuery.eq('tenant_id', tenantId);
+        }
+        
+        const { data: resourceData } = await resourceQuery;
 
         // Fetch API logs
-        const { data: apiData } = await supabase
+        const apiQuery = supabase
           .from('api_logs')
           .select('*')
-          .eq(tenantId ? 'tenant_id' : 'tenant_id', tenantId || null)
           .order('created_at', { ascending: false })
           .limit(1000);
+        
+        if (tenantId) {
+          apiQuery.eq('tenant_id', tenantId);
+        }
+        
+        const { data: apiData } = await apiQuery;
 
         // Fetch financial analytics
-        const { data: financialData } = await supabase
+        const financialQuery = supabase
           .from('financial_analytics')
           .select('*')
-          .eq(tenantId ? 'tenant_id' : 'tenant_id', tenantId || null)
           .eq('metric_type', 'revenue')
           .order('period_start', { ascending: false })
           .limit(30);
+        
+        if (tenantId) {
+          financialQuery.eq('tenant_id', tenantId);
+        }
+        
+        const { data: financialData } = await financialQuery;
 
         // Process and return data
         return processMonitoringData({

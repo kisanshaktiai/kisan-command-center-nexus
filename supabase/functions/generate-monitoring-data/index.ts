@@ -19,68 +19,151 @@ serve(async (req) => {
 
     // Generate realistic monitoring data
     const now = new Date()
+    const tenantId = crypto.randomUUID() // Generate a valid UUID for testing
     
-    // Generate system health metrics
-    const systemHealthData = {
-      tenant_id: '00000000-0000-0000-0000-000000000000',
-      cpu_usage: 45 + Math.random() * 30, // 45-75%
-      memory_usage: 60 + Math.random() * 20, // 60-80%
-      disk_usage: 40 + Math.random() * 30, // 40-70%
-      network_latency: 10 + Math.random() * 50, // 10-60ms
-      uptime_hours: 720 + Math.floor(Math.random() * 100),
-      active_connections: Math.floor(50 + Math.random() * 100),
-      error_rate: Math.random() * 5, // 0-5%
-      health_score: 85 + Math.random() * 15, // 85-100
-      status: Math.random() > 0.1 ? 'healthy' : 'warning',
-      created_at: now.toISOString(),
-    }
+    // Generate multiple system health metrics
+    const systemHealthMetrics = [
+      {
+        tenant_id: tenantId,
+        metric_type: 'system',
+        metric_name: 'cpu_usage',
+        value: 45 + Math.random() * 30, // 45-75%
+        unit: 'percent',
+        labels: { component: 'api-server' },
+        timestamp: now.toISOString(),
+        created_at: now.toISOString(),
+      },
+      {
+        tenant_id: tenantId,
+        metric_type: 'system',
+        metric_name: 'memory_usage',
+        value: 60 + Math.random() * 20, // 60-80%
+        unit: 'percent',
+        labels: { component: 'api-server' },
+        timestamp: now.toISOString(),
+        created_at: now.toISOString(),
+      },
+      {
+        tenant_id: tenantId,
+        metric_type: 'system',
+        metric_name: 'disk_usage',
+        value: 40 + Math.random() * 30, // 40-70%
+        unit: 'percent',
+        labels: { component: 'storage' },
+        timestamp: now.toISOString(),
+        created_at: now.toISOString(),
+      },
+      {
+        tenant_id: tenantId,
+        metric_type: 'network',
+        metric_name: 'latency',
+        value: 10 + Math.random() * 50, // 10-60ms
+        unit: 'milliseconds',
+        labels: { region: 'us-east-1' },
+        timestamp: now.toISOString(),
+        created_at: now.toISOString(),
+      },
+      {
+        tenant_id: tenantId,
+        metric_type: 'application',
+        metric_name: 'active_users',
+        value: Math.floor(50 + Math.random() * 100),
+        unit: 'count',
+        labels: { tier: 'premium' },
+        timestamp: now.toISOString(),
+        created_at: now.toISOString(),
+      }
+    ]
 
-    // Generate resource utilization
-    const resourceData = {
-      tenant_id: '00000000-0000-0000-0000-000000000000',
-      api_calls: Math.floor(10000 + Math.random() * 5000),
-      api_limit: 20000,
-      storage_used_gb: 25 + Math.random() * 25,
-      storage_limit_gb: 100,
-      bandwidth_used_gb: 50 + Math.random() * 50,
-      bandwidth_limit_gb: 200,
-      database_connections: Math.floor(10 + Math.random() * 20),
-      database_limit: 50,
-      created_at: now.toISOString(),
-    }
+    // Generate resource utilization data
+    const resourceUtilization = [
+      {
+        tenant_id: tenantId,
+        resource_type: 'api_calls',
+        current_usage: Math.floor(10000 + Math.random() * 5000),
+        max_limit: 20000,
+        usage_percentage: 50 + Math.random() * 25,
+        period_start: new Date(now.getTime() - 3600000).toISOString(), // 1 hour ago
+        period_end: now.toISOString(),
+        metadata: { rate_limit_tier: 'standard' },
+        created_at: now.toISOString(),
+      },
+      {
+        tenant_id: tenantId,
+        resource_type: 'storage',
+        current_usage: 25 + Math.random() * 25,
+        max_limit: 100,
+        usage_percentage: 25 + Math.random() * 25,
+        period_start: new Date(now.getTime() - 86400000).toISOString(), // 1 day ago
+        period_end: now.toISOString(),
+        metadata: { unit: 'GB' },
+        created_at: now.toISOString(),
+      },
+      {
+        tenant_id: tenantId,
+        resource_type: 'bandwidth',
+        current_usage: 50 + Math.random() * 50,
+        max_limit: 200,
+        usage_percentage: 25 + Math.random() * 25,
+        period_start: new Date(now.getTime() - 86400000).toISOString(),
+        period_end: now.toISOString(),
+        metadata: { unit: 'GB' },
+        created_at: now.toISOString(),
+      },
+      {
+        tenant_id: tenantId,
+        resource_type: 'database_connections',
+        current_usage: Math.floor(10 + Math.random() * 20),
+        max_limit: 50,
+        usage_percentage: 20 + Math.random() * 40,
+        period_start: now.toISOString(),
+        period_end: now.toISOString(),
+        metadata: { pool_size: 20 },
+        created_at: now.toISOString(),
+      }
+    ]
 
     // Generate API logs
     const endpoints = ['/api/auth/login', '/api/users', '/api/farmers', '/api/products', '/api/analytics']
     const methods = ['GET', 'POST', 'PUT', 'DELETE']
-    const apiLogData = {
-      tenant_id: '00000000-0000-0000-0000-000000000000',
-      endpoint: endpoints[Math.floor(Math.random() * endpoints.length)],
-      method: methods[Math.floor(Math.random() * methods.length)],
-      status_code: Math.random() > 0.9 ? 500 : 200,
-      response_time_ms: Math.floor(50 + Math.random() * 450),
-      created_at: now.toISOString(),
+    const apiLogs = []
+    
+    for (let i = 0; i < 10; i++) {
+      apiLogs.push({
+        tenant_id: tenantId,
+        endpoint: endpoints[Math.floor(Math.random() * endpoints.length)],
+        method: methods[Math.floor(Math.random() * methods.length)],
+        status_code: Math.random() > 0.9 ? 500 : 200,
+        response_time_ms: Math.floor(50 + Math.random() * 450),
+        created_at: new Date(now.getTime() - Math.random() * 3600000).toISOString(), // Random time in last hour
+      })
     }
 
     // Generate financial analytics
-    const financialData = {
-      tenant_id: '00000000-0000-0000-0000-000000000000',
-      total_revenue: 50000 + Math.random() * 20000,
-      mrr: 5000 + Math.random() * 2000,
-      arr: 60000 + Math.random() * 24000,
-      churn_rate: Math.random() * 10,
-      arpu: 100 + Math.random() * 50,
-      total_customers: Math.floor(40 + Math.random() * 20),
-      new_customers: Math.floor(Math.random() * 10),
-      churned_customers: Math.floor(Math.random() * 3),
+    const financialAnalytics = {
+      tenant_id: tenantId,
+      metric_type: 'revenue',
+      amount: 50000 + Math.random() * 20000,
+      currency: 'USD',
+      period_type: 'monthly',
+      period_start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
+      period_end: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0],
+      breakdown: {
+        subscriptions: 40000 + Math.random() * 10000,
+        one_time: 10000 + Math.random() * 10000,
+        mrr: 5000 + Math.random() * 2000,
+        new_customers: Math.floor(5 + Math.random() * 10),
+        churned_customers: Math.floor(Math.random() * 3),
+      },
       created_at: now.toISOString(),
     }
 
     // Insert all data in parallel
     const [healthResult, resourceResult, apiResult, financialResult] = await Promise.all([
-      supabase.from('system_health_metrics').insert(systemHealthData),
-      supabase.from('resource_utilization').insert(resourceData),
-      supabase.from('api_logs').insert(apiLogData),
-      supabase.from('financial_analytics').insert(financialData),
+      supabase.from('system_health_metrics').insert(systemHealthMetrics),
+      supabase.from('resource_utilization').insert(resourceUtilization),
+      supabase.from('api_logs').insert(apiLogs),
+      supabase.from('financial_analytics').insert(financialAnalytics),
     ])
 
     // Check for errors
@@ -103,18 +186,18 @@ serve(async (req) => {
         success: true, 
         message: 'Monitoring data generated successfully',
         data: {
-          systemHealth: systemHealthData,
-          resources: resourceData,
-          apiLog: apiLogData,
-          financial: financialData
+          health_metrics: systemHealthMetrics.length,
+          resource_records: resourceUtilization.length,
+          api_logs: apiLogs.length,
+          financial_records: 1
         }
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
-    console.error('Error generating monitoring data:', error)
+    console.error('Error in generate-monitoring-data function:', error)
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
   }
