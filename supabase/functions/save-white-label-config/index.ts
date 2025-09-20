@@ -268,4 +268,3 @@ function generateDiff(oldObj: any, newObj: any): any {
   
   return Object.keys(diff).length > 0 ? diff : null;
 }
-});
