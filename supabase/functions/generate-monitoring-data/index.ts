@@ -19,9 +19,25 @@ serve(async (req) => {
 
     // Generate realistic monitoring data
     const now = new Date()
-    const tenantId = crypto.randomUUID() // Generate a valid UUID for testing
     
-    // Generate multiple system health metrics
+    // Get a random existing tenant or null for global metrics
+    const { data: tenants, error: tenantError } = await supabase
+      .from('tenants')
+      .select('id')
+      .limit(10)
+    
+    if (tenantError) {
+      console.error('Error fetching tenants:', tenantError)
+    }
+    
+    // Use a random existing tenant ID or null for global metrics
+    const tenantId = tenants && tenants.length > 0 
+      ? tenants[Math.floor(Math.random() * tenants.length)].id 
+      : null
+    
+    console.log('Using tenant ID:', tenantId)
+    
+    // Generate multiple system health metrics (can be null tenant_id for global metrics)
     const systemHealthMetrics = [
       {
         tenant_id: tenantId,
@@ -75,14 +91,13 @@ serve(async (req) => {
       }
     ]
 
-    // Generate resource utilization data
+    // Generate resource utilization data (usage_percentage is generated automatically)
     const resourceUtilization = [
       {
         tenant_id: tenantId,
         resource_type: 'api_calls',
         current_usage: Math.floor(10000 + Math.random() * 5000),
         max_limit: 20000,
-        usage_percentage: 50 + Math.random() * 25,
         period_start: new Date(now.getTime() - 3600000).toISOString(), // 1 hour ago
         period_end: now.toISOString(),
         metadata: { rate_limit_tier: 'standard' },
@@ -93,7 +108,6 @@ serve(async (req) => {
         resource_type: 'storage',
         current_usage: 25 + Math.random() * 25,
         max_limit: 100,
-        usage_percentage: 25 + Math.random() * 25,
         period_start: new Date(now.getTime() - 86400000).toISOString(), // 1 day ago
         period_end: now.toISOString(),
         metadata: { unit: 'GB' },
@@ -104,7 +118,6 @@ serve(async (req) => {
         resource_type: 'bandwidth',
         current_usage: 50 + Math.random() * 50,
         max_limit: 200,
-        usage_percentage: 25 + Math.random() * 25,
         period_start: new Date(now.getTime() - 86400000).toISOString(),
         period_end: now.toISOString(),
         metadata: { unit: 'GB' },
@@ -115,7 +128,6 @@ serve(async (req) => {
         resource_type: 'database_connections',
         current_usage: Math.floor(10 + Math.random() * 20),
         max_limit: 50,
-        usage_percentage: 20 + Math.random() * 40,
         period_start: now.toISOString(),
         period_end: now.toISOString(),
         metadata: { pool_size: 20 },
@@ -139,8 +151,8 @@ serve(async (req) => {
       })
     }
 
-    // Generate financial analytics
-    const financialAnalytics = {
+    // Generate financial analytics (only if we have a tenant)
+    const financialAnalytics = tenantId ? {
       tenant_id: tenantId,
       metric_type: 'revenue',
       amount: 50000 + Math.random() * 20000,
@@ -156,22 +168,28 @@ serve(async (req) => {
         churned_customers: Math.floor(Math.random() * 3),
       },
       created_at: now.toISOString(),
-    }
+    } : null
 
-    // Insert all data in parallel
-    const [healthResult, resourceResult, apiResult, financialResult] = await Promise.all([
+    // Insert all data in parallel (skip financial if no tenant)
+    const insertPromises = [
       supabase.from('system_health_metrics').insert(systemHealthMetrics),
       supabase.from('resource_utilization').insert(resourceUtilization),
       supabase.from('api_logs').insert(apiLogs),
-      supabase.from('financial_analytics').insert(financialAnalytics),
-    ])
+    ]
+    
+    if (financialAnalytics) {
+      insertPromises.push(supabase.from('financial_analytics').insert(financialAnalytics))
+    }
+    
+    const results = await Promise.all(insertPromises)
+    const [healthResult, resourceResult, apiResult, financialResult] = results
 
     // Check for errors
     const errors = []
     if (healthResult.error) errors.push({ table: 'system_health_metrics', error: healthResult.error })
     if (resourceResult.error) errors.push({ table: 'resource_utilization', error: resourceResult.error })
     if (apiResult.error) errors.push({ table: 'api_logs', error: apiResult.error })
-    if (financialResult.error) errors.push({ table: 'financial_analytics', error: financialResult.error })
+    if (financialResult && financialResult.error) errors.push({ table: 'financial_analytics', error: financialResult.error })
 
     if (errors.length > 0) {
       console.error('Errors inserting data:', errors)
@@ -189,7 +207,8 @@ serve(async (req) => {
           health_metrics: systemHealthMetrics.length,
           resource_records: resourceUtilization.length,
           api_logs: apiLogs.length,
-          financial_records: 1
+          financial_records: financialAnalytics ? 1 : 0,
+          tenant_id: tenantId
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
