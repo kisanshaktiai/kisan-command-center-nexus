@@ -92,7 +92,16 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         throw new Error('No tenant selected');
       }
 
-      const cleanedData = {
+      // Debug logging
+      console.log('Saving white-label config:', {
+        tenantId,
+        hasMobileTheme: !!configData.mobile_theme,
+        mobileThemeKeys: configData.mobile_theme ? Object.keys(configData.mobile_theme) : [],
+        existingConfig: !!config
+      });
+
+      // Build cleaned data, preserving mobile_theme if it exists
+      const cleanedData: any = {
         brand_identity: configData.brand_identity || {},
         domain_config: configData.domain_config || {},
         email_templates: configData.email_templates || {},
@@ -104,14 +113,33 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         content_management: configData.content_management || {},
         distribution: configData.distribution || {},
         domain_health: configData.domain_health || {},
-        mobile_theme: configData.mobile_theme || undefined,
-        theme_colors: configData.theme_colors || undefined,
-        api_version: configData.api_version || undefined,
-        validation_errors: configData.validation_errors || undefined,
-        is_validated: configData.is_validated || undefined,
-        last_synced_at: configData.last_synced_at || undefined,
         updated_at: new Date().toISOString()
       };
+
+      // Only include these fields if they are explicitly provided
+      if (configData.mobile_theme !== undefined) {
+        cleanedData.mobile_theme = configData.mobile_theme;
+      }
+      if (configData.theme_colors !== undefined) {
+        cleanedData.theme_colors = configData.theme_colors;
+      }
+      if (configData.api_version !== undefined) {
+        cleanedData.api_version = configData.api_version;
+      }
+      if (configData.validation_errors !== undefined) {
+        cleanedData.validation_errors = configData.validation_errors;
+      }
+      if (configData.is_validated !== undefined) {
+        cleanedData.is_validated = configData.is_validated;
+      }
+      if (configData.last_synced_at !== undefined) {
+        cleanedData.last_synced_at = configData.last_synced_at;
+      }
+
+      console.log('Cleaned data to save:', {
+        hasMobileTheme: !!cleanedData.mobile_theme,
+        mobileThemeKeys: cleanedData.mobile_theme ? Object.keys(cleanedData.mobile_theme) : []
+      });
 
       if (config?.id) {
         // Update existing config
@@ -126,6 +154,12 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
           console.error('Error updating white-label config:', error);
           throw error;
         }
+        
+        console.log('Updated config result:', {
+          hasMobileTheme: !!data?.mobile_theme,
+          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : []
+        });
+        
         return data;
       } else {
         // Create new config
@@ -143,6 +177,12 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
           console.error('Error creating white-label config:', error);
           throw error;
         }
+        
+        console.log('Created config result:', {
+          hasMobileTheme: !!data?.mobile_theme,
+          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : []
+        });
+        
         return data;
       }
     },

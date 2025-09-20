@@ -296,8 +296,13 @@ export default function WhiteLabelConfig() {
   const handleSave = async () => {
     if (!config || !selectedTenant) return;
     
-    // Ensure brand_identity includes all fields
-    const configData = {
+    console.log('Saving config with mobile_theme:', {
+      hasMobileTheme: !!config.mobile_theme,
+      mobileThemeKeys: config.mobile_theme ? Object.keys(config.mobile_theme) : []
+    });
+    
+    // Build config data to save
+    const configData: any = {
       brand_identity: {
         logo_url: config.brand_identity?.logo_url || '',
         primary_color: config.brand_identity?.primary_color || '#6366f1',
@@ -317,13 +322,27 @@ export default function WhiteLabelConfig() {
       app_customization: config.app_customization,
       content_management: config.content_management,
       distribution: config.distribution,
-      domain_health: config.domain_health,
-      mobile_theme: config.mobile_theme,
-      theme_colors: config.theme_colors,
-      api_version: config.api_version,
-      is_validated: config.is_validated,
-      validation_errors: config.validation_errors
+      domain_health: config.domain_health
     };
+    
+    // Only include mobile_theme if it exists and has content
+    if (config.mobile_theme && Object.keys(config.mobile_theme).length > 0) {
+      configData.mobile_theme = config.mobile_theme;
+    }
+    
+    // Include other optional fields only if they exist
+    if (config.theme_colors !== undefined) {
+      configData.theme_colors = config.theme_colors;
+    }
+    if (config.api_version !== undefined) {
+      configData.api_version = config.api_version;
+    }
+    if (config.is_validated !== undefined) {
+      configData.is_validated = config.is_validated;
+    }
+    if (config.validation_errors !== undefined) {
+      configData.validation_errors = config.validation_errors;
+    }
     
     try {
       await saveConfig(configData);

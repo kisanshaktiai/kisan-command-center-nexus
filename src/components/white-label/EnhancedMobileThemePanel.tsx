@@ -339,15 +339,22 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [lastLoadedTenantId, setLastLoadedTenantId] = useState<string | null>(null);
+  const [hasLocalChanges, setHasLocalChanges] = useState(false);
 
-  // Keep theme in sync with config changes
+  // Keep theme in sync with config changes ONLY when tenant changes
   useEffect(() => {
-    const configTheme = getThemeFromConfig();
-    setCurrentTheme(configTheme);
-    setSelectedPreset(null); // Reset preset when config changes
-    setValidationErrors([]); // Clear validation errors
-    console.log('Theme synced from config for tenant:', tenantId, configTheme);
-  }, [config, tenantId]); // Simplified dependency to watch entire config object
+    // Only reload theme if tenant changed, not on every config update
+    if (tenantId !== lastLoadedTenantId) {
+      const configTheme = getThemeFromConfig();
+      setCurrentTheme(configTheme);
+      setSelectedPreset(null); // Reset preset when tenant changes
+      setValidationErrors([]); // Clear validation errors
+      setHasLocalChanges(false); // Reset local changes flag
+      setLastLoadedTenantId(tenantId);
+      console.log('Theme loaded for new tenant:', tenantId, configTheme);
+    }
+  }, [tenantId]); // Only depend on tenantId, not the entire config
 
   const validateTheme = (theme: Modern2025Theme): string[] => {
     const errors: string[] = [];
@@ -402,6 +409,7 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
       }
     };
     setCurrentTheme(updatedTheme);
+    setHasLocalChanges(true); // Track local changes
   };
 
   const applyPresetTheme = (presetId: string) => {
@@ -409,6 +417,7 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
     if (preset) {
       setCurrentTheme(preset.theme);
       setSelectedPreset(presetId);
+      setHasLocalChanges(true); // Track local changes
       toast.success(`Applied ${preset.name} theme`);
     }
   };
@@ -438,6 +447,7 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
       }
     };
     setCurrentTheme(updated);
+    setHasLocalChanges(true); // Track local changes
     toast.success('Generated color variants');
   };
 
@@ -449,8 +459,16 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
       return;
     }
 
+    console.log('Saving mobile theme:', {
+      themeKeys: Object.keys(currentTheme),
+      primaryColor: currentTheme.core?.primary,
+      tenantId: config?.tenant_id
+    });
+
     // Save mobile theme with proper structure
     updateConfig('mobile_theme', '', currentTheme);
+    setHasLocalChanges(false); // Reset local changes flag after save
+    toast.success('Mobile theme saved! Click "Save Theme Configuration" to persist changes.');
     
     // Also update app_store_config for backward compatibility
     updateConfig('app_store_config', 'mobile_theme', currentTheme);
