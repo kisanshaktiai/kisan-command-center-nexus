@@ -122,6 +122,9 @@ verify_jwt = false
 [functions.save-white-label-config]
 verify_jwt = true
 
+[functions.generate-monitoring-data]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323
