@@ -20,7 +20,7 @@ export const OverviewCharts: React.FC = () => {
         data={realtimeData.tenants}
         dataKey="name"
         chartType="line"
-        color="hsl(142, 76%, 36%)"
+        color="hsl(var(--success))"
       />
     </div>
   );

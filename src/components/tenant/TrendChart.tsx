@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
+import { LineChart, Line, ResponsiveContainer, Tooltip, Area, AreaChart } from 'recharts';
 
 interface TrendChartProps {
   data: number[];
@@ -12,7 +12,7 @@ interface TrendChartProps {
 export const TrendChart: React.FC<TrendChartProps> = ({
   data,
   label,
-  color = '#10B981',
+  color = 'hsl(var(--primary))',
   height = 40,
 }) => {
   const chartData = data.map((value, index) => ({
@@ -33,26 +33,34 @@ export const TrendChart: React.FC<TrendChartProps> = ({
       </div>
       <div style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
-            <Line
+          <AreaChart data={chartData}>
+            <defs>
+              <linearGradient id={`trend-gradient-${label}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+                <stop offset="95%" stopColor={color} stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <Area
               type="monotone"
               dataKey="value"
               stroke={color}
               strokeWidth={2}
+              fill={`url(#trend-gradient-${label})`}
               dot={false}
-              activeDot={{ r: 2, fill: color }}
+              activeDot={{ r: 3, fill: color, strokeWidth: 0 }}
             />
             <Tooltip
               labelStyle={{ display: 'none' }}
               contentStyle={{
-                background: 'rgba(0, 0, 0, 0.8)',
-                border: 'none',
-                borderRadius: '4px',
+                background: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '8px',
                 padding: '4px 8px',
+                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
               }}
               formatter={(value: any) => [value, label]}
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     </div>

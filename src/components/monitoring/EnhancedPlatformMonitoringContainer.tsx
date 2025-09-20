@@ -69,11 +69,11 @@ export const EnhancedPlatformMonitoringContainer: React.FC<Props> = ({ tenantId 
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Platform Monitoring</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">Platform Monitoring</h1>
           <p className="text-muted-foreground mt-1">Real-time system performance and analytics</p>
         </div>
         <div className="flex items-center gap-3">
@@ -95,11 +95,14 @@ export const EnhancedPlatformMonitoringContainer: React.FC<Props> = ({ tenantId 
       </div>
 
       {/* System Health Card */}
-      <Card className="relative overflow-hidden">
-        <CardHeader className="pb-3">
+      <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-card/95 to-card/50 backdrop-blur-sm shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+        <CardHeader className="pb-3 relative">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Server className="h-5 w-5" />
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Server className="h-5 w-5 text-primary" />
+              </div>
               System Health
             </CardTitle>
             <Badge variant={getStatusBadge(monitoringData.systemHealth.status) as any}>
@@ -205,10 +208,13 @@ export const EnhancedPlatformMonitoringContainer: React.FC<Props> = ({ tenantId 
       </Card>
 
       {/* API Performance */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="border-0 bg-gradient-to-br from-card/95 to-card/50 backdrop-blur-sm shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+        <CardHeader className="pb-3 relative">
           <CardTitle className="flex items-center gap-2">
-            <Globe className="h-5 w-5" />
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Globe className="h-5 w-5 text-primary" />
+            </div>
             API Performance
           </CardTitle>
         </CardHeader>
@@ -284,10 +290,13 @@ export const EnhancedPlatformMonitoringContainer: React.FC<Props> = ({ tenantId 
       </Card>
 
       {/* Financial Metrics */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="border-0 bg-gradient-to-br from-card/95 to-card/50 backdrop-blur-sm shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-success/5 to-transparent pointer-events-none" />
+        <CardHeader className="pb-3 relative">
           <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
+            <div className="p-2 rounded-lg bg-success/10">
+              <DollarSign className="h-5 w-5 text-success" />
+            </div>
             Financial Overview
           </CardTitle>
         </CardHeader>
@@ -336,10 +345,13 @@ export const EnhancedPlatformMonitoringContainer: React.FC<Props> = ({ tenantId 
       </Card>
 
       {/* Resource Utilization */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="border-0 bg-gradient-to-br from-card/95 to-card/50 backdrop-blur-sm shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-info/5 to-transparent pointer-events-none" />
+        <CardHeader className="pb-3 relative">
           <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
+            <div className="p-2 rounded-lg bg-info/10">
+              <Database className="h-5 w-5 text-info" />
+            </div>
             Resource Utilization
           </CardTitle>
         </CardHeader>
