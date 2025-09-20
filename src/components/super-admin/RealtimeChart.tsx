@@ -57,7 +57,7 @@ export const RealtimeChart: React.FC<RealtimeChartProps> = ({
           {chartType === 'area' ? (
             <AreaChart data={processedData}>
               <defs>
-                <linearGradient id={`area-gradient-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={`area-gradient-${title.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
                   <stop offset="95%" stopColor={color} stopOpacity={0}/>
                 </linearGradient>
@@ -88,14 +88,14 @@ export const RealtimeChart: React.FC<RealtimeChartProps> = ({
                 type="monotone" 
                 dataKey="value" 
                 stroke={color} 
-                fill={`url(#area-gradient-${dataKey})`}
+                fill={`url(#area-gradient-${title.replace(/\s+/g, '-')})`}
                 strokeWidth={2}
               />
             </AreaChart>
           ) : (
             <LineChart data={processedData}>
               <defs>
-                <linearGradient id={`line-gradient-${dataKey}`} x1="0" y1="0" x2="1" y2="0">
+                <linearGradient id={`line-gradient-${title.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor={color} stopOpacity={0.6}/>
                   <stop offset="100%" stopColor={color} />
                 </linearGradient>
@@ -125,7 +125,7 @@ export const RealtimeChart: React.FC<RealtimeChartProps> = ({
               <Line 
                 type="monotone" 
                 dataKey="value" 
-                stroke={`url(#line-gradient-${dataKey})`}
+                stroke={`url(#line-gradient-${title.replace(/\s+/g, '-')})`}
                 strokeWidth={2.5}
                 dot={{ fill: color, strokeWidth: 0, r: 3 }}
                 activeDot={{ r: 5, stroke: color, strokeWidth: 2, fill: 'hsl(var(--card))' }}

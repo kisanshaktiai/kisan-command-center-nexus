@@ -33,6 +33,9 @@ export const SparklineChart: React.FC<SparklineChartProps> = ({
   const lastX = width;
   const lastY = height - ((lastPoint - min) / range) * height;
 
+  // Generate a unique ID for this instance to avoid gradient conflicts
+  const gradientId = `sparkline-gradient-${Math.random().toString(36).substr(2, 9)}`;
+
   return (
     <svg
       width={width}
@@ -41,7 +44,7 @@ export const SparklineChart: React.FC<SparklineChartProps> = ({
       viewBox={`0 0 ${width} ${height}`}
     >
       <defs>
-        <linearGradient id={`sparkline-gradient-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor={color} stopOpacity="0.4" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
@@ -50,7 +53,7 @@ export const SparklineChart: React.FC<SparklineChartProps> = ({
       {/* Area under the line */}
       <polygon
         points={`0,${height} ${points} ${width},${height}`}
-        fill={`url(#sparkline-gradient-${color})`}
+        fill={`url(#${gradientId})`}
       />
       
       {/* Line */}
@@ -77,7 +80,7 @@ export const SparklineChart: React.FC<SparklineChartProps> = ({
             cx={lastX}
             cy={lastY}
             r="1.5"
-            fill="white"
+            fill="hsl(var(--background))"
           />
         </>
       )}
