@@ -92,9 +92,14 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         throw new Error('No tenant selected');
       }
 
+      // Get current user for tracking
+      const { data: { user } } = await supabase.auth.getUser();
+      const now = new Date().toISOString();
+
       // Debug logging
       console.log('Saving white-label config:', {
         tenantId,
+        userId: user?.id,
         hasMobileTheme: !!configData.mobile_theme,
         mobileThemeKeys: configData.mobile_theme ? Object.keys(configData.mobile_theme) : [],
         existingConfig: !!config
@@ -113,7 +118,8 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         content_management: configData.content_management || {},
         distribution: configData.distribution || {},
         domain_health: configData.domain_health || {},
-        updated_at: new Date().toISOString()
+        updated_at: now,
+        updated_by: user?.id || null
       };
 
       // Only include these fields if they are explicitly provided
@@ -138,7 +144,8 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
 
       console.log('Cleaned data to save:', {
         hasMobileTheme: !!cleanedData.mobile_theme,
-        mobileThemeKeys: cleanedData.mobile_theme ? Object.keys(cleanedData.mobile_theme) : []
+        mobileThemeKeys: cleanedData.mobile_theme ? Object.keys(cleanedData.mobile_theme) : [],
+        updatedBy: cleanedData.updated_by
       });
 
       if (config?.id) {
@@ -155,21 +162,44 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
           throw error;
         }
         
+        // Create audit log entry for update
+        const auditEntry = {
+          white_label_id: config.id,
+          tenant_id: tenantId,
+          change_type: 'UPDATE',
+          changed_by: user?.id || null,
+          full_snapshot: data,
+          created_at: now
+        };
+        
+        const { error: auditError } = await supabase
+          .from('white_label_audit_log')
+          .insert([auditEntry]);
+          
+        if (auditError) {
+          console.error('Error creating audit log:', auditError);
+          // Don't fail the operation if audit logging fails
+        }
+        
         console.log('Updated config result:', {
           hasMobileTheme: !!data?.mobile_theme,
-          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : []
+          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : [],
+          auditLogged: !auditError
         });
         
         return data;
       } else {
         // Create new config
+        const createData = { 
+          ...cleanedData, 
+          tenant_id: tenantId,
+          created_at: now,
+          created_by: user?.id || null
+        };
+        
         const { data, error } = await supabase
           .from('white_label_configs')
-          .insert([{ 
-            ...cleanedData, 
-            tenant_id: tenantId,
-            created_at: new Date().toISOString()
-          }])
+          .insert([createData])
           .select()
           .single();
         
@@ -178,9 +208,29 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
           throw error;
         }
         
+        // Create audit log entry for creation
+        const auditEntry = {
+          white_label_id: data.id,
+          tenant_id: tenantId,
+          change_type: 'CREATE',
+          changed_by: user?.id || null,
+          full_snapshot: data,
+          created_at: now
+        };
+        
+        const { error: auditError } = await supabase
+          .from('white_label_audit_log')
+          .insert([auditEntry]);
+          
+        if (auditError) {
+          console.error('Error creating audit log:', auditError);
+          // Don't fail the operation if audit logging fails
+        }
+        
         console.log('Created config result:', {
           hasMobileTheme: !!data?.mobile_theme,
-          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : []
+          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : [],
+          auditLogged: !auditError
         });
         
         return data;

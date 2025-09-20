@@ -116,6 +116,24 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Create Supabase client with user auth to get the user ID
+    const supabaseClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ message: 'Failed to authenticate user' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Parse request body
     const payload = await req.json();
@@ -132,20 +150,29 @@ serve(async (req) => {
     // Sanitize configuration
     const sanitized = sanitizeWhiteLabelConfig(payload);
 
-    // Add metadata
-    sanitized.updated_at = new Date().toISOString();
+    // Add metadata with user tracking
+    const now = new Date().toISOString();
+    sanitized.updated_at = now;
+    sanitized.updated_by = user.id;
     sanitized.is_validated = true;
     sanitized.validation_errors = [];
 
     // Check if config exists
     const { data: existingConfig } = await supabaseAdmin
       .from('white_label_configs')
-      .select('id')
+      .select('*')
       .eq('tenant_id', sanitized.tenant_id)
       .single();
 
     let result;
+    let changeType: string;
+    let previousData: any = null;
+    
     if (existingConfig) {
+      // Store previous data for audit log
+      previousData = { ...existingConfig };
+      changeType = 'UPDATE';
+      
       // Update existing config
       const { data, error } = await supabaseAdmin
         .from('white_label_configs')
@@ -157,8 +184,12 @@ serve(async (req) => {
       if (error) throw error;
       result = data;
     } else {
+      changeType = 'CREATE';
+      
       // Create new config
-      sanitized.created_at = new Date().toISOString();
+      sanitized.created_at = now;
+      sanitized.created_by = user.id;
+      
       const { data, error } = await supabaseAdmin
         .from('white_label_configs')
         .insert([sanitized])
@@ -169,11 +200,33 @@ serve(async (req) => {
       result = data;
     }
 
-    // Log the operation (audit trail)
+    // Create audit log entry
+    const auditLogEntry = {
+      white_label_id: result.id,
+      tenant_id: sanitized.tenant_id,
+      change_type: changeType,
+      changed_by: user.id,
+      full_snapshot: result,
+      diff: previousData ? generateDiff(previousData, result) : null,
+      created_at: now
+    };
+
+    const { error: auditError } = await supabaseAdmin
+      .from('white_label_audit_log')
+      .insert([auditLogEntry]);
+
+    if (auditError) {
+      console.error('Error creating audit log:', auditError);
+      // Don't fail the operation if audit logging fails
+    }
+
+    // Log the operation (console audit trail)
     console.log('White label config saved:', {
       tenant_id: sanitized.tenant_id,
       config_id: result.id,
-      timestamp: new Date().toISOString(),
+      user_id: user.id,
+      change_type: changeType,
+      timestamp: now,
     });
 
     return new Response(
@@ -187,4 +240,32 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
+});
+
+// Helper function to generate diff between two objects
+function generateDiff(oldObj: any, newObj: any): any {
+  const diff: any = {};
+  
+  // Check for added or modified fields
+  for (const key in newObj) {
+    if (oldObj[key] !== newObj[key]) {
+      diff[key] = {
+        old: oldObj[key],
+        new: newObj[key]
+      };
+    }
+  }
+  
+  // Check for removed fields
+  for (const key in oldObj) {
+    if (!(key in newObj)) {
+      diff[key] = {
+        old: oldObj[key],
+        new: undefined
+      };
+    }
+  }
+  
+  return Object.keys(diff).length > 0 ? diff : null;
+}
 });
