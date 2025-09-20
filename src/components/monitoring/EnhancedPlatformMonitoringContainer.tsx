@@ -9,6 +9,7 @@ import { RealtimeIndicator } from './RealtimeIndicator';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DataGeneratorButton } from './DataGeneratorButton';
 
 interface Props {
   tenantId?: string;
@@ -76,6 +77,7 @@ export const EnhancedPlatformMonitoringContainer: React.FC<Props> = ({ tenantId 
           <p className="text-muted-foreground mt-1">Real-time system performance and analytics</p>
         </div>
         <div className="flex items-center gap-3">
+          <DataGeneratorButton />
           <RealtimeIndicator 
             isConnected={isRealtimeConnected} 
             lastUpdate={lastRealtimeUpdate || undefined}

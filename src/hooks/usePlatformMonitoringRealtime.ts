@@ -121,12 +121,18 @@ export const usePlatformMonitoringRealtime = (tenantId?: string) => {
 
   // Process raw data into structured format
   const processMonitoringData = useCallback((rawData: any): PlatformMonitoringData => {
-    const { healthData = [], resourceData = [], apiData = [], financialData = [] } = rawData;
+    const { healthData = [], resourceData = [], apiData = [], financialData = [] } = rawData || {};
+
+    // Ensure data arrays are not null
+    const safeHealthData = Array.isArray(healthData) ? healthData : [];
+    const safeResourceData = Array.isArray(resourceData) ? resourceData : [];
+    const safeApiData = Array.isArray(apiData) ? apiData : [];
+    const safeFinancialData = Array.isArray(financialData) ? financialData : [];
 
     // Process system health
-    const cpuMetrics = healthData.filter((m: any) => m.metric_name === 'cpu_usage');
-    const memoryMetrics = healthData.filter((m: any) => m.metric_name === 'memory_usage');
-    const diskMetrics = healthData.filter((m: any) => m.metric_name === 'disk_usage');
+    const cpuMetrics = safeHealthData.filter((m: any) => m?.metric_name === 'cpu_usage');
+    const memoryMetrics = safeHealthData.filter((m: any) => m?.metric_name === 'memory_usage');
+    const diskMetrics = safeHealthData.filter((m: any) => m?.metric_name === 'disk_usage');
 
     const currentCpu = cpuMetrics[0]?.value || 0;
     const currentMemory = memoryMetrics[0]?.value || 0;
@@ -141,25 +147,25 @@ export const usePlatformMonitoringRealtime = (tenantId?: string) => {
     const systemStatus = getSystemStatus(healthScore);
 
     // Process API metrics
-    const totalRequests = apiData.length;
-    const successfulRequests = apiData.filter((r: any) => r.status_code < 400).length;
+    const totalRequests = safeApiData.length;
+    const successfulRequests = safeApiData.filter((r: any) => r?.status_code < 400).length;
     const successRate = totalRequests > 0 ? (successfulRequests / totalRequests) * 100 : 100;
-    const avgResponseTime = apiData.reduce((acc: number, r: any) => acc + (r.response_time_ms || 0), 0) / (totalRequests || 1);
+    const avgResponseTime = safeApiData.reduce((acc: number, r: any) => acc + (r?.response_time_ms || 0), 0) / (totalRequests || 1);
     
     // Calculate latency history
-    historyRef.current.latency = apiData
+    historyRef.current.latency = safeApiData
       .slice(0, 20)
-      .map((r: any) => r.response_time_ms || 0)
+      .map((r: any) => r?.response_time_ms || 0)
       .reverse();
 
     // Process financial metrics
-    const currentRevenue = financialData[0]?.amount || 0;
-    const previousRevenue = financialData[1]?.amount || 0;
+    const currentRevenue = safeFinancialData[0]?.amount || 0;
+    const previousRevenue = safeFinancialData[1]?.amount || 0;
     const mrrGrowth = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
     
-    historyRef.current.revenue = financialData
+    historyRef.current.revenue = safeFinancialData
       .slice(0, 12)
-      .map((f: any) => f.amount || 0)
+      .map((f: any) => f?.amount || 0)
       .reverse();
 
     return {
@@ -195,8 +201,8 @@ export const usePlatformMonitoringRealtime = (tenantId?: string) => {
         avgResponseTime,
         errorRate: 100 - successRate,
         requestsPerMinute: Math.floor(totalRequests / 60),
-        topEndpoints: getTopEndpoints(apiData),
-        errorsByCode: getErrorsByCode(apiData),
+        topEndpoints: getTopEndpoints(safeApiData),
+        errorsByCode: getErrorsByCode(safeApiData),
         latencyHistory: historyRef.current.latency
       },
       financialMetrics: {
