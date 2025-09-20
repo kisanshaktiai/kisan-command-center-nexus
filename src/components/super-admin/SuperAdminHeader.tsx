@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, Bell, Search, User, Moon, Sun } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
