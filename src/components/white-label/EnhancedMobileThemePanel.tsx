@@ -295,8 +295,10 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
   useEffect(() => {
     const configTheme = getThemeFromConfig();
     setCurrentTheme(configTheme);
+    setSelectedPreset(null); // Reset preset when config changes
+    setValidationErrors([]); // Clear validation errors
     console.log('Theme synced from config:', configTheme);
-  }, [config?.theme_colors, config?.mobile_theme, config?.app_store_config?.mobile_theme]);
+  }, [config?.theme_colors, config?.mobile_theme, config?.app_store_config?.mobile_theme, tenantId]);
 
   const validateTheme = (theme: Modern2025Theme): string[] => {
     const errors: string[] = [];

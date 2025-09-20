@@ -365,8 +365,14 @@ export default function WhiteLabelConfig() {
         return;
       }
     }
+    // Clear config to show loading state
+    setConfig(null);
     setSelectedTenant(newTenantId);
     setHasUnsavedChanges(false);
+    // Refetch config immediately for the new tenant
+    if (newTenantId) {
+      refetchConfig();
+    }
   };
 
   const generateEmailPreview = (template: string) => {
@@ -425,7 +431,18 @@ export default function WhiteLabelConfig() {
         </CardContent>
       </Card>
 
-      {selectedTenant && (
+      {configLoading && selectedTenant && (
+        <Card>
+          <CardContent className="py-8">
+            <div className="flex items-center justify-center space-x-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Loading white-label configuration...</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedTenant && !configLoading && (
         <Tabs defaultValue="branding" className="space-y-4">
           <div className="flex justify-between items-center">
             <TabsList className="grid grid-cols-8 w-full max-w-4xl">
