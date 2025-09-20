@@ -25,7 +25,6 @@ export const useTenantRealTimeData = (tenantId: string | undefined) => {
           filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
-          // Invalidate and refetch when farmers table changes
           queryClient.invalidateQueries({ queryKey: ['tenant-realtime-data', tenantId] });
         }
       )
@@ -67,8 +66,18 @@ export const useTenantRealTimeData = (tenantId: string | undefined) => {
         console.error('Error fetching last login:', loginError);
       }
 
-      const lastLogin = lastLoginData?.[0]?.last_login_at 
-        ? new Date(lastLoginData[0].last_login_at).toLocaleString()
+      // Format with full date + time in IST
+      const lastLogin = lastLoginData?.[0]?.last_login_at
+        ? new Intl.DateTimeFormat('en-GB', {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+            timeZone: 'Asia/Kolkata', // Always IST
+          }).format(new Date(lastLoginData[0].last_login_at))
         : null;
 
       return {
@@ -77,7 +86,7 @@ export const useTenantRealTimeData = (tenantId: string | undefined) => {
       } as TenantRealTimeData;
     },
     enabled: !!tenantId,
-    refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
-    staleTime: 15000, // Consider data fresh for 15 seconds
+    refetchInterval: 30000,
+    staleTime: 15000,
   });
 };
