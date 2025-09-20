@@ -316,7 +316,12 @@ export default function WhiteLabelConfig() {
       app_customization: config.app_customization,
       content_management: config.content_management,
       distribution: config.distribution,
-      domain_health: config.domain_health
+      domain_health: config.domain_health,
+      mobile_theme: config.mobile_theme,
+      theme_colors: config.theme_colors,
+      api_version: config.api_version,
+      is_validated: config.is_validated,
+      validation_errors: config.validation_errors
     };
     
     try {
@@ -329,6 +334,16 @@ export default function WhiteLabelConfig() {
 
   const updateConfig = (section: keyof WhiteLabelConfig, field: string, value: any) => {
     if (!config) return;
+    
+    // Special handling for root-level fields like theme_colors and mobile_theme
+    if ((section === 'theme_colors' || section === 'mobile_theme') && field === '') {
+      setConfig({
+        ...config,
+        [section]: value
+      });
+      setHasUnsavedChanges(true);
+      return;
+    }
     
     const currentSection = config[section];
     const sectionValue = typeof currentSection === 'object' && currentSection !== null ? currentSection : {};

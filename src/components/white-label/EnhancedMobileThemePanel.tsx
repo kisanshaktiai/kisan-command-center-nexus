@@ -257,24 +257,29 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
   appName,
   logoUrl
 }) => {
-  const [currentTheme, setCurrentTheme] = useState<Modern2025Theme>(defaultTheme);
+  // Get theme from config or use default
+  const getThemeFromConfig = () => {
+    if (config?.theme_colors) {
+      return config.theme_colors;
+    } else if (config?.mobile_theme) {
+      return config.mobile_theme;
+    } else if (config?.app_store_config?.mobile_theme) {
+      return config.app_store_config.mobile_theme;
+    }
+    return defaultTheme;
+  };
+
+  const [currentTheme, setCurrentTheme] = useState<Modern2025Theme>(getThemeFromConfig());
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
 
-  // Initialize theme from config when it changes
+  // Keep theme in sync with config changes
   useEffect(() => {
-    if (config?.mobile_theme) {
-      console.log('Loading mobile theme from config:', config.mobile_theme);
-      setCurrentTheme(config.mobile_theme);
-    } else if (config?.app_store_config?.mobile_theme) {
-      console.log('Loading mobile theme from app_store_config:', config.app_store_config.mobile_theme);
-      setCurrentTheme(config.app_store_config.mobile_theme);
-    } else {
-      console.log('No saved theme found, using default theme');
-      setCurrentTheme(defaultTheme);
-    }
-  }, [config, tenantId]);
+    const configTheme = getThemeFromConfig();
+    setCurrentTheme(configTheme);
+    console.log('Theme synced from config:', configTheme);
+  }, [config?.theme_colors, config?.mobile_theme, config?.app_store_config?.mobile_theme]);
 
   const validateTheme = (theme: Modern2025Theme): string[] => {
     const errors: string[] = [];
@@ -376,6 +381,8 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
       return;
     }
 
+    // Save theme to theme_colors for persistence
+    updateConfig('theme_colors', '', currentTheme);
     updateConfig('mobile_theme', '', currentTheme);
     updateConfig('api_version', '', 'v1');
     updateConfig('is_validated', '', true);
