@@ -147,10 +147,15 @@ export const ModernHeroMetrics: React.FC = () => {
   const { metrics, isLoading, getMetricChange } = useSuperAdminMetrics();
   const realtimeData = useRealtimeSubscriptions();
 
-  const totalTenants = realtimeData.tenants.length || metrics?.totalTenants || 0;
+  // Use real-time data with fallback to cached metrics
+  const totalTenants = realtimeData.tenants.length > 0 ? realtimeData.tenants.length : (metrics?.totalTenants || 0);
   const activeSessions = realtimeData.activeSessions.length;
-  const monthlyRevenue = metrics?.monthlyRevenue || 0;
-  const systemHealth = metrics?.systemHealth || 95;
+  const monthlyRevenue = realtimeData.financialMetrics.length > 0 
+    ? realtimeData.financialMetrics.reduce((sum, m) => sum + (m.revenue || 0), 0)
+    : (metrics?.monthlyRevenue || 0);
+  const systemHealth = realtimeData.systemMetrics.length > 0 
+    ? (realtimeData.systemMetrics[0]?.health_score || metrics?.systemHealth || 95)
+    : (metrics?.systemHealth || 95);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
