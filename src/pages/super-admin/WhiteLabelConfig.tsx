@@ -23,6 +23,7 @@ import { LogoUploadSection } from '@/components/white-label/LogoUploadSection';
 import { DomainValidationSection } from '@/components/white-label/DomainValidationSection';
 import { EmailTemplatesPanel } from '@/components/white-label/EmailTemplatesPanel';
 import { EnhancedMobileThemePanel } from '@/components/white-label/EnhancedMobileThemePanel';
+import { WebAppThemePanel } from '@/components/white-label/WebAppThemePanel';
 
 interface WhiteLabelConfig {
   id: string;
