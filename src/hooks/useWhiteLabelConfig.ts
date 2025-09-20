@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Type definitions (will be replaced with @kisanshakti/whitelabel-types when available)
 export interface WhiteLabelConfigData {
   id?: string;
   tenant_id: string;
@@ -34,6 +35,70 @@ export interface WhiteLabelConfigData {
   last_synced_at?: string;
   created_at?: string;
   updated_at?: string;
+  schema_version?: number;
+}
+
+// Validation functions (will be replaced with @kisanshakti/whitelabel-types when available)
+export function validateWhiteLabelConfig(config: WhiteLabelConfigData): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (!config.tenant_id) {
+    errors.push('tenant_id is required');
+  }
+
+  // Validate CSS injection for dangerous patterns
+  if (config.css_injection) {
+    const dangerousPatterns = [
+      /@import/i,
+      /javascript:/i,
+      /<script/i,
+      /expression\(/i,
+      /behavior:/i,
+      /-moz-binding/i,
+      /data:text\/html/i,
+    ];
+
+    for (const [key, value] of Object.entries(config.css_injection)) {
+      if (typeof value === 'string') {
+        for (const pattern of dangerousPatterns) {
+          if (pattern.test(value)) {
+            errors.push(`Dangerous pattern detected in css_injection.${key}`);
+          }
+        }
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function sanitizeWhiteLabelConfig(config: WhiteLabelConfigData): WhiteLabelConfigData {
+  const sanitized = { ...config };
+
+  // Sanitize CSS injection
+  if (sanitized.css_injection) {
+    const dangerousPatterns = [
+      { pattern: /@import/gi, replacement: '/* @import blocked */' },
+      { pattern: /javascript:/gi, replacement: '/* javascript: blocked */' },
+      { pattern: /<script/gi, replacement: '/* script blocked */' },
+      { pattern: /expression\(/gi, replacement: '/* expression blocked */' },
+      { pattern: /behavior:/gi, replacement: '/* behavior blocked */' },
+      { pattern: /-moz-binding/gi, replacement: '/* moz-binding blocked */' },
+      { pattern: /data:text\/html/gi, replacement: '/* data uri blocked */' },
+    ];
+
+    for (const [key, value] of Object.entries(sanitized.css_injection)) {
+      if (typeof value === 'string') {
+        let sanitizedValue = value;
+        for (const { pattern, replacement } of dangerousPatterns) {
+          sanitizedValue = sanitizedValue.replace(pattern, replacement);
+        }
+        sanitized.css_injection[key] = sanitizedValue;
+      }
+    }
+  }
+
+  return sanitized;
 }
 
 export const useWhiteLabelConfig = (tenantId: string | null) => {
@@ -82,60 +147,31 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         throw new Error('No tenant selected');
       }
 
-      // Clean up the data to ensure we're not sending invalid JSON
-      const cleanedData = {
-        brand_identity: configData.brand_identity || {},
-        domain_config: configData.domain_config || {},
-        email_templates: configData.email_templates || {},
-        app_store_config: configData.app_store_config || {},
-        pwa_config: configData.pwa_config || {},
-        splash_screens: configData.splash_screens || {},
-        css_injection: configData.css_injection || {},
-        app_customization: configData.app_customization || {},
-        content_management: configData.content_management || {},
-        distribution: configData.distribution || {},
-        domain_health: configData.domain_health || {},
-        mobile_theme: configData.mobile_theme || undefined,
-        theme_colors: configData.theme_colors || undefined,
-        api_version: configData.api_version || undefined,
-        validation_errors: configData.validation_errors || undefined,
-        is_validated: configData.is_validated || undefined,
-        last_synced_at: configData.last_synced_at || undefined,
-        updated_at: new Date().toISOString()
-      };
-
-      if (config?.id) {
-        // Update existing config
-        const { data, error } = await supabase
-          .from('white_label_configs')
-          .update(cleanedData)
-          .eq('id', config.id)
-          .select()
-          .single();
-        
-        if (error) {
-          console.error('Error updating white-label config:', error);
-          throw error;
-        }
-        return data;
-      } else {
-        // Create new config
-        const { data, error } = await supabase
-          .from('white_label_configs')
-          .insert([{ 
-            ...cleanedData, 
-            tenant_id: tenantId,
-            created_at: new Date().toISOString()
-          }])
-          .select()
-          .single();
-        
-        if (error) {
-          console.error('Error creating white-label config:', error);
-          throw error;
-        }
-        return data;
+      // Validate configuration before saving
+      const { valid, errors } = validateWhiteLabelConfig({ ...configData, tenant_id: tenantId });
+      if (!valid) {
+        throw new Error('Validation failed: ' + errors.join(', '));
       }
+
+      // Sanitize the configuration
+      const sanitizedConfig = sanitizeWhiteLabelConfig({ ...configData, tenant_id: tenantId });
+
+      // Call the edge function to save the configuration
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await supabase.functions.invoke('save-white-label-config', {
+        body: sanitizedConfig,
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        console.error('Error saving white-label config:', response.error);
+        throw new Error(response.error.message || 'Failed to save configuration');
+      }
+
+      return response.data?.data;
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['white-label-config', tenantId], data);

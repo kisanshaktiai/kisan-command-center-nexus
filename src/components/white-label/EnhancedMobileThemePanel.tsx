@@ -12,6 +12,7 @@ import { Palette, Smartphone, Wand2, Settings, CheckCircle, AlertCircle, Copy, S
 import { toast } from 'sonner';
 import { MobileAppPreview } from './MobileAppPreview';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import type { WhiteLabelConfigData } from '@/hooks/useWhiteLabelConfig';
 
 interface Modern2025Theme {
   core: {

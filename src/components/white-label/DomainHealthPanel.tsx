@@ -5,9 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Globe, CheckCircle, XCircle, Clock, RefreshCw, Shield, Activity } from 'lucide-react';
 import { toast } from 'sonner';
+import type { WhiteLabelConfigData } from '@/hooks/useWhiteLabelConfig';
 
 interface DomainHealthPanelProps {
-  config: any;
+  config: WhiteLabelConfigData | null;
   updateConfig?: (section: string, field: string, value: any) => void;
 }
 
