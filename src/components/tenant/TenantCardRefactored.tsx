@@ -20,12 +20,14 @@ import {
   Users,
   Calendar,
   Database,
-  KeyRound 
+  KeyRound,
+  Clock 
 } from 'lucide-react';
 import { Tenant } from '@/types/tenant';
 import { TenantMetrics } from '@/types/tenantView';
 import { FormattedTenantData } from '@/services/TenantDisplayService';
 import { useTenantUserManagement } from '@/hooks/useTenantUserManagement';
+import { useTenantRealTimeData } from '@/hooks/useTenantRealTimeData';
 import { toast } from 'sonner';
 
 interface TenantCardRefacturedProps {
@@ -53,6 +55,7 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
 }) => {
   const isSuspended = tenant.status === 'suspended';
   const { sendPasswordReset, isSendingReset } = useTenantUserManagement();
+  const { data: realTimeData } = useTenantRealTimeData(tenant.id);
   
   const handleEdit = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -202,14 +205,25 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
                 <Database className="h-4 w-4 text-muted-foreground" />
                 <span>Plan: {formattedData.planDisplayName}</span>
               </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="truncate">
+                  Last Login: {realTimeData?.lastLogin || 'Never'}
+                </span>
+              </div>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span>Created: {formattedData.formattedCreatedAt.split(' ')[0]}</span>
               </div>
-              <div className="text-sm text-muted-foreground">
-                Farmers: {formattedData.limitsDisplay.farmers}
+              <div className="text-sm">
+                <span className="text-muted-foreground">Farmers: </span>
+                <span className="font-medium">{realTimeData?.farmerCount || 0}/{tenant.max_farmers || 1000}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Storage: </span>
+                <span className="font-medium">{formattedData.limitsDisplay.storage}</span>
               </div>
             </div>
           </div>
@@ -271,11 +285,19 @@ export const TenantCardRefactored: React.FC<TenantCardRefacturedProps> = ({
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Farmers:</span>
-            <span>{formattedData.limitsDisplay.farmers}</span>
+            <span className="font-medium">{realTimeData?.farmerCount || 0}/{tenant.max_farmers || 1000}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Storage:</span>
             <span>{formattedData.limitsDisplay.storage}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Last Login:</span>
+            <span className="truncate max-w-[120px]" title={realTimeData?.lastLogin || 'Never'}>
+              {realTimeData?.lastLogin ? 
+                new Date(realTimeData.lastLogin).toLocaleDateString() : 
+                'Never'}
+            </span>
           </div>
         </div>
         
