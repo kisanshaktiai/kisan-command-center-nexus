@@ -4,7 +4,7 @@ import { EnhancedPlatformMonitoringContainer } from '@/components/monitoring/Enh
 
 export default function PlatformMonitoring() {
   return (
-    <div className="container mx-auto">
+    <div className="space-y-6">
       <EnhancedPlatformMonitoringContainer />
     </div>
   );
