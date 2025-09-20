@@ -1,11 +1,11 @@
 
 import React from 'react';
-import { PlatformMonitoringContainer } from '@/components/monitoring/PlatformMonitoringContainer';
+import { EnhancedPlatformMonitoringContainer } from '@/components/monitoring/EnhancedPlatformMonitoringContainer';
 
 export default function PlatformMonitoring() {
   return (
-    <div className="container mx-auto p-6">
-      <PlatformMonitoringContainer />
+    <div className="container mx-auto">
+      <EnhancedPlatformMonitoringContainer />
     </div>
   );
 }
