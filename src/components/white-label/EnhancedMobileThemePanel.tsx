@@ -257,15 +257,32 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
   appName,
   logoUrl
 }) => {
-  // Get theme from config or use default
+  // Get theme from config or use default - ensure complete structure
   const getThemeFromConfig = () => {
+    let configTheme: any = null;
+    
     if (config?.theme_colors) {
-      return config.theme_colors;
+      configTheme = config.theme_colors;
     } else if (config?.mobile_theme) {
-      return config.mobile_theme;
+      configTheme = config.mobile_theme;
     } else if (config?.app_store_config?.mobile_theme) {
-      return config.app_store_config.mobile_theme;
+      configTheme = config.app_store_config.mobile_theme;
     }
+    
+    // Ensure the theme has complete structure by merging with defaults
+    if (configTheme) {
+      return {
+        core: { ...defaultTheme.core, ...(configTheme.core || {}) },
+        neutral: { ...defaultTheme.neutral, ...(configTheme.neutral || {}) },
+        status: { ...defaultTheme.status, ...(configTheme.status || {}) },
+        support: { ...defaultTheme.support, ...(configTheme.support || {}) },
+        typography: configTheme.typography || defaultTheme.typography,
+        spacing: configTheme.spacing || defaultTheme.spacing,
+        border_radius: configTheme.border_radius || defaultTheme.border_radius,
+        shadows: configTheme.shadows || defaultTheme.shadows,
+      };
+    }
+    
     return defaultTheme;
   };
 
