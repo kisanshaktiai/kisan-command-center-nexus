@@ -458,6 +458,10 @@ export default function WhiteLabelConfig() {
                 <Mail className="h-4 w-4 mr-1" />
                 Email
               </TabsTrigger>
+              <TabsTrigger value="webapp">
+                <Monitor className="h-4 w-4 mr-1" />
+                Web App
+              </TabsTrigger>
               <TabsTrigger value="mobile">
                 <Smartphone className="h-4 w-4 mr-1" />
                 Mobile
@@ -693,6 +697,17 @@ export default function WhiteLabelConfig() {
           {/* Email Tab */}
           <TabsContent value="email" className="space-y-4">
             <EmailTemplatesPanel config={config} updateConfig={updateConfig} />
+          </TabsContent>
+
+          {/* Web App Tab */}
+          <TabsContent value="webapp" className="space-y-4">
+            <WebAppThemePanel 
+              tenantId={selectedTenant}
+              onThemeChange={(theme) => {
+                // Optionally update the config state if needed
+                console.log('Web app theme changed:', theme);
+              }}
+            />
           </TabsContent>
 
           {/* Mobile Tab */}
