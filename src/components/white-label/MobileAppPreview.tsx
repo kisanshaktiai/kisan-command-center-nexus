@@ -37,25 +37,25 @@ export const MobileAppPreview: React.FC<MobileAppPreviewProps> = ({
 }) => {
   const [currentScreen, setCurrentScreen] = useState<'login' | 'dashboard' | 'list' | 'profile'>('dashboard');
 
-  // Apply theme colors to CSS variables
+  // Apply theme colors to CSS variables - support both old and new structure
   const themeStyles = {
-    '--theme-primary': theme?.core?.primary || '221 83% 53%',
-    '--theme-primary-foreground': theme?.core?.primary_foreground || '210 40% 98%',
-    '--theme-secondary': theme?.core?.secondary || '210 40% 96%',
-    '--theme-secondary-foreground': theme?.core?.secondary_foreground || '222 47% 11%',
-    '--theme-accent': theme?.core?.accent || '210 40% 96%',
-    '--theme-accent-foreground': theme?.core?.accent_foreground || '222 47% 11%',
-    '--theme-background': theme?.core?.background || '0 0% 100%',
-    '--theme-foreground': theme?.core?.foreground || '222 47% 11%',
-    '--theme-muted': theme?.neutral?.muted || '210 40% 96%',
-    '--theme-muted-foreground': theme?.neutral?.muted_foreground || '215 16% 47%',
-    '--theme-card': theme?.neutral?.card || '0 0% 100%',
-    '--theme-card-foreground': theme?.neutral?.card_foreground || '222 47% 11%',
-    '--theme-border': theme?.neutral?.border || '214 32% 91%',
-    '--theme-success': theme?.status?.success || '142 71% 45%',
-    '--theme-warning': theme?.status?.warning || '48 96% 53%',
-    '--theme-error': theme?.status?.error || '0 84% 60%',
-    '--theme-info': theme?.status?.info || '199 89% 48%',
+    '--theme-primary': theme?.colors?.primary || theme?.core?.primary || '221 83% 53%',
+    '--theme-primary-foreground': theme?.colors?.primary_foreground || theme?.core?.primary_foreground || '210 40% 98%',
+    '--theme-secondary': theme?.colors?.secondary || theme?.core?.secondary || '210 40% 96%',
+    '--theme-secondary-foreground': theme?.colors?.secondary_foreground || theme?.core?.secondary_foreground || '222 47% 11%',
+    '--theme-accent': theme?.colors?.accent || theme?.core?.accent || '210 40% 96%',
+    '--theme-accent-foreground': theme?.colors?.accent_foreground || theme?.core?.accent_foreground || '222 47% 11%',
+    '--theme-background': theme?.colors?.background || theme?.core?.background || '0 0% 100%',
+    '--theme-foreground': theme?.colors?.foreground || theme?.core?.foreground || '222 47% 11%',
+    '--theme-muted': theme?.colors?.muted || theme?.neutral?.muted || '210 40% 96%',
+    '--theme-muted-foreground': theme?.colors?.muted_foreground || theme?.neutral?.muted_foreground || '215 16% 47%',
+    '--theme-card': theme?.colors?.card || theme?.neutral?.card || '0 0% 100%',
+    '--theme-card-foreground': theme?.colors?.card_foreground || theme?.neutral?.card_foreground || '222 47% 11%',
+    '--theme-border': theme?.colors?.border || theme?.neutral?.border || '214 32% 91%',
+    '--theme-success': theme?.colors?.success || theme?.status?.success || '142 71% 45%',
+    '--theme-warning': theme?.colors?.warning || theme?.status?.warning || '48 96% 53%',
+    '--theme-error': theme?.colors?.error || theme?.status?.error || '0 84% 60%',
+    '--theme-info': theme?.colors?.info || theme?.status?.info || '199 89% 48%',
   } as React.CSSProperties;
 
   const deviceFrame = deviceType === 'iphone' ? 'rounded-[3rem]' : 'rounded-[2rem]';
