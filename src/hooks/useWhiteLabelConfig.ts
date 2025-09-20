@@ -68,6 +68,16 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         }
       }
       
+      // Log what we're loading for debugging
+      if (data) {
+        const configData = data as any;
+        console.log('Loaded white-label config for tenant:', tenantId, {
+          hasMobileTheme: !!configData.mobile_theme,
+          hasThemeColors: !!configData.theme_colors,
+          hasAppStoreConfig: !!configData.app_store_config?.mobile_theme
+        });
+      }
+      
       return data as WhiteLabelConfigData | null;
     },
     enabled: !!tenantId,

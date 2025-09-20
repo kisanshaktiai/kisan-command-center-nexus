@@ -259,30 +259,79 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
 }) => {
   // Get theme from config or use default - ensure complete structure
   const getThemeFromConfig = () => {
-    let configTheme: any = null;
-    
-    if (config?.theme_colors) {
-      configTheme = config.theme_colors;
-    } else if (config?.mobile_theme) {
-      configTheme = config.mobile_theme;
-    } else if (config?.app_store_config?.mobile_theme) {
-      configTheme = config.app_store_config.mobile_theme;
+    // First check if we have mobile_theme with proper structure
+    if (config?.mobile_theme && typeof config.mobile_theme === 'object') {
+      const mobileTheme = config.mobile_theme as any;
+      if (mobileTheme.core) {
+        console.log('Loading saved mobile_theme from config:', mobileTheme);
+        return {
+          core: { ...defaultTheme.core, ...(mobileTheme.core || {}) },
+          neutral: { ...defaultTheme.neutral, ...(mobileTheme.neutral || {}) },
+          status: { ...defaultTheme.status, ...(mobileTheme.status || {}) },
+          support: { ...defaultTheme.support, ...(mobileTheme.support || {}) },
+          typography: mobileTheme.typography || defaultTheme.typography,
+          spacing: mobileTheme.spacing || defaultTheme.spacing,
+          border_radius: mobileTheme.border_radius || defaultTheme.border_radius,
+          shadows: mobileTheme.shadows || defaultTheme.shadows,
+        };
+      }
     }
     
-    // Ensure the theme has complete structure by merging with defaults
-    if (configTheme) {
+    // Check app_store_config mobile theme
+    if (config?.app_store_config?.mobile_theme) {
+      const appTheme = config.app_store_config.mobile_theme;
+      if (appTheme.core) {
+        console.log('Loading mobile_theme from app_store_config:', appTheme);
+        return {
+          core: { ...defaultTheme.core, ...(appTheme.core || {}) },
+          neutral: { ...defaultTheme.neutral, ...(appTheme.neutral || {}) },
+          status: { ...defaultTheme.status, ...(appTheme.status || {}) },
+          support: { ...defaultTheme.support, ...(appTheme.support || {}) },
+          typography: appTheme.typography || defaultTheme.typography,
+          spacing: appTheme.spacing || defaultTheme.spacing,
+          border_radius: appTheme.border_radius || defaultTheme.border_radius,
+          shadows: appTheme.shadows || defaultTheme.shadows,
+        };
+      }
+    }
+    
+    // Convert from theme_colors (web format) to mobile format if available
+    if (config?.theme_colors && config.theme_colors.core) {
+      console.log('Converting theme_colors to mobile format:', config.theme_colors);
+      const webTheme = config.theme_colors;
+      
+      // Map web theme to mobile theme structure
       return {
-        core: { ...defaultTheme.core, ...(configTheme.core || {}) },
-        neutral: { ...defaultTheme.neutral, ...(configTheme.neutral || {}) },
-        status: { ...defaultTheme.status, ...(configTheme.status || {}) },
-        support: { ...defaultTheme.support, ...(configTheme.support || {}) },
-        typography: configTheme.typography || defaultTheme.typography,
-        spacing: configTheme.spacing || defaultTheme.spacing,
-        border_radius: configTheme.border_radius || defaultTheme.border_radius,
-        shadows: configTheme.shadows || defaultTheme.shadows,
+        core: {
+          primary: webTheme.core?.primary || defaultTheme.core.primary,
+          primary_variant: webTheme.core?.primary?.replace('36%', '30%') || defaultTheme.core.primary_variant,
+          secondary: webTheme.core?.secondary || defaultTheme.core.secondary,
+          secondary_variant: webTheme.core?.secondary?.replace('48%', '40%') || defaultTheme.core.secondary_variant,
+          tertiary: webTheme.core?.accent || defaultTheme.core.tertiary,
+          accent: webTheme.core?.accent || defaultTheme.core.accent,
+        },
+        neutral: {
+          background: webTheme.core?.background || defaultTheme.neutral.background,
+          surface: webTheme.core?.card || defaultTheme.neutral.surface,
+          on_background: webTheme.core?.foreground || defaultTheme.neutral.on_background,
+          on_surface: webTheme.core?.card_foreground || defaultTheme.neutral.on_surface,
+          border: webTheme.core?.border || defaultTheme.neutral.border,
+        },
+        status: {
+          success: webTheme.core?.success || defaultTheme.status.success,
+          warning: webTheme.weather?.sunny || '38 92% 50%',
+          error: webTheme.core?.destructive || defaultTheme.status.error,
+          info: webTheme.core?.accent || defaultTheme.status.info,
+        },
+        support: defaultTheme.support,
+        typography: defaultTheme.typography,
+        spacing: defaultTheme.spacing,
+        border_radius: defaultTheme.border_radius,
+        shadows: defaultTheme.shadows,
       };
     }
     
+    console.log('Using default theme - no config found');
     return defaultTheme;
   };
 
@@ -297,8 +346,8 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
     setCurrentTheme(configTheme);
     setSelectedPreset(null); // Reset preset when config changes
     setValidationErrors([]); // Clear validation errors
-    console.log('Theme synced from config:', configTheme);
-  }, [config?.theme_colors, config?.mobile_theme, config?.app_store_config?.mobile_theme, tenantId]);
+    console.log('Theme synced from config for tenant:', tenantId, configTheme);
+  }, [config, tenantId]); // Simplified dependency to watch entire config object
 
   const validateTheme = (theme: Modern2025Theme): string[] => {
     const errors: string[] = [];
@@ -400,9 +449,13 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
       return;
     }
 
-    // Save theme to theme_colors for persistence
-    updateConfig('theme_colors', '', currentTheme);
+    // Save mobile theme with proper structure
     updateConfig('mobile_theme', '', currentTheme);
+    
+    // Also update app_store_config for backward compatibility
+    updateConfig('app_store_config', 'mobile_theme', currentTheme);
+    
+    // Set validation flags
     updateConfig('api_version', '', 'v1');
     updateConfig('is_validated', '', true);
     updateConfig('validation_errors', '', []);
