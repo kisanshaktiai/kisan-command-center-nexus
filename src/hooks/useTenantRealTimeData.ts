@@ -10,7 +10,7 @@ interface TenantRealTimeData {
 export const useTenantRealTimeData = (tenantId: string | undefined) => {
   const queryClient = useQueryClient();
 
-  // Set up real-time subscription for farmer changes
+  // Realtime subscription to farmer table
   useEffect(() => {
     if (!tenantId) return;
 
@@ -42,7 +42,7 @@ export const useTenantRealTimeData = (tenantId: string | undefined) => {
         return { farmerCount: 0, lastLogin: null };
       }
 
-      // Fetch farmer count
+      // Count active farmers
       const { count: farmerCount, error: farmerError } = await supabase
         .from('farmers')
         .select('*', { count: 'exact', head: true })
@@ -53,7 +53,7 @@ export const useTenantRealTimeData = (tenantId: string | undefined) => {
         console.error('Error fetching farmer count:', farmerError);
       }
 
-      // Fetch last login from farmers
+      // Latest login
       const { data: lastLoginData, error: loginError } = await supabase
         .from('farmers')
         .select('last_login_at')
@@ -66,7 +66,7 @@ export const useTenantRealTimeData = (tenantId: string | undefined) => {
         console.error('Error fetching last login:', loginError);
       }
 
-      // Format with full date + time in IST
+      // Format last login into full date + time (IST)
       const lastLogin = lastLoginData?.[0]?.last_login_at
         ? new Intl.DateTimeFormat('en-GB', {
             year: 'numeric',
@@ -86,7 +86,7 @@ export const useTenantRealTimeData = (tenantId: string | undefined) => {
       } as TenantRealTimeData;
     },
     enabled: !!tenantId,
-    refetchInterval: 30000,
-    staleTime: 15000,
+    refetchInterval: 30000, // Poll every 30s
+    staleTime: 15000,       // Keep fresh for 15s
   });
 };
