@@ -32,7 +32,7 @@ jobs:
       matrix:
         worker:
           - { name: harvest-worker, dockerfile: Dockerfile, context: ./ndvi-harvest-worker }
-          - { name: land-clipper, dockerfile: land_clipper.Dockerfile, context: ./ndvi-harvest-worker }
+       
 
     steps:
     - name: Checkout code
