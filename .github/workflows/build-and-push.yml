@@ -24,6 +24,7 @@ env:
   REGISTRY: kisanshaktiacr.azurecr.io
   REGISTRY_NAME: kisanshaktiacr
   RESOURCE_GROUP: kisanshakti-rg
+  SUPABASE_COUNTRY_CODE: ${{ secrets.SUPABASE_COUNTRY_CODE }}
 
 jobs:
   build-and-deploy:
