@@ -22,9 +22,9 @@ RUN groupadd -r -g 1000 worker && \
     useradd -r -u 1000 -g worker -d /home/worker -s /bin/bash -m worker
 
 COPY requirements.txt .
-RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    python3 -m pip install --no-cache-dir -r requirements.txt && \
-    python3 -m pip cache purge
+RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && python3 -m pip install --no-cache-dir --prefer-binary -r requirements.txt \
+    && python3 -m pip cache purge
 
 COPY --chown=worker:worker harvest_worker.py .
 
