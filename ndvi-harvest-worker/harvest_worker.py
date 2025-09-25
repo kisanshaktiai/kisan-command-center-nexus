@@ -165,4 +165,4 @@ async def main(tile_ids: Optional[str], cleanup: bool):
                 logger.error(f"Failed {t}: {str(e)}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
