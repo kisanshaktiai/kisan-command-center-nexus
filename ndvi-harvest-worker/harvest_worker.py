@@ -146,16 +146,22 @@ class NDVIHarvestWorker:
 @click.command()
 @click.option("--tile-ids", help="Comma-separated list of tiles (optional)")
 @click.option("--cleanup", is_flag=True, help="Cleanup old tiles")
-async def main(tile_ids: Optional[str], cleanup: bool):
+def main(tile_ids: Optional[str], cleanup: bool):
+    """Click entrypoint (sync)"""
+    asyncio.run(run_main(tile_ids, cleanup))
+
+async def run_main(tile_ids: Optional[str], cleanup: bool):
     async with NDVIHarvestWorker() as worker:
         if cleanup:
             await worker.cleanup_old_tiles()
             return
+
         tiles = tile_ids.split(",") if tile_ids else []
         # Default: get all India tiles from DB
         if not tiles:
             resp = worker.supabase.rpc("get_all_tiles").execute()
             tiles = [t["tile_id"] for t in resp.data]
+
         tiles = tiles[:MAX_TILES_PER_RUN]
         for t in tiles:
             try:
@@ -163,6 +169,7 @@ async def main(tile_ids: Optional[str], cleanup: bool):
                 logger.info(f"Processed {t}: {res}")
             except Exception as e:
                 logger.error(f"Failed {t}: {str(e)}")
+
 
 if __name__ == "__main__":
     main()
