@@ -38,6 +38,7 @@ logger = logging.getLogger("NDVIHarvestWorker")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 STORAGE_BUCKET = os.getenv("STORAGE_BUCKET", "satellite-tiles")
+SUPABASE_COUNTRY_CODE = os.getenv("SUPABASE_COUNTRY_CODE", "INR")
 
 MPC_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 CLOUD_COVER_THRESHOLD = float(os.getenv("CLOUD_COVER_THRESHOLD", "20"))
@@ -209,8 +210,11 @@ async def run_main(tile_ids: Optional[str], cleanup: bool):
             return
 
         tiles = tile_ids.split(",") if tile_ids else []
+
         if not tiles:
-            resp = worker.supabase.rpc("get_all_tiles").execute()
+            resp = worker.supabase.rpc(
+                "get_all_tiles", {"country_code": SUPABASE_COUNTRY_CODE}
+            ).execute()
             tiles = [t["tile_id"] for t in resp.data]
 
         tiles = tiles[:MAX_TILES_PER_RUN]
@@ -220,7 +224,6 @@ async def run_main(tile_ids: Optional[str], cleanup: bool):
                 logger.info(f"Processed {t}: {res}")
             except Exception as e:
                 logger.error(f"Failed {t}: {str(e)}")
-
 
 if __name__ == "__main__":
     main()
