@@ -1,0 +1,113 @@
+name: Build, Push, and Deploy Workers
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'ndvi-harvest-worker/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'ndvi-harvest-worker/**'
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild all images'
+        required: false
+        default: 'false'
+        type: boolean
+  schedule:
+    - cron: "0 2 * * *"   # Run daily at 2 AM UTC (7:30 AM IST)
+
+env:
+  REGISTRY: kisanshaktiacr.azurecr.io
+  REGISTRY_NAME: kisanshaktiacr
+  RESOURCE_GROUP: kisanshakti-rg
+  ENVIRONMENT: managedEnvironment-kisanshaktirg-ab65
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        worker:
+          - name: harvest-worker
+            dockerfile: Dockerfile
+            context: ./ndvi-harvest-worker
+          - name: land-clipper
+            dockerfile: land_clipper.Dockerfile
+            context: ./ndvi-harvest-worker
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to ACR
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.REGISTRY_USERNAME }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+
+    - name: Build and push ${{ matrix.worker.name }}
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ matrix.worker.context }}
+        file: ${{ matrix.worker.context }}/${{ matrix.worker.dockerfile }}
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ matrix.worker.name }}:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    # NEW STEP: Link ACR to Container App (fixes UNAUTHORIZED issue)
+    - name: Ensure Container App has access to ACR
+      run: |
+        echo "Linking ACR to ${{ matrix.worker.name }}..."
+        az containerapp registry set \
+          --name ${{ matrix.worker.name }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --server ${{ env.REGISTRY }} \
+          --username ${{ secrets.REGISTRY_USERNAME }} \
+          --password ${{ secrets.REGISTRY_PASSWORD }}
+
+    - name: Update Container App ${{ matrix.worker.name }}
+      run: |
+        echo "Deploying ${{ matrix.worker.name }} with image ${{ env.REGISTRY }}/${{ matrix.worker.name }}:latest"
+        az containerapp update \
+          --name ${{ matrix.worker.name }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --image ${{ env.REGISTRY }}/${{ matrix.worker.name }}:latest \
+          --min-replicas 1 \
+          --max-replicas 3
+
+  summary:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Job Summary
+      run: |
+        echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Worker | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|--------|" >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ needs.build-and-deploy.result }}" == "success" ]]; then
+          echo "| All Workers | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| All Workers | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Images deployed to Container Apps" >> $GITHUB_STEP_SUMMARY
+        echo "- harvest-worker (latest)" >> $GITHUB_STEP_SUMMARY
+        echo "- land-clipper (latest)" >> $GITHUB_STEP_SUMMARY
