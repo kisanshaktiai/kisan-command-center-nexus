@@ -24,7 +24,6 @@ env:
   REGISTRY: kisanshaktiacr.azurecr.io
   REGISTRY_NAME: kisanshaktiacr
   RESOURCE_GROUP: kisanshakti-rg
-  ENVIRONMENT: managedEnvironment-kisanshaktirg-ab65
 
 jobs:
   build-and-deploy:
@@ -32,12 +31,8 @@ jobs:
     strategy:
       matrix:
         worker:
-          - name: harvest-worker
-            dockerfile: Dockerfile
-            context: ./ndvi-harvest-worker
-          - name: land-clipper
-            dockerfile: land_clipper.Dockerfile
-            context: ./ndvi-harvest-worker
+          - { name: harvest-worker, dockerfile: Dockerfile, context: ./ndvi-harvest-worker }
+          - { name: land-clipper, dockerfile: land_clipper.Dockerfile, context: ./ndvi-harvest-worker }
 
     steps:
     - name: Checkout code
@@ -71,7 +66,7 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    # NEW STEP: Link ACR to Container App (fixes UNAUTHORIZED issue)
+    # Ensure Container App has access to ACR
     - name: Ensure Container App has access to ACR
       run: |
         echo "Linking ACR to ${{ matrix.worker.name }}..."
