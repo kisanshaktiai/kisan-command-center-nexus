@@ -159,49 +159,57 @@ class NDVIHarvestWorker:
         )
         return self.supabase.storage.from_(STORAGE_BUCKET).get_public_url(path)
 
-    # ------------------------------------------------------------------
-    # Process one tile
-    # ------------------------------------------------------------------
-    async def process_tile(self, tile_id: str) -> Dict:
-        scenes = await self.fetch_tile_scenes(tile_id)
-        if not scenes:
-            return {"success": False, "tile_id": tile_id, "error": "No scenes"}
+   # ------------------------------------------------------------------
+# Process one tile (patched with country_id + logging)
+# ------------------------------------------------------------------
+async def process_tile(self, tile_id: str) -> Dict:
+    # 1. Fetch scenes from MPC
+    scenes = await self.fetch_tile_scenes(tile_id)
+    if not scenes:
+        return {"success": False, "tile_id": tile_id, "error": "No scenes"}
 
-        scene = scenes[0]
-        red, transform, crs = await self.download_band(scene["assets"]["red"])
-        nir, _, _ = await self.download_band(scene["assets"]["nir"])
-        ndvi = self.compute_ndvi(red, nir)
+    # 2. Download red + NIR bands
+    red, transform, crs = await self.download_band(scenes[0]["assets"]["red"])
+    nir, _, _ = await self.download_band(scenes[0]["assets"]["nir"])
+    ndvi = self.compute_ndvi(red, nir)
 
-        ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
-        acq_date = datetime.fromisoformat(scene["datetime"].replace("Z", "+00:00")).date().isoformat()
-        storage_path = f"{tile_id}/{acq_date}/{scene['id']}/ndvi.tif"
+    # 3. Save NDVI to bytes
+    ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
+    storage_path = f"{tile_id}/{datetime.utcnow().date()}/ndvi.tif"
+    url = await self.upload_to_storage(ndvi_bytes, storage_path)
 
-        try:
-            url = await self.upload_to_storage(ndvi_bytes, storage_path)
-        except Exception as e:
-            logger.error(f"Storage upload failed for {tile_id}: {e}")
-            return {"success": False, "tile_id": tile_id, "error": f"upload_failed: {e}"}
+    # 4. Get country_id from mgrs_tiles (needed for FK constraint)
+    country_resp = (
+        self.supabase.table("mgrs_tiles")
+        .select("country_id")
+        .eq("tile_id", tile_id)
+        .single()
+        .execute()
+    )
+    country_id = None
+    if country_resp.data:
+        country_id = country_resp.data.get("country_id")
 
-        row = {
-            "tile_id": tile_id,
-            "acquisition_date": acq_date,
-            "collection": "sentinel-2-l2a",
-            "cloud_cover": scene["cloud_cover"],
-            "ndvi_path": storage_path,
-            "metadata": scene["metadata"],
-            "status": "completed",
-            "country_id": self.get_country_id(),
-        }
+    # 5. Insert into satellite_tiles with proper FK
+    row = {
+        "tile_id": tile_id,
+        "country_id": country_id,
+        "acquisition_date": datetime.utcnow().date().isoformat(),
+        "collection": "sentinel-2-l2a",
+        "cloud_cover": scenes[0]["cloud_cover"],
+        "ndvi_path": storage_path,
+        "metadata": scenes[0]["metadata"],
+        "status": "completed",
+    }
 
-        try:
-            self.supabase.table("satellite_tiles").upsert(
-                row, on_conflict="tile_id,acquisition_date,collection"
-            ).execute()
-        except Exception as e:
-            logger.error(f"DB upsert failed for {tile_id}: {e} | row={json.dumps(row)[:500]}")
-            return {"success": False, "tile_id": tile_id, "error": f"db_upsert_failed: {e}"}
+    res = (
+        self.supabase.table("satellite_tiles")
+        .upsert(row, on_conflict="satellite_tiles_tile_id_acquisition_date_collection_key")
+        .execute()
+    )
 
-        return {"success": True, "tile_id": tile_id, "ndvi_url": url}
+    logger.info(f"Upsert response for {tile_id}: {res}")
+    return {"success": True, "tile_id": tile_id, "ndvi_url": url}
 
     # ------------------------------------------------------------------
     # Cleanup old tiles
