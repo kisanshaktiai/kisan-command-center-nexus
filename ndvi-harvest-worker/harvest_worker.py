@@ -72,7 +72,13 @@ class NDVIHarvestWorker:
     # ------------------------------------------------------------------
     def get_country_id(self) -> str:
         if self._country_id is None:
-            resp = self.supabase.table("countries").select("id").eq("code", SUPABASE_COUNTRY_CODE).limit(1).execute()
+            resp = (
+                self.supabase.table("countries")
+                .select("id")
+                .eq("code", SUPABASE_COUNTRY_CODE)
+                .limit(1)
+                .execute()
+            )
             if not resp.data:
                 raise RuntimeError(f"No country found for code={SUPABASE_COUNTRY_CODE}")
             self._country_id = resp.data[0]["id"]
@@ -91,7 +97,10 @@ class NDVIHarvestWorker:
             search = self.catalog.search(
                 collections=["sentinel-2-l2a"],
                 datetime=f"{start_date.isoformat()}Z/{end_date.isoformat()}Z",
-                query={"s2:mgrs_tile": {"eq": tile_id}, "eo:cloud_cover": {"lt": CLOUD_COVER_THRESHOLD}},
+                query={
+                    "s2:mgrs_tile": {"eq": tile_id},
+                    "eo:cloud_cover": {"lt": CLOUD_COVER_THRESHOLD},
+                },
                 sortby=[{"field": "properties.eo:cloud_cover", "direction": "asc"}],
                 max_items=10,
             )
@@ -154,10 +163,54 @@ class NDVIHarvestWorker:
     # Upload to Supabase Storage
     # ------------------------------------------------------------------
     async def upload_to_storage(self, file_bytes: bytes, path: str) -> str:
+        # force overwrite enabled
         self.supabase.storage.from_(STORAGE_BUCKET).upload(
             path, file_bytes, {"content-type": "image/tiff", "upsert": "true"}
         )
         return self.supabase.storage.from_(STORAGE_BUCKET).get_public_url(path)
+
+    # ------------------------------------------------------------------
+    # Process one tile (with country_id FK + logging)
+    # ------------------------------------------------------------------
+    async def process_tile(self, tile_id: str) -> Dict:
+        scenes = await self.fetch_tile_scenes(tile_id)
+        if not scenes:
+            return {"success": False, "tile_id": tile_id, "error": "No scenes"}
+
+        red, transform, crs = await self.download_band(scenes[0]["assets"]["red"])
+        nir, _, _ = await self.download_band(scenes[0]["assets"]["nir"])
+        ndvi = self.compute_ndvi(red, nir)
+
+        ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
+        storage_path = f"{tile_id}/{datetime.utcnow().date()}/ndvi.tif"
+        url = await self.upload_to_storage(ndvi_bytes, storage_path)
+
+        # attach FK
+        country_id = self.get_country_id()
+
+        row = {
+            "tile_id": tile_id,
+            "country_id": country_id,
+            "acquisition_date": datetime.utcnow().date().isoformat(),
+            "collection": "sentinel-2-l2a",
+            "cloud_cover": scenes[0]["cloud_cover"],
+            "ndvi_path": storage_path,
+            "metadata": scenes[0]["metadata"],
+            "status": "completed",
+        }
+
+        try:
+            res = (
+                self.supabase.table("satellite_tiles")
+                .upsert(row, on_conflict="tile_id,acquisition_date,collection")
+                .execute()
+            )
+            logger.info(f"Upsert response for {tile_id}: {res}")
+            return {"success": True, "tile_id": tile_id, "ndvi_url": url}
+        except Exception as e:
+            logger.error(f"Supabase insert failed for {tile_id}: {e}")
+            return {"success": False, "tile_id": tile_id, "error": str(e)}
+
     # ------------------------------------------------------------------
 # Process one tile (patched with country_id + logging)
 # ------------------------------------------------------------------
