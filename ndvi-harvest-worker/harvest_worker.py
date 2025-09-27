@@ -158,8 +158,7 @@ class NDVIHarvestWorker:
             path, file_bytes, {"content-type": "image/tiff", "upsert": "true"}
         )
         return self.supabase.storage.from_(STORAGE_BUCKET).get_public_url(path)
-
-   # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
 # Process one tile (patched with country_id + logging)
 # ------------------------------------------------------------------
 async def process_tile(self, tile_id: str) -> Dict:
@@ -190,6 +189,10 @@ async def process_tile(self, tile_id: str) -> Dict:
     if country_resp.data:
         country_id = country_resp.data.get("country_id")
 
+    if not country_id:
+        logger.error(f"No country_id found for {tile_id}, skipping insert")
+        return {"success": False, "tile_id": tile_id, "error": "No country_id"}
+
     # 5. Insert into satellite_tiles with proper FK
     row = {
         "tile_id": tile_id,
@@ -202,15 +205,19 @@ async def process_tile(self, tile_id: str) -> Dict:
         "status": "completed",
     }
 
-    res = (
-        self.supabase.table("satellite_tiles")
-        .upsert(row, on_conflict="satellite_tiles_tile_id_acquisition_date_collection_key")
-        .execute()
-    )
+    try:
+        res = (
+            self.supabase.table("satellite_tiles")
+            .upsert(row, on_conflict="tile_id,acquisition_date,collection")  # ✅ correct
+            .execute()
+        )
+        logger.info(f"Upsert response for {tile_id}: {res}")
+        return {"success": True, "tile_id": tile_id, "ndvi_url": url}
+    except Exception as e:
+        logger.error(f"Supabase insert failed for {tile_id}: {e}")
+        return {"success": False, "tile_id": tile_id, "error": str(e)}
 
-    logger.info(f"Upsert response for {tile_id}: {res}")
-    return {"success": True, "tile_id": tile_id, "ndvi_url": url}
-
+  
     # ------------------------------------------------------------------
     # Cleanup old tiles
     # ------------------------------------------------------------------
