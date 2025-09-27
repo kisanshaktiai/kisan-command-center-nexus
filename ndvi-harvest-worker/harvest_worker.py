@@ -38,7 +38,7 @@ logger = logging.getLogger("NDVIHarvestWorker")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 STORAGE_BUCKET = os.getenv("STORAGE_BUCKET", "satellite-tiles")
-SUPABASE_COUNTRY_CODE = os.getenv("SUPABASE_COUNTRY_CODE", "INR")
+SUPABASE_COUNTRY_CODE = os.getenv("SUPABASE_COUNTRY_CODE", "IND")
 
 MPC_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 CLOUD_COVER_THRESHOLD = float(os.getenv("CLOUD_COVER_THRESHOLD", "20"))
