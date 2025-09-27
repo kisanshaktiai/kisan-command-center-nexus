@@ -118,18 +118,23 @@ class NDVIHarvestWorker:
                     "metadata": item.properties,
                 })
             if scenes:
+                logger.info(f"Found {len(scenes)} scenes for tile {tile_id} in {window}-day window")
                 return scenes
+        logger.warning(f"No scenes found for tile {tile_id}")
         return []
 
     # ------------------------------------------------------------------
     # Download raster band
     # ------------------------------------------------------------------
     async def download_band(self, url: str):
+        logger.info(f"Downloading band from: {url[:100]}...")
         r = await self.http_client.get(url)
         r.raise_for_status()
         with MemoryFile(r.content) as memfile:
             with memfile.open() as dataset:
-                return dataset.read(1), dataset.transform, dataset.crs
+                data = dataset.read(1)
+                logger.info(f"Downloaded band shape: {data.shape}")
+                return data, dataset.transform, dataset.crs
 
     # ------------------------------------------------------------------
     # NDVI computation
@@ -138,7 +143,9 @@ class NDVIHarvestWorker:
         denom = nir.astype(float) + red.astype(float)
         denom[denom == 0] = np.nan
         ndvi = (nir.astype(float) - red.astype(float)) / denom
-        return np.clip(ndvi, -1, 1)
+        ndvi_clipped = np.clip(ndvi, -1, 1)
+        logger.info(f"NDVI computed - min: {np.nanmin(ndvi_clipped):.3f}, max: {np.nanmax(ndvi_clipped):.3f}, mean: {np.nanmean(ndvi_clipped):.3f}")
+        return ndvi_clipped
 
     # ------------------------------------------------------------------
     # Save NDVI raster to bytes
@@ -157,130 +164,139 @@ class NDVIHarvestWorker:
         with MemoryFile() as memfile:
             with memfile.open(**profile) as dataset:
                 dataset.write(ndvi.astype("float32"), 1)
-            return memfile.read()
+            data = memfile.read()
+            logger.info(f"NDVI saved to bytes, size: {len(data)} bytes")
+            return data
 
     # ------------------------------------------------------------------
     # Upload to Supabase Storage
     # ------------------------------------------------------------------
     async def upload_to_storage(self, file_bytes: bytes, path: str) -> str:
-        # force overwrite enabled
-        self.supabase.storage.from_(STORAGE_BUCKET).upload(
-            path, file_bytes, {"content-type": "image/tiff", "upsert": "true"}
-        )
-        return self.supabase.storage.from_(STORAGE_BUCKET).get_public_url(path)
+        try:
+            logger.info(f"Uploading to storage path: {path}")
+            # force overwrite enabled
+            result = self.supabase.storage.from_(STORAGE_BUCKET).upload(
+                path, file_bytes, {"content-type": "image/tiff", "upsert": "true"}
+            )
+            logger.info(f"Upload result: {result}")
+            url = self.supabase.storage.from_(STORAGE_BUCKET).get_public_url(path)
+            logger.info(f"Generated public URL: {url}")
+            return url
+        except Exception as e:
+            logger.error(f"Storage upload failed: {e}")
+            raise
 
     # ------------------------------------------------------------------
-    # Process one tile (with country_id FK + logging)
+    # Process one tile (fixed version with proper error handling)
     # ------------------------------------------------------------------
     async def process_tile(self, tile_id: str) -> Dict:
-        scenes = await self.fetch_tile_scenes(tile_id)
-        if not scenes:
-            return {"success": False, "tile_id": tile_id, "error": "No scenes"}
-
-        red, transform, crs = await self.download_band(scenes[0]["assets"]["red"])
-        nir, _, _ = await self.download_band(scenes[0]["assets"]["nir"])
-        ndvi = self.compute_ndvi(red, nir)
-
-        ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
-        storage_path = f"{tile_id}/{datetime.utcnow().date()}/ndvi.tif"
-        url = await self.upload_to_storage(ndvi_bytes, storage_path)
-
-        # attach FK
-        country_id = self.get_country_id()
-
-        row = {
-            "tile_id": tile_id,
-            "country_id": country_id,
-            "acquisition_date": datetime.utcnow().date().isoformat(),
-            "collection": "sentinel-2-l2a",
-            "cloud_cover": scenes[0]["cloud_cover"],
-            "ndvi_path": storage_path,
-            "metadata": scenes[0]["metadata"],
-            "status": "completed",
-        }
-
         try:
-            res = (
-                self.supabase.table("satellite_tiles")
-                .upsert(row, on_conflict="tile_id,acquisition_date,collection")
-                .execute()
-            )
-            logger.info(f"Upsert response for {tile_id}: {res}")
-            return {"success": True, "tile_id": tile_id, "ndvi_url": url}
+            logger.info(f"Starting processing for tile: {tile_id}")
+            
+            # 1. Fetch scenes from MPC
+            scenes = await self.fetch_tile_scenes(tile_id)
+            if not scenes:
+                logger.error(f"No scenes found for tile {tile_id}")
+                return {"success": False, "tile_id": tile_id, "error": "No scenes"}
+
+            logger.info(f"Using scene: {scenes[0]['id']} with cloud cover: {scenes[0]['cloud_cover']}%")
+
+            # 2. Download red + NIR bands
+            red, transform, crs = await self.download_band(scenes[0]["assets"]["red"])
+            nir, _, _ = await self.download_band(scenes[0]["assets"]["nir"])
+            ndvi = self.compute_ndvi(red, nir)
+
+            # 3. Save NDVI to bytes and upload
+            ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
+            storage_path = f"{tile_id}/{datetime.utcnow().date()}/ndvi.tif"
+            url = await self.upload_to_storage(ndvi_bytes, storage_path)
+
+            # 4. Get country_id from mgrs_tiles (needed for FK constraint)
+            logger.info(f"Looking up country_id for tile: {tile_id}")
+            try:
+                country_resp = (
+                    self.supabase.table("mgrs_tiles")
+                    .select("country_id")
+                    .eq("tile_id", tile_id)
+                    .single()
+                    .execute()
+                )
+                logger.info(f"Country lookup response: {country_resp}")
+                
+                country_id = None
+                if country_resp.data:
+                    country_id = country_resp.data.get("country_id")
+
+                if not country_id:
+                    logger.error(f"No country_id found for {tile_id}, skipping insert")
+                    return {"success": False, "tile_id": tile_id, "error": "No country_id"}
+                    
+                logger.info(f"Found country_id: {country_id} for tile: {tile_id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to lookup country_id for {tile_id}: {e}")
+                return {"success": False, "tile_id": tile_id, "error": f"Country lookup failed: {str(e)}"}
+
+            # 5. Insert into satellite_tiles with proper FK
+            row = {
+                "tile_id": tile_id,
+                "country_id": country_id,
+                "acquisition_date": datetime.utcnow().date().isoformat(),
+                "collection": "sentinel-2-l2a",
+                "cloud_cover": scenes[0]["cloud_cover"],
+                "ndvi_path": storage_path,
+                "metadata": scenes[0]["metadata"],
+                "status": "completed",
+            }
+
+            logger.info(f"Inserting row into satellite_tiles: {json.dumps(row, indent=2, default=str)}")
+
+            try:
+                res = (
+                    self.supabase.table("satellite_tiles")
+                    .upsert(row, on_conflict="tile_id,acquisition_date,collection")
+                    .execute()
+                )
+                logger.info(f"✅ UPSERT SUCCESS for {tile_id}: {res.data}")
+                return {"success": True, "tile_id": tile_id, "ndvi_url": url}
+            except Exception as e:
+                logger.error(f"❌ SUPABASE INSERT FAILED for {tile_id}: {e}")
+                logger.error(f"Row data: {row}")
+                return {"success": False, "tile_id": tile_id, "error": str(e)}
+                
         except Exception as e:
-            logger.error(f"Supabase insert failed for {tile_id}: {e}")
+            logger.error(f"❌ UNEXPECTED ERROR processing {tile_id}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return {"success": False, "tile_id": tile_id, "error": str(e)}
 
-    # ------------------------------------------------------------------
-# Process one tile (patched with country_id + logging)
-# ------------------------------------------------------------------
-async def process_tile(self, tile_id: str) -> Dict:
-    # 1. Fetch scenes from MPC
-    scenes = await self.fetch_tile_scenes(tile_id)
-    if not scenes:
-        return {"success": False, "tile_id": tile_id, "error": "No scenes"}
-
-    # 2. Download red + NIR bands
-    red, transform, crs = await self.download_band(scenes[0]["assets"]["red"])
-    nir, _, _ = await self.download_band(scenes[0]["assets"]["nir"])
-    ndvi = self.compute_ndvi(red, nir)
-
-    # 3. Save NDVI to bytes
-    ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
-    storage_path = f"{tile_id}/{datetime.utcnow().date()}/ndvi.tif"
-    url = await self.upload_to_storage(ndvi_bytes, storage_path)
-
-    # 4. Get country_id from mgrs_tiles (needed for FK constraint)
-    country_resp = (
-        self.supabase.table("mgrs_tiles")
-        .select("country_id")
-        .eq("tile_id", tile_id)
-        .single()
-        .execute()
-    )
-    country_id = None
-    if country_resp.data:
-        country_id = country_resp.data.get("country_id")
-
-    if not country_id:
-        logger.error(f"No country_id found for {tile_id}, skipping insert")
-        return {"success": False, "tile_id": tile_id, "error": "No country_id"}
-
-    # 5. Insert into satellite_tiles with proper FK
-    row = {
-        "tile_id": tile_id,
-        "country_id": country_id,
-        "acquisition_date": datetime.utcnow().date().isoformat(),
-        "collection": "sentinel-2-l2a",
-        "cloud_cover": scenes[0]["cloud_cover"],
-        "ndvi_path": storage_path,
-        "metadata": scenes[0]["metadata"],
-        "status": "completed",
-    }
-
-    try:
-        res = (
-            self.supabase.table("satellite_tiles")
-            .upsert(row, on_conflict="tile_id,acquisition_date,collection")  # ✅ correct
-            .execute()
-        )
-        logger.info(f"Upsert response for {tile_id}: {res}")
-        return {"success": True, "tile_id": tile_id, "ndvi_url": url}
-    except Exception as e:
-        logger.error(f"Supabase insert failed for {tile_id}: {e}")
-        return {"success": False, "tile_id": tile_id, "error": str(e)}
-
-  
     # ------------------------------------------------------------------
     # Cleanup old tiles
     # ------------------------------------------------------------------
     async def cleanup_old_tiles(self, days: int = RETENTION_DAYS):
-        cutoff = (datetime.utcnow() - timedelta(days=days)).date().isoformat()
-        old_tiles = self.supabase.table("satellite_tiles").select("*").lt("acquisition_date", cutoff).execute()
-        for t in old_tiles.data:
-            if t.get("ndvi_path"):
-                self.supabase.storage.from_(STORAGE_BUCKET).remove([t["ndvi_path"]])
-            self.supabase.table("satellite_tiles").delete().eq("id", t["id"]).execute()
+        try:
+            cutoff = (datetime.utcnow() - timedelta(days=days)).date().isoformat()
+            logger.info(f"Cleaning up tiles older than {cutoff}")
+            
+            old_tiles = self.supabase.table("satellite_tiles").select("*").lt("acquisition_date", cutoff).execute()
+            logger.info(f"Found {len(old_tiles.data)} old tiles to cleanup")
+            
+            for t in old_tiles.data:
+                if t.get("ndvi_path"):
+                    try:
+                        self.supabase.storage.from_(STORAGE_BUCKET).remove([t["ndvi_path"]])
+                        logger.info(f"Removed storage file: {t['ndvi_path']}")
+                    except Exception as e:
+                        logger.error(f"Failed to remove storage file {t['ndvi_path']}: {e}")
+                
+                try:
+                    self.supabase.table("satellite_tiles").delete().eq("id", t["id"]).execute()
+                    logger.info(f"Deleted tile record: {t['id']}")
+                except Exception as e:
+                    logger.error(f"Failed to delete tile record {t['id']}: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Cleanup failed: {e}")
 
 
 # ----------------------------------------------------------------------
@@ -302,16 +318,24 @@ async def run_main(tile_ids: Optional[str], cleanup: bool):
 
         tiles = tile_ids.split(",") if tile_ids else []
         if not tiles:
-            resp = worker.supabase.rpc("get_all_tiles", {"country_code": SUPABASE_COUNTRY_CODE}).execute()
-            tiles = [t["tile_id"] for t in resp.data]
+            logger.info(f"Fetching all tiles for country: {SUPABASE_COUNTRY_CODE}")
+            try:
+                resp = worker.supabase.rpc("get_all_tiles", {"country_code": SUPABASE_COUNTRY_CODE}).execute()
+                tiles = [t["tile_id"] for t in resp.data]
+                logger.info(f"Found {len(tiles)} tiles: {tiles}")
+            except Exception as e:
+                logger.error(f"Failed to fetch tiles: {e}")
+                return
 
         tiles = tiles[:MAX_TILES_PER_RUN]
+        logger.info(f"Processing {len(tiles)} tiles: {tiles}")
+        
         for t in tiles:
             try:
                 res = await worker.process_tile(t)
-                logger.info(f"Processed {t}: {res}")
+                logger.info(f"🔄 PROCESSED {t}: {res}")
             except Exception as e:
-                logger.error(f"Failed {t}: {str(e)}")
+                logger.error(f"💥 FAILED {t}: {str(e)}")
 
 if __name__ == "__main__":
     main()
