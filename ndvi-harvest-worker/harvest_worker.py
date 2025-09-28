@@ -220,12 +220,12 @@ class NDVIHarvestWorker:
 
         if not mgrs_resp.data:
             logger.error(f"❌ Tile {tile_id} not found in mgrs_tiles")
-            return {"success": False, "tile_id": tile_id, "error": "Tile not found"}
+                return {"success": False, "tile_id": tile_id, "error": "Tile not found"}
 
         country_id = mgrs_resp.data.get("country_id")
         if not country_id:
             logger.error(f"❌ No country_id for {tile_id}")
-            return {"success": False, "tile_id": tile_id, "error": "No country_id"}
+                return {"success": False, "tile_id": tile_id, "error": "No country_id"}
 
         logger.info(f"✅ Found tile {tile_id} with country_id={country_id}")
 
@@ -337,6 +337,7 @@ class NDVIHarvestWorker:
             logger.error(f"⚠️ Failed to log error in DB: {insert_error}")
 
         return {"success": False, "tile_id": tile_id, "error": str(e)}
+
    
     # ------------------------------------------------------------------
     # Get tiles to process
