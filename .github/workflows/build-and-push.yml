@@ -33,7 +33,6 @@ jobs:
       matrix:
         worker:
           - { name: harvest-worker, dockerfile: Dockerfile, context: ./ndvi-harvest-worker }
-       
 
     steps:
     - name: Checkout code
@@ -57,7 +56,7 @@ jobs:
         context: ${{ matrix.worker.context }}
         file: ${{ matrix.worker.context }}/${{ matrix.worker.dockerfile }}
         push: true
-        tags: ${{ env.REGISTRY }}/${{ matrix.worker.name }}:latest
+        tags: ${{ env.REGISTRY }}/${{ matrix.worker.name }}:latest,${{ env.REGISTRY }}/${{ matrix.worker.name }}:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         platforms: linux/amd64
@@ -67,26 +66,180 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    # Ensure Container App has access to ACR
+    # Wait for any ongoing operations to complete
+    - name: Wait for Container App to be ready
+      run: |
+        echo "Checking Container App status..."
+        max_attempts=30
+        attempt=0
+        
+        while [ $attempt -lt $max_attempts ]; do
+          status=$(az containerapp show \
+            --name ${{ matrix.worker.name }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "properties.provisioningState" \
+            --output tsv 2>/dev/null || echo "NotFound")
+          
+          echo "Attempt $((attempt + 1))/$max_attempts: Container App status is '$status'"
+          
+          if [ "$status" = "Succeeded" ]; then
+            echo "✅ Container App is ready"
+            break
+          elif [ "$status" = "Failed" ]; then
+            echo "❌ Container App is in failed state"
+            exit 1
+          elif [ "$status" = "NotFound" ]; then
+            echo "📦 Container App not found, will create new one"
+            break
+          else
+            echo "⏳ Container App is still provisioning (status: $status), waiting 30 seconds..."
+            sleep 30
+            attempt=$((attempt + 1))
+          fi
+        done
+        
+        if [ $attempt -eq $max_attempts ]; then
+          echo "❌ Timeout waiting for Container App to be ready"
+          exit 1
+        fi
+
+    # Check if Container App exists, create if not
+    - name: Create Container App if not exists
+      run: |
+        echo "Checking if Container App exists..."
+        if ! az containerapp show --name ${{ matrix.worker.name }} --resource-group ${{ env.RESOURCE_GROUP }} >/dev/null 2>&1; then
+          echo "Creating new Container App: ${{ matrix.worker.name }}"
+          
+          # Create the container app
+          az containerapp create \
+            --name ${{ matrix.worker.name }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --environment kisanshakti-env \
+            --image ${{ env.REGISTRY }}/${{ matrix.worker.name }}:${{ github.sha }} \
+            --registry-server ${{ env.REGISTRY }} \
+            --registry-username ${{ secrets.REGISTRY_USERNAME }} \
+            --registry-password ${{ secrets.REGISTRY_PASSWORD }} \
+            --secrets \
+              supabase-url=${{ secrets.SUPABASE_URL }} \
+              supabase-service-key=${{ secrets.SUPABASE_SERVICE_KEY }} \
+              registry-password=${{ secrets.REGISTRY_PASSWORD }} \
+            --env-vars \
+              SUPABASE_URL=secretref:supabase-url \
+              SUPABASE_SERVICE_KEY=secretref:supabase-service-key \
+              STORAGE_BUCKET=satellite-tiles \
+              SUPABASE_COUNTRY_CODE=${{ env.SUPABASE_COUNTRY_CODE }} \
+              CLOUD_COVER_THRESHOLD=20 \
+              MAX_TILES_PER_RUN=5 \
+              RETENTION_DAYS=30 \
+            --min-replicas 0 \
+            --max-replicas 3 \
+            --cpu 1.0 \
+            --memory 2.0Gi \
+            --ingress external \
+            --target-port 8000 \
+            --transport http \
+            --query "properties.configuration.ingress.fqdn" \
+            --output tsv
+            
+          echo "✅ Container App created successfully"
+        else
+          echo "✅ Container App already exists"
+        fi
+
+    # Ensure Container App has access to ACR (only if needed)
     - name: Ensure Container App has access to ACR
       run: |
-        echo "Linking ACR to ${{ matrix.worker.name }}..."
-        az containerapp registry set \
+        echo "Verifying ACR access for ${{ matrix.worker.name }}..."
+        
+        # Get current registry configuration
+        current_registries=$(az containerapp show \
           --name ${{ matrix.worker.name }} \
           --resource-group ${{ env.RESOURCE_GROUP }} \
-          --server ${{ env.REGISTRY }} \
-          --username ${{ secrets.REGISTRY_USERNAME }} \
-          --password ${{ secrets.REGISTRY_PASSWORD }}
+          --query "properties.configuration.registries[].server" \
+          --output tsv 2>/dev/null || echo "")
+        
+        if [[ "$current_registries" != *"${{ env.REGISTRY }}"* ]]; then
+          echo "Adding ACR registry to Container App..."
+          az containerapp registry set \
+            --name ${{ matrix.worker.name }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --server ${{ env.REGISTRY }} \
+            --username ${{ secrets.REGISTRY_USERNAME }} \
+            --password ${{ secrets.REGISTRY_PASSWORD }}
+          echo "✅ ACR registry added"
+        else
+          echo "✅ ACR registry already configured"
+        fi
 
+    # Wait again before updating to ensure registry operation completed
+    - name: Wait before update
+      run: |
+        echo "Waiting 30 seconds before update..."
+        sleep 30
+
+    # Update Container App with new image
     - name: Update Container App ${{ matrix.worker.name }}
       run: |
-        echo "Deploying ${{ matrix.worker.name }} with image ${{ env.REGISTRY }}/${{ matrix.worker.name }}:latest"
-        az containerapp update \
+        echo "Updating ${{ matrix.worker.name }} with image ${{ env.REGISTRY }}/${{ matrix.worker.name }}:${{ github.sha }}"
+        
+        max_attempts=5
+        attempt=0
+        
+        while [ $attempt -lt $max_attempts ]; do
+          echo "Update attempt $((attempt + 1))/$max_attempts"
+          
+          if az containerapp update \
+            --name ${{ matrix.worker.name }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.REGISTRY }}/${{ matrix.worker.name }}:${{ github.sha }} \
+            --min-replicas 0 \
+            --max-replicas 3 \
+            --cpu 1.0 \
+            --memory 2.0Gi; then
+            echo "✅ Container App updated successfully"
+            break
+          else
+            echo "❌ Update failed, waiting 60 seconds before retry..."
+            sleep 60
+            attempt=$((attempt + 1))
+          fi
+        done
+        
+        if [ $attempt -eq $max_attempts ]; then
+          echo "❌ Failed to update Container App after $max_attempts attempts"
+          exit 1
+        fi
+
+    # Verify deployment
+    - name: Verify deployment
+      run: |
+        echo "Verifying deployment..."
+        
+        # Wait for deployment to complete
+        sleep 30
+        
+        # Check final status
+        final_status=$(az containerapp show \
           --name ${{ matrix.worker.name }} \
           --resource-group ${{ env.RESOURCE_GROUP }} \
-          --image ${{ env.REGISTRY }}/${{ matrix.worker.name }}:latest \
-          --min-replicas 1 \
-          --max-replicas 3
+          --query "properties.provisioningState" \
+          --output tsv)
+        
+        current_image=$(az containerapp show \
+          --name ${{ matrix.worker.name }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --query "properties.template.containers[0].image" \
+          --output tsv)
+        
+        echo "Final status: $final_status"
+        echo "Current image: $current_image"
+        
+        if [ "$final_status" = "Succeeded" ]; then
+          echo "✅ Deployment completed successfully"
+        else
+          echo "❌ Deployment may have issues (status: $final_status)"
+          exit 1
+        fi
 
   summary:
     needs: build-and-deploy
@@ -99,11 +252,14 @@ jobs:
         echo "| Worker | Status |" >> $GITHUB_STEP_SUMMARY
         echo "|--------|--------|" >> $GITHUB_STEP_SUMMARY
         if [[ "${{ needs.build-and-deploy.result }}" == "success" ]]; then
-          echo "| All Workers | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+          echo "| harvest-worker | ✅ Success |" >> $GITHUB_STEP_SUMMARY
         else
-          echo "| All Workers | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          echo "| harvest-worker | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
         fi
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Images deployed to Container Apps" >> $GITHUB_STEP_SUMMARY
-        echo "- harvest-worker (latest)" >> $GITHUB_STEP_SUMMARY
-        echo "- land-clipper (latest)" >> $GITHUB_STEP_SUMMARY
+        echo "- harvest-worker:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Container App Details" >> $GITHUB_STEP_SUMMARY
+        echo "- Resource Group: kisanshakti-rg" >> $GITHUB_STEP_SUMMARY
+        echo "- Registry: kisanshaktiacr.azurecr.io" >> $GITHUB_STEP_SUMMARY
