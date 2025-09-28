@@ -32,8 +32,8 @@ logger = logging.getLogger("NDVIHarvestWorker")
 # ----------------------------------------------------------------------
 # Env
 # ----------------------------------------------------------------------
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://qfklkkzxemsbeniyugiz.supabase.co")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFma2xra3p4ZW1zYmVuaXl1Z2l6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjQyNzE2NSwiZXhwIjoyMDY4MDAzMTY1fQ.CBl6gNq11KiMiYuNiXytvJlrsaC82CJ3H_jf2dzJe0I")
 STORAGE_BUCKET = os.getenv("STORAGE_BUCKET", "satellite-tiles")
 SUPABASE_COUNTRY_CODE = os.getenv("SUPABASE_COUNTRY_CODE", "IND")
 
