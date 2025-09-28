@@ -202,14 +202,14 @@ class NDVIHarvestWorker:
             logger.error(f"Storage upload failed: {e}")
             raise
 
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
     # Process tile
     # ------------------------------------------------------------------
     async def process_tile(self, tile_id: str) -> Dict:
         logger.info(f"🚀 Processing tile: {tile_id}")
 
         try:
-            # ✅ Always get country_id from mgrs_tiles
+            # ✅ Get country_id from mgrs_tiles
             mgrs_resp = (
                 self.supabase.table("mgrs_tiles")
                 .select("country_id, tile_id")
@@ -236,17 +236,22 @@ class NDVIHarvestWorker:
                 return {"success": False, "tile_id": tile_id, "error": "No suitable scenes found"}
 
             best_scene = scenes[0]
-            logger.info(f"Using scene: {best_scene['id']} (cloud cover: {best_scene['cloud_cover']}%)")
+            logger.info(f"📸 Using scene: {best_scene['id']} (cloud cover: {best_scene['cloud_cover']}%)")
 
             # Download bands
+            logger.info(f"⬇️ Downloading RED band for {tile_id}")
             red, transform, crs = await self.download_band(best_scene["assets"]["red"])
+            logger.info(f"⬇️ Downloading NIR band for {tile_id}")
             nir, _, _ = await self.download_band(best_scene["assets"]["nir"])
 
             # Compute NDVI
+            logger.info(f"⚙️ Computing NDVI for {tile_id}")
             ndvi = self.compute_ndvi(red, nir)
+            logger.info(f"✅ NDVI computed for {tile_id} (shape={ndvi.shape})")
 
             # Save NDVI
             ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
+            logger.info(f"💾 NDVI raster prepared (size={len(ndvi_bytes)/(1024*1024):.2f} MB)")
 
             # Scene date for naming
             scene_date = datetime.fromisoformat(best_scene["datetime"].replace("Z", "+00:00"))
@@ -254,19 +259,17 @@ class NDVIHarvestWorker:
             storage_path = f"{tile_id}/{date_str}/ndvi.tif"
 
             # Upload to storage
+            logger.info(f"⬆️ Uploading NDVI to Supabase storage: {storage_path}")
             ndvi_url = await self.upload_to_storage(ndvi_bytes, storage_path)
+            logger.info(f"✅ Uploaded NDVI to storage: {ndvi_url}")
 
             # Prepare database record
             acquisition_date = scene_date.date()
-
-            metadata = best_scene["metadata"].copy()
-            for key in list(metadata.keys()):
-                if metadata[key] is None or key.startswith("_"):
-                    metadata.pop(key, None)
+            metadata = sanitize_metadata(best_scene["metadata"])
 
             row_data = {
                 "tile_id": tile_id,
-                "country_id": country_id,  # ✅ matches mgrs_tiles FK
+                "country_id": country_id,
                 "acquisition_date": acquisition_date.isoformat(),
                 "collection": "sentinel-2-l2a",
                 "cloud_cover": float(best_scene["cloud_cover"]),
@@ -279,8 +282,7 @@ class NDVIHarvestWorker:
                 "status": "completed",
             }
 
-            logger.info(f"Inserting record for {tile_id} with acquisition_date: {acquisition_date}")
-
+            logger.info(f"➡️ Inserting record into satellite_tiles: {row_data}")
             result = (
                 self.supabase.table("satellite_tiles")
                 .upsert(row_data, on_conflict="tile_id,acquisition_date,collection")
@@ -291,9 +293,8 @@ class NDVIHarvestWorker:
                 logger.error(f"❌ Database upsert failed for {tile_id}: {result.error}")
                 return {"success": False, "tile_id": tile_id, "error": f"Database error: {result.error}"}
 
-            logger.info(f"✅ Successfully processed {tile_id}")
+            logger.info(f"✅ Database upsert completed for {tile_id}, rows affected: {len(result.data) if result.data else 0}")
             logger.info(f"   - NDVI URL: {ndvi_url}")
-            logger.info(f"   - Database record: {len(result.data) if result.data else 0} rows affected")
 
             return {
                 "success": True,
@@ -321,7 +322,7 @@ class NDVIHarvestWorker:
                 if error_record["country_id"]:
                     self.supabase.table("satellite_tiles").insert(error_record).execute()
             except Exception as insert_error:
-                logger.error(f"Failed to insert error record: {insert_error}")
+                logger.error(f"⚠️ Failed to insert error record: {insert_error}")
 
             return {"success": False, "tile_id": tile_id, "error": str(e)}
 
