@@ -32,10 +32,19 @@ logger = logging.getLogger("NDVIHarvestWorker")
 # ----------------------------------------------------------------------
 # Env
 # ----------------------------------------------------------------------
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+# ----------------------------------------------------------------------
+# Env
+# ----------------------------------------------------------------------
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 STORAGE_BUCKET = os.getenv("STORAGE_BUCKET", "satellite-tiles")
 SUPABASE_COUNTRY_CODE = os.getenv("SUPABASE_COUNTRY_CODE", "IND")
+
+# Fail fast if critical secrets are missing
+if not SUPABASE_URL:
+    raise RuntimeError("❌ Missing SUPABASE_URL (check container secrets)")
+if not SUPABASE_SERVICE_KEY:
+    raise RuntimeError("❌ Missing SUPABASE_SERVICE_KEY (check container secrets)")
 
 MPC_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 CLOUD_COVER_THRESHOLD = float(os.getenv("CLOUD_COVER_THRESHOLD", "20"))
