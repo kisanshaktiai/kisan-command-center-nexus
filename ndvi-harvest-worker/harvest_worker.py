@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-NDVI Harvest Worker - Improved for Concurrency, FK, Storage, and Cleanup
+NDVI Harvest Worker - Auto Agriculture Detection
 """
 
 import os
@@ -41,13 +41,12 @@ MPC_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 CLOUD_COVER_THRESHOLD = float(os.getenv("CLOUD_COVER_THRESHOLD", "20"))
 MAX_TILES_PER_RUN = int(os.getenv("MAX_TILES_PER_RUN", "5"))
 RETENTION_DAYS = int(os.getenv("RETENTION_DAYS", "30"))
-MAX_CONCURRENT_TILES = int(os.getenv("MAX_CONCURRENT_TILES", "3"))  # limit concurrency
+MAX_CONCURRENT_TILES = int(os.getenv("MAX_CONCURRENT_TILES", "3"))
 
 # ----------------------------------------------------------------------
 # Helper
 # ----------------------------------------------------------------------
 def sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
-    """Sanitize STAC metadata for JSON storage"""
     clean = {}
     for k, v in metadata.items():
         if k.startswith("_") or v is None:
@@ -58,7 +57,7 @@ def sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
             clean[k] = float(v)
         elif isinstance(v, (list, dict)):
             try:
-                json.dumps(v)  # test JSON serializable
+                json.dumps(v)
                 clean[k] = v
             except Exception:
                 continue
@@ -94,8 +93,6 @@ class NDVIHarvestWorker:
         end_date = datetime.utcnow()
         for window in (days_back, 14, 30):
             start_date = end_date - timedelta(days=window)
-            logger.info(f"Searching scenes for {tile_id} ({start_date} → {end_date})")
-
             try:
                 search = self.catalog.search(
                     collections=["sentinel-2-l2a"],
@@ -132,13 +129,11 @@ class NDVIHarvestWorker:
     # Download raster
     # ------------------------------------------------------------------
     async def download_band(self, url: str):
-        logger.info(f"Downloading {url[:80]}...")
         r = await self.http_client.get(url)
         r.raise_for_status()
         with MemoryFile(r.content) as memfile:
             with memfile.open() as dataset:
-                data = dataset.read(1)
-                return data, dataset.transform, dataset.crs
+                return dataset.read(1), dataset.transform, dataset.crs
 
     # ------------------------------------------------------------------
     # NDVI
@@ -173,14 +168,12 @@ class NDVIHarvestWorker:
     # ------------------------------------------------------------------
     async def upload_to_storage(self, file_bytes: bytes, path: str) -> str:
         try:
-            # Ensure bucket exists
             try:
                 buckets = self.supabase.storage.list_buckets()
                 if STORAGE_BUCKET not in [b.name for b in buckets]:
                     self.supabase.storage.create_bucket(STORAGE_BUCKET, {"public": True})
-            except Exception as e:
-                logger.warning(f"Bucket check/create failed: {e}")
-
+            except Exception:
+                pass
             self.supabase.storage.from_(STORAGE_BUCKET).upload(
                 path, file_bytes, {"content-type": "image/tiff", "upsert": "true"}
             )
@@ -218,8 +211,22 @@ class NDVIHarvestWorker:
             scene_date = datetime.fromisoformat(best_scene["datetime"].replace("Z", "+00:00"))
             date_str = scene_date.strftime("%Y-%m-%d")
             storage_path = f"{tile_id}/{date_str}/ndvi_{best_scene['id']}.tif"
-
             ndvi_url = await self.upload_to_storage(ndvi_bytes, storage_path)
+
+            # --- Auto agriculture detection ---
+            valid_pixels = np.count_nonzero(~np.isnan(ndvi))
+            mean_ndvi = float(np.nanmean(ndvi)) if valid_pixels > 0 else -1
+            valid_ratio = valid_pixels / ndvi.size if ndvi.size > 0 else 0
+            is_agri_detected = mean_ndvi > 0.2 and valid_ratio > 0.2
+
+            try:
+                self.supabase.table("mgrs_tiles").update({
+                    "is_agri": is_agri_detected,
+                    "last_checked": datetime.utcnow().isoformat()
+                }).eq("tile_id", tile_id).execute()
+                logger.info(f"Tile {tile_id} agriculture status → {is_agri_detected}")
+            except Exception as e:
+                logger.error(f"Failed to update is_agri for {tile_id}: {e}")
 
             row_data = {
                 "tile_id": tile_id,
@@ -235,13 +242,9 @@ class NDVIHarvestWorker:
                 "processing_level": "L2A",
                 "status": "completed",
             }
-
-            try:
-                self.supabase.table("satellite_tiles").upsert(
-                    row_data, on_conflict="tile_id,acquisition_date,collection"
-                ).execute()
-            except Exception as db_err:
-                return {"success": False, "tile_id": tile_id, "error": str(db_err)}
+            self.supabase.table("satellite_tiles").upsert(
+                row_data, on_conflict="tile_id,acquisition_date,collection"
+            ).execute()
 
             return {
                 "success": True,
@@ -250,6 +253,9 @@ class NDVIHarvestWorker:
                 "acquisition_date": row_data["acquisition_date"],
                 "cloud_cover": best_scene["cloud_cover"],
                 "scene_id": best_scene["id"],
+                "is_agri": is_agri_detected,
+                "mean_ndvi": mean_ndvi,
+                "valid_ratio": valid_ratio
             }
         except Exception as e:
             return {"success": False, "tile_id": tile_id, "error": str(e)}
@@ -278,7 +284,6 @@ class NDVIHarvestWorker:
                 self.supabase.table("mgrs_tiles")
                 .select("tile_id")
                 .eq("country_id", country_id)
-                .eq("is_agri", True)
                 .limit(MAX_TILES_PER_RUN)
                 .execute()
             )
