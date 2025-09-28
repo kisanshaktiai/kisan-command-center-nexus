@@ -46,6 +46,17 @@ if not SUPABASE_URL:
 if not SUPABASE_SERVICE_KEY:
     raise RuntimeError("❌ Missing SUPABASE_SERVICE_KEY (check container secrets)")
 
+# ----------------------------------------------------------------------
+# Debug Env at Startup
+# ----------------------------------------------------------------------
+logger.info("🔑 Startup environment check:")
+logger.info(f"SUPABASE_URL: {SUPABASE_URL[:40]}...")   # truncated for safety
+logger.info(f"SUPABASE_SERVICE_KEY length: {len(SUPABASE_SERVICE_KEY)}")
+logger.info(f"STORAGE_BUCKET: {STORAGE_BUCKET}")
+logger.info(f"SUPABASE_COUNTRY_CODE: {SUPABASE_COUNTRY_CODE}")
+
+
+
 MPC_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 CLOUD_COVER_THRESHOLD = float(os.getenv("CLOUD_COVER_THRESHOLD", "20"))
 MAX_TILES_PER_RUN = int(os.getenv("MAX_TILES_PER_RUN", "5"))
