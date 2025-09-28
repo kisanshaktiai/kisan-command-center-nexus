@@ -185,185 +185,185 @@ class NDVIHarvestWorker:
     # ------------------------------------------------------------------
     # Process tile
     # ------------------------------------------------------------------
-   async def process_tile(self, tile_id: str) -> Dict:
-    logger.info(f"🚀 Processing tile: {tile_id}")
-
-    try:
-        # ✅ Always get country_id from mgrs_tiles
-        mgrs_resp = (
-            self.supabase.table("mgrs_tiles")
-            .select("country_id, tile_id")
-            .eq("tile_id", tile_id)
-            .single()
-            .execute()
-        )
-
-        if not mgrs_resp.data:
-            logger.error(f"❌ Tile {tile_id} not found in mgrs_tiles table")
-            return {"success": False, "tile_id": tile_id, "error": "Tile not found in mgrs_tiles"}
-
-        country_id = mgrs_resp.data["country_id"]
-        if not country_id:
-            logger.error(f"❌ No country_id for tile {tile_id}")
-            return {"success": False, "tile_id": tile_id, "error": "No country_id"}
-
-        logger.info(f"✅ Found tile {tile_id} with country_id: {country_id}")
-
-        # Fetch scenes
-        scenes = await self.fetch_tile_scenes(tile_id)
-        if not scenes:
-            logger.error(f"❌ No scenes found for {tile_id}")
-            return {"success": False, "tile_id": tile_id, "error": "No suitable scenes found"}
-
-        best_scene = scenes[0]
-        logger.info(f"Using scene: {best_scene['id']} (cloud cover: {best_scene['cloud_cover']}%)")
-
-        # Download bands
-        red, transform, crs = await self.download_band(best_scene["assets"]["red"])
-        nir, _, _ = await self.download_band(best_scene["assets"]["nir"])
-
-        # Compute NDVI
-        ndvi = self.compute_ndvi(red, nir)
-
-        # Save NDVI
-        ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
-
-        # Scene date for naming
-        scene_date = datetime.fromisoformat(best_scene["datetime"].replace("Z", "+00:00"))
-        date_str = scene_date.strftime("%Y-%m-%d")
-        storage_path = f"{tile_id}/{date_str}/ndvi.tif"
-
-        # Upload to storage
-        ndvi_url = await self.upload_to_storage(ndvi_bytes, storage_path)
-
-        # Prepare database record
-        acquisition_date = scene_date.date()
-
-        metadata = best_scene["metadata"].copy()
-        for key in list(metadata.keys()):
-            if metadata[key] is None or key.startswith("_"):
-                metadata.pop(key, None)
-
-        row_data = {
-            "tile_id": tile_id,
-            "country_id": country_id,  # ✅ matches mgrs_tiles FK
-            "acquisition_date": acquisition_date.isoformat(),
-            "collection": "sentinel-2-l2a",
-            "cloud_cover": float(best_scene["cloud_cover"]),
-            "ndvi_path": storage_path,
-            "red_band_path": best_scene["assets"]["red"],
-            "nir_band_path": best_scene["assets"]["nir"],
-            "metadata": metadata,
-            "file_size_mb": round(len(ndvi_bytes) / (1024 * 1024), 2),
-            "processing_level": "L2A",
-            "status": "completed",
-        }
-
-        logger.info(f"Inserting record for {tile_id} with acquisition_date: {acquisition_date}")
-
-        result = (
-            self.supabase.table("satellite_tiles")
-            .upsert(row_data, on_conflict="tile_id,acquisition_date,collection")
-            .execute()
-        )
-
-        if hasattr(result, "error") and result.error:
-            logger.error(f"❌ Database upsert failed for {tile_id}: {result.error}")
-            return {"success": False, "tile_id": tile_id, "error": f"Database error: {result.error}"}
-
-        logger.info(f"✅ Successfully processed {tile_id}")
-        logger.info(f"   - NDVI URL: {ndvi_url}")
-        logger.info(f"   - Database record: {len(result.data) if result.data else 0} rows affected")
-
-        return {
-            "success": True,
-            "tile_id": tile_id,
-            "ndvi_url": ndvi_url,
-            "acquisition_date": acquisition_date.isoformat(),
-            "cloud_cover": best_scene["cloud_cover"],
-            "scene_id": best_scene["id"],
-        }
-
-    except Exception as e:
-        logger.error(f"💥 Error processing {tile_id}: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
+    async def process_tile(self, tile_id: str) -> Dict:
+        logger.info(f"🚀 Processing tile: {tile_id}")
 
         try:
-            error_record = {
-                "tile_id": tile_id,
-                "country_id": country_id if "country_id" in locals() else None,
-                "acquisition_date": datetime.utcnow().date().isoformat(),
-                "collection": "sentinel-2-l2a",
-                "status": "failed",
-                "error_message": str(e)[:500],
-            }
-            if error_record["country_id"]:
-                self.supabase.table("satellite_tiles").insert(error_record).execute()
-        except Exception as insert_error:
-            logger.error(f"Failed to insert error record: {insert_error}")
+            # ✅ Always get country_id from mgrs_tiles
+            mgrs_resp = (
+                self.supabase.table("mgrs_tiles")
+                .select("country_id, tile_id")
+                .eq("tile_id", tile_id)
+                .single()
+                .execute()
+            )
 
-        return {"success": False, "tile_id": tile_id, "error": str(e)}
+            if not mgrs_resp.data:
+                logger.error(f"❌ Tile {tile_id} not found in mgrs_tiles table")
+                return {"success": False, "tile_id": tile_id, "error": "Tile not found in mgrs_tiles"}
+
+            country_id = mgrs_resp.data["country_id"]
+            if not country_id:
+                logger.error(f"❌ No country_id for tile {tile_id}")
+                return {"success": False, "tile_id": tile_id, "error": "No country_id"}
+
+            logger.info(f"✅ Found tile {tile_id} with country_id: {country_id}")
+
+            # Fetch scenes
+            scenes = await self.fetch_tile_scenes(tile_id)
+            if not scenes:
+                logger.error(f"❌ No scenes found for {tile_id}")
+                return {"success": False, "tile_id": tile_id, "error": "No suitable scenes found"}
+
+            best_scene = scenes[0]
+            logger.info(f"Using scene: {best_scene['id']} (cloud cover: {best_scene['cloud_cover']}%)")
+
+            # Download bands
+            red, transform, crs = await self.download_band(best_scene["assets"]["red"])
+            nir, _, _ = await self.download_band(best_scene["assets"]["nir"])
+
+            # Compute NDVI
+            ndvi = self.compute_ndvi(red, nir)
+
+            # Save NDVI
+            ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
+
+            # Scene date for naming
+            scene_date = datetime.fromisoformat(best_scene["datetime"].replace("Z", "+00:00"))
+            date_str = scene_date.strftime("%Y-%m-%d")
+            storage_path = f"{tile_id}/{date_str}/ndvi.tif"
+
+            # Upload to storage
+            ndvi_url = await self.upload_to_storage(ndvi_bytes, storage_path)
+
+            # Prepare database record
+            acquisition_date = scene_date.date()
+
+            metadata = best_scene["metadata"].copy()
+            for key in list(metadata.keys()):
+                if metadata[key] is None or key.startswith("_"):
+                    metadata.pop(key, None)
+
+            row_data = {
+                "tile_id": tile_id,
+                "country_id": country_id,  # ✅ matches mgrs_tiles FK
+                "acquisition_date": acquisition_date.isoformat(),
+                "collection": "sentinel-2-l2a",
+                "cloud_cover": float(best_scene["cloud_cover"]),
+                "ndvi_path": storage_path,
+                "red_band_path": best_scene["assets"]["red"],
+                "nir_band_path": best_scene["assets"]["nir"],
+                "metadata": metadata,
+                "file_size_mb": round(len(ndvi_bytes) / (1024 * 1024), 2),
+                "processing_level": "L2A",
+                "status": "completed",
+            }
+
+            logger.info(f"Inserting record for {tile_id} with acquisition_date: {acquisition_date}")
+
+            result = (
+                self.supabase.table("satellite_tiles")
+                .upsert(row_data, on_conflict="tile_id,acquisition_date,collection")
+                .execute()
+            )
+
+            if hasattr(result, "error") and result.error:
+                logger.error(f"❌ Database upsert failed for {tile_id}: {result.error}")
+                return {"success": False, "tile_id": tile_id, "error": f"Database error: {result.error}"}
+
+            logger.info(f"✅ Successfully processed {tile_id}")
+            logger.info(f"   - NDVI URL: {ndvi_url}")
+            logger.info(f"   - Database record: {len(result.data) if result.data else 0} rows affected")
+
+            return {
+                "success": True,
+                "tile_id": tile_id,
+                "ndvi_url": ndvi_url,
+                "acquisition_date": acquisition_date.isoformat(),
+                "cloud_cover": best_scene["cloud_cover"],
+                "scene_id": best_scene["id"],
+            }
+
+        except Exception as e:
+            logger.error(f"💥 Error processing {tile_id}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+
+            try:
+                error_record = {
+                    "tile_id": tile_id,
+                    "country_id": country_id if "country_id" in locals() else None,
+                    "acquisition_date": datetime.utcnow().date().isoformat(),
+                    "collection": "sentinel-2-l2a",
+                    "status": "failed",
+                    "error_message": str(e)[:500],
+                }
+                if error_record["country_id"]:
+                    self.supabase.table("satellite_tiles").insert(error_record).execute()
+            except Exception as insert_error:
+                logger.error(f"Failed to insert error record: {insert_error}")
+
+            return {"success": False, "tile_id": tile_id, "error": str(e)}
 
 
     # ------------------------------------------------------------------
     # Get tiles to process
     # ------------------------------------------------------------------
-    async def get_tiles_to_process(self, country_code: str) -> List[str]:
-    """Get tiles that need processing for a country code"""
-    logger.info(f"Getting tiles to process for country: {country_code}")
+    async def get_tiles_to_process(self, country_code: str) -> List[str]: # Line 212
+        """Get tiles that need processing for a country code"""
+        logger.info(f"Getting tiles to process for country: {country_code}")
 
-    try:
-        # Step 1: lookup country_id from countries table
-        country_result = (
-            self.supabase.table("countries")
-            .select("id")
-            .eq("code", country_code)
-            .single()
-            .execute()
-        )
+        try:
+            # Step 1: lookup country_id from countries table
+            country_result = (
+                self.supabase.table("countries")
+                .select("id")
+                .eq("code", country_code)
+                .single()
+                .execute()
+            )
 
-        if not country_result.data:
-            logger.error(f"Country with code {country_code} not found")
-            return []
+            if not country_result.data:
+                logger.error(f"Country with code {country_code} not found")
+                return []
 
-        country_id = country_result.data["id"]
-        logger.info(f"Found country_id: {country_id} for code: {country_code}")
+            country_id = country_result.data["id"]
+            logger.info(f"Found country_id: {country_id} for code: {country_code}")
 
-        # Step 2: Try RPC first
-        result = self.supabase.rpc(
-            "get_tiles_for_processing",
-            {"country_code": country_code, "days_since_last_update": 7}
-        ).execute()
+            # Step 2: Try RPC first
+            result = self.supabase.rpc(
+                "get_tiles_for_processing",
+                {"country_code": country_code, "days_since_last_update": 7}
+            ).execute()
 
-        if result.data and len(result.data) > 0:
-            tiles = [row["tile_id"] for row in result.data]
-            logger.info(f"Found {len(tiles)} tiles via RPC")
-            return tiles
+            if result.data and len(result.data) > 0:
+                tiles = [row["tile_id"] for row in result.data]
+                logger.info(f"Found {len(tiles)} tiles via RPC")
+                return tiles
 
-        # Step 3: fallback direct query to mgrs_tiles
-        logger.warning("No tiles found from RPC, falling back to direct query...")
-        result = (
-            self.supabase.table("mgrs_tiles")
-            .select("tile_id")
-            .eq("country_id", country_id)
-            .limit(MAX_TILES_PER_RUN)
-            .execute()
-        )
+            # Step 3: fallback direct query to mgrs_tiles
+            logger.warning("No tiles found from RPC, falling back to direct query...")
+            result = (
+                self.supabase.table("mgrs_tiles")
+                .select("tile_id")
+                .eq("country_id", country_id)
+                .limit(MAX_TILES_PER_RUN)
+                .execute()
+            )
 
-        if result.data:
-            tiles = [row["tile_id"] for row in result.data]
-            logger.info(f"Found {len(tiles)} tiles via direct query")
-            return tiles
-        else:
-            logger.warning("No tiles found in direct query")
+            if result.data:
+                tiles = [row["tile_id"] for row in result.data]
+                logger.info(f"Found {len(tiles)} tiles via direct query")
+                return tiles
+            else:
+                logger.warning("No tiles found in direct query")
 
-    except Exception as e:
-        logger.error(f"Error getting tiles to process: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
+        except Exception as e:
+            logger.error(f"Error getting tiles to process: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
-    return []
+        return []
 
 
     # ------------------------------------------------------------------
