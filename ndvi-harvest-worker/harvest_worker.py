@@ -280,7 +280,57 @@ class NDVIHarvestWorker:
             except Exception as insert_error:
                 logger.error(f"⚠️ Failed to log error in DB: {insert_error}")
             return {"success": False, "tile_id": tile_id, "error": str(e)}
+    # ------------------------------------------------------------------
+    # Get Tiles to Process
+    # ------------------------------------------------------------------
+    async def get_tiles_to_process(self, country_code: str) -> List[str]:
+        logger.info(f"📌 Getting tiles to process for country={country_code}")
 
+        try:
+            # First resolve the country_id
+            resp = (
+                self.supabase.table("countries")
+                .select("id")
+                .eq("code", country_code)
+                .single()
+                .execute()
+            )
+            if not resp.data:
+                logger.error(f"❌ No country found with code={country_code}")
+                return []
+
+            country_id = resp.data["id"]
+            logger.info(f"✅ Found country_id={country_id} for code={country_code}")
+
+            # Try RPC first
+            try:
+                rpc_resp = self.supabase.rpc(
+                    "get_tiles_for_processing", {"p_country_id": country_id}
+                ).execute()
+                if rpc_resp and rpc_resp.data:
+                    tiles = [row["tile_id"] for row in rpc_resp.data]
+                    logger.info(f"✅ RPC returned {len(tiles)} tiles")
+                    return tiles
+                else:
+                    logger.warning("⚠️ RPC returned no tiles, falling back to direct query")
+            except Exception as e:
+                logger.error(f"⚠️ RPC failed: {e}, falling back to direct query")
+
+            # Fallback direct query
+            resp = (
+                self.supabase.table("mgrs_tiles")
+                .select("tile_id")
+                .eq("country_id", country_id)
+                .limit(MAX_TILES_PER_RUN)
+                .execute()
+            )
+            tiles = [row["tile_id"] for row in resp.data] if resp.data else []
+            logger.info(f"✅ Direct query returned {len(tiles)} tiles")
+            return tiles
+
+        except Exception as e:
+            logger.error(f"💥 get_tiles_to_process failed: {e}")
+            return []
 # ----------------------------------------------------------------------
 # Entrypoint
 # ----------------------------------------------------------------------
