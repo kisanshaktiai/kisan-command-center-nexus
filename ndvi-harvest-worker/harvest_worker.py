@@ -47,11 +47,11 @@ if not SUPABASE_SERVICE_KEY:
     raise RuntimeError("❌ Missing SUPABASE_SERVICE_KEY (check container secrets)")
 
 # ----------------------------------------------------------------------
-# Debug Env at Startup
+# Debug Env at Startup (Safe Logging)
 # ----------------------------------------------------------------------
 logger.info("🔑 Startup environment check:")
-logger.info(f"SUPABASE_URL: {SUPABASE_URL[:40]}...")   # truncated for safety
-logger.info(f"SUPABASE_SERVICE_KEY length: {len(SUPABASE_SERVICE_KEY)}")
+logger.info(f"SUPABASE_URL: {SUPABASE_URL[:30]}... (length={len(SUPABASE_URL)})")
+logger.info(f"SUPABASE_SERVICE_KEY: [hidden], length={len(SUPABASE_SERVICE_KEY)}")
 logger.info(f"STORAGE_BUCKET: {STORAGE_BUCKET}")
 logger.info(f"SUPABASE_COUNTRY_CODE: {SUPABASE_COUNTRY_CODE}")
 
