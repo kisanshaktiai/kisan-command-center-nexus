@@ -205,142 +205,139 @@ class NDVIHarvestWorker:
         # ------------------------------------------------------------------
     # Process tile
     # ------------------------------------------------------------------
-        async def process_tile(self, tile_id: str) -> Dict:
+    async def process_tile(self, tile_id: str) -> Dict:
         logger.info(f"🚀 Processing tile: {tile_id}")
 
+    try:
+        # ✅ Get country_id from mgrs_tiles
+        mgrs_resp = (
+            self.supabase.table("mgrs_tiles")
+            .select("country_id, tile_id")
+            .eq("tile_id", tile_id)
+            .single()
+            .execute()
+        )
+
+        if not mgrs_resp.data:
+            logger.error(f"❌ Tile {tile_id} not found in mgrs_tiles")
+            return {"success": False, "tile_id": tile_id, "error": "Tile not found"}
+
+        country_id = mgrs_resp.data.get("country_id")
+        if not country_id:
+            logger.error(f"❌ No country_id for {tile_id}")
+            return {"success": False, "tile_id": tile_id, "error": "No country_id"}
+
+        logger.info(f"✅ Found tile {tile_id} with country_id={country_id}")
+
+        # ✅ Fetch scenes
+        scenes = await self.fetch_tile_scenes(tile_id)
+        if not scenes:
+            logger.error(f"❌ No scenes found for {tile_id}")
+            return {"success": False, "tile_id": tile_id, "error": "No scenes found"}
+
+        best_scene = scenes[0]
+        logger.info(f"📸 Scene chosen: {best_scene['id']} (cloud cover={best_scene['cloud_cover']}%)")
+
+        # ✅ Download bands
+        logger.info("⬇️ Downloading RED band...")
+        red, transform, crs = await self.download_band(best_scene["assets"]["red"])
+        logger.info("⬇️ Downloading NIR band...")
+        nir, _, _ = await self.download_band(best_scene["assets"]["nir"])
+
+        # ✅ Compute NDVI
+        ndvi = self.compute_ndvi(red, nir)
+        logger.info(f"⚙️ NDVI computed (shape={ndvi.shape}, min={np.nanmin(ndvi):.3f}, max={np.nanmax(ndvi):.3f})")
+
+        # ✅ Save NDVI raster
+        ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
+        size_mb = round(len(ndvi_bytes) / (1024 * 1024), 2)
+        logger.info(f"💾 NDVI raster ready ({size_mb} MB)")
+
+        # ✅ Storage path
+        scene_date = datetime.fromisoformat(best_scene["datetime"].replace("Z", "+00:00"))
+        date_str = scene_date.strftime("%Y-%m-%d")
+        storage_path = f"{tile_id}/{date_str}/ndvi.tif"
+
+        # ✅ Upload to Supabase storage
+        logger.info(f"⬆️ Uploading NDVI → {storage_path}")
         try:
-            # -------------------------------------------------------------
-            # STEP 1: Lookup tile in mgrs_tiles
-            # -------------------------------------------------------------
-            mgrs_resp = (
-                self.supabase.table("mgrs_tiles")
-                .select("country_id, tile_id")
-                .eq("tile_id", tile_id)
-                .single()
-                .execute()
+            res = self.supabase.storage.from_(STORAGE_BUCKET).upload(
+                storage_path,
+                ndvi_bytes,
+                {"content-type": "image/tiff", "upsert": "true"},
             )
-
-            if not mgrs_resp.data:
-                logger.error(f"❌ Tile {tile_id} not found in mgrs_tiles table")
-                return {"success": False, "tile_id": tile_id, "error": "Tile not found in mgrs_tiles"}
-
-            country_id = mgrs_resp.data.get("country_id")
-            if not country_id:
-                logger.error(f"❌ No country_id for tile {tile_id}")
-                return {"success": False, "tile_id": tile_id, "error": "No country_id"}
-
-            logger.info(f"✅ Found tile {tile_id} with country_id: {country_id}")
-
-            # -------------------------------------------------------------
-            # STEP 2: Fetch scenes from MPC
-            # -------------------------------------------------------------
-            scenes = await self.fetch_tile_scenes(tile_id)
-            if not scenes:
-                logger.error(f"❌ No scenes found for {tile_id}")
-                return {"success": False, "tile_id": tile_id, "error": "No suitable scenes found"}
-
-            best_scene = scenes[0]
-            logger.info(f"📸 Using scene {best_scene['id']} (cloud cover {best_scene['cloud_cover']}%)")
-
-            # -------------------------------------------------------------
-            # STEP 3: Download bands
-            # -------------------------------------------------------------
-            logger.info(f"⬇️ Downloading RED band for {tile_id}")
-            red, transform, crs = await self.download_band(best_scene["assets"]["red"])
-            logger.info(f"⬇️ Downloading NIR band for {tile_id}")
-            nir, _, _ = await self.download_band(best_scene["assets"]["nir"])
-
-            # -------------------------------------------------------------
-            # STEP 4: Compute NDVI
-            # -------------------------------------------------------------
-            ndvi = self.compute_ndvi(red, nir)
-            ndvi_min, ndvi_max = np.nanmin(ndvi), np.nanmax(ndvi)
-            logger.info(f"⚙️ NDVI computed → min={ndvi_min:.3f}, max={ndvi_max:.3f}")
-
-            # -------------------------------------------------------------
-            # STEP 5: Save raster to bytes
-            # -------------------------------------------------------------
-            ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
-            file_size_mb = round(len(ndvi_bytes) / (1024 * 1024), 2)
-            logger.info(f"💾 Raster created: {file_size_mb} MB")
-
-            if file_size_mb > 45:  # near Supabase free-tier 50 MB limit
-                logger.warning(f"⚠️ NDVI file {file_size_mb} MB may exceed Supabase limits!")
-
-            # -------------------------------------------------------------
-            # STEP 6: Upload to Supabase Storage
-            # -------------------------------------------------------------
-            scene_date = datetime.fromisoformat(best_scene["datetime"].replace("Z", "+00:00"))
-            date_str = scene_date.strftime("%Y-%m-%d")
-            storage_path = f"{tile_id}/{date_str}/ndvi.tif"
-
-            try:
-                logger.info(f"⬆️ Uploading to bucket {STORAGE_BUCKET}: {storage_path}")
-                upload_res = self.supabase.storage.from_(STORAGE_BUCKET).upload(
-                    storage_path,
-                    ndvi_bytes,
-                    {"content-type": "image/tiff", "upsert": "true"}
-                )
-                logger.info(f"📦 Upload response: {upload_res}")
-            except Exception as e:
-                logger.error(f"❌ Storage upload failed: {e}")
-                raise
-
-            ndvi_url = self.supabase.storage.from_(STORAGE_BUCKET).get_public_url(storage_path)
-            logger.info(f"🌍 Public NDVI URL: {ndvi_url}")
-
-            # -------------------------------------------------------------
-            # STEP 7: Prepare DB record
-            # -------------------------------------------------------------
-            metadata = sanitize_metadata(best_scene["metadata"])
-            row_data = {
-                "tile_id": tile_id,
-                "country_id": country_id,
-                "acquisition_date": scene_date.date().isoformat(),
-                "collection": "sentinel-2-l2a",
-                "cloud_cover": float(best_scene["cloud_cover"]),
-                "ndvi_path": storage_path,
-                "red_band_path": best_scene["assets"]["red"],
-                "nir_band_path": best_scene["assets"]["nir"],
-                "metadata": metadata,
-                "file_size_mb": file_size_mb,
-                "processing_level": "L2A",
-                "status": "completed",
-            }
-
-            logger.info(f"➡️ Inserting DB record: {json.dumps(row_data)[:200]}...")
-
-            # -------------------------------------------------------------
-            # STEP 8: Insert into satellite_tiles
-            # -------------------------------------------------------------
-            result = (
-                self.supabase.table("satellite_tiles")
-                .upsert(row_data, on_conflict=["tile_id","acquisition_date","collection"])
-                .execute()
-            )
-
-            if hasattr(result, "error") and result.error:
-                logger.error(f"❌ Database upsert failed: {result.error}")
-                return {"success": False, "tile_id": tile_id, "error": f"DB error: {result.error}"}
-
-            logger.info(f"✅ DB insert success → {len(result.data) if result.data else 0} rows affected")
-
-            return {
-                "success": True,
-                "tile_id": tile_id,
-                "ndvi_url": ndvi_url,
-                "acquisition_date": scene_date.date().isoformat(),
-                "cloud_cover": best_scene["cloud_cover"],
-                "scene_id": best_scene["id"],
-            }
-
+            logger.info(f"📦 Upload response: {res}")
         except Exception as e:
-            logger.error(f"💥 Fatal error processing {tile_id}: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return {"success": False, "tile_id": tile_id, "error": str(e)}
+            logger.error(f"❌ Upload failed: {e}")
+            raise
 
+        ndvi_url = self.supabase.storage.from_(STORAGE_BUCKET).get_public_url(storage_path)
+        logger.info(f"🌍 Public NDVI URL: {ndvi_url}")
 
+        # ✅ Prepare DB row
+        metadata = sanitize_metadata(best_scene["metadata"])
+        row_data = {
+            "tile_id": tile_id,
+            "country_id": country_id,
+            "acquisition_date": scene_date.date().isoformat(),
+            "collection": "sentinel-2-l2a",
+            "cloud_cover": float(best_scene["cloud_cover"]),
+            "ndvi_path": storage_path,
+            "red_band_path": best_scene["assets"]["red"],
+            "nir_band_path": best_scene["assets"]["nir"],
+            "metadata": metadata,
+            "file_size_mb": size_mb,
+            "processing_level": "L2A",
+            "status": "completed",
+        }
+
+        logger.info(f"➡️ Upserting record into satellite_tiles: {row_data}")
+
+        result = (
+            self.supabase.table("satellite_tiles")
+            .upsert(row_data, on_conflict=["tile_id", "acquisition_date", "collection"])
+            .execute()
+        )
+
+        if hasattr(result, "error") and result.error:
+            logger.error(f"❌ DB upsert failed: {result.error}")
+            return {"success": False, "tile_id": tile_id, "error": str(result.error)}
+
+        logger.info(f"✅ DB upsert success ({len(result.data) if result.data else 0} rows)")
+
+        return {
+            "success": True,
+            "tile_id": tile_id,
+            "ndvi_url": ndvi_url,
+            "acquisition_date": scene_date.date().isoformat(),
+            "cloud_cover": best_scene["cloud_cover"],
+            "scene_id": best_scene["id"],
+        }
+
+    except Exception as e:
+        logger.error(f"💥 Fatal error on {tile_id}: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+
+        # ✅ Safer error upsert
+        try:
+            error_record = {
+                "tile_id": tile_id,
+                "country_id": country_id if "country_id" in locals() else None,
+                "acquisition_date": datetime.utcnow().date().isoformat(),
+                "collection": "sentinel-2-l2a",
+                "status": "failed",
+                "error_message": str(e)[:500],
+            }
+            self.supabase.table("satellite_tiles").upsert(
+                error_record, on_conflict=["tile_id", "acquisition_date", "collection"]
+            ).execute()
+            logger.info("⚠️ Error record inserted in DB")
+        except Exception as insert_error:
+            logger.error(f"⚠️ Failed to log error in DB: {insert_error}")
+
+        return {"success": False, "tile_id": tile_id, "error": str(e)}
+   
     # ------------------------------------------------------------------
     # Get tiles to process
     # ------------------------------------------------------------------
