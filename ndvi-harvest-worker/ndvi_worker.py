@@ -7,6 +7,7 @@ import rasterio
 import planetary_computer as pc
 from pystac_client import Client
 from supabase import create_client, Client as SupaClient
+from httpx import Timeout
 
 # ----------------------------------------------------------------------
 # Environment
@@ -22,6 +23,7 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
     raise RuntimeError("❌ Supabase URL or Service key missing.")
 
 supabase: SupaClient = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+supabase.storage._client.timeout = Timeout(300.0)
 
 # ----------------------------------------------------------------------
 # Helpers
