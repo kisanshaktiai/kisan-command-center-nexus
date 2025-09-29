@@ -1,12 +1,13 @@
-import os, tempfile, json
+import os, tempfile
 from datetime import datetime
+from dateutil import parser as dateparser
 import numpy as np
 import rasterio
 import planetary_computer as pc
 from pystac_client import Client
 from supabase import create_client, Client as SupaClient
 
-# Supabase
+# Supabase setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 BUCKET = os.getenv("STORAGE_BUCKET", "satellite-tiles")
@@ -15,9 +16,10 @@ CLOUD_COVER = float(os.getenv("CLOUD_COVER_THRESHOLD", "20"))
 
 supabase: SupaClient = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Helpers
 def get_country_id():
     res = supabase.table("countries").select("id").eq("code", COUNTRY_CODE).execute()
+    if not res.data:
+        raise RuntimeError(f"❌ No country found with code {COUNTRY_CODE}")
     return res.data[0]["id"]
 
 def get_mgrs_tiles(country_id, limit=50):
@@ -35,7 +37,10 @@ def get_last_date(tile_id, country_id):
         .execute()
     )
     if res.data:
-        return datetime.fromisoformat(res.data[0]["acquisition_date"])
+        try:
+            return dateparser.parse(res.data[0]["acquisition_date"])
+        except Exception:
+            return datetime(2020, 1, 1)
     return datetime(2020, 1, 1)
 
 def compute_ndvi(red, nir, out):
@@ -50,8 +55,12 @@ def compute_ndvi(red, nir, out):
 
 def upload(tile_id, country_id, date, ndvi_path, red_url, nir_url, scene):
     storage_path = f"{tile_id}/{date}/ndvi.tif"
-    with open(ndvi_path, "rb") as f:
-        supabase.storage.from_(BUCKET).upload(storage_path, f, {"upsert": "true"})
+    try:
+        with open(ndvi_path, "rb") as f:
+            supabase.storage.from_(BUCKET).upload(storage_path, f)
+    except Exception as e:
+        print(f"❌ Storage upload failed: {e}")
+        return
 
     payload = {
         "tile_id": tile_id,
@@ -65,7 +74,11 @@ def upload(tile_id, country_id, date, ndvi_path, red_url, nir_url, scene):
         "metadata": scene.to_dict(),
         "status": "completed",
     }
-    supabase.table("satellite_tiles").upsert(payload, on_conflict=["tile_id", "acquisition_date", "collection"]).execute()
+    try:
+        supabase.table("satellite_tiles").upsert(payload).execute()
+        print(f"✅ Inserted DB record for {tile_id} on {date}")
+    except Exception as e:
+        print(f"❌ DB insert failed for {tile_id} on {date}: {e}")
 
 def run():
     country_id = get_country_id()
@@ -107,8 +120,6 @@ def run():
             compute_ndvi(red, nir, ndvi)
 
             upload(tile_id, country_id, date, ndvi, red_url, nir_url, scene)
-
-        print(f"✅ Stored NDVI for {tile_id} on {date}")
 
 if __name__ == "__main__":
     run()
