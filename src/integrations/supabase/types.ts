@@ -10158,9 +10158,13 @@ export type Database = {
       satellite_tiles: {
         Row: {
           acquisition_date: string
+          actual_download_status: string | null
           checksum: string | null
           cloud_cover: number | null
           collection: string
+          copernicus_download_attempted_at: string | null
+          copernicus_nir_band_url: string | null
+          copernicus_red_band_url: string | null
           country_id: string | null
           created_at: string | null
           error_message: string | null
@@ -10169,6 +10173,7 @@ export type Database = {
           metadata: Json | null
           ndvi_path: string | null
           nir_band_path: string | null
+          processing_completed_at: string | null
           processing_level: string | null
           raw_paths: Json | null
           red_band_path: string | null
@@ -10181,9 +10186,13 @@ export type Database = {
         }
         Insert: {
           acquisition_date: string
+          actual_download_status?: string | null
           checksum?: string | null
           cloud_cover?: number | null
           collection?: string
+          copernicus_download_attempted_at?: string | null
+          copernicus_nir_band_url?: string | null
+          copernicus_red_band_url?: string | null
           country_id?: string | null
           created_at?: string | null
           error_message?: string | null
@@ -10192,6 +10201,7 @@ export type Database = {
           metadata?: Json | null
           ndvi_path?: string | null
           nir_band_path?: string | null
+          processing_completed_at?: string | null
           processing_level?: string | null
           raw_paths?: Json | null
           red_band_path?: string | null
@@ -10204,9 +10214,13 @@ export type Database = {
         }
         Update: {
           acquisition_date?: string
+          actual_download_status?: string | null
           checksum?: string | null
           cloud_cover?: number | null
           collection?: string
+          copernicus_download_attempted_at?: string | null
+          copernicus_nir_band_url?: string | null
+          copernicus_red_band_url?: string | null
           country_id?: string | null
           created_at?: string | null
           error_message?: string | null
@@ -10215,6 +10229,7 @@ export type Database = {
           metadata?: Json | null
           ndvi_path?: string | null
           nir_band_path?: string | null
+          processing_completed_at?: string | null
           processing_level?: string | null
           raw_paths?: Json | null
           red_band_path?: string | null
