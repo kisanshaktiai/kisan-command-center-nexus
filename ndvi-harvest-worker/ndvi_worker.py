@@ -18,13 +18,6 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
 
 supabase: SupaClient = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-# Auth as the restricted ingestor user (gets a JWT with 'authenticated' role)
-auth_res = supabase.auth.sign_in_with_password({
-    "email": INGESTOR_EMAIL,
-    "password": INGESTOR_PASSWORD
-})
-if not auth_res or not auth_res.user:
-    raise RuntimeError("❌ Failed to sign in as ingestor user. Check credentials.")
 
 def get_country_id():
     res = supabase.table("countries").select("id").eq("code", COUNTRY_CODE).limit(1).execute()
