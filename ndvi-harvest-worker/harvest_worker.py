@@ -359,10 +359,10 @@ class NDVIHarvestWorker:
                 "scene_id": best_scene["id"],
             }
     
-    except Exception as e:
-        logger.error(f"💥 Fatal error while processing tile {tile_id}: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
+        except Exception as e:
+            logger.error(f"💥 Fatal error while processing tile {tile_id}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
     
         # Best-effort: record a failure row if we can satisfy the FK (need country_id)
         try:
@@ -380,10 +380,10 @@ class NDVIHarvestWorker:
                     fail_record, on_conflict="tile_id,acquisition_date,collection"
                 ).execute()
                 logger.info("⚠️ Failure row inserted")
-    except Exception as log_e:
-            logger.error(f"⚠️ Failed to log error row: {log_e}")
-    
-    return {"success": False, "tile_id": tile_id, "error": str(e)}
+        except Exception as log_e:
+                logger.error(f"⚠️ Failed to log error row: {log_e}")
+        
+        return {"success": False, "tile_id": tile_id, "error": str(e)}
 
 
 
