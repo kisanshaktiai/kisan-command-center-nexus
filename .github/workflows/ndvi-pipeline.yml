@@ -24,6 +24,7 @@ jobs:
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         INGESTOR_EMAIL: ${{ secrets.INGESTOR_EMAIL }}
         INGESTOR_PASSWORD: ${{ secrets.INGESTOR_PASSWORD }}
         STORAGE_BUCKET: satellite-tiles
