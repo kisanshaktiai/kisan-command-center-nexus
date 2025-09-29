@@ -28,7 +28,6 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSatelliteTiles, useExportTiles } from '@/hooks/useSatelliteTiles';
 import { format } from 'date-fns';
-import { CopernicusAuthInfo } from './NdviDataStatus/CopernicusAuthInfo';
 
 interface SatelliteTilesFilters {
   status?: string;
@@ -54,8 +53,7 @@ export default function NdviDataStatus() {
     filterType: 'all' as 'all' | 'agricultural' | 'non-agricultural',
     priorityMode: 'baseline' as 'baseline' | 'agricultural-priority' | 'update-existing',
     maxTilesPerRun: 50,
-    cloudCoverage: 20,
-    downloadActualData: true
+    cloudCoverage: 20
   });
 
   const {
@@ -206,8 +204,20 @@ export default function NdviDataStatus() {
         </Card>
       </div>
 
-      {/* Copernicus Authentication Info */}
-      {syncConfig.downloadActualData && <CopernicusAuthInfo />}
+      {/* Planetary Computer Info */}
+      <Alert className="border-green-200 bg-green-50">
+        <CheckCircle className="h-4 w-4 text-green-600" />
+        <AlertTitle>Free Satellite Data Access</AlertTitle>
+        <AlertDescription className="space-y-2">
+          <p>
+            This system uses Microsoft Planetary Computer to fetch Sentinel-2 satellite data. 
+            No authentication or registration is required - the data is freely available!
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Data source: Microsoft Planetary Computer STAC API with Cloud-Optimized GeoTIFFs (COGs)
+          </p>
+        </AlertDescription>
+      </Alert>
 
       {/* Sync Configuration */}
       <Card>
@@ -283,22 +293,6 @@ export default function NdviDataStatus() {
             </div>
           </div>
 
-          {/* Toggle for actual data download */}
-          <div className="flex items-center space-x-2 py-3 px-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <Switch
-              id="download-actual"
-              checked={syncConfig.downloadActualData}
-              onCheckedChange={(checked) => setSyncConfig(prev => ({ ...prev, downloadActualData: checked }))}
-            />
-            <Label htmlFor="download-actual" className="flex-1 cursor-pointer">
-              <div className="font-medium text-yellow-900">Download Actual Satellite Data</div>
-              <div className="text-sm text-yellow-700">
-                {syncConfig.downloadActualData 
-                  ? "Will attempt to download real TIF files from Copernicus (requires authentication)"
-                  : "Will use simulated data for testing purposes"}
-              </div>
-            </Label>
-          </div>
           
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="text-sm text-muted-foreground">

@@ -144,7 +144,6 @@ class SatelliteTilesService {
       countryFilter?: string;
       stateFilter?: string;
       includeProcessed?: boolean;
-      downloadActualData?: boolean;
     }
   ): Promise<Result<{ 
     message: string; 
@@ -169,7 +168,6 @@ class SatelliteTilesService {
         cloudCoverage: params?.cloudCoverage || 20,
         forceRefresh: params?.forceRefresh || false,
         maxTilesPerRun: params?.maxTilesPerRun || 50,
-        downloadActualData: params?.downloadActualData !== false, // Default to true
         filterType: params?.filterType || 'all',
         priorityMode: params?.priorityMode || 'baseline',
         countryFilter: params?.countryFilter,

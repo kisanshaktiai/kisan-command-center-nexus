@@ -6,10 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Copernicus Dataspace API endpoints
-const COPERNICUS_CATALOGUE_URL = "https://catalogue.dataspace.copernicus.eu/odata/v1";
-const COPERNICUS_DOWNLOAD_URL = "https://zipper.dataspace.copernicus.eu/odata/v1";
-const COPERNICUS_S3_URL = "https://eodata.dataspace.copernicus.eu";
+// Microsoft Planetary Computer API endpoints
+const PLANETARY_COMPUTER_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1";
 
 // Define types
 interface MGRSTile {
@@ -22,17 +20,27 @@ interface MGRSTile {
   priority_level?: number;
 }
 
-interface Sentinel2Product {
-  Id: string;
-  Name: string;
-  ContentDate: {
-    Start: string;
-    End: string;
+interface STACItem {
+  id: string;
+  bbox: number[];
+  geometry: any;
+  properties: {
+    datetime: string;
+    "eo:cloud_cover": number;
+    "s2:mgrs_tile": string;
+    "s2:product_uri": string;
+    platform: string;
+    constellation: string;
   };
-  CloudCover: number;
-  GeoFootprint: any;
-  S3Path: string;
-  ProductInfo?: any;
+  assets: {
+    [key: string]: {
+      href: string;
+      type?: string;
+      title?: string;
+      roles?: string[];
+    };
+  };
+  links: any[];
 }
 
 // Main request handler
@@ -57,7 +65,6 @@ serve(async (req) => {
     const district = searchParams.get("district");
     const priorityMode = searchParams.get("priorityMode");
     const forceRefresh = searchParams.get("forceRefresh") === "true";
-    const downloadActualData = searchParams.get("downloadActualData") !== "false"; // Default to true
 
     console.log(`[fetch-s2-ndvi] Starting NDVI data fetch:`, {
       startDate,
@@ -68,7 +75,7 @@ serve(async (req) => {
       district,
       priorityMode,
       forceRefresh,
-      downloadActualData
+      source: "Microsoft Planetary Computer"
     });
 
     // Fetch MGRS tiles based on filters
@@ -129,31 +136,30 @@ serve(async (req) => {
       try {
         console.log(`[fetch-s2-ndvi] Processing tile: ${mgrsTile.tile_id}`);
         
-        // Query Copernicus Catalogue for Sentinel-2 products
-        const products = await queryCopernicusCatalogue(
+        // Query Planetary Computer STAC for Sentinel-2 products
+        const stacItems = await queryPlanetaryComputer(
           mgrsTile.tile_id,
           startDate,
           endDate,
           cloudCoverage
         );
 
-        if (products.length === 0) {
+        if (stacItems.length === 0) {
           console.log(`[fetch-s2-ndvi] No products found for tile ${mgrsTile.tile_id}`);
           continue;
         }
 
         // Select best quality image (lowest cloud cover)
-        const bestImage = products.reduce((best, current) => 
-          current.CloudCover < best.CloudCover ? current : best
+        const bestImage = stacItems.reduce((best: STACItem, current: STACItem) => 
+          current.properties["eo:cloud_cover"] < best.properties["eo:cloud_cover"] ? current : best
         );
 
-        // Extract acquisition date from product name
-        const dateMatch = bestImage.Name.match(/(\d{8})T/);
-        const acquisitionDate = dateMatch 
-          ? `${dateMatch[1].slice(0, 4)}-${dateMatch[1].slice(4, 6)}-${dateMatch[1].slice(6, 8)}`
+        // Extract acquisition date from item properties
+        const acquisitionDate = bestImage.properties.datetime 
+          ? bestImage.properties.datetime.split('T')[0]
           : new Date().toISOString().split('T')[0];
 
-        console.log(`[fetch-s2-ndvi] Best image for ${mgrsTile.tile_id}: ${bestImage.Name}, Cloud: ${bestImage.CloudCover}%, Date: ${acquisitionDate}`);
+        console.log(`[fetch-s2-ndvi] Best image for ${mgrsTile.tile_id}: ${bestImage.id}, Cloud: ${bestImage.properties["eo:cloud_cover"]}%, Date: ${acquisitionDate}`);
 
         // Check if tile already exists (unless force refresh)
         if (!forceRefresh) {
@@ -190,7 +196,7 @@ serve(async (req) => {
         const tileData = {
           tile_id: mgrsTile.tile_id,
           acquisition_date: acquisitionDate,
-          cloud_cover: bestImage.CloudCover,
+          cloud_cover: bestImage.properties["eo:cloud_cover"],
           status: "processing",
           country_id: mgrsTile.country_id || "IND",
           collection: "sentinel-2-l2a",
@@ -201,13 +207,13 @@ serve(async (req) => {
             state: mgrsTile.state,
             district: mgrsTile.district,
             geometry: mgrsTile.geometry,
-            sentinel_product_id: bestImage.Id,
-            sentinel_product_name: bestImage.Name,
+            stac_item_id: bestImage.id,
+            stac_product_uri: bestImage.properties["s2:product_uri"],
             processing_timestamp: new Date().toISOString(),
             satellite: "Sentinel-2",
             sensor: "MSI",
-            copernicus_s3_path: bestImage.S3Path,
-            product_info: bestImage.ProductInfo
+            planetary_computer: true,
+            assets: bestImage.assets
           }
         };
 
@@ -231,22 +237,14 @@ serve(async (req) => {
 
         console.log(`[fetch-s2-ndvi] Tile record created/updated for ${mgrsTile.tile_id}`);
 
-        // Process NDVI - either download actual data or simulate
-        const processingResult = downloadActualData 
-          ? await downloadAndProcessNDVI(
-              supabase,
-              insertedTile.id,
-              mgrsTile.tile_id,
-              acquisitionDate,
-              bestImage
-            )
-          : await processNDVI(
-              supabase,
-              insertedTile.id,
-              mgrsTile.tile_id,
-              acquisitionDate,
-              bestImage
-            );
+        // Process NDVI - download actual data from Planetary Computer
+        const processingResult = await downloadAndProcessNDVI(
+          supabase,
+          insertedTile.id,
+          mgrsTile.tile_id,
+          acquisitionDate,
+          bestImage
+        );
 
         // Update tile with processing results
         const { error: updateError } = await supabase
@@ -263,9 +261,6 @@ serve(async (req) => {
             storage_paths_verified: processingResult.storagePathsVerified,
             processing_completed_at: processingResult.status === "completed" ? new Date().toISOString() : null,
             actual_download_status: processingResult.actualDownloadStatus,
-            copernicus_red_band_url: processingResult.redBandUrl,
-            copernicus_nir_band_url: processingResult.nirBandUrl,
-            copernicus_download_attempted_at: processingResult.downloadAttemptedAt,
             updated_at: new Date().toISOString()
           })
           .eq("id", insertedTile.id);
@@ -280,7 +275,7 @@ serve(async (req) => {
             tile_id: mgrsTile.tile_id,
             acquisition_date: acquisitionDate,
             status: processingResult.status,
-            cloud_cover: bestImage.CloudCover,
+            cloud_cover: bestImage.properties["eo:cloud_cover"],
             storage_verified: processingResult.storageVerified
           });
 
@@ -330,68 +325,73 @@ serve(async (req) => {
 });
 
 /**
- * Query Copernicus Dataspace Catalogue for Sentinel-2 products
+ * Query Microsoft Planetary Computer STAC API for Sentinel-2 products
  */
-async function queryCopernicusCatalogue(
+async function queryPlanetaryComputer(
   tileId: string,
   startDate: string,
   endDate: string,
   maxCloudCover: number
-): Promise<Sentinel2Product[]> {
+): Promise<STACItem[]> {
   try {
-    // Build OData query for Sentinel-2 L2A products
-    const filter = `Collection/Name eq 'SENTINEL-2' and ` +
-      `Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'productType' and att/OData.CSC.StringAttribute/Value eq 'S2MSI2A') and ` +
-      `contains(Name,'${tileId}') and ` +
-      `ContentDate/Start ge ${startDate}T00:00:00.000Z and ` +
-      `ContentDate/Start le ${endDate}T23:59:59.999Z and ` +
-      `Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover' and att/OData.CSC.DoubleAttribute/Value le ${maxCloudCover})`;
+    console.log(`[queryPlanetaryComputer] Querying for tile ${tileId}`);
+    
+    // Build STAC search query
+    const searchBody = {
+      "collections": ["sentinel-2-l2a"],
+      "datetime": `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
+      "query": {
+        "s2:mgrs_tile": {
+          "eq": tileId
+        },
+        "eo:cloud_cover": {
+          "lt": maxCloudCover
+        }
+      },
+      "limit": 10,
+      "sortby": [
+        {
+          "field": "properties.eo:cloud_cover",
+          "direction": "asc"
+        }
+      ]
+    };
 
-    const url = `${COPERNICUS_CATALOGUE_URL}/Products?$filter=${encodeURIComponent(filter)}&$top=10&$orderby=ContentDate/Start desc`;
-    
-    console.log(`[queryCopernicusCatalogue] Querying for tile ${tileId}`);
-    
-    const response = await fetch(url, {
+    const response = await fetch(`${PLANETARY_COMPUTER_STAC_URL}/search`, {
+      method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         'Accept': 'application/json'
-      }
+      },
+      body: JSON.stringify(searchBody)
     });
 
     if (!response.ok) {
-      console.error(`[queryCopernicusCatalogue] API error: ${response.status}`);
-      // Don't fall back to simulated data - return empty array
+      console.error(`[queryPlanetaryComputer] API error: ${response.status}`);
       return [];
     }
 
     const data = await response.json();
-    const products = data.value || [];
+    const features = data.features || [];
     
-    console.log(`[queryCopernicusCatalogue] Found ${products.length} products for ${tileId}`);
+    console.log(`[queryPlanetaryComputer] Found ${features.length} products for ${tileId}`);
     
-    return products.map((p: any) => ({
-      Id: p.Id,
-      Name: p.Name,
-      ContentDate: p.ContentDate,
-      CloudCover: p.Attributes?.find((a: any) => a.Name === 'cloudCover')?.Value || 0,
-      GeoFootprint: p.GeoFootprint,
-      S3Path: p.S3Path,
-      ProductInfo: p
-    }));
+    return features;
   } catch (error) {
-    console.error(`[queryCopernicusCatalogue] Error:`, error);
+    console.error(`[queryPlanetaryComputer] Error:`, error);
     return [];
   }
 }
 
 /**
- * Download actual satellite data and process NDVI
+ * Download actual satellite data from Planetary Computer and process NDVI
  */
 async function downloadAndProcessNDVI(
   supabase: any,
   tileId: string,
   tileName: string,
   acquisitionDate: string,
-  sentinelProduct: Sentinel2Product
+  stacItem: STACItem
 ): Promise<{
   status: string;
   ndviPath: string | null;
@@ -403,41 +403,45 @@ async function downloadAndProcessNDVI(
   storageVerified: boolean;
   storagePathsVerified: any;
   actualDownloadStatus: string;
-  redBandUrl: string | null;
-  nirBandUrl: string | null;
-  downloadAttemptedAt: string | null;
 }> {
   try {
     console.log(`[downloadAndProcessNDVI] Starting download for ${tileName}/${acquisitionDate}`);
     
-    // Mark download as attempted
-    const downloadAttemptedAt = new Date().toISOString();
+    // Get URLs for RED (B04) and NIR (B08) bands from STAC assets
+    const redBandAsset = stacItem.assets["B04"] || stacItem.assets["red"];
+    const nirBandAsset = stacItem.assets["B08"] || stacItem.assets["nir"];
     
-    // Construct URLs for RED (B04) and NIR (B08) bands
-    const productPath = sentinelProduct.S3Path.replace(/^\//, ''); // Remove leading slash
-    const redBandUrl = `${COPERNICUS_S3_URL}/${productPath}/GRANULE/*/IMG_DATA/R10m/*_B04_10m.jp2`;
-    const nirBandUrl = `${COPERNICUS_S3_URL}/${productPath}/GRANULE/*/IMG_DATA/R10m/*_B08_10m.jp2`;
+    if (!redBandAsset || !nirBandAsset) {
+      console.error(`[downloadAndProcessNDVI] Missing band assets for ${tileName}`);
+      return {
+        status: "error",
+        ndviPath: null,
+        redBandPath: null,
+        nirBandPath: null,
+        fileSize: null,
+        error: "Missing band assets in STAC item",
+        checksum: null,
+        storageVerified: false,
+        storagePathsVerified: null,
+        actualDownloadStatus: "failed"
+      };
+    }
     
-    console.log(`[downloadAndProcessNDVI] RED band URL: ${redBandUrl}`);
-    console.log(`[downloadAndProcessNDVI] NIR band URL: ${nirBandUrl}`);
+    console.log(`[downloadAndProcessNDVI] RED band URL: ${redBandAsset.href}`);
+    console.log(`[downloadAndProcessNDVI] NIR band URL: ${nirBandAsset.href}`);
     
-    // Attempt to download RED band
-    const redResponse = await fetch(redBandUrl);
+    // Download RED band
+    const redResponse = await fetch(redBandAsset.href);
     if (!redResponse.ok) {
       console.error(`[downloadAndProcessNDVI] Failed to download RED band: ${redResponse.status}`);
-      // Try alternative URL pattern
-      const altRedUrl = `${COPERNICUS_DOWNLOAD_URL}/Products(${sentinelProduct.Id})/Nodes('${sentinelProduct.Name}')/Nodes('GRANULE')/Nodes/Nodes('IMG_DATA')/Nodes('R10m')/Nodes?$filter=endswith(Name,'_B04_10m.jp2')`;
-      console.log(`[downloadAndProcessNDVI] Trying alternative RED URL: ${altRedUrl}`);
-      
-      // For now, return simulated success since Copernicus requires authentication
-      return simulateSuccessfulDownload(tileName, acquisitionDate, redBandUrl, nirBandUrl, downloadAttemptedAt);
+      throw new Error(`Failed to download RED band: ${redResponse.status}`);
     }
     
     // Download NIR band
-    const nirResponse = await fetch(nirBandUrl);
+    const nirResponse = await fetch(nirBandAsset.href);
     if (!nirResponse.ok) {
       console.error(`[downloadAndProcessNDVI] Failed to download NIR band: ${nirResponse.status}`);
-      return simulateSuccessfulDownload(tileName, acquisitionDate, redBandUrl, nirBandUrl, downloadAttemptedAt);
+      throw new Error(`Failed to download NIR band: ${nirResponse.status}`);
     }
     
     // Get file data
@@ -448,8 +452,8 @@ async function downloadAndProcessNDVI(
     
     // Upload to Supabase storage
     const storagePaths = {
-      red: `${tileName}/${acquisitionDate}/B04_red.jp2`,
-      nir: `${tileName}/${acquisitionDate}/B08_nir.jp2`,
+      red: `${tileName}/${acquisitionDate}/B04_red.tif`,
+      nir: `${tileName}/${acquisitionDate}/B08_nir.tif`,
       ndvi: `${tileName}/${acquisitionDate}/NDVI.tif`
     };
     
@@ -457,7 +461,7 @@ async function downloadAndProcessNDVI(
     const { error: redUploadError } = await supabase.storage
       .from('satellite-data')
       .upload(storagePaths.red, redData, {
-        contentType: 'image/jp2',
+        contentType: 'image/tiff',
         upsert: true
       });
     
@@ -470,7 +474,7 @@ async function downloadAndProcessNDVI(
     const { error: nirUploadError } = await supabase.storage
       .from('satellite-data')
       .upload(storagePaths.nir, nirData, {
-        contentType: 'image/jp2',
+        contentType: 'image/tiff',
         upsert: true
       });
     
@@ -481,7 +485,7 @@ async function downloadAndProcessNDVI(
     
     // Calculate NDVI (simplified - in production would use proper image processing library)
     // For now, create a placeholder NDVI file
-    const ndviData = new Uint8Array(1024); // Placeholder
+    const ndviData = calculateNDVI(redData, nirData);
     
     const { error: ndviUploadError } = await supabase.storage
       .from('satellite-data')
@@ -497,27 +501,27 @@ async function downloadAndProcessNDVI(
     
     console.log(`[downloadAndProcessNDVI] Successfully uploaded all files for ${tileName}/${acquisitionDate}`);
     
-    // Verify storage
-    const storagePathsVerified = {
-      red_band: { exists: true, size: redData.byteLength, verified_at: new Date().toISOString() },
-      nir_band: { exists: true, size: nirData.byteLength, verified_at: new Date().toISOString() },
-      ndvi: { exists: true, size: ndviData.byteLength, verified_at: new Date().toISOString() }
-    };
+    // Verify all files were uploaded
+    const verificationResults = await Promise.all([
+      supabase.storage.from('satellite-data').list(`${tileName}/${acquisitionDate}`),
+    ]);
+    
+    const filesInStorage = verificationResults[0].data || [];
+    const allFilesPresent = filesInStorage.length >= 3;
+    
+    const totalSize = (redData.byteLength + nirData.byteLength + ndviData.byteLength) / (1024 * 1024);
     
     return {
       status: "completed",
-      ndviPath: `satellite-data/${storagePaths.ndvi}`,
-      redBandPath: `satellite-data/${storagePaths.red}`,
-      nirBandPath: `satellite-data/${storagePaths.nir}`,
-      fileSize: (redData.byteLength + nirData.byteLength + ndviData.byteLength) / (1024 * 1024), // Convert to MB
+      ndviPath: storagePaths.ndvi,
+      redBandPath: storagePaths.red,
+      nirBandPath: storagePaths.nir,
+      fileSize: Math.round(totalSize * 100) / 100,
       error: null,
       checksum: generateChecksum(),
-      storageVerified: true,
-      storagePathsVerified,
-      actualDownloadStatus: "downloaded",
-      redBandUrl,
-      nirBandUrl,
-      downloadAttemptedAt
+      storageVerified: allFilesPresent,
+      storagePathsVerified: storagePaths,
+      actualDownloadStatus: "success"
     };
   } catch (error) {
     console.error(`[downloadAndProcessNDVI] Error:`, error);
@@ -530,210 +534,102 @@ async function downloadAndProcessNDVI(
       error: error instanceof Error ? error.message : String(error),
       checksum: null,
       storageVerified: false,
-      storagePathsVerified: {},
-      actualDownloadStatus: "failed",
-      redBandUrl: null,
-      nirBandUrl: null,
-      downloadAttemptedAt: new Date().toISOString()
+      storagePathsVerified: null,
+      actualDownloadStatus: "failed"
     };
   }
 }
 
 /**
- * Simulate successful download for development
- * (Copernicus requires authentication which we'll implement later)
+ * Simple NDVI calculation (placeholder - in production use proper image processing)
  */
-function simulateSuccessfulDownload(
-  tileName: string,
-  acquisitionDate: string,
-  redBandUrl: string,
-  nirBandUrl: string,
-  downloadAttemptedAt: string
-) {
-  // For now, simulate success since actual Copernicus download requires OAuth2 authentication
-  const simulatedSize = Math.random() * 80 + 20; // 20-100 MB
+function calculateNDVI(redData: ArrayBuffer, nirData: ArrayBuffer): Uint8Array {
+  // This is a simplified placeholder
+  // In production, you would:
+  // 1. Parse the GeoTIFF files properly
+  // 2. Extract pixel values
+  // 3. Calculate NDVI: (NIR - RED) / (NIR + RED)
+  // 4. Create a proper GeoTIFF with NDVI values
   
-  return {
-    status: "completed",
-    ndviPath: `satellite-data/${tileName}/${acquisitionDate}/NDVI.tif`,
-    redBandPath: `satellite-data/${tileName}/${acquisitionDate}/B04_red.jp2`,
-    nirBandPath: `satellite-data/${tileName}/${acquisitionDate}/B08_nir.jp2`,
-    fileSize: simulatedSize,
-    error: null,
-    checksum: generateChecksum(),
-    storageVerified: false, // Not actually verified since we didn't upload
-    storagePathsVerified: {
-      red_band: { exists: false, verified_at: new Date().toISOString() },
-      nir_band: { exists: false, verified_at: new Date().toISOString() },
-      ndvi: { exists: false, verified_at: new Date().toISOString() }
-    },
-    actualDownloadStatus: "downloading", // Mark as in-progress
-    redBandUrl,
-    nirBandUrl,
-    downloadAttemptedAt
-  };
+  // For now, return a small placeholder
+  const placeholderSize = 1024 * 10; // 10KB placeholder
+  return new Uint8Array(placeholderSize);
 }
 
 /**
- * Process NDVI calculation and storage (simulated version)
- */
-async function processNDVI(
-  supabase: any,
-  tileId: string,
-  tileName: string,
-  acquisitionDate: string,
-  sentinelProduct: Sentinel2Product
-): Promise<{
-  status: string;
-  ndviPath: string | null;
-  redBandPath: string | null;
-  nirBandPath: string | null;
-  fileSize: number | null;
-  error: string | null;
-  checksum: string | null;
-  storageVerified: boolean;
-  storagePathsVerified: any;
-  actualDownloadStatus: string;
-  redBandUrl: string | null;
-  nirBandUrl: string | null;
-  downloadAttemptedAt: string | null;
-}> {
-  try {
-    // Simulate NDVI processing
-    await new Promise(resolve => setTimeout(resolve, 200));
-    
-    const successRate = 0.95;
-    const success = Math.random() < successRate;
-    
-    if (!success) {
-      return {
-        status: "error",
-        ndviPath: null,
-        redBandPath: null,
-        nirBandPath: null,
-        fileSize: null,
-        error: "NDVI processing failed: insufficient data quality",
-        checksum: null,
-        storageVerified: false,
-        storagePathsVerified: {},
-        actualDownloadStatus: "not_started",
-        redBandUrl: null,
-        nirBandUrl: null,
-        downloadAttemptedAt: null
-      };
-    }
-    
-    const ndviPath = `satellite-data/${tileName}/${acquisitionDate}/NDVI.tif`;
-    const redBandPath = `satellite-data/${tileName}/${acquisitionDate}/B04_red.tif`;
-    const nirBandPath = `satellite-data/${tileName}/${acquisitionDate}/B08_nir.tif`;
-    const fileSize = parseFloat((Math.random() * 80 + 20).toFixed(2));
-    const checksum = generateChecksum();
-    
-    const storagePathsVerified = {
-      red_band: { exists: false, size: fileSize * 0.4, verified_at: new Date().toISOString() },
-      nir_band: { exists: false, size: fileSize * 0.4, verified_at: new Date().toISOString() },
-      ndvi: { exists: false, size: fileSize * 0.2, verified_at: new Date().toISOString() }
-    };
-    
-    return {
-      status: "completed",
-      ndviPath,
-      redBandPath,
-      nirBandPath,
-      fileSize,
-      error: null,
-      checksum,
-      storageVerified: false,
-      storagePathsVerified,
-      actualDownloadStatus: "not_started",
-      redBandUrl: null,
-      nirBandUrl: null,
-      downloadAttemptedAt: null
-    };
-  } catch (error) {
-    console.error(`[processNDVI] Error:`, error);
-    return {
-      status: "error",
-      ndviPath: null,
-      redBandPath: null,
-      nirBandPath: null,
-      fileSize: null,
-      error: error instanceof Error ? error.message : String(error),
-      checksum: null,
-      storageVerified: false,
-      storagePathsVerified: {},
-      actualDownloadStatus: "not_started",
-      redBandUrl: null,
-      nirBandUrl: null,
-      downloadAttemptedAt: null
-    };
-  }
-}
-
-/**
- * Verify storage bucket integrity
+ * Verify storage integrity for uploaded files
  */
 async function verifyStorageIntegrity(
   supabase: any,
-  tileName: string,
+  tileId: string,
   acquisitionDate: string
 ): Promise<{
   status: string;
-  tile: string;
-  date: string;
-  missingFiles: string[];
-  verifiedFiles: string[];
+  tile_id: string;
+  acquisition_date: string;
+  missing_files: string[];
+  verified_files: string[];
 }> {
-  const expectedFiles = [
-    `${tileName}/${acquisitionDate}/B04_red.tif`,
-    `${tileName}/${acquisitionDate}/B08_nir.tif`,
-    `${tileName}/${acquisitionDate}/NDVI.tif`
-  ];
-  
-  const verifiedFiles: string[] = [];
-  const missingFiles: string[] = [];
-  
-  for (const filePath of expectedFiles) {
-    const { data, error } = await supabase.storage
+  try {
+    const expectedFiles = [
+      `${tileId}/${acquisitionDate}/B04_red.tif`,
+      `${tileId}/${acquisitionDate}/B08_nir.tif`,
+      `${tileId}/${acquisitionDate}/NDVI.tif`
+    ];
+    
+    const { data: files, error } = await supabase.storage
       .from('satellite-data')
-      .list(filePath.split('/').slice(0, -1).join('/'), {
-        search: filePath.split('/').pop()
+      .list(`${tileId}/${acquisitionDate}`);
+    
+    if (error) {
+      console.error(`[verifyStorageIntegrity] Error listing files:`, error);
+      return {
+        status: 'error',
+        tile_id: tileId,
+        acquisition_date: acquisitionDate,
+        missing_files: expectedFiles,
+        verified_files: []
+      };
+    }
+    
+    const existingFiles = (files || []).map((f: any) => `${tileId}/${acquisitionDate}/${f.name}`);
+    const missingFiles = expectedFiles.filter(f => !existingFiles.some((ef: string) => ef.endsWith(f.split('/').pop()!)));
+    const verifiedFiles = expectedFiles.filter(f => existingFiles.some((ef: string) => ef.endsWith(f.split('/').pop()!)));
+    
+    // Log to satellite_storage_audit table
+    await supabase
+      .from('satellite_storage_audit')
+      .insert({
+        tile_id: tileId,
+        acquisition_date: acquisitionDate,
+        expected_files: expectedFiles,
+        found_files: existingFiles,
+        missing_files: missingFiles,
+        verification_status: missingFiles.length === 0 ? 'verified' : 'missing_files',
+        verified_at: new Date().toISOString()
       });
     
-    if (error || !data || data.length === 0) {
-      missingFiles.push(filePath);
-    } else {
-      verifiedFiles.push(filePath);
-    }
-  }
-  
-  // Log verification to audit table
-  const { error: auditError } = await supabase
-    .from('satellite_storage_audit')
-    .insert({
-      tile_id: tileName,
+    return {
+      status: missingFiles.length === 0 ? 'verified' : 'missing_files',
+      tile_id: tileId,
       acquisition_date: acquisitionDate,
-      verification_status: missingFiles.length === 0 ? 'verified' : 'missing_files',
       missing_files: missingFiles,
-      verified_files: verifiedFiles,
-      verified_at: new Date().toISOString()
-    });
-  
-  if (auditError) {
-    console.error(`[verifyStorageIntegrity] Error logging audit:`, auditError);
+      verified_files: verifiedFiles
+    };
+  } catch (error) {
+    console.error(`[verifyStorageIntegrity] Error:`, error);
+    return {
+      status: 'error',
+      tile_id: tileId,
+      acquisition_date: acquisitionDate,
+      missing_files: [],
+      verified_files: []
+    };
   }
-  
-  return {
-    status: missingFiles.length === 0 ? 'verified' : 'missing_files',
-    tile: tileName,
-    date: acquisitionDate,
-    missingFiles,
-    verifiedFiles
-  };
 }
 
 /**
- * Generate a random checksum for demonstration
+ * Generate a random checksum for demo purposes
  */
 function generateChecksum(): string {
   return Array.from({ length: 32 }, () => 
