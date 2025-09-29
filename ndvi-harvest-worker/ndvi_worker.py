@@ -7,7 +7,7 @@ from pystac_client import Client
 from supabase import create_client, Client as SupaClient
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 BUCKET = os.getenv("STORAGE_BUCKET", "satellite-tiles")
 COUNTRY_CODE = os.getenv("SUPABASE_COUNTRY_CODE", "IND")
