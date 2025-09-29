@@ -8,6 +8,7 @@ const corsHeaders = {
 
 // Microsoft Planetary Computer API endpoints
 const PLANETARY_COMPUTER_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1";
+const PLANETARY_COMPUTER_SAS_TOKEN_URL = "https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-2-l2a";
 
 // Define types
 interface MGRSTile {
@@ -384,6 +385,24 @@ async function queryPlanetaryComputer(
 }
 
 /**
+ * Get SAS token for accessing Planetary Computer data
+ */
+async function getSASToken(): Promise<string> {
+  try {
+    const response = await fetch(PLANETARY_COMPUTER_SAS_TOKEN_URL);
+    if (!response.ok) {
+      console.error(`[getSASToken] Failed to get SAS token: ${response.status}`);
+      return "";
+    }
+    const data = await response.json();
+    return data.token || "";
+  } catch (error) {
+    console.error(`[getSASToken] Error getting SAS token:`, error);
+    return "";
+  }
+}
+
+/**
  * Download actual satellite data from Planetary Computer and process NDVI
  */
 async function downloadAndProcessNDVI(
@@ -407,6 +426,24 @@ async function downloadAndProcessNDVI(
   try {
     console.log(`[downloadAndProcessNDVI] Starting download for ${tileName}/${acquisitionDate}`);
     
+    // Get SAS token for accessing Planetary Computer data
+    const sasToken = await getSASToken();
+    if (!sasToken) {
+      console.error(`[downloadAndProcessNDVI] Failed to get SAS token`);
+      return {
+        status: "error",
+        ndviPath: null,
+        redBandPath: null,
+        nirBandPath: null,
+        fileSize: null,
+        error: "Failed to get SAS token for data access",
+        checksum: null,
+        storageVerified: false,
+        storagePathsVerified: null,
+        actualDownloadStatus: "failed"
+      };
+    }
+    
     // Get URLs for RED (B04) and NIR (B08) bands from STAC assets
     const redBandAsset = stacItem.assets["B04"] || stacItem.assets["red"];
     const nirBandAsset = stacItem.assets["B08"] || stacItem.assets["nir"];
@@ -427,26 +464,43 @@ async function downloadAndProcessNDVI(
       };
     }
     
+    // Append SAS token to URLs
+    const redBandUrl = `${redBandAsset.href}?${sasToken}`;
+    const nirBandUrl = `${nirBandAsset.href}?${sasToken}`;
+    
     console.log(`[downloadAndProcessNDVI] RED band URL: ${redBandAsset.href}`);
     console.log(`[downloadAndProcessNDVI] NIR band URL: ${nirBandAsset.href}`);
+    console.log(`[downloadAndProcessNDVI] Using SAS token for authentication`);
     
     // Download RED band
-    const redResponse = await fetch(redBandAsset.href);
+    const redResponse = await fetch(redBandUrl);
     if (!redResponse.ok) {
       console.error(`[downloadAndProcessNDVI] Failed to download RED band: ${redResponse.status}`);
-      throw new Error(`Failed to download RED band: ${redResponse.status}`);
+      
+      // Try without SAS token in case the asset is public
+      const redResponsePublic = await fetch(redBandAsset.href);
+      if (!redResponsePublic.ok) {
+        throw new Error(`Failed to download RED band: ${redResponse.status}`);
+      }
+      console.log(`[downloadAndProcessNDVI] Successfully downloaded RED band without SAS token`);
     }
     
     // Download NIR band
-    const nirResponse = await fetch(nirBandAsset.href);
+    const nirResponse = await fetch(nirBandUrl);
     if (!nirResponse.ok) {
       console.error(`[downloadAndProcessNDVI] Failed to download NIR band: ${nirResponse.status}`);
-      throw new Error(`Failed to download NIR band: ${nirResponse.status}`);
+      
+      // Try without SAS token in case the asset is public
+      const nirResponsePublic = await fetch(nirBandAsset.href);
+      if (!nirResponsePublic.ok) {
+        throw new Error(`Failed to download NIR band: ${nirResponse.status}`);
+      }
+      console.log(`[downloadAndProcessNDVI] Successfully downloaded NIR band without SAS token`);
     }
     
     // Get file data
-    const redData = await redResponse.arrayBuffer();
-    const nirData = await nirResponse.arrayBuffer();
+    const redData = await (redResponse.ok ? redResponse : await fetch(redBandAsset.href)).arrayBuffer();
+    const nirData = await (nirResponse.ok ? nirResponse : await fetch(nirBandAsset.href)).arrayBuffer();
     
     console.log(`[downloadAndProcessNDVI] Downloaded RED: ${redData.byteLength} bytes, NIR: ${nirData.byteLength} bytes`);
     
