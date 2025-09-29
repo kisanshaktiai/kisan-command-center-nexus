@@ -63,7 +63,7 @@ export default function NdviDataStatus() {
   useEffect(() => {
     if (data && data.totalCount === 0) {
       console.log('No satellite tiles found, triggering auto-sync...');
-      syncNdviData.mutate();
+      syncNdviData.mutate({});
     }
   }, [data?.totalCount]);
 
@@ -129,7 +129,7 @@ export default function NdviDataStatus() {
             )}
           </Button>
           <Button 
-            onClick={() => syncNdviData.mutate()}
+            onClick={() => syncNdviData.mutate({})}
             disabled={syncNdviData.isPending}
             className="gap-2"
           >
