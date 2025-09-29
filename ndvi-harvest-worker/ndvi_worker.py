@@ -7,7 +7,7 @@ from pystac_client import Client
 from supabase import create_client, Client as SupaClient
 from datetime import datetime, timezone
 
-end_date = datetime.now(timezone.utc).isoformat()
+
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
@@ -94,7 +94,7 @@ def run():
     for t in tiles:
         tile_id = t["tile_id"]
         since_date = get_last_date(tile_id, country_id)
-
+        end_date = datetime.now(timezone.utc).isoformat()
         search = stac.search(
             collections=["sentinel-2-l2a"],
             query={
