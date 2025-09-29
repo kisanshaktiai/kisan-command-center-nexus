@@ -2,8 +2,8 @@ name: NDVI Pipeline
 
 on:
   schedule:
-    - cron: "0 2 * * *"  # Run daily at 2 AM UTC (7:30 AM IST)
-  workflow_dispatch:
+    - cron: "0 2 * * *"     # daily 2 AM UTC
+  workflow_dispatch: {}
 
 jobs:
   fetch-ndvi:
@@ -23,9 +23,10 @@ jobs:
     - name: Run NDVI worker
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        INGESTOR_EMAIL: ${{ secrets.INGESTOR_EMAIL }}
+        INGESTOR_PASSWORD: ${{ secrets.INGESTOR_PASSWORD }}
         STORAGE_BUCKET: satellite-tiles
         SUPABASE_COUNTRY_CODE: IND
         CLOUD_COVER_THRESHOLD: 20
-      run: |
-        python ndvi-harvest-worker/ndvi_worker.py
+      run: python ndvi-harvest-worker/ndvi_worker.py
