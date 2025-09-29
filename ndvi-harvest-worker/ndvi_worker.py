@@ -8,17 +8,15 @@ from supabase import create_client, Client as SupaClient
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-INGESTOR_EMAIL = os.getenv("INGESTOR_EMAIL")
-INGESTOR_PASSWORD = os.getenv("INGESTOR_PASSWORD")
 
 BUCKET = os.getenv("STORAGE_BUCKET", "satellite-tiles")
 COUNTRY_CODE = os.getenv("SUPABASE_COUNTRY_CODE", "IND")
 CLOUD_COVER = float(os.getenv("CLOUD_COVER_THRESHOLD", "20"))
 
-if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-    raise RuntimeError("❌ Supabase URL or ANON key missing.")
+if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+    raise RuntimeError("❌ Supabase URL or Service key missing.")
 
-supabase: SupaClient = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+supabase: SupaClient = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # Auth as the restricted ingestor user (gets a JWT with 'authenticated' role)
 auth_res = supabase.auth.sign_in_with_password({
