@@ -236,7 +236,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error saving white label config:', error);
     return new Response(
-      JSON.stringify({ message: 'Internal server error', error: error.message }),
+      JSON.stringify({ message: 'Internal server error', error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

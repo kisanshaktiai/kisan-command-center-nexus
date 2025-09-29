@@ -49,7 +49,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Analytics error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -77,12 +77,12 @@ async function getConversionFunnel(supabase: any, dateRange?: any) {
   console.log(`Found ${leads?.length || 0} leads`);
 
   const funnel = {
-    new: leads?.filter(l => l.status === 'new').length || 0,
-    assigned: leads?.filter(l => l.status === 'assigned').length || 0,
-    contacted: leads?.filter(l => l.status === 'contacted').length || 0,
-    qualified: leads?.filter(l => l.status === 'qualified').length || 0,
-    converted: leads?.filter(l => l.status === 'converted').length || 0,
-    rejected: leads?.filter(l => l.status === 'rejected').length || 0,
+    new: leads?.filter((l: any) => l.status === 'new').length || 0,
+    assigned: leads?.filter((l: any) => l.status === 'assigned').length || 0,
+    contacted: leads?.filter((l: any) => l.status === 'contacted').length || 0,
+    qualified: leads?.filter((l: any) => l.status === 'qualified').length || 0,
+    converted: leads?.filter((l: any) => l.status === 'converted').length || 0,
+    rejected: leads?.filter((l: any) => l.status === 'rejected').length || 0,
   };
 
   const total = leads?.length || 0;
@@ -126,7 +126,7 @@ async function getLeadPerformance(supabase: any, dateRange?: any, filters?: any)
   const performance = {
     totalLeads: leads?.length || 0,
     avgScore: leads?.length > 0 ? 
-      leads.reduce((sum, lead) => sum + (lead.qualification_score || 0), 0) / leads.length : 0,
+      leads.reduce((sum: number, lead: any) => sum + (lead.qualification_score || 0), 0) / leads.length : 0,
     avgTimeToContact: calculateAvgTimeToContact(leads || []),
     avgTimeToConversion: calculateAvgTimeToConversion(leads || []),
     topPerformers: getTopPerformingLeads(leads || []),
@@ -163,7 +163,7 @@ async function getSourceEffectiveness(supabase: any, dateRange?: any) {
 
   const sourceStats: Record<string, any> = {};
   
-  leads?.forEach(lead => {
+  leads?.forEach((lead: any) => {
     const source = lead.source || 'unknown';
     if (!sourceStats[source]) {
       sourceStats[source] = {
@@ -232,7 +232,7 @@ async function getTeamPerformance(supabase: any, dateRange?: any) {
   const teamStats: Record<string, any> = {};
 
   // Initialize stats for all admins
-  admins?.forEach(admin => {
+  admins?.forEach((admin: any) => {
     teamStats[admin.id] = {
       name: admin.full_name || admin.email,
       totalLeads: 0,
@@ -244,7 +244,7 @@ async function getTeamPerformance(supabase: any, dateRange?: any) {
   });
 
   // Process leads
-  leads?.forEach(lead => {
+  leads?.forEach((lead: any) => {
     if (lead.assigned_to && teamStats[lead.assigned_to]) {
       const stats = teamStats[lead.assigned_to];
       stats.totalLeads++;

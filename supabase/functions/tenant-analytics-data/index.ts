@@ -121,7 +121,7 @@ serve(async (req) => {
     // Calculate performance metrics
     const totalApiCalls = apiLogs?.length || 0;
     const errorCalls = apiLogs?.filter(log => log.status_code >= 400).length || 0;
-    const avgResponseTime = apiLogs?.reduce((sum, log) => sum + (log.response_time_ms || 0), 0) / Math.max(totalApiCalls, 1);
+    const avgResponseTime = (apiLogs?.reduce((sum: number, log: any) => sum + (log.response_time_ms || 0), 0) || 0) / Math.max(totalApiCalls, 1);
 
     const response: AnalyticsResponse = {
       usage_trends: {
@@ -179,7 +179,7 @@ serve(async (req) => {
     console.error('Error in tenant-analytics-data:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error.message 
+      message: error instanceof Error ? error.message : String(error) 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

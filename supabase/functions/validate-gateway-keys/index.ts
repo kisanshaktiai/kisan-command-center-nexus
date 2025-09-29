@@ -20,7 +20,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    let validationResult = { valid: false, error: 'Unknown gateway type' }
+    let validationResult: { valid: boolean; error: string | null } = { valid: false, error: 'Unknown gateway type' }
 
     // Validate based on gateway type
     switch (gateway_type) {
@@ -62,7 +62,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error validating gateway credentials:', error)
     return new Response(
-      JSON.stringify({ valid: false, error: error.message }),
+      JSON.stringify({ valid: false, error: error instanceof Error ? error.message : String(error) }),
       { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -94,7 +94,7 @@ async function validateStripeCredentials(credentials: any) {
       return { valid: false, error: `Stripe validation failed: ${error}` }
     }
   } catch (error) {
-    return { valid: false, error: `Stripe validation error: ${error.message}` }
+    return { valid: false, error: `Stripe validation error: ${error instanceof Error ? error.message : String(error)}` }
   }
 }
 
@@ -124,7 +124,7 @@ async function validatePayPalCredentials(credentials: any) {
       return { valid: false, error: `PayPal validation failed: ${error}` }
     }
   } catch (error) {
-    return { valid: false, error: `PayPal validation error: ${error.message}` }
+    return { valid: false, error: `PayPal validation error: ${error instanceof Error ? error.message : String(error)}` }
   }
 }
 
@@ -156,6 +156,6 @@ async function validateRazorpayCredentials(credentials: any) {
       return { valid: false, error: `Razorpay validation failed: ${error}` }
     }
   } catch (error) {
-    return { valid: false, error: `Razorpay validation error: ${error.message}` }
+    return { valid: false, error: `Razorpay validation error: ${error instanceof Error ? error.message : String(error)}` }
   }
 }

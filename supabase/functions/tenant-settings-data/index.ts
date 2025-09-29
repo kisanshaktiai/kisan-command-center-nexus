@@ -154,7 +154,7 @@ serve(async (req) => {
     console.error('Error in tenant-settings-data:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error.message 
+      message: error instanceof Error ? error.message : String(error) 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

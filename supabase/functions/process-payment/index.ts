@@ -41,7 +41,7 @@ serve(async (req) => {
 
     if (configError && gateway_type !== 'cash_mode') {
       // Fall back to cash mode if no configuration found
-      return await processCashModePayment({
+      const cashResult = await processCashModePayment({
         tenant_id,
         amount,
         currency,
@@ -49,6 +49,10 @@ serve(async (req) => {
         metadata,
         supabaseClient
       })
+      return new Response(
+        JSON.stringify(cashResult),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     let paymentResult
@@ -111,10 +115,10 @@ serve(async (req) => {
         metadata,
         gateway_response: paymentResult.gateway_response || {},
         external_transaction_id: paymentResult.transaction_id,
-        payment_intent_id: paymentResult.payment_intent_id,
+        payment_intent_id: (paymentResult as any).payment_intent_id,
         processed_at: paymentResult.success ? new Date().toISOString() : null,
         failed_at: !paymentResult.success ? new Date().toISOString() : null,
-        failure_reason: paymentResult.error
+        failure_reason: (paymentResult as any).error
       })
 
     if (transactionError) {
@@ -130,7 +134,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error instanceof Error ? error.message : String(error) 
       }),
       { 
         status: 400,
@@ -182,7 +186,7 @@ async function processStripePayment(params: any) {
   } catch (error) {
     return {
       success: false,
-      error: `Stripe error: ${error.message}`
+      error: `Stripe error: ${error instanceof Error ? error.message : String(error)}`
     }
   }
 }
@@ -253,7 +257,7 @@ async function processPayPalPayment(params: any) {
   } catch (error) {
     return {
       success: false,
-      error: `PayPal error: ${error.message}`
+      error: `PayPal error: ${error instanceof Error ? error.message : String(error)}`
     }
   }
 }
@@ -297,7 +301,7 @@ async function processRazorpayPayment(params: any) {
   } catch (error) {
     return {
       success: false,
-      error: `Razorpay error: ${error.message}`
+      error: `Razorpay error: ${error instanceof Error ? error.message : String(error)}`
     }
   }
 }

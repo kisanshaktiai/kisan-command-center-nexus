@@ -154,14 +154,14 @@ serve(async (req) => {
 
     // Process tenant detection events
     if (tenantDetectionResult.data) {
-      activities.push(...tenantDetectionResult.data.map(event => ({
+      activities.push(...tenantDetectionResult.data.map((event: any) => ({
         id: event.id,
         type: 'tenant_detection',
         title: `Tenant Detection: ${event.event_type}`,
         description: `Domain: ${event.domain}`,
         timestamp: event.created_at,
         metadata: event.metadata || {},
-        severity: 'low' as const,
+        severity: 'low' as 'high' | 'medium' | 'low',
       })));
     }
 
@@ -170,7 +170,10 @@ serve(async (req) => {
     const paginatedActivities = activities.slice(offset, offset + limit);
 
     const response: ActivityFeedResponse = {
-      activities: paginatedActivities,
+      activities: paginatedActivities.map((activity: any) => ({
+        ...activity,
+        severity: activity.severity as 'high' | 'medium' | 'low'
+      })),
       total_count: activities.length,
       unread_count: activities.filter(a => a.severity === 'high').length,
     };
@@ -183,7 +186,7 @@ serve(async (req) => {
     console.error('Error in tenant-activity-feed:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error.message 
+      message: error instanceof Error ? error.message : String(error) 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

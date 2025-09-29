@@ -215,7 +215,7 @@ async function handleDelete(table: string, id: string, context: SecurityContext)
 
   // Apply tenant isolation
   if (TENANT_ISOLATED_TABLES.includes(table) && context.tenant_id) {
-    query = query.eq('tenant_id', context.tenant_id)
+    query = (query as any).eq('tenant_id', context.tenant_id)
   }
 
   // Prefer soft delete if the table has deleted_at column

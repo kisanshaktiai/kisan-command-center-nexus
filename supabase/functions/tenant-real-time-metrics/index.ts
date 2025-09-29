@@ -91,7 +91,7 @@ serve(async (req) => {
         tenantId = body?.tenant_id;
         console.log(`[DEBUG] POST body tenant_id: ${tenantId}`);
       } catch (error) {
-        console.warn(`[DEBUG] Failed to parse POST body: ${error.message}`);
+        console.warn(`[DEBUG] Failed to parse POST body: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
