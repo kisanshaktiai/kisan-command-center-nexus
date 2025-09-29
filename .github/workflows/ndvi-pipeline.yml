@@ -28,4 +28,4 @@ jobs:
         SUPABASE_COUNTRY_CODE: IND
         CLOUD_COVER_THRESHOLD: 20
       run: |
-        python ndvi-harvest-worker/ndvi_harvest.py
+        python ndvi-harvest-worker/ndvi_worker.py
