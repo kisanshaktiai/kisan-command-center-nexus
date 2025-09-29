@@ -229,8 +229,9 @@ class NDVIHarvestWorker:
     async def process_tile(self, tile_id: str) -> Dict:
         logger.info(f"🚀 Processing tile: {tile_id}")
 
+        country_id = None  # set early so we can use it in the error path
         try:
-            # Get country_id
+            # 1) Lookup tile → country_id (required for FK on satellite_tiles)
             mgrs_resp = (
                 self.supabase.table("mgrs_tiles")
                 .select("country_id, tile_id")
@@ -238,116 +239,152 @@ class NDVIHarvestWorker:
                 .single()
                 .execute()
             )
-            if not mgrs_resp.data:
-                logger.error(f"❌ Tile {tile_id} not found in mgrs_tiles")
-                return {"success": False, "tile_id": tile_id, "error": "Tile not found"}
+            logger.info(f"📗 mgrs_tiles lookup raw: {mgrs_resp}")
+    
+            if not getattr(mgrs_resp, "data", None):
+                msg = "Tile not found in mgrs_tiles"
+                logger.error(f"❌ {msg}: tile_id={tile_id}")
+                return {"success": False, "tile_id": tile_id, "error": msg}
+    
             country_id = mgrs_resp.data.get("country_id")
             if not country_id:
-                logger.error(f"❌ No country_id for {tile_id}")
-                return {"success": False, "tile_id": tile_id, "error": "No country_id"}
+                msg = "No country_id for tile"
+                logger.error(f"❌ {msg}: tile_id={tile_id}")
+                return {"success": False, "tile_id": tile_id, "error": msg}
+    
             logger.info(f"✅ Found tile {tile_id} with country_id={country_id}")
-
-            # Fetch scenes
+    
+            # 2) Find the best Sentinel-2 scene from MPC
             scenes = await self.fetch_tile_scenes(tile_id)
+            logger.info(f"🔎 Scenes found: {len(scenes)} for tile {tile_id}")
             if not scenes:
-                logger.error(f"❌ No scenes found for {tile_id}")
-                return {"success": False, "tile_id": tile_id, "error": "No scenes found"}
+                msg = "No suitable scenes found"
+                logger.error(f"❌ {msg}: tile_id={tile_id}")
+                return {"success": False, "tile_id": tile_id, "error": msg}
+    
             best_scene = scenes[0]
-            logger.info(f"📸 Scene chosen: {best_scene['id']} (cloud cover={best_scene['cloud_cover']}%)")
-
-            # Download bands
+            logger.info(
+                f"📸 Scene chosen: id={best_scene['id']} "
+                f"cloud_cover={best_scene['cloud_cover']}"
+            )
+    
+            # 3) Download RED / NIR bands
             logger.info("⬇️ Downloading RED band...")
             red, transform, crs = await self.download_band(best_scene["assets"]["red"])
             logger.info("⬇️ Downloading NIR band...")
             nir, _, _ = await self.download_band(best_scene["assets"]["nir"])
-
-            # Compute NDVI
+    
+            # 4) Compute NDVI (+ quick stats for sanity)
+            logger.info("⚙️ Computing NDVI…")
             ndvi = self.compute_ndvi(red, nir)
-            logger.info(f"⚙️ NDVI computed (shape={ndvi.shape}, min={np.nanmin(ndvi):.3f}, max={np.nanmax(ndvi):.3f})")
-
-            # Save NDVI raster
+            try:
+                ndvi_min = float(np.nanmin(ndvi))
+                ndvi_max = float(np.nanmax(ndvi))
+                ndvi_mean = float(np.nanmean(ndvi))
+            except Exception:
+                ndvi_min = ndvi_max = ndvi_mean = float("nan")
+            logger.info(f"📈 NDVI stats: min={ndvi_min:.3f} max={ndvi_max:.3f} mean={ndvi_mean:.3f}")
+    
+            # 5) Serialize NDVI GeoTIFF
             ndvi_bytes = self.save_ndvi_to_bytes(ndvi, transform, crs)
             size_mb = round(len(ndvi_bytes) / (1024 * 1024), 2)
-            logger.info(f"💾 NDVI raster ready ({size_mb} MB)")
-
-            # Storage path
-            scene_date = datetime.fromisoformat(best_scene["datetime"].replace("Z", "+00:00"))
-            date_str = scene_date.strftime("%Y-%m-%d")
+            logger.info(f"💾 NDVI raster prepared: ~{size_mb} MB")
+    
+            # 6) Upload to Supabase Storage
+            scene_dt = datetime.fromisoformat(best_scene["datetime"].replace("Z", "+00:00"))
+            date_str = scene_dt.strftime("%Y-%m-%d")
             storage_path = f"{tile_id}/{date_str}/ndvi.tif"
-
-            # Upload
-            logger.info(f"⬆️ Uploading NDVI → {storage_path}")
-            self.supabase.storage.from_(STORAGE_BUCKET).upload(
-                storage_path,
-                ndvi_bytes,
-                {"content-type": "image/tiff", "upsert": "true"},
-            )
-            ndvi_url = self.supabase.storage.from_(STORAGE_BUCKET).get_public_url(storage_path)
-            logger.info(f"🌍 Public NDVI URL: {ndvi_url}")
-
-            # Prepare DB row
-            metadata = sanitize_metadata(best_scene["metadata"])
+    
+            logger.info(f"⬆️ Uploading NDVI to storage bucket '{STORAGE_BUCKET}' → {storage_path}")
+            try:
+                ndvi_url = await self.upload_to_storage(ndvi_bytes, storage_path)
+                logger.info(f"🌍 Public NDVI URL: {ndvi_url}")
+            except Exception as up_e:
+                logger.error(f"❌ Storage upload failed for {tile_id}: {up_e}")
+                raise
+    
+            # 7) Upsert DB record
             row_data = {
                 "tile_id": tile_id,
                 "country_id": country_id,
-                "acquisition_date": scene_date.date().isoformat(),
+                "acquisition_date": scene_dt.date().isoformat(),
                 "collection": "sentinel-2-l2a",
                 "cloud_cover": float(best_scene["cloud_cover"]),
                 "ndvi_path": storage_path,
                 "red_band_path": best_scene["assets"]["red"],
                 "nir_band_path": best_scene["assets"]["nir"],
-                "metadata": metadata,
+                "metadata": sanitize_metadata(best_scene["metadata"]),
                 "file_size_mb": size_mb,
                 "processing_level": "L2A",
                 "status": "completed",
             }
-
-            logger.info(f"➡️ Upserting record into satellite_tiles: {row_data}")
-            result = (
-                self.supabase.table("satellite_tiles")
-                .upsert(row_data, on_conflict=["tile_id", "acquisition_date", "collection"])
-                .execute()
-            )
-
-            # Verify insertion
-            verify = (
-                self.supabase.table("satellite_tiles")
-                .select("id, ndvi_path, status")
-                .eq("tile_id", tile_id)
-                .eq("acquisition_date", scene_date.date().isoformat())
-                .execute()
-            )
-            logger.info(f"🔎 Verification query returned {len(verify.data) if verify.data else 0} rows")
-
+    
+            logger.info("➡️ Upserting record into satellite_tiles (conflict on tile_id, acquisition_date, collection)")
+            logger.info(f"🧾 Row payload: {row_data}")
+    
+            try:
+                result = (
+                    self.supabase.table("satellite_tiles")
+                    .upsert(row_data, on_conflict="tile_id,acquisition_date,collection")
+                    .execute()
+                )
+                # Log the raw response shape to catch library differences
+                safe_repr = {
+                    "has_data": hasattr(result, "data"),
+                    "data_len": len(getattr(result, "data", []) or []),
+                    "has_error": hasattr(result, "error"),
+                    "error": getattr(result, "error", None),
+                    "type": type(result).__name__,
+                }
+                logger.info(f"📊 Upsert result summary: {safe_repr}")
+    
+                if getattr(result, "error", None):
+                    msg = f"DB upsert failed: {result.error}"
+                    logger.error(f"❌ {msg}")
+                    return {"success": False, "tile_id": tile_id, "error": msg}
+    
+            except Exception as db_e:
+                logger.error(f"💥 Exception during DB upsert for {tile_id}: {db_e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return {"success": False, "tile_id": tile_id, "error": str(db_e)}
+    
+            logger.info("✅ DB upsert succeeded")
             return {
                 "success": True,
                 "tile_id": tile_id,
                 "ndvi_url": ndvi_url,
-                "acquisition_date": scene_date.date().isoformat(),
+                "acquisition_date": scene_dt.date().isoformat(),
                 "cloud_cover": best_scene["cloud_cover"],
                 "scene_id": best_scene["id"],
             }
-
-        except Exception as e:
-            logger.error(f"💥 Fatal error on {tile_id}: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            try:
-                error_record = {
+    
+    except Exception as e:
+        logger.error(f"💥 Fatal error while processing tile {tile_id}: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+    
+        # Best-effort: record a failure row if we can satisfy the FK (need country_id)
+        try:
+            if country_id:
+                fail_record = {
                     "tile_id": tile_id,
-                    "country_id": country_id if "country_id" in locals() else None,
+                    "country_id": country_id,
                     "acquisition_date": datetime.utcnow().date().isoformat(),
                     "collection": "sentinel-2-l2a",
                     "status": "failed",
                     "error_message": str(e)[:500],
                 }
+                logger.info(f"🛑 Logging failure row: {fail_record}")
                 self.supabase.table("satellite_tiles").upsert(
-                    error_record, on_conflict=["tile_id", "acquisition_date", "collection"]
+                    fail_record, on_conflict="tile_id,acquisition_date,collection"
                 ).execute()
-                logger.info("⚠️ Error record inserted in DB")
-            except Exception as insert_error:
-                logger.error(f"⚠️ Failed to log error in DB: {insert_error}")
-            return {"success": False, "tile_id": tile_id, "error": str(e)}
+                logger.info("⚠️ Failure row inserted")
+    except Exception as log_e:
+            logger.error(f"⚠️ Failed to log error row: {log_e}")
+    
+    return {"success": False, "tile_id": tile_id, "error": str(e)}
+
 
 
 # ----------------------------------------------------------------------
