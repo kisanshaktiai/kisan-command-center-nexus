@@ -1,18 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { satelliteTilesService, SatelliteTilesFilters } from '@/services/satelliteTilesService';
-import { toast } from 'sonner';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { satelliteTilesService, SatelliteTilesFilters } from '@/services/satelliteTilesService';
+import { toast } from 'sonner';
 
 export const useSatelliteTiles = (
   page: number = 1,
-  pageSize: number = 10,
+  pageSize: number = 20,
   filters?: SatelliteTilesFilters
 ) => {
   const queryClient = useQueryClient();
 
   // Query for fetching satellite tiles
-  const tilesQuery = useQuery({
+  const {
+    data,
+    isLoading,
+    error,
+    refetch
+  } = useQuery({
     queryKey: ['satellite-tiles', page, pageSize, filters],
     queryFn: async () => {
       const result = await satelliteTilesService.fetchSatelliteTiles(page, pageSize, filters);
@@ -21,11 +26,16 @@ export const useSatelliteTiles = (
       }
       return result.data;
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 30000, // Data is considered fresh for 30 seconds
+    refetchInterval: 60000, // Auto-refetch every minute
   });
 
   // Query for statistics
-  const statsQuery = useQuery({
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    error: statsError
+  } = useQuery({
     queryKey: ['satellite-tiles-stats'],
     queryFn: async () => {
       const result = await satelliteTilesService.getTilesStatistics();
@@ -34,11 +44,12 @@ export const useSatelliteTiles = (
       }
       return result.data;
     },
-    refetchInterval: 30000,
+    staleTime: 30000,
+    refetchInterval: 60000,
   });
 
   // Mutation for syncing NDVI data
-  const syncMutation = useMutation({
+  const syncNdviData = useMutation({
     mutationFn: async (params?: {
       startDate?: string;
       endDate?: string;
@@ -63,7 +74,7 @@ export const useSatelliteTiles = (
   });
 
   // Mutation for deleting a tile
-  const deleteMutation = useMutation({
+  const deleteTile = useMutation({
     mutationFn: async (id: string) => {
       const result = await satelliteTilesService.deleteTile(id);
       if (!result.success) {
@@ -80,10 +91,10 @@ export const useSatelliteTiles = (
     },
   });
 
-  // Set up real-time subscription
+  // Set up real-time subscription for satellite tiles
   useEffect(() => {
-    const channel = supabase
-      .channel('satellite-tiles-changes')
+    const subscription = supabase
+      .channel('satellite_tiles_changes')
       .on(
         'postgres_changes',
         {
@@ -92,20 +103,28 @@ export const useSatelliteTiles = (
           table: 'satellite_tiles'
         },
         (payload) => {
-          console.log('Real-time update:', payload);
-          // Invalidate queries to refresh data
+          console.log('Satellite tiles real-time update:', payload);
+          
+          // Invalidate and refetch queries when data changes
           queryClient.invalidateQueries({ queryKey: ['satellite-tiles'] });
           queryClient.invalidateQueries({ queryKey: ['satellite-tiles-stats'] });
           
-          // Show notification based on event type
+          // Show toast notification for updates
           if (payload.eventType === 'INSERT') {
-            toast.info('New satellite tile added');
+            toast.success(`New satellite tile ${payload.new?.tile_id} added`);
           } else if (payload.eventType === 'UPDATE') {
             const newRecord = payload.new as any;
-            if (newRecord.status === 'completed') {
-              toast.success(`Tile ${newRecord.tile_id} processing completed`);
-            } else if (newRecord.status === 'error') {
-              toast.error(`Tile ${newRecord.tile_id} processing failed`);
+            const oldRecord = payload.old as any;
+            
+            // Only show toast if status changed
+            if (newRecord?.status !== oldRecord?.status) {
+              if (newRecord?.status === 'completed') {
+                toast.success(`Tile ${newRecord.tile_id} processing completed`);
+              } else if (newRecord?.status === 'error') {
+                toast.error(`Tile ${newRecord.tile_id} processing failed`);
+              } else if (newRecord?.status === 'processing') {
+                toast.info(`Tile ${newRecord.tile_id} processing started`);
+              }
             }
           }
         }
@@ -113,22 +132,20 @@ export const useSatelliteTiles = (
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      subscription.unsubscribe();
     };
   }, [queryClient]);
 
   return {
-    tiles: tilesQuery.data?.tiles || [],
-    totalCount: tilesQuery.data?.totalCount || 0,
-    isLoading: tilesQuery.isLoading,
-    error: tilesQuery.error,
-    refetch: tilesQuery.refetch,
-    stats: statsQuery.data,
-    statsLoading: statsQuery.isLoading,
-    syncNdviData: syncMutation.mutate,
-    isSyncing: syncMutation.isPending,
-    deleteTile: deleteMutation.mutate,
-    isDeleting: deleteMutation.isPending,
+    data,
+    isLoading,
+    error,
+    refetch,
+    stats,
+    statsLoading,
+    statsError,
+    syncNdviData,
+    deleteTile,
   };
 };
 

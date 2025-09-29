@@ -6,20 +6,21 @@ export interface SatelliteTile {
   tile_id: string;
   acquisition_date: string;
   cloud_cover: number;
-  status: 'pending' | 'completed' | 'error';
-  ndvi_path?: string;
-  file_size_mb?: number;
-  created_at: string;
-  updated_at?: string;
-  error_message?: string;
-  collection?: string;
-  processing_level?: string;
+  status: string; // Database returns string, we'll type guard if needed
+  country_id: string;
+  collection: string;
+  processing_level: string;
   red_band_path?: string;
   nir_band_path?: string;
-  metadata?: any;
-  raw_paths?: string[];
+  ndvi_path?: string;
+  file_size_mb?: number;
+  error_message?: string;
   checksum?: string;
-  country_id?: string;
+  raw_paths?: any;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+  processing_completed_at?: string;
 }
 
 export interface SatelliteTilesFilters {
@@ -27,85 +28,68 @@ export interface SatelliteTilesFilters {
   startDate?: string;
   endDate?: string;
   cloudCoverMax?: number;
-  countryId?: string;
+  country?: string;
 }
 
 export interface SyncResult {
   processed: number;
   inserted: number;
   updated: number;
-  errors: any[];
+  errors: { tile_id: string; error: string }[];
 }
 
-// Mock data generator
-const generateMockTiles = (count: number): SatelliteTile[] => {
-  const statuses: ('pending' | 'completed' | 'error')[] = ['completed', 'pending', 'error'];
-  const tiles: SatelliteTile[] = [];
-  
-  for (let i = 0; i < count; i++) {
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    tiles.push({
-      id: `tile-${i}`,
-      tile_id: `42QVK${String(i).padStart(3, '0')}`,
-      acquisition_date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      cloud_cover: Math.random() * 100,
-      status,
-      ndvi_path: status === 'completed' ? `tiles/${i}/ndvi.tif` : undefined,
-      file_size_mb: status === 'completed' ? Math.random() * 500 : undefined,
-      created_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      error_message: status === 'error' ? 'Processing failed: Invalid band data' : undefined,
-      metadata: {
-        raw_paths: [`https://storage.example.com/raw/red-${i}.tif`, `https://storage.example.com/raw/nir-${i}.tif`],
-        processing_time_ms: Math.random() * 10000,
-        algorithm_version: '1.2.0'
-      }
-    });
-  }
-  
-  return tiles.sort((a, b) => new Date(b.acquisition_date).getTime() - new Date(a.acquisition_date).getTime());
-};
-
 class SatelliteTilesService {
-  private mockTiles: SatelliteTile[] = generateMockTiles(50);
-
   /**
-   * Fetch satellite tiles with pagination and filtering (using mock data)
+   * Fetch satellite tiles with pagination and filtering
    */
   async fetchSatelliteTiles(
-    page: number = 1,
-    pageSize: number = 10,
+    page: number = 1, 
+    pageSize: number = 20, 
     filters?: SatelliteTilesFilters
   ): Promise<Result<{ tiles: SatelliteTile[]; totalCount: number }>> {
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      let filteredTiles = [...this.mockTiles];
-      
+      // Build query
+      let query = supabase
+        .from('satellite_tiles')
+        .select('*', { count: 'exact' });
+
       // Apply filters
-      if (filters?.status) {
-        filteredTiles = filteredTiles.filter(tile => tile.status === filters.status);
+      if (filters?.status && filters.status !== 'all') {
+        query = query.eq('status', filters.status);
       }
+      
       if (filters?.startDate) {
-        filteredTiles = filteredTiles.filter(tile => tile.acquisition_date >= filters.startDate!);
+        query = query.gte('acquisition_date', filters.startDate);
       }
+      
       if (filters?.endDate) {
-        filteredTiles = filteredTiles.filter(tile => tile.acquisition_date <= filters.endDate!);
+        query = query.lte('acquisition_date', filters.endDate);
       }
+      
       if (filters?.cloudCoverMax) {
-        filteredTiles = filteredTiles.filter(tile => tile.cloud_cover <= filters.cloudCoverMax!);
+        query = query.lte('cloud_cover', filters.cloudCoverMax);
       }
       
-      // Apply pagination
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize;
-      const paginatedTiles = filteredTiles.slice(from, to);
-      
+      if (filters?.country && filters.country !== 'all') {
+        query = query.eq('country_id', filters.country);
+      }
+
+      // Apply pagination and ordering
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range((page - 1) * pageSize, page * pageSize - 1);
+
+      if (error) {
+        console.error('Error fetching satellite tiles:', error);
+        return ResultHelpers.error(`Failed to fetch satellite tiles: ${error.message}`);
+      }
+
       return ResultHelpers.success({
-        tiles: paginatedTiles,
-        totalCount: filteredTiles.length
+        tiles: (data || []) as SatelliteTile[],
+        totalCount: count || 0
       });
     } catch (error) {
+      console.error('Error fetching satellite tiles:', error);
       return ResultHelpers.fromException(error);
     }
   }
@@ -115,12 +99,24 @@ class SatelliteTilesService {
    */
   async getSatelliteTileById(id: string): Promise<Result<SatelliteTile>> {
     try {
-      const tile = this.mockTiles.find(t => t.id === id);
-      if (!tile) {
-        return ResultHelpers.error('Satellite tile not found', 'NOT_FOUND');
+      const { data, error } = await supabase
+        .from('satellite_tiles')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching satellite tile:', error);
+        return ResultHelpers.error(`Failed to fetch satellite tile: ${error.message}`);
       }
-      return ResultHelpers.success(tile);
+
+      if (!data) {
+        return ResultHelpers.error('Satellite tile not found');
+      }
+
+      return ResultHelpers.success(data as SatelliteTile);
     } catch (error) {
+      console.error('Error fetching satellite tile:', error);
       return ResultHelpers.fromException(error);
     }
   }
@@ -128,44 +124,28 @@ class SatelliteTilesService {
   /**
    * Sync satellite data by calling the edge function
    */
-  async syncNdviData(params?: {
-    startDate?: string;
-    endDate?: string;
-    cloudCoverage?: number;
-    forceRefresh?: boolean;
-  }): Promise<Result<{ message: string; results: SyncResult }>> {
+  async syncNdviData(
+    params?: {
+      startDate?: string;
+      endDate?: string;
+      cloudCoverage?: number;
+      forceRefresh?: boolean;
+    }
+  ): Promise<Result<{ message: string; results: SyncResult }>> {
     try {
       const { data, error } = await supabase.functions.invoke('fetch-s2-ndvi', {
         body: params || {}
       });
 
-      if (error) throw error;
-      
-      // If edge function doesn't exist, return mock success
-      if (!data) {
-        return ResultHelpers.success({
-          message: 'NDVI sync completed successfully',
-          results: {
-            processed: 10,
-            inserted: 5,
-            updated: 3,
-            errors: []
-          }
-        });
+      if (error) {
+        console.error('Error syncing NDVI data:', error);
+        return ResultHelpers.error(`Failed to sync NDVI data: ${error.message}`);
       }
-      
+
       return ResultHelpers.success(data);
     } catch (error) {
-      // Return mock success if edge function doesn't exist
-      return ResultHelpers.success({
-        message: 'NDVI sync completed successfully (mock)',
-        results: {
-          processed: 10,
-          inserted: 5,
-          updated: 3,
-          errors: []
-        }
-      });
+      console.error('Error syncing NDVI data:', error);
+      return ResultHelpers.fromException(error);
     }
   }
 
@@ -179,15 +159,30 @@ class SatelliteTilesService {
     error: number;
   }>> {
     try {
-      const stats = {
-        total: this.mockTiles.length,
-        ready: this.mockTiles.filter(t => t.status === 'completed').length,
-        pending: this.mockTiles.filter(t => t.status === 'pending').length,
-        error: this.mockTiles.filter(t => t.status === 'error').length
-      };
+      // Get statistics using aggregation
+      const { data, error } = await supabase
+        .from('satellite_tiles')
+        .select('status');
+
+      if (error) {
+        console.error('Error fetching tiles statistics:', error);
+        return ResultHelpers.error(`Failed to fetch statistics: ${error.message}`);
+      }
+
+      const tiles = data || [];
+      const total = tiles.length;
+      const ready = tiles.filter(tile => tile.status === 'completed').length;
+      const pending = tiles.filter(tile => tile.status === 'pending').length;
+      const errorCount = tiles.filter(tile => tile.status === 'error').length;
       
-      return ResultHelpers.success(stats);
+      return ResultHelpers.success({
+        total,
+        ready,
+        pending,
+        error: errorCount
+      });
     } catch (error) {
+      console.error('Error fetching tiles statistics:', error);
       return ResultHelpers.fromException(error);
     }
   }
@@ -197,12 +192,19 @@ class SatelliteTilesService {
    */
   async deleteTile(id: string): Promise<Result<void>> {
     try {
-      const index = this.mockTiles.findIndex(t => t.id === id);
-      if (index !== -1) {
-        this.mockTiles.splice(index, 1);
+      const { error } = await supabase
+        .from('satellite_tiles')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting tile:', error);
+        return ResultHelpers.error(`Failed to delete tile: ${error.message}`);
       }
+
       return ResultHelpers.success();
     } catch (error) {
+      console.error('Error deleting tile:', error);
       return ResultHelpers.fromException(error);
     }
   }
@@ -212,38 +214,59 @@ class SatelliteTilesService {
    */
   async exportTilesAsCSV(filters?: SatelliteTilesFilters): Promise<Result<string>> {
     try {
-      let filteredTiles = [...this.mockTiles];
+      // Get all tiles with filters applied (use large page size for export)
+      const tilesResult = await this.fetchSatelliteTiles(1, 10000, filters);
       
-      // Apply filters
-      if (filters?.status) {
-        filteredTiles = filteredTiles.filter(tile => tile.status === filters.status);
-      }
-      if (filters?.startDate) {
-        filteredTiles = filteredTiles.filter(tile => tile.acquisition_date >= filters.startDate!);
-      }
-      if (filters?.endDate) {
-        filteredTiles = filteredTiles.filter(tile => tile.acquisition_date <= filters.endDate!);
+      if (!tilesResult.success || !tilesResult.data) {
+        return ResultHelpers.error('Failed to fetch tiles for export');
       }
       
-      // Convert to CSV
-      const headers = ['Tile ID', 'Acquisition Date', 'Cloud Cover', 'Status', 'NDVI Path', 'File Size (MB)', 'Error Message'];
-      const rows = filteredTiles.map(tile => [
+      const tiles = tilesResult.data.tiles;
+      
+      // Create CSV headers
+      const headers = [
+        'Tile ID',
+        'Acquisition Date',
+        'Cloud Cover (%)',
+        'Status',
+        'Country',
+        'Collection',
+        'Processing Level',
+        'NDVI Path',
+        'File Size (MB)',
+        'Error Message',
+        'Checksum',
+        'Created At',
+        'Updated At',
+        'Processing Completed At'
+      ];
+      
+      // Create CSV rows
+      const rows = tiles.map(tile => [
         tile.tile_id,
         tile.acquisition_date,
-        tile.cloud_cover.toFixed(2),
+        tile.cloud_cover?.toFixed(2) || '',
         tile.status,
+        tile.country_id,
+        tile.collection,
+        tile.processing_level,
         tile.ndvi_path || '',
-        tile.file_size_mb?.toFixed(2) || '',
-        tile.error_message || ''
+        tile.file_size_mb || '',
+        tile.error_message || '',
+        tile.checksum || '',
+        new Date(tile.created_at).toLocaleString(),
+        new Date(tile.updated_at).toLocaleString(),
+        tile.processing_completed_at ? new Date(tile.processing_completed_at).toLocaleString() : ''
       ]);
-
-      const csv = [
-        headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-      ].join('\n');
-
-      return ResultHelpers.success(csv);
+      
+      // Combine headers and rows
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+      
+      return ResultHelpers.success(csvContent);
     } catch (error) {
+      console.error('Error exporting tiles as CSV:', error);
       return ResultHelpers.fromException(error);
     }
   }

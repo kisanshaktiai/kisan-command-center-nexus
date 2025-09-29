@@ -33,21 +33,34 @@ serve(async (req) => {
     console.log(`[fetch-s2-ndvi] Date range: ${startDateTime} to ${endDateTime}`);
     console.log(`[fetch-s2-ndvi] Cloud coverage threshold: ${cloudCoverage}%`);
 
-    // Get active countries (using correct code 'IND' instead of 'IN')
-    const { data: countries, error: countryError } = await supabase
-      .from("countries")
+    // Get all MGRS tiles for processing
+    const { data: mgrsTiles, error: mgrsError } = await supabase
+      .from("mgrs_tiles")
       .select("*")
       .eq("is_active", true);
 
-    if (countryError) {
-      console.error("[fetch-s2-ndvi] Error fetching countries:", countryError);
-      throw new Error(`Failed to fetch countries: ${countryError.message}`);
+    if (mgrsError) {
+      console.error("[fetch-s2-ndvi] Error fetching MGRS tiles:", mgrsError);
+      throw new Error(`Failed to fetch MGRS tiles: ${mgrsError.message}`);
     }
 
-    console.log(`[fetch-s2-ndvi] Found ${countries?.length || 0} active countries`);
+    console.log(`[fetch-s2-ndvi] Found ${mgrsTiles?.length || 0} MGRS tiles to process`);
 
-    // Mock satellite data for demonstration
-    const mockTiles = generateMockSatelliteTiles(countries || [], startDateTime, endDateTime);
+    if (!mgrsTiles || mgrsTiles.length === 0) {
+      console.log("[fetch-s2-ndvi] No MGRS tiles found for processing");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "No MGRS tiles found for processing",
+          results: { processed: 0, inserted: 0, updated: 0, errors: [] },
+          timestamp: new Date().toISOString()
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    }
     
     // Insert or update satellite tiles
     const results = {
@@ -57,38 +70,94 @@ serve(async (req) => {
       errors: []
     };
 
-    for (const tile of mockTiles) {
+    for (const mgrsTile of mgrsTiles) {
       try {
-        // Check if tile already exists
+        // Generate acquisition date (simulate daily captures within date range)
+        const acquisitionDate = new Date(
+          new Date(startDateTime).getTime() + 
+          Math.random() * (new Date(endDateTime).getTime() - new Date(startDateTime).getTime())
+        ).toISOString().split('T')[0];
+
+        // Check if satellite tile already exists for this MGRS tile and date
         const { data: existingTile } = await supabase
           .from("satellite_tiles")
           .select("id, status")
-          .eq("tile_id", tile.tile_id)
-          .eq("acquisition_date", tile.acquisition_date)
-          .single();
+          .eq("tile_id", mgrsTile.tile_id)
+          .eq("acquisition_date", acquisitionDate)
+          .maybeSingle();
 
         if (existingTile && !forceRefresh) {
-          console.log(`[fetch-s2-ndvi] Tile ${tile.tile_id} already exists, skipping`);
+          console.log(`[fetch-s2-ndvi] Tile ${mgrsTile.tile_id} for ${acquisitionDate} already exists, skipping`);
           results.processed++;
           continue;
         }
 
-        // Process NDVI calculation (mock)
-        const processedTile = await processSatelliteTile(tile);
+        // Create satellite tile data from MGRS tile
+        const satelliteTileData = {
+          tile_id: mgrsTile.tile_id,
+          acquisition_date: acquisitionDate,
+          cloud_cover: Math.random() * cloudCoverage, // Random cloud coverage within threshold
+          status: "pending",
+          country_id: mgrsTile.country_id || "IND", // Default to India
+          collection: "sentinel-2-l2a",
+          processing_level: "L2A",
+          red_band_path: `sentinel-2/${mgrsTile.tile_id}/${acquisitionDate}/red.tif`,
+          nir_band_path: `sentinel-2/${mgrsTile.tile_id}/${acquisitionDate}/nir.tif`,
+          metadata: {
+            mgrs_tile_id: mgrsTile.id,
+            utm_zone: mgrsTile.utm_zone,
+            latitude_band: mgrsTile.latitude_band,
+            grid_square: mgrsTile.grid_square,
+            geometry: mgrsTile.geometry,
+            processing_timestamp: new Date().toISOString(),
+            satellite: "Sentinel-2",
+            sensor: "MSI"
+          }
+        };
 
-        // Insert or update the tile
-        const { error: upsertError } = await supabase
+        // Insert satellite tile with pending status first
+        const { data: insertedTile, error: insertError } = await supabase
           .from("satellite_tiles")
           .upsert({
-            ...processedTile,
+            ...satelliteTileData,
+            created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }, {
             onConflict: "tile_id,acquisition_date"
-          });
+          })
+          .select()
+          .single();
 
-        if (upsertError) {
-          console.error(`[fetch-s2-ndvi] Error upserting tile ${tile.tile_id}:`, upsertError);
-          results.errors.push({ tile_id: tile.tile_id, error: upsertError.message });
+        if (insertError) {
+          console.error(`[fetch-s2-ndvi] Error inserting tile ${mgrsTile.tile_id}:`, insertError);
+          results.errors.push({ tile_id: mgrsTile.tile_id, error: insertError.message });
+          continue;
+        }
+
+        // Simulate NDVI processing
+        await new Promise(resolve => setTimeout(resolve, 100)); // Simulate processing delay
+        
+        const processingSuccess = Math.random() > 0.1; // 90% success rate
+        const processedData = {
+          status: processingSuccess ? "completed" : "error",
+          ndvi_path: processingSuccess ? `ndvi/${mgrsTile.tile_id}/${acquisitionDate}/ndvi.tif` : null,
+          file_size_mb: processingSuccess ? parseFloat((Math.random() * 100 + 10).toFixed(2)) : null,
+          error_message: processingSuccess ? null : "Simulated processing error",
+          checksum: processingSuccess ? generateChecksum() : null,
+          raw_paths: [satelliteTileData.red_band_path, satelliteTileData.nir_band_path],
+          processing_completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        // Update tile with processing results
+        const { error: updateError } = await supabase
+          .from("satellite_tiles")
+          .update(processedData)
+          .eq("id", insertedTile.id);
+
+        if (updateError) {
+          console.error(`[fetch-s2-ndvi] Error updating tile ${mgrsTile.tile_id}:`, updateError);
+          results.errors.push({ tile_id: mgrsTile.tile_id, error: updateError.message });
         } else {
           if (existingTile) {
             results.updated++;
@@ -96,10 +165,12 @@ serve(async (req) => {
             results.inserted++;
           }
           results.processed++;
+          console.log(`[fetch-s2-ndvi] Successfully processed tile ${mgrsTile.tile_id} with status: ${processedData.status}`);
         }
+
       } catch (error) {
-        console.error(`[fetch-s2-ndvi] Error processing tile ${tile.tile_id}:`, error);
-        results.errors.push({ tile_id: tile.tile_id, error: String(error) });
+        console.error(`[fetch-s2-ndvi] Error processing MGRS tile ${mgrsTile.tile_id}:`, error);
+        results.errors.push({ tile_id: mgrsTile.tile_id, error: String(error) });
       }
     }
 
@@ -126,63 +197,7 @@ serve(async (req) => {
   }
 });
 
-// Helper function to generate mock satellite tiles
-function generateMockSatelliteTiles(countries: any[], startDate: string, endDate: string) {
-  const tiles = [];
-  const tileIds = ["42QVK", "43PCP", "44QKD", "45RVH", "46SED"];
-  const statuses = ["ready", "pending", "error"];
-  
-  for (const country of countries) {
-    for (let i = 0; i < 5; i++) {
-      const acquisitionDate = new Date(
-        new Date(startDate).getTime() + 
-        Math.random() * (new Date(endDate).getTime() - new Date(startDate).getTime())
-      );
-      
-      tiles.push({
-        tile_id: tileIds[Math.floor(Math.random() * tileIds.length)],
-        acquisition_date: acquisitionDate.toISOString().split('T')[0],
-        cloud_cover: Math.random() * 30,
-        status: statuses[Math.floor(Math.random() * statuses.length)],
-        country_id: country.id,
-        collection: "sentinel-2-l2a",
-        processing_level: "L2A",
-        red_band_path: `https://dummy/red_${i}.tif`,
-        nir_band_path: `https://dummy/nir_${i}.tif`,
-        metadata: {
-          processing_version: "1.0.0",
-          algorithm: "NDVI",
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-  }
-  
-  return tiles;
-}
-
-// Mock NDVI processing
-async function processSatelliteTile(tile: any) {
-  // Simulate processing delay
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
-  // Generate NDVI path
-  const ndviPath = `${tile.tile_id}/${tile.acquisition_date}/ndvi.tif`;
-  
-  // Randomly assign success or error
-  const isSuccess = Math.random() > 0.1;
-  
-  return {
-    ...tile,
-    status: isSuccess ? "completed" : "error",
-    ndvi_path: isSuccess ? ndviPath : null,
-    file_size_mb: isSuccess ? (Math.random() * 100 + 10).toFixed(2) : null,
-    error_message: isSuccess ? null : "Mock processing error",
-    checksum: isSuccess ? generateChecksum() : null,
-    raw_paths: [tile.red_band_path, tile.nir_band_path]
-  };
-}
-
+// Helper function to generate checksums
 function generateChecksum() {
   return Array.from({ length: 32 }, () => 
     Math.floor(Math.random() * 16).toString(16)

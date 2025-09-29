@@ -5455,6 +5455,76 @@ export type Database = {
           },
         ]
       }
+      harvest_queue: {
+        Row: {
+          attempts: number | null
+          country_id: string | null
+          created_at: string | null
+          id: string
+          job_id: string | null
+          last_attempt_at: string | null
+          next_retry_at: string | null
+          priority: number | null
+          requested_date: string | null
+          status: string | null
+          tenant_id: string
+          tile_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          country_id?: string | null
+          created_at?: string | null
+          id?: string
+          job_id?: string | null
+          last_attempt_at?: string | null
+          next_retry_at?: string | null
+          priority?: number | null
+          requested_date?: string | null
+          status?: string | null
+          tenant_id: string
+          tile_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          country_id?: string | null
+          created_at?: string | null
+          id?: string
+          job_id?: string | null
+          last_attempt_at?: string | null
+          next_retry_at?: string | null
+          priority?: number | null
+          requested_date?: string | null
+          status?: string | null
+          tenant_id?: string
+          tile_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "harvest_queue_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "system_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "harvest_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "harvest_queue_tile_id_country_id_fkey"
+            columns: ["tile_id", "country_id"]
+            isOneToOne: false
+            referencedRelation: "mgrs_tiles"
+            referencedColumns: ["tile_id", "country_id"]
+          },
+        ]
+      }
       integration_sync_logs: {
         Row: {
           completed_at: string | null
@@ -7705,18 +7775,88 @@ export type Database = {
           },
         ]
       }
+      mgrs_tiles: {
+        Row: {
+          agri_area_km2: number | null
+          country_id: string | null
+          created_at: string | null
+          district: string | null
+          district_id: string | null
+          geometry: unknown
+          id: string
+          is_agri: boolean | null
+          last_checked: string | null
+          state: string | null
+          state_id: string | null
+          taluka_id: string | null
+          tile_id: string
+          total_area_km2: number | null
+          updated_at: string | null
+          village_id: string | null
+        }
+        Insert: {
+          agri_area_km2?: number | null
+          country_id?: string | null
+          created_at?: string | null
+          district?: string | null
+          district_id?: string | null
+          geometry: unknown
+          id?: string
+          is_agri?: boolean | null
+          last_checked?: string | null
+          state?: string | null
+          state_id?: string | null
+          taluka_id?: string | null
+          tile_id: string
+          total_area_km2?: number | null
+          updated_at?: string | null
+          village_id?: string | null
+        }
+        Update: {
+          agri_area_km2?: number | null
+          country_id?: string | null
+          created_at?: string | null
+          district?: string | null
+          district_id?: string | null
+          geometry?: unknown
+          id?: string
+          is_agri?: boolean | null
+          last_checked?: string | null
+          state?: string | null
+          state_id?: string | null
+          taluka_id?: string | null
+          tile_id?: string
+          total_area_km2?: number | null
+          updated_at?: string | null
+          village_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mgrs_tiles_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ndvi_data: {
         Row: {
           cloud_cover: number | null
           cloud_coverage: number | null
           collection_id: string | null
+          computed_at: string | null
+          coverage_percentage: number | null
           created_at: string
           date: string
           evi_value: number | null
           id: string
           image_url: string | null
           land_id: string
+          max_ndvi: number | null
+          mean_ndvi: number | null
           metadata: Json | null
+          min_ndvi: number | null
           ndvi_value: number | null
           ndwi_value: number | null
           processing_level: string | null
@@ -7726,18 +7866,25 @@ export type Database = {
           spatial_resolution: number | null
           tenant_id: string
           tile_id: string | null
+          total_pixels: number | null
+          valid_pixels: number | null
         }
         Insert: {
           cloud_cover?: number | null
           cloud_coverage?: number | null
           collection_id?: string | null
+          computed_at?: string | null
+          coverage_percentage?: number | null
           created_at?: string
           date: string
           evi_value?: number | null
           id?: string
           image_url?: string | null
           land_id: string
+          max_ndvi?: number | null
+          mean_ndvi?: number | null
           metadata?: Json | null
+          min_ndvi?: number | null
           ndvi_value?: number | null
           ndwi_value?: number | null
           processing_level?: string | null
@@ -7747,18 +7894,25 @@ export type Database = {
           spatial_resolution?: number | null
           tenant_id: string
           tile_id?: string | null
+          total_pixels?: number | null
+          valid_pixels?: number | null
         }
         Update: {
           cloud_cover?: number | null
           cloud_coverage?: number | null
           collection_id?: string | null
+          computed_at?: string | null
+          coverage_percentage?: number | null
           created_at?: string
           date?: string
           evi_value?: number | null
           id?: string
           image_url?: string | null
           land_id?: string
+          max_ndvi?: number | null
+          mean_ndvi?: number | null
           metadata?: Json | null
+          min_ndvi?: number | null
           ndvi_value?: number | null
           ndwi_value?: number | null
           processing_level?: string | null
@@ -7768,6 +7922,8 @@ export type Database = {
           spatial_resolution?: number | null
           tenant_id?: string
           tile_id?: string | null
+          total_pixels?: number | null
+          valid_pixels?: number | null
         }
         Relationships: [
           {
@@ -9949,6 +10105,77 @@ export type Database = {
           },
         ]
       }
+      satellite_tiles: {
+        Row: {
+          acquisition_date: string
+          checksum: string | null
+          cloud_cover: number | null
+          collection: string
+          country_id: string | null
+          created_at: string | null
+          error_message: string | null
+          file_size_mb: number | null
+          id: string
+          metadata: Json | null
+          ndvi_path: string | null
+          nir_band_path: string | null
+          processing_level: string | null
+          raw_paths: Json | null
+          red_band_path: string | null
+          status: string | null
+          tile_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          acquisition_date: string
+          checksum?: string | null
+          cloud_cover?: number | null
+          collection?: string
+          country_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          file_size_mb?: number | null
+          id?: string
+          metadata?: Json | null
+          ndvi_path?: string | null
+          nir_band_path?: string | null
+          processing_level?: string | null
+          raw_paths?: Json | null
+          red_band_path?: string | null
+          status?: string | null
+          tile_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          acquisition_date?: string
+          checksum?: string | null
+          cloud_cover?: number | null
+          collection?: string
+          country_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          file_size_mb?: number | null
+          id?: string
+          metadata?: Json | null
+          ndvi_path?: string | null
+          nir_band_path?: string | null
+          processing_level?: string | null
+          raw_paths?: Json | null
+          red_band_path?: string | null
+          status?: string | null
+          tile_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "satellite_tiles_tile_id_country_id_fkey"
+            columns: ["tile_id", "country_id"]
+            isOneToOne: false
+            referencedRelation: "mgrs_tiles"
+            referencedColumns: ["tile_id", "country_id"]
+          },
+        ]
+      }
       schedule_tasks: {
         Row: {
           auto_rescheduled: boolean | null
@@ -10490,11 +10717,81 @@ export type Database = {
         }
         Relationships: []
       }
+      staging_mgrs_tiles: {
+        Row: {
+          geometry: unknown | null
+          id: string
+          properties: Json | null
+          tile_id: string | null
+        }
+        Insert: {
+          geometry?: unknown | null
+          id?: string
+          properties?: Json | null
+          tile_id?: string | null
+        }
+        Update: {
+          geometry?: unknown | null
+          id?: string
+          properties?: Json | null
+          tile_id?: string | null
+        }
+        Relationships: []
+      }
+      staging_mgrs_tiles_wkb: {
+        Row: {
+          geometry_wkb: string | null
+          tile_id: string | null
+        }
+        Insert: {
+          geometry_wkb?: string | null
+          tile_id?: string | null
+        }
+        Update: {
+          geometry_wkb?: string | null
+          tile_id?: string | null
+        }
+        Relationships: []
+      }
+      staging_mgrs_tiles_wkt: {
+        Row: {
+          geometry_wkt: string | null
+          tile_id: string | null
+        }
+        Insert: {
+          geometry_wkt?: string | null
+          tile_id?: string | null
+        }
+        Update: {
+          geometry_wkt?: string | null
+          tile_id?: string | null
+        }
+        Relationships: []
+      }
+      staging_states: {
+        Row: {
+          geometry_wkt: string | null
+          state_code: string | null
+          state_name: string | null
+        }
+        Insert: {
+          geometry_wkt?: string | null
+          state_code?: string | null
+          state_name?: string | null
+        }
+        Update: {
+          geometry_wkt?: string | null
+          state_code?: string | null
+          state_name?: string | null
+        }
+        Relationships: []
+      }
       states: {
         Row: {
           code: string | null
           country_id: string
           created_at: string | null
+          geometry: unknown | null
           id: string
           is_active: boolean | null
           name: string
@@ -10504,6 +10801,7 @@ export type Database = {
           code?: string | null
           country_id: string
           created_at?: string | null
+          geometry?: unknown | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -10513,6 +10811,7 @@ export type Database = {
           code?: string | null
           country_id?: string
           created_at?: string | null
+          geometry?: unknown | null
           id?: string
           is_active?: boolean | null
           name?: string
@@ -10862,6 +11161,71 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "system_health_metrics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          error_details: Json | null
+          error_message: string | null
+          id: string
+          job_type: string
+          parameters: Json | null
+          progress: number | null
+          result: Json | null
+          started_at: string | null
+          status: string
+          target_id: string | null
+          target_type: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          job_type: string
+          parameters?: Json | null
+          progress?: number | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_type?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          job_type?: string
+          parameters?: Json | null
+          progress?: number | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_type?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_jobs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -14095,6 +14459,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      check_harvest_quota: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       check_mobile_number_exists: {
         Args: { mobile_num: string }
         Returns: {
@@ -14710,6 +15078,18 @@ export type Database = {
         Args: { "": string }
         Returns: unknown
       }
+      get_agri_tiles: {
+        Args: { country_code: string }
+        Returns: {
+          tile_id: string
+        }[]
+      }
+      get_all_tiles: {
+        Args: Record<PropertyKey, never> | { country_code: string }
+        Returns: {
+          tile_id: string
+        }[]
+      }
       get_available_tenants_for_onboarding: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -14748,6 +15128,15 @@ export type Database = {
       get_jwt_tenant_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_lands_in_tile: {
+        Args: { p_tenant_id: string; p_tile_id: string }
+        Returns: {
+          area_acres: number
+          farmer_id: string
+          id: string
+          name: string
+        }[]
       }
       get_location_context: {
         Args: { lat: number; lng: number }
@@ -14789,6 +15178,23 @@ export type Database = {
       get_super_admin_count: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      get_tenant_tiles: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          land_count: number
+          tile_id: string
+        }[]
+      }
+      get_tiles_for_processing: {
+        Args:
+          | { country_code: string; days_since_last_update?: number }
+          | { p_country_id: string; p_limit?: number }
+        Returns: {
+          country_id: string
+          last_processed: string
+          tile_id: string
+        }[]
       }
       get_user_tenant_relationships: {
         Args: {

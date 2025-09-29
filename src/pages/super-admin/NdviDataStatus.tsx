@@ -1,106 +1,90 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { toast } from 'sonner';
+import { Label } from '@/components/ui/label';
 import { 
-  RefreshCw, 
+  Satellite, 
   Download, 
-  Cloud, 
+  RefreshCw, 
+  Loader2, 
+  CheckCircle, 
   AlertCircle, 
-  CheckCircle2,
-  Clock,
+  Clock, 
+  XCircle,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
   Calendar,
-  HardDrive,
-  ExternalLink,
-  Filter,
-  FileDown,
-  Activity,
-  Satellite
+  Filter
 } from 'lucide-react';
 import { useSatelliteTiles, useExportTiles } from '@/hooks/useSatelliteTiles';
-import { SatelliteTilesFilters } from '@/services/satelliteTilesService';
 import { format } from 'date-fns';
+
+interface SatelliteTilesFilters {
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  cloudCoverMax?: number;
+  country?: string;
+}
 
 export default function NdviDataStatus() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(20);
   const [selectedTile, setSelectedTile] = useState<any>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [filters, setFilters] = useState<SatelliteTilesFilters>({});
-  const pageSize = 10;
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [filters, setFilters] = useState<SatelliteTilesFilters>({
+    status: 'all',
+    startDate: '',
+    endDate: '',
+    cloudCoverMax: 100,
+    country: 'all'
+  });
 
-  // Use the custom hook for satellite tiles
   const {
-    tiles,
-    totalCount,
+    data,
     isLoading,
     error,
     refetch,
     stats,
     statsLoading,
     syncNdviData,
-    isSyncing,
     deleteTile,
-    isDeleting,
   } = useSatelliteTiles(currentPage, pageSize, filters);
 
   const { exportTiles, isExporting } = useExportTiles();
 
-  // Auto-sync on mount
+  // Auto-sync data on mount (only if no data exists)
   useEffect(() => {
-    // Trigger sync automatically on page load
-    syncNdviData({
-      cloudCoverage: 20,
-      forceRefresh: false
-    });
-  }, []);
+    if (data && data.totalCount === 0) {
+      console.log('No satellite tiles found, triggering auto-sync...');
+      syncNdviData.mutate();
+    }
+  }, [data?.totalCount]);
 
-  const handleSync = () => {
-    syncNdviData({
-      cloudCoverage: 20,
-      forceRefresh: true
-    });
-  };
-
-  const handleTileClick = (tile: any) => {
-    setSelectedTile(tile);
-    setSheetOpen(true);
-  };
-
-  const getStatusVariant = (status: string) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-      case 'ready':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'pending':
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'processing':
+        return <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />;
+      case 'error':
+        return <XCircle className="h-4 w-4 text-red-600" />;
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case 'completed':
         return 'default';
       case 'pending':
         return 'secondary';
@@ -111,168 +95,193 @@ export default function NdviDataStatus() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-      case 'ready':
-        return <CheckCircle2 className="h-4 w-4" />;
-      case 'pending':
-        return <Clock className="h-4 w-4" />;
-      case 'error':
-        return <AlertCircle className="h-4 w-4" />;
-      default:
-        return null;
-    }
+  const handleFilterChange = (key: keyof SatelliteTilesFilters, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1); // Reset to first page when filtering
   };
 
-  const totalPages = Math.ceil(totalCount / pageSize);
-
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Satellite className="h-8 w-8" />
-            NDVI Data Status
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Monitor and manage satellite NDVI data synchronization in real-time
+          <h1 className="text-3xl font-bold tracking-tight">NDVI Data Status</h1>
+          <p className="text-muted-foreground">
+            Monitor and manage satellite NDVI data processing from MGRS tiles
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button 
-            variant="outline" 
             onClick={() => exportTiles(filters)}
             disabled={isExporting}
+            variant="outline"
+            className="gap-2"
           >
-            <FileDown className="mr-2 h-4 w-4" />
-            {isExporting ? 'Exporting...' : 'Export CSV'}
-          </Button>
-          <Button onClick={handleSync} disabled={isSyncing}>
-            {isSyncing ? (
+            {isExporting ? (
               <>
-                <LoadingSpinner size="sm" className="mr-2" />
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                Export CSV
+              </>
+            )}
+          </Button>
+          <Button 
+            onClick={() => syncNdviData.mutate()}
+            disabled={syncNdviData.isPending}
+            className="gap-2"
+          >
+            {syncNdviData.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Syncing...
               </>
             ) : (
               <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Sync Now
+                <RefreshCw className="h-4 w-4" />
+                Manual Sync
               </>
             )}
           </Button>
         </div>
       </div>
 
-      {/* Real-time indicator */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Activity className="h-4 w-4 text-green-500 animate-pulse" />
-        <span>Real-time updates enabled</span>
-      </div>
-
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="hover:shadow-lg transition-shadow">
+      {/* Status Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Synced</CardTitle>
-            <HardDrive className="h-4 w-4 text-muted-foreground" />
+            <Satellite className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statsLoading ? <LoadingSpinner size="sm" /> : stats?.total || 0}</div>
+            <div className="text-2xl font-bold">
+              {statsLoading ? '-' : stats?.total || 0}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Records synchronized
+              MGRS tiles processed
             </p>
           </CardContent>
         </Card>
-
-        <Card className="hover:shadow-lg transition-shadow border-green-200 bg-green-50/50 dark:bg-green-950/20">
+        
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ready</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{statsLoading ? <LoadingSpinner size="sm" /> : stats?.ready || 0}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {statsLoading ? '-' : stats?.ready || 0}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Available for use
+              NDVI processing completed
             </p>
           </CardContent>
         </Card>
-
-        <Card className="hover:shadow-lg transition-shadow border-yellow-200 bg-yellow-50/50 dark:bg-yellow-950/20">
+        
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{statsLoading ? <LoadingSpinner size="sm" /> : stats?.pending || 0}</div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {statsLoading ? '-' : stats?.pending || 0}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Being processed
+              Awaiting processing
             </p>
           </CardContent>
         </Card>
-
-        <Card className="hover:shadow-lg transition-shadow border-red-200 bg-red-50/50 dark:bg-red-950/20">
+        
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Errors</CardTitle>
-            <AlertCircle className="h-4 w-4 text-red-600" />
+            <XCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{statsLoading ? <LoadingSpinner size="sm" /> : stats?.error || 0}</div>
+            <div className="text-2xl font-bold text-red-600">
+              {statsLoading ? '-' : stats?.error || 0}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Need attention
+              Processing failed
             </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <Card className="border-primary/20">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Filter className="h-4 w-4" />
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
             Filters
           </CardTitle>
+          <CardDescription>Filter NDVI data by status, date range, and cloud coverage</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Select
-              value={filters.status || 'all'}
-              onValueChange={(value) => setFilters({ ...filters, status: value === 'all' ? undefined : value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by status" />
+        <CardContent className="grid gap-4 md:grid-cols-5">
+          <div className="space-y-2">
+            <Label htmlFor="status-filter">Status</Label>
+            <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+              <SelectTrigger id="status-filter">
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="completed">Ready</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
                 <SelectItem value="error">Error</SelectItem>
               </SelectContent>
             </Select>
+          </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="start-date">Start Date</Label>
             <Input
+              id="start-date"
               type="date"
-              placeholder="Start date"
-              value={filters.startDate || ''}
-              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              value={filters.startDate}
+              onChange={(e) => handleFilterChange('startDate', e.target.value)}
             />
+          </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="end-date">End Date</Label>
             <Input
+              id="end-date"
               type="date"
-              placeholder="End date"
-              value={filters.endDate || ''}
-              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              value={filters.endDate}
+              onChange={(e) => handleFilterChange('endDate', e.target.value)}
             />
+          </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="cloud-cover">Max Cloud Cover (%)</Label>
             <Input
+              id="cloud-cover"
               type="number"
-              placeholder="Max cloud cover %"
               min="0"
               max="100"
-              value={filters.cloudCoverMax || ''}
-              onChange={(e) => setFilters({ ...filters, cloudCoverMax: e.target.value ? parseFloat(e.target.value) : undefined })}
+              value={filters.cloudCoverMax}
+              onChange={(e) => handleFilterChange('cloudCoverMax', parseInt(e.target.value) || 100)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="country">Country</Label>
+            <Select value={filters.country} onValueChange={(value) => handleFilterChange('country', value)}>
+              <SelectTrigger id="country">
+                <SelectValue placeholder="All countries" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Countries</SelectItem>
+                <SelectItem value="IND">India</SelectItem>
+                <SelectItem value="USA">United States</SelectItem>
+                <SelectItem value="BRA">Brazil</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -280,309 +289,236 @@ export default function NdviDataStatus() {
       {/* Data Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Satellite Tiles</CardTitle>
+          <CardTitle>NDVI Tiles Data</CardTitle>
           <CardDescription>
-            Click on any row to view detailed metadata • Auto-refreshes every 30 seconds
+            Real-time satellite tile processing status from MGRS grid
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center p-12 gap-4">
-              <LoadingSpinner size="lg" />
-              <p className="text-sm text-muted-foreground">Loading satellite data...</p>
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center p-12 gap-4">
-              <AlertCircle className="h-12 w-12 text-destructive" />
-              <p className="text-sm text-destructive">Failed to load data</p>
-              <Button variant="outline" onClick={() => refetch()}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Retry
-              </Button>
-            </div>
-          ) : tiles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12 gap-4">
-              <Satellite className="h-12 w-12 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">No satellite tiles found</p>
-              <Button onClick={handleSync}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Sync Data
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <Table>
-                <TableHeader>
+        <CardContent className="space-y-4">
+          {/* Table */}
+          <div className="border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tile ID</TableHead>
+                  <TableHead>Acquisition Date</TableHead>
+                  <TableHead>Cloud Cover</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
                   <TableRow>
-                    <TableHead>Tile ID</TableHead>
-                    <TableHead>Acquisition Date</TableHead>
-                    <TableHead>Cloud Cover</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>NDVI Path</TableHead>
-                    <TableHead>File Size</TableHead>
-                    <TableHead>Created At</TableHead>
-                    <TableHead>Error</TableHead>
+                    <TableCell colSpan={5} className="text-center py-8">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading NDVI data...
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tiles.map((tile) => (
+                ) : error ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-destructive">
+                      Error loading data: {error.message}
+                    </TableCell>
+                  </TableRow>
+                ) : !data?.tiles || data.tiles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      No NDVI data available. Click "Manual Sync" to fetch data.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  data.tiles.map((tile) => (
                     <TableRow 
-                      key={tile.id}
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => handleTileClick(tile)}
+                      key={tile.id} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => {
+                        setSelectedTile(tile);
+                        setIsSheetOpen(true);
+                      }}
                     >
                       <TableCell className="font-medium">{tile.tile_id}</TableCell>
+                      <TableCell>{format(new Date(tile.acquisition_date), 'dd/MM/yyyy')}</TableCell>
+                      <TableCell>{tile.cloud_cover?.toFixed(1) || 'N/A'}%</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-muted-foreground" />
-                          {tile.acquisition_date ? format(new Date(tile.acquisition_date), 'MMM dd, yyyy') : '-'}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Cloud className="h-3 w-3 text-muted-foreground" />
-                          {tile.cloud_cover ? `${tile.cloud_cover.toFixed(1)}%` : '-'}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={getStatusVariant(tile.status)} 
-                          className="flex items-center gap-1 w-fit"
-                        >
+                        <div className="flex items-center gap-2">
                           {getStatusIcon(tile.status)}
-                          <span>{tile.status}</span>
-                        </Badge>
+                          <Badge variant={getStatusVariant(tile.status)}>
+                            {tile.status}
+                          </Badge>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        {tile.ndvi_path ? (
-                          <a 
-                            href={`https://qfklkkzxemsbeniyugiz.supabase.co/storage/v1/object/public/ndvi/${tile.ndvi_path}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline flex items-center gap-1"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            View
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {tile.file_size_mb ? (
-                          <span className="flex items-center gap-1">
-                            <HardDrive className="h-3 w-3 text-muted-foreground" />
-                            {parseFloat(tile.file_size_mb.toString()).toFixed(2)} MB
-                          </span>
-                        ) : (
-                          '-'
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {tile.created_at ? format(new Date(tile.created_at), 'MMM dd, HH:mm') : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {tile.error_message ? (
-                          <span className="text-destructive text-sm flex items-center gap-1">
-                            <AlertCircle className="h-3 w-3" />
-                            {tile.error_message.length > 30 
-                              ? `${tile.error_message.substring(0, 30)}...` 
-                              : tile.error_message}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteTile.mutate(tile.id);
+                          }}
+                          disabled={deleteTile.isPending}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} records
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(p => p + 1)}
-                    disabled={currentPage >= totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
+          {/* Pagination */}
+          {data && data.totalCount > pageSize && (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, data.totalCount)} of {data.totalCount} entries
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <span className="text-sm">
+                  Page {currentPage} of {Math.ceil(data.totalCount / pageSize)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  disabled={currentPage >= Math.ceil(data.totalCount / pageSize)}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Detail Sheet */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-[600px] overflow-y-auto">
+      {/* Tile Detail Sheet */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="w-[600px] sm:w-[700px]">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Satellite className="h-5 w-5" />
-              Tile Details
+              Tile Details: {selectedTile?.tile_id}
             </SheetTitle>
             <SheetDescription>
-              Full metadata for satellite tile {selectedTile?.tile_id}
+              Comprehensive information about this satellite tile
             </SheetDescription>
           </SheetHeader>
+          
           {selectedTile && (
             <div className="mt-6 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Tile ID</p>
-                  <p className="font-mono bg-muted px-2 py-1 rounded">{selectedTile.tile_id}</p>
+              {/* Basic Information */}
+              <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Status</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      {getStatusIcon(selectedTile.status)}
+                      <Badge variant={getStatusVariant(selectedTile.status)}>
+                        {selectedTile.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Cloud Cover</Label>
+                    <p className="text-sm mt-1">{selectedTile.cloud_cover?.toFixed(1) || 'N/A'}%</p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Status</p>
-                  <Badge variant={getStatusVariant(selectedTile.status)} className="flex items-center gap-1 w-fit">
-                    {getStatusIcon(selectedTile.status)}
-                    <span>{selectedTile.status}</span>
-                  </Badge>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Acquisition Date</p>
-                  <p className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3 text-muted-foreground" />
-                    {selectedTile.acquisition_date ? format(new Date(selectedTile.acquisition_date), 'MMMM dd, yyyy') : '-'}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Cloud Cover</p>
-                  <p className="flex items-center gap-1">
-                    <Cloud className="h-3 w-3 text-muted-foreground" />
-                    {selectedTile.cloud_cover ? `${selectedTile.cloud_cover.toFixed(2)}%` : '-'}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">File Size</p>
-                  <p className="flex items-center gap-1">
-                    <HardDrive className="h-3 w-3 text-muted-foreground" />
-                    {selectedTile.file_size_mb ? `${parseFloat(selectedTile.file_size_mb.toString()).toFixed(2)} MB` : 'N/A'}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Created At</p>
-                  <p>{selectedTile.created_at ? format(new Date(selectedTile.created_at), 'PPpp') : '-'}</p>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Acquisition Date</Label>
+                    <p className="text-sm mt-1">{format(new Date(selectedTile.acquisition_date), 'PPP')}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Country</Label>
+                    <p className="text-sm mt-1">{selectedTile.country_id}</p>
+                  </div>
                 </div>
               </div>
 
-              {selectedTile.ndvi_path && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">NDVI Path</p>
-                  <a 
-                    href={`https://qfklkkzxemsbeniyugiz.supabase.co/storage/v1/object/public/ndvi/${selectedTile.ndvi_path}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline flex items-center gap-1 text-sm break-all"
-                  >
-                    <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                    {selectedTile.ndvi_path}
-                  </a>
-                </div>
-              )}
-
-              {selectedTile.error_message && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Error Message</p>
-                  <div className="bg-destructive/10 border border-destructive/20 text-destructive p-3 rounded-lg">
-                    <p className="text-sm flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                      {selectedTile.error_message}
-                    </p>
+              {/* Processing Information */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Processing Information</Label>
+                <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Collection:</span>
+                    <span className="text-sm">{selectedTile.collection}</span>
                   </div>
-                </div>
-              )}
-
-              {selectedTile.metadata && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Metadata</p>
-                  <pre className="bg-muted p-4 rounded-lg text-xs overflow-x-auto max-h-60 overflow-y-auto">
-                    {JSON.stringify(selectedTile.metadata, null, 2)}
-                  </pre>
-                </div>
-              )}
-
-              {selectedTile.raw_paths && selectedTile.raw_paths.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Raw Paths</p>
-                  <div className="space-y-2 bg-muted p-3 rounded-lg">
-                    {selectedTile.raw_paths.map((path: string, index: number) => (
-                      <a 
-                        key={index}
-                        href={path}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline flex items-center gap-1 text-sm break-all"
-                      >
-                        <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                        Band {index + 1}: {path}
-                      </a>
-                    ))}
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Processing Level:</span>
+                    <span className="text-sm">{selectedTile.processing_level}</span>
                   </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-4 border-t">
-                {selectedTile.ndvi_path && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      window.open(`https://qfklkkzxemsbeniyugiz.supabase.co/storage/v1/object/public/ndvi/${selectedTile.ndvi_path}`, '_blank');
-                    }}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download NDVI
-                  </Button>
-                )}
-                {selectedTile.status === 'error' && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSheetOpen(false);
-                      syncNdviData({ forceRefresh: true });
-                    }}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Retry Processing
-                  </Button>
-                )}
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    if (confirm('Are you sure you want to delete this tile?')) {
-                      deleteTile(selectedTile.id);
-                      setSheetOpen(false);
-                    }
-                  }}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? (
-                    <>
-                      <LoadingSpinner size="sm" className="mr-2" />
-                      Deleting...
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="mr-2 h-4 w-4" />
-                      Delete Tile
-                    </>
+                  {selectedTile.file_size_mb && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">File Size:</span>
+                      <span className="text-sm">{selectedTile.file_size_mb} MB</span>
+                    </div>
                   )}
+                  {selectedTile.checksum && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Checksum:</span>
+                      <span className="text-sm font-mono text-xs">{selectedTile.checksum}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Error Information */}
+              {selectedTile.error_message && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-destructive">Error Details</Label>
+                  <div className="bg-destructive/10 border border-destructive/20 p-3 rounded-lg">
+                    <p className="text-sm text-destructive">{selectedTile.error_message}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* File Paths */}
+              {selectedTile.ndvi_path && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Output Files</Label>
+                  <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                    <div>
+                      <span className="text-sm text-muted-foreground">NDVI Path:</span>
+                      <p className="text-sm font-mono break-all">{selectedTile.ndvi_path}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-4 border-t">
+                <Button 
+                  onClick={() => syncNdviData.mutate({ forceRefresh: true })}
+                  disabled={syncNdviData.isPending}
+                  size="sm"
+                >
+                  Retry Processing
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => {
+                    deleteTile.mutate(selectedTile.id);
+                    setIsSheetOpen(false);
+                  }}
+                  disabled={deleteTile.isPending}
+                  size="sm"
+                >
+                  Delete Tile
                 </Button>
               </div>
             </div>
