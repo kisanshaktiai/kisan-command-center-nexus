@@ -89,7 +89,7 @@ serve(async (req) => {
 
     // Tenant isolation check
     if (TENANT_ISOLATED_TABLES.includes(table)) {
-      if (!securityContext.tenant_id && !['super_admin', 'platform_admin'].includes(securityContext.role)) {
+      if (!securityContext.tenant_id && securityContext.role && !['super_admin', 'platform_admin'].includes(securityContext.role)) {
         throw new Error('Tenant context required for this operation')
       }
     }
@@ -145,7 +145,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString()
       }),
       {
@@ -201,7 +201,7 @@ async function handleUpdate(table: string, id: string, data: any, context: Secur
 
   // Apply tenant isolation
   if (TENANT_ISOLATED_TABLES.includes(table) && context.tenant_id) {
-    query = query.eq('tenant_id', context.tenant_id)
+    query = (query as any).eq('tenant_id', context.tenant_id)
   }
 
   const { data: result, error } = await query.update(data).eq('id', id).select().single()
