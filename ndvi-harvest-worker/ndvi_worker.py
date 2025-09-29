@@ -47,7 +47,6 @@ def get_country_id() -> str:
 
 
 def get_mgrs_tiles(country_id: str, limit=50):
-    # Prefer RPC ordering (oldest first) so we progress through the backlog deterministically
     try:
         res = supabase.rpc("get_tiles_for_processing", {"p_country_id": country_id, "p_limit": limit}).execute()
         if res.data:
@@ -67,6 +66,25 @@ def get_mgrs_tiles(country_id: str, limit=50):
     tiles = res.data or []
     log(f"🧩 Direct query returned {len(tiles)} tiles")
     return tiles
+
+
+def ensure_mgrs_tile(tile_id: str, country_id: str):
+    """Insert mgrs_tile row if it doesn't exist."""
+    res = (
+        supabase.table("mgrs_tiles")
+        .select("id")
+        .eq("tile_id", tile_id)
+        .eq("country_id", country_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        supabase.table("mgrs_tiles").insert({
+            "tile_id": tile_id,
+            "country_id": country_id,
+            "geometry": "SRID=4326;POLYGON EMPTY"  # placeholder
+        }).execute()
+        log(f"🆕 Inserted placeholder mgrs_tile {tile_id} for country={country_id}")
 
 
 def get_last_completed_date(tile_id: str, country_id: str) -> date | None:
@@ -111,7 +129,6 @@ def compute_ndvi(red_path: str, nir_path: str, out_path: str):
         red = r.read(1).astype("float32")
         nir = n.read(1).astype("float32")
 
-        # valid range for S2 L2A scaled reflectance
         valid = (red > 0) & (red < 10000) & (nir > 0) & (nir < 10000)
         ndvi = np.full(red.shape, np.nan, dtype="float32")
         denom = nir + red
@@ -120,7 +137,6 @@ def compute_ndvi(red_path: str, nir_path: str, out_path: str):
             ndvi[ok] = (nir[ok] - red[ok]) / denom[ok]
         ndvi = np.clip(ndvi, -1, 1)
 
-        # quick stats
         pct_valid = float(np.count_nonzero(~np.isnan(ndvi))) * 100.0 / ndvi.size
         mean_ndvi = float(np.nanmean(ndvi)) if np.count_nonzero(~np.isnan(ndvi)) else float("nan")
         log(f"   📊 NDVI: {pct_valid:.1f}% valid, mean={mean_ndvi:.3f}")
@@ -145,13 +161,14 @@ async def download(url: str, to_path: str):
 def upload_and_upsert(tile_id: str, country_id: str, day: str, ndvi_path: str, red_url: str, nir_url: str, scene):
     storage_path = f"{tile_id}/{day}/ndvi.tif"
 
-    # Upload
+    # Ensure mgrs_tiles row exists before insert
+    ensure_mgrs_tile(tile_id, country_id)
+
     with open(ndvi_path, "rb") as f:
         up = supabase.storage.from_(BUCKET).upload(storage_path, f, {"content-type": "image/tiff", "upsert": "true"})
         if getattr(up, "error", None):
             raise RuntimeError(f"storage.upload error: {up.error}")
 
-    # Upsert row
     payload = {
         "tile_id": tile_id,
         "country_id": country_id,
@@ -187,7 +204,6 @@ async def process_tile(tile, stac: Client, sem: asyncio.Semaphore):
             last = get_last_completed_date(tile_id, country_id)
             now_utc = datetime.now(timezone.utc)
 
-            # Decide search window
             if last:
                 age = (now_utc.date() - last).days
                 log(f"   ⌛ last={last}, age={age} days")
@@ -209,19 +225,16 @@ async def process_tile(tile, stac: Client, sem: asyncio.Semaphore):
                 max_items=MAX_ITEMS,
             )
 
-            # Important: pull concrete items
             items = list(search.get_items())
             if not items:
                 log(f"   ❌ no items")
                 return
 
-            # Sort: newest first, then by cloud (ascending)
             def _when(it):
                 dt = it.datetime or datetime.fromisoformat(it.properties["datetime"].replace("Z", "+00:00"))
                 return dt
 
-            items.sort(key=lambda it: (_when(it), -float("inf")), reverse=True)  # newest first
-            # Now stable-sort by cloud cover ascending but keep recency priority
+            items.sort(key=lambda it: _when(it), reverse=True)
             items.sort(key=lambda it: (it.properties.get("eo:cloud_cover", 9999)))
 
             picked = items[0]
@@ -230,11 +243,9 @@ async def process_tile(tile, stac: Client, sem: asyncio.Semaphore):
             cc = picked.properties.get("eo:cloud_cover", None)
             log(f"   🎯 picked {picked.id} day={day} cloud={cc}")
 
-            # Guard against duplicate
             if record_exists(tile_id, country_id, day):
                 return
 
-            # URLs
             red_url = pc.sign(picked.assets["B04"].href)
             nir_url = pc.sign(picked.assets["B08"].href)
 
