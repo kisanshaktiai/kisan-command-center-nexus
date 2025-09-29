@@ -139,13 +139,44 @@ class SatelliteTilesService {
       cloudCoverage?: number;
       forceRefresh?: boolean;
       maxTilesPerRun?: number;
+      filterType?: 'all' | 'agricultural' | 'non-agricultural';
+      priorityMode?: 'baseline' | 'agricultural-priority' | 'update-existing';
+      countryFilter?: string;
+      stateFilter?: string;
+      includeProcessed?: boolean;
     }
-  ): Promise<Result<{ message: string; results: SyncResult }>> {
+  ): Promise<Result<{ 
+    message: string; 
+    results: SyncResult;
+    metadata?: {
+      totalMgrsTiles: number;
+      tilesWithData: number;
+      pendingTiles: number;
+      processingProgress: string;
+      filterType: string;
+      priorityMode: string;
+      currentBatchSize: number;
+    };
+  }>> {
     try {
       console.log('[satelliteTilesService] Syncing NDVI data with params:', params);
       
+      // Set default values for the hybrid approach
+      const requestBody = {
+        startDate: params?.startDate,
+        endDate: params?.endDate,
+        cloudCoverage: params?.cloudCoverage || 20,
+        forceRefresh: params?.forceRefresh || false,
+        maxTilesPerRun: params?.maxTilesPerRun || 50,
+        filterType: params?.filterType || 'all',
+        priorityMode: params?.priorityMode || 'baseline',
+        countryFilter: params?.countryFilter,
+        stateFilter: params?.stateFilter,
+        includeProcessed: params?.includeProcessed || false
+      };
+      
       const { data, error } = await supabase.functions.invoke('fetch-s2-ndvi', {
-        body: params || {}
+        body: requestBody
       });
 
       if (error) {
@@ -154,7 +185,23 @@ class SatelliteTilesService {
       }
 
       console.log('[satelliteTilesService] Sync results:', data?.results);
-      return ResultHelpers.success(data);
+      console.log('[satelliteTilesService] Sync metadata:', data?.metadata);
+      
+      return ResultHelpers.success({
+        message: data.message || 'Sync completed',
+        results: data.results || { 
+          processed: 0, 
+          inserted: 0, 
+          updated: 0, 
+          errors: [],
+          storageAudit: {
+            verified: 0,
+            missing: 0,
+            details: []
+          }
+        },
+        metadata: data.metadata
+      });
     } catch (error) {
       console.error('Error syncing NDVI data:', error);
       return ResultHelpers.fromException(error);

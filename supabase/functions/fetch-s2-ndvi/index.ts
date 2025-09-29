@@ -46,8 +46,19 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { startDate, endDate, cloudCoverage = 20, forceRefresh = false, maxTilesPerRun = 10 } = 
-      req.method === "POST" ? await req.json() : {};
+    // Get request params with new hybrid approach parameters
+    const { 
+      startDate, 
+      endDate, 
+      cloudCoverage = 20, 
+      forceRefresh = false, 
+      maxTilesPerRun = 50,
+      filterType = 'all', // 'all', 'agricultural', 'non-agricultural'
+      priorityMode = 'baseline', // 'baseline', 'agricultural-priority', 'update-existing'
+      countryFilter,
+      stateFilter,
+      includeProcessed = false
+    } = req.method === "POST" ? await req.json() : {};
 
     const endDateTime = endDate || new Date().toISOString().split('T')[0];
     const startDateTime = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -56,22 +67,67 @@ serve(async (req) => {
       dateRange: `${startDateTime} to ${endDateTime}`,
       cloudCoverage: `${cloudCoverage}%`,
       forceRefresh,
-      maxTilesPerRun
+      maxTilesPerRun,
+      filterType,
+      priorityMode,
+      countryFilter,
+      stateFilter,
+      includeProcessed
     });
 
-    // Fetch MGRS tiles (preferring agricultural tiles)
-    const { data: mgrsTiles, error: mgrsError } = await supabase
+    // Get total count for metadata
+    const { count: totalMgrsTiles } = await supabase
       .from("mgrs_tiles")
-      .select("*")
-      .eq("is_agri", true)
-      .limit(maxTilesPerRun);
+      .select("*", { count: 'exact', head: true });
+
+    // Build dynamic query based on filterType
+    let tilesQuery = supabase
+      .from("mgrs_tiles")
+      .select("*");
+
+    // Apply filters based on filterType
+    if (filterType === 'agricultural') {
+      tilesQuery = tilesQuery.eq("is_agri", true);
+    } else if (filterType === 'non-agricultural') {
+      tilesQuery = tilesQuery.eq("is_agri", false);
+    }
+    // 'all' doesn't add any filter
+
+    // Apply country/state filters if provided
+    if (countryFilter) {
+      tilesQuery = tilesQuery.eq("country_id", countryFilter);
+    }
+    if (stateFilter) {
+      tilesQuery = tilesQuery.eq("state", stateFilter);
+    }
+
+    // Apply priority ordering based on priorityMode
+    switch (priorityMode) {
+      case 'agricultural-priority':
+        tilesQuery = tilesQuery.order("is_agri", { ascending: false })
+                              .order("created_at", { ascending: true });
+        break;
+      case 'update-existing':
+        // This would prioritize tiles that already have some data
+        tilesQuery = tilesQuery.order("created_at", { ascending: false });
+        break;
+      case 'baseline':
+      default:
+        tilesQuery = tilesQuery.order("created_at", { ascending: true });
+        break;
+    }
+
+    // Apply limit
+    tilesQuery = tilesQuery.limit(maxTilesPerRun);
+
+    const { data: mgrsTiles, error: mgrsError } = await tilesQuery;
 
     if (mgrsError) {
       console.error("[fetch-s2-ndvi] Error fetching MGRS tiles:", mgrsError);
       throw new Error(`Failed to fetch MGRS tiles: ${mgrsError.message}`);
     }
 
-    console.log(`[fetch-s2-ndvi] Found ${mgrsTiles?.length || 0} MGRS tiles to process`);
+    console.log(`[fetch-s2-ndvi] Found ${mgrsTiles?.length || 0} MGRS tiles to process (filterType: ${filterType}, priorityMode: ${priorityMode})`);
 
     if (!mgrsTiles || mgrsTiles.length === 0) {
       return new Response(
@@ -274,13 +330,30 @@ serve(async (req) => {
       }
     }
 
+    // Get count of existing satellite tiles for progress tracking
+    const { count: tilesWithData } = await supabase
+      .from("satellite_tiles")
+      .select("*", { count: 'exact', head: true })
+      .eq("status", "completed");
+
+    const metadata = {
+      totalMgrsTiles: totalMgrsTiles || 0,
+      tilesWithData: tilesWithData || 0,
+      pendingTiles: (totalMgrsTiles || 0) - (tilesWithData || 0),
+      processingProgress: totalMgrsTiles ? ((tilesWithData || 0) / totalMgrsTiles * 100).toFixed(1) : 0,
+      filterType,
+      priorityMode,
+      currentBatchSize: mgrsTiles?.length || 0
+    };
+
     console.log(`[fetch-s2-ndvi] Sync completed. Summary:`, {
       processed: results.processed,
       inserted: results.inserted,
       updated: results.updated,
       errors: results.errors.length,
       storageVerified: results.storageAudit.verified,
-      storageMissing: results.storageAudit.missing
+      storageMissing: results.storageAudit.missing,
+      metadata
     });
 
     return new Response(
@@ -288,6 +361,7 @@ serve(async (req) => {
         success: true,
         message: "NDVI data fetch and storage audit completed successfully",
         results,
+        metadata,
         timestamp: new Date().toISOString()
       }),
       {

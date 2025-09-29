@@ -49,7 +49,7 @@ const collectFinancialMetrics = async (supabaseClient: any): Promise<FinancialMe
 
     let estimatedMRR = 0;
     if (recentTenants?.length) {
-      estimatedMRR = recentTenants.reduce((acc, tenant) => {
+      estimatedMRR = recentTenants.reduce((acc: number, tenant: any) => {
         const price = planPricing[tenant.subscription_plan as keyof typeof planPricing] || 29;
         return acc + price;
       }, 0);
@@ -166,7 +166,7 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       }),
       {
         status: 500,

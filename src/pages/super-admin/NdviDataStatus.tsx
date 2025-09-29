@@ -20,8 +20,11 @@ import {
   ChevronRight,
   Trash2,
   Calendar,
-  Filter
+  Filter,
+  Activity
 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSatelliteTiles, useExportTiles } from '@/hooks/useSatelliteTiles';
 import { format } from 'date-fns';
 
@@ -45,6 +48,12 @@ export default function NdviDataStatus() {
     cloudCoverMax: 100,
     country: 'all'
   });
+  const [syncConfig, setSyncConfig] = useState({
+    filterType: 'all' as 'all' | 'agricultural' | 'non-agricultural',
+    priorityMode: 'baseline' as 'baseline' | 'agricultural-priority' | 'update-existing',
+    maxTilesPerRun: 50,
+    cloudCoverage: 20
+  });
 
   const {
     data,
@@ -59,11 +68,11 @@ export default function NdviDataStatus() {
 
   const { exportTiles, isExporting } = useExportTiles();
 
-  // Auto-sync data on mount (only if no data exists)
+  // Auto-sync data on mount (only if no data exists) - Use syncConfig
   useEffect(() => {
     if (data && data.totalCount === 0) {
       console.log('No satellite tiles found, triggering auto-sync...');
-      syncNdviData.mutate({});
+      syncNdviData.mutate(syncConfig);
     }
   }, [data?.totalCount]);
 
@@ -125,23 +134,6 @@ export default function NdviDataStatus() {
               <>
                 <Download className="h-4 w-4" />
                 Export CSV
-              </>
-            )}
-          </Button>
-          <Button 
-            onClick={() => syncNdviData.mutate({})}
-            disabled={syncNdviData.isPending}
-            className="gap-2"
-          >
-            {syncNdviData.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Syncing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4" />
-                Manual Sync
               </>
             )}
           </Button>
@@ -210,6 +202,158 @@ export default function NdviDataStatus() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sync Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5" />
+            Sync Configuration
+          </CardTitle>
+          <CardDescription>Configure NDVI data synchronization strategy</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="filter-type">Filter Type</Label>
+              <Select 
+                value={syncConfig.filterType} 
+                onValueChange={(value: 'all' | 'agricultural' | 'non-agricultural') => 
+                  setSyncConfig(prev => ({ ...prev, filterType: value }))
+                }
+              >
+                <SelectTrigger id="filter-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tiles (470)</SelectItem>
+                  <SelectItem value="agricultural">Agricultural Only</SelectItem>
+                  <SelectItem value="non-agricultural">Non-Agricultural Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="priority-mode">Priority Mode</Label>
+              <Select 
+                value={syncConfig.priorityMode} 
+                onValueChange={(value: 'baseline' | 'agricultural-priority' | 'update-existing') => 
+                  setSyncConfig(prev => ({ ...prev, priorityMode: value }))
+                }
+              >
+                <SelectTrigger id="priority-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="baseline">Baseline (Oldest First)</SelectItem>
+                  <SelectItem value="agricultural-priority">Agricultural Priority</SelectItem>
+                  <SelectItem value="update-existing">Update Existing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tiles-per-run">Tiles Per Run</Label>
+              <Input
+                id="tiles-per-run"
+                type="number"
+                min={1}
+                max={100}
+                value={syncConfig.maxTilesPerRun}
+                onChange={(e) => setSyncConfig(prev => ({ ...prev, maxTilesPerRun: parseInt(e.target.value) || 50 }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cloud-coverage">Cloud Cover %</Label>
+              <Input
+                id="cloud-coverage"
+                type="number"
+                min={0}
+                max={100}
+                value={syncConfig.cloudCoverage}
+                onChange={(e) => setSyncConfig(prev => ({ ...prev, cloudCoverage: parseInt(e.target.value) || 20 }))}
+              />
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Processing {syncConfig.maxTilesPerRun} tiles per sync operation
+            </div>
+            <Button 
+              onClick={() => syncNdviData.mutate(syncConfig)}
+              disabled={syncNdviData.isPending}
+              className="gap-2"
+            >
+              {syncNdviData.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Start Sync
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Processing Progress */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Processing Progress
+          </CardTitle>
+          <CardDescription>Overall NDVI data processing status across all MGRS tiles</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Total MGRS Tiles</p>
+              <p className="text-2xl font-bold">470</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Tiles with Data</p>
+              <p className="text-2xl font-bold text-green-600">{stats?.total || 0}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Pending Processing</p>
+              <p className="text-2xl font-bold text-yellow-600">{470 - (stats?.total || 0)}</p>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span>Progress</span>
+              <span className="font-medium">{((stats?.total || 0) / 470 * 100).toFixed(1)}%</span>
+            </div>
+            <Progress value={(stats?.total || 0) / 470 * 100} className="h-2" />
+          </div>
+
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Processing Strategy</AlertTitle>
+            <AlertDescription>
+              {syncConfig.priorityMode === 'baseline' && (
+                <>Processing tiles in chronological order. Each sync will process {syncConfig.maxTilesPerRun} tiles.</>
+              )}
+              {syncConfig.priorityMode === 'agricultural-priority' && (
+                <>Prioritizing agricultural tiles first. Each sync will process {syncConfig.maxTilesPerRun} tiles.</>
+              )}
+              {syncConfig.priorityMode === 'update-existing' && (
+                <>Updating existing tiles with newer data. Each sync will process {syncConfig.maxTilesPerRun} tiles.</>
+              )}
+              {' '}
+              Estimated sync operations remaining: {Math.ceil((470 - (stats?.total || 0)) / syncConfig.maxTilesPerRun)}
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card>
