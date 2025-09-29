@@ -10,12 +10,11 @@ const COPERNICUS_DOWNLOAD_URL = "https://zipper.dataspace.copernicus.eu/odata/v1
 interface MGRSTile {
   id: string;
   tile_id: string;
-  utm_zone: number;
-  latitude_band: string;
-  grid_square: string;
   country_id: string;
   geometry: any;
-  is_active: boolean;
+  is_agri: boolean;
+  state?: string;
+  district?: string;
 }
 
 interface Sentinel2Product {
@@ -60,11 +59,11 @@ serve(async (req) => {
       maxTilesPerRun
     });
 
-    // Fetch MGRS tiles
+    // Fetch MGRS tiles (preferring agricultural tiles)
     const { data: mgrsTiles, error: mgrsError } = await supabase
       .from("mgrs_tiles")
       .select("*")
-      .eq("is_active", true)
+      .eq("is_agri", true)
       .limit(maxTilesPerRun);
 
     if (mgrsError) {
@@ -170,9 +169,9 @@ serve(async (req) => {
           nir_band_path: `satellite-data/${mgrsTile.tile_id}/${acquisitionDate}/B08_nir.tif`,
           metadata: {
             mgrs_tile_id: mgrsTile.id,
-            utm_zone: mgrsTile.utm_zone,
-            latitude_band: mgrsTile.latitude_band,
-            grid_square: mgrsTile.grid_square,
+            tile_id: mgrsTile.tile_id,
+            state: mgrsTile.state,
+            district: mgrsTile.district,
             geometry: mgrsTile.geometry,
             sentinel_product_id: bestImage.Id,
             sentinel_product_name: bestImage.Name,
