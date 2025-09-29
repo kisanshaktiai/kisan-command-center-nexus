@@ -19,7 +19,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install planetary-computer pystac-client rasterio numpy supabase-py requests
+        pip install -r requirements.txt
 
     - name: Run NDVI worker
       env:
