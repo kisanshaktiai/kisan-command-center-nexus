@@ -20,7 +20,7 @@ BUCKET = os.getenv("STORAGE_BUCKET", "satellite-tiles")
 COUNTRY_CODE = os.getenv("SUPABASE_COUNTRY_CODE", "IND")
 CLOUD_COVER = float(os.getenv("CLOUD_COVER_THRESHOLD", "20"))
 MAX_CONCURRENT = int(os.getenv("MAX_CONCURRENT_TILES", "5"))
-START_DATE = os.getenv("START_DATE", "2020-01-01")  # Configurable start date
+START_DATE = os.getenv("START_DATE", "2025-01-01")  # Configurable start date
 UPDATE_WINDOW_DAYS = int(os.getenv("UPDATE_WINDOW_DAYS", "30"))  # Look back period
 MIN_UPDATE_DAYS = int(os.getenv("MIN_UPDATE_DAYS", "7"))  # Don't update if fresher than this
 
