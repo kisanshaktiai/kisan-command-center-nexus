@@ -17,6 +17,7 @@ import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
 import MasterCompanies from './super-admin/MasterCompanies';
 import MasterProducts from './super-admin/MasterProducts';
 import ProductCategories from './super-admin/ProductCategories';
+import NdviDataStatus from './super-admin/NdviDataStatus';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -98,6 +99,7 @@ const SuperAdmin = () => {
             <Route path="/master-companies" element={<MasterCompanies />} />
             <Route path="/master-products" element={<MasterProducts />} />
             <Route path="/product-categories" element={<ProductCategories />} />
+            <Route path="/ndvi-data-status" element={<NdviDataStatus />} />
           </Routes>
         </main>
       </div>

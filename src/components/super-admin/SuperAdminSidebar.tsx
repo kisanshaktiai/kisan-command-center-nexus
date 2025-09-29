@@ -18,7 +18,8 @@ import {
   Briefcase,
   Building,
   Package,
-  Layers
+  Layers,
+  Satellite
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -44,6 +45,7 @@ const navigationItems = [
       { title: 'Master Companies', tab: 'master-companies', route: '/super-admin/master-companies', icon: Building },
       { title: 'Product Categories', tab: 'product-categories', route: '/super-admin/product-categories', icon: Layers },
       { title: 'Master Products', tab: 'master-products', route: '/super-admin/master-products', icon: Package },
+      { title: 'NDVI Data Status', tab: 'ndvi-data-status', route: '/super-admin/ndvi-data-status', icon: Satellite },
     ]
   },
   {

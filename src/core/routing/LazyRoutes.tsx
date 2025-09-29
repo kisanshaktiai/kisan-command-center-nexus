@@ -23,9 +23,14 @@ export const LazyPlatformMonitoring = lazy(() =>
   import('@/pages/super-admin/PlatformMonitoring')
 );
 
+export const LazyNdviDataStatus = lazy(() => 
+  import('@/pages/super-admin/NdviDataStatus')
+);
+
 // Wrap with lazy load HOC
 export const TenantManagementLazy = withLazyLoad(LazyTenantManagement);
 export const TenantManagementRefactoredLazy = withLazyLoad(LazyTenantManagementRefactored);
 export const OverviewLazy = withLazyLoad(LazyOverview);
 export const OptimizedOverviewLazy = withLazyLoad(LazyOptimizedOverview);
 export const PlatformMonitoringLazy = withLazyLoad(LazyPlatformMonitoring);
+export const NdviDataStatusLazy = withLazyLoad(LazyNdviDataStatus);
