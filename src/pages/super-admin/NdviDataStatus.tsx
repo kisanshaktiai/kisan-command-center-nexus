@@ -303,6 +303,7 @@ export default function NdviDataStatus() {
                   <TableHead>Tile ID</TableHead>
                   <TableHead>Acquisition Date</TableHead>
                   <TableHead>Cloud Cover</TableHead>
+                  <TableHead>Storage</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -310,7 +311,7 @@ export default function NdviDataStatus() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Loading NDVI data...
@@ -319,13 +320,13 @@ export default function NdviDataStatus() {
                   </TableRow>
                 ) : error ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-destructive">
+                    <TableCell colSpan={6} className="text-center py-8 text-destructive">
                       Error loading data: {error.message}
                     </TableCell>
                   </TableRow>
                 ) : !data?.tiles || data.tiles.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No NDVI data available. Click "Manual Sync" to fetch data.
                     </TableCell>
                   </TableRow>
@@ -342,6 +343,18 @@ export default function NdviDataStatus() {
                       <TableCell className="font-medium">{tile.tile_id}</TableCell>
                       <TableCell>{format(new Date(tile.acquisition_date), 'dd/MM/yyyy')}</TableCell>
                       <TableCell>{tile.cloud_cover?.toFixed(1) || 'N/A'}%</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {tile.storage_verified ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-yellow-600" />
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {tile.storage_verified ? 'Verified' : 'Pending'}
+                          </span>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getStatusIcon(tile.status)}
@@ -486,6 +499,55 @@ export default function NdviDataStatus() {
                   </div>
                 </div>
               )}
+
+              {/* Storage Verification Status */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Storage Verification</Label>
+                <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Status:</span>
+                    <div className="flex items-center gap-2">
+                      {selectedTile.storage_verified ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-sm text-green-600 font-medium">Verified</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-4 w-4 text-yellow-600" />
+                          <span className="text-sm text-yellow-600 font-medium">Not Verified</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {selectedTile.storage_verification_date && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Last Verified:</span>
+                      <span className="text-sm">{format(new Date(selectedTile.storage_verification_date), 'PPpp')}</span>
+                    </div>
+                  )}
+                  {selectedTile.storage_paths_verified && Object.keys(selectedTile.storage_paths_verified).length > 0 && (
+                    <div className="pt-2 border-t space-y-2">
+                      <span className="text-xs text-muted-foreground font-medium">File Verification:</span>
+                      {Object.entries(selectedTile.storage_paths_verified).map(([key, value]: [string, any]) => (
+                        <div key={key} className="flex justify-between items-center text-xs">
+                          <span className="text-muted-foreground">{key.replace('_', ' ').toUpperCase()}:</span>
+                          <div className="flex items-center gap-1">
+                            {value.exists ? (
+                              <CheckCircle className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <XCircle className="h-3 w-3 text-red-600" />
+                            )}
+                            <span className="text-muted-foreground">
+                              {value.size ? `${value.size.toFixed(2)} MB` : 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* File Paths */}
               {selectedTile.ndvi_path && (

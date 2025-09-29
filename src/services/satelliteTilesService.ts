@@ -6,7 +6,7 @@ export interface SatelliteTile {
   tile_id: string;
   acquisition_date: string;
   cloud_cover: number;
-  status: string; // Database returns string, we'll type guard if needed
+  status: string;
   country_id: string;
   collection: string;
   processing_level: string;
@@ -21,6 +21,9 @@ export interface SatelliteTile {
   created_at: string;
   updated_at: string;
   processing_completed_at?: string;
+  storage_verified?: boolean;
+  storage_verification_date?: string;
+  storage_paths_verified?: any;
 }
 
 export interface SatelliteTilesFilters {
@@ -36,6 +39,11 @@ export interface SyncResult {
   inserted: number;
   updated: number;
   errors: { tile_id: string; error: string }[];
+  storageAudit?: {
+    verified: number;
+    missing: number;
+    details?: Array<{tile_id: string; files: string[]; status: string}>;
+  };
 }
 
 class SatelliteTilesService {
@@ -130,9 +138,12 @@ class SatelliteTilesService {
       endDate?: string;
       cloudCoverage?: number;
       forceRefresh?: boolean;
+      maxTilesPerRun?: number;
     }
   ): Promise<Result<{ message: string; results: SyncResult }>> {
     try {
+      console.log('[satelliteTilesService] Syncing NDVI data with params:', params);
+      
       const { data, error } = await supabase.functions.invoke('fetch-s2-ndvi', {
         body: params || {}
       });
@@ -142,6 +153,7 @@ class SatelliteTilesService {
         return ResultHelpers.error(`Failed to sync NDVI data: ${error.message}`);
       }
 
+      console.log('[satelliteTilesService] Sync results:', data?.results);
       return ResultHelpers.success(data);
     } catch (error) {
       console.error('Error syncing NDVI data:', error);

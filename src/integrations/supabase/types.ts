@@ -10105,6 +10105,56 @@ export type Database = {
           },
         ]
       }
+      satellite_storage_audit: {
+        Row: {
+          created_at: string
+          file_exists: boolean
+          file_size_bytes: number | null
+          file_type: string
+          id: string
+          last_verified_at: string
+          metadata: Json | null
+          satellite_tile_id: string
+          storage_path: string
+          updated_at: string
+          verification_error: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_exists?: boolean
+          file_size_bytes?: number | null
+          file_type: string
+          id?: string
+          last_verified_at?: string
+          metadata?: Json | null
+          satellite_tile_id: string
+          storage_path: string
+          updated_at?: string
+          verification_error?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_exists?: boolean
+          file_size_bytes?: number | null
+          file_type?: string
+          id?: string
+          last_verified_at?: string
+          metadata?: Json | null
+          satellite_tile_id?: string
+          storage_path?: string
+          updated_at?: string
+          verification_error?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "satellite_storage_audit_satellite_tile_id_fkey"
+            columns: ["satellite_tile_id"]
+            isOneToOne: false
+            referencedRelation: "satellite_tiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       satellite_tiles: {
         Row: {
           acquisition_date: string
@@ -10123,6 +10173,9 @@ export type Database = {
           raw_paths: Json | null
           red_band_path: string | null
           status: string | null
+          storage_paths_verified: Json | null
+          storage_verification_date: string | null
+          storage_verified: boolean | null
           tile_id: string
           updated_at: string | null
         }
@@ -10143,6 +10196,9 @@ export type Database = {
           raw_paths?: Json | null
           red_band_path?: string | null
           status?: string | null
+          storage_paths_verified?: Json | null
+          storage_verification_date?: string | null
+          storage_verified?: boolean | null
           tile_id: string
           updated_at?: string | null
         }
@@ -10163,6 +10219,9 @@ export type Database = {
           raw_paths?: Json | null
           red_band_path?: string | null
           status?: string | null
+          storage_paths_verified?: Json | null
+          storage_verification_date?: string | null
+          storage_verified?: boolean | null
           tile_id?: string
           updated_at?: string | null
         }
