@@ -3,7 +3,7 @@ name: NDVI Pipeline
 on:
   schedule:
     - cron: "0 2 * * *"  # Run daily at 2 AM UTC (7:30 AM IST)
-  workflow_dispatch:      # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
   fetch-ndvi:
@@ -19,7 +19,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install planetary-computer pystac-client rasterio numpy supabase
+        pip install planetary-computer pystac-client rasterio numpy supabase-py requests
 
     - name: Run NDVI worker
       env:
@@ -29,4 +29,4 @@ jobs:
         SUPABASE_COUNTRY_CODE: IND
         CLOUD_COVER_THRESHOLD: 20
       run: |
-        python ndvi_worker.py
+        python ndvi-harvest-worker/ndvi_harvest.py
