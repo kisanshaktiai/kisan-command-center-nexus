@@ -5,6 +5,9 @@ import rasterio
 import planetary_computer as pc
 from pystac_client import Client
 from supabase import create_client, Client as SupaClient
+from datetime import datetime, timezone
+
+end_date = datetime.now(timezone.utc).isoformat()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
@@ -98,7 +101,7 @@ def run():
                 "s2:mgrs_tile": {"eq": tile_id},
                 "eo:cloud_cover": {"lt": CLOUD_COVER}
             },
-            datetime=f"{since_date.isoformat()}/now"
+            datetime=f"{since_date.isoformat()}/{end_date}"
         )
         items = list(search.get_items())
         if not items:
