@@ -48,27 +48,57 @@ export const useSatelliteTiles = (
     refetchInterval: 60000,
   });
 
-  // Mutation for syncing NDVI data
+  // Mutation for syncing NDVI data (using lightweight version)
   const syncNdviData = useMutation({
     mutationFn: async (params?: {
       startDate?: string;
       endDate?: string;
       cloudCoverage?: number;
       forceRefresh?: boolean;
+      useLightweight?: boolean;
     }) => {
-      const result = await satelliteTilesService.syncNdviData(params);
-      if (!result.success) {
-        throw new Error(result.error);
+      // Always use lightweight version to avoid memory issues
+      const useLightweight = params?.useLightweight !== false;
+      
+      if (useLightweight) {
+        // Use the new lightweight edge function that only fetches metadata
+        const { data, error } = await supabase.functions.invoke('fetch-s2-ndvi-lite', {
+          body: {
+            startDate: params?.startDate,
+            endDate: params?.endDate,
+            cloudCoverage: params?.cloudCoverage || 20,
+            regions: ['Punjab', 'Haryana'] // Process two small regions
+          },
+        });
+
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || 'Lightweight sync failed');
+        
+        return data;
+      } else {
+        // Fall back to original service (not recommended)
+        const result = await satelliteTilesService.syncNdviData(params);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result.data;
       }
-      return result.data;
     },
     onSuccess: (data) => {
-      toast.success(`Sync completed: ${data.results.inserted} new, ${data.results.updated} updated`);
+      const message = data?.message || 'NDVI metadata sync completed';
+      toast.success(message);
+      
+      if (data?.results) {
+        const details = `Processed: ${data.results.processed || 0} tiles (${data.results.inserted || 0} new, ${data.results.updated || 0} updated)`;
+        toast.info(details);
+      }
+      
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['satellite-tiles'] });
       queryClient.invalidateQueries({ queryKey: ['satellite-tiles-stats'] });
     },
     onError: (error: Error) => {
+      console.error('Sync error details:', error);
       toast.error(`Sync failed: ${error.message}`);
     },
   });
