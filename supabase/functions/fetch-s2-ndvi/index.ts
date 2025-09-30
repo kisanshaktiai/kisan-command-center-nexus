@@ -1253,6 +1253,12 @@ async function downloadAndProcessNDVI(
       dataQualityScore = 75; // Default score for overview processing
     }
     
+    // Check if we have processing results to upload
+    if (!processingResult) {
+      console.error(`[downloadAndProcessNDVI] No processing result available`);
+      throw new Error('Processing failed - no result available');
+    }
+    
     // Upload results at different resolutions
     const uploadedPaths: any = {};
     
