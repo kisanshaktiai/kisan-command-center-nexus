@@ -885,12 +885,17 @@ async function downloadAndProcessNDVI(
   ndviPath: string | null;
   redBandPath: string | null;
   nirBandPath: string | null;
+  overviewNdviPath?: string | null;
+  mediumNdviPath?: string | null;
+  fullNdviPath?: string | null;
+  resolutionLevel?: string;
   fileSize: number | null;
   error: string | null;
   checksum: string | null;
   storageVerified: boolean;
   storagePathsVerified: any;
   actualDownloadStatus: string;
+  processingTimeMs?: number;
 }> {
   // Storage paths for all files
   const storagePaths = {
