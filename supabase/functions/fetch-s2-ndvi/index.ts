@@ -607,11 +607,104 @@ async function queryPlanetaryComputer(
   }
 }
 
+// SAS Token Cache
+interface SASTokenCache {
+  token: string;
+  expiresAt: Date;
+}
+
+let sasTokenCache: SASTokenCache | null = null;
+
 /**
- * Get SAS token for accessing Planetary Computer data
+ * Parse SAS token to extract expiration time
+ * SAS tokens typically contain 'se' parameter with expiration timestamp
  */
-async function getSASToken(): Promise<string> {
+function parseSASTokenExpiration(token: string): Date | null {
   try {
+    // SAS tokens contain query parameters, extract 'se' (signed expiry)
+    const params = new URLSearchParams(token.includes('?') ? token.split('?')[1] : token);
+    const expiryStr = params.get('se');
+    
+    if (expiryStr) {
+      // Parse ISO date format (e.g., "2024-01-01T12:00:00Z")
+      const expiry = new Date(expiryStr);
+      if (!isNaN(expiry.getTime())) {
+        return expiry;
+      }
+    }
+    
+    // Default to 1 hour from now if we can't parse
+    console.log(`[parseSASTokenExpiration] Could not parse expiry, defaulting to 1 hour`);
+    return new Date(Date.now() + 60 * 60 * 1000);
+  } catch (error) {
+    console.error(`[parseSASTokenExpiration] Error parsing token:`, error);
+    return new Date(Date.now() + 60 * 60 * 1000);
+  }
+}
+
+/**
+ * Check if cached SAS token is still valid
+ */
+function isCachedTokenValid(): boolean {
+  if (!sasTokenCache) {
+    console.log(`[isCachedTokenValid] No cached token found`);
+    return false;
+  }
+  
+  const now = new Date();
+  const bufferMinutes = 5; // Refresh if expires within 5 minutes
+  const expiresWithBuffer = new Date(sasTokenCache.expiresAt.getTime() - bufferMinutes * 60 * 1000);
+  
+  const isValid = now < expiresWithBuffer;
+  
+  if (!isValid) {
+    console.log(`[isCachedTokenValid] Token expires at ${sasTokenCache.expiresAt.toISOString()}, refreshing (current: ${now.toISOString()})`);
+  }
+  
+  return isValid;
+}
+
+/**
+ * Get SAS token for accessing Planetary Computer data with caching
+ * Includes optional database caching for high-frequency calls
+ */
+async function getSASToken(forceRefresh = false, supabase?: any): Promise<string> {
+  try {
+    // Check database cache first if supabase client provided
+    if (!forceRefresh && supabase && !sasTokenCache) {
+      try {
+        const { data: cachedToken } = await supabase
+          .from('sas_token_cache')
+          .select('token, expires_at')
+          .eq('id', 'planetary_computer')
+          .single();
+        
+        if (cachedToken && cachedToken.expires_at) {
+          const expiresAt = new Date(cachedToken.expires_at);
+          const now = new Date();
+          const bufferMinutes = 5;
+          const expiresWithBuffer = new Date(expiresAt.getTime() - bufferMinutes * 60 * 1000);
+          
+          if (now < expiresWithBuffer) {
+            sasTokenCache = { token: cachedToken.token, expiresAt };
+            console.log(`[getSASToken] Loaded token from database cache (expires: ${expiresAt.toISOString()})`);
+            return cachedToken.token;
+          }
+        }
+      } catch (dbError) {
+        // Ignore database errors, fall back to fetching new token
+        console.log(`[getSASToken] Could not load from database cache:`, dbError);
+      }
+    }
+    
+    // Check in-memory cached token
+    if (!forceRefresh && isCachedTokenValid()) {
+      console.log(`[getSASToken] Using in-memory cached token (expires: ${sasTokenCache!.expiresAt.toISOString()})`);
+      return sasTokenCache!.token;
+    }
+    
+    console.log(`[getSASToken] Fetching new SAS token at ${new Date().toISOString()}`);
+    
     const response = await fetchWithRetry(
       PLANETARY_COMPUTER_SAS_TOKEN_URL,
       undefined,
@@ -620,30 +713,91 @@ async function getSASToken(): Promise<string> {
     
     if (!response.ok) {
       console.error(`[getSASToken] Failed to get SAS token: ${response.status}`);
+      // If we have a cached token and refresh failed, continue using it
+      if (sasTokenCache && !forceRefresh) {
+        console.log(`[getSASToken] Using expired cached token as fallback`);
+        return sasTokenCache.token;
+      }
       return "";
     }
     
     const data = await response.json();
-    return data.token || "";
+    const token = data.token || "";
+    
+    if (token) {
+      // Parse expiration and cache the token
+      const expiresAt = parseSASTokenExpiration(token);
+      if (expiresAt) {
+        sasTokenCache = { token, expiresAt };
+        console.log(`[getSASToken] Token cached in memory, expires at ${expiresAt.toISOString()}`);
+        
+        // Store in Supabase for cross-function caching if client provided
+        if (supabase) {
+          try {
+            // Create table if it doesn't exist (will fail silently if it does)
+            await supabase.rpc('create_sas_token_cache_table', {});
+          } catch (e) {
+            // Table likely already exists, ignore
+          }
+          
+          try {
+            await supabase.from('sas_token_cache').upsert({
+              id: 'planetary_computer',
+              token: token,
+              expires_at: expiresAt.toISOString(),
+              updated_at: new Date().toISOString()
+            });
+            console.log(`[getSASToken] Token cached in database`);
+          } catch (dbError) {
+            console.error(`[getSASToken] Failed to cache token in database:`, dbError);
+          }
+        }
+      }
+    }
+    
+    return token;
   } catch (error) {
     console.error(`[getSASToken] Error getting SAS token:`, error);
+    
+    // If we have a cached token and fetch failed, continue using it
+    if (sasTokenCache) {
+      console.log(`[getSASToken] Using cached token as fallback after error`);
+      return sasTokenCache.token;
+    }
+    
     return "";
   }
 }
 
 /**
- * Download file in chunks for large files
+ * Download file in chunks for large files with 403 retry
  */
 async function downloadFileInChunks(
   url: string,
-  maxSizeMB: number = 500
+  maxSizeMB: number = 500,
+  tokenRefreshCallback?: () => Promise<string>
 ): Promise<ArrayBuffer> {
+  const makeRequest = async (urlWithToken: string, options?: RequestInit): Promise<Response> => {
+    let response = await fetchWithRetry(urlWithToken, options, 'file_download');
+    
+    // If we get a 403 and have a token refresh callback, try refreshing
+    if (response.status === 403 && tokenRefreshCallback) {
+      console.log(`[downloadFileInChunks] Got 403, refreshing SAS token and retrying`);
+      const newToken = await tokenRefreshCallback();
+      if (newToken) {
+        // Update URL with new token
+        const baseUrl = urlWithToken.split('?')[0];
+        const newUrlWithToken = `${baseUrl}?${newToken}`;
+        console.log(`[downloadFileInChunks] Retrying with refreshed token`);
+        response = await fetchWithRetry(newUrlWithToken, options, 'file_download_retry');
+      }
+    }
+    
+    return response;
+  };
+  
   // First, get file size with HEAD request
-  const headResponse = await fetchWithRetry(
-    url, 
-    { method: 'HEAD' },
-    'file_size_check'
-  );
+  const headResponse = await makeRequest(url, { method: 'HEAD' });
   const contentLength = headResponse.headers.get('content-length');
   const fileSizeBytes = contentLength ? parseInt(contentLength, 10) : 0;
   const fileSizeMB = fileSizeBytes / (1024 * 1024);
@@ -658,7 +812,7 @@ async function downloadFileInChunks(
   // For small files (< 50MB), download normally
   if (fileSizeMB < 50) {
     console.log(`[downloadFileInChunks] Small file, downloading directly`);
-    const response = await fetchWithRetry(url, undefined, 'download_small_file');
+    const response = await makeRequest(url);
     if (!response.ok) {
       throw new Error(`Failed to download file: ${response.status}`);
     }
@@ -677,15 +831,11 @@ async function downloadFileInChunks(
     
     console.log(`[downloadFileInChunks] Downloading chunk: ${start}-${end} (${((start/fileSizeBytes)*100).toFixed(1)}%)`);
     
-    const response = await fetchWithRetry(
-      url,
-      {
-        headers: {
-          'Range': `bytes=${start}-${end}`
-        }
-      },
-      `download_chunk_${start}_${end}`
-    );
+    const response = await makeRequest(url, {
+      headers: {
+        'Range': `bytes=${start}-${end}`
+      }
+    });
     
     if (!response.ok && response.status !== 206) {
       throw new Error(`Failed to download chunk: ${response.status}`);
@@ -807,8 +957,8 @@ async function downloadAndProcessNDVI(
     console.log(`[downloadAndProcessNDVI] Starting download for ${tileName}/${acquisitionDate}`);
     logMemoryUsage('Start');
     
-    // Get SAS token for accessing Planetary Computer data
-    const sasToken = await getSASToken();
+    // Get SAS token for accessing Planetary Computer data (with database caching)
+    let sasToken = await getSASToken(false, supabase);
     if (!sasToken) {
       console.error(`[downloadAndProcessNDVI] Failed to get SAS token`);
       return {
@@ -851,6 +1001,13 @@ async function downloadAndProcessNDVI(
     
     console.log(`[downloadAndProcessNDVI] Expected file sizes - RED: ${redFileSize.toFixed(2)}MB, NIR: ${nirFileSize.toFixed(2)}MB`);
     
+    // Create token refresh callback
+    const tokenRefreshCallback = async () => {
+      console.log(`[downloadAndProcessNDVI] Refreshing SAS token due to 403 error`);
+      const newToken = await getSASToken(true, supabase); // Force refresh with database caching
+      return newToken;
+    };
+    
     // Append SAS token to URLs
     const redBandUrl = `${redBandAsset.href}?${sasToken}`;
     const nirBandUrl = `${nirBandAsset.href}?${sasToken}`;
@@ -858,21 +1015,21 @@ async function downloadAndProcessNDVI(
     console.log(`[downloadAndProcessNDVI] RED band URL: ${redBandAsset.href}`);
     console.log(`[downloadAndProcessNDVI] NIR band URL: ${nirBandAsset.href}`);
     
-    // Download RED band
+    // Download RED band with automatic token refresh on 403
     await updateProcessingStage('downloading_red');
     let redData: ArrayBuffer;
     try {
       logMemoryUsage('Before RED download');
-      redData = await downloadFileInChunks(redBandUrl);
+      redData = await downloadFileInChunks(redBandUrl, 500, tokenRefreshCallback);
       console.log(`[downloadAndProcessNDVI] RED band downloaded: ${redData.byteLength} bytes`);
       checksums.red = await calculateChecksum(redData);
       console.log(`[downloadAndProcessNDVI] RED band checksum: ${checksums.red}`);
       logMemoryUsage('After RED download');
     } catch (error) {
       // Try without SAS token as fallback
-      console.log(`[downloadAndProcessNDVI] Trying RED band without SAS token`);
+      console.log(`[downloadAndProcessNDVI] Trying RED band without SAS token as final fallback`);
       try {
-        redData = await downloadFileInChunks(redBandAsset.href);
+        redData = await downloadFileInChunks(redBandAsset.href, 500);
         console.log(`[downloadAndProcessNDVI] RED band downloaded without SAS: ${redData.byteLength} bytes`);
         checksums.red = await calculateChecksum(redData);
       } catch (fallbackError) {
@@ -881,21 +1038,21 @@ async function downloadAndProcessNDVI(
       }
     }
     
-    // Download NIR band
+    // Download NIR band with automatic token refresh on 403
     await updateProcessingStage('downloading_nir');
     let nirData: ArrayBuffer;
     try {
       logMemoryUsage('Before NIR download');
-      nirData = await downloadFileInChunks(nirBandUrl);
+      nirData = await downloadFileInChunks(nirBandUrl, 500, tokenRefreshCallback);
       console.log(`[downloadAndProcessNDVI] NIR band downloaded: ${nirData.byteLength} bytes`);
       checksums.nir = await calculateChecksum(nirData);
       console.log(`[downloadAndProcessNDVI] NIR band checksum: ${checksums.nir}`);
       logMemoryUsage('After NIR download');
     } catch (error) {
       // Try without SAS token as fallback
-      console.log(`[downloadAndProcessNDVI] Trying NIR band without SAS token`);
+      console.log(`[downloadAndProcessNDVI] Trying NIR band without SAS token as final fallback`);
       try {
-        nirData = await downloadFileInChunks(nirBandAsset.href);
+        nirData = await downloadFileInChunks(nirBandAsset.href, 500);
         console.log(`[downloadAndProcessNDVI] NIR band downloaded without SAS: ${nirData.byteLength} bytes`);
         checksums.nir = await calculateChecksum(nirData);
       } catch (fallbackError) {
