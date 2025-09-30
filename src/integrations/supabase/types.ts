@@ -10160,6 +10160,7 @@ export type Database = {
           acquisition_date: string
           actual_download_status: string | null
           band_statistics: Json | null
+          bandwidth_usage_mb: number | null
           checksum: string | null
           cloud_cover: number | null
           collection: string
@@ -10169,11 +10170,13 @@ export type Database = {
           country_id: string | null
           created_at: string | null
           data_quality_score: number | null
+          data_source: string | null
           error_message: string | null
           file_size_mb: number | null
           full_resolution_processed_at: string | null
           full_resolution_requested: boolean | null
           id: string
+          last_error: string | null
           last_verification_at: string | null
           medium_ndvi_path: string | null
           metadata: Json | null
@@ -10194,11 +10197,14 @@ export type Database = {
           red_band_path: string | null
           red_band_size_bytes: number | null
           red_band_verified: boolean | null
+          resolution: string | null
           resolution_level: string | null
+          retry_count: number | null
           status: string | null
           storage_paths_verified: Json | null
           storage_verification_date: string | null
           storage_verified: boolean | null
+          thumbnail_url: string | null
           tile_id: string
           updated_at: string | null
           validation_errors: Json | null
@@ -10209,6 +10215,7 @@ export type Database = {
           acquisition_date: string
           actual_download_status?: string | null
           band_statistics?: Json | null
+          bandwidth_usage_mb?: number | null
           checksum?: string | null
           cloud_cover?: number | null
           collection?: string
@@ -10218,11 +10225,13 @@ export type Database = {
           country_id?: string | null
           created_at?: string | null
           data_quality_score?: number | null
+          data_source?: string | null
           error_message?: string | null
           file_size_mb?: number | null
           full_resolution_processed_at?: string | null
           full_resolution_requested?: boolean | null
           id?: string
+          last_error?: string | null
           last_verification_at?: string | null
           medium_ndvi_path?: string | null
           metadata?: Json | null
@@ -10243,11 +10252,14 @@ export type Database = {
           red_band_path?: string | null
           red_band_size_bytes?: number | null
           red_band_verified?: boolean | null
+          resolution?: string | null
           resolution_level?: string | null
+          retry_count?: number | null
           status?: string | null
           storage_paths_verified?: Json | null
           storage_verification_date?: string | null
           storage_verified?: boolean | null
+          thumbnail_url?: string | null
           tile_id: string
           updated_at?: string | null
           validation_errors?: Json | null
@@ -10258,6 +10270,7 @@ export type Database = {
           acquisition_date?: string
           actual_download_status?: string | null
           band_statistics?: Json | null
+          bandwidth_usage_mb?: number | null
           checksum?: string | null
           cloud_cover?: number | null
           collection?: string
@@ -10267,11 +10280,13 @@ export type Database = {
           country_id?: string | null
           created_at?: string | null
           data_quality_score?: number | null
+          data_source?: string | null
           error_message?: string | null
           file_size_mb?: number | null
           full_resolution_processed_at?: string | null
           full_resolution_requested?: boolean | null
           id?: string
+          last_error?: string | null
           last_verification_at?: string | null
           medium_ndvi_path?: string | null
           metadata?: Json | null
@@ -10292,11 +10307,14 @@ export type Database = {
           red_band_path?: string | null
           red_band_size_bytes?: number | null
           red_band_verified?: boolean | null
+          resolution?: string | null
           resolution_level?: string | null
+          retry_count?: number | null
           status?: string | null
           storage_paths_verified?: Json | null
           storage_verification_date?: string | null
           storage_verified?: boolean | null
+          thumbnail_url?: string | null
           tile_id?: string
           updated_at?: string | null
           validation_errors?: Json | null
@@ -14239,6 +14257,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      latest_satellite_tiles: {
+        Row: {
+          acquisition_date: string | null
+          cloud_cover: number | null
+          created_at: string | null
+          data_source: string | null
+          region: string | null
+          resolution: string | null
+          status: string | null
+          thumbnail: string | null
+          tile_id: string | null
+        }
+        Insert: {
+          acquisition_date?: string | null
+          cloud_cover?: number | null
+          created_at?: string | null
+          data_source?: string | null
+          region?: never
+          resolution?: string | null
+          status?: string | null
+          thumbnail?: never
+          tile_id?: string | null
+        }
+        Update: {
+          acquisition_date?: string | null
+          cloud_cover?: number | null
+          created_at?: string | null
+          data_source?: string | null
+          region?: never
+          resolution?: string | null
+          status?: string | null
+          thumbnail?: never
+          tile_id?: string | null
+        }
+        Relationships: []
       }
       weather_with_location: {
         Row: {
