@@ -918,6 +918,9 @@ async function downloadAndProcessNDVI(
   // Track uploaded files for cleanup
   const uploadedFiles: string[] = [];
   
+  // Track uploaded paths for final result
+  const uploadedPaths: any = {};
+  
   // Track checksums
   const checksums = {
     red: null as string | null,
@@ -1260,8 +1263,6 @@ async function downloadAndProcessNDVI(
     }
     
     // Upload results at different resolutions
-    const uploadedPaths: any = {};
-    
     // Upload thumbnail (always available)
     if (processingResult.thumbnail) {
       await updateProcessingStage('uploading_thumbnail');
@@ -1347,69 +1348,62 @@ async function downloadAndProcessNDVI(
       });
     
     console.log(`[downloadAndProcessNDVI] Saved band metadata for future high-res processing`);
-      
-      // Verify all files were uploaded
-      await updateProcessingStage('verifying');
-      console.log(`[downloadAndProcessNDVI] Verifying all files in storage...`);
-      
-      const verificationResult = await verifyStorageIntegrity(supabase, tileName, acquisitionDate);
-      
-      if (verificationResult.status !== 'verified') {
-        console.error(`[downloadAndProcessNDVI] Storage verification failed:`, verificationResult);
-        throw new Error(`Storage verification failed: ${verificationResult.status}`);
-      }
-      
-      console.log(`[downloadAndProcessNDVI] Storage verification successful`);
-      
-      // Mark as completed only after verification
-      await updateProcessingStage('completed');
-      console.log(`[downloadAndProcessNDVI] Successfully completed processing for ${tileName}/${acquisitionDate}`);
-      
-      // Calculate total size from processed data
-      const totalSize = (processingResult.thumbnail?.data.byteLength || 0) +
-                       (processingResult.medium?.data.byteLength || 0) +
-                       (processingResult.full?.data.byteLength || 0);
-      const totalSizeMB = totalSize / (1024 * 1024);
-      
-      // Generate checksum for verification
-      const combinedChecksum = generateChecksum();
-      
-      logMemoryUsage('End');
-      
-      // Determine resolution level processed
-      const resolutionLevel = processingResult.full ? 'full' : 
-                            processingResult.medium ? 'medium' : 
-                            'thumbnail';
-      
-      return {
-        status: "completed",
-        ndviPath: uploadedPaths.ndvi,
-        redBandPath: storagePaths.red,
-        nirBandPath: storagePaths.nir,
-        overviewNdviPath: uploadedPaths.thumbnail,
-        mediumNdviPath: uploadedPaths.medium,
-        fullNdviPath: uploadedPaths.full,
-        resolutionLevel,
-        fileSize: Math.round(totalSizeMB * 100) / 100,
-        error: null,
-        checksum: combinedChecksum,
-        storageVerified: true,
-        storagePathsVerified: uploadedPaths,
-        actualDownloadStatus: "success",
-        processingTimeMs: processingResult.totalProcessingTimeMs,
-        dataQualityScore,
-        validationStatus,
-        validationMetadata,
-        bandStatistics,
-        validationErrors
-      };
-      
-    } catch (uploadError) {
-      // Cleanup on any upload error
-      console.error(`[downloadAndProcessNDVI] Upload failed, initiating cleanup:`, uploadError);
-      await cleanupPartialUploads();
-      throw uploadError;
+    
+    // Verify all files were uploaded
+    await updateProcessingStage('verifying');
+    console.log(`[downloadAndProcessNDVI] Verifying all files in storage...`);
+    
+    const verificationResult = await verifyStorageIntegrity(supabase, tileName, acquisitionDate);
+    
+    if (verificationResult.status !== 'verified') {
+      console.error(`[downloadAndProcessNDVI] Storage verification failed:`, verificationResult);
+      throw new Error(`Storage verification failed: ${verificationResult.status}`);
     }
+    
+    console.log(`[downloadAndProcessNDVI] Storage verification successful`);
+    
+    // Mark as completed only after verification
+    await updateProcessingStage('completed');
+    console.log(`[downloadAndProcessNDVI] Successfully completed processing for ${tileName}/${acquisitionDate}`);
+    
+    // Calculate total size from processed data
+    const totalSize = (processingResult.thumbnail?.data.byteLength || 0) +
+                     (processingResult.medium?.data.byteLength || 0) +
+                     (processingResult.full?.data.byteLength || 0);
+    const totalSizeMB = totalSize / (1024 * 1024);
+    
+    // Generate checksum for verification
+    const combinedChecksum = generateChecksum();
+    
+    logMemoryUsage('End');
+    
+    // Determine resolution level processed
+    const resolutionLevel = processingResult.full ? 'full' : 
+                          processingResult.medium ? 'medium' : 
+                          'thumbnail';
+    
+    return {
+      status: "completed",
+      ndviPath: uploadedPaths.ndvi,
+      redBandPath: storagePaths.red,
+      nirBandPath: storagePaths.nir,
+      overviewNdviPath: uploadedPaths.thumbnail,
+      mediumNdviPath: uploadedPaths.medium,
+      fullNdviPath: uploadedPaths.full,
+      resolutionLevel,
+      fileSize: Math.round(totalSizeMB * 100) / 100,
+      error: null,
+      checksum: combinedChecksum,
+      storageVerified: true,
+      storagePathsVerified: uploadedPaths,
+      actualDownloadStatus: "success",
+      processingTimeMs: processingResult.totalProcessingTimeMs,
+      dataQualityScore,
+      validationStatus,
+      validationMetadata,
+      bandStatistics,
+      validationErrors
+    };
     
   } catch (error) {
     console.error(`[downloadAndProcessNDVI] Error:`, error);
