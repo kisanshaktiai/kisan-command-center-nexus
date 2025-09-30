@@ -90,18 +90,20 @@ serve(async (req) => {
           message: 'Metadata stored, awaiting GeoTIFF processing capability'
         };
 
-        // Store metadata in storage
-        const metadataPath = `${tile.tile_id}/${tile.acquisition_date}/metadata.json`;
+        // Store metadata in storage as text file (JSON content)
+        const metadataPath = `${tile.tile_id}/${tile.acquisition_date}/metadata.txt`;
+        const metadataContent = JSON.stringify(metadata, null, 2);
+        
         const { error: uploadError } = await supabase.storage
           .from('satellite-data')
-          .upload(metadataPath, JSON.stringify(metadata, null, 2), {
-            contentType: 'application/json',
+          .upload(metadataPath, metadataContent, {
+            contentType: 'text/plain',
             upsert: true
           });
 
         if (uploadError) {
           console.error(`[fetch-s2-ndvi] Failed to upload metadata:`, uploadError);
-          throw uploadError;
+          throw new Error(`Upload failed: ${uploadError.message}`);
         }
 
         // Update tile status
