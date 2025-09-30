@@ -1,4 +1,4 @@
-import { GeoTIFF } from 'https://cdn.skypack.dev/geotiff@2.0.7';
+import GeoTIFF from 'https://cdn.skypack.dev/geotiff@2.0.7';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -61,7 +61,7 @@ export function validateTiffMagicBytes(buffer: ArrayBuffer): { isValid: boolean;
 /**
  * Validate GeoTIFF metadata
  */
-export async function validateGeoTiffMetadata(tiff: GeoTIFF): Promise<Partial<ValidationMetadata>> {
+export async function validateGeoTiffMetadata(tiff: any): Promise<Partial<ValidationMetadata>> {
   try {
     const image = await tiff.getImage();
     
