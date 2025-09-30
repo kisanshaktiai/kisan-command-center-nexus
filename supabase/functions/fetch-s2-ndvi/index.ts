@@ -976,6 +976,7 @@ async function calculateNDVITiled(redData: ArrayBuffer, nirData: ArrayBuffer): P
   }
 }
 
+/**
  * Calculate NDVI from RED and NIR bands using GeoTIFF
  */
 async function calculateNDVI(redData: ArrayBuffer, nirData: ArrayBuffer): Promise<Uint8Array> {
