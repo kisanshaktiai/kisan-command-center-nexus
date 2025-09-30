@@ -163,7 +163,7 @@ serve(async (req) => {
             file_size_mb: 0,
             status: 'ready_for_processing',
             processing_stage: 'metadata_stored',
-            actual_download_status: 'pending',
+            actual_download_status: 'not_started',
             storage_verified: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
