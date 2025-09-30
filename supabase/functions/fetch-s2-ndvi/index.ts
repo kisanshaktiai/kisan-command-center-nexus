@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { handleError } from "../_shared/errorHandler.ts";
+import { processTileDownloads } from "./cog-downloader.ts";
 
 // Microsoft Planetary Computer API endpoints
 const PLANETARY_COMPUTER_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1";
@@ -35,6 +36,7 @@ serve(async (req) => {
       endDate = new Date().toISOString().split('T')[0],
       cloudCoverage = 20,
       forceRefresh = false,
+      downloadFiles = false, // New flag to control actual file downloads
       regions = AGRICULTURAL_REGIONS.slice(0, 2), // Process first 2 regions by default
     } = await req.json();
 
@@ -106,14 +108,19 @@ serve(async (req) => {
           // Check if tile already exists
           const { data: existingTile } = await supabase
             .from('satellite_tiles')
-            .select('id, status')
+            .select('id, status, actual_download_status, red_band_path, nir_band_path')
             .eq('tile_id', tileId)
             .eq('acquisition_date', acquisitionDate)
             .single();
 
+          // Skip only if tile exists, has files, and forceRefresh is false
           if (existingTile && !forceRefresh) {
-            console.log(`[fetch-s2-ndvi] Tile ${tileId} already exists, skipping...`);
-            continue;
+            if (existingTile.red_band_path && existingTile.nir_band_path && 
+                existingTile.actual_download_status === 'completed') {
+              console.log(`[fetch-s2-ndvi] Tile ${tileId} already fully processed, skipping...`);
+              continue;
+            }
+            console.log(`[fetch-s2-ndvi] Tile ${tileId} exists but needs processing`);
           }
 
           // Extract band URLs
@@ -144,14 +151,14 @@ serve(async (req) => {
             bbox: feature.bbox
           };
 
-          // Prepare tile data for database
-          const tileData = {
+          // Prepare initial tile data
+          let tileData = {
             tile_id: tileId,
             acquisition_date: acquisitionDate,
             cloud_cover: properties['eo:cloud_cover'] || 0,
             collection: "sentinel-2-l2a",
-            red_band_path: null,
-            nir_band_path: null,
+            red_band_path: existingTile?.red_band_path || null,
+            nir_band_path: existingTile?.nir_band_path || null,
             ndvi_path: null,
             copernicus_red_band_url: redBandUrl,
             copernicus_nir_band_url: nirBandUrl,
@@ -168,6 +175,35 @@ serve(async (req) => {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
+
+          // Download actual TIFF files if requested
+          if (downloadFiles || forceRefresh) {
+            console.log(`[fetch-s2-ndvi] Downloading TIFF files for tile ${tileId}`);
+            
+            const downloadResult = await processTileDownloads({
+              tile_id: tileId,
+              acquisition_date: acquisitionDate,
+              metadata: metadata,
+              copernicus_red_band_url: redBandUrl + '?' + sasToken,
+              copernicus_nir_band_url: nirBandUrl + '?' + sasToken
+            }, supabase);
+
+            if (downloadResult.success) {
+              tileData.red_band_path = downloadResult.redBandPath || null;
+              tileData.nir_band_path = downloadResult.nirBandPath || null;
+              tileData.actual_download_status = 'completed';
+              tileData.processing_stage = 'bands_downloaded';
+              tileData.status = 'processing';
+              tileData.storage_verified = true;
+              
+              console.log(`[fetch-s2-ndvi] Successfully downloaded bands for ${tileId}`);
+            } else {
+              console.error(`[fetch-s2-ndvi] Failed to download bands for ${tileId}:`, downloadResult.error);
+              tileData.actual_download_status = 'failed';
+              tileData.status = 'error';
+              results.errors++;
+            }
+          }
 
           // Insert or update tile in database
           if (existingTile) {
