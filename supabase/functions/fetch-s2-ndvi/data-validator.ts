@@ -1,4 +1,4 @@
-import { GeoTIFF } from 'geotiff';
+import { GeoTIFF } from 'https://cdn.skypack.dev/geotiff@2.0.7';
 
 export interface ValidationResult {
   isValid: boolean;
