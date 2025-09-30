@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { handleError } from "../_shared/errorHandler.ts";
 
 // Microsoft Planetary Computer API endpoints
 const PLANETARY_COMPUTER_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1";
@@ -15,6 +12,8 @@ const DEFAULT_BBOX = [72.0, 18.0, 88.0, 28.0]; // India bounding box
 const DEFAULT_COLLECTION = "sentinel-2-l2a";
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,11 +22,11 @@ serve(async (req) => {
   try {
     console.log('[fetch-s2-ndvi] Function invoked');
     const { 
-      startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default: 30 days ago
+      startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default: 7 days ago
       endDate = new Date().toISOString().split('T')[0], // Default: today
       cloudCoverage = 20,
       forceRefresh = false,
-      maxTilesPerRun = 10,
+      maxTilesPerRun = 3, // Limit to 3 tiles to avoid memory issues
       filterType = 'all',
       priorityMode = 'baseline',
       bbox = DEFAULT_BBOX
@@ -55,7 +54,6 @@ serve(async (req) => {
       updated: 0,
       errors: 0,
       metadata_stored: 0,
-      downloaded: 0,
       details: [] as any[]
     };
 
@@ -106,7 +104,7 @@ serve(async (req) => {
     const stacData = await stacResponse.json();
     console.log(`[fetch-s2-ndvi] Found ${stacData.features?.length || 0} tiles from STAC`);
 
-    // Step 3: Process each tile from STAC
+    // Step 3: Process each tile from STAC (store metadata only to avoid memory issues)
     for (const feature of stacData.features || []) {
       try {
         const properties = feature.properties || {};
@@ -130,76 +128,27 @@ serve(async (req) => {
           continue;
         }
 
-        // Extract band URLs from STAC item - add SAS token
+        // Extract band URLs from STAC item
         const assets = feature.assets || {};
-        const redBandUrl = assets.B04?.href ? `${assets.B04.href}?${sasToken}` : '';
-        const nirBandUrl = assets.B08?.href ? `${assets.B08.href}?${sasToken}` : '';
-        const thumbnailUrl = assets.visual?.href ? `${assets.visual.href}?${sasToken}` : '';
+        const redBandUrl = assets.B04?.href || '';
+        const nirBandUrl = assets.B08?.href || '';
+        const thumbnailUrl = assets.visual?.href || '';
 
         if (!redBandUrl || !nirBandUrl) {
           console.warn(`[fetch-s2-ndvi] Missing band URLs for tile ${tileId}`);
           continue;
         }
 
-        // Download RED band
-        console.log(`[fetch-s2-ndvi] Downloading RED band for ${tileId}...`);
-        const redResponse = await fetch(redBandUrl);
-        if (!redResponse.ok) {
-          throw new Error(`Failed to download RED band: ${redResponse.status}`);
-        }
-        const redData = await redResponse.arrayBuffer();
-        const redUint8Array = new Uint8Array(redData);
-        
-        // Download NIR band
-        console.log(`[fetch-s2-ndvi] Downloading NIR band for ${tileId}...`);
-        const nirResponse = await fetch(nirBandUrl);
-        if (!nirResponse.ok) {
-          throw new Error(`Failed to download NIR band: ${nirResponse.status}`);
-        }
-        const nirData = await nirResponse.arrayBuffer();
-        const nirUint8Array = new Uint8Array(nirData);
-
-        // Store files in Supabase Storage
-        const redPath = `${tileId}/${acquisitionDate}/B04_red.tif`;
-        const nirPath = `${tileId}/${acquisitionDate}/B08_nir.tif`;
-        
-        console.log(`[fetch-s2-ndvi] Storing RED band to storage: ${redPath}`);
-        const { error: redUploadError } = await supabase.storage
-          .from('satellite-data')
-          .upload(redPath, redUint8Array, {
-            contentType: 'image/tiff',
-            upsert: true
-          });
-
-        if (redUploadError) {
-          console.error(`[fetch-s2-ndvi] Failed to upload RED band:`, redUploadError);
-          results.errors++;
-          continue;
-        }
-
-        console.log(`[fetch-s2-ndvi] Storing NIR band to storage: ${nirPath}`);
-        const { error: nirUploadError } = await supabase.storage
-          .from('satellite-data')
-          .upload(nirPath, nirUint8Array, {
-            contentType: 'image/tiff',
-            upsert: true
-          });
-
-        if (nirUploadError) {
-          console.error(`[fetch-s2-ndvi] Failed to upload NIR band:`, nirUploadError);
-          results.errors++;
-          continue;
-        }
-
-        // Calculate simple NDVI (placeholder - in production would need proper GeoTIFF processing)
-        console.log(`[fetch-s2-ndvi] Calculating NDVI for ${tileId}...`);
-        const ndviPath = `${tileId}/${acquisitionDate}/ndvi.json`;
+        // Store metadata instead of downloading full files
+        const ndviPath = `${tileId}/${acquisitionDate}/ndvi_metadata.json`;
         const ndviMetadata = {
           tile_id: tileId,
           acquisition_date: acquisitionDate,
           cloud_cover: properties['eo:cloud_cover'] || 0,
-          red_band_size: redData.byteLength,
-          nir_band_size: nirData.byteLength,
+          red_band_url: redBandUrl,
+          nir_band_url: nirBandUrl,
+          thumbnail_url: thumbnailUrl,
+          sas_token: sasToken,
           processing_timestamp: new Date().toISOString(),
           mgrs_tile: tileId,
           scene_id: feature.id,
@@ -213,7 +162,8 @@ serve(async (req) => {
           collection: feature.collection,
           geometry: feature.geometry,
           bbox: feature.bbox,
-          status: 'downloaded'
+          status: 'metadata_stored',
+          download_scheduled: true
         };
 
         const { error: ndviUploadError } = await supabase.storage
@@ -229,38 +179,27 @@ serve(async (req) => {
           continue;
         }
 
-        // Prepare tile data (without 'country' field)
+        // Prepare tile data
         const tileData = {
           tile_id: tileId,
           acquisition_date: acquisitionDate,
           cloud_cover: properties['eo:cloud_cover'] || 0,
           collection: DEFAULT_COLLECTION,
-          red_band_path: `satellite-data/${redPath}`,
-          nir_band_path: `satellite-data/${nirPath}`,
+          red_band_path: null, // Will be populated when downloaded
+          nir_band_path: null, // Will be populated when downloaded
           ndvi_path: `satellite-data/${ndviPath}`,
-          copernicus_red_band_url: assets.B04?.href || '',
-          copernicus_nir_band_url: assets.B08?.href || '',
+          copernicus_red_band_url: redBandUrl,
+          copernicus_nir_band_url: nirBandUrl,
           metadata: ndviMetadata,
           raw_paths: {
-            red: redPath,
-            nir: nirPath,
-            ndvi: ndviPath,
+            metadata: ndviPath,
             thumbnail: thumbnailUrl
           },
-          file_size_mb: ((redData.byteLength + nirData.byteLength) / 1024 / 1024).toFixed(2),
-          status: 'completed',
-          processing_stage: 'downloaded',
-          actual_download_status: 'success',
-          storage_verified: true,
-          storage_verification_date: new Date().toISOString(),
-          red_band_verified: true,
-          red_band_size_bytes: redData.byteLength,
-          nir_band_verified: true,
-          nir_band_size_bytes: nirData.byteLength,
-          ndvi_verified: true,
-          last_verification_at: new Date().toISOString(),
-          processing_completed_at: new Date().toISOString(),
-          copernicus_download_attempted_at: new Date().toISOString(),
+          file_size_mb: 0, // Will be updated when downloaded
+          status: 'metadata_stored',
+          processing_stage: 'metadata_stored',
+          actual_download_status: 'pending',
+          storage_verified: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -291,16 +230,15 @@ serve(async (req) => {
           results.inserted++;
         }
 
-        results.downloaded++;
+        results.metadata_stored++;
         results.details.push({
           tile_id: tileId,
           status: 'success',
-          message: `Tile downloaded and stored successfully`,
-          red_size_mb: (redData.byteLength / 1024 / 1024).toFixed(2),
-          nir_size_mb: (nirData.byteLength / 1024 / 1024).toFixed(2)
+          message: `Tile metadata stored successfully`,
+          acquisition_date: acquisitionDate
         });
 
-        console.log(`[fetch-s2-ndvi] Successfully processed tile ${tileId}/${acquisitionDate}`);
+        console.log(`[fetch-s2-ndvi] Successfully stored metadata for tile ${tileId}/${acquisitionDate}`);
 
       } catch (error) {
         console.error(`[fetch-s2-ndvi] Error processing STAC tile:`, error);
@@ -313,12 +251,13 @@ serve(async (req) => {
       }
     }
 
+    results.processed = results.inserted + results.updated;
     console.log('[fetch-s2-ndvi] Processing complete:', results);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Downloaded ${results.downloaded} tiles, inserted ${results.inserted}, updated ${results.updated}`,
+        message: `Stored metadata for ${results.metadata_stored} tiles, inserted ${results.inserted}, updated ${results.updated}`,
         results,
         metadata: {
           timestamp: new Date().toISOString(),
@@ -337,15 +276,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[fetch-s2-ndvi] Function error:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : String(error)
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      }
-    );
+    return handleError(error, 500, req);
   }
 });
