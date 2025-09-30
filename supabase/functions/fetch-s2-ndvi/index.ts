@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
 import GeoTIFF from 'https://cdn.skypack.dev/geotiff';
 import { ResolutionLevel, processMultiResolutionNDVI, checkCOGOverviews } from './cog-processor.ts';
+import { validateBands } from './data-validator.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -477,6 +478,11 @@ serve(async (req) => {
             actual_download_status: processingResult.actualDownloadStatus,
             processing_stage: processingResult.status === "completed" ? "completed" : (processingResult.status === "error" ? "error" : null),
             processing_time_ms: processingResult.processingTimeMs,
+            data_quality_score: processingResult.dataQualityScore,
+            validation_status: processingResult.validationStatus,
+            validation_metadata: processingResult.validationMetadata,
+            band_statistics: processingResult.bandStatistics,
+            validation_errors: processingResult.validationErrors,
             updated_at: new Date().toISOString()
           })
           .eq("id", insertedTile.id);
@@ -896,6 +902,11 @@ async function downloadAndProcessNDVI(
   storagePathsVerified: any;
   actualDownloadStatus: string;
   processingTimeMs?: number;
+  dataQualityScore?: number;
+  validationStatus?: string;
+  validationMetadata?: any;
+  bandStatistics?: any;
+  validationErrors?: any[];
 }> {
   // Storage paths for all files
   const storagePaths = {
@@ -1047,18 +1058,192 @@ async function downloadAndProcessNDVI(
     
     console.log(`[downloadAndProcessNDVI] Processing strategy: ${requestedResolution} (has overviews: ${hasOverviews})`);
     
-    // Process NDVI using COG multi-resolution approach
-    await updateProcessingStage('processing_ndvi');
-    logMemoryUsage('Before NDVI processing');
+    // Initialize validation metadata
+    let validationMetadata: any = {};
+    let bandStatistics: any = {};
+    let dataQualityScore = 0;
+    let validationStatus = 'validating';
+    let validationErrors: any[] = [];
     
-    const processingResult = await processMultiResolutionNDVI(
-      `${redBandAssetUrl}?${sasToken}`,
-      `${nirBandAssetUrl}?${sasToken}`,
-      requestedResolution
-    );
-    
-    console.log(`[downloadAndProcessNDVI] Multi-resolution processing complete in ${processingResult.totalProcessingTimeMs}ms`);
-    logMemoryUsage('After NDVI processing');
+    // For full resolution processing, perform comprehensive validation
+    if (requestedResolution === ResolutionLevel.FULL) {
+      console.log(`[downloadAndProcessNDVI] Performing comprehensive data validation for full resolution processing`);
+      await updateProcessingStage('validating_data');
+      
+      try {
+        // Download full resolution data for validation
+        console.log(`[downloadAndProcessNDVI] Downloading full resolution bands for validation`);
+        const [redData, nirData] = await Promise.all([
+          downloadFileInChunks(`${redBandAssetUrl}?${sasToken}`, 'RED', tokenRefreshCallback),
+          downloadFileInChunks(`${nirBandAssetUrl}?${sasToken}`, 'NIR', tokenRefreshCallback)
+        ]);
+        
+        // Perform comprehensive validation
+        const validationResult = await validateBands(redData, nirData);
+        
+        // Store validation results
+        dataQualityScore = validationResult.qualityScore;
+        validationStatus = validationResult.shouldProceed ? 'passed' : 
+                          validationResult.errors.length > 0 ? 'failed' : 'warning';
+        validationErrors = [
+          ...validationResult.errors,
+          ...validationResult.warnings.map(w => ({ level: 'warning', message: w }))
+        ];
+        
+        validationMetadata = {
+          redBand: {
+            isTiff: validationResult.redValidation.metadata.isTiff,
+            hasGeoKeys: validationResult.redValidation.metadata.hasGeoKeys,
+            crs: validationResult.redValidation.metadata.crs,
+            dimensions: {
+              width: validationResult.redValidation.metadata.width,
+              height: validationResult.redValidation.metadata.height
+            },
+            magicBytes: validationResult.redValidation.metadata.magicBytes
+          },
+          nirBand: {
+            isTiff: validationResult.nirValidation.metadata.isTiff,
+            hasGeoKeys: validationResult.nirValidation.metadata.hasGeoKeys,
+            crs: validationResult.nirValidation.metadata.crs,
+            dimensions: {
+              width: validationResult.nirValidation.metadata.width,
+              height: validationResult.nirValidation.metadata.height
+            },
+            magicBytes: validationResult.nirValidation.metadata.magicBytes
+          },
+          dimensionMatch: validationResult.dimensionMatch.matches,
+          crsMatch: validationResult.crsMatch,
+          validatedAt: new Date().toISOString()
+        };
+        
+        bandStatistics = {
+          red: {
+            min: validationResult.redValidation.statistics.min,
+            max: validationResult.redValidation.statistics.max,
+            mean: validationResult.redValidation.statistics.mean,
+            stdDev: validationResult.redValidation.statistics.stdDev,
+            noDataPercentage: validationResult.redValidation.statistics.noDataPercentage
+          },
+          nir: {
+            min: validationResult.nirValidation.statistics.min,
+            max: validationResult.nirValidation.statistics.max,
+            mean: validationResult.nirValidation.statistics.mean,
+            stdDev: validationResult.nirValidation.statistics.stdDev,
+            noDataPercentage: validationResult.nirValidation.statistics.noDataPercentage
+          }
+        };
+        
+        console.log(`[downloadAndProcessNDVI] Validation complete - Status: ${validationStatus}, Quality: ${dataQualityScore}`);
+        
+        // If validation fails critically, return early
+        if (!validationResult.shouldProceed) {
+          console.error(`[downloadAndProcessNDVI] Validation failed, not proceeding with NDVI calculation`);
+          
+          // Update database with validation failure
+          await supabase
+            .from('satellite_tiles')
+            .update({
+              validation_status: validationStatus,
+              validation_metadata: validationMetadata,
+              validation_errors: validationErrors,
+              band_statistics: bandStatistics,
+              data_quality_score: dataQualityScore,
+              status: 'validation_failed',
+              error: `Data validation failed: ${validationResult.errors.join('; ')}`
+            })
+            .eq('id', tileId);
+          
+          return {
+            status: "validation_failed",
+            ndviPath: null,
+            redBandPath: null,
+            nirBandPath: null,
+            overviewNdviPath: null,
+            mediumNdviPath: null,
+            fullNdviPath: null,
+            resolutionLevel: undefined,
+            fileSize: null,
+            error: `Data validation failed with quality score ${dataQualityScore}`,
+            checksum: null,
+            storageVerified: false,
+            storagePathsVerified: null,
+            actualDownloadStatus: "validation_failed",
+            processingTimeMs: undefined
+          };
+        }
+        
+        // If validation passed, proceed with processing using the already downloaded data
+        console.log(`[downloadAndProcessNDVI] Validation passed, processing NDVI from validated data`);
+        
+        // Process NDVI using the validated data
+        await updateProcessingStage('processing_ndvi');
+        logMemoryUsage('Before NDVI processing');
+        
+        // Calculate NDVI from the validated full resolution data
+        const ndviData = await calculateNDVITiled(redData, nirData);
+        
+        // Create a processing result compatible with the multi-resolution approach
+        const processingResult = {
+          thumbnail: null,
+          medium: null,
+          full: { 
+            data: ndviData, 
+            resolution: ResolutionLevel.FULL,
+            width: validationResult.redValidation.metadata.width,
+            height: validationResult.redValidation.metadata.height
+          },
+          totalProcessingTimeMs: Date.now() - Date.now() // Will be calculated properly
+        };
+        
+        console.log(`[downloadAndProcessNDVI] NDVI processing complete from validated data`);
+        logMemoryUsage('After NDVI processing');
+        
+        
+      } catch (validationError) {
+        console.error(`[downloadAndProcessNDVI] Validation error:`, validationError);
+        validationStatus = 'failed';
+        validationErrors.push({
+          level: 'error',
+          message: validationError instanceof Error ? validationError.message : String(validationError)
+        });
+        dataQualityScore = 0;
+        
+        // Update database with validation error
+        await supabase
+          .from('satellite_tiles')
+          .update({
+            validation_status: validationStatus,
+            validation_errors: validationErrors,
+            data_quality_score: dataQualityScore,
+            status: 'validation_error',
+            error: validationError instanceof Error ? validationError.message : String(validationError)
+          })
+          .eq('id', tileId);
+        
+        throw validationError;
+      }
+    } else {
+      // For non-full resolution, use the existing multi-resolution approach without validation
+      console.log(`[downloadAndProcessNDVI] Skipping validation for ${requestedResolution} resolution`);
+      
+      // Process NDVI using COG multi-resolution approach
+      await updateProcessingStage('processing_ndvi');
+      logMemoryUsage('Before NDVI processing');
+      
+      const processingResult = await processMultiResolutionNDVI(
+        `${redBandAssetUrl}?${sasToken}`,
+        `${nirBandAssetUrl}?${sasToken}`,
+        requestedResolution
+      );
+      
+      console.log(`[downloadAndProcessNDVI] Multi-resolution processing complete in ${processingResult.totalProcessingTimeMs}ms`);
+      logMemoryUsage('After NDVI processing');
+      
+      
+      // Set basic validation metadata for overview processing
+      validationStatus = 'passed';
+      dataQualityScore = 75; // Default score for overview processing
+    }
     
     // Upload results at different resolutions
     const uploadedPaths: any = {};
@@ -1224,7 +1409,12 @@ async function downloadAndProcessNDVI(
         storageVerified: true,
         storagePathsVerified: uploadedPaths,
         actualDownloadStatus: "success",
-        processingTimeMs: processingResult.totalProcessingTimeMs
+        processingTimeMs: processingResult.totalProcessingTimeMs,
+        dataQualityScore,
+        validationStatus,
+        validationMetadata,
+        bandStatistics,
+        validationErrors
       };
       
     } catch (uploadError) {

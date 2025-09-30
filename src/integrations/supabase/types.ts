@@ -10159,6 +10159,7 @@ export type Database = {
         Row: {
           acquisition_date: string
           actual_download_status: string | null
+          band_statistics: Json | null
           checksum: string | null
           cloud_cover: number | null
           collection: string
@@ -10167,6 +10168,7 @@ export type Database = {
           copernicus_red_band_url: string | null
           country_id: string | null
           created_at: string | null
+          data_quality_score: number | null
           error_message: string | null
           file_size_mb: number | null
           full_resolution_processed_at: string | null
@@ -10199,10 +10201,14 @@ export type Database = {
           storage_verified: boolean | null
           tile_id: string
           updated_at: string | null
+          validation_errors: Json | null
+          validation_metadata: Json | null
+          validation_status: string | null
         }
         Insert: {
           acquisition_date: string
           actual_download_status?: string | null
+          band_statistics?: Json | null
           checksum?: string | null
           cloud_cover?: number | null
           collection?: string
@@ -10211,6 +10217,7 @@ export type Database = {
           copernicus_red_band_url?: string | null
           country_id?: string | null
           created_at?: string | null
+          data_quality_score?: number | null
           error_message?: string | null
           file_size_mb?: number | null
           full_resolution_processed_at?: string | null
@@ -10243,10 +10250,14 @@ export type Database = {
           storage_verified?: boolean | null
           tile_id: string
           updated_at?: string | null
+          validation_errors?: Json | null
+          validation_metadata?: Json | null
+          validation_status?: string | null
         }
         Update: {
           acquisition_date?: string
           actual_download_status?: string | null
+          band_statistics?: Json | null
           checksum?: string | null
           cloud_cover?: number | null
           collection?: string
@@ -10255,6 +10266,7 @@ export type Database = {
           copernicus_red_band_url?: string | null
           country_id?: string | null
           created_at?: string | null
+          data_quality_score?: number | null
           error_message?: string | null
           file_size_mb?: number | null
           full_resolution_processed_at?: string | null
@@ -10287,6 +10299,9 @@ export type Database = {
           storage_verified?: boolean | null
           tile_id?: string
           updated_at?: string | null
+          validation_errors?: Json | null
+          validation_metadata?: Json | null
+          validation_status?: string | null
         }
         Relationships: [
           {
