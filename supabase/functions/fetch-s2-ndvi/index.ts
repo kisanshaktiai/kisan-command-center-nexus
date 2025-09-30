@@ -430,6 +430,82 @@ async function getSASToken(): Promise<string> {
 }
 
 /**
+ * Download file in chunks for large files
+ */
+async function downloadFileInChunks(
+  url: string,
+  maxSizeMB: number = 500
+): Promise<ArrayBuffer> {
+  // First, get file size with HEAD request
+  const headResponse = await fetch(url, { method: 'HEAD' });
+  const contentLength = headResponse.headers.get('content-length');
+  const fileSizeBytes = contentLength ? parseInt(contentLength, 10) : 0;
+  const fileSizeMB = fileSizeBytes / (1024 * 1024);
+  
+  console.log(`[downloadFileInChunks] File size: ${fileSizeMB.toFixed(2)} MB`);
+  
+  // Check maximum file size limit
+  if (fileSizeMB > maxSizeMB) {
+    throw new Error(`File size (${fileSizeMB.toFixed(2)} MB) exceeds maximum limit (${maxSizeMB} MB)`);
+  }
+  
+  // For small files (< 50MB), download normally
+  if (fileSizeMB < 50) {
+    console.log(`[downloadFileInChunks] Small file, downloading directly`);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to download file: ${response.status}`);
+    }
+    return await response.arrayBuffer();
+  }
+  
+  // For large files, download in chunks
+  console.log(`[downloadFileInChunks] Large file, downloading in chunks`);
+  const chunkSize = 10 * 1024 * 1024; // 10MB chunks
+  const chunks: Uint8Array[] = [];
+  let downloadedBytes = 0;
+  
+  while (downloadedBytes < fileSizeBytes) {
+    const start = downloadedBytes;
+    const end = Math.min(downloadedBytes + chunkSize - 1, fileSizeBytes - 1);
+    
+    console.log(`[downloadFileInChunks] Downloading chunk: ${start}-${end} (${((start/fileSizeBytes)*100).toFixed(1)}%)`);
+    
+    const response = await fetch(url, {
+      headers: {
+        'Range': `bytes=${start}-${end}`
+      }
+    });
+    
+    if (!response.ok && response.status !== 206) {
+      throw new Error(`Failed to download chunk: ${response.status}`);
+    }
+    
+    const chunk = new Uint8Array(await response.arrayBuffer());
+    chunks.push(chunk);
+    downloadedBytes += chunk.length;
+    
+    // Log memory usage
+    if (typeof Deno !== 'undefined' && Deno.memoryUsage) {
+      const mem = Deno.memoryUsage();
+      console.log(`[downloadFileInChunks] Memory usage: RSS=${(mem.rss/1024/1024).toFixed(1)}MB, Heap=${(mem.heapUsed/1024/1024).toFixed(1)}MB`);
+    }
+  }
+  
+  // Combine chunks
+  console.log(`[downloadFileInChunks] Combining ${chunks.length} chunks`);
+  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+  const combined = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.length;
+  }
+  
+  return combined.buffer;
+}
+
+/**
  * Download actual satellite data from Planetary Computer and process NDVI
  */
 async function downloadAndProcessNDVI(
@@ -507,8 +583,19 @@ async function downloadAndProcessNDVI(
     }
   };
 
+  /**
+   * Log memory usage
+   */
+  const logMemoryUsage = (operation: string) => {
+    if (typeof Deno !== 'undefined' && Deno.memoryUsage) {
+      const mem = Deno.memoryUsage();
+      console.log(`[Memory ${operation}] RSS=${(mem.rss/1024/1024).toFixed(1)}MB, Heap=${(mem.heapUsed/1024/1024).toFixed(1)}MB, External=${(mem.external/1024/1024).toFixed(1)}MB`);
+    }
+  };
+
   try {
     console.log(`[downloadAndProcessNDVI] Starting download for ${tileName}/${acquisitionDate}`);
+    logMemoryUsage('Start');
     
     // Get SAS token for accessing Planetary Computer data
     const sasToken = await getSASToken();
@@ -548,74 +635,75 @@ async function downloadAndProcessNDVI(
       };
     }
     
+    // Check file sizes from STAC metadata
+    const redFileSize = redBandAsset['file:size'] ? redBandAsset['file:size'] / (1024 * 1024) : 0;
+    const nirFileSize = nirBandAsset['file:size'] ? nirBandAsset['file:size'] / (1024 * 1024) : 0;
+    
+    console.log(`[downloadAndProcessNDVI] Expected file sizes - RED: ${redFileSize.toFixed(2)}MB, NIR: ${nirFileSize.toFixed(2)}MB`);
+    
     // Append SAS token to URLs
     const redBandUrl = `${redBandAsset.href}?${sasToken}`;
     const nirBandUrl = `${nirBandAsset.href}?${sasToken}`;
     
     console.log(`[downloadAndProcessNDVI] RED band URL: ${redBandAsset.href}`);
     console.log(`[downloadAndProcessNDVI] NIR band URL: ${nirBandAsset.href}`);
-    console.log(`[downloadAndProcessNDVI] Using SAS token for authentication`);
     
     // Download RED band
     await updateProcessingStage('downloading_red');
     let redData: ArrayBuffer;
     try {
-      const redResponse = await fetch(redBandUrl);
-      if (!redResponse.ok) {
-        console.error(`[downloadAndProcessNDVI] Failed to download RED band with SAS: ${redResponse.status}`);
-        // Try without SAS token
-        const redResponsePublic = await fetch(redBandAsset.href);
-        if (!redResponsePublic.ok) {
-          throw new Error(`Failed to download RED band: ${redResponsePublic.status}`);
-        }
-        redData = await redResponsePublic.arrayBuffer();
-        console.log(`[downloadAndProcessNDVI] Successfully downloaded RED band without SAS token`);
-      } else {
-        redData = await redResponse.arrayBuffer();
-        console.log(`[downloadAndProcessNDVI] Successfully downloaded RED band with SAS token`);
-      }
+      logMemoryUsage('Before RED download');
+      redData = await downloadFileInChunks(redBandUrl);
       console.log(`[downloadAndProcessNDVI] RED band downloaded: ${redData.byteLength} bytes`);
       checksums.red = await calculateChecksum(redData);
       console.log(`[downloadAndProcessNDVI] RED band checksum: ${checksums.red}`);
+      logMemoryUsage('After RED download');
     } catch (error) {
-      console.error(`[downloadAndProcessNDVI] Error downloading RED band:`, error);
-      throw new Error(`Failed to download RED band: ${error}`);
+      // Try without SAS token as fallback
+      console.log(`[downloadAndProcessNDVI] Trying RED band without SAS token`);
+      try {
+        redData = await downloadFileInChunks(redBandAsset.href);
+        console.log(`[downloadAndProcessNDVI] RED band downloaded without SAS: ${redData.byteLength} bytes`);
+        checksums.red = await calculateChecksum(redData);
+      } catch (fallbackError) {
+        console.error(`[downloadAndProcessNDVI] Failed to download RED band:`, fallbackError);
+        throw new Error(`Failed to download RED band: ${error}`);
+      }
     }
     
     // Download NIR band
     await updateProcessingStage('downloading_nir');
     let nirData: ArrayBuffer;
     try {
-      const nirResponse = await fetch(nirBandUrl);
-      if (!nirResponse.ok) {
-        console.error(`[downloadAndProcessNDVI] Failed to download NIR band with SAS: ${nirResponse.status}`);
-        // Try without SAS token
-        const nirResponsePublic = await fetch(nirBandAsset.href);
-        if (!nirResponsePublic.ok) {
-          throw new Error(`Failed to download NIR band: ${nirResponsePublic.status}`);
-        }
-        nirData = await nirResponsePublic.arrayBuffer();
-        console.log(`[downloadAndProcessNDVI] Successfully downloaded NIR band without SAS token`);
-      } else {
-        nirData = await nirResponse.arrayBuffer();
-        console.log(`[downloadAndProcessNDVI] Successfully downloaded NIR band with SAS token`);
-      }
+      logMemoryUsage('Before NIR download');
+      nirData = await downloadFileInChunks(nirBandUrl);
       console.log(`[downloadAndProcessNDVI] NIR band downloaded: ${nirData.byteLength} bytes`);
       checksums.nir = await calculateChecksum(nirData);
       console.log(`[downloadAndProcessNDVI] NIR band checksum: ${checksums.nir}`);
+      logMemoryUsage('After NIR download');
     } catch (error) {
-      console.error(`[downloadAndProcessNDVI] Error downloading NIR band:`, error);
-      throw new Error(`Failed to download NIR band: ${error}`);
+      // Try without SAS token as fallback
+      console.log(`[downloadAndProcessNDVI] Trying NIR band without SAS token`);
+      try {
+        nirData = await downloadFileInChunks(nirBandAsset.href);
+        console.log(`[downloadAndProcessNDVI] NIR band downloaded without SAS: ${nirData.byteLength} bytes`);
+        checksums.nir = await calculateChecksum(nirData);
+      } catch (fallbackError) {
+        console.error(`[downloadAndProcessNDVI] Failed to download NIR band:`, fallbackError);
+        throw new Error(`Failed to download NIR band: ${error}`);
+      }
     }
     
     // Process TIFF files and calculate NDVI
     await updateProcessingStage('calculating_ndvi');
     let ndviResult: Uint8Array;
     try {
-      ndviResult = await calculateNDVI(redData, nirData);
+      logMemoryUsage('Before NDVI calculation');
+      ndviResult = await calculateNDVITiled(redData, nirData);
       console.log(`[downloadAndProcessNDVI] NDVI calculation completed, result size: ${ndviResult.byteLength} bytes`);
       checksums.ndvi = await calculateChecksum(ndviResult.buffer);
       console.log(`[downloadAndProcessNDVI] NDVI checksum: ${checksums.ndvi}`);
+      logMemoryUsage('After NDVI calculation');
     } catch (error) {
       console.error(`[downloadAndProcessNDVI] Error calculating NDVI:`, error);
       // Fall back to placeholder if NDVI calculation fails
@@ -628,6 +716,7 @@ async function downloadAndProcessNDVI(
     try {
       // Upload RED band
       await updateProcessingStage('uploading_red');
+      logMemoryUsage('Before RED upload');
       const { error: redUploadError } = await supabase.storage
         .from('satellite-data')
         .upload(storagePaths.red, redData, {
@@ -641,9 +730,14 @@ async function downloadAndProcessNDVI(
       }
       uploadedFiles.push(storagePaths.red);
       console.log(`[downloadAndProcessNDVI] Uploaded RED band to ${storagePaths.red}`);
+      logMemoryUsage('After RED upload');
+      
+      // Clear RED data from memory
+      redData = new ArrayBuffer(0);
       
       // Upload NIR band
       await updateProcessingStage('uploading_nir');
+      logMemoryUsage('Before NIR upload');
       const { error: nirUploadError } = await supabase.storage
         .from('satellite-data')
         .upload(storagePaths.nir, nirData, {
@@ -657,9 +751,14 @@ async function downloadAndProcessNDVI(
       }
       uploadedFiles.push(storagePaths.nir);
       console.log(`[downloadAndProcessNDVI] Uploaded NIR band to ${storagePaths.nir}`);
+      logMemoryUsage('After NIR upload');
+      
+      // Clear NIR data from memory
+      nirData = new ArrayBuffer(0);
       
       // Upload NDVI result
       await updateProcessingStage('uploading_ndvi');
+      logMemoryUsage('Before NDVI upload');
       const { error: ndviUploadError } = await supabase.storage
         .from('satellite-data')
         .upload(storagePaths.ndvi, ndviResult, {
@@ -673,6 +772,7 @@ async function downloadAndProcessNDVI(
       }
       uploadedFiles.push(storagePaths.ndvi);
       console.log(`[downloadAndProcessNDVI] Uploaded NDVI to ${storagePaths.ndvi}`);
+      logMemoryUsage('After NDVI upload');
       
       // Verify all files were uploaded
       await updateProcessingStage('verifying');
@@ -691,12 +791,14 @@ async function downloadAndProcessNDVI(
       await updateProcessingStage('completed');
       console.log(`[downloadAndProcessNDVI] Successfully completed processing for ${tileName}/${acquisitionDate}`);
       
-      const totalSize = (redData.byteLength + nirData.byteLength + ndviResult.byteLength) / (1024 * 1024);
+      const totalSize = ndviResult.byteLength / (1024 * 1024);
       
       // Create combined checksum from all three files
       const combinedChecksum = checksums.red && checksums.nir && checksums.ndvi
         ? await calculateChecksum(new TextEncoder().encode(checksums.red + checksums.nir + checksums.ndvi).buffer)
         : generateChecksum();
+      
+      logMemoryUsage('End');
       
       return {
         status: "completed",
@@ -743,6 +845,137 @@ async function downloadAndProcessNDVI(
 }
 
 /**
+ * Calculate NDVI using tiled processing for memory efficiency
+ */
+async function calculateNDVITiled(redData: ArrayBuffer, nirData: ArrayBuffer): Promise<Uint8Array> {
+  try {
+    console.log(`[calculateNDVITiled] Starting tiled NDVI calculation`);
+    console.log(`[calculateNDVITiled] RED data size: ${redData.byteLength}, NIR data size: ${nirData.byteLength}`);
+    
+    // Parse GeoTIFF headers to get dimensions
+    const redTiff = await GeoTIFF.fromArrayBuffer(redData);
+    const redImage = await redTiff.getImage();
+    const width = redImage.getWidth();
+    const height = redImage.getHeight();
+    const bbox = redImage.getBoundingBox();
+    const resolution = redImage.getResolution();
+    const origin = redImage.getOrigin();
+    
+    console.log(`[calculateNDVITiled] Image dimensions: ${width}x${height}`);
+    
+    const nirTiff = await GeoTIFF.fromArrayBuffer(nirData);
+    const nirImage = await nirTiff.getImage();
+    const nirWidth = nirImage.getWidth();
+    const nirHeight = nirImage.getHeight();
+    
+    // Verify dimensions match
+    if (width !== nirWidth || height !== nirHeight) {
+      throw new Error(`Band dimensions mismatch: RED (${width}x${height}) vs NIR (${nirWidth}x${nirHeight})`);
+    }
+    
+    // Define tile size (process in 512x512 tiles for memory efficiency)
+    const tileSize = 512;
+    const tilesX = Math.ceil(width / tileSize);
+    const tilesY = Math.ceil(height / tileSize);
+    
+    console.log(`[calculateNDVITiled] Processing in ${tilesX}x${tilesY} tiles of ${tileSize}x${tileSize} pixels`);
+    
+    // Create output array for NDVI values
+    const ndviValues = new Float32Array(width * height);
+    
+    // Get nodata values
+    const redNodata = redImage.getGDALNoData ? redImage.getGDALNoData() : 0;
+    const nirNodata = nirImage.getGDALNoData ? nirImage.getGDALNoData() : 0;
+    
+    let validPixels = 0;
+    let minNDVI = Infinity;
+    let maxNDVI = -Infinity;
+    
+    // Process image in tiles
+    for (let tileY = 0; tileY < tilesY; tileY++) {
+      for (let tileX = 0; tileX < tilesX; tileX++) {
+        const xOffset = tileX * tileSize;
+        const yOffset = tileY * tileSize;
+        const actualTileWidth = Math.min(tileSize, width - xOffset);
+        const actualTileHeight = Math.min(tileSize, height - yOffset);
+        
+        console.log(`[calculateNDVITiled] Processing tile (${tileX},${tileY}) at offset (${xOffset},${yOffset})`);
+        
+        // Read tile data using window parameter
+        const window = [xOffset, yOffset, xOffset + actualTileWidth, yOffset + actualTileHeight];
+        const redTileData = await redImage.readRasters({ window });
+        const nirTileData = await nirImage.readRasters({ window });
+        
+        const redPixels = redTileData[0];
+        const nirPixels = nirTileData[0];
+        
+        // Calculate NDVI for this tile
+        for (let y = 0; y < actualTileHeight; y++) {
+          for (let x = 0; x < actualTileWidth; x++) {
+            const tileIndex = y * actualTileWidth + x;
+            const globalIndex = (yOffset + y) * width + (xOffset + x);
+            
+            const red = redPixels[tileIndex];
+            const nir = nirPixels[tileIndex];
+            
+            // Check for nodata values
+            if (red === redNodata || nir === nirNodata || red === 0 || nir === 0) {
+              ndviValues[globalIndex] = -9999; // Use -9999 as nodata for NDVI
+              continue;
+            }
+            
+            // Calculate NDVI: (NIR - RED) / (NIR + RED)
+            const denominator = nir + red;
+            
+            if (denominator === 0) {
+              ndviValues[globalIndex] = 0;
+            } else {
+              const ndvi = (nir - red) / denominator;
+              ndviValues[globalIndex] = ndvi;
+              validPixels++;
+              
+              // Track min/max for statistics
+              if (ndvi < minNDVI) minNDVI = ndvi;
+              if (ndvi > maxNDVI) maxNDVI = ndvi;
+            }
+          }
+        }
+        
+        // Log memory usage periodically
+        if ((tileX + tileY * tilesX) % 10 === 0 && typeof Deno !== 'undefined' && Deno.memoryUsage) {
+          const mem = Deno.memoryUsage();
+          console.log(`[calculateNDVITiled] Memory at tile ${tileX},${tileY}: RSS=${(mem.rss/1024/1024).toFixed(1)}MB`);
+        }
+      }
+    }
+    
+    console.log(`[calculateNDVITiled] NDVI calculation complete. Valid pixels: ${validPixels}/${width * height}`);
+    console.log(`[calculateNDVITiled] NDVI range: ${minNDVI.toFixed(3)} to ${maxNDVI.toFixed(3)}`);
+    
+    // Convert Float32 NDVI values to Uint16 for storage
+    const scaledNDVI = new Uint16Array(ndviValues.length);
+    for (let i = 0; i < ndviValues.length; i++) {
+      if (ndviValues[i] === -9999) {
+        scaledNDVI[i] = 0; // Nodata
+      } else {
+        // Scale from [-1, 1] to [1, 65535], keeping 0 for nodata
+        const scaled = Math.round(((ndviValues[i] + 1) / 2) * 65534) + 1;
+        scaledNDVI[i] = Math.max(1, Math.min(65535, scaled));
+      }
+    }
+    
+    // Create a basic TIFF structure
+    const tiffBuffer = createBasicGeoTIFF(scaledNDVI, width, height, bbox, resolution, origin);
+    
+    console.log(`[calculateNDVITiled] Created NDVI GeoTIFF, size: ${tiffBuffer.byteLength} bytes`);
+    
+    return new Uint8Array(tiffBuffer);
+  } catch (error) {
+    console.error(`[calculateNDVITiled] Error processing GeoTIFF:`, error);
+    throw error;
+  }
+}
+
  * Calculate NDVI from RED and NIR bands using GeoTIFF
  */
 async function calculateNDVI(redData: ArrayBuffer, nirData: ArrayBuffer): Promise<Uint8Array> {
