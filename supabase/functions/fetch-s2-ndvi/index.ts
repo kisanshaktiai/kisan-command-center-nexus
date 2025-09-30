@@ -1248,12 +1248,17 @@ async function downloadAndProcessNDVI(
       ndviPath: null,
       redBandPath: null,
       nirBandPath: null,
+      overviewNdviPath: null,
+      mediumNdviPath: null,
+      fullNdviPath: null,
+      resolutionLevel: undefined,
       fileSize: null,
       error: error instanceof Error ? error.message : String(error),
       checksum: null,
       storageVerified: false,
       storagePathsVerified: null,
-      actualDownloadStatus: "failed"
+      actualDownloadStatus: "failed",
+      processingTimeMs: undefined
     };
   }
 }
