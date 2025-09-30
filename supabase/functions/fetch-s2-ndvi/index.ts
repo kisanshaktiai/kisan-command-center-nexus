@@ -1207,8 +1207,6 @@ async function downloadAndProcessNDVI(
         
         console.log(`[downloadAndProcessNDVI] NDVI processing complete from validated data`);
         logMemoryUsage('After NDVI processing');
-        
-        
       } catch (validationError) {
         console.error(`[downloadAndProcessNDVI] Validation error:`, validationError);
         validationStatus = 'failed';
