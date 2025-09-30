@@ -1448,7 +1448,12 @@ async function downloadAndProcessNDVI(
       storageVerified: false,
       storagePathsVerified: null,
       actualDownloadStatus: "failed",
-      processingTimeMs: undefined
+      processingTimeMs: undefined,
+      dataQualityScore: undefined,
+      validationStatus: undefined,
+      validationMetadata: undefined,
+      bandStatistics: undefined,
+      validationErrors: undefined
     };
   }
 }
