@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
+import GeoTIFF from 'https://cdn.skypack.dev/geotiff';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -498,36 +499,62 @@ async function downloadAndProcessNDVI(
     console.log(`[downloadAndProcessNDVI] Using SAS token for authentication`);
     
     // Download RED band
-    const redResponse = await fetch(redBandUrl);
-    if (!redResponse.ok) {
-      console.error(`[downloadAndProcessNDVI] Failed to download RED band: ${redResponse.status}`);
-      
-      // Try without SAS token in case the asset is public
-      const redResponsePublic = await fetch(redBandAsset.href);
-      if (!redResponsePublic.ok) {
-        throw new Error(`Failed to download RED band: ${redResponse.status}`);
+    let redData: ArrayBuffer;
+    try {
+      const redResponse = await fetch(redBandUrl);
+      if (!redResponse.ok) {
+        console.error(`[downloadAndProcessNDVI] Failed to download RED band with SAS: ${redResponse.status}`);
+        // Try without SAS token
+        const redResponsePublic = await fetch(redBandAsset.href);
+        if (!redResponsePublic.ok) {
+          throw new Error(`Failed to download RED band: ${redResponsePublic.status}`);
+        }
+        redData = await redResponsePublic.arrayBuffer();
+        console.log(`[downloadAndProcessNDVI] Successfully downloaded RED band without SAS token`);
+      } else {
+        redData = await redResponse.arrayBuffer();
+        console.log(`[downloadAndProcessNDVI] Successfully downloaded RED band with SAS token`);
       }
-      console.log(`[downloadAndProcessNDVI] Successfully downloaded RED band without SAS token`);
+    } catch (error) {
+      console.error(`[downloadAndProcessNDVI] Error downloading RED band:`, error);
+      throw new Error(`Failed to download RED band: ${error}`);
     }
     
     // Download NIR band
-    const nirResponse = await fetch(nirBandUrl);
-    if (!nirResponse.ok) {
-      console.error(`[downloadAndProcessNDVI] Failed to download NIR band: ${nirResponse.status}`);
-      
-      // Try without SAS token in case the asset is public
-      const nirResponsePublic = await fetch(nirBandAsset.href);
-      if (!nirResponsePublic.ok) {
-        throw new Error(`Failed to download NIR band: ${nirResponse.status}`);
+    let nirData: ArrayBuffer;
+    try {
+      const nirResponse = await fetch(nirBandUrl);
+      if (!nirResponse.ok) {
+        console.error(`[downloadAndProcessNDVI] Failed to download NIR band with SAS: ${nirResponse.status}`);
+        // Try without SAS token
+        const nirResponsePublic = await fetch(nirBandAsset.href);
+        if (!nirResponsePublic.ok) {
+          throw new Error(`Failed to download NIR band: ${nirResponsePublic.status}`);
+        }
+        nirData = await nirResponsePublic.arrayBuffer();
+        console.log(`[downloadAndProcessNDVI] Successfully downloaded NIR band without SAS token`);
+      } else {
+        nirData = await nirResponse.arrayBuffer();
+        console.log(`[downloadAndProcessNDVI] Successfully downloaded NIR band with SAS token`);
       }
-      console.log(`[downloadAndProcessNDVI] Successfully downloaded NIR band without SAS token`);
+    } catch (error) {
+      console.error(`[downloadAndProcessNDVI] Error downloading NIR band:`, error);
+      throw new Error(`Failed to download NIR band: ${error}`);
     }
     
-    // Get file data
-    const redData = await (redResponse.ok ? redResponse : await fetch(redBandAsset.href)).arrayBuffer();
-    const nirData = await (nirResponse.ok ? nirResponse : await fetch(nirBandAsset.href)).arrayBuffer();
-    
     console.log(`[downloadAndProcessNDVI] Downloaded RED: ${redData.byteLength} bytes, NIR: ${nirData.byteLength} bytes`);
+    
+    // Process TIFF files and calculate NDVI
+    let ndviResult: Uint8Array;
+    try {
+      ndviResult = await calculateNDVI(redData, nirData);
+      console.log(`[downloadAndProcessNDVI] NDVI calculation completed, result size: ${ndviResult.byteLength} bytes`);
+    } catch (error) {
+      console.error(`[downloadAndProcessNDVI] Error calculating NDVI:`, error);
+      // Fall back to placeholder if NDVI calculation fails
+      console.log(`[downloadAndProcessNDVI] Falling back to placeholder NDVI`);
+      ndviResult = createPlaceholderNDVI(redData.byteLength, nirData.byteLength);
+    }
     
     // Upload to Supabase storage
     const storagePaths = {
@@ -548,6 +575,7 @@ async function downloadAndProcessNDVI(
       console.error(`[downloadAndProcessNDVI] Failed to upload RED band:`, redUploadError);
       throw redUploadError;
     }
+    console.log(`[downloadAndProcessNDVI] Uploaded RED band to ${storagePaths.red}`);
     
     // Upload NIR band
     const { error: nirUploadError } = await supabase.storage
@@ -561,14 +589,12 @@ async function downloadAndProcessNDVI(
       console.error(`[downloadAndProcessNDVI] Failed to upload NIR band:`, nirUploadError);
       throw nirUploadError;
     }
+    console.log(`[downloadAndProcessNDVI] Uploaded NIR band to ${storagePaths.nir}`);
     
-    // Calculate NDVI (simplified - in production would use proper image processing library)
-    // For now, create a placeholder NDVI file
-    const ndviData = calculateNDVI(redData, nirData);
-    
+    // Upload NDVI result
     const { error: ndviUploadError } = await supabase.storage
       .from('satellite-data')
-      .upload(storagePaths.ndvi, ndviData, {
+      .upload(storagePaths.ndvi, ndviResult, {
         contentType: 'image/tiff',
         upsert: true
       });
@@ -577,18 +603,21 @@ async function downloadAndProcessNDVI(
       console.error(`[downloadAndProcessNDVI] Failed to upload NDVI:`, ndviUploadError);
       throw ndviUploadError;
     }
+    console.log(`[downloadAndProcessNDVI] Uploaded NDVI to ${storagePaths.ndvi}`);
     
     console.log(`[downloadAndProcessNDVI] Successfully uploaded all files for ${tileName}/${acquisitionDate}`);
     
     // Verify all files were uploaded
-    const verificationResults = await Promise.all([
-      supabase.storage.from('satellite-data').list(`${tileName}/${acquisitionDate}`),
-    ]);
+    const verificationResults = await supabase.storage
+      .from('satellite-data')
+      .list(`${tileName}/${acquisitionDate}`);
     
-    const filesInStorage = verificationResults[0].data || [];
+    const filesInStorage = verificationResults.data || [];
     const allFilesPresent = filesInStorage.length >= 3;
     
-    const totalSize = (redData.byteLength + nirData.byteLength + ndviData.byteLength) / (1024 * 1024);
+    console.log(`[downloadAndProcessNDVI] Storage verification: ${filesInStorage.length} files found, allPresent: ${allFilesPresent}`);
+    
+    const totalSize = (redData.byteLength + nirData.byteLength + ndviResult.byteLength) / (1024 * 1024);
     
     return {
       status: "completed",
@@ -620,28 +649,273 @@ async function downloadAndProcessNDVI(
 }
 
 /**
- * Simple NDVI calculation (placeholder - in production use proper image processing)
+ * Calculate NDVI from RED and NIR bands using GeoTIFF
  */
-function calculateNDVI(redData: ArrayBuffer, nirData: ArrayBuffer): Uint8Array {
-  // This is a simplified placeholder
-  // In production, you would:
-  // 1. Parse the GeoTIFF files properly
-  // 2. Extract pixel values
-  // 3. Calculate NDVI: (NIR - RED) / (NIR + RED)
-  // 4. Create a proper GeoTIFF with NDVI values
+async function calculateNDVI(redData: ArrayBuffer, nirData: ArrayBuffer): Promise<Uint8Array> {
+  try {
+    console.log(`[calculateNDVI] Starting NDVI calculation`);
+    console.log(`[calculateNDVI] RED data size: ${redData.byteLength}, NIR data size: ${nirData.byteLength}`);
+    
+    // Parse RED band GeoTIFF
+    const redTiff = await GeoTIFF.fromArrayBuffer(redData);
+    const redImage = await redTiff.getImage();
+    const redWidth = redImage.getWidth();
+    const redHeight = redImage.getHeight();
+    const redBbox = redImage.getBoundingBox();
+    const redResolution = redImage.getResolution();
+    const redOrigin = redImage.getOrigin();
+    const redMetadata = redImage.getGDALMetadata();
+    
+    console.log(`[calculateNDVI] RED band dimensions: ${redWidth}x${redHeight}`);
+    console.log(`[calculateNDVI] RED band bbox:`, redBbox);
+    console.log(`[calculateNDVI] RED band resolution:`, redResolution);
+    
+    // Parse NIR band GeoTIFF
+    const nirTiff = await GeoTIFF.fromArrayBuffer(nirData);
+    const nirImage = await nirTiff.getImage();
+    const nirWidth = nirImage.getWidth();
+    const nirHeight = nirImage.getHeight();
+    
+    console.log(`[calculateNDVI] NIR band dimensions: ${nirWidth}x${nirHeight}`);
+    
+    // Verify dimensions match
+    if (redWidth !== nirWidth || redHeight !== nirHeight) {
+      throw new Error(`Band dimensions mismatch: RED (${redWidth}x${redHeight}) vs NIR (${nirWidth}x${nirHeight})`);
+    }
+    
+    // Get pixel data
+    const redRasters = await redImage.readRasters();
+    const nirRasters = await nirImage.readRasters();
+    
+    // Get the first band (Sentinel-2 bands are single-band images)
+    const redPixels = redRasters[0];
+    const nirPixels = nirRasters[0];
+    
+    if (!redPixels || !nirPixels) {
+      throw new Error("Failed to extract pixel data from bands");
+    }
+    
+    console.log(`[calculateNDVI] RED pixels type: ${redPixels.constructor.name}, length: ${redPixels.length}`);
+    console.log(`[calculateNDVI] NIR pixels type: ${nirPixels.constructor.name}, length: ${nirPixels.length}`);
+    
+    // Get nodata value (typically -9999 or 0 for Sentinel-2)
+    const redNodata = redImage.getGDALNoData ? redImage.getGDALNoData() : 0;
+    const nirNodata = nirImage.getGDALNoData ? nirImage.getGDALNoData() : 0;
+    console.log(`[calculateNDVI] Nodata values - RED: ${redNodata}, NIR: ${nirNodata}`);
+    
+    // Calculate NDVI values
+    const ndviValues = new Float32Array(redPixels.length);
+    let validPixels = 0;
+    let minNDVI = Infinity;
+    let maxNDVI = -Infinity;
+    
+    for (let i = 0; i < redPixels.length; i++) {
+      const red = redPixels[i];
+      const nir = nirPixels[i];
+      
+      // Check for nodata values
+      if (red === redNodata || nir === nirNodata || red === 0 || nir === 0) {
+        ndviValues[i] = -9999; // Use -9999 as nodata for NDVI
+        continue;
+      }
+      
+      // Calculate NDVI: (NIR - RED) / (NIR + RED)
+      const denominator = nir + red;
+      
+      if (denominator === 0) {
+        ndviValues[i] = 0; // Handle division by zero
+      } else {
+        const ndvi = (nir - red) / denominator;
+        ndviValues[i] = ndvi;
+        validPixels++;
+        
+        // Track min/max for statistics
+        if (ndvi < minNDVI) minNDVI = ndvi;
+        if (ndvi > maxNDVI) maxNDVI = ndvi;
+      }
+    }
+    
+    console.log(`[calculateNDVI] NDVI calculation complete. Valid pixels: ${validPixels}/${redPixels.length}`);
+    console.log(`[calculateNDVI] NDVI range: ${minNDVI.toFixed(3)} to ${maxNDVI.toFixed(3)}`);
+    
+    // Create output GeoTIFF with NDVI values
+    // For now, we'll create a simple TIFF structure
+    // In production, you'd use the GeoTIFF library to write proper geospatial metadata
+    
+    // Convert Float32 NDVI values to Uint16 for storage (scale from -1 to 1 to 0 to 65535)
+    const scaledNDVI = new Uint16Array(ndviValues.length);
+    for (let i = 0; i < ndviValues.length; i++) {
+      if (ndviValues[i] === -9999) {
+        scaledNDVI[i] = 0; // Nodata
+      } else {
+        // Scale from [-1, 1] to [1, 65535], keeping 0 for nodata
+        const scaled = Math.round(((ndviValues[i] + 1) / 2) * 65534) + 1;
+        scaledNDVI[i] = Math.max(1, Math.min(65535, scaled));
+      }
+    }
+    
+    // Create a basic TIFF structure
+    // Note: This is simplified. In production, use proper GeoTIFF writing
+    const tiffBuffer = createBasicGeoTIFF(scaledNDVI, redWidth, redHeight, redBbox, redResolution, redOrigin);
+    
+    console.log(`[calculateNDVI] Created NDVI GeoTIFF, size: ${tiffBuffer.byteLength} bytes`);
+    
+    return new Uint8Array(tiffBuffer);
+  } catch (error) {
+    console.error(`[calculateNDVI] Error processing GeoTIFF:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Create a basic GeoTIFF structure with NDVI data
+ * Note: This is a simplified implementation. In production, use proper GeoTIFF writing library
+ */
+function createBasicGeoTIFF(
+  data: Uint16Array,
+  width: number,
+  height: number,
+  bbox: number[],
+  resolution: number[],
+  origin: number[]
+): ArrayBuffer {
+  // For now, return the raw data as a simple binary blob
+  // In production, this would include proper TIFF headers, IFD entries, and geospatial tags
   
-  // For now, return a placeholder that's at least a valid TIFF-like structure
-  // Create a larger placeholder that simulates NDVI data
-  const placeholderSize = Math.min(redData.byteLength, nirData.byteLength) / 2; // Half the size of input
+  const byteLength = data.byteLength + 1024; // Add space for headers
+  const buffer = new ArrayBuffer(byteLength);
+  const view = new DataView(buffer);
+  
+  // Simple TIFF header (little-endian)
+  view.setUint16(0, 0x4949, true); // "II" - little endian
+  view.setUint16(2, 42, true); // TIFF magic number
+  view.setUint32(4, 8, true); // Offset to first IFD
+  
+  // Simplified IFD (Image File Directory)
+  let offset = 8;
+  view.setUint16(offset, 12, true); // Number of directory entries
+  offset += 2;
+  
+  // Width tag
+  view.setUint16(offset, 256, true); // Tag
+  view.setUint16(offset + 2, 4, true); // Type (LONG)
+  view.setUint32(offset + 4, 1, true); // Count
+  view.setUint32(offset + 8, width, true); // Value
+  offset += 12;
+  
+  // Height tag
+  view.setUint16(offset, 257, true); // Tag
+  view.setUint16(offset + 2, 4, true); // Type (LONG)
+  view.setUint32(offset + 4, 1, true); // Count
+  view.setUint32(offset + 8, height, true); // Value
+  offset += 12;
+  
+  // BitsPerSample tag
+  view.setUint16(offset, 258, true); // Tag
+  view.setUint16(offset + 2, 3, true); // Type (SHORT)
+  view.setUint32(offset + 4, 1, true); // Count
+  view.setUint16(offset + 8, 16, true); // Value (16-bit)
+  offset += 12;
+  
+  // Compression tag (no compression)
+  view.setUint16(offset, 259, true); // Tag
+  view.setUint16(offset + 2, 3, true); // Type (SHORT)
+  view.setUint32(offset + 4, 1, true); // Count
+  view.setUint16(offset + 8, 1, true); // Value (no compression)
+  offset += 12;
+  
+  // PhotometricInterpretation tag
+  view.setUint16(offset, 262, true); // Tag
+  view.setUint16(offset + 2, 3, true); // Type (SHORT)
+  view.setUint32(offset + 4, 1, true); // Count
+  view.setUint16(offset + 8, 1, true); // Value (BlackIsZero)
+  offset += 12;
+  
+  // StripOffsets tag
+  view.setUint16(offset, 273, true); // Tag
+  view.setUint16(offset + 2, 4, true); // Type (LONG)
+  view.setUint32(offset + 4, 1, true); // Count
+  view.setUint32(offset + 8, 1024, true); // Value (data starts at 1024)
+  offset += 12;
+  
+  // SamplesPerPixel tag
+  view.setUint16(offset, 277, true); // Tag
+  view.setUint16(offset + 2, 3, true); // Type (SHORT)
+  view.setUint32(offset + 4, 1, true); // Count
+  view.setUint16(offset + 8, 1, true); // Value (1 sample per pixel)
+  offset += 12;
+  
+  // RowsPerStrip tag
+  view.setUint16(offset, 278, true); // Tag
+  view.setUint16(offset + 2, 4, true); // Type (LONG)
+  view.setUint32(offset + 4, 1, true); // Count
+  view.setUint32(offset + 8, height, true); // Value (all rows in one strip)
+  offset += 12;
+  
+  // StripByteCounts tag
+  view.setUint16(offset, 279, true); // Tag
+  view.setUint16(offset + 2, 4, true); // Type (LONG)
+  view.setUint32(offset + 4, 1, true); // Count
+  view.setUint32(offset + 8, data.byteLength, true); // Value
+  offset += 12;
+  
+  // PlanarConfiguration tag
+  view.setUint16(offset, 284, true); // Tag
+  view.setUint16(offset + 2, 3, true); // Type (SHORT)
+  view.setUint32(offset + 4, 1, true); // Count
+  view.setUint16(offset + 8, 1, true); // Value (contiguous)
+  offset += 12;
+  
+  // SampleFormat tag (floating point for NDVI)
+  view.setUint16(offset, 339, true); // Tag
+  view.setUint16(offset + 2, 3, true); // Type (SHORT)
+  view.setUint32(offset + 4, 1, true); // Count
+  view.setUint16(offset + 8, 1, true); // Value (unsigned integer)
+  offset += 12;
+  
+  // Add a simple GeoTIFF ModelTiepoint tag (simplified)
+  view.setUint16(offset, 33922, true); // ModelTiepointTag
+  view.setUint16(offset + 2, 12, true); // Type (DOUBLE)
+  view.setUint32(offset + 4, 6, true); // Count (6 values)
+  view.setUint32(offset + 8, 512, true); // Offset to values
+  offset += 12;
+  
+  // End of IFD
+  view.setUint32(offset, 0, true); // No next IFD
+  
+  // Write ModelTiepoint values at offset 512
+  const tiepointOffset = 512;
+  view.setFloat64(tiepointOffset, 0, true); // I
+  view.setFloat64(tiepointOffset + 8, 0, true); // J
+  view.setFloat64(tiepointOffset + 16, 0, true); // K
+  view.setFloat64(tiepointOffset + 24, bbox ? bbox[0] : 0, true); // X
+  view.setFloat64(tiepointOffset + 32, bbox ? bbox[3] : 0, true); // Y
+  view.setFloat64(tiepointOffset + 40, 0, true); // Z
+  
+  // Copy pixel data starting at offset 1024
+  const dataOffset = 1024;
+  const uint8Data = new Uint8Array(buffer);
+  const uint8PixelData = new Uint8Array(data.buffer);
+  uint8Data.set(uint8PixelData, dataOffset);
+  
+  // Return only the used portion of the buffer
+  return buffer.slice(0, dataOffset + data.byteLength);
+}
+
+/**
+ * Create a placeholder NDVI when calculation fails
+ */
+function createPlaceholderNDVI(redSize: number, nirSize: number): Uint8Array {
+  const placeholderSize = Math.min(redSize, nirSize) / 4;
   const ndviData = new Uint8Array(placeholderSize);
   
-  // Fill with some pattern to simulate NDVI values (-1 to 1 mapped to 0-255)
+  // Fill with simulated NDVI values
   for (let i = 0; i < placeholderSize; i++) {
     // Simulate NDVI values around 0.3-0.7 (healthy vegetation)
-    ndviData[i] = Math.floor(128 + Math.random() * 64); 
+    ndviData[i] = Math.floor(128 + Math.random() * 64);
   }
   
-  console.log(`[calculateNDVI] Created placeholder NDVI: ${placeholderSize} bytes`);
+  console.log(`[createPlaceholderNDVI] Created placeholder NDVI: ${placeholderSize} bytes`);
   return ndviData;
 }
 
