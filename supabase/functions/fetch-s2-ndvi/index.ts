@@ -1169,7 +1169,12 @@ async function downloadAndProcessNDVI(
             storageVerified: false,
             storagePathsVerified: null,
             actualDownloadStatus: "validation_failed",
-            processingTimeMs: undefined
+            processingTimeMs: undefined,
+            dataQualityScore,
+            validationStatus,
+            validationMetadata,
+            bandStatistics,
+            validationErrors
           };
         }
         
