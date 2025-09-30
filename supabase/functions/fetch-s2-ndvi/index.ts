@@ -288,6 +288,7 @@ serve(async (req) => {
             storage_paths_verified: processingResult.storagePathsVerified,
             processing_completed_at: processingResult.status === "completed" ? new Date().toISOString() : null,
             actual_download_status: processingResult.actualDownloadStatus,
+            processing_stage: processingResult.status === "completed" ? "completed" : (processingResult.status === "error" ? "error" : null),
             updated_at: new Date().toISOString()
           })
           .eq("id", insertedTile.id);
@@ -449,6 +450,56 @@ async function downloadAndProcessNDVI(
   storagePathsVerified: any;
   actualDownloadStatus: string;
 }> {
+  // Storage paths for all files
+  const storagePaths = {
+    red: `${tileName}/${acquisitionDate}/B04_red.tif`,
+    nir: `${tileName}/${acquisitionDate}/B08_nir.tif`,
+    ndvi: `${tileName}/${acquisitionDate}/NDVI.tif`
+  };
+
+  // Track uploaded files for cleanup
+  const uploadedFiles: string[] = [];
+
+  /**
+   * Cleanup function to remove partial uploads
+   */
+  const cleanupPartialUploads = async () => {
+    if (uploadedFiles.length > 0) {
+      console.log(`[cleanupPartialUploads] Cleaning up ${uploadedFiles.length} partial uploads`);
+      try {
+        const { error } = await supabase.storage
+          .from('satellite-data')
+          .remove(uploadedFiles);
+        
+        if (error) {
+          console.error(`[cleanupPartialUploads] Error during cleanup:`, error);
+        } else {
+          console.log(`[cleanupPartialUploads] Successfully removed partial uploads:`, uploadedFiles);
+        }
+      } catch (cleanupError) {
+        console.error(`[cleanupPartialUploads] Failed to cleanup:`, cleanupError);
+      }
+    }
+  };
+
+  /**
+   * Update processing stage in database
+   */
+  const updateProcessingStage = async (stage: string) => {
+    console.log(`[updateProcessingStage] Stage: ${stage}`);
+    try {
+      await supabase
+        .from("satellite_tiles")
+        .update({
+          processing_stage: stage,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", tileId);
+    } catch (error) {
+      console.error(`[updateProcessingStage] Failed to update stage:`, error);
+    }
+  };
+
   try {
     console.log(`[downloadAndProcessNDVI] Starting download for ${tileName}/${acquisitionDate}`);
     
@@ -499,6 +550,7 @@ async function downloadAndProcessNDVI(
     console.log(`[downloadAndProcessNDVI] Using SAS token for authentication`);
     
     // Download RED band
+    await updateProcessingStage('downloading_red');
     let redData: ArrayBuffer;
     try {
       const redResponse = await fetch(redBandUrl);
@@ -515,12 +567,14 @@ async function downloadAndProcessNDVI(
         redData = await redResponse.arrayBuffer();
         console.log(`[downloadAndProcessNDVI] Successfully downloaded RED band with SAS token`);
       }
+      console.log(`[downloadAndProcessNDVI] RED band downloaded: ${redData.byteLength} bytes`);
     } catch (error) {
       console.error(`[downloadAndProcessNDVI] Error downloading RED band:`, error);
       throw new Error(`Failed to download RED band: ${error}`);
     }
     
     // Download NIR band
+    await updateProcessingStage('downloading_nir');
     let nirData: ArrayBuffer;
     try {
       const nirResponse = await fetch(nirBandUrl);
@@ -537,14 +591,14 @@ async function downloadAndProcessNDVI(
         nirData = await nirResponse.arrayBuffer();
         console.log(`[downloadAndProcessNDVI] Successfully downloaded NIR band with SAS token`);
       }
+      console.log(`[downloadAndProcessNDVI] NIR band downloaded: ${nirData.byteLength} bytes`);
     } catch (error) {
       console.error(`[downloadAndProcessNDVI] Error downloading NIR band:`, error);
       throw new Error(`Failed to download NIR band: ${error}`);
     }
     
-    console.log(`[downloadAndProcessNDVI] Downloaded RED: ${redData.byteLength} bytes, NIR: ${nirData.byteLength} bytes`);
-    
     // Process TIFF files and calculate NDVI
+    await updateProcessingStage('calculating_ndvi');
     let ndviResult: Uint8Array;
     try {
       ndviResult = await calculateNDVI(redData, nirData);
@@ -556,83 +610,112 @@ async function downloadAndProcessNDVI(
       ndviResult = createPlaceholderNDVI(redData.byteLength, nirData.byteLength);
     }
     
-    // Upload to Supabase storage
-    const storagePaths = {
-      red: `${tileName}/${acquisitionDate}/B04_red.tif`,
-      nir: `${tileName}/${acquisitionDate}/B08_nir.tif`,
-      ndvi: `${tileName}/${acquisitionDate}/NDVI.tif`
-    };
-    
-    // Upload RED band
-    const { error: redUploadError } = await supabase.storage
-      .from('satellite-data')
-      .upload(storagePaths.red, redData, {
-        contentType: 'image/tiff',
-        upsert: true
-      });
-    
-    if (redUploadError) {
-      console.error(`[downloadAndProcessNDVI] Failed to upload RED band:`, redUploadError);
-      throw redUploadError;
+    // Begin atomic upload sequence
+    try {
+      // Upload RED band
+      await updateProcessingStage('uploading_red');
+      const { error: redUploadError } = await supabase.storage
+        .from('satellite-data')
+        .upload(storagePaths.red, redData, {
+          contentType: 'image/tiff',
+          upsert: true
+        });
+      
+      if (redUploadError) {
+        console.error(`[downloadAndProcessNDVI] Failed to upload RED band:`, redUploadError);
+        throw redUploadError;
+      }
+      uploadedFiles.push(storagePaths.red);
+      console.log(`[downloadAndProcessNDVI] Uploaded RED band to ${storagePaths.red}`);
+      
+      // Upload NIR band
+      await updateProcessingStage('uploading_nir');
+      const { error: nirUploadError } = await supabase.storage
+        .from('satellite-data')
+        .upload(storagePaths.nir, nirData, {
+          contentType: 'image/tiff',
+          upsert: true
+        });
+      
+      if (nirUploadError) {
+        console.error(`[downloadAndProcessNDVI] Failed to upload NIR band:`, nirUploadError);
+        throw nirUploadError;
+      }
+      uploadedFiles.push(storagePaths.nir);
+      console.log(`[downloadAndProcessNDVI] Uploaded NIR band to ${storagePaths.nir}`);
+      
+      // Upload NDVI result
+      await updateProcessingStage('uploading_ndvi');
+      const { error: ndviUploadError } = await supabase.storage
+        .from('satellite-data')
+        .upload(storagePaths.ndvi, ndviResult, {
+          contentType: 'image/tiff',
+          upsert: true
+        });
+      
+      if (ndviUploadError) {
+        console.error(`[downloadAndProcessNDVI] Failed to upload NDVI:`, ndviUploadError);
+        throw ndviUploadError;
+      }
+      uploadedFiles.push(storagePaths.ndvi);
+      console.log(`[downloadAndProcessNDVI] Uploaded NDVI to ${storagePaths.ndvi}`);
+      
+      // Verify all files were uploaded
+      await updateProcessingStage('verifying');
+      console.log(`[downloadAndProcessNDVI] Verifying all files in storage...`);
+      
+      const verificationResults = await supabase.storage
+        .from('satellite-data')
+        .list(`${tileName}/${acquisitionDate}`);
+      
+      const filesInStorage = verificationResults.data || [];
+      const requiredFiles = ['B04_red.tif', 'B08_nir.tif', 'NDVI.tif'];
+      const allFilesPresent = requiredFiles.every(file => 
+        filesInStorage.some(f => f.name === file)
+      );
+      
+      if (!allFilesPresent) {
+        console.error(`[downloadAndProcessNDVI] Storage verification failed. Expected files: ${requiredFiles.join(', ')}, Found: ${filesInStorage.map(f => f.name).join(', ')}`);
+        throw new Error('Storage verification failed - not all files present');
+      }
+      
+      console.log(`[downloadAndProcessNDVI] Storage verification successful: ${filesInStorage.length} files found`);
+      
+      // Mark as completed only after verification
+      await updateProcessingStage('completed');
+      console.log(`[downloadAndProcessNDVI] Successfully completed processing for ${tileName}/${acquisitionDate}`);
+      
+      const totalSize = (redData.byteLength + nirData.byteLength + ndviResult.byteLength) / (1024 * 1024);
+      
+      return {
+        status: "completed",
+        ndviPath: storagePaths.ndvi,
+        redBandPath: storagePaths.red,
+        nirBandPath: storagePaths.nir,
+        fileSize: Math.round(totalSize * 100) / 100,
+        error: null,
+        checksum: generateChecksum(),
+        storageVerified: true,
+        storagePathsVerified: storagePaths,
+        actualDownloadStatus: "success"
+      };
+      
+    } catch (uploadError) {
+      // Cleanup on any upload error
+      console.error(`[downloadAndProcessNDVI] Upload failed, initiating cleanup:`, uploadError);
+      await cleanupPartialUploads();
+      throw uploadError;
     }
-    console.log(`[downloadAndProcessNDVI] Uploaded RED band to ${storagePaths.red}`);
     
-    // Upload NIR band
-    const { error: nirUploadError } = await supabase.storage
-      .from('satellite-data')
-      .upload(storagePaths.nir, nirData, {
-        contentType: 'image/tiff',
-        upsert: true
-      });
-    
-    if (nirUploadError) {
-      console.error(`[downloadAndProcessNDVI] Failed to upload NIR band:`, nirUploadError);
-      throw nirUploadError;
-    }
-    console.log(`[downloadAndProcessNDVI] Uploaded NIR band to ${storagePaths.nir}`);
-    
-    // Upload NDVI result
-    const { error: ndviUploadError } = await supabase.storage
-      .from('satellite-data')
-      .upload(storagePaths.ndvi, ndviResult, {
-        contentType: 'image/tiff',
-        upsert: true
-      });
-    
-    if (ndviUploadError) {
-      console.error(`[downloadAndProcessNDVI] Failed to upload NDVI:`, ndviUploadError);
-      throw ndviUploadError;
-    }
-    console.log(`[downloadAndProcessNDVI] Uploaded NDVI to ${storagePaths.ndvi}`);
-    
-    console.log(`[downloadAndProcessNDVI] Successfully uploaded all files for ${tileName}/${acquisitionDate}`);
-    
-    // Verify all files were uploaded
-    const verificationResults = await supabase.storage
-      .from('satellite-data')
-      .list(`${tileName}/${acquisitionDate}`);
-    
-    const filesInStorage = verificationResults.data || [];
-    const allFilesPresent = filesInStorage.length >= 3;
-    
-    console.log(`[downloadAndProcessNDVI] Storage verification: ${filesInStorage.length} files found, allPresent: ${allFilesPresent}`);
-    
-    const totalSize = (redData.byteLength + nirData.byteLength + ndviResult.byteLength) / (1024 * 1024);
-    
-    return {
-      status: "completed",
-      ndviPath: storagePaths.ndvi,
-      redBandPath: storagePaths.red,
-      nirBandPath: storagePaths.nir,
-      fileSize: Math.round(totalSize * 100) / 100,
-      error: null,
-      checksum: generateChecksum(),
-      storageVerified: allFilesPresent,
-      storagePathsVerified: storagePaths,
-      actualDownloadStatus: "success"
-    };
   } catch (error) {
     console.error(`[downloadAndProcessNDVI] Error:`, error);
+    
+    // Attempt cleanup if any files were uploaded
+    await cleanupPartialUploads();
+    
+    // Update stage to indicate failure
+    await updateProcessingStage('error');
+    
     return {
       status: "error",
       ndviPath: null,

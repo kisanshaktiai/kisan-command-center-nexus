@@ -10175,6 +10175,7 @@ export type Database = {
           nir_band_path: string | null
           processing_completed_at: string | null
           processing_level: string | null
+          processing_stage: string | null
           raw_paths: Json | null
           red_band_path: string | null
           status: string | null
@@ -10203,6 +10204,7 @@ export type Database = {
           nir_band_path?: string | null
           processing_completed_at?: string | null
           processing_level?: string | null
+          processing_stage?: string | null
           raw_paths?: Json | null
           red_band_path?: string | null
           status?: string | null
@@ -10231,6 +10233,7 @@ export type Database = {
           nir_band_path?: string | null
           processing_completed_at?: string | null
           processing_level?: string | null
+          processing_stage?: string | null
           raw_paths?: Json | null
           red_band_path?: string | null
           status?: string | null
