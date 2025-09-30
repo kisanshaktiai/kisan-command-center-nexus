@@ -1348,33 +1348,6 @@ async function downloadAndProcessNDVI(
     
     console.log(`[downloadAndProcessNDVI] Saved band metadata for future high-res processing`);
       
-      // Upload NDVI result with retry
-      await updateProcessingStage('uploading_ndvi');
-      logMemoryUsage('Before NDVI upload');
-      
-      await retryWithBackoff(async () => {
-        const { error: ndviUploadError } = await supabase.storage
-          .from('satellite-data')
-          .upload(storagePaths.ndvi, ndviResult, {
-            contentType: 'image/tiff',
-            upsert: true
-          });
-        
-        if (ndviUploadError) {
-          // Check if it's a validation error (don't retry)
-          if (ndviUploadError.message?.includes('validation') || 
-              ndviUploadError.message?.includes('invalid')) {
-            throw ndviUploadError;
-          }
-          // Network or server error (retry)
-          throw new Error(`Upload failed: ${ndviUploadError.message}`);
-        }
-      }, `storage_upload_ndvi_${tileName}`);
-      
-      uploadedFiles.push(storagePaths.ndvi);
-      console.log(`[downloadAndProcessNDVI] Uploaded NDVI to ${storagePaths.ndvi}`);
-      logMemoryUsage('After NDVI upload');
-      
       // Verify all files were uploaded
       await updateProcessingStage('verifying');
       console.log(`[downloadAndProcessNDVI] Verifying all files in storage...`);
