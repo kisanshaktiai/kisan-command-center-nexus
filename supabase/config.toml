@@ -128,6 +128,9 @@ verify_jwt = false
 [functions.fetch-s2-ndvi]
 verify_jwt = false
 
+[functions.process-ndvi-highres]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323

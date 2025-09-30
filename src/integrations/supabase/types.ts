@@ -10169,8 +10169,11 @@ export type Database = {
           created_at: string | null
           error_message: string | null
           file_size_mb: number | null
+          full_resolution_processed_at: string | null
+          full_resolution_requested: boolean | null
           id: string
           last_verification_at: string | null
+          medium_ndvi_path: string | null
           metadata: Json | null
           ndvi_checksum: string | null
           ndvi_path: string | null
@@ -10180,6 +10183,7 @@ export type Database = {
           nir_band_path: string | null
           nir_band_size_bytes: number | null
           nir_band_verified: boolean | null
+          overview_ndvi_path: string | null
           processing_completed_at: string | null
           processing_level: string | null
           processing_stage: string | null
@@ -10188,6 +10192,7 @@ export type Database = {
           red_band_path: string | null
           red_band_size_bytes: number | null
           red_band_verified: boolean | null
+          resolution_level: string | null
           status: string | null
           storage_paths_verified: Json | null
           storage_verification_date: string | null
@@ -10208,8 +10213,11 @@ export type Database = {
           created_at?: string | null
           error_message?: string | null
           file_size_mb?: number | null
+          full_resolution_processed_at?: string | null
+          full_resolution_requested?: boolean | null
           id?: string
           last_verification_at?: string | null
+          medium_ndvi_path?: string | null
           metadata?: Json | null
           ndvi_checksum?: string | null
           ndvi_path?: string | null
@@ -10219,6 +10227,7 @@ export type Database = {
           nir_band_path?: string | null
           nir_band_size_bytes?: number | null
           nir_band_verified?: boolean | null
+          overview_ndvi_path?: string | null
           processing_completed_at?: string | null
           processing_level?: string | null
           processing_stage?: string | null
@@ -10227,6 +10236,7 @@ export type Database = {
           red_band_path?: string | null
           red_band_size_bytes?: number | null
           red_band_verified?: boolean | null
+          resolution_level?: string | null
           status?: string | null
           storage_paths_verified?: Json | null
           storage_verification_date?: string | null
@@ -10247,8 +10257,11 @@ export type Database = {
           created_at?: string | null
           error_message?: string | null
           file_size_mb?: number | null
+          full_resolution_processed_at?: string | null
+          full_resolution_requested?: boolean | null
           id?: string
           last_verification_at?: string | null
+          medium_ndvi_path?: string | null
           metadata?: Json | null
           ndvi_checksum?: string | null
           ndvi_path?: string | null
@@ -10258,6 +10271,7 @@ export type Database = {
           nir_band_path?: string | null
           nir_band_size_bytes?: number | null
           nir_band_verified?: boolean | null
+          overview_ndvi_path?: string | null
           processing_completed_at?: string | null
           processing_level?: string | null
           processing_stage?: string | null
@@ -10266,6 +10280,7 @@ export type Database = {
           red_band_path?: string | null
           red_band_size_bytes?: number | null
           red_band_verified?: boolean | null
+          resolution_level?: string | null
           status?: string | null
           storage_paths_verified?: Json | null
           storage_verification_date?: string | null

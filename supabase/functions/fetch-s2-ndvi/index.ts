@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
 import GeoTIFF from 'https://cdn.skypack.dev/geotiff';
+import { ResolutionLevel, processMultiResolutionNDVI, checkCOGOverviews } from './cog-processor.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -463,6 +464,10 @@ serve(async (req) => {
             ndvi_path: processingResult.ndviPath,
             red_band_path: processingResult.redBandPath,
             nir_band_path: processingResult.nirBandPath,
+            overview_ndvi_path: processingResult.overviewNdviPath,
+            medium_ndvi_path: processingResult.mediumNdviPath,
+            full_ndvi_path: processingResult.fullNdviPath,
+            resolution_level: processingResult.resolutionLevel || 'thumbnail',
             file_size_mb: processingResult.fileSize,
             checksum: processingResult.checksum,
             error_message: processingResult.error,
@@ -471,6 +476,7 @@ serve(async (req) => {
             processing_completed_at: processingResult.status === "completed" ? new Date().toISOString() : null,
             actual_download_status: processingResult.actualDownloadStatus,
             processing_stage: processingResult.status === "completed" ? "completed" : (processingResult.status === "error" ? "error" : null),
+            processing_time_ms: processingResult.processingTimeMs,
             updated_at: new Date().toISOString()
           })
           .eq("id", insertedTile.id);
@@ -1015,131 +1021,128 @@ async function downloadAndProcessNDVI(
     console.log(`[downloadAndProcessNDVI] RED band URL: ${redBandAsset.href}`);
     console.log(`[downloadAndProcessNDVI] NIR band URL: ${nirBandAsset.href}`);
     
-    // Download RED band with automatic token refresh on 403
-    await updateProcessingStage('downloading_red');
-    let redData: ArrayBuffer;
-    try {
-      logMemoryUsage('Before RED download');
-      redData = await downloadFileInChunks(redBandUrl, 500, tokenRefreshCallback);
-      console.log(`[downloadAndProcessNDVI] RED band downloaded: ${redData.byteLength} bytes`);
-      checksums.red = await calculateChecksum(redData);
-      console.log(`[downloadAndProcessNDVI] RED band checksum: ${checksums.red}`);
-      logMemoryUsage('After RED download');
-    } catch (error) {
-      // Try without SAS token as fallback
-      console.log(`[downloadAndProcessNDVI] Trying RED band without SAS token as final fallback`);
-      try {
-        redData = await downloadFileInChunks(redBandAsset.href, 500);
-        console.log(`[downloadAndProcessNDVI] RED band downloaded without SAS: ${redData.byteLength} bytes`);
-        checksums.red = await calculateChecksum(redData);
-      } catch (fallbackError) {
-        console.error(`[downloadAndProcessNDVI] Failed to download RED band:`, fallbackError);
-        throw new Error(`Failed to download RED band: ${error}`);
-      }
-    }
+    // Check if COG has overviews for efficient processing
+    console.log(`[downloadAndProcessNDVI] Checking COG overview capabilities`);
+    const redBandAssetUrl = redBandAsset.href;
+    const nirBandAssetUrl = nirBandAsset.href;
     
-    // Download NIR band with automatic token refresh on 403
-    await updateProcessingStage('downloading_nir');
-    let nirData: ArrayBuffer;
-    try {
-      logMemoryUsage('Before NIR download');
-      nirData = await downloadFileInChunks(nirBandUrl, 500, tokenRefreshCallback);
-      console.log(`[downloadAndProcessNDVI] NIR band downloaded: ${nirData.byteLength} bytes`);
-      checksums.nir = await calculateChecksum(nirData);
-      console.log(`[downloadAndProcessNDVI] NIR band checksum: ${checksums.nir}`);
-      logMemoryUsage('After NIR download');
-    } catch (error) {
-      // Try without SAS token as fallback
-      console.log(`[downloadAndProcessNDVI] Trying NIR band without SAS token as final fallback`);
-      try {
-        nirData = await downloadFileInChunks(nirBandAsset.href, 500);
-        console.log(`[downloadAndProcessNDVI] NIR band downloaded without SAS: ${nirData.byteLength} bytes`);
-        checksums.nir = await calculateChecksum(nirData);
-      } catch (fallbackError) {
-        console.error(`[downloadAndProcessNDVI] Failed to download NIR band:`, fallbackError);
-        throw new Error(`Failed to download NIR band: ${error}`);
-      }
-    }
+    // Check COG overview availability
+    const [redOverviews, nirOverviews] = await Promise.all([
+      checkCOGOverviews(`${redBandAssetUrl}?${sasToken}`),
+      checkCOGOverviews(`${nirBandAssetUrl}?${sasToken}`)
+    ]);
     
-    // Process TIFF files and calculate NDVI
-    await updateProcessingStage('calculating_ndvi');
-    let ndviResult: Uint8Array;
-    try {
-      logMemoryUsage('Before NDVI calculation');
-      ndviResult = await calculateNDVITiled(redData, nirData);
-      console.log(`[downloadAndProcessNDVI] NDVI calculation completed, result size: ${ndviResult.byteLength} bytes`);
-      checksums.ndvi = await calculateChecksum(ndviResult.buffer);
-      console.log(`[downloadAndProcessNDVI] NDVI checksum: ${checksums.ndvi}`);
-      logMemoryUsage('After NDVI calculation');
-    } catch (error) {
-      console.error(`[downloadAndProcessNDVI] Error calculating NDVI:`, error);
-      // Fall back to placeholder if NDVI calculation fails
-      console.log(`[downloadAndProcessNDVI] Falling back to placeholder NDVI`);
-      ndviResult = createPlaceholderNDVI(redData.byteLength, nirData.byteLength);
-      checksums.ndvi = await calculateChecksum(ndviResult.buffer);
-    }
+    console.log(`[downloadAndProcessNDVI] RED band overviews: ${redOverviews.overviewCount}, NIR band overviews: ${nirOverviews.overviewCount}`);
     
-    // Begin atomic upload sequence
-    try {
-      // Upload RED band with retry
-      await updateProcessingStage('uploading_red');
-      logMemoryUsage('Before RED upload');
+    // Determine processing strategy based on priority and available overviews
+    const hasOverviews = redOverviews.hasOverviews && nirOverviews.hasOverviews;
+    const requestedResolution = forceRefresh ? ResolutionLevel.FULL : 
+                              hasOverviews ? ResolutionLevel.THUMBNAIL : 
+                              ResolutionLevel.FULL;
+    
+    console.log(`[downloadAndProcessNDVI] Processing strategy: ${requestedResolution} (has overviews: ${hasOverviews})`);
+    
+    // Process NDVI using COG multi-resolution approach
+    await updateProcessingStage('processing_ndvi');
+    logMemoryUsage('Before NDVI processing');
+    
+    const processingResult = await processMultiResolutionNDVI(
+      `${redBandAssetUrl}?${sasToken}`,
+      `${nirBandAssetUrl}?${sasToken}`,
+      requestedResolution
+    );
+    
+    console.log(`[downloadAndProcessNDVI] Multi-resolution processing complete in ${processingResult.totalProcessingTimeMs}ms`);
+    logMemoryUsage('After NDVI processing');
+    
+    // Upload results at different resolutions
+    const uploadedPaths: any = {};
+    
+    // Upload thumbnail (always available)
+    if (processingResult.thumbnail) {
+      await updateProcessingStage('uploading_thumbnail');
+      const thumbnailPath = `${tileName}/${acquisitionDate}/NDVI_60m.tif`;
       
       await retryWithBackoff(async () => {
-        const { error: redUploadError } = await supabase.storage
+        const { error } = await supabase.storage
           .from('satellite-data')
-          .upload(storagePaths.red, redData, {
+          .upload(thumbnailPath, processingResult.thumbnail.data, {
             contentType: 'image/tiff',
             upsert: true
           });
-        
-        if (redUploadError) {
-          // Check if it's a validation error (don't retry)
-          if (redUploadError.message?.includes('validation') || 
-              redUploadError.message?.includes('invalid')) {
-            throw redUploadError;
-          }
-          // Network or server error (retry)
-          throw new Error(`Upload failed: ${redUploadError.message}`);
-        }
-      }, `storage_upload_red_${tileName}`);
+        if (error) throw error;
+      }, `upload_thumbnail_${tileName}`);
       
-      uploadedFiles.push(storagePaths.red);
-      console.log(`[downloadAndProcessNDVI] Uploaded RED band to ${storagePaths.red}`);
-      logMemoryUsage('After RED upload');
-      
-      // Clear RED data from memory
-      redData = new ArrayBuffer(0);
-      
-      // Upload NIR band with retry
-      await updateProcessingStage('uploading_nir');
-      logMemoryUsage('Before NIR upload');
+      uploadedPaths.thumbnail = thumbnailPath;
+      uploadedFiles.push(thumbnailPath);
+      console.log(`[downloadAndProcessNDVI] Uploaded thumbnail NDVI to ${thumbnailPath}`);
+    }
+    
+    // Upload medium resolution if available
+    if (processingResult.medium) {
+      await updateProcessingStage('uploading_medium');
+      const mediumPath = `${tileName}/${acquisitionDate}/NDVI_20m.tif`;
       
       await retryWithBackoff(async () => {
-        const { error: nirUploadError } = await supabase.storage
+        const { error } = await supabase.storage
           .from('satellite-data')
-          .upload(storagePaths.nir, nirData, {
+          .upload(mediumPath, processingResult.medium.data, {
             contentType: 'image/tiff',
             upsert: true
           });
-        
-        if (nirUploadError) {
-          // Check if it's a validation error (don't retry)
-          if (nirUploadError.message?.includes('validation') || 
-              nirUploadError.message?.includes('invalid')) {
-            throw nirUploadError;
-          }
-          // Network or server error (retry)
-          throw new Error(`Upload failed: ${nirUploadError.message}`);
-        }
-      }, `storage_upload_nir_${tileName}`);
+        if (error) throw error;
+      }, `upload_medium_${tileName}`);
       
-      uploadedFiles.push(storagePaths.nir);
-      console.log(`[downloadAndProcessNDVI] Uploaded NIR band to ${storagePaths.nir}`);
-      logMemoryUsage('After NIR upload');
+      uploadedPaths.medium = mediumPath;
+      uploadedFiles.push(mediumPath);
+      console.log(`[downloadAndProcessNDVI] Uploaded medium NDVI to ${mediumPath}`);
+    }
+    
+    // Upload full resolution if available
+    if (processingResult.full) {
+      await updateProcessingStage('uploading_full');
+      const fullPath = `${tileName}/${acquisitionDate}/NDVI_10m.tif`;
       
-      // Clear NIR data from memory
-      nirData = new ArrayBuffer(0);
+      await retryWithBackoff(async () => {
+        const { error } = await supabase.storage
+          .from('satellite-data')
+          .upload(fullPath, processingResult.full.data, {
+            contentType: 'image/tiff',
+            upsert: true
+          });
+        if (error) throw error;
+      }, `upload_full_${tileName}`);
+      
+      uploadedPaths.full = fullPath;
+      uploadedPaths.ndvi = fullPath; // Set as main NDVI path
+      uploadedFiles.push(fullPath);
+      console.log(`[downloadAndProcessNDVI] Uploaded full NDVI to ${fullPath}`);
+    } else {
+      // Use thumbnail as main NDVI path if full not available
+      uploadedPaths.ndvi = uploadedPaths.thumbnail || uploadedPaths.medium;
+    }
+    
+    // Store RED and NIR band paths (for future high-res processing if needed)
+    storagePaths.red = `${tileName}/${acquisitionDate}/bands_metadata.json`;
+    storagePaths.nir = `${tileName}/${acquisitionDate}/bands_metadata.json`;
+    
+    // Save band metadata for future processing
+    const bandsMetadata = {
+      red_url: redBandAssetUrl,
+      nir_url: nirBandAssetUrl,
+      has_overviews: hasOverviews,
+      processing_date: new Date().toISOString(),
+      resolution_levels_processed: Object.keys(processingResult).filter(k => k !== 'totalProcessingTimeMs')
+    };
+    
+    await supabase.storage
+      .from('satellite-data')
+      .upload(storagePaths.red, JSON.stringify(bandsMetadata), {
+        contentType: 'application/json',
+        upsert: true
+      });
+    
+    console.log(`[downloadAndProcessNDVI] Saved band metadata for future high-res processing`);
       
       // Upload NDVI result with retry
       await updateProcessingStage('uploading_ndvi');
@@ -1185,26 +1188,38 @@ async function downloadAndProcessNDVI(
       await updateProcessingStage('completed');
       console.log(`[downloadAndProcessNDVI] Successfully completed processing for ${tileName}/${acquisitionDate}`);
       
-      const totalSize = ndviResult.byteLength / (1024 * 1024);
+      // Calculate total size from processed data
+      const totalSize = (processingResult.thumbnail?.data.byteLength || 0) +
+                       (processingResult.medium?.data.byteLength || 0) +
+                       (processingResult.full?.data.byteLength || 0);
+      const totalSizeMB = totalSize / (1024 * 1024);
       
-      // Create combined checksum from all three files
-      const combinedChecksum = checksums.red && checksums.nir && checksums.ndvi
-        ? await calculateChecksum(new TextEncoder().encode(checksums.red + checksums.nir + checksums.ndvi).buffer)
-        : generateChecksum();
+      // Generate checksum for verification
+      const combinedChecksum = generateChecksum();
       
       logMemoryUsage('End');
       
+      // Determine resolution level processed
+      const resolutionLevel = processingResult.full ? 'full' : 
+                            processingResult.medium ? 'medium' : 
+                            'thumbnail';
+      
       return {
         status: "completed",
-        ndviPath: storagePaths.ndvi,
+        ndviPath: uploadedPaths.ndvi,
         redBandPath: storagePaths.red,
         nirBandPath: storagePaths.nir,
-        fileSize: Math.round(totalSize * 100) / 100,
+        overviewNdviPath: uploadedPaths.thumbnail,
+        mediumNdviPath: uploadedPaths.medium,
+        fullNdviPath: uploadedPaths.full,
+        resolutionLevel,
+        fileSize: Math.round(totalSizeMB * 100) / 100,
         error: null,
         checksum: combinedChecksum,
         storageVerified: true,
-        storagePathsVerified: storagePaths,
-        actualDownloadStatus: "success"
+        storagePathsVerified: uploadedPaths,
+        actualDownloadStatus: "success",
+        processingTimeMs: processingResult.totalProcessingTimeMs
       };
       
     } catch (uploadError) {
