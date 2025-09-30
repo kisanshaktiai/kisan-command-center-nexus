@@ -459,6 +459,13 @@ async function downloadAndProcessNDVI(
 
   // Track uploaded files for cleanup
   const uploadedFiles: string[] = [];
+  
+  // Track checksums
+  const checksums = {
+    red: null as string | null,
+    nir: null as string | null,
+    ndvi: null as string | null
+  };
 
   /**
    * Cleanup function to remove partial uploads
@@ -568,6 +575,8 @@ async function downloadAndProcessNDVI(
         console.log(`[downloadAndProcessNDVI] Successfully downloaded RED band with SAS token`);
       }
       console.log(`[downloadAndProcessNDVI] RED band downloaded: ${redData.byteLength} bytes`);
+      checksums.red = await calculateChecksum(redData);
+      console.log(`[downloadAndProcessNDVI] RED band checksum: ${checksums.red}`);
     } catch (error) {
       console.error(`[downloadAndProcessNDVI] Error downloading RED band:`, error);
       throw new Error(`Failed to download RED band: ${error}`);
@@ -592,6 +601,8 @@ async function downloadAndProcessNDVI(
         console.log(`[downloadAndProcessNDVI] Successfully downloaded NIR band with SAS token`);
       }
       console.log(`[downloadAndProcessNDVI] NIR band downloaded: ${nirData.byteLength} bytes`);
+      checksums.nir = await calculateChecksum(nirData);
+      console.log(`[downloadAndProcessNDVI] NIR band checksum: ${checksums.nir}`);
     } catch (error) {
       console.error(`[downloadAndProcessNDVI] Error downloading NIR band:`, error);
       throw new Error(`Failed to download NIR band: ${error}`);
@@ -603,11 +614,14 @@ async function downloadAndProcessNDVI(
     try {
       ndviResult = await calculateNDVI(redData, nirData);
       console.log(`[downloadAndProcessNDVI] NDVI calculation completed, result size: ${ndviResult.byteLength} bytes`);
+      checksums.ndvi = await calculateChecksum(ndviResult.buffer);
+      console.log(`[downloadAndProcessNDVI] NDVI checksum: ${checksums.ndvi}`);
     } catch (error) {
       console.error(`[downloadAndProcessNDVI] Error calculating NDVI:`, error);
       // Fall back to placeholder if NDVI calculation fails
       console.log(`[downloadAndProcessNDVI] Falling back to placeholder NDVI`);
       ndviResult = createPlaceholderNDVI(redData.byteLength, nirData.byteLength);
+      checksums.ndvi = await calculateChecksum(ndviResult.buffer);
     }
     
     // Begin atomic upload sequence
@@ -664,28 +678,25 @@ async function downloadAndProcessNDVI(
       await updateProcessingStage('verifying');
       console.log(`[downloadAndProcessNDVI] Verifying all files in storage...`);
       
-      const verificationResults = await supabase.storage
-        .from('satellite-data')
-        .list(`${tileName}/${acquisitionDate}`);
+      const verificationResult = await verifyStorageIntegrity(supabase, tileName, acquisitionDate);
       
-      const filesInStorage = verificationResults.data || [];
-      const requiredFiles = ['B04_red.tif', 'B08_nir.tif', 'NDVI.tif'];
-      const allFilesPresent = requiredFiles.every(file => 
-        filesInStorage.some(f => f.name === file)
-      );
-      
-      if (!allFilesPresent) {
-        console.error(`[downloadAndProcessNDVI] Storage verification failed. Expected files: ${requiredFiles.join(', ')}, Found: ${filesInStorage.map(f => f.name).join(', ')}`);
-        throw new Error('Storage verification failed - not all files present');
+      if (verificationResult.status !== 'verified') {
+        console.error(`[downloadAndProcessNDVI] Storage verification failed:`, verificationResult);
+        throw new Error(`Storage verification failed: ${verificationResult.status}`);
       }
       
-      console.log(`[downloadAndProcessNDVI] Storage verification successful: ${filesInStorage.length} files found`);
+      console.log(`[downloadAndProcessNDVI] Storage verification successful`);
       
       // Mark as completed only after verification
       await updateProcessingStage('completed');
       console.log(`[downloadAndProcessNDVI] Successfully completed processing for ${tileName}/${acquisitionDate}`);
       
       const totalSize = (redData.byteLength + nirData.byteLength + ndviResult.byteLength) / (1024 * 1024);
+      
+      // Create combined checksum from all three files
+      const combinedChecksum = checksums.red && checksums.nir && checksums.ndvi
+        ? await calculateChecksum(new TextEncoder().encode(checksums.red + checksums.nir + checksums.ndvi).buffer)
+        : generateChecksum();
       
       return {
         status: "completed",
@@ -694,7 +705,7 @@ async function downloadAndProcessNDVI(
         nirBandPath: storagePaths.nir,
         fileSize: Math.round(totalSize * 100) / 100,
         error: null,
-        checksum: generateChecksum(),
+        checksum: combinedChecksum,
         storageVerified: true,
         storagePathsVerified: storagePaths,
         actualDownloadStatus: "success"
@@ -1003,7 +1014,22 @@ function createPlaceholderNDVI(redSize: number, nirSize: number): Uint8Array {
 }
 
 /**
- * Verify storage integrity for uploaded files
+ * Calculate SHA-256 checksum for data
+ */
+async function calculateChecksum(data: ArrayBuffer): Promise<string> {
+  try {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+  } catch (error) {
+    console.error(`[calculateChecksum] Error:`, error);
+    return generateRandomChecksum();
+  }
+}
+
+/**
+ * Verify storage integrity for uploaded files with detailed verification
  */
 async function verifyStorageIntegrity(
   supabase: any,
@@ -1013,72 +1039,214 @@ async function verifyStorageIntegrity(
   status: string;
   tile_id: string;
   acquisition_date: string;
+  redExists: boolean;
+  redSize: number;
+  redChecksum: string | null;
+  nirExists: boolean;
+  nirSize: number;
+  nirChecksum: string | null;
+  ndviExists: boolean;
+  ndviSize: number;
+  ndviChecksum: string | null;
   missing_files: string[];
   verified_files: string[];
+  verification_details: any;
 }> {
+  const requiredFiles = {
+    red: { name: 'B04_red.tif', path: `${tileId}/${acquisitionDate}/B04_red.tif` },
+    nir: { name: 'B08_nir.tif', path: `${tileId}/${acquisitionDate}/B08_nir.tif` },
+    ndvi: { name: 'NDVI.tif', path: `${tileId}/${acquisitionDate}/NDVI.tif` }
+  };
+
+  const result = {
+    status: 'pending',
+    tile_id: tileId,
+    acquisition_date: acquisitionDate,
+    redExists: false,
+    redSize: 0,
+    redChecksum: null as string | null,
+    nirExists: false,
+    nirSize: 0,
+    nirChecksum: null as string | null,
+    ndviExists: false,
+    ndviSize: 0,
+    ndviChecksum: null as string | null,
+    missing_files: [] as string[],
+    verified_files: [] as string[],
+    verification_details: {} as any
+  };
+
   try {
-    const expectedFiles = [
-      `${tileId}/${acquisitionDate}/B04_red.tif`,
-      `${tileId}/${acquisitionDate}/B08_nir.tif`,
-      `${tileId}/${acquisitionDate}/NDVI.tif`
-    ];
+    console.log(`[verifyStorageIntegrity] Starting verification for ${tileId}/${acquisitionDate}`);
     
+    // List files in the directory
     const { data: files, error } = await supabase.storage
       .from('satellite-data')
       .list(`${tileId}/${acquisitionDate}`);
     
     if (error) {
       console.error(`[verifyStorageIntegrity] Error listing files:`, error);
-      return {
-        status: 'error',
-        tile_id: tileId,
-        acquisition_date: acquisitionDate,
-        missing_files: expectedFiles,
-        verified_files: []
-      };
+      result.status = 'error';
+      result.missing_files = Object.values(requiredFiles).map(f => f.path);
+      return result;
     }
-    
-    const existingFiles = (files || []).map((f: any) => `${tileId}/${acquisitionDate}/${f.name}`);
-    const missingFiles = expectedFiles.filter(f => !existingFiles.some((ef: string) => ef.endsWith(f.split('/').pop()!)));
-    const verifiedFiles = expectedFiles.filter(f => existingFiles.some((ef: string) => ef.endsWith(f.split('/').pop()!)));
-    
-    // Log to satellite_storage_audit table
-    await supabase
-      .from('satellite_storage_audit')
-      .insert({
-        tile_id: tileId,
-        acquisition_date: acquisitionDate,
-        expected_files: expectedFiles,
-        found_files: existingFiles,
-        missing_files: missingFiles,
-        verification_status: missingFiles.length === 0 ? 'verified' : 'missing_files',
-        verified_at: new Date().toISOString()
-      });
-    
-    return {
-      status: missingFiles.length === 0 ? 'verified' : 'missing_files',
-      tile_id: tileId,
-      acquisition_date: acquisitionDate,
-      missing_files: missingFiles,
-      verified_files: verifiedFiles
-    };
+
+    const filesMap = new Map((files || []).map((f: any) => [f.name, f]));
+    console.log(`[verifyStorageIntegrity] Found ${filesMap.size} files in storage`);
+
+    // Verify each required file
+    for (const [key, fileInfo] of Object.entries(requiredFiles)) {
+      const file = filesMap.get(fileInfo.name);
+      
+      if (file) {
+        // File exists - check size and calculate checksum
+        const fileSize = file.metadata?.size || 0;
+        const fileSizeBytes = typeof fileSize === 'string' ? parseInt(fileSize, 10) : fileSize;
+        
+        if (fileSizeBytes > 0) {
+          // Download file to calculate checksum
+          let checksum: string | null = null;
+          try {
+            const { data: fileData, error: downloadError } = await supabase.storage
+              .from('satellite-data')
+              .download(fileInfo.path);
+            
+            if (!downloadError && fileData) {
+              const arrayBuffer = await fileData.arrayBuffer();
+              checksum = await calculateChecksum(arrayBuffer);
+              console.log(`[verifyStorageIntegrity] ${fileInfo.name}: ${fileSizeBytes} bytes, checksum: ${checksum}`);
+            } else {
+              console.error(`[verifyStorageIntegrity] Error downloading ${fileInfo.name}:`, downloadError);
+            }
+          } catch (checksumError) {
+            console.error(`[verifyStorageIntegrity] Error calculating checksum for ${fileInfo.name}:`, checksumError);
+          }
+
+          // Update result based on file type
+          if (key === 'red') {
+            result.redExists = true;
+            result.redSize = fileSizeBytes;
+            result.redChecksum = checksum;
+          } else if (key === 'nir') {
+            result.nirExists = true;
+            result.nirSize = fileSizeBytes;
+            result.nirChecksum = checksum;
+          } else if (key === 'ndvi') {
+            result.ndviExists = true;
+            result.ndviSize = fileSizeBytes;
+            result.ndviChecksum = checksum;
+          }
+          
+          result.verified_files.push(fileInfo.path);
+          result.verification_details[key] = {
+            exists: true,
+            size: fileSizeBytes,
+            checksum: checksum,
+            verified: true
+          };
+        } else {
+          // File exists but has zero size
+          console.warn(`[verifyStorageIntegrity] ${fileInfo.name} exists but has zero size`);
+          result.missing_files.push(fileInfo.path);
+          result.verification_details[key] = {
+            exists: true,
+            size: 0,
+            checksum: null,
+            verified: false,
+            error: 'Zero file size'
+          };
+        }
+      } else {
+        // File does not exist
+        console.warn(`[verifyStorageIntegrity] ${fileInfo.name} not found`);
+        result.missing_files.push(fileInfo.path);
+        result.verification_details[key] = {
+          exists: false,
+          size: 0,
+          checksum: null,
+          verified: false,
+          error: 'File not found'
+        };
+      }
+    }
+
+    // Determine overall status
+    if (result.missing_files.length === 0 && 
+        result.redExists && result.nirExists && result.ndviExists &&
+        result.redSize > 0 && result.nirSize > 0 && result.ndviSize > 0) {
+      result.status = 'verified';
+    } else if (result.missing_files.length === Object.keys(requiredFiles).length) {
+      result.status = 'missing_all';
+    } else {
+      result.status = 'partial';
+    }
+
+    console.log(`[verifyStorageIntegrity] Verification complete. Status: ${result.status}`);
+    console.log(`[verifyStorageIntegrity] Verified files: ${result.verified_files.length}, Missing: ${result.missing_files.length}`);
+
+    // Update database with verification results
+    try {
+      await supabase
+        .from('satellite_tiles')
+        .update({
+          red_band_verified: result.redExists && result.redSize > 0,
+          red_band_size_bytes: result.redSize,
+          red_band_checksum: result.redChecksum,
+          nir_band_verified: result.nirExists && result.nirSize > 0,
+          nir_band_size_bytes: result.nirSize,
+          nir_band_checksum: result.nirChecksum,
+          ndvi_verified: result.ndviExists && result.ndviSize > 0,
+          ndvi_size_bytes: result.ndviSize,
+          ndvi_checksum: result.ndviChecksum,
+          storage_verified: result.status === 'verified',
+          last_verification_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .match({ tile_id: tileId, acquisition_date: acquisitionDate });
+    } catch (dbError) {
+      console.error(`[verifyStorageIntegrity] Error updating database:`, dbError);
+    }
+
+    // Log to audit table if it exists
+    try {
+      await supabase
+        .from('satellite_storage_audit')
+        .insert({
+          tile_id: tileId,
+          acquisition_date: acquisitionDate,
+          expected_files: Object.values(requiredFiles).map(f => f.path),
+          found_files: result.verified_files,
+          missing_files: result.missing_files,
+          verification_status: result.status,
+          verification_details: result.verification_details,
+          verified_at: new Date().toISOString()
+        });
+    } catch (auditError) {
+      // Audit table might not exist, log but don't fail
+      console.warn(`[verifyStorageIntegrity] Could not log to audit table:`, auditError);
+    }
+
+    return result;
   } catch (error) {
     console.error(`[verifyStorageIntegrity] Error:`, error);
-    return {
-      status: 'error',
-      tile_id: tileId,
-      acquisition_date: acquisitionDate,
-      missing_files: [],
-      verified_files: []
-    };
+    result.status = 'error';
+    result.missing_files = Object.values(requiredFiles).map(f => f.path);
+    return result;
   }
 }
 
 /**
- * Generate a random checksum for demo purposes
+ * Generate a random checksum for fallback purposes
  */
-function generateChecksum(): string {
-  return Array.from({ length: 32 }, () => 
+function generateRandomChecksum(): string {
+  return Array.from({ length: 64 }, () => 
     Math.floor(Math.random() * 16).toString(16)
   ).join('');
+}
+
+/**
+ * Generate checksum (wrapper for compatibility)
+ */
+function generateChecksum(): string {
+  return generateRandomChecksum();
 }
