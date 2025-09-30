@@ -1,6 +1,6 @@
 /**
- * Simplified NDVI processor without GeoTIFF dependency
- * This is a temporary solution to bypass GeoTIFF import issues
+ * Simplified NDVI processor for agricultural tiles
+ * Optimized for Indian agricultural regions
  */
 
 export interface ProcessingResult {
@@ -10,35 +10,68 @@ export interface ProcessingResult {
 }
 
 /**
- * Process NDVI data without GeoTIFF parsing
- * Stores metadata for later processing
+ * Calculate NDVI value from Sentinel-2 band values
+ * NDVI = (NIR - Red) / (NIR + Red)
  */
-export async function processNDVISimplified(
-  redBandUrl: string,
-  nirBandUrl: string,
-  tileName: string,
-  acquisitionDate: string
+export function calculateNDVI(nirValue: number, redValue: number): number {
+  if (nirValue + redValue === 0) return 0;
+  return (nirValue - redValue) / (nirValue + redValue);
+}
+
+/**
+ * Classify NDVI values for agricultural interpretation
+ */
+export function classifyNDVI(ndvi: number): string {
+  if (ndvi < 0) return 'water';
+  if (ndvi < 0.2) return 'bare_soil';
+  if (ndvi < 0.4) return 'sparse_vegetation';
+  if (ndvi < 0.6) return 'moderate_vegetation';
+  if (ndvi < 0.8) return 'dense_vegetation';
+  return 'very_dense_vegetation';
+}
+
+/**
+ * Process NDVI metadata for agricultural analysis
+ */
+export async function processNDVIMetadata(
+  metadata: any,
+  region: string
 ): Promise<ProcessingResult> {
-  console.log(`[processNDVISimplified] Processing ${tileName}/${acquisitionDate}`);
+  console.log(`[processNDVIMetadata] Processing tile ${metadata.tile_id} for ${region}`);
   
-  // For now, just store the URLs and metadata
-  // The actual NDVI calculation will be done later when GeoTIFF is properly configured
-  
-  const metadata = {
-    tileName,
-    acquisitionDate,
-    redBandUrl,
-    nirBandUrl,
-    processedAt: new Date().toISOString(),
-    status: 'metadata_stored',
-    message: 'Band URLs stored for future processing'
+  const processedMetadata = {
+    ...metadata,
+    region,
+    processed_at: new Date().toISOString(),
+    status: 'ready_for_analysis',
+    agricultural_relevance: determineAgriculturalRelevance(region, metadata.acquisition_date)
   };
   
   return {
     status: 'success',
-    message: 'NDVI metadata stored successfully',
-    metadata
+    message: 'NDVI metadata processed successfully',
+    metadata: processedMetadata
   };
+}
+
+/**
+ * Determine agricultural relevance based on region and season
+ */
+function determineAgriculturalRelevance(region: string, date: string): string {
+  const month = new Date(date).getMonth() + 1;
+  
+  // Kharif season (June-October)
+  if (month >= 6 && month <= 10) {
+    return 'kharif_season';
+  }
+  // Rabi season (October-March)
+  else if (month >= 10 || month <= 3) {
+    return 'rabi_season';
+  }
+  // Zaid season (April-June)
+  else {
+    return 'zaid_season';
+  }
 }
 
 /**

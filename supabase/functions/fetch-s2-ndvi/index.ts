@@ -7,8 +7,17 @@ import { handleError } from "../_shared/errorHandler.ts";
 const PLANETARY_COMPUTER_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1";
 const PLANETARY_COMPUTER_SAS_URL = "https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-2-l2a";
 
-// Default search parameters for India
-const DEFAULT_BBOX = [72.0, 18.0, 88.0, 28.0]; // India bounding box
+// Agricultural regions in India (major crop-producing areas)
+const AGRICULTURAL_REGIONS = [
+  { name: "Punjab", bbox: [73.0, 29.5, 77.0, 32.0] },
+  { name: "Haryana", bbox: [74.5, 27.5, 77.5, 30.5] },
+  { name: "Western UP", bbox: [77.0, 26.5, 79.0, 30.0] },
+  { name: "Maharashtra", bbox: [72.5, 16.0, 79.5, 22.0] },
+  { name: "Gujarat", bbox: [68.5, 20.0, 74.5, 24.5] },
+  { name: "Karnataka", bbox: [74.0, 12.0, 78.5, 18.0] },
+  { name: "Andhra Pradesh", bbox: [77.0, 13.0, 84.5, 19.0] },
+  { name: "Tamil Nadu", bbox: [76.5, 8.0, 80.5, 13.5] },
+];
 const DEFAULT_COLLECTION = "sentinel-2-l2a";
 
 serve(async (req) => {
@@ -22,14 +31,11 @@ serve(async (req) => {
   try {
     console.log('[fetch-s2-ndvi] Function invoked');
     const { 
-      startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default: 7 days ago
-      endDate = new Date().toISOString().split('T')[0], // Default: today
+      startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      endDate = new Date().toISOString().split('T')[0],
       cloudCoverage = 20,
       forceRefresh = false,
-      maxTilesPerRun = 3, // Limit to 3 tiles to avoid memory issues
-      filterType = 'all',
-      priorityMode = 'baseline',
-      bbox = DEFAULT_BBOX
+      regions = AGRICULTURAL_REGIONS.slice(0, 2), // Process first 2 regions by default
     } = await req.json();
 
     // Initialize Supabase client
@@ -37,217 +43,172 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`[fetch-s2-ndvi] Processing with config:`, {
-      filterType,
-      priorityMode,
-      maxTilesPerRun,
-      cloudCoverage,
-      forceRefresh,
-      startDate,
-      endDate,
-      bbox
-    });
+    console.log(`[fetch-s2-ndvi] Processing agricultural regions:`, regions.map(r => r.name));
 
     const results = {
       processed: 0,
       inserted: 0,
       updated: 0,
       errors: 0,
-      metadata_stored: 0,
+      regions_processed: [] as string[],
       details: [] as any[]
     };
 
-    // Step 1: Get SAS token for authentication with Planetary Computer
-    console.log('[fetch-s2-ndvi] Getting SAS token from Planetary Computer...');
+    // Step 1: Get SAS token for authentication
+    console.log('[fetch-s2-ndvi] Getting SAS token...');
     const sasResponse = await fetch(PLANETARY_COMPUTER_SAS_URL);
     const sasData = await sasResponse.json();
     const sasToken = sasData.token;
-    console.log('[fetch-s2-ndvi] SAS token obtained');
 
-    // Step 2: Fetch available tiles from STAC API
-    console.log('[fetch-s2-ndvi] Fetching tiles from STAC API...');
-    
-    const searchPayload = {
-      collections: [DEFAULT_COLLECTION],
-      bbox: bbox,
-      datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
-      query: {
-        "eo:cloud_cover": {
-          "lt": cloudCoverage
-        }
-      },
-      limit: maxTilesPerRun,
-      sortby: [
-        {
-          field: "properties.datetime",
-          direction: "desc"
-        }
-      ]
-    };
-
-    console.log('[fetch-s2-ndvi] STAC search payload:', JSON.stringify(searchPayload));
-
-    const stacResponse = await fetch(`${PLANETARY_COMPUTER_STAC_URL}/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(searchPayload)
-    });
-
-    if (!stacResponse.ok) {
-      const errorText = await stacResponse.text();
-      console.error('[fetch-s2-ndvi] STAC API error:', errorText);
-      throw new Error(`STAC API error: ${stacResponse.status} - ${errorText}`);
-    }
-
-    const stacData = await stacResponse.json();
-    console.log(`[fetch-s2-ndvi] Found ${stacData.features?.length || 0} tiles from STAC`);
-
-    // Step 3: Process each tile from STAC (store metadata only to avoid memory issues)
-    for (const feature of stacData.features || []) {
+    // Step 2: Process each agricultural region
+    for (const region of regions) {
+      console.log(`[fetch-s2-ndvi] Processing region: ${region.name}`);
+      
       try {
-        const properties = feature.properties || {};
-        const tileId = properties['s2:mgrs_tile'] || 'UNKNOWN';
-        const acquisitionDate = properties.datetime ? 
-          new Date(properties.datetime).toISOString().split('T')[0] : 
-          new Date().toISOString().split('T')[0];
-
-        console.log(`[fetch-s2-ndvi] Processing tile ${tileId} from ${acquisitionDate}`);
-
-        // Check if tile already exists
-        const { data: existingTile } = await supabase
-          .from('satellite_tiles')
-          .select('id, status')
-          .eq('tile_id', tileId)
-          .eq('acquisition_date', acquisitionDate)
-          .single();
-
-        if (existingTile && !forceRefresh) {
-          console.log(`[fetch-s2-ndvi] Tile ${tileId}/${acquisitionDate} already exists, skipping...`);
-          continue;
-        }
-
-        // Extract band URLs from STAC item
-        const assets = feature.assets || {};
-        const redBandUrl = assets.B04?.href || '';
-        const nirBandUrl = assets.B08?.href || '';
-        const thumbnailUrl = assets.visual?.href || '';
-
-        if (!redBandUrl || !nirBandUrl) {
-          console.warn(`[fetch-s2-ndvi] Missing band URLs for tile ${tileId}`);
-          continue;
-        }
-
-        // Store metadata instead of downloading full files
-        const ndviPath = `${tileId}/${acquisitionDate}/ndvi_metadata.json`;
-        const ndviMetadata = {
-          tile_id: tileId,
-          acquisition_date: acquisitionDate,
-          cloud_cover: properties['eo:cloud_cover'] || 0,
-          red_band_url: redBandUrl,
-          nir_band_url: nirBandUrl,
-          thumbnail_url: thumbnailUrl,
-          sas_token: sasToken,
-          processing_timestamp: new Date().toISOString(),
-          mgrs_tile: tileId,
-          scene_id: feature.id,
-          product_id: properties['s2:product_id'],
-          processing_baseline: properties['s2:processing_baseline'],
-          granule_id: properties['s2:granule_id'],
-          datatake_id: properties['s2:datatake_id'],
-          mean_solar_zenith: properties['s2:mean_solar_zenith'],
-          mean_solar_azimuth: properties['s2:mean_solar_azimuth'],
-          generation_time: properties['s2:generation_time'],
-          collection: feature.collection,
-          geometry: feature.geometry,
-          bbox: feature.bbox,
-          status: 'metadata_stored',
-          download_scheduled: true
+        // Search for tiles in this region
+        const searchPayload = {
+          collections: ["sentinel-2-l2a"],
+          bbox: region.bbox,
+          datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
+          query: {
+            "eo:cloud_cover": { "lt": cloudCoverage }
+          },
+          limit: 2, // Limit tiles per region to keep it light
+          sortby: [
+            { field: "properties.datetime", direction: "desc" }
+          ]
         };
 
-        const { error: ndviUploadError } = await supabase.storage
-          .from('satellite-data')
-          .upload(ndviPath, JSON.stringify(ndviMetadata, null, 2), {
-            contentType: 'application/json',
-            upsert: true
+        const stacResponse = await fetch(`${PLANETARY_COMPUTER_STAC_URL}/search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(searchPayload)
+        });
+
+        if (!stacResponse.ok) {
+          console.error(`[fetch-s2-ndvi] Failed to fetch tiles for ${region.name}`);
+          continue;
+        }
+
+        const stacData = await stacResponse.json();
+        console.log(`[fetch-s2-ndvi] Found ${stacData.features?.length || 0} tiles in ${region.name}`);
+
+        // Process each tile
+        for (const feature of stacData.features || []) {
+          const properties = feature.properties || {};
+          const tileId = properties['s2:mgrs_tile'] || 'UNKNOWN';
+          const acquisitionDate = properties.datetime ? 
+            new Date(properties.datetime).toISOString().split('T')[0] : 
+            new Date().toISOString().split('T')[0];
+
+          console.log(`[fetch-s2-ndvi] Processing tile ${tileId} from ${acquisitionDate}`);
+
+          // Check if tile already exists
+          const { data: existingTile } = await supabase
+            .from('satellite_tiles')
+            .select('id, status')
+            .eq('tile_id', tileId)
+            .eq('acquisition_date', acquisitionDate)
+            .single();
+
+          if (existingTile && !forceRefresh) {
+            console.log(`[fetch-s2-ndvi] Tile ${tileId} already exists, skipping...`);
+            continue;
+          }
+
+          // Extract band URLs
+          const assets = feature.assets || {};
+          const redBandUrl = assets.B04?.href || '';
+          const nirBandUrl = assets.B08?.href || '';
+          const thumbnailUrl = assets.visual?.href || '';
+
+          if (!redBandUrl || !nirBandUrl) {
+            console.warn(`[fetch-s2-ndvi] Missing band URLs for tile ${tileId}`);
+            results.errors++;
+            continue;
+          }
+
+          // Create metadata object
+          const metadata = {
+            tile_id: tileId,
+            acquisition_date: acquisitionDate,
+            region: region.name,
+            cloud_cover: properties['eo:cloud_cover'] || 0,
+            red_band_url: redBandUrl + '?' + sasToken,
+            nir_band_url: nirBandUrl + '?' + sasToken,
+            thumbnail_url: thumbnailUrl ? thumbnailUrl + '?' + sasToken : null,
+            processing_timestamp: new Date().toISOString(),
+            scene_id: feature.id,
+            product_id: properties['s2:product_id'],
+            geometry: feature.geometry,
+            bbox: feature.bbox
+          };
+
+          // Prepare tile data for database
+          const tileData = {
+            tile_id: tileId,
+            acquisition_date: acquisitionDate,
+            cloud_cover: properties['eo:cloud_cover'] || 0,
+            collection: "sentinel-2-l2a",
+            red_band_path: null,
+            nir_band_path: null,
+            ndvi_path: null,
+            copernicus_red_band_url: redBandUrl,
+            copernicus_nir_band_url: nirBandUrl,
+            metadata: metadata,
+            raw_paths: {
+              region: region.name,
+              thumbnail: thumbnailUrl
+            },
+            file_size_mb: 0,
+            status: 'ready_for_processing',
+            processing_stage: 'metadata_stored',
+            actual_download_status: 'pending',
+            storage_verified: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+
+          // Insert or update tile in database
+          if (existingTile) {
+            const { error: updateError } = await supabase
+              .from('satellite_tiles')
+              .update(tileData)
+              .eq('id', existingTile.id);
+
+            if (updateError) {
+              console.error(`[fetch-s2-ndvi] Failed to update tile:`, updateError);
+              results.errors++;
+              continue;
+            }
+            results.updated++;
+          } else {
+            const { error: insertError } = await supabase
+              .from('satellite_tiles')
+              .insert(tileData);
+
+            if (insertError) {
+              console.error(`[fetch-s2-ndvi] Failed to insert tile:`, insertError);
+              results.errors++;
+              continue;
+            }
+            results.inserted++;
+          }
+
+          results.details.push({
+            tile_id: tileId,
+            region: region.name,
+            status: 'success',
+            acquisition_date: acquisitionDate
           });
 
-        if (ndviUploadError) {
-          console.error(`[fetch-s2-ndvi] Failed to upload NDVI metadata:`, ndviUploadError);
-          results.errors++;
-          continue;
+          console.log(`[fetch-s2-ndvi] Successfully processed tile ${tileId} for ${region.name}`);
         }
 
-        // Prepare tile data
-        const tileData = {
-          tile_id: tileId,
-          acquisition_date: acquisitionDate,
-          cloud_cover: properties['eo:cloud_cover'] || 0,
-          collection: DEFAULT_COLLECTION,
-          red_band_path: null, // Will be populated when downloaded
-          nir_band_path: null, // Will be populated when downloaded
-          ndvi_path: `satellite-data/${ndviPath}`,
-          copernicus_red_band_url: redBandUrl,
-          copernicus_nir_band_url: nirBandUrl,
-          metadata: ndviMetadata,
-          raw_paths: {
-            metadata: ndviPath,
-            thumbnail: thumbnailUrl
-          },
-          file_size_mb: 0, // Will be updated when downloaded
-          status: 'metadata_stored',
-          processing_stage: 'metadata_stored',
-          actual_download_status: 'pending',
-          storage_verified: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        // Insert or update tile in database
-        if (existingTile) {
-          const { error: updateError } = await supabase
-            .from('satellite_tiles')
-            .update(tileData)
-            .eq('id', existingTile.id);
-
-          if (updateError) {
-            console.error(`[fetch-s2-ndvi] Failed to update tile:`, updateError);
-            results.errors++;
-            continue;
-          }
-          results.updated++;
-        } else {
-          const { error: insertError } = await supabase
-            .from('satellite_tiles')
-            .insert(tileData);
-
-          if (insertError) {
-            console.error(`[fetch-s2-ndvi] Failed to insert tile:`, insertError);
-            results.errors++;
-            continue;
-          }
-          results.inserted++;
-        }
-
-        results.metadata_stored++;
-        results.details.push({
-          tile_id: tileId,
-          status: 'success',
-          message: `Tile metadata stored successfully`,
-          acquisition_date: acquisitionDate
-        });
-
-        console.log(`[fetch-s2-ndvi] Successfully stored metadata for tile ${tileId}/${acquisitionDate}`);
-
+        results.regions_processed.push(region.name);
       } catch (error) {
-        console.error(`[fetch-s2-ndvi] Error processing STAC tile:`, error);
+        console.error(`[fetch-s2-ndvi] Error processing region ${region.name}:`, error);
         results.errors++;
-        results.details.push({
-          tile_id: feature.id || 'unknown',
-          status: 'error',
-          message: error instanceof Error ? error.message : String(error)
-        });
       }
     }
 
@@ -257,18 +218,12 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Stored metadata for ${results.metadata_stored} tiles, inserted ${results.inserted}, updated ${results.updated}`,
+        message: `Processed ${results.regions_processed.length} agricultural regions: ${results.inserted} new tiles, ${results.updated} updated`,
         results,
         metadata: {
           timestamp: new Date().toISOString(),
-          config: {
-            filterType,
-            priorityMode,
-            maxTilesPerRun,
-            cloudCoverage,
-            startDate,
-            endDate
-          }
+          regions: results.regions_processed,
+          date_range: { start: startDate, end: endDate }
         }
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
