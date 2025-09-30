@@ -1071,16 +1071,20 @@ async function downloadAndProcessNDVI(
       console.log(`[downloadAndProcessNDVI] Performing comprehensive data validation for full resolution processing`);
       await updateProcessingStage('validating_data');
       
+      let validationResult: any; // Declare here for scope
+      let redData: ArrayBuffer;
+      let nirData: ArrayBuffer;
+      
       try {
         // Download full resolution data for validation
         console.log(`[downloadAndProcessNDVI] Downloading full resolution bands for validation`);
-        const [redData, nirData] = await Promise.all([
+        [redData, nirData] = await Promise.all([
           downloadFileInChunks(`${redBandAssetUrl}?${sasToken}`, 'RED', tokenRefreshCallback),
           downloadFileInChunks(`${nirBandAssetUrl}?${sasToken}`, 'NIR', tokenRefreshCallback)
         ]);
         
         // Perform comprehensive validation
-        const validationResult = await validateBands(redData, nirData);
+        validationResult = await validateBands(redData, nirData);
         
         // Store validation results
         dataQualityScore = validationResult.qualityScore;
