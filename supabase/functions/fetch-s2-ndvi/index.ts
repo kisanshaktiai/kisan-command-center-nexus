@@ -1064,6 +1064,7 @@ async function downloadAndProcessNDVI(
     let dataQualityScore = 0;
     let validationStatus = 'validating';
     let validationErrors: any[] = [];
+    let processingResult: any; // Declare processingResult in the outer scope
     
     // For full resolution processing, perform comprehensive validation
     if (requestedResolution === ResolutionLevel.FULL) {
@@ -1183,7 +1184,7 @@ async function downloadAndProcessNDVI(
         const ndviData = await calculateNDVITiled(redData, nirData);
         
         // Create a processing result compatible with the multi-resolution approach
-        const processingResult = {
+        processingResult = {
           thumbnail: null,
           medium: null,
           full: { 
@@ -1230,7 +1231,7 @@ async function downloadAndProcessNDVI(
       await updateProcessingStage('processing_ndvi');
       logMemoryUsage('Before NDVI processing');
       
-      const processingResult = await processMultiResolutionNDVI(
+      processingResult = await processMultiResolutionNDVI(
         `${redBandAssetUrl}?${sasToken}`,
         `${nirBandAssetUrl}?${sasToken}`,
         requestedResolution
