@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
-import { ResolutionLevel, processNDVIAtResolution } from "../fetch-s2-ndvi/cog-processor.ts";
+import { ResolutionLevel, processNDVIAtResolution } from "./cog-processor.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
