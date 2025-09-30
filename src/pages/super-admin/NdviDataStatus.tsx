@@ -279,6 +279,54 @@ export default function NdviDataStatus() {
         </CardContent>
       </Card>
 
+      {/* Sync Results Display */}
+      {(syncError || syncDetails) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Last Sync Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {syncError ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Sync Failed</AlertTitle>
+                <AlertDescription>{syncError}</AlertDescription>
+              </Alert>
+            ) : syncDetails ? (
+              <div className="space-y-3">
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertTitle>Sync Complete</AlertTitle>
+                  <AlertDescription>
+                    {syncDetails.message || 'NDVI data synchronization completed successfully'}
+                    {syncDetails.dataSource && ` (Source: ${syncDetails.dataSource})`}
+                  </AlertDescription>
+                </Alert>
+                {syncDetails.results && (
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">Processed</p>
+                      <p className="text-2xl font-bold">{syncDetails.results.processed || 0}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">Inserted</p>
+                      <p className="text-2xl font-bold text-green-600">{syncDetails.results.inserted || 0}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">Updated</p>
+                      <p className="text-2xl font-bold text-blue-600">{syncDetails.results.updated || 0}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Processing Progress */}
       <Card>
         <CardHeader>
