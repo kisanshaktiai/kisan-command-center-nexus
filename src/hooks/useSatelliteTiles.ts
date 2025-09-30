@@ -48,41 +48,36 @@ export const useSatelliteTiles = (
     refetchInterval: 60000,
   });
 
-  // Mutation for syncing NDVI data (using lightweight version)
+  // Mutation for syncing NDVI data with support for multiple data sources
   const syncNdviData = useMutation({
     mutationFn: async (params?: {
       startDate?: string;
       endDate?: string;
       cloudCoverage?: number;
       forceRefresh?: boolean;
-      useLightweight?: boolean;
+      dataSource?: 'planetary' | 'copernicus';
+      regions?: string[];
     }) => {
-      // Always use lightweight version to avoid memory issues
-      const useLightweight = params?.useLightweight !== false;
+      // Determine which edge function to use based on data source
+      const dataSource = params?.dataSource || 'planetary';
+      const functionName = dataSource === 'copernicus' 
+        ? 'fetch-copernicus-ndvi' 
+        : 'fetch-s2-ndvi-lite';
       
-      if (useLightweight) {
-        // Use the new lightweight edge function that only fetches metadata
-        const { data, error } = await supabase.functions.invoke('fetch-s2-ndvi-lite', {
-          body: {
-            startDate: params?.startDate,
-            endDate: params?.endDate,
-            cloudCoverage: params?.cloudCoverage || 20,
-            regions: ['Punjab', 'Haryana'] // Process two small regions
-          },
-        });
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: {
+          startDate: params?.startDate,
+          endDate: params?.endDate,
+          cloudCoverage: params?.cloudCoverage || 20,
+          regions: params?.regions || ['Punjab', 'Haryana'],
+          lightweight: true, // Always use lightweight mode for now
+        },
+      });
 
-        if (error) throw error;
-        if (!data?.success) throw new Error(data?.error || 'Lightweight sync failed');
-        
-        return data;
-      } else {
-        // Fall back to original service (not recommended)
-        const result = await satelliteTilesService.syncNdviData(params);
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-        return result.data;
-      }
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Sync failed');
+      
+      return { ...data, dataSource };
     },
     onSuccess: (data) => {
       const message = data?.message || 'NDVI metadata sync completed';

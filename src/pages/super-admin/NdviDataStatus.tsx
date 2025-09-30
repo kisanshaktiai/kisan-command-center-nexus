@@ -22,11 +22,14 @@ import {
   Trash2,
   Calendar,
   Filter,
-  Activity
+  Activity,
+  Database,
+  Settings
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSatelliteTiles, useExportTiles } from '@/hooks/useSatelliteTiles';
+import { SyncNdviDialog } from '@/components/ndvi/SyncNdviDialog';
 import { format } from 'date-fns';
 
 interface SatelliteTilesFilters {
@@ -44,18 +47,13 @@ export default function NdviDataStatus() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncDetails, setSyncDetails] = useState<any>(null);
+  const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
   const [filters, setFilters] = useState<SatelliteTilesFilters>({
     status: 'all',
     startDate: '',
     endDate: '',
     cloudCoverMax: 100,
     country: 'all'
-  });
-  const [syncConfig, setSyncConfig] = useState({
-    filterType: 'all' as 'all' | 'agricultural' | 'non-agricultural',
-    priorityMode: 'baseline' as 'baseline' | 'agricultural-priority' | 'update-existing',
-    maxTilesPerRun: 50,
-    cloudCoverage: 20
   });
 
   const {
@@ -71,22 +69,29 @@ export default function NdviDataStatus() {
 
   const { exportTiles, isExporting } = useExportTiles();
 
-  // Auto-sync data on mount (only if no data exists) - Use syncConfig
+  // Auto-sync data on mount (only if no data exists)
   useEffect(() => {
     if (data && data.totalCount === 0) {
       console.log('No satellite tiles found, triggering auto-sync...');
-      handleSync();
+      setIsSyncDialogOpen(true);
     }
   }, [data?.totalCount]);
 
   // Handle sync with error tracking
-  const handleSync = async () => {
+  const handleSync = async (params: {
+    dataSource: 'planetary' | 'copernicus';
+    startDate?: string;
+    endDate?: string;
+    cloudCoverage?: number;
+    regions?: string[];
+  }) => {
     setSyncError(null);
     setSyncDetails(null);
     try {
-      const result = await syncNdviData.mutateAsync(syncConfig);
+      const result = await syncNdviData.mutateAsync(params);
       if (result) {
         setSyncDetails(result);
+        setIsSyncDialogOpen(false);
       }
     } catch (error: any) {
       console.error('Sync error:', error);
@@ -246,77 +251,15 @@ export default function NdviDataStatus() {
           <CardDescription>Configure NDVI data synchronization strategy</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="space-y-2">
-              <Label htmlFor="filter-type">Filter Type</Label>
-              <Select 
-                value={syncConfig.filterType} 
-                onValueChange={(value: 'all' | 'agricultural' | 'non-agricultural') => 
-                  setSyncConfig(prev => ({ ...prev, filterType: value }))
-                }
-              >
-                <SelectTrigger id="filter-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Tiles (470)</SelectItem>
-                  <SelectItem value="agricultural">Agricultural Only</SelectItem>
-                  <SelectItem value="non-agricultural">Non-Agricultural Only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="priority-mode">Priority Mode</Label>
-              <Select 
-                value={syncConfig.priorityMode} 
-                onValueChange={(value: 'baseline' | 'agricultural-priority' | 'update-existing') => 
-                  setSyncConfig(prev => ({ ...prev, priorityMode: value }))
-                }
-              >
-                <SelectTrigger id="priority-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="baseline">Baseline (Oldest First)</SelectItem>
-                  <SelectItem value="agricultural-priority">Agricultural Priority</SelectItem>
-                  <SelectItem value="update-existing">Update Existing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tiles-per-run">Tiles Per Run</Label>
-              <Input
-                id="tiles-per-run"
-                type="number"
-                min={1}
-                max={100}
-                value={syncConfig.maxTilesPerRun}
-                onChange={(e) => setSyncConfig(prev => ({ ...prev, maxTilesPerRun: parseInt(e.target.value) || 50 }))}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="cloud-coverage">Cloud Cover %</Label>
-              <Input
-                id="cloud-coverage"
-                type="number"
-                min={0}
-                max={100}
-                value={syncConfig.cloudCoverage}
-                onChange={(e) => setSyncConfig(prev => ({ ...prev, cloudCoverage: parseInt(e.target.value) || 20 }))}
-              />
-            </div>
-          </div>
-
-          
-          <div className="flex items-center justify-between pt-4 border-t">
-            <div className="text-sm text-muted-foreground">
-              Processing {syncConfig.maxTilesPerRun} tiles per sync operation
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Satellite Data Sources</p>
+              <p className="text-sm text-muted-foreground">
+                Choose between Copernicus DataSpace (OAuth) or Microsoft Planetary Computer (SAS)
+              </p>
             </div>
             <Button 
-              onClick={handleSync}
+              onClick={() => setIsSyncDialogOpen(true)}
               disabled={syncNdviData.isPending}
               className="gap-2"
             >
@@ -327,37 +270,12 @@ export default function NdviDataStatus() {
                 </>
               ) : (
                 <>
-                  <RefreshCw className="h-4 w-4" />
-                  Start Sync
+                  <Database className="h-4 w-4" />
+                  Configure Sync
                 </>
               )}
             </Button>
           </div>
-          
-          {/* Sync Error Display */}
-          {syncError && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Sync Failed</AlertTitle>
-              <AlertDescription>
-                {syncError}
-                <div className="mt-2 text-xs font-mono bg-destructive/10 p-2 rounded">
-                  Please check edge function logs for more details.
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          {/* Sync Success Details */}
-          {syncDetails && !syncError && (
-            <Alert className="mt-4 border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertTitle>Sync Completed</AlertTitle>
-              <AlertDescription>
-                {syncDetails.message || 'NDVI data synced successfully'}
-              </AlertDescription>
-            </Alert>
-          )}
         </CardContent>
       </Card>
 
@@ -396,19 +314,10 @@ export default function NdviDataStatus() {
 
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Processing Strategy</AlertTitle>
+            <AlertTitle>Processing Information</AlertTitle>
             <AlertDescription>
-              {syncConfig.priorityMode === 'baseline' && (
-                <>Processing tiles in chronological order. Each sync will process {syncConfig.maxTilesPerRun} tiles.</>
-              )}
-              {syncConfig.priorityMode === 'agricultural-priority' && (
-                <>Prioritizing agricultural tiles first. Each sync will process {syncConfig.maxTilesPerRun} tiles.</>
-              )}
-              {syncConfig.priorityMode === 'update-existing' && (
-                <>Updating existing tiles with newer data. Each sync will process {syncConfig.maxTilesPerRun} tiles.</>
-              )}
-              {' '}
-              Estimated sync operations remaining: {Math.ceil((470 - (stats?.total || 0)) / syncConfig.maxTilesPerRun)}
+              Select "Configure Sync" above to choose your data source and sync parameters. 
+              You can select between Copernicus DataSpace (recommended with OAuth) or Microsoft Planetary Computer.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -790,6 +699,14 @@ export default function NdviDataStatus() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Sync NDVI Dialog */}
+      <SyncNdviDialog
+        open={isSyncDialogOpen}
+        onOpenChange={setIsSyncDialogOpen}
+        onSync={handleSync}
+        isSyncing={syncNdviData.isPending}
+      />
     </div>
   );
 }
