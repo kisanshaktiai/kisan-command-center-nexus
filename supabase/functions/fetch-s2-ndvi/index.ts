@@ -45,6 +45,166 @@ interface STACItem {
   links: any[];
 }
 
+/**
+ * Retry configuration
+ */
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelay: 1000, // 1 second
+  maxDelay: 30000, // 30 seconds
+  jitterFactor: 0.3, // 30% jitter
+};
+
+/**
+ * Circuit breaker to track permanently failed tiles
+ */
+const circuitBreaker = new Map<string, number>();
+
+/**
+ * Retry metrics tracker
+ */
+const retryMetrics = new Map<string, number>();
+
+/**
+ * Helper function to implement exponential backoff with jitter
+ */
+async function retryWithBackoff<T>(
+  operation: () => Promise<T>,
+  operationName: string,
+  maxRetries: number = RETRY_CONFIG.maxRetries,
+  baseDelay: number = RETRY_CONFIG.baseDelay
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[retryWithBackoff] Attempting ${operationName} (attempt ${attempt + 1}/${maxRetries + 1})`);
+      const result = await operation();
+      
+      // Log successful retry
+      if (attempt > 0) {
+        console.log(`[retryWithBackoff] ${operationName} succeeded after ${attempt} retries`);
+        retryMetrics.set(`${operationName}_success_after_${attempt}`, 
+          (retryMetrics.get(`${operationName}_success_after_${attempt}`) || 0) + 1);
+      }
+      
+      return result;
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Check if this is a rate limit error
+      if (error && typeof error === 'object' && 'status' in error && error.status === 429) {
+        const retryAfter = (error as any).headers?.get('Retry-After');
+        const delay = retryAfter 
+          ? parseInt(retryAfter) * 1000 
+          : Math.min(baseDelay * Math.pow(2, attempt), RETRY_CONFIG.maxDelay);
+        
+        console.log(`[retryWithBackoff] Rate limited for ${operationName}, waiting ${delay}ms (Retry-After: ${retryAfter})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // Don't retry on validation errors for storage operations
+      if (operationName.includes('storage') && error instanceof Error && 
+          (error.message.includes('validation') || error.message.includes('invalid'))) {
+        console.error(`[retryWithBackoff] Validation error for ${operationName}, not retrying:`, error.message);
+        throw error;
+      }
+      
+      // If we've exhausted retries, throw the error
+      if (attempt === maxRetries) {
+        console.error(`[retryWithBackoff] ${operationName} failed after ${maxRetries} retries:`, error);
+        retryMetrics.set(`${operationName}_failed_after_max_retries`, 
+          (retryMetrics.get(`${operationName}_failed_after_max_retries`) || 0) + 1);
+        throw lastError;
+      }
+      
+      // Calculate delay with exponential backoff and jitter
+      const exponentialDelay = Math.min(baseDelay * Math.pow(2, attempt), RETRY_CONFIG.maxDelay);
+      const jitter = exponentialDelay * RETRY_CONFIG.jitterFactor * (Math.random() - 0.5);
+      const delay = Math.max(0, exponentialDelay + jitter);
+      
+      console.log(`[retryWithBackoff] ${operationName} failed (attempt ${attempt + 1}), retrying in ${Math.round(delay)}ms. Error:`, error);
+      
+      // Track retry metrics
+      retryMetrics.set(`${operationName}_retry_${attempt + 1}`, 
+        (retryMetrics.get(`${operationName}_retry_${attempt + 1}`) || 0) + 1);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError || new Error(`Operation ${operationName} failed after ${maxRetries} retries`);
+}
+
+/**
+ * Wrapper for Planetary Computer API calls with retry logic
+ */
+async function fetchWithRetry(url: string, options?: RequestInit, operationName?: string): Promise<Response> {
+  const opName = operationName || `fetch_${new URL(url).hostname}`;
+  
+  return retryWithBackoff(async () => {
+    const response = await fetch(url, options);
+    
+    // Check for rate limiting
+    if (response.status === 429) {
+      const error = new Error(`Rate limited: ${response.status}`);
+      (error as any).status = response.status;
+      (error as any).headers = response.headers;
+      throw error;
+    }
+    
+    // Check for server errors that should be retried
+    if (response.status >= 500) {
+      throw new Error(`Server error: ${response.status} ${response.statusText}`);
+    }
+    
+    // Check for client errors that shouldn't be retried (except 429)
+    if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+      const error = new Error(`Client error: ${response.status} ${response.statusText}`);
+      (error as any).noRetry = true;
+      throw error;
+    }
+    
+    return response;
+  }, opName);
+}
+
+/**
+ * Check if a tile should be skipped due to circuit breaker
+ */
+function shouldSkipTile(tileId: string, maxFailures: number = 3): boolean {
+  const failures = circuitBreaker.get(tileId) || 0;
+  if (failures >= maxFailures) {
+    console.log(`[circuitBreaker] Skipping tile ${tileId} - permanently failed after ${failures} attempts`);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Record a tile failure for circuit breaker
+ */
+function recordTileFailure(tileId: string): void {
+  const failures = (circuitBreaker.get(tileId) || 0) + 1;
+  circuitBreaker.set(tileId, failures);
+  console.log(`[circuitBreaker] Recorded failure ${failures} for tile ${tileId}`);
+  
+  // Update retry metrics
+  retryMetrics.set(`tile_${tileId}_failures`, failures);
+}
+
+/**
+ * Get formatted retry metrics
+ */
+function getRetryMetrics(): { [key: string]: number } {
+  const metrics: { [key: string]: number } = {};
+  retryMetrics.forEach((value, key) => {
+    metrics[key] = value;
+  });
+  return metrics;
+}
+
 // Main request handler
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -155,13 +315,35 @@ serve(async (req) => {
         verified: 0,
         missing: 0,
         details: [] as any[]
-      }
+      },
+      retryMetrics: {} as { [key: string]: number }
     };
 
     // Process each MGRS tile
     for (const mgrsTile of mgrsTiles) {
       try {
         console.log(`[fetch-s2-ndvi] Processing tile: ${mgrsTile.tile_id}`);
+        
+        // Check circuit breaker
+        if (shouldSkipTile(mgrsTile.tile_id)) {
+          console.log(`[fetch-s2-ndvi] Skipping tile ${mgrsTile.tile_id} due to circuit breaker`);
+          results.errors.push({
+            tile: mgrsTile.tile_id,
+            error: "Tile permanently failed - circuit breaker activated"
+          });
+          
+          // Mark tile as permanently failed in database
+          await supabase
+            .from("satellite_tiles")
+            .update({
+              status: 'failed_permanently',
+              error_message: 'Circuit breaker: Failed after multiple attempts',
+              updated_at: new Date().toISOString()
+            })
+            .eq("tile_id", mgrsTile.tile_id);
+          
+          continue;
+        }
         
         // Query Planetary Computer STAC for Sentinel-2 products
         const stacItems = await queryPlanetaryComputer(
@@ -325,12 +507,20 @@ serve(async (req) => {
         }
       } catch (error) {
         console.error(`[fetch-s2-ndvi] Error processing tile ${mgrsTile.tile_id}:`, error);
+        
+        // Record failure for circuit breaker
+        recordTileFailure(mgrsTile.tile_id);
+        
         results.errors.push({ 
           tile_id: mgrsTile.tile_id, 
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
+          retry_count: retryMetrics.get(`tile_${mgrsTile.tile_id}_failures`) || 0
         });
       }
     }
+    
+    // Add retry metrics to results
+    results.retryMetrics = getRetryMetrics();
 
     console.log(`[fetch-s2-ndvi] Processing complete:`, results);
 
@@ -385,17 +575,22 @@ async function queryPlanetaryComputer(
       ]
     };
 
-    const response = await fetch(`${PLANETARY_COMPUTER_STAC_URL}/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+    const response = await fetchWithRetry(
+      `${PLANETARY_COMPUTER_STAC_URL}/search`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(searchBody)
       },
-      body: JSON.stringify(searchBody)
-    });
+      `planetary_computer_search_${tileId}`
+    );
 
     if (!response.ok) {
       console.error(`[queryPlanetaryComputer] API error: ${response.status}`);
+      recordTileFailure(tileId);
       return [];
     }
 
@@ -407,6 +602,7 @@ async function queryPlanetaryComputer(
     return features;
   } catch (error) {
     console.error(`[queryPlanetaryComputer] Error:`, error);
+    recordTileFailure(tileId);
     return [];
   }
 }
@@ -416,11 +612,17 @@ async function queryPlanetaryComputer(
  */
 async function getSASToken(): Promise<string> {
   try {
-    const response = await fetch(PLANETARY_COMPUTER_SAS_TOKEN_URL);
+    const response = await fetchWithRetry(
+      PLANETARY_COMPUTER_SAS_TOKEN_URL,
+      undefined,
+      'get_sas_token'
+    );
+    
     if (!response.ok) {
       console.error(`[getSASToken] Failed to get SAS token: ${response.status}`);
       return "";
     }
+    
     const data = await response.json();
     return data.token || "";
   } catch (error) {
@@ -437,7 +639,11 @@ async function downloadFileInChunks(
   maxSizeMB: number = 500
 ): Promise<ArrayBuffer> {
   // First, get file size with HEAD request
-  const headResponse = await fetch(url, { method: 'HEAD' });
+  const headResponse = await fetchWithRetry(
+    url, 
+    { method: 'HEAD' },
+    'file_size_check'
+  );
   const contentLength = headResponse.headers.get('content-length');
   const fileSizeBytes = contentLength ? parseInt(contentLength, 10) : 0;
   const fileSizeMB = fileSizeBytes / (1024 * 1024);
@@ -452,7 +658,7 @@ async function downloadFileInChunks(
   // For small files (< 50MB), download normally
   if (fileSizeMB < 50) {
     console.log(`[downloadFileInChunks] Small file, downloading directly`);
-    const response = await fetch(url);
+    const response = await fetchWithRetry(url, undefined, 'download_small_file');
     if (!response.ok) {
       throw new Error(`Failed to download file: ${response.status}`);
     }
@@ -471,11 +677,15 @@ async function downloadFileInChunks(
     
     console.log(`[downloadFileInChunks] Downloading chunk: ${start}-${end} (${((start/fileSizeBytes)*100).toFixed(1)}%)`);
     
-    const response = await fetch(url, {
-      headers: {
-        'Range': `bytes=${start}-${end}`
-      }
-    });
+    const response = await fetchWithRetry(
+      url,
+      {
+        headers: {
+          'Range': `bytes=${start}-${end}`
+        }
+      },
+      `download_chunk_${start}_${end}`
+    );
     
     if (!response.ok && response.status !== 206) {
       throw new Error(`Failed to download chunk: ${response.status}`);
@@ -714,20 +924,29 @@ async function downloadAndProcessNDVI(
     
     // Begin atomic upload sequence
     try {
-      // Upload RED band
+      // Upload RED band with retry
       await updateProcessingStage('uploading_red');
       logMemoryUsage('Before RED upload');
-      const { error: redUploadError } = await supabase.storage
-        .from('satellite-data')
-        .upload(storagePaths.red, redData, {
-          contentType: 'image/tiff',
-          upsert: true
-        });
       
-      if (redUploadError) {
-        console.error(`[downloadAndProcessNDVI] Failed to upload RED band:`, redUploadError);
-        throw redUploadError;
-      }
+      await retryWithBackoff(async () => {
+        const { error: redUploadError } = await supabase.storage
+          .from('satellite-data')
+          .upload(storagePaths.red, redData, {
+            contentType: 'image/tiff',
+            upsert: true
+          });
+        
+        if (redUploadError) {
+          // Check if it's a validation error (don't retry)
+          if (redUploadError.message?.includes('validation') || 
+              redUploadError.message?.includes('invalid')) {
+            throw redUploadError;
+          }
+          // Network or server error (retry)
+          throw new Error(`Upload failed: ${redUploadError.message}`);
+        }
+      }, `storage_upload_red_${tileName}`);
+      
       uploadedFiles.push(storagePaths.red);
       console.log(`[downloadAndProcessNDVI] Uploaded RED band to ${storagePaths.red}`);
       logMemoryUsage('After RED upload');
@@ -735,20 +954,29 @@ async function downloadAndProcessNDVI(
       // Clear RED data from memory
       redData = new ArrayBuffer(0);
       
-      // Upload NIR band
+      // Upload NIR band with retry
       await updateProcessingStage('uploading_nir');
       logMemoryUsage('Before NIR upload');
-      const { error: nirUploadError } = await supabase.storage
-        .from('satellite-data')
-        .upload(storagePaths.nir, nirData, {
-          contentType: 'image/tiff',
-          upsert: true
-        });
       
-      if (nirUploadError) {
-        console.error(`[downloadAndProcessNDVI] Failed to upload NIR band:`, nirUploadError);
-        throw nirUploadError;
-      }
+      await retryWithBackoff(async () => {
+        const { error: nirUploadError } = await supabase.storage
+          .from('satellite-data')
+          .upload(storagePaths.nir, nirData, {
+            contentType: 'image/tiff',
+            upsert: true
+          });
+        
+        if (nirUploadError) {
+          // Check if it's a validation error (don't retry)
+          if (nirUploadError.message?.includes('validation') || 
+              nirUploadError.message?.includes('invalid')) {
+            throw nirUploadError;
+          }
+          // Network or server error (retry)
+          throw new Error(`Upload failed: ${nirUploadError.message}`);
+        }
+      }, `storage_upload_nir_${tileName}`);
+      
       uploadedFiles.push(storagePaths.nir);
       console.log(`[downloadAndProcessNDVI] Uploaded NIR band to ${storagePaths.nir}`);
       logMemoryUsage('After NIR upload');
@@ -756,20 +984,29 @@ async function downloadAndProcessNDVI(
       // Clear NIR data from memory
       nirData = new ArrayBuffer(0);
       
-      // Upload NDVI result
+      // Upload NDVI result with retry
       await updateProcessingStage('uploading_ndvi');
       logMemoryUsage('Before NDVI upload');
-      const { error: ndviUploadError } = await supabase.storage
-        .from('satellite-data')
-        .upload(storagePaths.ndvi, ndviResult, {
-          contentType: 'image/tiff',
-          upsert: true
-        });
       
-      if (ndviUploadError) {
-        console.error(`[downloadAndProcessNDVI] Failed to upload NDVI:`, ndviUploadError);
-        throw ndviUploadError;
-      }
+      await retryWithBackoff(async () => {
+        const { error: ndviUploadError } = await supabase.storage
+          .from('satellite-data')
+          .upload(storagePaths.ndvi, ndviResult, {
+            contentType: 'image/tiff',
+            upsert: true
+          });
+        
+        if (ndviUploadError) {
+          // Check if it's a validation error (don't retry)
+          if (ndviUploadError.message?.includes('validation') || 
+              ndviUploadError.message?.includes('invalid')) {
+            throw ndviUploadError;
+          }
+          // Network or server error (retry)
+          throw new Error(`Upload failed: ${ndviUploadError.message}`);
+        }
+      }, `storage_upload_ndvi_${tileName}`);
+      
       uploadedFiles.push(storagePaths.ndvi);
       console.log(`[downloadAndProcessNDVI] Uploaded NDVI to ${storagePaths.ndvi}`);
       logMemoryUsage('After NDVI upload');
