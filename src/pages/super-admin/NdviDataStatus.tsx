@@ -42,6 +42,8 @@ export default function NdviDataStatus() {
   const [pageSize] = useState(20);
   const [selectedTile, setSelectedTile] = useState<any>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncDetails, setSyncDetails] = useState<any>(null);
   const [filters, setFilters] = useState<SatelliteTilesFilters>({
     status: 'all',
     startDate: '',
@@ -73,9 +75,24 @@ export default function NdviDataStatus() {
   useEffect(() => {
     if (data && data.totalCount === 0) {
       console.log('No satellite tiles found, triggering auto-sync...');
-      syncNdviData.mutate(syncConfig);
+      handleSync();
     }
   }, [data?.totalCount]);
+
+  // Handle sync with error tracking
+  const handleSync = async () => {
+    setSyncError(null);
+    setSyncDetails(null);
+    try {
+      const result = await syncNdviData.mutateAsync(syncConfig);
+      if (result) {
+        setSyncDetails(result);
+      }
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      setSyncError(error.message || 'Failed to sync NDVI data');
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -299,7 +316,7 @@ export default function NdviDataStatus() {
               Processing {syncConfig.maxTilesPerRun} tiles per sync operation
             </div>
             <Button 
-              onClick={() => syncNdviData.mutate(syncConfig)}
+              onClick={handleSync}
               disabled={syncNdviData.isPending}
               className="gap-2"
             >
@@ -316,6 +333,31 @@ export default function NdviDataStatus() {
               )}
             </Button>
           </div>
+          
+          {/* Sync Error Display */}
+          {syncError && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Sync Failed</AlertTitle>
+              <AlertDescription>
+                {syncError}
+                <div className="mt-2 text-xs font-mono bg-destructive/10 p-2 rounded">
+                  Please check edge function logs for more details.
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {/* Sync Success Details */}
+          {syncDetails && !syncError && (
+            <Alert className="mt-4 border-green-200 bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertTitle>Sync Completed</AlertTitle>
+              <AlertDescription>
+                {syncDetails.message || 'NDVI data synced successfully'}
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
