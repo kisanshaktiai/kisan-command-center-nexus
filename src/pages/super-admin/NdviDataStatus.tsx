@@ -69,6 +69,22 @@ export default function NdviDataStatus() {
 
   const { exportTiles, isExporting } = useExportTiles();
 
+  // Auto-refresh data every 30 seconds when processing
+  useEffect(() => {
+    const hasProcessing = data?.tiles?.some((tile: any) => 
+      tile.status === 'pending' || tile.status === 'processing'
+    );
+
+    if (hasProcessing) {
+      const interval = setInterval(() => {
+        console.log('Auto-refreshing tile status...');
+        refetch();
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [data?.tiles, refetch]);
+
   // Auto-sync data on mount (only if no data exists)
   useEffect(() => {
     if (data && data.totalCount === 0) {
@@ -226,17 +242,20 @@ export default function NdviDataStatus() {
         </Card>
       </div>
 
-      {/* Planetary Computer Info */}
-      <Alert className="border-green-200 bg-green-50">
-        <CheckCircle className="h-4 w-4 text-green-600" />
-        <AlertTitle>Free Satellite Data Access</AlertTitle>
+      {/* Copernicus Data Space Info */}
+      <Alert className="border-blue-200 bg-blue-50">
+        <CheckCircle className="h-4 w-4 text-blue-600" />
+        <AlertTitle>Copernicus Data Space Ecosystem</AlertTitle>
         <AlertDescription className="space-y-2">
           <p>
-            This system uses Microsoft Planetary Computer to fetch Sentinel-2 satellite data. 
-            No authentication or registration is required - the data is freely available!
+            This system uses Copernicus Data Space Ecosystem for Sentinel-2 satellite data. 
+            OAuth2 authentication is configured for accessing STAC, Process, and Statistical APIs.
           </p>
           <p className="text-sm text-muted-foreground">
-            Data source: Microsoft Planetary Computer STAC API with Cloud-Optimized GeoTIFFs (COGs)
+            Data source: Copernicus STAC API + Process API (NDVI visualization) + Statistical API (metrics)
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Auto-refresh: Status updates every 30 seconds • Weekly auto-sync: Every Monday at 2 AM UTC
           </p>
         </AlertDescription>
       </Alert>
@@ -253,9 +272,9 @@ export default function NdviDataStatus() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Satellite Data Sources</p>
+              <p className="text-sm font-medium">NDVI Data Synchronization</p>
               <p className="text-sm text-muted-foreground">
-                Choose between Copernicus DataSpace (OAuth) or Microsoft Planetary Computer (SAS)
+                Manually trigger NDVI data sync from Copernicus Data Space Ecosystem
               </p>
             </div>
             <Button 
@@ -451,7 +470,7 @@ export default function NdviDataStatus() {
         <CardHeader>
           <CardTitle>NDVI Tiles Data</CardTitle>
           <CardDescription>
-            Real-time satellite tile processing status from MGRS grid
+            Real-time satellite tile processing status from Copernicus Data Space Ecosystem
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -463,15 +482,18 @@ export default function NdviDataStatus() {
                   <TableHead>Tile ID</TableHead>
                   <TableHead>Acquisition Date</TableHead>
                   <TableHead>Cloud Cover</TableHead>
-                  <TableHead>Storage</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>NDVI Path</TableHead>
+                  <TableHead>File Size (MB)</TableHead>
+                  <TableHead>Error</TableHead>
+                  <TableHead>Created At</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Loading NDVI data...
