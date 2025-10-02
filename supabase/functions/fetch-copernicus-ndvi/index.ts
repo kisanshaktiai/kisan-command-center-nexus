@@ -252,20 +252,47 @@ serve(async (req) => {
       cloudCoverage = 20,
       regions = ['Punjab', 'Haryana'],
       tileIds = [] // Optional: specific MGRS tile IDs
-    } = await req.json();
+    } = await req.json().catch(() => ({})); // Handle empty body
+
+    console.log('[fetch-copernicus-ndvi] Parameters:', { startDate, endDate, cloudCoverage, regions, tileIds });
 
     // Get credentials from environment
     const clientId = Deno.env.get("COPERNICUS_CLIENT_ID");
     const clientSecret = Deno.env.get("COPERNICUS_CLIENT_SECRET");
     
     if (!clientId || !clientSecret) {
-      throw new Error('Copernicus credentials not configured');
+      const errorMsg = 'Copernicus credentials not configured. Please add COPERNICUS_CLIENT_ID and COPERNICUS_CLIENT_SECRET secrets.';
+      console.error('[fetch-copernicus-ndvi]', errorMsg);
+      throw new Error(errorMsg);
     }
+    
+    console.log('[fetch-copernicus-ndvi] Credentials found, proceeding...');
 
     // Initialize Supabase
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Check if storage bucket exists, create if not
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(b => b.name === 'ndvi-tiles');
+    
+    if (!bucketExists) {
+      console.log('[fetch-copernicus-ndvi] Creating ndvi-tiles storage bucket...');
+      const { error: bucketError } = await supabase.storage.createBucket('ndvi-tiles', {
+        public: true,
+        fileSizeLimit: 52428800, // 50MB
+        allowedMimeTypes: ['image/png', 'image/jpeg']
+      });
+      
+      if (bucketError) {
+        console.error('[fetch-copernicus-ndvi] Bucket creation error:', bucketError);
+      } else {
+        console.log('[fetch-copernicus-ndvi] Storage bucket created successfully');
+      }
+    } else {
+      console.log('[fetch-copernicus-ndvi] Storage bucket already exists');
+    }
 
     // Step 1: Fetch MGRS tiles from the database (ALL tiles to check for agriculture)
     console.log('[fetch-copernicus-ndvi] Fetching MGRS tiles from database...');
@@ -296,10 +323,11 @@ serve(async (req) => {
     }
 
     if (!mgrsTiles || mgrsTiles.length === 0) {
+      console.log('[fetch-copernicus-ndvi] No MGRS tiles found matching criteria');
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'No MGRS tiles found matching criteria',
+          message: 'No MGRS tiles found matching criteria. Please ensure tiles are loaded in mgrs_tiles table.',
           results: { processed: 0, inserted: 0, updated: 0, errors: [] }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -307,6 +335,11 @@ serve(async (req) => {
     }
 
     console.log(`[fetch-copernicus-ndvi] Found ${mgrsTiles.length} MGRS tiles to process`);
+    console.log(`[fetch-copernicus-ndvi] First tile sample:`, {
+      tile_id: mgrsTiles[0].tile_id,
+      has_geometry: !!mgrsTiles[0].geometry,
+      is_agri: mgrsTiles[0].is_agri
+    });
 
     // Get OAuth token
     console.log('[fetch-copernicus-ndvi] Authenticating with Copernicus...');
