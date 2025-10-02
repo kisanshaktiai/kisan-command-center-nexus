@@ -374,6 +374,7 @@ serve(async (req) => {
           collections: ["sentinel-2-l2a"],
           bbox: bbox,
           datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
+          "filter-lang": "cql2-json",
           filter: {
             op: "and",
             args: [
