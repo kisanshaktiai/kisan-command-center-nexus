@@ -349,6 +349,8 @@ serve(async (req) => {
       processed: 0,
       inserted: 0,
       updated: 0,
+      markedAsAgricultural: 0,
+      skippedNonAgricultural: 0,
       errors: [],
       tiles: []
     };
@@ -452,16 +454,31 @@ serve(async (req) => {
         }
 
         try {
+          console.log(`[fetch-copernicus-ndvi] Analyzing tile ${mgrsTile.tile_id} for agricultural classification...`);
+          
           // Calculate statistics FIRST to determine if agricultural
           const stats = await calculateNDVIStats(token, bbox, startDate, endDate);
           const ndviStats = stats.data?.[0]?.outputs?.default?.bands?.ndvi?.stats || {};
           
           // Determine if tile is agricultural based on NDVI mean
           // NDVI > 0.2 typically indicates vegetation/agricultural land
+          // NDVI < 0.9 filters out anomalies and very dense forests
           const ndviMean = ndviStats.mean || 0;
-          const isAgricultural = ndviMean > 0.2 && ndviMean < 0.9;
+          const ndviMin = ndviStats.min || 0;
+          const ndviMax = ndviStats.max || 0;
           
-          console.log(`[fetch-copernicus-ndvi] Tile ${mgrsTile.tile_id} NDVI mean: ${ndviMean}, Agricultural: ${isAgricultural}`);
+          // Agricultural classification criteria:
+          // - Mean NDVI between 0.2 and 0.8 (vegetation present)
+          // - Max NDVI > 0.3 (confirms vegetation presence)
+          const isAgricultural = ndviMean > 0.2 && ndviMean < 0.8 && ndviMax > 0.3;
+          
+          console.log(`[fetch-copernicus-ndvi] Tile ${mgrsTile.tile_id} Analysis:`, {
+            ndviMean: ndviMean.toFixed(3),
+            ndviMin: ndviMin.toFixed(3),
+            ndviMax: ndviMax.toFixed(3),
+            isAgricultural,
+            alreadyMarked: mgrsTile.is_agri
+          });
           
           // Update MGRS tile with agricultural classification
           if (isAgricultural && !mgrsTile.is_agri) {
@@ -473,24 +490,28 @@ serve(async (req) => {
               })
               .eq('id', mgrsTile.id);
             
-            console.log(`[fetch-copernicus-ndvi] Marked tile ${mgrsTile.tile_id} as agricultural`);
+            results.markedAsAgricultural++;
+            console.log(`[fetch-copernicus-ndvi] ✓ Marked tile ${mgrsTile.tile_id} as agricultural`);
+          } else if (isAgricultural) {
+            console.log(`[fetch-copernicus-ndvi] Tile ${mgrsTile.tile_id} already marked as agricultural`);
           }
           
           // Only generate and download NDVI visualization if agricultural
           if (!isAgricultural) {
-            console.log(`[fetch-copernicus-ndvi] Skipping non-agricultural tile ${mgrsTile.tile_id}`);
+            console.log(`[fetch-copernicus-ndvi] ✗ Skipping non-agricultural tile ${mgrsTile.tile_id} (NDVI mean: ${ndviMean.toFixed(3)})`);
             
             // Update satellite tile to mark as non-agricultural
             await supabase
               .from('satellite_tiles')
               .update({
                 status: 'skipped',
-                error_message: 'Non-agricultural area (NDVI < 0.2)',
+                error_message: `Non-agricultural area (NDVI mean: ${ndviMean.toFixed(3)})`,
                 ndvi_mean: ndviMean,
                 updated_at: new Date().toISOString()
               })
               .eq('id', tileDbId);
             
+            results.skippedNonAgricultural++;
             results.processed++;
             continue;
           }
@@ -570,15 +591,23 @@ serve(async (req) => {
     }
 
     results.processed = results.inserted + results.updated;
-    console.log('[fetch-copernicus-ndvi] Processing complete:', results);
+    console.log('[fetch-copernicus-ndvi] ✓ Processing complete:', results);
 
+    const summary = `Analyzed ${mgrsTiles.length} tiles: ${results.markedAsAgricultural} newly marked as agricultural, ${results.skippedNonAgricultural} skipped (non-agricultural), ${results.processed} NDVI images generated`;
+    
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Processed ${mgrsTiles.length} MGRS tiles from database`,
+        message: summary,
         results,
         dataSource: 'copernicus',
-        mgrsTilesProcessed: mgrsTiles.length
+        mgrsTilesAnalyzed: mgrsTiles.length,
+        summary: {
+          totalAnalyzed: mgrsTiles.length,
+          newlyMarkedAgricultural: results.markedAsAgricultural,
+          skippedNonAgricultural: results.skippedNonAgricultural,
+          ndviImagesGenerated: results.processed
+        }
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
