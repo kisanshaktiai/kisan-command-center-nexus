@@ -59,19 +59,33 @@ export const useSatelliteTiles = (
       tileIds?: string[];
     }) => {
       // Call the new MGRS-based Copernicus NDVI function
+      console.log('[useSatelliteTiles] Invoking fetch-copernicus-ndvi with params:', params);
+      
       const { data, error } = await supabase.functions.invoke('fetch-copernicus-ndvi', {
         body: {
           startDate: params?.startDate,
           endDate: params?.endDate,
           cloudCoverage: params?.cloudCoverage || 20,
-          regions: params?.regions || ['Punjab', 'Haryana'],
+          regions: params?.regions && params.regions.length > 0 
+            ? params.regions 
+            : ['All Regions (state data not populated)'],
           tileIds: params?.tileIds || []
         },
       });
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Sync failed');
+      console.log('[useSatelliteTiles] Edge function response:', { data, error });
+
+      if (error) {
+        console.error('[useSatelliteTiles] Edge function error:', error);
+        throw new Error(error.message || 'Failed to invoke edge function');
+      }
       
+      if (!data?.success) {
+        console.error('[useSatelliteTiles] Sync failed:', data);
+        throw new Error(data?.error || 'Sync failed');
+      }
+      
+      console.log('[useSatelliteTiles] Sync successful:', data);
       return data;
     },
     onSuccess: (data) => {

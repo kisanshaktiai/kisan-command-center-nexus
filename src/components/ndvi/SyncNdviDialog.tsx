@@ -140,11 +140,16 @@ export function SyncNdviDialog({
   };
 
   const handleSync = () => {
+    // If no regions available (state data is null), send a flag to process all tiles
+    const regionsToSync = availableRegions.length > 0 && availableRegions[0].state !== 'Error loading regions'
+      ? selectedRegions
+      : ['All Regions (state data not populated)'];
+    
     onSync({
       startDate,
       endDate,
       cloudCoverage,
-      regions: selectedRegions,
+      regions: regionsToSync,
     });
   };
 
