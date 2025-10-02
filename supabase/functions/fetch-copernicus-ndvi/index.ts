@@ -7,17 +7,34 @@ const COPERNICUS_PROCESS_API = 'https://sh.dataspace.copernicus.eu/api/v1/proces
 const COPERNICUS_STATISTICAL_API = 'https://sh.dataspace.copernicus.eu/api/v1/statistics';
 const COPERNICUS_AUTH_URL = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token';
 
-// Agricultural regions for India
-const AGRICULTURAL_REGIONS = {
-  'Punjab': { west: 74.5, south: 30.0, east: 76.5, north: 32.5 },
-  'Haryana': { west: 75.0, south: 27.5, east: 77.5, north: 30.5 },
-  'Uttar Pradesh': { west: 77.0, south: 24.0, east: 84.5, north: 30.5 }
-};
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+/**
+ * Extract bounding box from PostGIS geometry
+ */
+function extractBboxFromGeometry(geometry: any): number[] | null {
+  try {
+    // Geometry is GeoJSON format
+    if (geometry && geometry.coordinates) {
+      const coords = geometry.coordinates[0]; // Polygon exterior ring
+      const lons = coords.map((c: number[]) => c[0]);
+      const lats = coords.map((c: number[]) => c[1]);
+      return [
+        Math.min(...lons), // west
+        Math.min(...lats), // south
+        Math.max(...lons), // east
+        Math.max(...lats)  // north
+      ];
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to extract bbox:', error);
+    return null;
+  }
+}
 
 /**
  * Get OAuth2 access token from Copernicus
@@ -217,13 +234,14 @@ serve(async (req) => {
   }
 
   try {
-    console.log('[fetch-copernicus-ndvi] Starting Copernicus NDVI sync');
+    console.log('[fetch-copernicus-ndvi] Starting MGRS-based NDVI sync');
     
     const { 
       startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       endDate = new Date().toISOString().split('T')[0],
       cloudCoverage = 20,
-      regions = ['Punjab', 'Haryana']
+      regions = ['Punjab', 'Haryana'],
+      tileIds = [] // Optional: specific MGRS tile IDs
     } = await req.json();
 
     // Get credentials from environment
@@ -239,6 +257,43 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Step 1: Fetch MGRS tiles from the database
+    console.log('[fetch-copernicus-ndvi] Fetching MGRS tiles from database...');
+    
+    let mgrsTilesQuery = supabase
+      .from('mgrs_tiles')
+      .select('id, tile_id, country_id, state, geometry, is_agri, agri_area_km2');
+
+    // Filter by specific tile IDs if provided
+    if (tileIds && tileIds.length > 0) {
+      mgrsTilesQuery = mgrsTilesQuery.in('tile_id', tileIds);
+    } else {
+      // Otherwise filter by regions and agricultural tiles
+      mgrsTilesQuery = mgrsTilesQuery
+        .eq('is_agri', true)
+        .in('state', regions)
+        .limit(50); // Process max 50 tiles per run
+    }
+
+    const { data: mgrsTiles, error: mgrsTilesError } = await mgrsTilesQuery;
+
+    if (mgrsTilesError) {
+      throw new Error(`Failed to fetch MGRS tiles: ${mgrsTilesError.message}`);
+    }
+
+    if (!mgrsTiles || mgrsTiles.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'No MGRS tiles found matching criteria',
+          results: { processed: 0, inserted: 0, updated: 0, errors: [] }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`[fetch-copernicus-ndvi] Found ${mgrsTiles.length} MGRS tiles to process`);
+
     // Get OAuth token
     console.log('[fetch-copernicus-ndvi] Authenticating with Copernicus...');
     const token = await getCopernicusToken(clientId, clientSecret);
@@ -248,27 +303,34 @@ serve(async (req) => {
       inserted: 0,
       updated: 0,
       errors: [],
-      regions_processed: [],
       tiles: []
     };
 
-    // Process each region
-    for (const regionName of regions) {
-      const region = AGRICULTURAL_REGIONS[regionName];
-      if (!region) continue;
-
-      console.log(`[fetch-copernicus-ndvi] Processing region: ${regionName}`);
-
+    // Step 2: Process each MGRS tile
+    for (const mgrsTile of mgrsTiles) {
       try {
-        // Query STAC for tiles
+        console.log(`[fetch-copernicus-ndvi] Processing MGRS tile: ${mgrsTile.tile_id}`);
+
+        // Extract bounding box from geometry
+        const bbox = extractBboxFromGeometry(mgrsTile.geometry);
+        
+        if (!bbox) {
+          console.error(`[fetch-copernicus-ndvi] No valid bbox for tile ${mgrsTile.tile_id}`);
+          results.errors.push({ tile: mgrsTile.tile_id, error: 'Invalid geometry' });
+          continue;
+        }
+
+        // Query STAC API for this specific MGRS tile
         const stacPayload = {
           collections: ["sentinel-2-l2a"],
-          bbox: [region.west, region.south, region.east, region.north],
+          bbox: bbox,
           datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
           query: {
+            "s2:mgrs_tile": { "eq": mgrsTile.tile_id },
             "eo:cloud_cover": { "lt": cloudCoverage }
           },
-          limit: 5
+          limit: 1, // Get most recent
+          sortby: [{ field: "datetime", direction: "desc" }]
         };
 
         const stacResponse = await fetch(COPERNICUS_STAC_API, {
@@ -282,142 +344,143 @@ serve(async (req) => {
         }
 
         const stacData = await stacResponse.json();
-        console.log(`[fetch-copernicus-ndvi] Found ${stacData.features?.length || 0} tiles`);
 
-        // Process each tile
-        for (const feature of stacData.features || []) {
-          const properties = feature.properties || {};
-          const tileId = properties['s2:mgrs_tile'] || 'UNKNOWN';
-          const acquisitionDate = properties.datetime ? 
-            new Date(properties.datetime).toISOString().split('T')[0] : 
-            new Date().toISOString().split('T')[0];
-
-          console.log(`[fetch-copernicus-ndvi] Processing tile ${tileId}`);
-
-          // Create pending record
-          const { data: existingTile } = await supabase
-            .from('satellite_tiles')
-            .select('id')
-            .eq('tile_id', tileId)
-            .eq('acquisition_date', acquisitionDate)
-            .single();
-
-          const tileBbox = feature.bbox || [region.west, region.south, region.east, region.north];
-
-          const tileRecord = {
-            tile_id: tileId,
-            acquisition_date: acquisitionDate,
-            cloud_cover: properties['eo:cloud_cover'] || 0,
-            collection: "sentinel-2-l2a",
-            status: 'pending',
-            metadata: {
-              tile_id: tileId,
-              region: regionName,
-              bbox: tileBbox,
-              scene_id: feature.id
-            },
-            file_size_mb: 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-
-          let tileDbId: string;
-
-          if (existingTile) {
-            await supabase
-              .from('satellite_tiles')
-              .update({ ...tileRecord, status: 'pending' })
-              .eq('id', existingTile.id);
-            tileDbId = existingTile.id;
-            results.updated++;
-          } else {
-            const { data: newTile } = await supabase
-              .from('satellite_tiles')
-              .insert(tileRecord)
-              .select('id')
-              .single();
-            tileDbId = newTile?.id!;
-            results.inserted++;
-          }
-
-          try {
-            // Generate NDVI visualization
-            const { imageBlob, metadata: imgMeta } = await generateNDVI(
-              token,
-              tileBbox,
-              startDate,
-              endDate
-            );
-
-            // Upload to storage
-            const fileName = `${tileId}_${acquisitionDate}_ndvi.png`;
-            const { data: uploadData, error: uploadError } = await supabase
-              .storage
-              .from('ndvi-tiles')
-              .upload(fileName, imageBlob, {
-                contentType: 'image/png',
-                upsert: true
-              });
-
-            if (uploadError) throw uploadError;
-
-            // Get public URL
-            const { data: { publicUrl } } = supabase
-              .storage
-              .from('ndvi-tiles')
-              .getPublicUrl(fileName);
-
-            // Calculate statistics
-            const stats = await calculateNDVIStats(token, tileBbox, startDate, endDate);
-            
-            const ndviStats = stats.data?.[0]?.outputs?.default?.bands?.ndvi?.stats || {};
-            
-            // Update tile with results
-            await supabase
-              .from('satellite_tiles')
-              .update({
-                status: 'ready',
-                ndvi_path: publicUrl,
-                file_size_mb: imageBlob.size / (1024 * 1024),
-                ndvi_mean: ndviStats.mean || null,
-                ndvi_min: ndviStats.min || null,
-                ndvi_max: ndviStats.max || null,
-                ndvi_std_dev: ndviStats.stDev || null,
-                ndvi_statistics: stats.data?.[0] || {},
-                processing_completed_at: new Date().toISOString(),
-                error_message: null,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', tileDbId);
-
-            console.log(`[fetch-copernicus-ndvi] Successfully processed tile ${tileId}`);
-            
-            results.tiles.push({
-              tile_id: tileId,
-              region: regionName,
-              status: 'ready'
-            });
-
-          } catch (processError) {
-            console.error(`[fetch-copernicus-ndvi] Error processing tile ${tileId}:`, processError);
-            
-            await supabase
-              .from('satellite_tiles')
-              .update({
-                status: 'error',
-                error_message: processError.message,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', tileDbId);
-
-            results.errors.push({ tile: tileId, error: processError.message });
-          }
+        if (!stacData.features || stacData.features.length === 0) {
+          console.log(`[fetch-copernicus-ndvi] No Sentinel-2 data found for tile ${mgrsTile.tile_id}`);
+          results.processed++;
+          continue;
         }
 
-        results.regions_processed.push(regionName);
-      } catch (regionError) {
-        console.error(`[fetch-copernicus-ndvi] Region error:`, regionError);
-        results.errors.push({ region: regionName, error: regionError.message });
+        const feature = stacData.features[0];
+        const properties = feature.properties || {};
+        const acquisitionDate = properties.datetime ? 
+          new Date(properties.datetime).toISOString().split('T')[0] : 
+          new Date().toISOString().split('T')[0];
+
+        // Check if we already have this tile data
+        const { data: existingTile } = await supabase
+          .from('satellite_tiles')
+          .select('id')
+          .eq('tile_id', mgrsTile.tile_id)
+          .eq('acquisition_date', acquisitionDate)
+          .single();
+
+        const tileRecord = {
+          tile_id: mgrsTile.tile_id,
+          mgrs_tile_id: mgrsTile.id, // Link to MGRS tiles table
+          acquisition_date: acquisitionDate,
+          cloud_cover: properties['eo:cloud_cover'] || 0,
+          collection: "sentinel-2-l2a",
+          status: 'pending',
+          country_id: mgrsTile.country_id,
+          metadata: {
+            tile_id: mgrsTile.tile_id,
+            state: mgrsTile.state,
+            bbox: bbox,
+            scene_id: feature.id,
+            agri_area_km2: mgrsTile.agri_area_km2
+          },
+          file_size_mb: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        let tileDbId: string;
+
+        if (existingTile) {
+          await supabase
+            .from('satellite_tiles')
+            .update({ ...tileRecord, status: 'pending' })
+            .eq('id', existingTile.id);
+          tileDbId = existingTile.id;
+          results.updated++;
+        } else {
+          const { data: newTile } = await supabase
+            .from('satellite_tiles')
+            .insert(tileRecord)
+            .select('id')
+            .single();
+          tileDbId = newTile?.id!;
+          results.inserted++;
+        }
+
+        try {
+          // Generate NDVI visualization
+          const { imageBlob, metadata: imgMeta } = await generateNDVI(
+            token,
+            bbox,
+            startDate,
+            endDate
+          );
+
+          // Upload to storage
+          const fileName = `${mgrsTile.tile_id}_${acquisitionDate}_ndvi.png`;
+          const { data: uploadData, error: uploadError } = await supabase
+            .storage
+            .from('ndvi-tiles')
+            .upload(fileName, imageBlob, {
+              contentType: 'image/png',
+              upsert: true
+            });
+
+          if (uploadError) throw uploadError;
+
+          // Get public URL
+          const { data: { publicUrl } } = supabase
+            .storage
+            .from('ndvi-tiles')
+            .getPublicUrl(fileName);
+
+          // Calculate statistics
+          const stats = await calculateNDVIStats(token, bbox, startDate, endDate);
+          
+          const ndviStats = stats.data?.[0]?.outputs?.default?.bands?.ndvi?.stats || {};
+          
+          // Update tile with results
+          await supabase
+            .from('satellite_tiles')
+            .update({
+              status: 'ready',
+              ndvi_path: publicUrl,
+              file_size_mb: imageBlob.size / (1024 * 1024),
+              ndvi_mean: ndviStats.mean || null,
+              ndvi_min: ndviStats.min || null,
+              ndvi_max: ndviStats.max || null,
+              ndvi_std_dev: ndviStats.stDev || null,
+              ndvi_statistics: stats.data?.[0] || {},
+              processing_stage: 'ndvi_calculated',
+              processing_completed_at: new Date().toISOString(),
+              error_message: null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', tileDbId);
+
+          console.log(`[fetch-copernicus-ndvi] Successfully processed tile ${mgrsTile.tile_id}`);
+          
+          results.tiles.push({
+            tile_id: mgrsTile.tile_id,
+            mgrs_tile_id: mgrsTile.id,
+            state: mgrsTile.state,
+            status: 'ready'
+          });
+
+        } catch (processError) {
+          console.error(`[fetch-copernicus-ndvi] Error processing tile ${mgrsTile.tile_id}:`, processError);
+          
+          await supabase
+            .from('satellite_tiles')
+            .update({
+              status: 'error',
+              error_message: processError.message,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', tileDbId);
+
+          results.errors.push({ tile: mgrsTile.tile_id, error: processError.message });
+        }
+      } catch (tileError) {
+        console.error(`[fetch-copernicus-ndvi] Tile error:`, tileError);
+        results.errors.push({ tile: mgrsTile.tile_id, error: tileError.message });
       }
     }
 
@@ -427,9 +490,10 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Copernicus NDVI sync completed`,
+        message: `Processed ${mgrsTiles.length} MGRS tiles from database`,
         results,
-        dataSource: 'copernicus'
+        dataSource: 'copernicus',
+        mgrsTilesProcessed: mgrsTiles.length
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
