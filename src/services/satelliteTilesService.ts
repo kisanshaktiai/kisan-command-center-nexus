@@ -24,6 +24,55 @@ export interface SatelliteTile {
   storage_verified?: boolean;
   storage_verification_date?: string;
   storage_paths_verified?: any;
+  // New Copernicus fields
+  copernicus_red_band_url?: string;
+  copernicus_nir_band_url?: string;
+  copernicus_download_attempted_at?: string;
+  processing_stage?: string;
+  red_band_verified?: boolean;
+  red_band_size_bytes?: number;
+  red_band_checksum?: string;
+  nir_band_verified?: boolean;
+  nir_band_size_bytes?: number;
+  nir_band_checksum?: string;
+  ndvi_verified?: boolean;
+  ndvi_size_bytes?: number;
+  ndvi_checksum?: string;
+  last_verification_at?: string;
+  resolution_level?: string;
+  overview_ndvi_path?: string;
+  medium_ndvi_path?: string;
+  full_resolution_requested?: boolean;
+  full_resolution_processed_at?: string;
+  data_quality_score?: number;
+  validation_metadata?: any;
+  band_statistics?: any;
+  validation_status?: string;
+  validation_errors?: string[];
+  resolution?: string;
+  thumbnail_url?: string;
+  data_source?: string;
+  retry_count?: number;
+  last_error?: string;
+  bandwidth_usage_mb?: number;
+  ndvi_statistics?: {
+    min?: number;
+    max?: number;
+    mean?: number;
+    std_dev?: number;
+  };
+  vegetation_health_score?: number;
+  vegetation_coverage_percent?: number;
+  ndvi_min?: number;
+  ndvi_max?: number;
+  ndvi_mean?: number;
+  ndvi_std_dev?: number;
+  processing_method?: string;
+  band_data_verified?: boolean;
+  ndvi_calculation_timestamp?: string;
+  pixel_count?: number;
+  valid_pixel_count?: number;
+  data_completeness_percent?: number;
 }
 
 export interface SatelliteTilesFilters {

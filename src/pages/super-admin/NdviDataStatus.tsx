@@ -482,11 +482,11 @@ export default function NdviDataStatus() {
                   <TableHead>Tile ID</TableHead>
                   <TableHead>Acquisition Date</TableHead>
                   <TableHead>Cloud Cover</TableHead>
+                  <TableHead>Processing Stage</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>NDVI Path</TableHead>
-                  <TableHead>File Size (MB)</TableHead>
-                  <TableHead>Error</TableHead>
-                  <TableHead>Created At</TableHead>
+                  <TableHead>NDVI Stats</TableHead>
+                  <TableHead>Health Score</TableHead>
+                  <TableHead>Validation</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -502,14 +502,14 @@ export default function NdviDataStatus() {
                   </TableRow>
                 ) : error ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-destructive">
+                    <TableCell colSpan={9} className="text-center py-8 text-destructive">
                       Error loading data: {error.message}
                     </TableCell>
                   </TableRow>
                 ) : !data?.tiles || data.tiles.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No NDVI data available. Click "Manual Sync" to fetch data.
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      No NDVI data available. Click "Configure Sync" to fetch data.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -524,18 +524,15 @@ export default function NdviDataStatus() {
                     >
                       <TableCell className="font-medium">{tile.tile_id}</TableCell>
                       <TableCell>{format(new Date(tile.acquisition_date), 'dd/MM/yyyy')}</TableCell>
-                      <TableCell>{tile.cloud_cover?.toFixed(1) || 'N/A'}%</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          {tile.storage_verified ? (
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <AlertCircle className="h-4 w-4 text-yellow-600" />
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {tile.storage_verified ? 'Verified' : 'Pending'}
-                          </span>
-                        </div>
+                        <span className={tile.cloud_cover && tile.cloud_cover < 10 ? 'text-green-600 font-medium' : ''}>
+                          {tile.cloud_cover?.toFixed(1) || 'N/A'}%
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {tile.processing_stage || 'N/A'}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -543,6 +540,55 @@ export default function NdviDataStatus() {
                           <Badge variant={getStatusVariant(tile.status)}>
                             {tile.status}
                           </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {tile.ndvi_statistics ? (
+                          <div className="text-xs space-y-0.5">
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">Mean:</span>
+                              <span className="font-medium">{tile.ndvi_statistics.mean?.toFixed(2) || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">Range:</span>
+                              <span>{tile.ndvi_statistics.min?.toFixed(2) || 'N/A'} - {tile.ndvi_statistics.max?.toFixed(2) || 'N/A'}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No data</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {tile.vegetation_health_score ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-medium ${
+                                tile.vegetation_health_score >= 0.7 ? 'text-green-600' :
+                                tile.vegetation_health_score >= 0.4 ? 'text-yellow-600' : 'text-red-600'
+                              }`}>
+                                {(tile.vegetation_health_score * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            {tile.vegetation_coverage_percent && (
+                              <div className="text-xs text-muted-foreground">
+                                {tile.vegetation_coverage_percent.toFixed(0)}% coverage
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">N/A</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {tile.validation_status === 'validated' ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          ) : tile.validation_status === 'failed' ? (
+                            <XCircle className="h-4 w-4 text-red-600" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-yellow-600" />
+                          )}
+                          <span className="text-xs">{tile.validation_status || 'pending'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -614,7 +660,7 @@ export default function NdviDataStatus() {
           </SheetHeader>
           
           {selectedTile && (
-            <div className="mt-6 space-y-6">
+            <div className="mt-6 space-y-6 max-h-[80vh] overflow-y-auto">
               {/* Basic Information */}
               <div className="grid gap-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -628,8 +674,10 @@ export default function NdviDataStatus() {
                     </div>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Cloud Cover</Label>
-                    <p className="text-sm mt-1">{selectedTile.cloud_cover?.toFixed(1) || 'N/A'}%</p>
+                    <Label className="text-sm font-medium">Processing Stage</Label>
+                    <Badge variant="outline" className="mt-1">
+                      {selectedTile.processing_stage || 'N/A'}
+                    </Badge>
                   </div>
                 </div>
                 
@@ -639,9 +687,161 @@ export default function NdviDataStatus() {
                     <p className="text-sm mt-1">{format(new Date(selectedTile.acquisition_date), 'PPP')}</p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Country</Label>
-                    <p className="text-sm mt-1">{selectedTile.country_id}</p>
+                    <Label className="text-sm font-medium">Cloud Cover</Label>
+                    <p className="text-sm mt-1">{selectedTile.cloud_cover?.toFixed(1) || 'N/A'}%</p>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Resolution</Label>
+                    <p className="text-sm mt-1">{selectedTile.resolution || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Processing Method</Label>
+                    <p className="text-sm mt-1">{selectedTile.processing_method || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* NDVI Statistics */}
+              {selectedTile.ndvi_statistics && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">NDVI Statistics</Label>
+                  <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Mean:</span>
+                        <span className="text-sm font-medium">{selectedTile.ndvi_statistics.mean?.toFixed(3) || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Std Dev:</span>
+                        <span className="text-sm font-medium">{selectedTile.ndvi_statistics.std_dev?.toFixed(3) || 'N/A'}</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Min:</span>
+                        <span className="text-sm">{selectedTile.ndvi_statistics.min?.toFixed(3) || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Max:</span>
+                        <span className="text-sm">{selectedTile.ndvi_statistics.max?.toFixed(3) || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Vegetation Health */}
+              {(selectedTile.vegetation_health_score || selectedTile.vegetation_coverage_percent) && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Vegetation Health</Label>
+                  <div className="bg-muted/50 p-3 rounded-lg space-y-3">
+                    {selectedTile.vegetation_health_score && (
+                      <div>
+                        <div className="flex justify-between mb-2">
+                          <span className="text-sm text-muted-foreground">Health Score:</span>
+                          <span className={`text-sm font-medium ${
+                            selectedTile.vegetation_health_score >= 0.7 ? 'text-green-600' :
+                            selectedTile.vegetation_health_score >= 0.4 ? 'text-yellow-600' : 'text-red-600'
+                          }`}>
+                            {(selectedTile.vegetation_health_score * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        <Progress value={selectedTile.vegetation_health_score * 100} className="h-2" />
+                      </div>
+                    )}
+                    {selectedTile.vegetation_coverage_percent && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Coverage:</span>
+                        <span className="text-sm font-medium">{selectedTile.vegetation_coverage_percent.toFixed(1)}%</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Band Verification */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Band Verification Status</Label>
+                <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Red Band:</span>
+                    <div className="flex items-center gap-2">
+                      {selectedTile.red_band_verified ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      )}
+                      <span className="text-xs">{selectedTile.red_band_size_bytes ? `${(selectedTile.red_band_size_bytes / 1024 / 1024).toFixed(2)} MB` : 'N/A'}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">NIR Band:</span>
+                    <div className="flex items-center gap-2">
+                      {selectedTile.nir_band_verified ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      )}
+                      <span className="text-xs">{selectedTile.nir_band_size_bytes ? `${(selectedTile.nir_band_size_bytes / 1024 / 1024).toFixed(2)} MB` : 'N/A'}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">NDVI Data:</span>
+                    <div className="flex items-center gap-2">
+                      {selectedTile.ndvi_verified ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      )}
+                      <span className="text-xs">{selectedTile.ndvi_size_bytes ? `${(selectedTile.ndvi_size_bytes / 1024 / 1024).toFixed(2)} MB` : 'N/A'}</span>
+                    </div>
+                  </div>
+                  {selectedTile.band_data_verified && (
+                    <div className="pt-2 border-t">
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="text-sm font-medium">All band data verified</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Validation Status */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Validation Status</Label>
+                <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Status:</span>
+                    <Badge variant={selectedTile.validation_status === 'validated' ? 'default' : 'destructive'}>
+                      {selectedTile.validation_status || 'pending'}
+                    </Badge>
+                  </div>
+                  {selectedTile.data_quality_score && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Quality Score:</span>
+                      <span className="text-sm font-medium">{selectedTile.data_quality_score.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {selectedTile.data_completeness_percent && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Completeness:</span>
+                      <span className="text-sm">{selectedTile.data_completeness_percent.toFixed(1)}%</span>
+                    </div>
+                  )}
+                  {selectedTile.validation_errors && selectedTile.validation_errors.length > 0 && (
+                    <div className="pt-2 border-t">
+                      <span className="text-xs text-destructive font-medium">Errors:</span>
+                      <ul className="mt-1 space-y-1">
+                        {selectedTile.validation_errors.map((error: string, idx: number) => (
+                          <li key={idx} className="text-xs text-destructive">&bull; {error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -657,27 +857,81 @@ export default function NdviDataStatus() {
                     <span className="text-sm text-muted-foreground">Processing Level:</span>
                     <span className="text-sm">{selectedTile.processing_level}</span>
                   </div>
-                  {selectedTile.file_size_mb && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Data Source:</span>
+                    <span className="text-sm">{selectedTile.data_source || 'N/A'}</span>
+                  </div>
+                  {selectedTile.bandwidth_usage_mb && (
                     <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">File Size:</span>
-                      <span className="text-sm">{selectedTile.file_size_mb} MB</span>
+                      <span className="text-sm text-muted-foreground">Bandwidth Used:</span>
+                      <span className="text-sm">{selectedTile.bandwidth_usage_mb.toFixed(2)} MB</span>
                     </div>
                   )}
-                  {selectedTile.checksum && (
+                  {selectedTile.pixel_count && (
                     <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Checksum:</span>
-                      <span className="text-sm font-mono text-xs">{selectedTile.checksum}</span>
+                      <span className="text-sm text-muted-foreground">Total Pixels:</span>
+                      <span className="text-sm">{selectedTile.pixel_count.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {selectedTile.valid_pixel_count && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Valid Pixels:</span>
+                      <span className="text-sm">{selectedTile.valid_pixel_count.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {selectedTile.retry_count > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Retry Count:</span>
+                      <span className="text-sm text-yellow-600">{selectedTile.retry_count}</span>
                     </div>
                   )}
                 </div>
               </div>
 
+              {/* Copernicus URLs */}
+              {(selectedTile.copernicus_red_band_url || selectedTile.copernicus_nir_band_url) && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Copernicus Data URLs</Label>
+                  <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                    {selectedTile.copernicus_red_band_url && (
+                      <div>
+                        <span className="text-xs text-muted-foreground">Red Band:</span>
+                        <p className="text-xs font-mono break-all mt-1 text-blue-600">{selectedTile.copernicus_red_band_url}</p>
+                      </div>
+                    )}
+                    {selectedTile.copernicus_nir_band_url && (
+                      <div className="mt-2">
+                        <span className="text-xs text-muted-foreground">NIR Band:</span>
+                        <p className="text-xs font-mono break-all mt-1 text-blue-600">{selectedTile.copernicus_nir_band_url}</p>
+                      </div>
+                    )}
+                    {selectedTile.copernicus_download_attempted_at && (
+                      <div className="pt-2 border-t">
+                        <span className="text-xs text-muted-foreground">Download Attempted:</span>
+                        <p className="text-xs mt-1">{format(new Date(selectedTile.copernicus_download_attempted_at), 'PPpp')}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Error Information */}
-              {selectedTile.error_message && (
+              {(selectedTile.error_message || selectedTile.last_error) && (
                 <div className="space-y-3">
                   <Label className="text-sm font-medium text-destructive">Error Details</Label>
-                  <div className="bg-destructive/10 border border-destructive/20 p-3 rounded-lg">
-                    <p className="text-sm text-destructive">{selectedTile.error_message}</p>
+                  <div className="bg-destructive/10 border border-destructive/20 p-3 rounded-lg space-y-2">
+                    {selectedTile.error_message && (
+                      <div>
+                        <span className="text-xs font-medium text-destructive">Error Message:</span>
+                        <p className="text-sm text-destructive mt-1">{selectedTile.error_message}</p>
+                      </div>
+                    )}
+                    {selectedTile.last_error && (
+                      <div className="mt-2">
+                        <span className="text-xs font-medium text-destructive">Last Error:</span>
+                        <p className="text-sm text-destructive mt-1">{selectedTile.last_error}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
