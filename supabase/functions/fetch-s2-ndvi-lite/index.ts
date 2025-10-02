@@ -178,19 +178,21 @@ serve(async (req) => {
             cloud_cover: properties['eo:cloud_cover'] || 0,
             collection: "sentinel-2-l2a",
             // Store R60m URLs as the primary bands for lightweight processing
-            copernicus_red_band_url: redBand60mUrl,
-            copernicus_nir_band_url: nirBand60mUrl,
+            copernicus_red_band_url: redBand60mUrl ? redBand60mUrl + (sasToken ? '?' + sasToken : '') : null,
+            copernicus_nir_band_url: nirBand60mUrl ? nirBand60mUrl + (sasToken ? '?' + sasToken : '') : null,
             metadata: metadata,
             raw_paths: {
               region: regionName,
               thumbnail: thumbnailUrl,
               resolution: 'R60m'
             },
-            file_size_mb: 4, // Estimated for R60m (2MB per band)
-            status: 'metadata_ready',
+            file_size_mb: 4,
+            status: 'metadata_only',
             processing_stage: 'metadata_stored',
-            actual_download_status: 'not_required', // We're not downloading files
+            processing_method: 'metadata_fetch',
+            actual_download_status: 'not_required',
             storage_verified: false,
+            data_source: 'planetary_computer',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };

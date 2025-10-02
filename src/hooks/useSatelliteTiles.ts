@@ -59,25 +59,21 @@ export const useSatelliteTiles = (
       regions?: string[];
     }) => {
       // Determine which edge function to use based on data source
-      const dataSource = params?.dataSource || 'planetary';
-      const functionName = dataSource === 'copernicus' 
-        ? 'fetch-copernicus-ndvi' 
-        : 'fetch-s2-ndvi-lite';
-      
-      const { data, error } = await supabase.functions.invoke(functionName, {
+      const { data, error } = await supabase.functions.invoke('sync-ndvi-complete', {
         body: {
           startDate: params?.startDate,
           endDate: params?.endDate,
           cloudCoverage: params?.cloudCoverage || 20,
           regions: params?.regions || ['Punjab', 'Haryana'],
-          lightweight: true, // Always use lightweight mode for now
+          processExisting: true,
+          forceRecalculate: params?.forceRefresh || false
         },
       });
 
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Sync failed');
       
-      return { ...data, dataSource };
+      return data;
     },
     onSuccess: (data) => {
       const message = data?.message || 'NDVI metadata sync completed';

@@ -166,16 +166,12 @@ class SatelliteTilesService {
         startDate: params?.startDate,
         endDate: params?.endDate,
         cloudCoverage: params?.cloudCoverage || 20,
-        forceRefresh: params?.forceRefresh || false,
-        maxTilesPerRun: params?.maxTilesPerRun || 50,
-        filterType: params?.filterType || 'all',
-        priorityMode: params?.priorityMode || 'baseline',
-        countryFilter: params?.countryFilter,
-        stateFilter: params?.stateFilter,
-        includeProcessed: params?.includeProcessed || false
+        regions: ['Punjab', 'Haryana'],
+        processExisting: true,
+        forceRecalculate: params?.forceRefresh || false
       };
       
-      const { data, error } = await supabase.functions.invoke('fetch-s2-ndvi', {
+      const { data, error } = await supabase.functions.invoke('sync-ndvi-complete', {
         body: requestBody
       });
 
@@ -189,18 +185,13 @@ class SatelliteTilesService {
       
       return ResultHelpers.success({
         message: data.message || 'Sync completed',
-        results: data.results || { 
+        results: data.summary || data.results || { 
           processed: 0, 
           inserted: 0, 
           updated: 0, 
-          errors: [],
-          storageAudit: {
-            verified: 0,
-            missing: 0,
-            details: []
-          }
+          errors: []
         },
-        metadata: data.metadata
+        metadata: data.pipeline || data.metadata
       });
     } catch (error) {
       console.error('Error syncing NDVI data:', error);

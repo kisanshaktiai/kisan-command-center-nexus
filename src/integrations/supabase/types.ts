@@ -7949,6 +7949,123 @@ export type Database = {
           },
         ]
       }
+      ndvi_processing_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          duration_ms: number | null
+          error_details: Json | null
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          processing_step: string
+          satellite_tile_id: string
+          started_at: string | null
+          step_status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          processing_step: string
+          satellite_tile_id: string
+          started_at?: string | null
+          step_status: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          processing_step?: string
+          satellite_tile_id?: string
+          started_at?: string | null
+          step_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ndvi_processing_logs_satellite_tile_id_fkey"
+            columns: ["satellite_tile_id"]
+            isOneToOne: false
+            referencedRelation: "latest_satellite_tiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndvi_processing_logs_satellite_tile_id_fkey"
+            columns: ["satellite_tile_id"]
+            isOneToOne: false
+            referencedRelation: "satellite_tiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ndvi_spatial_analytics: {
+        Row: {
+          anomaly_detection: Json | null
+          bbox: Json
+          created_at: string | null
+          id: string
+          ndvi_histogram: Json | null
+          processed_at: string | null
+          quality_flags: Json | null
+          region_name: string
+          satellite_tile_id: string
+          temporal_comparison: Json | null
+          updated_at: string | null
+          vegetation_zones: Json | null
+        }
+        Insert: {
+          anomaly_detection?: Json | null
+          bbox: Json
+          created_at?: string | null
+          id?: string
+          ndvi_histogram?: Json | null
+          processed_at?: string | null
+          quality_flags?: Json | null
+          region_name: string
+          satellite_tile_id: string
+          temporal_comparison?: Json | null
+          updated_at?: string | null
+          vegetation_zones?: Json | null
+        }
+        Update: {
+          anomaly_detection?: Json | null
+          bbox?: Json
+          created_at?: string | null
+          id?: string
+          ndvi_histogram?: Json | null
+          processed_at?: string | null
+          quality_flags?: Json | null
+          region_name?: string
+          satellite_tile_id?: string
+          temporal_comparison?: Json | null
+          updated_at?: string | null
+          vegetation_zones?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ndvi_spatial_analytics_satellite_tile_id_fkey"
+            columns: ["satellite_tile_id"]
+            isOneToOne: false
+            referencedRelation: "latest_satellite_tiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndvi_spatial_analytics_satellite_tile_id_fkey"
+            columns: ["satellite_tile_id"]
+            isOneToOne: false
+            referencedRelation: "satellite_tiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_preferences: {
         Row: {
           created_at: string | null
@@ -9947,6 +10064,33 @@ export type Database = {
           },
         ]
       }
+      sas_token_cache: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          provider: string | null
+          token: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id: string
+          provider?: string | null
+          token: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          provider?: string | null
+          token?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       satellite_alerts: {
         Row: {
           affected_area_percentage: number | null
@@ -10150,6 +10294,13 @@ export type Database = {
             foreignKeyName: "satellite_storage_audit_satellite_tile_id_fkey"
             columns: ["satellite_tile_id"]
             isOneToOne: false
+            referencedRelation: "latest_satellite_tiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "satellite_storage_audit_satellite_tile_id_fkey"
+            columns: ["satellite_tile_id"]
+            isOneToOne: false
             referencedRelation: "satellite_tiles"
             referencedColumns: ["id"]
           },
@@ -10159,6 +10310,7 @@ export type Database = {
         Row: {
           acquisition_date: string
           actual_download_status: string | null
+          band_data_verified: boolean | null
           band_statistics: Json | null
           bandwidth_usage_mb: number | null
           checksum: string | null
@@ -10169,6 +10321,7 @@ export type Database = {
           copernicus_red_band_url: string | null
           country_id: string | null
           created_at: string | null
+          data_completeness_percent: number | null
           data_quality_score: number | null
           data_source: string | null
           error_message: string | null
@@ -10180,17 +10333,25 @@ export type Database = {
           last_verification_at: string | null
           medium_ndvi_path: string | null
           metadata: Json | null
+          ndvi_calculation_timestamp: string | null
           ndvi_checksum: string | null
+          ndvi_max: number | null
+          ndvi_mean: number | null
+          ndvi_min: number | null
           ndvi_path: string | null
           ndvi_size_bytes: number | null
+          ndvi_statistics: Json | null
+          ndvi_std_dev: number | null
           ndvi_verified: boolean | null
           nir_band_checksum: string | null
           nir_band_path: string | null
           nir_band_size_bytes: number | null
           nir_band_verified: boolean | null
           overview_ndvi_path: string | null
+          pixel_count: number | null
           processing_completed_at: string | null
           processing_level: string | null
+          processing_method: string | null
           processing_stage: string | null
           raw_paths: Json | null
           red_band_checksum: string | null
@@ -10207,13 +10368,17 @@ export type Database = {
           thumbnail_url: string | null
           tile_id: string
           updated_at: string | null
+          valid_pixel_count: number | null
           validation_errors: Json | null
           validation_metadata: Json | null
           validation_status: string | null
+          vegetation_coverage_percent: number | null
+          vegetation_health_score: number | null
         }
         Insert: {
           acquisition_date: string
           actual_download_status?: string | null
+          band_data_verified?: boolean | null
           band_statistics?: Json | null
           bandwidth_usage_mb?: number | null
           checksum?: string | null
@@ -10224,6 +10389,7 @@ export type Database = {
           copernicus_red_band_url?: string | null
           country_id?: string | null
           created_at?: string | null
+          data_completeness_percent?: number | null
           data_quality_score?: number | null
           data_source?: string | null
           error_message?: string | null
@@ -10235,17 +10401,25 @@ export type Database = {
           last_verification_at?: string | null
           medium_ndvi_path?: string | null
           metadata?: Json | null
+          ndvi_calculation_timestamp?: string | null
           ndvi_checksum?: string | null
+          ndvi_max?: number | null
+          ndvi_mean?: number | null
+          ndvi_min?: number | null
           ndvi_path?: string | null
           ndvi_size_bytes?: number | null
+          ndvi_statistics?: Json | null
+          ndvi_std_dev?: number | null
           ndvi_verified?: boolean | null
           nir_band_checksum?: string | null
           nir_band_path?: string | null
           nir_band_size_bytes?: number | null
           nir_band_verified?: boolean | null
           overview_ndvi_path?: string | null
+          pixel_count?: number | null
           processing_completed_at?: string | null
           processing_level?: string | null
+          processing_method?: string | null
           processing_stage?: string | null
           raw_paths?: Json | null
           red_band_checksum?: string | null
@@ -10262,13 +10436,17 @@ export type Database = {
           thumbnail_url?: string | null
           tile_id: string
           updated_at?: string | null
+          valid_pixel_count?: number | null
           validation_errors?: Json | null
           validation_metadata?: Json | null
           validation_status?: string | null
+          vegetation_coverage_percent?: number | null
+          vegetation_health_score?: number | null
         }
         Update: {
           acquisition_date?: string
           actual_download_status?: string | null
+          band_data_verified?: boolean | null
           band_statistics?: Json | null
           bandwidth_usage_mb?: number | null
           checksum?: string | null
@@ -10279,6 +10457,7 @@ export type Database = {
           copernicus_red_band_url?: string | null
           country_id?: string | null
           created_at?: string | null
+          data_completeness_percent?: number | null
           data_quality_score?: number | null
           data_source?: string | null
           error_message?: string | null
@@ -10290,17 +10469,25 @@ export type Database = {
           last_verification_at?: string | null
           medium_ndvi_path?: string | null
           metadata?: Json | null
+          ndvi_calculation_timestamp?: string | null
           ndvi_checksum?: string | null
+          ndvi_max?: number | null
+          ndvi_mean?: number | null
+          ndvi_min?: number | null
           ndvi_path?: string | null
           ndvi_size_bytes?: number | null
+          ndvi_statistics?: Json | null
+          ndvi_std_dev?: number | null
           ndvi_verified?: boolean | null
           nir_band_checksum?: string | null
           nir_band_path?: string | null
           nir_band_size_bytes?: number | null
           nir_band_verified?: boolean | null
           overview_ndvi_path?: string | null
+          pixel_count?: number | null
           processing_completed_at?: string | null
           processing_level?: string | null
+          processing_method?: string | null
           processing_stage?: string | null
           raw_paths?: Json | null
           red_band_checksum?: string | null
@@ -10317,9 +10504,12 @@ export type Database = {
           thumbnail_url?: string | null
           tile_id?: string
           updated_at?: string | null
+          valid_pixel_count?: number | null
           validation_errors?: Json | null
           validation_metadata?: Json | null
           validation_status?: string | null
+          vegetation_coverage_percent?: number | null
+          vegetation_health_score?: number | null
         }
         Relationships: [
           {
@@ -14261,38 +14451,68 @@ export type Database = {
       latest_satellite_tiles: {
         Row: {
           acquisition_date: string | null
+          actual_download_status: string | null
+          band_statistics: Json | null
+          bandwidth_usage_mb: number | null
+          checksum: string | null
           cloud_cover: number | null
+          collection: string | null
+          copernicus_download_attempted_at: string | null
+          copernicus_nir_band_url: string | null
+          copernicus_red_band_url: string | null
+          country_id: string | null
           created_at: string | null
+          data_quality_score: number | null
           data_source: string | null
-          region: string | null
+          error_message: string | null
+          file_size_mb: number | null
+          full_resolution_processed_at: string | null
+          full_resolution_requested: boolean | null
+          id: string | null
+          last_error: string | null
+          last_verification_at: string | null
+          medium_ndvi_path: string | null
+          metadata: Json | null
+          ndvi_checksum: string | null
+          ndvi_path: string | null
+          ndvi_size_bytes: number | null
+          ndvi_verified: boolean | null
+          nir_band_checksum: string | null
+          nir_band_path: string | null
+          nir_band_size_bytes: number | null
+          nir_band_verified: boolean | null
+          overview_ndvi_path: string | null
+          processing_completed_at: string | null
+          processing_level: string | null
+          processing_stage: string | null
+          raw_paths: Json | null
+          red_band_checksum: string | null
+          red_band_path: string | null
+          red_band_size_bytes: number | null
+          red_band_verified: boolean | null
           resolution: string | null
+          resolution_level: string | null
+          retry_count: number | null
           status: string | null
-          thumbnail: string | null
+          storage_paths_verified: Json | null
+          storage_verification_date: string | null
+          storage_verified: boolean | null
+          thumbnail_url: string | null
           tile_id: string | null
+          updated_at: string | null
+          validation_errors: Json | null
+          validation_metadata: Json | null
+          validation_status: string | null
         }
-        Insert: {
-          acquisition_date?: string | null
-          cloud_cover?: number | null
-          created_at?: string | null
-          data_source?: string | null
-          region?: never
-          resolution?: string | null
-          status?: string | null
-          thumbnail?: never
-          tile_id?: string | null
-        }
-        Update: {
-          acquisition_date?: string | null
-          cloud_cover?: number | null
-          created_at?: string | null
-          data_source?: string | null
-          region?: never
-          resolution?: string | null
-          status?: string | null
-          thumbnail?: never
-          tile_id?: string | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "satellite_tiles_tile_id_country_id_fkey"
+            columns: ["tile_id", "country_id"]
+            isOneToOne: false
+            referencedRelation: "mgrs_tiles"
+            referencedColumns: ["tile_id", "country_id"]
+          },
+        ]
       }
       weather_with_location: {
         Row: {
@@ -14626,6 +14846,15 @@ export type Database = {
         Args: { workflow_id: string }
         Returns: number
       }
+      calculate_vegetation_health_score: {
+        Args: {
+          p_data_completeness: number
+          p_ndvi_mean: number
+          p_ndvi_std_dev: number
+          p_vegetation_coverage: number
+        }
+        Returns: number
+      }
       can_create_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -14668,6 +14897,10 @@ export type Database = {
       check_slug_availability: {
         Args: { p_slug: string } | { p_slug: string; p_tenant_id?: string }
         Returns: Json
+      }
+      classify_ndvi_value: {
+        Args: { ndvi_value: number }
+        Returns: string
       }
       cleanup_bootstrap_state: {
         Args: Record<PropertyKey, never>
