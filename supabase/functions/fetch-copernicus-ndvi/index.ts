@@ -374,11 +374,20 @@ serve(async (req) => {
           collections: ["sentinel-2-l2a"],
           bbox: bbox,
           datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
-          query: {
-            "s2:mgrs_tile": { "eq": mgrsTile.tile_id },
-            "eo:cloud_cover": { "lt": cloudCoverage }
+          filter: {
+            op: "and",
+            args: [
+              {
+                op: "=",
+                args: [{ property: "s2:mgrs_tile" }, mgrsTile.tile_id]
+              },
+              {
+                op: "<",
+                args: [{ property: "eo:cloud_cover" }, cloudCoverage]
+              }
+            ]
           },
-          limit: 1, // Get most recent
+          limit: 1,
           sortby: [{ field: "datetime", direction: "desc" }]
         };
 
