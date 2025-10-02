@@ -69,6 +69,35 @@ export function SyncNdviDialog({
   const fetchAvailableRegions = async () => {
     setIsLoadingRegions(true);
     try {
+      // First check if we have state data
+      const { data: stateCheck, error: stateError } = await supabase
+        .from('mgrs_tiles')
+        .select('state, is_agri')
+        .not('state', 'is', null)
+        .limit(1);
+
+      if (stateError) throw stateError;
+
+      // If no states found, get all tiles and show warning
+      if (!stateCheck || stateCheck.length === 0) {
+        const { data: totalTiles, error: totalError } = await supabase
+          .from('mgrs_tiles')
+          .select('id, is_agri')
+          .eq('is_agri', true);
+
+        if (totalError) throw totalError;
+
+        setAvailableRegions([{
+          state: 'All Regions (state data not populated)',
+          tileCount: totalTiles?.length || 0,
+          agriTileCount: totalTiles?.length || 0
+        }]);
+        
+        setSelectedRegions(['All Regions (state data not populated)']);
+        return;
+      }
+
+      // Get state-wise breakdown
       const { data, error } = await supabase
         .from('mgrs_tiles')
         .select('state, is_agri')
@@ -100,6 +129,11 @@ export function SyncNdviDialog({
       setAvailableRegions(regions);
     } catch (error) {
       console.error('Failed to fetch regions:', error);
+      setAvailableRegions([{
+        state: 'Error loading regions',
+        tileCount: 0,
+        agriTileCount: 0
+      }]);
     } finally {
       setIsLoadingRegions(false);
     }
@@ -145,9 +179,22 @@ export function SyncNdviDialog({
                 <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                   Uses existing MGRS tiles from database. Fetches data from Copernicus DataSpace with OAuth2 authentication.
                 </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
+                  <strong>Required:</strong> COPERNICUS_CLIENT_ID and COPERNICUS_CLIENT_SECRET must be configured in edge function secrets.
+                </p>
               </div>
             </div>
           </div>
+
+          {/* MGRS Tiles Status */}
+          {!isLoadingRegions && (
+            <div className="bg-muted/50 p-3 rounded-lg">
+              <p className="text-xs text-muted-foreground">
+                <strong>MGRS Tiles in Database:</strong> {availableRegions.reduce((sum, r) => sum + r.tileCount, 0)} total 
+                ({availableRegions.reduce((sum, r) => sum + r.agriTileCount, 0)} agricultural)
+              </p>
+            </div>
+          )}
 
           {/* Max Tiles Per Run */}
           <div className="space-y-2">
@@ -217,37 +264,50 @@ export function SyncNdviDialog({
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />
-              States/Regions ({availableRegions.length} available)
+              Agricultural MGRS Tiles ({availableRegions.reduce((sum, r) => sum + r.agriTileCount, 0)} available)
             </Label>
             {isLoadingRegions ? (
               <div className="text-sm text-muted-foreground py-4 text-center">
-                Loading available regions from MGRS tiles...
+                Loading MGRS tile information...
+              </div>
+            ) : availableRegions.length === 0 ? (
+              <div className="text-sm text-destructive py-4 text-center border rounded-lg p-4">
+                No MGRS tiles found in database. Please ensure the mgrs_tiles table is populated.
               </div>
             ) : (
               <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-1">
-                {availableRegions.map((region) => (
-                  <div
-                    key={region.state}
-                    className="flex items-center justify-between space-x-2 p-2 hover:bg-muted/50 rounded transition-colors"
-                  >
-                    <div className="flex items-center space-x-2 flex-1">
-                      <Checkbox
-                        id={region.state}
-                        checked={selectedRegions.includes(region.state)}
-                        onCheckedChange={() => toggleRegion(region.state)}
-                      />
-                      <Label
-                        htmlFor={region.state}
-                        className="text-sm font-medium leading-none cursor-pointer flex-1"
-                      >
-                        {region.state}
-                      </Label>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {region.agriTileCount} agri tiles
-                    </div>
+                {availableRegions[0]?.state.includes('state data not populated') ? (
+                  <div className="p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <p className="text-sm text-yellow-900 dark:text-yellow-100">
+                      <strong>Note:</strong> State/region data not populated in MGRS tiles. 
+                      Will process all {availableRegions[0].agriTileCount} agricultural tiles.
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  availableRegions.map((region) => (
+                    <div
+                      key={region.state}
+                      className="flex items-center justify-between space-x-2 p-2 hover:bg-muted/50 rounded transition-colors"
+                    >
+                      <div className="flex items-center space-x-2 flex-1">
+                        <Checkbox
+                          id={region.state}
+                          checked={selectedRegions.includes(region.state)}
+                          onCheckedChange={() => toggleRegion(region.state)}
+                        />
+                        <Label
+                          htmlFor={region.state}
+                          className="text-sm font-medium leading-none cursor-pointer flex-1"
+                        >
+                          {region.state}
+                        </Label>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {region.agriTileCount} agri tiles
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>

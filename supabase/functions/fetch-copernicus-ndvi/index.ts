@@ -262,18 +262,22 @@ serve(async (req) => {
     
     let mgrsTilesQuery = supabase
       .from('mgrs_tiles')
-      .select('id, tile_id, country_id, state, geometry, is_agri, agri_area_km2');
+      .select('id, tile_id, country_id, state, geometry, is_agri, agri_area_km2')
+      .eq('is_agri', true); // Only agricultural tiles
 
     // Filter by specific tile IDs if provided
     if (tileIds && tileIds.length > 0) {
       mgrsTilesQuery = mgrsTilesQuery.in('tile_id', tileIds);
-    } else {
-      // Otherwise filter by regions and agricultural tiles
-      mgrsTilesQuery = mgrsTilesQuery
-        .eq('is_agri', true)
-        .in('state', regions)
-        .limit(50); // Process max 50 tiles per run
     }
+    
+    // Filter by regions/states if state data is available and regions specified
+    if (regions && regions.length > 0 && !regions.includes('All Regions (state data not populated)')) {
+      // Only filter if states are populated in the database
+      mgrsTilesQuery = mgrsTilesQuery.in('state', regions);
+    }
+    
+    // Limit processing to avoid timeouts
+    mgrsTilesQuery = mgrsTilesQuery.limit(50);
 
     const { data: mgrsTiles, error: mgrsTilesError } = await mgrsTilesQuery;
 

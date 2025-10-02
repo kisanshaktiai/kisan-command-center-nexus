@@ -55,18 +55,17 @@ export const useSatelliteTiles = (
       endDate?: string;
       cloudCoverage?: number;
       forceRefresh?: boolean;
-      dataSource?: 'planetary' | 'copernicus';
       regions?: string[];
+      tileIds?: string[];
     }) => {
-      // Determine which edge function to use based on data source
-      const { data, error } = await supabase.functions.invoke('sync-ndvi-complete', {
+      // Call the new MGRS-based Copernicus NDVI function
+      const { data, error } = await supabase.functions.invoke('fetch-copernicus-ndvi', {
         body: {
           startDate: params?.startDate,
           endDate: params?.endDate,
           cloudCoverage: params?.cloudCoverage || 20,
           regions: params?.regions || ['Punjab', 'Haryana'],
-          processExisting: true,
-          forceRecalculate: params?.forceRefresh || false
+          tileIds: params?.tileIds || []
         },
       });
 
@@ -76,12 +75,17 @@ export const useSatelliteTiles = (
       return data;
     },
     onSuccess: (data) => {
-      const message = data?.message || 'NDVI metadata sync completed';
+      const tilesProcessed = data?.mgrsTilesProcessed || 0;
+      const message = data?.message || `Processed ${tilesProcessed} MGRS tiles from database`;
       toast.success(message);
       
       if (data?.results) {
         const details = `Processed: ${data.results.processed || 0} tiles (${data.results.inserted || 0} new, ${data.results.updated || 0} updated)`;
         toast.info(details);
+        
+        if (data.results.errors && data.results.errors.length > 0) {
+          toast.warning(`${data.results.errors.length} tiles had errors`);
+        }
       }
       
       // Invalidate queries to refresh data
