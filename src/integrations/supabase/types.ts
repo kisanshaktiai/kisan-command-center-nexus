@@ -10333,6 +10333,7 @@ export type Database = {
           last_verification_at: string | null
           medium_ndvi_path: string | null
           metadata: Json | null
+          mgrs_tile_id: string | null
           ndvi_calculation_timestamp: string | null
           ndvi_checksum: string | null
           ndvi_max: number | null
@@ -10401,6 +10402,7 @@ export type Database = {
           last_verification_at?: string | null
           medium_ndvi_path?: string | null
           metadata?: Json | null
+          mgrs_tile_id?: string | null
           ndvi_calculation_timestamp?: string | null
           ndvi_checksum?: string | null
           ndvi_max?: number | null
@@ -10469,6 +10471,7 @@ export type Database = {
           last_verification_at?: string | null
           medium_ndvi_path?: string | null
           metadata?: Json | null
+          mgrs_tile_id?: string | null
           ndvi_calculation_timestamp?: string | null
           ndvi_checksum?: string | null
           ndvi_max?: number | null
@@ -10512,6 +10515,13 @@ export type Database = {
           vegetation_health_score?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "satellite_tiles_mgrs_tile_id_fkey"
+            columns: ["mgrs_tile_id"]
+            isOneToOne: false
+            referencedRelation: "mgrs_tiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "satellite_tiles_tile_id_country_id_fkey"
             columns: ["tile_id", "country_id"]
