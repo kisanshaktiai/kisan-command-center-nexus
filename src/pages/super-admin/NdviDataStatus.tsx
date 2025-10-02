@@ -95,11 +95,11 @@ export default function NdviDataStatus() {
 
   // Handle sync with error tracking
   const handleSync = async (params: {
-    dataSource: 'planetary' | 'copernicus';
-    startDate?: string;
-    endDate?: string;
-    cloudCoverage?: number;
-    regions?: string[];
+    startDate: string;
+    endDate: string;
+    cloudCoverage: number;
+    regions: string[];
+    tileIds?: string[];
   }) => {
     setSyncError(null);
     setSyncDetails(null);
