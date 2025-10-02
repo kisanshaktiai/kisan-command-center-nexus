@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
 
 // Copernicus Data Space Ecosystem API endpoints
-const COPERNICUS_STAC_API = 'https://stac.dataspace.copernicus.eu/v1/search';
+const COPERNICUS_STAC_API = 'https://catalogue.dataspace.copernicus.eu/stac/search';
 const COPERNICUS_PROCESS_API = 'https://sh.dataspace.copernicus.eu/api/v1/process';
 const COPERNICUS_STATISTICAL_API = 'https://sh.dataspace.copernicus.eu/api/v1/statistics';
 const COPERNICUS_AUTH_URL = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token';
@@ -392,13 +392,19 @@ serve(async (req) => {
           sortby: [{ field: "datetime", direction: "desc" }]
         };
 
+        console.log(`[fetch-copernicus-ndvi] STAC Query for ${mgrsTile.tile_id}:`, JSON.stringify(stacPayload, null, 2));
+
         const stacResponse = await fetch(COPERNICUS_STAC_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(stacPayload)
         });
 
+        console.log(`[fetch-copernicus-ndvi] STAC Response status: ${stacResponse.status} ${stacResponse.statusText}`);
+
         if (!stacResponse.ok) {
+          const errorText = await stacResponse.text();
+          console.error(`[fetch-copernicus-ndvi] STAC Error Response:`, errorText);
           throw new Error(`STAC search failed: ${stacResponse.statusText}`);
         }
 
