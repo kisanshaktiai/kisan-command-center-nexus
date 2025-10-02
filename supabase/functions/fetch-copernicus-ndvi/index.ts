@@ -13,6 +13,16 @@ const corsHeaders = {
 };
 
 /**
+ * Calculate approximate area from bounding box (in km²)
+ */
+function calculateAreaFromBbox(bbox: number[]): number {
+  const [west, south, east, north] = bbox;
+  const width = (east - west) * 111.32; // km per degree longitude at equator
+  const height = (north - south) * 110.57; // km per degree latitude
+  return Math.round(width * height);
+}
+
+/**
  * Extract bounding box from PostGIS geometry
  */
 function extractBboxFromGeometry(geometry: any): number[] | null {
@@ -257,13 +267,13 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Step 1: Fetch MGRS tiles from the database
+    // Step 1: Fetch MGRS tiles from the database (ALL tiles to check for agriculture)
     console.log('[fetch-copernicus-ndvi] Fetching MGRS tiles from database...');
     
     let mgrsTilesQuery = supabase
       .from('mgrs_tiles')
-      .select('id, tile_id, country_id, state, geometry, is_agri, agri_area_km2')
-      .eq('is_agri', true); // Only agricultural tiles
+      .select('id, tile_id, country_id, state, geometry, is_agri, agri_area_km2');
+    // Note: NOT filtering by is_agri - we'll check all tiles and determine agricultural areas
 
     // Filter by specific tile IDs if provided
     if (tileIds && tileIds.length > 0) {
@@ -409,7 +419,50 @@ serve(async (req) => {
         }
 
         try {
-          // Generate NDVI visualization
+          // Calculate statistics FIRST to determine if agricultural
+          const stats = await calculateNDVIStats(token, bbox, startDate, endDate);
+          const ndviStats = stats.data?.[0]?.outputs?.default?.bands?.ndvi?.stats || {};
+          
+          // Determine if tile is agricultural based on NDVI mean
+          // NDVI > 0.2 typically indicates vegetation/agricultural land
+          const ndviMean = ndviStats.mean || 0;
+          const isAgricultural = ndviMean > 0.2 && ndviMean < 0.9;
+          
+          console.log(`[fetch-copernicus-ndvi] Tile ${mgrsTile.tile_id} NDVI mean: ${ndviMean}, Agricultural: ${isAgricultural}`);
+          
+          // Update MGRS tile with agricultural classification
+          if (isAgricultural && !mgrsTile.is_agri) {
+            await supabase
+              .from('mgrs_tiles')
+              .update({
+                is_agri: true,
+                agri_area_km2: calculateAreaFromBbox(bbox) // Approximate area
+              })
+              .eq('id', mgrsTile.id);
+            
+            console.log(`[fetch-copernicus-ndvi] Marked tile ${mgrsTile.tile_id} as agricultural`);
+          }
+          
+          // Only generate and download NDVI visualization if agricultural
+          if (!isAgricultural) {
+            console.log(`[fetch-copernicus-ndvi] Skipping non-agricultural tile ${mgrsTile.tile_id}`);
+            
+            // Update satellite tile to mark as non-agricultural
+            await supabase
+              .from('satellite_tiles')
+              .update({
+                status: 'skipped',
+                error_message: 'Non-agricultural area (NDVI < 0.2)',
+                ndvi_mean: ndviMean,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', tileDbId);
+            
+            results.processed++;
+            continue;
+          }
+
+          // Generate NDVI visualization for agricultural tiles
           const { imageBlob, metadata: imgMeta } = await generateNDVI(
             token,
             bbox,
@@ -434,11 +487,6 @@ serve(async (req) => {
             .storage
             .from('ndvi-tiles')
             .getPublicUrl(fileName);
-
-          // Calculate statistics
-          const stats = await calculateNDVIStats(token, bbox, startDate, endDate);
-          
-          const ndviStats = stats.data?.[0]?.outputs?.default?.bands?.ndvi?.stats || {};
           
           // Update tile with results
           await supabase
@@ -459,7 +507,7 @@ serve(async (req) => {
             })
             .eq('id', tileDbId);
 
-          console.log(`[fetch-copernicus-ndvi] Successfully processed tile ${mgrsTile.tile_id}`);
+          console.log(`[fetch-copernicus-ndvi] Successfully processed agricultural tile ${mgrsTile.tile_id}`);
           
           results.tiles.push({
             tile_id: mgrsTile.tile_id,
