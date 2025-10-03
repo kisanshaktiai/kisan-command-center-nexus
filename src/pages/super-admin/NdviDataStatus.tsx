@@ -96,13 +96,25 @@ export default function NdviDataStatus() {
   }) => {
     setSyncError(null);
     setSyncDetails(null);
+    
     try {
+      // Step 1: Detect agricultural tiles and create satellite_tiles records
+      console.log('[NdviDataStatus] Step 1: Detecting agricultural tiles from lands');
+      await markAgriculturalTiles.mutateAsync();
+      
+      // Small delay to ensure DB writes are visible
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Step 2: Sync NDVI data for those tiles
+      console.log('[NdviDataStatus] Step 2: Syncing NDVI data for agricultural tiles');
       const result = await syncNdviData.mutateAsync(params);
+      
       if (result) {
         setSyncDetails(result);
         setIsSyncDialogOpen(false);
       }
     } catch (error: any) {
+      console.error('[NdviDataStatus] Sync error:', error);
       setSyncError(error.message || 'Failed to sync NDVI data');
     }
   };
