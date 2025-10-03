@@ -15845,6 +15845,15 @@ export type Database = {
           name: string
         }[]
       }
+      get_lands_with_geojson_boundary: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          boundary: Json
+          id: string
+          name: string
+          tenant_id: string
+        }[]
+      }
       get_location_context: {
         Args: { lat: number; lng: number }
         Returns: Json
