@@ -266,6 +266,36 @@ async function calculateNDVIStats(
     }
   `;
 
+  // Calculate appropriate resolution based on bbox size to stay within 1500m/pixel limit
+  // For MGRS tiles (~110km), we need coarser resolution
+  const bboxWidth = bbox[2] - bbox[0]; // degrees
+  const bboxHeight = bbox[3] - bbox[1]; // degrees
+  const widthKm = bboxWidth * 111.32; // approximate km
+  const heightKm = bboxHeight * 110.57; // approximate km
+  
+  // Calculate resolution to keep under 1500m/pixel limit with max 512x512 output
+  // Target: widthKm * 1000 / resolution <= 512 * 1500
+  const maxAllowedMetersPerPixel = 1400; // Stay safely under 1500m/pixel limit
+  const minResolution = Math.max(
+    (widthKm * 1000) / (512 * (1000 / maxAllowedMetersPerPixel)),
+    (heightKm * 1000) / (512 * (1000 / maxAllowedMetersPerPixel)),
+    60 // Minimum 60m resolution (Sentinel-2 B05/B06/B07 resolution)
+  );
+  
+  // Round to nearest valid Sentinel-2 resolution: 10m, 20m, 60m, or higher
+  let resolution = 60;
+  if (minResolution > 60) {
+    resolution = Math.ceil(minResolution / 10) * 10; // Round up to nearest 10m
+  } else if (minResolution > 20) {
+    resolution = 60;
+  } else if (minResolution > 10) {
+    resolution = 20;
+  } else {
+    resolution = 10;
+  }
+  
+  console.log(`[Statistical API] Bbox: ${widthKm.toFixed(2)}km x ${heightKm.toFixed(2)}km, Using resolution: ${resolution}m`);
+
   const statsPayload = {
     input: {
       bounds: {
@@ -284,8 +314,8 @@ async function calculateNDVIStats(
       timeRange: { from: `${dateFrom}T00:00:00Z`, to: `${dateTo}T23:59:59Z` },
       aggregationInterval: { of: "P1D" },
       evalscript: statsEvalscript,
-      resx: 10,
-      resy: 10
+      resx: resolution,
+      resy: resolution
     },
     calculations: {
       default: {
