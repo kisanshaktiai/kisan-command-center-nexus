@@ -48,6 +48,46 @@ export const useSatelliteTiles = (
     refetchInterval: 60000,
   });
 
+  // Mutation for marking agricultural tiles from land data
+  const markAgriculturalTiles = useMutation({
+    mutationFn: async () => {
+      console.log('[useSatelliteTiles] Marking agricultural tiles from land data');
+      
+      const { data, error } = await supabase.functions.invoke('mark-agricultural-tiles');
+
+      if (error) {
+        console.error('[useSatelliteTiles] Error marking tiles:', error);
+        throw new Error(error.message || 'Failed to mark agricultural tiles');
+      }
+      
+      if (!data?.success) {
+        console.error('[useSatelliteTiles] Mark tiles failed:', data);
+        throw new Error(data?.error || 'Failed to mark agricultural tiles');
+      }
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      const results = data?.data || {};
+      const markedCount = results.marked_tiles_count || 0;
+      const processedLands = results.processed_lands || 0;
+      
+      toast.success(`✓ Marked ${markedCount} agricultural tiles from ${processedLands} lands`);
+      
+      if (results.errors?.length > 0) {
+        toast.warning(`${results.errors.length} lands had errors - check console`);
+      }
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['satellite-tiles'] });
+      queryClient.invalidateQueries({ queryKey: ['satellite-tiles-stats'] });
+    },
+    onError: (error: Error) => {
+      console.error('Mark tiles error:', error);
+      toast.error(`Failed to mark tiles: ${error.message}`);
+    },
+  });
+
   // Mutation for syncing NDVI data using tile-based caching (95% cost reduction)
   const syncNdviData = useMutation({
     mutationFn: async (params?: {
@@ -183,6 +223,7 @@ export const useSatelliteTiles = (
     statsError,
     syncNdviData,
     deleteTile,
+    markAgriculturalTiles,
   };
 };
 

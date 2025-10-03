@@ -70,6 +70,7 @@ export default function NdviDataStatus() {
     statsLoading,
     syncNdviData,
     deleteTile,
+    markAgriculturalTiles,
   } = useSatelliteTiles(currentPage, pageSize, filters);
 
   const { exportTiles, isExporting } = useExportTiles();
@@ -193,6 +194,24 @@ export default function NdviDataStatus() {
             )}
             Export
           </Button>
+          <Button
+            variant="secondary"
+            onClick={() => markAgriculturalTiles.mutate()}
+            disabled={markAgriculturalTiles.isPending}
+            className="gap-2"
+          >
+            {markAgriculturalTiles.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Detecting...
+              </>
+            ) : (
+              <>
+                <MapPin className="h-4 w-4" />
+                Detect Agri Tiles
+              </>
+            )}
+          </Button>
           <Button 
             onClick={() => setIsSyncDialogOpen(true)}
             disabled={syncNdviData.isPending}
@@ -302,8 +321,9 @@ export default function NdviDataStatus() {
         <AlertTitle className="text-primary font-semibold">Tile-Based Caching System</AlertTitle>
         <AlertDescription className="space-y-3 text-sm">
           <p className="text-foreground/90">
-            SaaS Admin fetches NDVI data <strong>once per tile per 24h</strong> from Copernicus APIs. 
-            Farmers receive land-specific NDVI by <strong>clipping from cached tiles</strong> — reducing API costs by <strong className="text-primary">95%+</strong>.
+            <strong className="text-warning">First time setup:</strong> Click <strong>"Detect Agri Tiles"</strong> to scan your land polygons and mark MGRS tiles as agricultural. 
+            Then <strong>"Sync NDVI Data"</strong> to download satellite data. NDVI is fetched <strong>once per tile per 24h</strong> from Copernicus APIs, 
+            reducing API costs by <strong className="text-primary">95%+</strong>.
           </p>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className="gap-1 bg-background/50">
