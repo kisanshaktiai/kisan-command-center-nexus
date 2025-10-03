@@ -266,33 +266,46 @@ async function calculateNDVIStats(
     }
   `;
 
-  // Calculate appropriate resolution based on bbox size to stay within 1500m/pixel limit
+  // CRITICAL FIX: Statistical API uses width/height in PIXELS, NOT resolution in meters/pixel
+  // The API calculates resolution automatically based on bbox and requested image dimensions
+  // We need to specify WIDTH and HEIGHT in pixels that result in resolution <= 1500m/pixel
+  
   const bboxWidth = bbox[2] - bbox[0]; // degrees
   const bboxHeight = bbox[3] - bbox[1]; // degrees
   const widthKm = bboxWidth * 111.32; // approximate km
   const heightKm = bboxHeight * 110.57; // approximate km
+  const widthMeters = widthKm * 1000;
+  const heightMeters = heightKm * 1000;
   
-  // For Statistical API: Calculate resolution that keeps us under 1500m/pixel
-  // Formula: resolution (m/px) = (bbox_size_meters) / (max_pixels)
-  // Sentinel Hub allows max 2500x2500 pixels, but we use 512x512 for efficiency
-  const maxPixels = 512;
-  const maxMetersPerPixel = 1400; // Stay under 1500m/pixel limit
+  // Maximum resolution allowed by Sentinel Hub for S2L2A
+  const maxResolutionMetersPerPixel = 1500;
   
-  // Calculate minimum resolution needed to fit bbox in maxPixels
-  const minResolutionForWidth = (widthKm * 1000) / maxPixels;
-  const minResolutionForHeight = (heightKm * 1000) / maxPixels;
-  const calculatedResolution = Math.max(minResolutionForWidth, minResolutionForHeight);
+  // Calculate minimum width/height in pixels to stay under resolution limit
+  // Formula: pixels = bbox_size_meters / max_resolution_meters_per_pixel
+  const minWidthPixels = Math.ceil(widthMeters / maxResolutionMetersPerPixel);
+  const minHeightPixels = Math.ceil(heightMeters / maxResolutionMetersPerPixel);
   
-  // Clamp resolution to valid range (10m to 1400m) and round to nearest 10m
-  let resolution = Math.max(10, Math.min(maxMetersPerPixel, Math.ceil(calculatedResolution / 10) * 10));
+  // Use slightly higher pixel counts for better quality, but cap at reasonable limits
+  // Target ~512x512 for small areas, scale down for large areas
+  let width = Math.max(256, Math.min(2048, minWidthPixels * 2));
+  let height = Math.max(256, Math.min(2048, minHeightPixels * 2));
   
-  // Round to nearest valid Sentinel-2 resolution tier for better caching
-  if (resolution <= 10) resolution = 10;
-  else if (resolution <= 20) resolution = 20;
-  else if (resolution <= 60) resolution = 60;
-  else resolution = Math.ceil(resolution / 100) * 100; // Round to nearest 100m for large areas
+  // Ensure we don't exceed the resolution limit
+  const actualResolutionX = widthMeters / width;
+  const actualResolutionY = heightMeters / height;
   
-  console.log(`[Statistical API] Bbox: ${widthKm.toFixed(2)}km x ${heightKm.toFixed(2)}km, Calculated: ${calculatedResolution.toFixed(0)}m, Using resolution: ${resolution}m`);
+  if (actualResolutionX > maxResolutionMetersPerPixel || actualResolutionY > maxResolutionMetersPerPixel) {
+    // Recalculate to exactly meet the limit
+    width = Math.ceil(widthMeters / maxResolutionMetersPerPixel);
+    height = Math.ceil(heightMeters / maxResolutionMetersPerPixel);
+  }
+  
+  const finalResolutionX = widthMeters / width;
+  const finalResolutionY = heightMeters / height;
+  
+  console.log(`[Statistical API] Bbox: ${widthKm.toFixed(2)}km x ${heightKm.toFixed(2)}km`);
+  console.log(`[Statistical API] Dimensions: ${width}x${height} pixels`);
+  console.log(`[Statistical API] Resolution: ${finalResolutionX.toFixed(1)}m x ${finalResolutionY.toFixed(1)}m per pixel`);
 
   const statsPayload = {
     input: {
@@ -312,8 +325,8 @@ async function calculateNDVIStats(
       timeRange: { from: `${dateFrom}T00:00:00Z`, to: `${dateTo}T23:59:59Z` },
       aggregationInterval: { of: "P1D" },
       evalscript: statsEvalscript,
-      resx: resolution,
-      resy: resolution
+      width: width,
+      height: height
     },
     calculations: {
       default: {
