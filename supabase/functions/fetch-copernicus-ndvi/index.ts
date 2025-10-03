@@ -24,6 +24,7 @@ function calculateAreaFromBbox(bbox: number[]): number {
 
 /**
  * Extract bounding box from PostGIS geometry with validation
+ * Handles both Polygon and MultiPolygon geometries
  */
 function extractBboxFromGeometry(geometry: any): number[] | null {
   try {
@@ -32,7 +33,20 @@ function extractBboxFromGeometry(geometry: any): number[] | null {
       return null;
     }
 
-    const coords = geometry.coordinates[0]; // Polygon exterior ring
+    let coords: number[][];
+    
+    // Handle both MultiPolygon and Polygon geometry types
+    if (geometry.type === 'MultiPolygon') {
+      // For MultiPolygon: coordinates[0][0] = first polygon's exterior ring
+      coords = geometry.coordinates[0][0];
+    } else if (geometry.type === 'Polygon') {
+      // For Polygon: coordinates[0] = exterior ring
+      coords = geometry.coordinates[0];
+    } else {
+      console.error('Unsupported geometry type:', geometry.type);
+      return null;
+    }
+
     if (!coords || coords.length === 0) {
       console.error('Coordinates array is empty');
       return null;
@@ -59,7 +73,7 @@ function extractBboxFromGeometry(geometry: any): number[] | null {
       return null;
     }
 
-    console.log('Extracted bbox:', bbox);
+    console.log(`Extracted bbox from ${geometry.type}:`, bbox);
     return bbox;
   } catch (error) {
     console.error('Failed to extract bbox:', error);
