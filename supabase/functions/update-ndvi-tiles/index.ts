@@ -13,6 +13,10 @@ const COPERNICUS_STATISTICAL_API = 'https://sh.dataspace.copernicus.eu/api/v1/st
  * Get OAuth token from Copernicus
  */
 async function getOAuthToken(clientId: string, clientSecret: string): Promise<string> {
+  console.log('[OAuth] Requesting token from Copernicus...');
+  console.log('[OAuth] Client ID:', clientId ? `${clientId.substring(0, 8)}...` : 'MISSING');
+  console.log('[OAuth] Client Secret:', clientSecret ? 'SET (length: ' + clientSecret.length + ')' : 'MISSING');
+  
   const response = await fetch(COPERNICUS_AUTH_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -23,11 +27,18 @@ async function getOAuthToken(clientId: string, clientSecret: string): Promise<st
     }),
   });
 
+  console.log('[OAuth] Response status:', response.status, response.statusText);
+
   if (!response.ok) {
-    throw new Error(`Failed to get OAuth token: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('[OAuth] Error response body:', errorText);
+    throw new Error(`Failed to get OAuth token (${response.status}): ${errorText}`);
   }
 
   const data = await response.json();
+  console.log('[OAuth] ✓ Token obtained successfully, expires in:', data.expires_in, 'seconds');
+  console.log('[OAuth] Token preview:', data.access_token ? `${data.access_token.substring(0, 20)}...` : 'MISSING');
+  
   return data.access_token;
 }
 
@@ -35,23 +46,49 @@ async function getOAuthToken(clientId: string, clientSecret: string): Promise<st
  * Extract bbox from PostGIS geography/geometry
  */
 function extractBbox(geom: any): number[] {
-  console.log('[extractBbox] Extracting bbox from geometry:', JSON.stringify(geom).substring(0, 200));
+  console.log('[extractBbox] Full geometry object:', JSON.stringify(geom));
+  console.log('[extractBbox] Geometry type:', geom.type);
   
   let coords: number[][];
   
   if (geom.type === 'Polygon') {
     coords = geom.coordinates[0];
+    console.log('[extractBbox] Processing Polygon with', coords.length, 'coordinates');
   } else if (geom.type === 'MultiPolygon') {
     coords = geom.coordinates[0][0];
+    console.log('[extractBbox] Processing MultiPolygon with', coords.length, 'coordinates');
   } else {
+    console.error('[extractBbox] Unsupported geometry type:', geom.type);
     throw new Error(`Unsupported geometry type: ${geom.type}`);
   }
   
   const lngs = coords.map((c: number[]) => c[0]);
   const lats = coords.map((c: number[]) => c[1]);
-  const bbox = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
   
-  console.log('[extractBbox] Extracted bbox:', bbox);
+  const minLng = Math.min(...lngs);
+  const minLat = Math.min(...lats);
+  const maxLng = Math.max(...lngs);
+  const maxLat = Math.max(...lats);
+  
+  // bbox format: [west, south, east, north] for Sentinel Hub
+  const bbox = [minLng, minLat, maxLng, maxLat];
+  
+  console.log('[extractBbox] Coordinate ranges:');
+  console.log('  Longitude: min=', minLng, 'max=', maxLng, 'span=', (maxLng - minLng).toFixed(6));
+  console.log('  Latitude:  min=', minLat, 'max=', maxLat, 'span=', (maxLat - minLat).toFixed(6));
+  console.log('[extractBbox] Final bbox [west, south, east, north]:', bbox);
+  
+  // Calculate approximate area in km²
+  const latMidpoint = (minLat + maxLat) / 2;
+  const kmPerDegreeLat = 111.32;
+  const kmPerDegreeLng = 111.32 * Math.cos(latMidpoint * Math.PI / 180);
+  const areaKm2 = ((maxLng - minLng) * kmPerDegreeLng) * ((maxLat - minLat) * kmPerDegreeLat);
+  console.log('[extractBbox] Approximate area:', areaKm2.toFixed(4), 'km²');
+  
+  if (areaKm2 < 0.0001) {
+    console.warn('[extractBbox] ⚠️ Very small bbox detected - may need expansion');
+  }
+  
   return bbox;
 }
 
@@ -69,12 +106,19 @@ async function searchLatestScene(
     collections: ['sentinel-2-l2a'],
     bbox,
     datetime: `${dateFrom}T00:00:00Z/${dateTo}T23:59:59Z`,
-    limit: 1,
+    limit: 10, // Get more results to debug
     filter: `eo:cloud_cover < ${cloudCoverageThreshold}`,
     'filter-lang': 'cql2-text'
   };
 
-  console.log('[Catalog API] Payload:', JSON.stringify(catalogPayload, null, 2));
+  console.log('\n========== CATALOG API REQUEST ==========');
+  console.log('[Catalog API] Endpoint:', COPERNICUS_CATALOG_API);
+  console.log('[Catalog API] Full Request Payload:', JSON.stringify(catalogPayload, null, 2));
+  console.log('[Catalog API] Date Range:', dateFrom, 'to', dateTo);
+  console.log('[Catalog API] Cloud Coverage Threshold:', cloudCoverageThreshold, '%');
+  console.log('[Catalog API] BBox:', bbox, '[west, south, east, north]');
+  console.log('[Catalog API] Authorization:', token ? `Bearer ${token.substring(0, 20)}...` : 'MISSING');
+  console.log('=========================================\n');
 
   const response = await fetch(COPERNICUS_CATALOG_API, {
     method: 'POST',
@@ -85,22 +129,40 @@ async function searchLatestScene(
     body: JSON.stringify(catalogPayload)
   });
 
+  console.log('\n========== CATALOG API RESPONSE ==========');
+  console.log('[Catalog API] Status:', response.status, response.statusText);
+  console.log('[Catalog API] Response Headers:', JSON.stringify([...response.headers.entries()]));
+
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('[Catalog API] Error response:', errorText);
+    console.error('[Catalog API] ❌ ERROR Response Body:', errorText);
+    console.log('=========================================\n');
     throw new Error(`Catalog API failed (${response.status}): ${errorText}`);
   }
 
   const data = await response.json();
-  console.log(`[Catalog API] Response: Found ${data.features?.length || 0} scenes`);
+  console.log('[Catalog API] Full Response:', JSON.stringify(data, null, 2));
+  console.log('[Catalog API] Features Found:', data.features?.length || 0);
   
   if (data.features && data.features.length > 0) {
-    console.log('[Catalog API] Latest scene:', {
-      id: data.features[0].id,
-      datetime: data.features[0].properties.datetime,
-      cloudCover: data.features[0].properties['eo:cloud_cover']
+    console.log('[Catalog API] ✓ Scenes Available:');
+    data.features.slice(0, 3).forEach((feature: any, idx: number) => {
+      console.log(`  Scene ${idx + 1}:`, {
+        id: feature.id,
+        datetime: feature.properties.datetime,
+        cloudCover: feature.properties['eo:cloud_cover'],
+        collection: feature.collection
+      });
     });
+  } else {
+    console.warn('[Catalog API] ⚠️ No scenes found matching criteria');
+    console.log('[Catalog API] Troubleshooting tips:');
+    console.log('  1. Check if date range has satellite coverage for this area');
+    console.log('  2. Try expanding the bounding box (current area might be too small)');
+    console.log('  3. Increase cloud coverage threshold (current:', cloudCoverageThreshold, '%)');
+    console.log('  4. Verify coordinates are in WGS84 (EPSG:4326) format');
   }
+  console.log('=========================================\n');
   
   return data.features?.[0] || null;
 }
