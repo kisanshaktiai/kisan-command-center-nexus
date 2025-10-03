@@ -5822,6 +5822,102 @@ export type Database = {
           },
         ]
       }
+      land_tile_mapping: {
+        Row: {
+          created_at: string | null
+          farmer_id: string | null
+          id: string
+          land_area_acres: number | null
+          land_area_hectares: number | null
+          land_bbox: Json
+          land_centroid: Json | null
+          land_id: string | null
+          last_ndvi_request_date: string | null
+          last_ndvi_value: number | null
+          mgrs_tile_id: string | null
+          ndvi_cache_expiry: string | null
+          needs_refresh: boolean | null
+          request_priority: number | null
+          tenant_id: string | null
+          tile_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          land_area_acres?: number | null
+          land_area_hectares?: number | null
+          land_bbox: Json
+          land_centroid?: Json | null
+          land_id?: string | null
+          last_ndvi_request_date?: string | null
+          last_ndvi_value?: number | null
+          mgrs_tile_id?: string | null
+          ndvi_cache_expiry?: string | null
+          needs_refresh?: boolean | null
+          request_priority?: number | null
+          tenant_id?: string | null
+          tile_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          land_area_acres?: number | null
+          land_area_hectares?: number | null
+          land_bbox?: Json
+          land_centroid?: Json | null
+          land_id?: string | null
+          last_ndvi_request_date?: string | null
+          last_ndvi_value?: number | null
+          mgrs_tile_id?: string | null
+          ndvi_cache_expiry?: string | null
+          needs_refresh?: boolean | null
+          request_priority?: number | null
+          tenant_id?: string | null
+          tile_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "land_tile_mapping_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_tile_mapping_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_tile_mapping_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_tile_mapping_mgrs_tile_id_fkey"
+            columns: ["mgrs_tile_id"]
+            isOneToOne: false
+            referencedRelation: "mgrs_tiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_tile_mapping_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lands: {
         Row: {
           area_acres: number
@@ -7949,6 +8045,104 @@ export type Database = {
           },
         ]
       }
+      ndvi_micro_tiles: {
+        Row: {
+          access_count: number | null
+          acquisition_date: string
+          bbox: Json
+          cloud_cover: number | null
+          created_at: string | null
+          expires_at: string | null
+          farmer_id: string | null
+          id: string
+          land_id: string | null
+          last_accessed_at: string | null
+          ndvi_max: number | null
+          ndvi_mean: number | null
+          ndvi_min: number | null
+          ndvi_std_dev: number | null
+          ndvi_thumbnail_url: string | null
+          processing_units_used: number | null
+          resolution_meters: number | null
+          statistics_only: boolean | null
+          tenant_id: string | null
+          thumbnail_size_kb: number | null
+        }
+        Insert: {
+          access_count?: number | null
+          acquisition_date: string
+          bbox: Json
+          cloud_cover?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          land_id?: string | null
+          last_accessed_at?: string | null
+          ndvi_max?: number | null
+          ndvi_mean?: number | null
+          ndvi_min?: number | null
+          ndvi_std_dev?: number | null
+          ndvi_thumbnail_url?: string | null
+          processing_units_used?: number | null
+          resolution_meters?: number | null
+          statistics_only?: boolean | null
+          tenant_id?: string | null
+          thumbnail_size_kb?: number | null
+        }
+        Update: {
+          access_count?: number | null
+          acquisition_date?: string
+          bbox?: Json
+          cloud_cover?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          land_id?: string | null
+          last_accessed_at?: string | null
+          ndvi_max?: number | null
+          ndvi_mean?: number | null
+          ndvi_min?: number | null
+          ndvi_std_dev?: number | null
+          ndvi_thumbnail_url?: string | null
+          processing_units_used?: number | null
+          resolution_meters?: number | null
+          statistics_only?: boolean | null
+          tenant_id?: string | null
+          thumbnail_size_kb?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ndvi_micro_tiles_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndvi_micro_tiles_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_micro_tiles_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndvi_micro_tiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ndvi_processing_logs: {
         Row: {
           completed_at: string | null
@@ -8002,6 +8196,77 @@ export type Database = {
             columns: ["satellite_tile_id"]
             isOneToOne: false
             referencedRelation: "satellite_tiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ndvi_request_queue: {
+        Row: {
+          batch_size: number | null
+          cloud_coverage: number | null
+          completed_at: string | null
+          created_at: string | null
+          date_from: string
+          date_to: string
+          error_message: string | null
+          id: string
+          land_ids: string[]
+          priority: number | null
+          processed_count: number | null
+          processing_units_consumed: number | null
+          scheduled_for: string | null
+          started_at: string | null
+          statistics_only: boolean | null
+          status: string | null
+          tenant_id: string | null
+          tile_id: string
+        }
+        Insert: {
+          batch_size?: number | null
+          cloud_coverage?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          date_from: string
+          date_to: string
+          error_message?: string | null
+          id?: string
+          land_ids: string[]
+          priority?: number | null
+          processed_count?: number | null
+          processing_units_consumed?: number | null
+          scheduled_for?: string | null
+          started_at?: string | null
+          statistics_only?: boolean | null
+          status?: string | null
+          tenant_id?: string | null
+          tile_id: string
+        }
+        Update: {
+          batch_size?: number | null
+          cloud_coverage?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          date_from?: string
+          date_to?: string
+          error_message?: string | null
+          id?: string
+          land_ids?: string[]
+          priority?: number | null
+          processed_count?: number | null
+          processing_units_consumed?: number | null
+          scheduled_for?: string | null
+          started_at?: string | null
+          statistics_only?: boolean | null
+          status?: string | null
+          tenant_id?: string | null
+          tile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ndvi_request_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
