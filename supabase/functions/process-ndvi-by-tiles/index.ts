@@ -569,7 +569,7 @@ async function storeTileNdvi(
       ndvi_stats: result.stats,
       bbox: result.bbox,
       status: 'ready',
-      collection: 'SENTINEL-2',
+      collection: 'sentinel-2-l2a',
       last_checked: new Date().toISOString(),
       metadata: {
         scene_id: result.scene.id,
