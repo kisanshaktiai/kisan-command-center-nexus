@@ -319,11 +319,9 @@ serve(async (req) => {
     const token = await getOAuthToken(clientId, clientSecret);
     console.log('[update-ndvi-tiles] ✓ OAuth token obtained');
 
-    // Get all active lands with boundaries
+    // Get all active lands with boundaries - use RPC to get GeoJSON format
     const { data: lands, error: landsError } = await supabase
-      .from('lands')
-      .select('id, name, boundary, tenant_id')
-      .not('boundary', 'is', null);
+      .rpc('get_lands_with_geojson_boundary');
 
     if (landsError) {
       console.error('[update-ndvi-tiles] Error fetching lands:', landsError);
