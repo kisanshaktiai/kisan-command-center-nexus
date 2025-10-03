@@ -341,11 +341,21 @@ async function processTileNdvi(
     return null;
   }
 
-  const scene = catalogData.features[0];
+  // Filter for L2A products only (processing level 2A has atmospheric correction)
+  const l2aScenes = catalogData.features.filter((scene: any) => 
+    scene.id.includes('MSIL2A') || scene.properties?.['processing:level'] === 'Level-2A'
+  );
+
+  if (l2aScenes.length === 0) {
+    console.log('[Catalog API] No L2A scenes found, only L1C available');
+    return null;
+  }
+
+  const scene = l2aScenes[0];
   const acquisitionDate = scene.properties.datetime.split('T')[0];
   const cloudCover = scene.properties['eo:cloud_cover'] || 0;
 
-  console.log(`[processTileNdvi] Selected scene: ${scene.id}, date: ${acquisitionDate}, cloud: ${cloudCover}%`);
+  console.log(`[processTileNdvi] Selected L2A scene: ${scene.id}, date: ${acquisitionDate}, cloud: ${cloudCover}%`);
 
   // 2. Statistical API - Get NDVI stats
   const statsPayload = {
