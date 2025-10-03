@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Cloud, Database, MapPin, AlertCircle, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Calendar, Cloud, Database, MapPin, AlertCircle, Loader2, CheckCircle2, XCircle, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -22,6 +22,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 
 interface SyncNdviDialogProps {
@@ -49,22 +50,56 @@ export function SyncNdviDialog({
   onSync,
   isSyncing,
 }: SyncNdviDialogProps) {
-  const [startDate, setStartDate] = useState(
-    format(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
-  );
-  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  // End date is always yesterday (1 day before today)
+  const fixedEndDate = format(new Date(Date.now() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+  
+  const [startDate, setStartDate] = useState('');
+  const [endDate] = useState(fixedEndDate); // End date is fixed
   const [cloudCoverage, setCloudCoverage] = useState(20);
   const [selectedRegions, setSelectedRegions] = useState<string[]>(['Punjab', 'Haryana']);
   const [availableRegions, setAvailableRegions] = useState<RegionStats[]>([]);
   const [isLoadingRegions, setIsLoadingRegions] = useState(false);
   const [maxTilesPerRun, setMaxTilesPerRun] = useState(50);
+  const [dateError, setDateError] = useState('');
 
-  // Fetch available regions from mgrs_tiles table
+  // Fetch last successful NDVI download date and available regions
   useEffect(() => {
     if (open) {
       fetchAvailableRegions();
+      fetchLastSyncDate();
     }
   }, [open]);
+
+  const fetchLastSyncDate = async () => {
+    try {
+      // Try to get the most recent NDVI update from mgrs_tiles
+      const { data, error } = await supabase
+        .from('mgrs_tiles')
+        .select('updated_at')
+        .not('updated_at', 'is', null)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data && data.updated_at) {
+        // Set start date to the last successful download date
+        setStartDate(format(new Date(data.updated_at), 'yyyy-MM-dd'));
+      } else {
+        // Default to 7 days before end date if no prior download
+        const defaultStart = new Date(fixedEndDate);
+        defaultStart.setDate(defaultStart.getDate() - 7);
+        setStartDate(format(defaultStart, 'yyyy-MM-dd'));
+      }
+    } catch (error) {
+      console.error('Failed to fetch last sync date:', error);
+      // Default to 7 days before end date on error
+      const defaultStart = new Date(fixedEndDate);
+      defaultStart.setDate(defaultStart.getDate() - 7);
+      setStartDate(format(defaultStart, 'yyyy-MM-dd'));
+    }
+  };
 
   const fetchAvailableRegions = async () => {
     setIsLoadingRegions(true);
@@ -140,6 +175,14 @@ export function SyncNdviDialog({
   };
 
   const handleSync = () => {
+    // Validate dates
+    if (new Date(startDate) > new Date(endDate)) {
+      setDateError('Start date cannot be after end date');
+      return;
+    }
+    
+    setDateError(''); // Clear any previous errors
+    
     // If no regions available (state data is null), send a flag to process all tiles
     const regionsToSync = availableRegions.length > 0 && availableRegions[0].state !== 'Error loading regions'
       ? selectedRegions
@@ -151,6 +194,14 @@ export function SyncNdviDialog({
       cloudCoverage,
       regions: regionsToSync,
     });
+  };
+
+  const handleStartDateChange = (value: string) => {
+    setStartDate(value);
+    // Clear error when user changes the date
+    if (dateError) {
+      setDateError('');
+    }
   };
 
   const toggleRegion = (region: string) => {
@@ -210,40 +261,58 @@ export function SyncNdviDialog({
         )}
 
         <div className="grid gap-3 py-2">
-          {/* Compact Date & Cloud Coverage Row */}
+          {/* Date Range Info */}
+          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-medium text-blue-900 dark:text-blue-100">
+              Sync data from <span className="font-bold">{startDate || 'loading...'}</span> to <span className="font-bold">{endDate}</span>
+            </p>
+          </div>
+
+          {/* Date & Cloud Coverage Row */}
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1.5">
               <Label htmlFor="start-date" className="text-xs flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                Start
+                Start Date
               </Label>
               <Input
                 id="start-date"
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => handleStartDateChange(e.target.value)}
+                max={endDate}
                 className="h-8 text-xs"
                 disabled={isSyncing}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="end-date" className="text-xs flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                End
-              </Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Label htmlFor="end-date" className="text-xs flex items-center gap-1 cursor-help">
+                      <Calendar className="h-3 w-3" />
+                      End Date
+                      <Info className="h-3 w-3 text-muted-foreground" />
+                    </Label>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">End date is fixed to yesterday for data availability</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <Input
                 id="end-date"
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="h-8 text-xs"
-                disabled={isSyncing}
+                className="h-8 text-xs bg-muted cursor-not-allowed"
+                disabled
+                readOnly
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="cloud-coverage" className="text-xs flex items-center gap-1">
                 <Cloud className="h-3 w-3" />
-                Cloud
+                Cloud %
               </Label>
               <div className="flex items-center gap-1">
                 <Input
@@ -260,6 +329,14 @@ export function SyncNdviDialog({
               </div>
             </div>
           </div>
+
+          {/* Date Validation Error */}
+          {dateError && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-2 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <p className="text-xs text-destructive font-medium">{dateError}</p>
+            </div>
+          )}
 
           {/* Compact Max Tiles */}
           <div className="space-y-1.5">
