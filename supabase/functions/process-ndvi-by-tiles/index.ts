@@ -356,7 +356,7 @@ async function processTileNdvi(
       },
       data: [
         {
-          type: 'SENTINEL-2',
+          type: 'sentinel-2-l2a',
           dataFilter: {
             timeRange: {
               from: `${acquisitionDate}T00:00:00Z`,
@@ -454,7 +454,7 @@ async function processTileNdvi(
       },
       data: [
         {
-          type: 'SENTINEL-2',
+          type: 'sentinel-2-l2a',
           dataFilter: {
             timeRange: {
               from: `${acquisitionDate}T00:00:00Z`,
