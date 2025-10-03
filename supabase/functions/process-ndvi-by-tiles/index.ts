@@ -307,21 +307,14 @@ async function processTileNdvi(
 ): Promise<TileProcessingResult | null> {
   console.log(`[processTileNdvi] Processing tile ${tile.tile_id}, bbox:`, tile.bbox);
 
-  // 1. Catalog API - Search for scenes using correct STAC filter
-  // Property is "cloudCover" not "eo:cloud_cover" based on SENTINEL-2 queryables
+  // 1. Catalog API - Search for scenes (bbox + datetime only)
+  // Note: Cloud filtering is NOT supported in STAC Catalog API
+  // Cloud cover filtering is handled by Statistical API's maxCloudCoverage parameter
   const catalogPayload = {
     collections: ['SENTINEL-2'],
     bbox: tile.bbox,
     datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
-    limit: 10,
-    "filter-lang": "cql2-json",
-    filter: {
-      op: '<=',
-      args: [
-        { property: 'cloudCover' },
-        cloudCoverage
-      ]
-    }
+    limit: 10
   };
 
   console.log('[Catalog API] Searching for scenes:', JSON.stringify(catalogPayload, null, 2));
