@@ -456,7 +456,20 @@ async function processTileNdvi(
   const statsData = await statsResponse.json();
   console.log('[Statistical API] Full response:', JSON.stringify(statsData, null, 2));
   
+  // CRITICAL: Check if Statistical API returned any data
+  if (!statsData.data || statsData.data.length === 0) {
+    console.error('[Statistical API] No data returned for scene:', scene.id);
+    console.error('[Statistical API] This means no valid pixels found for the bbox/date combination');
+    return null;
+  }
+
   const ndviStats = statsData.data[0]?.outputs?.ndvi?.bands?.B0?.stats || {};
+
+  // Verify we actually got valid statistics
+  if (!ndviStats.mean && ndviStats.mean !== 0) {
+    console.error('[Statistical API] No valid NDVI statistics in response');
+    return null;
+  }
 
   const stats: NdviStats = {
     mean: ndviStats.mean || 0,
