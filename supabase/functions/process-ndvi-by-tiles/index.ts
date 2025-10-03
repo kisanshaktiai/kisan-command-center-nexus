@@ -383,7 +383,7 @@ async function processTileNdvi(
           return {
             input: [{
               bands: ["B04", "B08", "SCL"],
-              units: "DN"
+              units: "REFLECTANCE"
             }],
             output: [
               { id: "ndvi", bands: 1, sampleType: "FLOAT32" },
@@ -394,10 +394,14 @@ async function processTileNdvi(
         function evaluatePixel(samples) {
           let ndvi = (samples.B08 - samples.B04) / (samples.B08 + samples.B04);
           let validNDVI = 1;
-          if (samples.B04 + samples.B08 == 0 || samples.SCL == 3 || samples.SCL == 8 || samples.SCL == 9 || samples.SCL == 10) {
+          
+          // Only mask water, clouds, cloud shadows, and no data
+          // SCL values: 3=cloud shadows, 8=cloud medium, 9=cloud high, 10=thin cirrus, 0=no data
+          if (samples.B04 + samples.B08 == 0 || samples.SCL == 0 || samples.SCL == 3 || samples.SCL == 8 || samples.SCL == 9 || samples.SCL == 10) {
             ndvi = -999;
             validNDVI = 0;
           }
+          
           return {
             ndvi: [ndvi],
             dataMask: [validNDVI]
@@ -428,11 +432,14 @@ async function processTileNdvi(
   });
 
   if (!statsResponse.ok) {
-    console.error('[Statistical API] Failed:', await statsResponse.text());
+    const errorText = await statsResponse.text();
+    console.error('[Statistical API] Failed:', errorText);
     throw new Error('Failed to get NDVI statistics');
   }
 
   const statsData = await statsResponse.json();
+  console.log('[Statistical API] Full response:', JSON.stringify(statsData, null, 2));
+  
   const ndviStats = statsData.data[0]?.outputs?.ndvi?.bands?.B0?.stats || {};
 
   const stats: NdviStats = {
@@ -479,21 +486,31 @@ async function processTileNdvi(
       //VERSION=3
       function setup() {
         return {
-          input: ["B04", "B08", "SCL"],
-          output: { bands: 3, sampleType: "AUTO" }
+          input: [{
+            bands: ["B04", "B08", "SCL"],
+            units: "REFLECTANCE"
+          }],
+          output: { bands: 4, sampleType: "AUTO" }
         };
       }
-      function evaluatePixel(sample) {
-        let ndvi = (sample.B08 - sample.B04) / (sample.B08 + sample.B04);
-        if (sample.SCL == 3 || sample.SCL == 8 || sample.SCL == 9 || sample.SCL == 10) {
-          return [0, 0, 0];
+      function evaluatePixel(samples) {
+        let ndvi = (samples.B08 - samples.B04) / (samples.B08 + samples.B04);
+        
+        // Mask clouds, shadows, and no data (SCL: 0=no data, 3=cloud shadows, 8=cloud medium, 9=cloud high, 10=thin cirrus)
+        if (samples.SCL == 0 || samples.SCL == 3 || samples.SCL == 8 || samples.SCL == 9 || samples.SCL == 10) {
+          return [0, 0, 0, 0]; // Transparent
         }
-        if (ndvi < -0.1) return [0.5, 0.5, 1.0];
-        if (ndvi < 0.1) return [0.8, 0.7, 0.6];
-        if (ndvi < 0.3) return [1.0, 0.9, 0.4];
-        if (ndvi < 0.5) return [0.8, 0.9, 0.3];
-        if (ndvi < 0.7) return [0.3, 0.8, 0.3];
-        return [0.0, 0.5, 0.0];
+        
+        // Color scale for NDVI visualization
+        let r, g, b;
+        if (ndvi < -0.1) { r = 0.5; g = 0.5; b = 1.0; }      // Water - blue
+        else if (ndvi < 0.1) { r = 0.8; g = 0.7; b = 0.6; }  // Bare soil - brown
+        else if (ndvi < 0.3) { r = 1.0; g = 0.9; b = 0.4; }  // Sparse veg - yellow
+        else if (ndvi < 0.5) { r = 0.8; g = 0.9; b = 0.3; }  // Moderate veg - lime
+        else if (ndvi < 0.7) { r = 0.3; g = 0.8; b = 0.3; }  // Dense veg - green
+        else { r = 0.0; g = 0.5; b = 0.0; }                  // Very dense - dark green
+        
+        return [r, g, b, 1.0]; // RGB + Alpha
       }
     `,
   };
