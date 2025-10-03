@@ -91,13 +91,12 @@ serve(async (req) => {
       );
     }
 
-    // 2. Get land information and tile mapping
+    // 2. Get land information
     const { data: land, error: landError } = await supabase
       .from('lands')
       .select(`
         *,
-        farmer:farmers(id, tenant_id),
-        land_tile_mapping(tile_id, mgrs_tile:mgrs_tiles(id, tile_id, geometry))
+        farmer:farmers(id, tenant_id)
       `)
       .eq('id', landId)
       .single();
@@ -109,13 +108,70 @@ serve(async (req) => {
       );
     }
 
-    // 3. Check if we have a cached tile-level NDVI
-    const tileMapping = land.land_tile_mapping?.[0];
-    if (tileMapping?.tile_id) {
+    // 3. Find which MGRS tile contains this land polygon using PostGIS
+    const { data: containingTiles, error: tileError } = await supabase
+      .rpc('find_mgrs_tile_for_land', { land_geom: land.boundary });
+
+    if (tileError) {
+      console.error('[fetch-land-ndvi] Error finding MGRS tile:', tileError);
+    }
+
+    let mgrsTileId = null;
+    let tileId = null;
+
+    if (containingTiles && containingTiles.length > 0) {
+      mgrsTileId = containingTiles[0].id;
+      tileId = containingTiles[0].tile_id;
+      
+      console.log(`[fetch-land-ndvi] Land ${landId} falls in MGRS tile ${tileId}`);
+
+      // Mark this MGRS tile as agricultural
+      const { error: updateError } = await supabase
+        .from('mgrs_tiles')
+        .update({ is_agri: true })
+        .eq('id', mgrsTileId);
+
+      if (updateError) {
+        console.error('[fetch-land-ndvi] Error marking tile as agricultural:', updateError);
+      } else {
+        console.log(`[fetch-land-ndvi] ✓ Marked MGRS tile ${tileId} as agricultural`);
+      }
+
+      // Ensure satellite_tile record exists for this MGRS tile
+      const { data: existingSatTile } = await supabase
+        .from('satellite_tiles')
+        .select('id, status')
+        .eq('tile_id', tileId)
+        .eq('acquisition_date', new Date().toISOString().split('T')[0])
+        .maybeSingle();
+
+      if (!existingSatTile) {
+        // Create satellite tile record
+        const { error: satTileError } = await supabase
+          .from('satellite_tiles')
+          .insert({
+            tile_id: tileId,
+            mgrs_tile_id: mgrsTileId,
+            status: 'pending',
+            data_source: 'copernicus',
+            acquisition_date: new Date().toISOString().split('T')[0],
+            collection: 'SENTINEL-2'
+          });
+
+        if (satTileError) {
+          console.error('[fetch-land-ndvi] Error creating satellite tile:', satTileError);
+        } else {
+          console.log(`[fetch-land-ndvi] ✓ Created satellite_tile record for ${tileId}`);
+        }
+      }
+    }
+
+    // 4. Check if we have a cached tile-level NDVI
+    if (tileId) {
       const { data: tileCacheData } = await supabase
         .from('satellite_tiles')
         .select('*')
-        .eq('tile_id', tileMapping.tile_id)
+        .eq('tile_id', tileId)
         .eq('status', 'ready')
         .order('updated_at', { ascending: false })
         .limit(1)
@@ -169,8 +225,18 @@ serve(async (req) => {
       }
     }
 
-    // 4. No cache available - need to fetch from API
-    console.log('[fetch-land-ndvi] No cache available, need to fetch from Copernicus');
+    // 5. No cache available - need to fetch from API
+    console.log('[fetch-land-ndvi] No cache available, triggering tile download');
+
+    if (!tileId) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Could not determine MGRS tile for this land parcel' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Extract bbox from land boundary
     const landBbox = extractBboxFromBoundary(land.boundary);
@@ -184,46 +250,68 @@ serve(async (req) => {
     // Calculate optimal resolution
     const resolution = calculateOptimalResolution(land.area || 1);
 
-    // 5. If not urgent, add to batch queue
-    if (!urgent) {
-      const { error: queueError } = await supabase
-        .from('ndvi_request_queue')
-        .insert({
-          tenant_id: land.farmer.tenant_id,
-          land_ids: [landId],
-          tile_id: tileMapping?.tile_id || 'pending',
-          date_from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          date_to: new Date().toISOString().split('T')[0],
-          statistics_only: statisticsOnly,
-          priority: 5
-        });
+    // 6. Trigger tile update for this agricultural tile
+    console.log(`[fetch-land-ndvi] Triggering NDVI download for tile ${tileId}`);
+    
+    // Call update-ndvi-tiles function to download NDVI for this specific tile
+    const { data: updateResult, error: updateError } = await supabase.functions.invoke(
+      'update-ndvi-tiles',
+      {
+        body: { 
+          tileIds: [tileId],
+          forceUpdate: true,
+          cloudCoverage: 30
+        }
+      }
+    );
 
-      if (queueError) {
-        console.error('[fetch-land-ndvi] Queue error:', queueError);
+    if (updateError) {
+      console.error('[fetch-land-ndvi] Error triggering tile update:', updateError);
+      
+      // If not urgent, fall back to queueing
+      if (!urgent) {
+        const { error: queueError } = await supabase
+          .from('ndvi_request_queue')
+          .insert({
+            tenant_id: land.farmer.tenant_id,
+            land_ids: [landId],
+            tile_id: tileId,
+            date_from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            date_to: new Date().toISOString().split('T')[0],
+            statistics_only: statisticsOnly,
+            priority: urgent ? 1 : 5
+          });
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            status: 'queued',
+            message: 'Request queued for batch processing',
+            estimatedReady: 'Next scheduled sync (within 24h)'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       return new Response(
-        JSON.stringify({
-          success: true,
-          status: 'queued',
-          message: 'Request queued for batch processing',
-          estimatedReady: 'Next scheduled sync (within 24h)'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Failed to trigger tile update' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 6. For urgent requests, trigger tile update
+    // Return success with download status
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Tile update triggered - please wait',
+        message: `NDVI download triggered for tile ${tileId}`,
         data: {
           land_id: landId,
-          tile_id: tileMapping?.tile_id,
+          tile_id: tileId,
+          mgrs_tile_id: mgrsTileId,
           bbox: landBbox,
           resolution,
-          status: 'requesting_tile_update'
+          status: 'downloading',
+          updateResult
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
