@@ -10578,6 +10578,7 @@ export type Database = {
           band_data_verified: boolean | null
           band_statistics: Json | null
           bandwidth_usage_mb: number | null
+          bbox: Json | null
           checksum: string | null
           cloud_cover: number | null
           collection: string
@@ -10594,6 +10595,7 @@ export type Database = {
           full_resolution_processed_at: string | null
           full_resolution_requested: boolean | null
           id: string
+          last_checked: string | null
           last_error: string | null
           last_verification_at: string | null
           medium_ndvi_path: string | null
@@ -10607,6 +10609,7 @@ export type Database = {
           ndvi_path: string | null
           ndvi_size_bytes: number | null
           ndvi_statistics: Json | null
+          ndvi_stats: Json | null
           ndvi_std_dev: number | null
           ndvi_verified: boolean | null
           nir_band_checksum: string | null
@@ -10647,6 +10650,7 @@ export type Database = {
           band_data_verified?: boolean | null
           band_statistics?: Json | null
           bandwidth_usage_mb?: number | null
+          bbox?: Json | null
           checksum?: string | null
           cloud_cover?: number | null
           collection?: string
@@ -10663,6 +10667,7 @@ export type Database = {
           full_resolution_processed_at?: string | null
           full_resolution_requested?: boolean | null
           id?: string
+          last_checked?: string | null
           last_error?: string | null
           last_verification_at?: string | null
           medium_ndvi_path?: string | null
@@ -10676,6 +10681,7 @@ export type Database = {
           ndvi_path?: string | null
           ndvi_size_bytes?: number | null
           ndvi_statistics?: Json | null
+          ndvi_stats?: Json | null
           ndvi_std_dev?: number | null
           ndvi_verified?: boolean | null
           nir_band_checksum?: string | null
@@ -10716,6 +10722,7 @@ export type Database = {
           band_data_verified?: boolean | null
           band_statistics?: Json | null
           bandwidth_usage_mb?: number | null
+          bbox?: Json | null
           checksum?: string | null
           cloud_cover?: number | null
           collection?: string
@@ -10732,6 +10739,7 @@ export type Database = {
           full_resolution_processed_at?: string | null
           full_resolution_requested?: boolean | null
           id?: string
+          last_checked?: string | null
           last_error?: string | null
           last_verification_at?: string | null
           medium_ndvi_path?: string | null
@@ -10745,6 +10753,7 @@ export type Database = {
           ndvi_path?: string | null
           ndvi_size_bytes?: number | null
           ndvi_statistics?: Json | null
+          ndvi_stats?: Json | null
           ndvi_std_dev?: number | null
           ndvi_verified?: boolean | null
           nir_band_checksum?: string | null
@@ -15835,6 +15844,17 @@ export type Database = {
       get_jwt_tenant_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_lands_by_tile: {
+        Args: { p_tile_id: string }
+        Returns: {
+          area_acres: number
+          boundary_geojson: Json
+          farmer_id: string
+          land_id: string
+          land_name: string
+          tenant_id: string
+        }[]
       }
       get_lands_in_tile: {
         Args: { p_tenant_id: string; p_tile_id: string }
