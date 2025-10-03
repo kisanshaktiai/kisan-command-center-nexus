@@ -213,11 +213,30 @@ async function getTilesToProcess(
   tileIds: string[],
   forceUpdate: boolean
 ): Promise<TileToProcess[]> {
+  // First, get all tiles with lands
+  const { data: tilesWithLands, error: landsError } = await supabase.rpc('get_tiles_with_lands');
+  
+  if (landsError) {
+    console.error('[getTilesToProcess] Error fetching tiles with lands:', landsError);
+    throw new Error(`Failed to fetch tiles with lands: ${landsError.message}`);
+  }
+
+  const tilesWithLandIds = (tilesWithLands || []).map((t: any) => t.tile_id);
+  console.log(`[getTilesToProcess] Found ${tilesWithLandIds.length} tiles with lands:`, tilesWithLandIds);
+
+  if (tilesWithLandIds.length === 0) {
+    console.log('[getTilesToProcess] No tiles have lands - nothing to process');
+    return [];
+  }
+
+  // Now fetch full tile data for tiles that have lands
   let query = supabase
     .from('mgrs_tiles')
     .select('tile_id, id, geometry')
-    .eq('is_agri', true);
+    .eq('is_agri', true)
+    .in('tile_id', tilesWithLandIds);
 
+  // If specific tileIds requested, filter further
   if (tileIds.length > 0) {
     query = query.in('tile_id', tileIds);
   }
@@ -288,17 +307,22 @@ async function processTileNdvi(
 ): Promise<TileProcessingResult | null> {
   console.log(`[processTileNdvi] Processing tile ${tile.tile_id}, bbox:`, tile.bbox);
 
-  // 1. Catalog API - Find scenes
+  // 1. Catalog API - Find scenes using proper CQL2-JSON filter
   const catalogPayload = {
     collections: ['sentinel-2-l2a'],
     bbox: tile.bbox,
     datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
     limit: 10,
-    filter: `eo:cloud_cover < ${cloudCoverage}`,
-    'filter-lang': 'cql2-text',
+    filter: {
+      op: 'lt',
+      args: [
+        { property: 'eo:cloud_cover' },
+        cloudCoverage
+      ]
+    }
   };
 
-  console.log('[Catalog API] Searching for scenes:', catalogPayload);
+  console.log('[Catalog API] Searching for scenes with CQL2-JSON filter:', JSON.stringify(catalogPayload, null, 2));
 
   const catalogResponse = await fetch('https://catalogue.dataspace.copernicus.eu/stac/search', {
     method: 'POST',
@@ -310,7 +334,8 @@ async function processTileNdvi(
   });
 
   if (!catalogResponse.ok) {
-    console.error('[Catalog API] Failed:', await catalogResponse.text());
+    const errorText = await catalogResponse.text();
+    console.error('[Catalog API] Failed with status', catalogResponse.status, ':', errorText);
     return null;
   }
 
