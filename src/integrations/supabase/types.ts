@@ -7882,11 +7882,13 @@ export type Database = {
           id: string
           is_agri: boolean | null
           last_checked: string | null
+          last_land_check: string | null
           state: string | null
           state_id: string | null
           taluka_id: string | null
           tile_id: string
           total_area_km2: number | null
+          total_lands_count: number | null
           updated_at: string | null
           village_id: string | null
         }
@@ -7900,11 +7902,13 @@ export type Database = {
           id?: string
           is_agri?: boolean | null
           last_checked?: string | null
+          last_land_check?: string | null
           state?: string | null
           state_id?: string | null
           taluka_id?: string | null
           tile_id: string
           total_area_km2?: number | null
+          total_lands_count?: number | null
           updated_at?: string | null
           village_id?: string | null
         }
@@ -7918,11 +7922,13 @@ export type Database = {
           id?: string
           is_agri?: boolean | null
           last_checked?: string | null
+          last_land_check?: string | null
           state?: string | null
           state_id?: string | null
           taluka_id?: string | null
           tile_id?: string
           total_area_km2?: number | null
+          total_lands_count?: number | null
           updated_at?: string | null
           village_id?: string | null
         }
@@ -15865,11 +15871,10 @@ export type Database = {
       get_lands_by_tile: {
         Args: { p_tile_id: string }
         Returns: {
-          area_acres: number
-          boundary_geojson: Json
+          area_hectares: number
+          boundary: Json
           farmer_id: string
           land_id: string
-          land_name: string
           tenant_id: string
         }[]
       }
@@ -15952,7 +15957,8 @@ export type Database = {
       get_tiles_with_lands: {
         Args: Record<PropertyKey, never>
         Returns: {
-          land_count: number
+          agri_area_km2: number
+          lands_count: number
           tile_id: string
         }[]
       }
@@ -16140,6 +16146,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      mark_agricultural_tile: {
+        Args: { p_land_area_km2: number; p_tile_id: string }
+        Returns: undefined
       }
       mark_invitation_accepted: {
         Args: { token: string }

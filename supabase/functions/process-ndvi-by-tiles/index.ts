@@ -308,19 +308,20 @@ async function processTileNdvi(
   console.log(`[processTileNdvi] Processing tile ${tile.tile_id}, bbox:`, tile.bbox);
 
   // 1. Catalog API - Find scenes using proper CQL2-JSON filter
-  const catalogPayload = {
-    collections: ['SENTINEL-2'],
-    bbox: tile.bbox,
-    datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
-    limit: 10,
-    filter: {
-      op: 'lt',
-      args: [
-        { property: 'eo:cloud_cover' },
-        cloudCoverage
-      ]
-    }
-  };
+    // 1. Catalog API - Search for scenes using proper CQL2 filter (<=, not lt)
+    const catalogPayload = {
+      collections: ['SENTINEL-2'],
+      bbox: tile.bbox,
+      datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
+      limit: 10,
+      filter: {
+        op: '<=',
+        args: [
+          { property: 'eo:cloud_cover' },
+          cloudCoverage
+        ]
+      }
+    };
 
   console.log('[Catalog API] Searching for scenes with CQL2-JSON filter:', JSON.stringify(catalogPayload, null, 2));
 
@@ -559,7 +560,7 @@ async function storeTileNdvi(
   const storageUrl = urlData.publicUrl;
   console.log(`[Storage] Uploaded to: ${storageUrl}`);
 
-  // Upsert satellite_tiles record
+  // Upsert satellite_tiles record with numeric stats
   const { error: upsertError } = await supabase
     .from('satellite_tiles')
     .upsert({
@@ -567,9 +568,14 @@ async function storeTileNdvi(
       acquisition_date: result.acquisition_date,
       cloud_cover: result.cloud_cover,
       ndvi_path: storageUrl,
+      ndvi_mean: result.stats.mean,
+      ndvi_min: result.stats.min,
+      ndvi_max: result.stats.max,
+      ndvi_std_dev: result.stats.std,
       ndvi_stats: result.stats,
       bbox: result.bbox,
       status: 'ready',
+      collection: 'SENTINEL-2',
       last_checked: new Date().toISOString(),
       metadata: {
         scene_id: result.scene.id,
