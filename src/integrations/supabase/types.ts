@@ -14798,6 +14798,23 @@ export type Database = {
           },
         ]
       }
+      ndvi_coverage_stats: {
+        Row: {
+          lands_with_ndvi: number | null
+          latest_ndvi_date: string | null
+          total_lands: number | null
+          unique_dates: number | null
+        }
+        Relationships: []
+      }
+      tile_land_mapping_stats: {
+        Row: {
+          land_count: number | null
+          land_names: string | null
+          tile_id: string | null
+        }
+        Relationships: []
+      }
       weather_with_location: {
         Row: {
           area_acres: number | null
