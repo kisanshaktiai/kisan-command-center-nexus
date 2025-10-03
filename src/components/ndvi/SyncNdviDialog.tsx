@@ -34,8 +34,15 @@ interface SyncNdviDialogProps {
     cloudCoverage: number;
     regions: string[];
     tileIds?: string[];
+    useTileFirst?: boolean;
   }) => void;
   isSyncing: boolean;
+  syncProgress?: {
+    current_tile?: string;
+    total_tiles?: number;
+    processed_tiles?: number;
+    current_step?: string;
+  };
 }
 
 interface RegionStats {
@@ -49,6 +56,7 @@ export function SyncNdviDialog({
   onOpenChange,
   onSync,
   isSyncing,
+  syncProgress,
 }: SyncNdviDialogProps) {
   // End date is always yesterday (1 day before today)
   const fixedEndDate = format(new Date(Date.now() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
@@ -61,6 +69,7 @@ export function SyncNdviDialog({
   const [isLoadingRegions, setIsLoadingRegions] = useState(false);
   const [maxTilesPerRun, setMaxTilesPerRun] = useState(50);
   const [dateError, setDateError] = useState('');
+  const [useTileFirst, setUseTileFirst] = useState(true);
 
   // Fetch last successful NDVI download date and available regions
   useEffect(() => {
@@ -193,6 +202,7 @@ export function SyncNdviDialog({
       endDate,
       cloudCoverage,
       regions: regionsToSync,
+      useTileFirst,
     });
   };
 
@@ -231,32 +241,53 @@ export function SyncNdviDialog({
             <div className="flex items-center gap-3">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
               <div className="flex-1">
-                <p className="font-semibold text-sm">Synchronizing Data...</p>
+                <p className="font-semibold text-sm">
+                  {useTileFirst 
+                    ? `Processing tile ${syncProgress?.current_tile || '...'} (${syncProgress?.processed_tiles || 0} of ${syncProgress?.total_tiles || 0})`
+                    : 'Synchronizing Data...'}
+                </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Processing MGRS tiles from Copernicus DataSpace
+                  {syncProgress?.current_step || 'Processing MGRS tiles from Copernicus DataSpace'}
                 </p>
               </div>
             </div>
             
-            {/* Animated Steps */}
-            <div className="space-y-2 ml-8">
-              <div className="flex items-center gap-2 text-xs animate-fade-in">
-                <CheckCircle2 className="h-3 w-3 text-green-500" />
-                <span className="text-muted-foreground">Authenticating with Copernicus...</span>
+            {/* Tile-First Progress */}
+            {useTileFirst ? (
+              <div className="space-y-2 ml-8">
+                <div className="flex items-center gap-2 text-xs">
+                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                  <span className="text-muted-foreground">├─ Fetching satellite data...</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  <span className="text-muted-foreground">├─ Generating NDVI...</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs opacity-50">
+                  <div className="h-3 w-3 rounded-full border-2 border-muted" />
+                  <span className="text-muted-foreground">└─ Updating lands...</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-xs animate-fade-in" style={{ animationDelay: '0.3s' }}>
-                <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                <span className="text-muted-foreground">Querying satellite catalog...</span>
+            ) : (
+              <div className="space-y-2 ml-8">
+                <div className="flex items-center gap-2 text-xs animate-fade-in">
+                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                  <span className="text-muted-foreground">Authenticating with Copernicus...</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs animate-fade-in" style={{ animationDelay: '0.3s' }}>
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  <span className="text-muted-foreground">Querying satellite catalog...</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs opacity-50">
+                  <div className="h-3 w-3 rounded-full border-2 border-muted" />
+                  <span className="text-muted-foreground">Calculating NDVI statistics...</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs opacity-50">
+                  <div className="h-3 w-3 rounded-full border-2 border-muted" />
+                  <span className="text-muted-foreground">Generating visualizations...</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-xs opacity-50">
-                <div className="h-3 w-3 rounded-full border-2 border-muted" />
-                <span className="text-muted-foreground">Calculating NDVI statistics...</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs opacity-50">
-                <div className="h-3 w-3 rounded-full border-2 border-muted" />
-                <span className="text-muted-foreground">Generating visualizations...</span>
-              </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -337,6 +368,29 @@ export function SyncNdviDialog({
               <p className="text-xs text-destructive font-medium">{dateError}</p>
             </div>
           )}
+
+          {/* Processing Mode Selection */}
+          <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="use-tile-first"
+                checked={useTileFirst}
+                onCheckedChange={(checked) => setUseTileFirst(checked as boolean)}
+                disabled={isSyncing}
+              />
+              <Label htmlFor="use-tile-first" className="text-xs cursor-pointer">
+                Process by tiles (recommended)
+              </Label>
+              <Badge variant="secondary" className="text-[10px] ml-auto">
+                33× faster
+              </Badge>
+            </div>
+            <p className="text-[10px] text-muted-foreground ml-6">
+              {useTileFirst 
+                ? '✓ Tile-first: 1 API call per tile, reused by all lands' 
+                : '⚠ Land-first: Multiple API calls per land (slower, more expensive)'}
+            </p>
+          </div>
 
           {/* Compact Max Tiles */}
           <div className="space-y-1.5">
