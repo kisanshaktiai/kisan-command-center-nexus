@@ -15314,7 +15314,7 @@ export type Database = {
         Returns: number
       }
       find_mgrs_tile_for_land: {
-        Args: { land_geom: Json } | { land_geom: unknown }
+        Args: { land_geom: unknown }
         Returns: {
           geometry: Json
           id: string
