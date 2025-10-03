@@ -18,16 +18,36 @@ serve(async (req) => {
 
     console.log('[mark-agricultural-tiles] Starting agricultural tile detection');
 
-    // Get all lands with boundaries
+    // Get all lands with boundaries (boundary is geometry type, not JSONB)
     const { data: lands, error: landsError } = await supabase
       .from('lands')
-      .select('id, boundary');
+      .select('id, boundary')
+      .not('boundary', 'is', null);
 
     if (landsError) {
+      console.error('[mark-agricultural-tiles] Error fetching lands:', landsError);
       throw landsError;
     }
 
     console.log(`[mark-agricultural-tiles] Found ${lands?.length || 0} lands to process`);
+
+    if (!lands || lands.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            total_lands: 0,
+            processed_lands: 0,
+            marked_tiles: [],
+            marked_tiles_count: 0,
+            created_satellite_tiles: [],
+            errors: []
+          },
+          message: 'No lands with boundaries found'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const markedTiles = new Set<string>();
     const createdSatTiles: string[] = [];
@@ -36,7 +56,10 @@ serve(async (req) => {
 
     for (const land of lands || []) {
       try {
-        // Find which MGRS tile contains this land
+        console.log(`[mark-agricultural-tiles] Processing land ${land.id}`);
+        
+        // The boundary column is geometry type in PostGIS format
+        // The RPC function expects geometry type directly
         const { data: containingTiles, error: tileError } = await supabase
           .rpc('find_mgrs_tile_for_land', { land_geom: land.boundary });
 
