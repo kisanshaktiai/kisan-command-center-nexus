@@ -21,7 +21,7 @@ serve(async (req) => {
     // Get all lands with boundaries
     const { data: lands, error: landsError } = await supabase
       .from('lands')
-      .select('id, boundary, area, farmer_id');
+      .select('id, boundary');
 
     if (landsError) {
       throw landsError;
