@@ -149,6 +149,12 @@ verify_jwt = false
 [functions.weekly-ndvi-sync]
 verify_jwt = false
 
+[functions.fetch-land-ndvi]
+verify_jwt = false
+
+[functions.batch-process-ndvi-queue]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323
