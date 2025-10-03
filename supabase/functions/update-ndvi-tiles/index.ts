@@ -254,14 +254,23 @@ serve(async (req) => {
     const token = await getOAuthToken(clientId, clientSecret);
 
     // Get tiles to update (either specific tiles or all that need refresh)
+    // Join with mgrs_tiles to get geometry
     let query = supabase
       .from('satellite_tiles')
-      .select('*');
+      .select(`
+        *,
+        mgrs_tile:mgrs_tiles!mgrs_tile_id (
+          geometry,
+          is_agri,
+          state,
+          district
+        )
+      `);
 
     if (tileIds.length > 0) {
       query = query.in('tile_id', tileIds);
     } else if (!forceUpdate) {
-      // Only update tiles older than 24 hours
+      // Only update tiles older than 24 hours or never updated
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       query = query.or(`updated_at.is.null,updated_at.lt.${yesterday}`);
     }
@@ -285,8 +294,15 @@ serve(async (req) => {
       try {
         console.log(`[update-ndvi-tiles] Processing tile: ${tile.tile_id}`);
         
+        // Skip if no mgrs_tile geometry data
+        if (!tile.mgrs_tile || !tile.mgrs_tile.geometry) {
+          console.warn(`[update-ndvi-tiles] Skipping ${tile.tile_id}: No geometry data`);
+          results.processed++;
+          continue;
+        }
+        
         // Extract bbox from geometry
-        const geom = tile.geometry;
+        const geom = tile.mgrs_tile.geometry;
         let bbox: number[];
         
         if (geom.type === 'MultiPolygon') {
@@ -294,8 +310,13 @@ serve(async (req) => {
           const lngs = coords.map((c: number[]) => c[0]);
           const lats = coords.map((c: number[]) => c[1]);
           bbox = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+        } else if (geom.type === 'Polygon') {
+          const coords = geom.coordinates[0];
+          const lngs = coords.map((c: number[]) => c[0]);
+          const lats = coords.map((c: number[]) => c[1]);
+          bbox = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
         } else {
-          throw new Error('Unsupported geometry type');
+          throw new Error(`Unsupported geometry type: ${geom.type}`);
         }
 
         // Search for latest scene
