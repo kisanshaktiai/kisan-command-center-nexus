@@ -103,9 +103,12 @@ export const useSatelliteTiles = (
       
       const { data, error } = await supabase.functions.invoke('update-ndvi-tiles', {
         body: {
+          startDate: params?.startDate,
+          endDate: params?.endDate,
+          cloudCoverage: params?.cloudCoverage || 20,
+          regions: params?.regions || [],
           tileIds: params?.tileIds || [],
-          forceUpdate: params?.forceRefresh || false,
-          cloudCoverage: params?.cloudCoverage || 20
+          forceUpdate: params?.forceRefresh || false
         },
       });
 

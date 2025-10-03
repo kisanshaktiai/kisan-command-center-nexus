@@ -62,14 +62,15 @@ async function searchLatestScene(
   token: string,
   bbox: number[],
   dateFrom: string,
-  dateTo: string
+  dateTo: string,
+  cloudCoverageThreshold: number = 20
 ): Promise<any> {
   const catalogPayload = {
     collections: ['sentinel-2-l2a'],
     bbox,
     datetime: `${dateFrom}T00:00:00Z/${dateTo}T23:59:59Z`,
     limit: 1,
-    filter: 'eo:cloud_cover < 20',
+    filter: `eo:cloud_cover < ${cloudCoverageThreshold}`,
     'filter-lang': 'cql2-text'
   };
 
@@ -313,7 +314,25 @@ serve(async (req) => {
       throw new Error('Copernicus credentials not configured');
     }
 
-    console.log('[update-ndvi-tiles] Starting NDVI data sync');
+    // Parse request body for user-provided parameters
+    const body = await req.json().catch(() => ({}));
+    const {
+      startDate: userStartDate,
+      endDate: userEndDate,
+      cloudCoverage: userCloudCoverage,
+      regions: userRegions,
+      tileIds,
+      forceUpdate
+    } = body;
+
+    console.log('[update-ndvi-tiles] Starting NDVI data sync with params:', {
+      startDate: userStartDate,
+      endDate: userEndDate,
+      cloudCoverage: userCloudCoverage,
+      regions: userRegions,
+      tileIds,
+      forceUpdate
+    });
 
     // Get OAuth token
     const token = await getOAuthToken(clientId, clientSecret);
@@ -337,10 +356,22 @@ serve(async (req) => {
       errors: [] as any[]
     };
 
-    // Date range: last 30 days, excluding today (satellite data is historical)
+    // Date range: use user-provided dates or default to last 30 days
     const now = new Date();
-    const dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
-    let dateTo = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000); // Yesterday
+    let dateFrom: Date;
+    let dateTo: Date;
+    
+    if (userStartDate && userEndDate) {
+      // Use user-provided dates
+      dateFrom = new Date(userStartDate);
+      dateTo = new Date(userEndDate);
+      console.log('[update-ndvi-tiles] Using user-provided date range');
+    } else {
+      // Default: last 30 days, excluding today (satellite data is historical)
+      dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      dateTo = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
+      console.log('[update-ndvi-tiles] Using default date range (last 30 days)');
+    }
     
     // Ensure dates are in the past
     if (dateTo > now) {
@@ -349,40 +380,47 @@ serve(async (req) => {
     
     const dateFromStr = dateFrom.toISOString().split('T')[0];
     const dateToStr = dateTo.toISOString().split('T')[0];
+    
+    // Cloud coverage: use user-provided value or default to 20%
+    const cloudCoverageThreshold = userCloudCoverage ?? 20;
 
-    console.log(`[update-ndvi-tiles] Searching for imagery from ${dateFromStr} to ${dateToStr}`);
+    console.log(`[update-ndvi-tiles] Searching for imagery from ${dateFromStr} to ${dateToStr} with cloud coverage <= ${cloudCoverageThreshold}%`);
 
     for (const land of lands || []) {
       try {
         console.log(`\n[update-ndvi-tiles] Processing land: ${land.name} (${land.id})`);
         
-        // Check if we have recent data (within 24 hours)
-        const { data: existingData } = await supabase
-          .from('ndvi_micro_tiles')
-          .select('acquisition_date, created_at')
-          .eq('land_id', land.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+        // Check if we have recent data (within 24 hours) unless forceUpdate is true
+        if (!forceUpdate) {
+          const { data: existingData } = await supabase
+            .from('ndvi_micro_tiles')
+            .select('acquisition_date, created_at')
+            .eq('land_id', land.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
 
-        if (existingData) {
-          const lastUpdate = new Date(existingData.created_at);
-          const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
-          
-          if (hoursSinceUpdate < 24) {
-            console.log(`[update-ndvi-tiles] Skipping ${land.name}: Data is recent (${hoursSinceUpdate.toFixed(1)}h old)`);
-            results.processed++;
-            results.skipped++;
-            continue;
+          if (existingData) {
+            const lastUpdate = new Date(existingData.created_at);
+            const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+            
+            if (hoursSinceUpdate < 24) {
+              console.log(`[update-ndvi-tiles] Skipping ${land.name}: Data is recent (${hoursSinceUpdate.toFixed(1)}h old)`);
+              results.processed++;
+              results.skipped++;
+              continue;
+            }
           }
+        } else {
+          console.log(`[update-ndvi-tiles] Force update enabled for ${land.name}`);
         }
 
         // Extract bbox from land boundary
         const bbox = extractBbox(land.boundary);
         console.log(`[update-ndvi-tiles] Bbox for ${land.name}:`, bbox);
 
-        // Search for latest scene
-        const scene = await searchLatestScene(token, bbox, dateFromStr, dateToStr);
+        // Search for latest scene with user-specified cloud coverage threshold
+        const scene = await searchLatestScene(token, bbox, dateFromStr, dateToStr, cloudCoverageThreshold);
         
         if (!scene) {
           console.log(`[update-ndvi-tiles] No satellite data found for ${land.name}`);
