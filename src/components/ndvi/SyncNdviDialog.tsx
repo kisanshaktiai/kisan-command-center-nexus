@@ -96,16 +96,16 @@ export function SyncNdviDialog({
         // Set start date to the last successful download date
         setStartDate(format(new Date(data.updated_at), 'yyyy-MM-dd'));
       } else {
-        // Default to 7 days before end date if no prior download
+        // Default to 14 days before end date if no prior download
         const defaultStart = new Date(fixedEndDate);
-        defaultStart.setDate(defaultStart.getDate() - 7);
+        defaultStart.setDate(defaultStart.getDate() - 14);
         setStartDate(format(defaultStart, 'yyyy-MM-dd'));
       }
     } catch (error) {
       console.error('Failed to fetch last sync date:', error);
-      // Default to 7 days before end date on error
+      // Default to 14 days before end date on error
       const defaultStart = new Date(fixedEndDate);
-      defaultStart.setDate(defaultStart.getDate() - 7);
+      defaultStart.setDate(defaultStart.getDate() - 14);
       setStartDate(format(defaultStart, 'yyyy-MM-dd'));
     }
   };
