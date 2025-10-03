@@ -267,34 +267,32 @@ async function calculateNDVIStats(
   `;
 
   // Calculate appropriate resolution based on bbox size to stay within 1500m/pixel limit
-  // For MGRS tiles (~110km), we need coarser resolution
   const bboxWidth = bbox[2] - bbox[0]; // degrees
   const bboxHeight = bbox[3] - bbox[1]; // degrees
   const widthKm = bboxWidth * 111.32; // approximate km
   const heightKm = bboxHeight * 110.57; // approximate km
   
-  // Calculate resolution to keep under 1500m/pixel limit with max 512x512 output
-  // Target: widthKm * 1000 / resolution <= 512 * 1500
-  const maxAllowedMetersPerPixel = 1400; // Stay safely under 1500m/pixel limit
-  const minResolution = Math.max(
-    (widthKm * 1000) / (512 * (1000 / maxAllowedMetersPerPixel)),
-    (heightKm * 1000) / (512 * (1000 / maxAllowedMetersPerPixel)),
-    60 // Minimum 60m resolution (Sentinel-2 B05/B06/B07 resolution)
-  );
+  // For Statistical API: Calculate resolution that keeps us under 1500m/pixel
+  // Formula: resolution (m/px) = (bbox_size_meters) / (max_pixels)
+  // Sentinel Hub allows max 2500x2500 pixels, but we use 512x512 for efficiency
+  const maxPixels = 512;
+  const maxMetersPerPixel = 1400; // Stay under 1500m/pixel limit
   
-  // Round to nearest valid Sentinel-2 resolution: 10m, 20m, 60m, or higher
-  let resolution = 60;
-  if (minResolution > 60) {
-    resolution = Math.ceil(minResolution / 10) * 10; // Round up to nearest 10m
-  } else if (minResolution > 20) {
-    resolution = 60;
-  } else if (minResolution > 10) {
-    resolution = 20;
-  } else {
-    resolution = 10;
-  }
+  // Calculate minimum resolution needed to fit bbox in maxPixels
+  const minResolutionForWidth = (widthKm * 1000) / maxPixels;
+  const minResolutionForHeight = (heightKm * 1000) / maxPixels;
+  const calculatedResolution = Math.max(minResolutionForWidth, minResolutionForHeight);
   
-  console.log(`[Statistical API] Bbox: ${widthKm.toFixed(2)}km x ${heightKm.toFixed(2)}km, Using resolution: ${resolution}m`);
+  // Clamp resolution to valid range (10m to 1400m) and round to nearest 10m
+  let resolution = Math.max(10, Math.min(maxMetersPerPixel, Math.ceil(calculatedResolution / 10) * 10));
+  
+  // Round to nearest valid Sentinel-2 resolution tier for better caching
+  if (resolution <= 10) resolution = 10;
+  else if (resolution <= 20) resolution = 20;
+  else if (resolution <= 60) resolution = 60;
+  else resolution = Math.ceil(resolution / 100) * 100; // Round to nearest 100m for large areas
+  
+  console.log(`[Statistical API] Bbox: ${widthKm.toFixed(2)}km x ${heightKm.toFixed(2)}km, Calculated: ${calculatedResolution.toFixed(0)}m, Using resolution: ${resolution}m`);
 
   const statsPayload = {
     input: {
