@@ -322,7 +322,7 @@ serve(async (req) => {
     // Get all active lands with boundaries
     const { data: lands, error: landsError } = await supabase
       .from('lands')
-      .select('id, land_name, boundary, tenant_id')
+      .select('id, name, boundary, tenant_id')
       .not('boundary', 'is', null);
 
     if (landsError) {
@@ -349,7 +349,7 @@ serve(async (req) => {
 
     for (const land of lands || []) {
       try {
-        console.log(`\n[update-ndvi-tiles] Processing land: ${land.land_name} (${land.id})`);
+        console.log(`\n[update-ndvi-tiles] Processing land: ${land.name} (${land.id})`);
         
         // Check if we have recent data (within 24 hours)
         const { data: existingData } = await supabase
@@ -365,7 +365,7 @@ serve(async (req) => {
           const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
           
           if (hoursSinceUpdate < 24) {
-            console.log(`[update-ndvi-tiles] Skipping ${land.land_name}: Data is recent (${hoursSinceUpdate.toFixed(1)}h old)`);
+            console.log(`[update-ndvi-tiles] Skipping ${land.name}: Data is recent (${hoursSinceUpdate.toFixed(1)}h old)`);
             results.processed++;
             results.skipped++;
             continue;
@@ -374,16 +374,16 @@ serve(async (req) => {
 
         // Extract bbox from land boundary
         const bbox = extractBbox(land.boundary);
-        console.log(`[update-ndvi-tiles] Bbox for ${land.land_name}:`, bbox);
+        console.log(`[update-ndvi-tiles] Bbox for ${land.name}:`, bbox);
 
         // Search for latest scene
         const scene = await searchLatestScene(token, bbox, dateFrom, dateTo);
         
         if (!scene) {
-          console.log(`[update-ndvi-tiles] No satellite data found for ${land.land_name}`);
+          console.log(`[update-ndvi-tiles] No satellite data found for ${land.name}`);
           results.processed++;
           results.errors.push({
-            land: land.land_name,
+            land: land.name,
             error: 'No satellite data available'
           });
           continue;
@@ -448,10 +448,7 @@ serve(async (req) => {
             cloud_cover: cloudCover,
             ndvi_thumbnail_url: publicUrl,
             bbox: bbox,
-            data_source: 'copernicus',
-            processing_status: 'completed',
-            created_at: new Date().toISOString(),
-            expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+            expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
           }, {
             onConflict: 'land_id,acquisition_date'
           });
@@ -463,13 +460,13 @@ serve(async (req) => {
 
         results.processed++;
         results.updated++;
-        console.log(`[update-ndvi-tiles] ✓ Completed ${land.land_name}`);
+        console.log(`[update-ndvi-tiles] ✓ Completed ${land.name}`);
 
       } catch (error) {
-        console.error(`[update-ndvi-tiles] Error processing ${land.land_name}:`, error);
+        console.error(`[update-ndvi-tiles] Error processing ${land.name}:`, error);
         results.processed++;
         results.errors.push({
-          land: land.land_name,
+          land: land.name,
           error: error.message
         });
       }
