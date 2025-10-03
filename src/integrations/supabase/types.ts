@@ -15124,6 +15124,10 @@ export type Database = {
         Args: { "": unknown } | { "": unknown }
         Returns: string
       }
+      calculate_area_km2: {
+        Args: { geom: unknown }
+        Returns: number
+      }
       calculate_engagement_score: {
         Args: { post_id: string }
         Returns: number

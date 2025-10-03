@@ -58,8 +58,19 @@ serve(async (req) => {
       try {
         console.log(`[mark-agricultural-tiles] Processing land ${land.id}`);
         
-        // The boundary column is geometry type in PostGIS format
-        // The RPC function expects geometry type directly
+        // Calculate land area in km² from geometry
+        const { data: areaData, error: areaError } = await supabase
+          .rpc('calculate_area_km2', { geom: land.boundary });
+        
+        if (areaError) {
+          console.error(`[mark-agricultural-tiles] Error calculating area for land ${land.id}:`, areaError);
+          errors.push({ land_id: land.id, error: areaError.message });
+          continue;
+        }
+
+        const landAreaKm2 = areaData || 0;
+        
+        // Find MGRS tile containing this land
         const { data: containingTiles, error: tileError } = await supabase
           .rpc('find_mgrs_tile_for_land', { land_geom: land.boundary });
 
@@ -72,17 +83,18 @@ serve(async (req) => {
         if (containingTiles && containingTiles.length > 0) {
           const mgrsTile = containingTiles[0];
           
-          console.log(`[mark-agricultural-tiles] Land ${land.id} -> MGRS tile ${mgrsTile.tile_id}`);
+          console.log(`[mark-agricultural-tiles] Land ${land.id} -> MGRS tile ${mgrsTile.tile_id} (${landAreaKm2.toFixed(4)} km²)`);
 
-          // Mark MGRS tile as agricultural
-          const { error: updateError } = await supabase
-            .from('mgrs_tiles')
-            .update({ is_agri: true })
-            .eq('id', mgrsTile.id);
+          // Use RPC function to properly mark tile and increment counts
+          const { error: markError } = await supabase
+            .rpc('mark_agricultural_tile', {
+              p_tile_id: mgrsTile.tile_id,
+              p_land_area_km2: landAreaKm2
+            });
 
-          if (updateError) {
-            console.error(`[mark-agricultural-tiles] Error marking tile ${mgrsTile.tile_id}:`, updateError);
-            errors.push({ land_id: land.id, tile_id: mgrsTile.tile_id, error: updateError.message });
+          if (markError) {
+            console.error(`[mark-agricultural-tiles] Error marking tile ${mgrsTile.tile_id}:`, markError);
+            errors.push({ land_id: land.id, tile_id: mgrsTile.tile_id, error: markError.message });
           } else {
             markedTiles.add(mgrsTile.tile_id);
           }
