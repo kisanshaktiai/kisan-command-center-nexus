@@ -309,7 +309,7 @@ async function processTileNdvi(
 
   // 1. Catalog API - Find scenes using proper CQL2-JSON filter
   const catalogPayload = {
-    collections: ['sentinel-2-l2a'],
+    collections: ['SENTINEL-2'],
     bbox: tile.bbox,
     datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
     limit: 10,
@@ -361,7 +361,7 @@ async function processTileNdvi(
       },
       data: [
         {
-          type: 'sentinel-2-l2a',
+          type: 'SENTINEL-2',
           dataFilter: {
             timeRange: {
               from: `${acquisitionDate}T00:00:00Z`,
@@ -459,7 +459,7 @@ async function processTileNdvi(
       },
       data: [
         {
-          type: 'sentinel-2-l2a',
+          type: 'SENTINEL-2',
           dataFilter: {
             timeRange: {
               from: `${acquisitionDate}T00:00:00Z`,
