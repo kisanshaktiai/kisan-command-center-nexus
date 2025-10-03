@@ -15313,6 +15313,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      find_mgrs_tile_for_land: {
+        Args: { land_geom: Json }
+        Returns: {
+          geometry: Json
+          id: string
+          tile_id: string
+        }[]
+      }
       gbt_bit_compress: {
         Args: { "": unknown }
         Returns: unknown
