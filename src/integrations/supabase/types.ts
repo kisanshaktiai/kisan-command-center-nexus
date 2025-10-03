@@ -15949,6 +15949,13 @@ export type Database = {
           tile_id: string
         }[]
       }
+      get_tiles_with_lands: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          land_count: number
+          tile_id: string
+        }[]
+      }
       get_user_tenant_relationships: {
         Args: {
           p_include_inactive?: boolean
