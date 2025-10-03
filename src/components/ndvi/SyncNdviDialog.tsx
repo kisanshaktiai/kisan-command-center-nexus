@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Cloud, Database, MapPin, AlertCircle } from 'lucide-react';
+import { Calendar, Cloud, Database, MapPin, AlertCircle, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -163,47 +163,107 @@ export function SyncNdviDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
             Sync NDVI Data
           </DialogTitle>
           <DialogDescription>
-            Configure data source and parameters for NDVI synchronization
+            Configure parameters for NDVI synchronization
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          {/* System Info */}
-          <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5" />
+        {/* Syncing Progress Indicator */}
+        {isSyncing && (
+          <div className="animate-fade-in bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">MGRS-Based NDVI Processing</p>
-                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                  Uses existing MGRS tiles from database. Fetches data from Copernicus DataSpace with OAuth2 authentication.
+                <p className="font-semibold text-sm">Synchronizing Data...</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Processing MGRS tiles from Copernicus DataSpace
                 </p>
-                <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
-                  <strong>Required:</strong> COPERNICUS_CLIENT_ID and COPERNICUS_CLIENT_SECRET must be configured in edge function secrets.
-                </p>
+              </div>
+            </div>
+            
+            {/* Animated Steps */}
+            <div className="space-y-2 ml-8">
+              <div className="flex items-center gap-2 text-xs animate-fade-in">
+                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                <span className="text-muted-foreground">Authenticating with Copernicus...</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs animate-fade-in" style={{ animationDelay: '0.3s' }}>
+                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                <span className="text-muted-foreground">Querying satellite catalog...</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs opacity-50">
+                <div className="h-3 w-3 rounded-full border-2 border-muted" />
+                <span className="text-muted-foreground">Calculating NDVI statistics...</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs opacity-50">
+                <div className="h-3 w-3 rounded-full border-2 border-muted" />
+                <span className="text-muted-foreground">Generating visualizations...</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-3 py-2">
+          {/* Compact Date & Cloud Coverage Row */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="start-date" className="text-xs flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                Start
+              </Label>
+              <Input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="h-8 text-xs"
+                disabled={isSyncing}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="end-date" className="text-xs flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                End
+              </Label>
+              <Input
+                id="end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="h-8 text-xs"
+                disabled={isSyncing}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cloud-coverage" className="text-xs flex items-center gap-1">
+                <Cloud className="h-3 w-3" />
+                Cloud
+              </Label>
+              <div className="flex items-center gap-1">
+                <Input
+                  id="cloud-coverage"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={cloudCoverage}
+                  onChange={(e) => setCloudCoverage(Number(e.target.value))}
+                  className="h-8 text-xs w-14"
+                  disabled={isSyncing}
+                />
+                <span className="text-xs text-muted-foreground">%</span>
               </div>
             </div>
           </div>
 
-          {/* MGRS Tiles Status */}
-          {!isLoadingRegions && (
-            <div className="bg-muted/50 p-3 rounded-lg">
-              <p className="text-xs text-muted-foreground">
-                <strong>MGRS Tiles in Database:</strong> {availableRegions.reduce((sum, r) => sum + r.tileCount, 0)} total 
-                ({availableRegions.reduce((sum, r) => sum + r.agriTileCount, 0)} agricultural)
-              </p>
-            </div>
-          )}
-
-          {/* Max Tiles Per Run */}
-          <div className="space-y-2">
-            <Label htmlFor="max-tiles">Maximum Tiles Per Sync (1-100)</Label>
+          {/* Compact Max Tiles */}
+          <div className="space-y-1.5">
+            <Label htmlFor="max-tiles" className="text-xs">Max Tiles (1-100)</Label>
             <Input
               id="max-tiles"
               type="number"
@@ -211,105 +271,56 @@ export function SyncNdviDialog({
               max="100"
               value={maxTilesPerRun}
               onChange={(e) => setMaxTilesPerRun(Math.min(100, Math.max(1, Number(e.target.value))))}
+              className="h-8 text-xs"
+              disabled={isSyncing}
             />
-            <p className="text-xs text-muted-foreground">
-              Limits processing to avoid timeouts. Default: 50 tiles per run.
-            </p>
           </div>
 
-          {/* Date Range */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start-date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Start Date
-              </Label>
-              <Input
-                id="start-date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="end-date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                End Date
-              </Label>
-              <Input
-                id="end-date"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Cloud Coverage */}
-          <div className="space-y-2">
-            <Label htmlFor="cloud-coverage" className="flex items-center gap-2">
-              <Cloud className="h-4 w-4" />
-              Maximum Cloud Coverage (%)
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="cloud-coverage"
-                type="range"
-                min="0"
-                max="100"
-                value={cloudCoverage}
-                onChange={(e) => setCloudCoverage(Number(e.target.value))}
-                className="flex-1"
-              />
-              <span className="w-12 text-right font-medium">{cloudCoverage}%</span>
-            </div>
-          </div>
-
-          {/* Region Selection */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Agricultural MGRS Tiles ({availableRegions.reduce((sum, r) => sum + r.agriTileCount, 0)} available)
+          {/* Region Selection - Compact */}
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              Regions ({availableRegions.reduce((sum, r) => sum + r.agriTileCount, 0)} tiles)
             </Label>
             {isLoadingRegions ? (
-              <div className="text-sm text-muted-foreground py-4 text-center">
-                Loading MGRS tile information...
+              <div className="text-xs text-muted-foreground py-3 text-center flex items-center justify-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading regions...
               </div>
             ) : availableRegions.length === 0 ? (
-              <div className="text-sm text-destructive py-4 text-center border rounded-lg p-4">
-                No MGRS tiles found in database. Please ensure the mgrs_tiles table is populated.
+              <div className="text-xs text-destructive py-2 text-center border rounded p-2 bg-destructive/5">
+                No MGRS tiles found
               </div>
             ) : (
-              <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-1">
+              <div className="max-h-32 overflow-y-auto border rounded p-2 space-y-1">
                 {availableRegions[0]?.state.includes('state data not populated') ? (
-                  <div className="p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                    <p className="text-sm text-yellow-900 dark:text-yellow-100">
-                      <strong>Note:</strong> State/region data not populated in MGRS tiles. 
-                      Will process all {availableRegions[0].agriTileCount} agricultural tiles.
-                    </p>
+                  <div className="p-2 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded text-xs">
+                    All {availableRegions[0].agriTileCount} agricultural tiles
                   </div>
                 ) : (
                   availableRegions.map((region) => (
                     <div
                       key={region.state}
-                      className="flex items-center justify-between space-x-2 p-2 hover:bg-muted/50 rounded transition-colors"
+                      className="flex items-center justify-between p-1.5 hover:bg-muted/50 rounded"
                     >
-                      <div className="flex items-center space-x-2 flex-1">
+                      <div className="flex items-center gap-1.5 flex-1">
                         <Checkbox
                           id={region.state}
                           checked={selectedRegions.includes(region.state)}
                           onCheckedChange={() => toggleRegion(region.state)}
+                          disabled={isSyncing}
+                          className="h-3 w-3"
                         />
                         <Label
                           htmlFor={region.state}
-                          className="text-sm font-medium leading-none cursor-pointer flex-1"
+                          className="text-xs cursor-pointer flex-1"
                         >
                           {region.state}
                         </Label>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {region.agriTileCount} agri tiles
-                      </div>
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                        {region.agriTileCount}
+                      </Badge>
                     </div>
                   ))
                 )}
@@ -317,34 +328,35 @@ export function SyncNdviDialog({
             )}
           </div>
 
-          {/* Info Box */}
-          <div className="bg-muted/50 p-3 rounded-lg space-y-2">
-            <p className="text-sm text-muted-foreground">
-              <strong>Processing Method:</strong>
-            </p>
-            <ul className="text-xs text-muted-foreground space-y-1 ml-4">
-              <li>• Fetches MGRS tiles from database (agricultural tiles only)</li>
-              <li>• Queries Copernicus STAC API for Sentinel-2 data</li>
-              <li>• Generates NDVI visualization using Process API</li>
-              <li>• Calculates statistics using Statistical API</li>
-              <li>• Stores PNG images and metadata in Supabase</li>
-            </ul>
+          {/* Compact Info */}
+          <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground space-y-1">
+            <p className="font-medium">Processing: MGRS → Catalog → NDVI → Storage</p>
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isSyncing}
+            size="sm"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSync}
             disabled={isSyncing || selectedRegions.length === 0}
+            size="sm"
+            className="gap-2"
           >
-            {isSyncing ? 'Syncing...' : 'Start Sync'}
+            {isSyncing ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              'Start Sync'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
