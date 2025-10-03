@@ -113,16 +113,13 @@ async function searchCatalog(
   dateTo: string,
   cloudCoverage: number
 ): Promise<any> {
+  // Sentinel Hub Catalog API uses CQL2 filter format, not STAC query
   const catalogPayload = {
     bbox: bbox,
     datetime: `${dateFrom}T00:00:00Z/${dateTo}T23:59:59Z`,
     collections: ["sentinel-2-l2a"],
     limit: 1,
-    query: {
-      "eo:cloud_cover": {
-        "lt": cloudCoverage
-      }
-    }
+    filter: `eo:cloud_cover < ${cloudCoverage}` // CQL2 text filter
   };
 
   console.log('[Catalog API] Request:', JSON.stringify(catalogPayload, null, 2));
