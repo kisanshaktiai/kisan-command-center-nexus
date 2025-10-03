@@ -337,13 +337,20 @@ serve(async (req) => {
       errors: [] as any[]
     };
 
-    // Date range: last 7 days
+    // Date range: last 30 days, excluding today (satellite data is historical)
     const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const dateFrom = sevenDaysAgo.toISOString().split('T')[0];
-    const dateTo = now.toISOString().split('T')[0];
+    const dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+    let dateTo = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000); // Yesterday
+    
+    // Ensure dates are in the past
+    if (dateTo > now) {
+      dateTo = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
+    }
+    
+    const dateFromStr = dateFrom.toISOString().split('T')[0];
+    const dateToStr = dateTo.toISOString().split('T')[0];
 
-    console.log(`[update-ndvi-tiles] Date range: ${dateFrom} to ${dateTo}`);
+    console.log(`[update-ndvi-tiles] Searching for imagery from ${dateFromStr} to ${dateToStr}`);
 
     for (const land of lands || []) {
       try {
@@ -375,7 +382,7 @@ serve(async (req) => {
         console.log(`[update-ndvi-tiles] Bbox for ${land.name}:`, bbox);
 
         // Search for latest scene
-        const scene = await searchLatestScene(token, bbox, dateFrom, dateTo);
+        const scene = await searchLatestScene(token, bbox, dateFromStr, dateToStr);
         
         if (!scene) {
           console.log(`[update-ndvi-tiles] No satellite data found for ${land.name}`);
@@ -393,7 +400,7 @@ serve(async (req) => {
         console.log(`[update-ndvi-tiles] Scene found - Date: ${acquisitionDate}, Cloud: ${cloudCover}%`);
 
         // Calculate NDVI statistics
-        const statsData = await calculateNdviStats(token, bbox, dateFrom, dateTo);
+        const statsData = await calculateNdviStats(token, bbox, dateFromStr, dateToStr);
         
         const ndviStats = statsData.data?.[0]?.outputs?.default?.bands?.ndvi?.stats;
         
@@ -409,7 +416,7 @@ serve(async (req) => {
         });
 
         // Generate NDVI PNG
-        const imageBlob = await generateNdviImage(token, bbox, dateFrom, dateTo);
+        const imageBlob = await generateNdviImage(token, bbox, dateFromStr, dateToStr);
         const imageBuffer = await imageBlob.arrayBuffer();
         
         // Upload to Supabase Storage
