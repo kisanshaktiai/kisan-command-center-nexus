@@ -155,6 +155,9 @@ verify_jwt = false
 [functions.batch-process-ndvi-queue]
 verify_jwt = false
 
+[functions.update-ndvi-tiles]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323

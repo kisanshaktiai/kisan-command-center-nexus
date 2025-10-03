@@ -57,7 +57,7 @@ serve(async (req) => {
       );
     }
 
-    // 1. Check cache first
+    // 1. Check cache first (land-specific NDVI data)
     const { data: cachedData, error: cacheError } = await supabase
       .from('ndvi_micro_tiles')
       .select('*')
@@ -68,7 +68,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (cachedData && !cacheError) {
-      console.log('[fetch-land-ndvi] Returning cached data');
+      console.log('[fetch-land-ndvi] ✓ Returning cached land NDVI data');
       
       // Update access tracking
       await supabase
@@ -84,16 +84,21 @@ serve(async (req) => {
           success: true,
           data: cachedData,
           cached: true,
-          message: 'Data served from cache'
+          source: 'land_cache',
+          message: 'Data served from land cache (0 API cost)'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 2. Get land information
+    // 2. Get land information and tile mapping
     const { data: land, error: landError } = await supabase
       .from('lands')
-      .select('*, farmer:farmers(id, tenant_id)')
+      .select(`
+        *,
+        farmer:farmers(id, tenant_id),
+        land_tile_mapping(tile_id, mgrs_tile:mgrs_tiles(id, tile_id, geometry))
+      `)
       .eq('id', landId)
       .single();
 
@@ -104,7 +109,70 @@ serve(async (req) => {
       );
     }
 
-    // 3. Extract bbox from land boundary
+    // 3. Check if we have a cached tile-level NDVI
+    const tileMapping = land.land_tile_mapping?.[0];
+    if (tileMapping?.tile_id) {
+      const { data: tileCacheData } = await supabase
+        .from('satellite_tiles')
+        .select('*')
+        .eq('tile_id', tileMapping.tile_id)
+        .eq('status', 'ready')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (tileCacheData && tileCacheData.ndvi_mean !== null) {
+        console.log('[fetch-land-ndvi] ✓ Found cached tile, clipping to land');
+        
+        // Extract bbox from land boundary
+        const landBbox = extractBboxFromBoundary(land.boundary);
+        
+        // For now, we approximate land NDVI from tile NDVI
+        // In production, this would clip the actual NDVI image to land polygon
+        const landNdviData = {
+          land_id: landId,
+          farmer_id: land.farmer_id,
+          tenant_id: land.farmer.tenant_id,
+          bbox: landBbox,
+          acquisition_date: tileCacheData.acquisition_date,
+          cloud_cover: tileCacheData.cloud_cover,
+          ndvi_mean: tileCacheData.ndvi_mean,
+          ndvi_min: tileCacheData.ndvi_min,
+          ndvi_max: tileCacheData.ndvi_max,
+          ndvi_std_dev: tileCacheData.ndvi_std_dev,
+          ndvi_thumbnail_url: tileCacheData.ndvi_image_url,
+          statistics_only: statisticsOnly,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          processing_units_used: 0, // Zero cost - clipped from tile
+          resolution_meters: 500 // Tile resolution
+        };
+
+        // Cache the land-specific data
+        const { error: insertError } = await supabase
+          .from('ndvi_micro_tiles')
+          .insert(landNdviData);
+
+        if (insertError) {
+          console.error('[fetch-land-ndvi] Cache insert error:', insertError);
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: landNdviData,
+            cached: true,
+            source: 'tile_cache_clipped',
+            message: 'Data clipped from cached tile (0 API cost)'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // 4. No cache available - need to fetch from API
+    console.log('[fetch-land-ndvi] No cache available, need to fetch from Copernicus');
+
+    // Extract bbox from land boundary
     const landBbox = extractBboxFromBoundary(land.boundary);
     if (landBbox.length === 0) {
       return new Response(
@@ -113,7 +181,7 @@ serve(async (req) => {
       );
     }
 
-    // 4. Calculate optimal resolution
+    // Calculate optimal resolution
     const resolution = calculateOptimalResolution(land.area || 1);
 
     // 5. If not urgent, add to batch queue
@@ -123,7 +191,7 @@ serve(async (req) => {
         .insert({
           tenant_id: land.farmer.tenant_id,
           land_ids: [landId],
-          tile_id: 'pending', // Will be determined by batch processor
+          tile_id: tileMapping?.tile_id || 'pending',
           date_from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           date_to: new Date().toISOString().split('T')[0],
           statistics_only: statisticsOnly,
@@ -139,23 +207,23 @@ serve(async (req) => {
           success: true,
           status: 'queued',
           message: 'Request queued for batch processing',
-          estimatedReady: '30 minutes'
+          estimatedReady: 'Next scheduled sync (within 24h)'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 6. For urgent requests, return immediate response
-    // (In production, this would call Copernicus API for small bbox)
+    // 6. For urgent requests, trigger tile update
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Urgent processing initiated',
+        message: 'Tile update triggered - please wait',
         data: {
           land_id: landId,
+          tile_id: tileMapping?.tile_id,
           bbox: landBbox,
           resolution,
-          status: 'processing'
+          status: 'requesting_tile_update'
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

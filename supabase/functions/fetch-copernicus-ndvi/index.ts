@@ -336,13 +336,6 @@ async function calculateNDVIStats(
               k: [10, 25, 50, 75, 90]
             }
           }
-        },
-        histograms: {
-          default: {
-            nBins: 20,
-            lowEdge: -1.0,
-            highEdge: 1.0
-          }
         }
       }
     }
