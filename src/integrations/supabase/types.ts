@@ -16152,7 +16152,9 @@ export type Database = {
         Returns: Json
       }
       mark_agricultural_tile: {
-        Args: { p_land_area_km2: number; p_tile_id: string }
+        Args:
+          | { p_land_area_km2: number; p_tile_id: string }
+          | { p_land_area_km2: number; p_tile_id: string }
         Returns: undefined
       }
       mark_invitation_accepted: {
