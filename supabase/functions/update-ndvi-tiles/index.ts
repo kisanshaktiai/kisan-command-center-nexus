@@ -1,10 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders } from '../_shared/cors.ts';
+import { handleError } from '../_shared/errorHandler.ts';
 
 // Copernicus API endpoints
 const COPERNICUS_AUTH_URL = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token';
@@ -35,24 +32,48 @@ async function getOAuthToken(clientId: string, clientSecret: string): Promise<st
 }
 
 /**
- * Search for latest Sentinel-2 L2A scene for a tile
+ * Extract bbox from PostGIS geography/geometry
+ */
+function extractBbox(geom: any): number[] {
+  console.log('[extractBbox] Extracting bbox from geometry:', JSON.stringify(geom).substring(0, 200));
+  
+  let coords: number[][];
+  
+  if (geom.type === 'Polygon') {
+    coords = geom.coordinates[0];
+  } else if (geom.type === 'MultiPolygon') {
+    coords = geom.coordinates[0][0];
+  } else {
+    throw new Error(`Unsupported geometry type: ${geom.type}`);
+  }
+  
+  const lngs = coords.map((c: number[]) => c[0]);
+  const lats = coords.map((c: number[]) => c[1]);
+  const bbox = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+  
+  console.log('[extractBbox] Extracted bbox:', bbox);
+  return bbox;
+}
+
+/**
+ * Search for latest Sentinel-2 L2A scene using Catalog API
  */
 async function searchLatestScene(
   token: string,
   bbox: number[],
   dateFrom: string,
-  dateTo: string,
-  cloudCoverage: number
+  dateTo: string
 ): Promise<any> {
   const catalogPayload = {
+    collections: ['sentinel-2-l2a'],
     bbox,
     datetime: `${dateFrom}T00:00:00Z/${dateTo}T23:59:59Z`,
-    collections: ['sentinel-2-l2a'],
     limit: 1,
-    filter: `eo:cloud_cover < ${cloudCoverage}`
+    filter: 'eo:cloud_cover < 20',
+    'filter-lang': 'cql2-text'
   };
 
-  console.log('[Catalog API] Searching for scenes:', catalogPayload);
+  console.log('[Catalog API] Payload:', JSON.stringify(catalogPayload, null, 2));
 
   const response = await fetch(COPERNICUS_CATALOG_API, {
     method: 'POST',
@@ -64,17 +85,27 @@ async function searchLatestScene(
   });
 
   if (!response.ok) {
-    throw new Error(`Catalog API failed: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('[Catalog API] Error response:', errorText);
+    throw new Error(`Catalog API failed (${response.status}): ${errorText}`);
   }
 
   const data = await response.json();
-  console.log(`[Catalog API] Found ${data.features?.length || 0} scenes`);
+  console.log(`[Catalog API] Response: Found ${data.features?.length || 0} scenes`);
+  
+  if (data.features && data.features.length > 0) {
+    console.log('[Catalog API] Latest scene:', {
+      id: data.features[0].id,
+      datetime: data.features[0].properties.datetime,
+      cloudCover: data.features[0].properties['eo:cloud_cover']
+    });
+  }
   
   return data.features?.[0] || null;
 }
 
 /**
- * Generate NDVI image for full tile using Process API
+ * Generate NDVI PNG using Process API
  */
 async function generateNdviImage(
   token: string,
@@ -87,38 +118,59 @@ async function generateNdviImage(
     function setup() {
       return {
         input: [{
-          bands: ["B04", "B08"],
+          bands: ["B04", "B08", "dataMask"],
           units: "DN"
         }],
         output: {
-          bands: 1,
-          sampleType: "FLOAT32"
+          bands: 3,
+          sampleType: "AUTO"
         }
       };
     }
     
     function evaluatePixel(samples) {
+      if (samples.dataMask == 0) return [0, 0, 0];
+      
       let ndvi = (samples.B08 - samples.B04) / (samples.B08 + samples.B04);
-      return [ndvi];
+      
+      // Color mapping for NDVI visualization
+      if (ndvi < 0) return [0.5, 0.5, 0.5]; // Gray for water/non-vegetation
+      if (ndvi < 0.2) return [0.8, 0.7, 0.6]; // Light brown for bare soil
+      if (ndvi < 0.4) return [1, 1, 0.5]; // Yellow for sparse vegetation
+      if (ndvi < 0.6) return [0.7, 1, 0.3]; // Light green for moderate vegetation
+      if (ndvi < 0.8) return [0.2, 0.8, 0.2]; // Green for dense vegetation
+      return [0, 0.5, 0]; // Dark green for very dense vegetation
     }
   `;
 
   const processPayload = {
     input: {
-      bounds: { bbox, properties: { crs: 'http://www.opengis.net/def/crs/EPSG/0/4326' } },
+      bounds: { 
+        bbox, 
+        properties: { crs: 'http://www.opengis.net/def/crs/EPSG/0/4326' } 
+      },
       data: [{
         type: 'sentinel-2-l2a',
-        dataFilter: { timeRange: { from: `${dateFrom}T00:00:00Z`, to: `${dateTo}T23:59:59Z` } },
-        processing: { upsampling: 'BILINEAR', downsampling: 'BICUBIC' }
+        dataFilter: { 
+          timeRange: { 
+            from: `${dateFrom}T00:00:00Z`, 
+            to: `${dateTo}T23:59:59Z` 
+          } 
+        }
       }]
     },
     output: {
       width: 512,
       height: 512,
-      responses: [{ identifier: 'default', format: { type: 'image/png' } }]
+      responses: [{ 
+        identifier: 'default', 
+        format: { type: 'image/png' } 
+      }]
     },
     evalscript: processEvalscript
   };
+
+  console.log('[Process API] Payload:', JSON.stringify(processPayload, null, 2));
 
   const response = await fetch(COPERNICUS_PROCESS_API, {
     method: 'POST',
@@ -131,16 +183,19 @@ async function generateNdviImage(
   });
 
   if (!response.ok) {
-    throw new Error(`Process API failed: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('[Process API] Error response:', errorText);
+    throw new Error(`Process API failed (${response.status}): ${errorText}`);
   }
 
+  console.log('[Process API] Successfully generated NDVI PNG');
   return await response.blob();
 }
 
 /**
- * Calculate NDVI statistics for full tile using Statistical API
+ * Calculate NDVI statistics using Statistical API
  */
-async function calculateTileStats(
+async function calculateNdviStats(
   token: string,
   bbox: number[],
   dateFrom: string,
@@ -151,7 +206,7 @@ async function calculateTileStats(
     function setup() {
       return {
         input: [{
-          bands: ["B04", "B08"],
+          bands: ["B04", "B08", "dataMask"],
           units: "DN"
         }],
         output: [
@@ -162,37 +217,46 @@ async function calculateTileStats(
     }
     
     function evaluatePixel(samples) {
+      if (samples.dataMask == 0) {
+        return {
+          ndvi: [null],
+          dataMask: [0]
+        };
+      }
+      
       let ndvi = (samples.B08 - samples.B04) / (samples.B08 + samples.B04);
-      let dataMask = samples.B08 > 0 && samples.B04 > 0 ? 1 : 0;
       return {
         ndvi: [ndvi],
-        dataMask: [dataMask]
+        dataMask: [1]
       };
     }
   `;
 
-  // Calculate optimal dimensions for ~500m resolution
-  const bboxWidth = bbox[2] - bbox[0];
-  const bboxHeight = bbox[3] - bbox[1];
-  const widthKm = bboxWidth * 111.32;
-  const heightKm = bboxHeight * 110.57;
-  const width = Math.ceil((widthKm * 1000) / 500);
-  const height = Math.ceil((heightKm * 1000) / 500);
-
   const statsPayload = {
     input: {
-      bounds: { bbox, properties: { crs: 'http://www.opengis.net/def/crs/EPSG/0/4326' } },
+      bounds: { 
+        bbox, 
+        properties: { crs: 'http://www.opengis.net/def/crs/EPSG/0/4326' } 
+      },
       data: [{
         type: 'sentinel-2-l2a',
-        dataFilter: { timeRange: { from: `${dateFrom}T00:00:00Z`, to: `${dateTo}T23:59:59Z` } }
+        dataFilter: { 
+          timeRange: { 
+            from: `${dateFrom}T00:00:00Z`, 
+            to: `${dateTo}T23:59:59Z` 
+          } 
+        }
       }]
     },
     aggregation: {
-      timeRange: { from: `${dateFrom}T00:00:00Z`, to: `${dateTo}T23:59:59Z` },
-      aggregationInterval: { of: "P1D" },
+      timeRange: { 
+        from: `${dateFrom}T00:00:00Z`, 
+        to: `${dateTo}T23:59:59Z` 
+      },
+      aggregationInterval: { of: 'P1D' },
       evalscript: statsEvalscript,
-      width,
-      height
+      width: 512,
+      height: 512
     },
     calculations: {
       default: {
@@ -207,6 +271,8 @@ async function calculateTileStats(
     }
   };
 
+  console.log('[Statistical API] Payload:', JSON.stringify(statsPayload, null, 2));
+
   const response = await fetch(COPERNICUS_STATISTICAL_API, {
     method: 'POST',
     headers: {
@@ -218,14 +284,19 @@ async function calculateTileStats(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('[Statistical API] Error:', errorText);
-    throw new Error(`Statistical API failed: ${response.statusText}`);
+    console.error('[Statistical API] Error response:', errorText);
+    throw new Error(`Statistical API failed (${response.status}): ${errorText}`);
   }
 
-  return await response.json();
+  const data = await response.json();
+  console.log('[Statistical API] Response:', JSON.stringify(data, null, 2));
+  
+  return data;
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -235,112 +306,116 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const clientId = Deno.env.get("COPERNICUS_CLIENT_ID");
-    const clientSecret = Deno.env.get("COPERNICUS_CLIENT_SECRET");
+    const clientId = Deno.env.get('COPERNICUS_CLIENT_ID');
+    const clientSecret = Deno.env.get('COPERNICUS_CLIENT_SECRET');
     
     if (!clientId || !clientSecret) {
       throw new Error('Copernicus credentials not configured');
     }
 
-    const { 
-      tileIds = [],
-      forceUpdate = false,
-      cloudCoverage = 20
-    } = await req.json().catch(() => ({}));
-
-    console.log('[update-ndvi-tiles] Starting tile update:', { tileIds, forceUpdate });
+    console.log('[update-ndvi-tiles] Starting NDVI data sync');
 
     // Get OAuth token
     const token = await getOAuthToken(clientId, clientSecret);
+    console.log('[update-ndvi-tiles] ✓ OAuth token obtained');
 
-    // Get tiles to update (either specific tiles or all that need refresh)
-    // Join with mgrs_tiles to get geometry
-    let query = supabase
-      .from('satellite_tiles')
-      .select(`
-        *,
-        mgrs_tile:mgrs_tiles!mgrs_tile_id (
-          geometry,
-          is_agri,
-          state,
-          district
-        )
-      `);
+    // Get all active lands with boundaries
+    const { data: lands, error: landsError } = await supabase
+      .from('lands')
+      .select('id, land_name, boundary, tenant_id')
+      .not('boundary', 'is', null);
 
-    if (tileIds.length > 0) {
-      query = query.in('tile_id', tileIds);
-    } else if (!forceUpdate) {
-      // Only update tiles older than 24 hours or never updated
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      query = query.or(`updated_at.is.null,updated_at.lt.${yesterday}`);
+    if (landsError) {
+      console.error('[update-ndvi-tiles] Error fetching lands:', landsError);
+      throw landsError;
     }
 
-    const { data: tiles, error: tilesError } = await query;
-
-    if (tilesError) throw tilesError;
-
-    console.log(`[update-ndvi-tiles] Found ${tiles?.length || 0} tiles to update`);
+    console.log(`[update-ndvi-tiles] Found ${lands?.length || 0} lands to process`);
 
     const results = {
       processed: 0,
       updated: 0,
+      skipped: 0,
       errors: [] as any[]
     };
 
-    const dateFrom = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const dateTo = new Date().toISOString().split('T')[0];
+    // Date range: last 7 days
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const dateFrom = sevenDaysAgo.toISOString().split('T')[0];
+    const dateTo = now.toISOString().split('T')[0];
 
-    for (const tile of tiles || []) {
+    console.log(`[update-ndvi-tiles] Date range: ${dateFrom} to ${dateTo}`);
+
+    for (const land of lands || []) {
       try {
-        console.log(`[update-ndvi-tiles] Processing tile: ${tile.tile_id}`);
+        console.log(`\n[update-ndvi-tiles] Processing land: ${land.land_name} (${land.id})`);
         
-        // Skip if no mgrs_tile geometry data
-        if (!tile.mgrs_tile || !tile.mgrs_tile.geometry) {
-          console.warn(`[update-ndvi-tiles] Skipping ${tile.tile_id}: No geometry data`);
-          results.processed++;
-          continue;
+        // Check if we have recent data (within 24 hours)
+        const { data: existingData } = await supabase
+          .from('ndvi_micro_tiles')
+          .select('acquisition_date, created_at')
+          .eq('land_id', land.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (existingData) {
+          const lastUpdate = new Date(existingData.created_at);
+          const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+          
+          if (hoursSinceUpdate < 24) {
+            console.log(`[update-ndvi-tiles] Skipping ${land.land_name}: Data is recent (${hoursSinceUpdate.toFixed(1)}h old)`);
+            results.processed++;
+            results.skipped++;
+            continue;
+          }
         }
-        
-        // Extract bbox from geometry
-        const geom = tile.mgrs_tile.geometry;
-        let bbox: number[];
-        
-        if (geom.type === 'MultiPolygon') {
-          const coords = geom.coordinates[0][0];
-          const lngs = coords.map((c: number[]) => c[0]);
-          const lats = coords.map((c: number[]) => c[1]);
-          bbox = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
-        } else if (geom.type === 'Polygon') {
-          const coords = geom.coordinates[0];
-          const lngs = coords.map((c: number[]) => c[0]);
-          const lats = coords.map((c: number[]) => c[1]);
-          bbox = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
-        } else {
-          throw new Error(`Unsupported geometry type: ${geom.type}`);
-        }
+
+        // Extract bbox from land boundary
+        const bbox = extractBbox(land.boundary);
+        console.log(`[update-ndvi-tiles] Bbox for ${land.land_name}:`, bbox);
 
         // Search for latest scene
-        const scene = await searchLatestScene(token, bbox, dateFrom, dateTo, cloudCoverage);
+        const scene = await searchLatestScene(token, bbox, dateFrom, dateTo);
         
         if (!scene) {
-          console.log(`[update-ndvi-tiles] No data found for ${tile.tile_id}`);
+          console.log(`[update-ndvi-tiles] No satellite data found for ${land.land_name}`);
           results.processed++;
+          results.errors.push({
+            land: land.land_name,
+            error: 'No satellite data available'
+          });
           continue;
         }
 
-        // Calculate statistics
-        const stats = await calculateTileStats(token, bbox, dateFrom, dateTo);
-        
-        const ndviStats = stats.data?.[0]?.outputs?.default?.bands?.ndvi?.stats;
         const acquisitionDate = scene.properties.datetime.split('T')[0];
         const cloudCover = scene.properties['eo:cloud_cover'];
+        
+        console.log(`[update-ndvi-tiles] Scene found - Date: ${acquisitionDate}, Cloud: ${cloudCover}%`);
 
-        // Generate NDVI image
+        // Calculate NDVI statistics
+        const statsData = await calculateNdviStats(token, bbox, dateFrom, dateTo);
+        
+        const ndviStats = statsData.data?.[0]?.outputs?.default?.bands?.ndvi?.stats;
+        
+        if (!ndviStats) {
+          throw new Error('No NDVI statistics in response');
+        }
+
+        console.log('[update-ndvi-tiles] NDVI Stats:', {
+          mean: ndviStats.mean,
+          min: ndviStats.min,
+          max: ndviStats.max,
+          stDev: ndviStats.stDev
+        });
+
+        // Generate NDVI PNG
         const imageBlob = await generateNdviImage(token, bbox, dateFrom, dateTo);
         const imageBuffer = await imageBlob.arrayBuffer();
         
         // Upload to Supabase Storage
-        const storagePath = `ndvi-tiles/${tile.tile_id}/${acquisitionDate}.png`;
+        const storagePath = `${land.tenant_id}/${land.id}/${acquisitionDate}.png`;
         const { error: uploadError } = await supabase.storage
           .from('ndvi-tiles')
           .upload(storagePath, imageBuffer, {
@@ -349,57 +424,58 @@ serve(async (req) => {
           });
 
         if (uploadError) {
-          console.error(`[update-ndvi-tiles] Upload error for ${tile.tile_id}:`, uploadError);
+          console.error(`[update-ndvi-tiles] Upload error:`, uploadError);
+          throw uploadError;
         }
 
         const { data: { publicUrl } } = supabase.storage
           .from('ndvi-tiles')
           .getPublicUrl(storagePath);
 
-        // Update satellite_tiles table
-        const { error: updateError } = await supabase
-          .from('satellite_tiles')
-          .update({
-            status: 'ready',
-            acquisition_date: acquisitionDate,
-            cloud_cover: cloudCover,
-            ndvi_mean: ndviStats?.mean || null,
-            ndvi_min: ndviStats?.min || null,
-            ndvi_max: ndviStats?.max || null,
-            ndvi_std_dev: ndviStats?.stDev || null,
-            ndvi_image_url: publicUrl,
-            updated_at: new Date().toISOString(),
-            last_error: null
-          })
-          .eq('id', tile.id);
+        console.log('[update-ndvi-tiles] ✓ NDVI PNG uploaded:', publicUrl);
 
-        if (updateError) throw updateError;
+        // Store in ndvi_micro_tiles
+        const { error: insertError } = await supabase
+          .from('ndvi_micro_tiles')
+          .upsert({
+            land_id: land.id,
+            tenant_id: land.tenant_id,
+            acquisition_date: acquisitionDate,
+            ndvi_mean: ndviStats.mean,
+            ndvi_min: ndviStats.min,
+            ndvi_max: ndviStats.max,
+            ndvi_std_dev: ndviStats.stDev,
+            cloud_cover: cloudCover,
+            ndvi_thumbnail_url: publicUrl,
+            bbox: bbox,
+            data_source: 'copernicus',
+            processing_status: 'completed',
+            created_at: new Date().toISOString(),
+            expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+          }, {
+            onConflict: 'land_id,acquisition_date'
+          });
+
+        if (insertError) {
+          console.error(`[update-ndvi-tiles] Insert error:`, insertError);
+          throw insertError;
+        }
 
         results.processed++;
         results.updated++;
-        console.log(`[update-ndvi-tiles] ✓ Updated ${tile.tile_id}`);
+        console.log(`[update-ndvi-tiles] ✓ Completed ${land.land_name}`);
 
       } catch (error) {
-        console.error(`[update-ndvi-tiles] Error processing ${tile.tile_id}:`, error);
+        console.error(`[update-ndvi-tiles] Error processing ${land.land_name}:`, error);
         results.processed++;
         results.errors.push({
-          tile: tile.tile_id,
+          land: land.land_name,
           error: error.message
         });
-
-        // Update tile status to error
-        await supabase
-          .from('satellite_tiles')
-          .update({
-            status: 'error',
-            last_error: error.message,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', tile.id);
       }
     }
 
-    console.log('[update-ndvi-tiles] Complete:', results);
+    console.log('\n[update-ndvi-tiles] Summary:', results);
 
     return new Response(
       JSON.stringify({
@@ -410,10 +486,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('[update-ndvi-tiles] Error:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error('[update-ndvi-tiles] Fatal error:', error);
+    return handleError(error, 500, req);
   }
 });
