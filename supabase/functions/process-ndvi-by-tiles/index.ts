@@ -789,7 +789,10 @@ async function calculateNDVIStats(token: string, bbox: number[], dateFrom: strin
     //VERSION=3
     function setup() {
       return {
-        input: [{ bands: ["B04", "B08", "SCL"], units: "DN" }],
+        input: [{
+          bands: ["B04", "B08", "SCL", "dataMask"],
+          units: "DN"
+        }],
         output: [
           { id: "ndvi", bands: 1, sampleType: "FLOAT32" },
           { id: "dataMask", bands: 1, sampleType: "UINT8" }
@@ -797,14 +800,30 @@ async function calculateNDVIStats(token: string, bbox: number[], dateFrom: strin
       };
     }
     function evaluatePixel(samples) {
+      // Exclude no data pixels first
+      if (samples.dataMask == 0) {
+        return { ndvi: [0], dataMask: [0] };
+      }
+      
+      // Check if pixel is valid (vegetation, bare soil, water, snow)
       let isValid = [4, 5, 6, 7].includes(samples.SCL);
       if (!isValid || samples.B08 === 0 || samples.B04 === 0) {
         return { ndvi: [0], dataMask: [0] };
       }
+      
+      // Calculate NDVI
       let ndvi = (samples.B08 - samples.B04) / (samples.B08 + samples.B04);
       return { ndvi: [ndvi], dataMask: [1] };
     }
   `;
+
+  console.log('[calculateNDVIStats] Requesting statistics from Copernicus API');
+  console.log('[calculateNDVIStats] Params:', {
+    bbox,
+    dateFrom,
+    dateTo,
+    cloudCoverage
+  });
 
   const response = await fetch(COPERNICUS_STATISTICAL_API, {
     method: 'POST',
@@ -830,11 +849,11 @@ async function calculateNDVIStats(token: string, bbox: number[], dateFrom: strin
         timeRange: { from: `${dateFrom}T00:00:00Z`, to: `${dateTo}T23:59:59Z` },
         aggregationInterval: { of: "P1D" },
         evalscript: evalscript,
-        resx: 1500,
-        resy: 1500
+        resx: 60,
+        resy: 60
       },
       calculations: {
-        default: {
+        ndvi: {
           statistics: {
             default: {
               percentiles: { k: [25, 50, 75] }
@@ -845,8 +864,17 @@ async function calculateNDVIStats(token: string, bbox: number[], dateFrom: strin
     })
   });
 
-  if (!response.ok) throw new Error(`Statistical API failed: ${response.statusText}`);
-  return await response.json();
+  console.log('[calculateNDVIStats] Response status:', response.status);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[calculateNDVIStats] Error:', errorText);
+    throw new Error(`Statistical API failed: ${response.statusText} - ${errorText}`);
+  }
+  
+  const result = await response.json();
+  console.log('[calculateNDVIStats] ✓ Stats retrieved successfully');
+  return result;
 }
 
 /**
