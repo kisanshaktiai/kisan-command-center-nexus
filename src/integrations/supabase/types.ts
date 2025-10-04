@@ -16114,6 +16114,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_geometry_bbox: {
+        Args: { geom: unknown }
+        Returns: number[]
+      }
       get_jwt_farmer_id: {
         Args: Record<PropertyKey, never>
         Returns: string

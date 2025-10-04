@@ -45,28 +45,16 @@ export async function processPlanetaryComputer(supabase: any, params: {
         continue;
       }
 
-      // Convert PostGIS geometry to bbox using ST_Extent
-      const { data: bboxData, error: bboxError } = await supabase
-        .rpc('st_extent', { geom: tile.geometry });
+      // Convert PostGIS geometry to bbox using our helper function
+      const { data: bboxArray, error: bboxError } = await supabase
+        .rpc('get_geometry_bbox', { geom: tile.geometry });
       
-      if (bboxError || !bboxData) {
-        console.log(`[MPC] Failed to get bbox for tile ${tile.tile_id}`);
+      if (bboxError || !bboxArray || bboxArray.length !== 4) {
+        console.log(`[MPC] Failed to get bbox for tile ${tile.tile_id}:`, bboxError);
         continue;
       }
 
-      // Parse bbox from PostgreSQL BOX format: BOX(xmin ymin, xmax ymax)
-      const match = bboxData.match(/BOX\(([^ ]+) ([^ ]+),([^ ]+) ([^ ]+)\)/);
-      if (!match) {
-        console.log(`[MPC] Invalid bbox format for tile ${tile.tile_id}`);
-        continue;
-      }
-
-      const bbox = [
-        parseFloat(match[1]), // xmin (lon)
-        parseFloat(match[2]), // ymin (lat)
-        parseFloat(match[3]), // xmax (lon)
-        parseFloat(match[4])  // ymax (lat)
-      ];
+      const bbox = bboxArray.map((val: string) => parseFloat(val));
 
       console.log(`[MPC] Searching STAC for tile ${tile.tile_id}, bbox: ${bbox}`);
 
@@ -137,9 +125,9 @@ export async function processPlanetaryComputer(supabase: any, params: {
         // Update satellite_tiles record
         const { error: upsertError } = await supabase.from('satellite_tiles').upsert({
           tile_id: tile.tile_id,
-          acquisition_date: acquisitionDate,
-          cloud_coverage: cloudCover,
-          api_source: 'planetary_computer',
+          acquisition_date: acquisitionDate.split('T')[0], // Convert to date format
+          cloud_cover: cloudCover,
+          data_source: 'planetary_computer',
           red_band_path: redPath,
           nir_band_path: nirPath,
           status: 'completed',

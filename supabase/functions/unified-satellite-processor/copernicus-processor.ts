@@ -49,27 +49,15 @@ export async function processCopernicus(supabase: any, params: {
       }
 
       // Convert PostGIS geometry to bbox
-      const { data: bboxData, error: bboxError } = await supabase
-        .rpc('st_extent', { geom: tile.geometry });
+      const { data: bboxArray, error: bboxError } = await supabase
+        .rpc('get_geometry_bbox', { geom: tile.geometry });
       
-      if (bboxError || !bboxData) {
-        console.log(`[Copernicus] Failed to get bbox for tile ${tile.tile_id}`);
+      if (bboxError || !bboxArray || bboxArray.length !== 4) {
+        console.log(`[Copernicus] Failed to get bbox for tile ${tile.tile_id}:`, bboxError);
         continue;
       }
 
-      // Parse bbox from PostgreSQL BOX format
-      const match = bboxData.match(/BOX\(([^ ]+) ([^ ]+),([^ ]+) ([^ ]+)\)/);
-      if (!match) {
-        console.log(`[Copernicus] Invalid bbox format for tile ${tile.tile_id}`);
-        continue;
-      }
-
-      const bbox = [
-        parseFloat(match[1]),
-        parseFloat(match[2]),
-        parseFloat(match[3]),
-        parseFloat(match[4])
-      ];
+      const bbox = bboxArray.map((val: string) => parseFloat(val));
 
       console.log(`[Copernicus] Searching catalog for tile ${tile.tile_id}, bbox: ${bbox}`);
 
@@ -151,12 +139,15 @@ export async function processCopernicus(supabase: any, params: {
         // Update satellite_tiles record
         const { error: upsertError } = await supabase.from('satellite_tiles').upsert({
           tile_id: tile.tile_id,
-          acquisition_date: acquisitionDate,
-          cloud_coverage: cloudCover,
-          api_source: 'copernicus_sentinel_hub',
+          acquisition_date: acquisitionDate.split('T')[0], // Convert to date format
+          cloud_cover: cloudCover,
+          data_source: 'copernicus_sentinel_hub',
           red_band_path: redPath,
           nir_band_path: nirPath,
           status: 'completed',
+          copernicus_red_band_url: redBandUrl,
+          copernicus_nir_band_url: nirBandUrl,
+          copernicus_download_attempted_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'tile_id,acquisition_date'
