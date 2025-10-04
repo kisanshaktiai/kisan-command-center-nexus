@@ -136,18 +136,18 @@ export async function processCopernicus(supabase: any, params: {
 
         console.log(`[Copernicus] Downloaded bands for tile ${tile.tile_id}`);
 
-        // Update satellite_tiles record
+        // Update satellite_tiles record with api_source (not data_source)
         const { error: upsertError } = await supabase.from('satellite_tiles').upsert({
           tile_id: tile.tile_id,
-          acquisition_date: acquisitionDate.split('T')[0], // Convert to date format
+          acquisition_date: acquisitionDate.split('T')[0],
           cloud_cover: cloudCover,
-          data_source: 'copernicus_sentinel_hub',
+          api_source: 'copernicus_sentinel_hub', // Matches migration column name
           red_band_path: redPath,
           nir_band_path: nirPath,
           status: 'completed',
           collection: 'SENTINEL-2',
           processing_level: 'L2A',
-          country_id: 'IN', // Default to India
+          country_id: 'IN',
           copernicus_red_band_url: redBandUrl,
           copernicus_nir_band_url: nirBandUrl,
           copernicus_download_attempted_at: new Date().toISOString(),

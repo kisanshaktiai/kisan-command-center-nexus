@@ -122,18 +122,18 @@ export async function processPlanetaryComputer(supabase: any, params: {
 
         console.log(`[MPC] Downloaded bands for tile ${tile.tile_id}`);
 
-        // Update satellite_tiles record
+        // Update satellite_tiles record with api_source (not data_source)
         const { error: upsertError } = await supabase.from('satellite_tiles').upsert({
           tile_id: tile.tile_id,
-          acquisition_date: acquisitionDate.split('T')[0], // Convert to date format
+          acquisition_date: acquisitionDate.split('T')[0],
           cloud_cover: cloudCover,
-          data_source: 'planetary_computer',
+          api_source: 'planetary_computer', // Matches migration column name
           red_band_path: redPath,
           nir_band_path: nirPath,
           status: 'completed',
           collection: 'sentinel-2-l2a',
           processing_level: 'L2A',
-          country_id: 'IN', // Default to India
+          country_id: 'IN',
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'tile_id,acquisition_date'
