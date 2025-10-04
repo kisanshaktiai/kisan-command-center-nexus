@@ -147,20 +147,31 @@ async function getTilesToProcess(supabase: any, tileIds: string[]): Promise<Tile
     ? tilesWithLands.filter((t: any) => tileIds.includes(t.tile_id))
     : tilesWithLands;
 
-  // Extract bbox from geometry for each tile
+  // Extract bbox from geometry for each tile using RPC function
   const tiles: TileToProcess[] = [];
   for (const tile of filteredTiles) {
-    const bbox = extractBboxFromGeometry(tile.geometry);
-    if (bbox) {
-      tiles.push({
-        tile_id: tile.tile_id,
-        mgrs_id: tile.id,
-        geometry: tile.geometry,
-        bbox: bbox,
-      });
-    } else {
-      console.warn(`[getTilesToProcess] Skipping tile ${tile.tile_id} - invalid bbox`);
+    if (!tile.geometry) {
+      console.warn(`[getTilesToProcess] Skipping tile ${tile.tile_id} - no geometry`);
+      continue;
     }
+
+    // Use RPC function to get bbox from PostGIS geometry
+    const { data: bboxArray, error: bboxError } = await supabase
+      .rpc('get_geometry_bbox', { geom: tile.geometry });
+
+    if (bboxError || !bboxArray || bboxArray.length !== 4) {
+      console.warn(`[getTilesToProcess] Skipping tile ${tile.tile_id} - failed to get bbox:`, bboxError);
+      continue;
+    }
+
+    const bbox = bboxArray.map((val: string) => parseFloat(val));
+    
+    tiles.push({
+      tile_id: tile.tile_id,
+      mgrs_id: tile.id,
+      geometry: tile.geometry,
+      bbox: bbox,
+    });
   }
 
   console.log(`[getTilesToProcess] Found ${tiles.length} tiles with lands:`, tiles.map(t => t.tile_id));
