@@ -82,6 +82,64 @@ export const useLandNdvi = (landId: string) => {
   };
 };
 
+/**
+ * Hook for processing NDVI using land-first clustering approach
+ */
+export const useProcessLandsNdvi = (tenantId: string) => {
+  const queryClient = useQueryClient();
+
+  const processLands = useMutation({
+    mutationFn: async ({
+      landIds,
+      urgent = false
+    }: {
+      landIds?: string[];
+      urgent?: boolean;
+    }) => {
+      const result = await landNdviService.processLandsNdvi(tenantId, landIds, urgent);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Processed NDVI for ${data.processed_lands} lands`);
+      
+      // Invalidate all land NDVI caches
+      queryClient.invalidateQueries({ queryKey: ['land-ndvi-cache'] });
+      queryClient.invalidateQueries({ queryKey: ['land-ndvi-history'] });
+      queryClient.invalidateQueries({ queryKey: ['land-clusters'] });
+    },
+    onError: (error: Error) => {
+      console.error('Process lands NDVI error:', error);
+      toast.error(`Failed to process NDVI: ${error.message}`);
+    },
+  });
+
+  return {
+    processLands,
+    isProcessing: processLands.isPending,
+  };
+};
+
+/**
+ * Hook for fetching land clusters
+ */
+export const useLandClusters = (tenantId: string) => {
+  return useQuery({
+    queryKey: ['land-clusters', tenantId],
+    queryFn: async () => {
+      const result = await landNdviService.getLandClusters(tenantId);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    enabled: !!tenantId,
+    staleTime: 300000, // 5 minutes
+  });
+};
+
 export const useBatchNdviRequest = () => {
   const queryClient = useQueryClient();
 
@@ -115,7 +173,7 @@ export const useBatchNdviRequest = () => {
       toast.success(`Batch request queued for ${data.land_ids.length} lands`);
       queryClient.invalidateQueries({ queryKey: ['ndvi-queue-status'] });
     },
-    onError: (error: Error) => {
+    onError: (error: Error) {
       toast.error(`Batch request failed: ${error.message}`);
     },
   });

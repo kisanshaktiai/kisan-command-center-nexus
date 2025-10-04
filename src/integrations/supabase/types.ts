@@ -2497,6 +2497,95 @@ export type Database = {
           },
         ]
       }
+      copernicus_api_calls: {
+        Row: {
+          api_type: string
+          bbox_area_km2: number | null
+          bbox_requested: Json
+          cluster_id: string | null
+          cost_estimate: number | null
+          created_at: string | null
+          data_size_mb: number | null
+          error_message: string | null
+          id: string
+          land_id: string | null
+          pixels_requested: number | null
+          processing_units: number | null
+          request_payload: Json | null
+          response_metadata: Json | null
+          response_time_ms: number | null
+          success: boolean
+          tenant_id: string | null
+        }
+        Insert: {
+          api_type: string
+          bbox_area_km2?: number | null
+          bbox_requested: Json
+          cluster_id?: string | null
+          cost_estimate?: number | null
+          created_at?: string | null
+          data_size_mb?: number | null
+          error_message?: string | null
+          id?: string
+          land_id?: string | null
+          pixels_requested?: number | null
+          processing_units?: number | null
+          request_payload?: Json | null
+          response_metadata?: Json | null
+          response_time_ms?: number | null
+          success: boolean
+          tenant_id?: string | null
+        }
+        Update: {
+          api_type?: string
+          bbox_area_km2?: number | null
+          bbox_requested?: Json
+          cluster_id?: string | null
+          cost_estimate?: number | null
+          created_at?: string | null
+          data_size_mb?: number | null
+          error_message?: string | null
+          id?: string
+          land_id?: string | null
+          pixels_requested?: number | null
+          processing_units?: number | null
+          request_payload?: Json | null
+          response_metadata?: Json | null
+          response_time_ms?: number | null
+          success?: boolean
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copernicus_api_calls_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "land_clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copernicus_api_calls_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "copernicus_api_calls_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copernicus_api_calls_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       countries: {
         Row: {
           code: string
@@ -5818,6 +5907,53 @@ export type Database = {
             columns: ["land_id"]
             isOneToOne: false
             referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      land_clusters: {
+        Row: {
+          bbox_area_km2: number | null
+          cluster_bbox: Json
+          cluster_key: string
+          created_at: string | null
+          id: string
+          land_count: number
+          land_ids: string[]
+          last_processed_at: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bbox_area_km2?: number | null
+          cluster_bbox: Json
+          cluster_key: string
+          created_at?: string | null
+          id?: string
+          land_count: number
+          land_ids: string[]
+          last_processed_at?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bbox_area_km2?: number | null
+          cluster_bbox?: Json
+          cluster_key?: string
+          created_at?: string | null
+          id?: string
+          land_count?: number
+          land_ids?: string[]
+          last_processed_at?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "land_clusters_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -15241,6 +15377,20 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      cluster_lands_for_ndvi: {
+        Args: {
+          p_max_cluster_area_km2?: number
+          p_max_distance_km?: number
+          p_tenant_id: string
+        }
+        Returns: {
+          bbox_area_km2: number
+          cluster_bbox: Json
+          cluster_id: number
+          land_count: number
+          land_ids: string[]
+        }[]
+      }
       complete_bootstrap: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -15940,6 +16090,23 @@ export type Database = {
       get_super_admin_count: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      get_tenant_api_costs: {
+        Args: {
+          p_end_date?: string
+          p_start_date?: string
+          p_tenant_id: string
+        }
+        Returns: {
+          avg_response_time_ms: number
+          calls_by_type: Json
+          failed_calls: number
+          successful_calls: number
+          total_calls: number
+          total_cost_usd: number
+          total_data_mb: number
+          total_processing_units: number
+        }[]
       }
       get_tenant_tiles: {
         Args: { p_tenant_id: string }

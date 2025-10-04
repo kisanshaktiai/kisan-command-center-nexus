@@ -197,6 +197,29 @@ async function processTileNdvi(
   const bbox = tile.bbox;
   console.log(`[processTileNdvi] Processing tile ${tile.tile_id}, bbox:`, bbox);
 
+  // Phase 1: Emergency bbox size validation
+  const bboxWidth = bbox[2] - bbox[0];
+  const bboxHeight = bbox[3] - bbox[1];
+  const bboxAreaDegrees = bboxWidth * bboxHeight;
+  const bboxAreaKm = bboxWidth * 111.0 * bboxHeight * 111.0;
+
+  console.log(`[processTileNdvi] Bbox validation:`, {
+    bbox,
+    width_deg: bboxWidth.toFixed(4),
+    height_deg: bboxHeight.toFixed(4),
+    area_deg2: bboxAreaDegrees.toFixed(4),
+    area_km2: bboxAreaKm.toFixed(2)
+  });
+
+  // Skip tiles larger than 1° x 1° (~111km x 111km)
+  if (bboxAreaDegrees > 1.0) {
+    const errorMsg = `Tile bbox too large for Copernicus API (${bboxAreaKm.toFixed(2)} km² exceeds 10,000 km² limit). Use land-first processing instead.`;
+    console.warn(`[processTileNdvi] ⚠️ SKIPPING tile ${tileId}: ${errorMsg}`);
+    throw new Error(errorMsg);
+  }
+
+  console.log(`[processTileNdvi] ✓ Bbox size valid (${bboxAreaKm.toFixed(2)} km²)`);
+
   // Step 1: Search Catalog API
   const catalogPayload = {
     collections: ['SENTINEL-2'],
@@ -220,9 +243,10 @@ async function processTileNdvi(
       status: catalogResponse.status,
       statusText: catalogResponse.statusText,
       body: errorText,
-      payload: catalogPayload
+      payload: catalogPayload,
+      bbox_area_km2: bboxAreaKm.toFixed(2)
     });
-    throw new Error(`Catalog API failed: ${catalogResponse.statusText} - ${errorText}`);
+    throw new Error(`Catalog API failed: ${catalogResponse.statusText} - ${errorText} (bbox: ${bboxAreaKm.toFixed(2)} km²)`);
   }
 
   const catalogData = await catalogResponse.json();

@@ -183,6 +183,59 @@ class LandNdviService {
       return { success: false, error: error.message };
     }
   }
+
+  /**
+   * Process NDVI using land-first clustering approach
+   */
+  async processLandsNdvi(
+    tenantId: string,
+    landIds?: string[],
+    urgent = false
+  ): Promise<any> {
+    try {
+      const { data, error } = await supabase.functions.invoke('process-ndvi-by-lands', {
+        body: { tenantId, landIds, urgent },
+      });
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message || 'Failed to process lands NDVI',
+        };
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('[LandNdviService] processLandsNdvi error:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to process lands NDVI',
+      };
+    }
+  }
+
+  /**
+   * Get land clusters for a tenant
+   */
+  async getLandClusters(tenantId: string): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('land_clusters')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('last_processed_at', { ascending: false });
+
+      if (error) throw error;
+
+      return { success: true, data: data || [] };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+        data: [],
+      };
+    }
+  }
 }
 
 export const landNdviService = new LandNdviService();
