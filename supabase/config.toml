@@ -107,55 +107,10 @@ secret = ""
 [db]
 port = 54322
 
-[functions.send-user-invite]
-verify_jwt = true
-
-[functions.start-onboarding-workflow]
-verify_jwt = true
-
-[functions.process-legal-document]
-verify_jwt = true
-
-[functions.get-white-label-config]
-verify_jwt = false
-
-[functions.save-white-label-config]
-verify_jwt = true
-
-[functions.generate-monitoring-data]
-verify_jwt = false
-
-[functions.fetch-s2-ndvi]
-verify_jwt = false
-
-[functions.process-ndvi-highres]
-verify_jwt = false
-
-[functions.fetch-s2-ndvi-lite]
-verify_jwt = false
-
-[functions.fetch-copernicus-ndvi]
-verify_jwt = false
-
-[functions.calculate-ndvi]
-verify_jwt = false
-
-[functions.batch-calculate-ndvi]
-verify_jwt = false
-
-[functions.sync-ndvi-complete]
-verify_jwt = false
-
 [functions.weekly-ndvi-sync]
 verify_jwt = false
 
-[functions.fetch-land-ndvi]
-verify_jwt = false
-
-[functions.batch-process-ndvi-queue]
-verify_jwt = false
-
-[functions.update-ndvi-tiles]
+[functions.batch-calculate-ndvi]
 verify_jwt = false
 
 [functions.process-ndvi-by-lands]
