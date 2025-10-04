@@ -173,7 +173,7 @@ export const useBatchNdviRequest = () => {
       toast.success(`Batch request queued for ${data.land_ids.length} lands`);
       queryClient.invalidateQueries({ queryKey: ['ndvi-queue-status'] });
     },
-    onError: (error: Error) {
+    onError: (error: Error) => {
       toast.error(`Batch request failed: ${error.message}`);
     },
   });
