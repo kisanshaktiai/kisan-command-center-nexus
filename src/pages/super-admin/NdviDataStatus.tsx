@@ -75,6 +75,11 @@ export default function NdviDataStatus() {
     markAgriculturalTiles,
   } = useSatelliteTiles(currentPage, pageSize, filters);
 
+  // Handle errors gracefully
+  if (error) {
+    console.error('[NdviDataStatus] Query error:', error);
+  }
+
   const { exportTiles, isExporting } = useExportTiles();
 
   // Auto-refresh when processing
@@ -174,6 +179,25 @@ export default function NdviDataStatus() {
 
   const totalPages = Math.ceil((data?.totalCount || 0) / pageSize);
   const processingProgress = ((stats?.ready || 0) / (stats?.total || 1) * 100);
+
+  // Show error state if query failed
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error Loading NDVI Data</AlertTitle>
+          <AlertDescription>
+            {error instanceof Error ? error.message : 'An error occurred while loading satellite tile data'}
+          </AlertDescription>
+        </Alert>
+        <Button onClick={() => refetch()} className="gap-2">
+          <RefreshCw className="h-4 w-4" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
