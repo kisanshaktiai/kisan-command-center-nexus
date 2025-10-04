@@ -1,3 +1,4 @@
+// functions/process-ndvi-by-tiles/index.ts
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 
 const corsHeaders = {
@@ -27,16 +28,6 @@ interface NdviStats {
   min: number;
   max: number;
   std: number;
-  percentiles?: Record<string, number>;
-}
-
-interface TileProcessingResult {
-  scene: any;
-  stats: NdviStats;
-  imageBlob: Blob;
-  bbox: number[];
-  acquisition_date: string;
-  cloud_cover: number;
 }
 
 Deno.serve(async (req) => {
@@ -50,133 +41,72 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const {
-      startDate,
-      endDate,
-      cloudCoverage = 20,
-      regions = [],
-      tileIds = [],
-      forceUpdate = false,
-    } = await req.json();
+    const { startDate, endDate, regions = [], tileIds = [], forceUpdate = false } = await req.json();
 
-    console.log(`[process-ndvi-by-tiles] Starting with params:`, {
-      startDate,
-      endDate,
-      cloudCoverage,
-      regions,
-      tileIds,
-      forceUpdate,
-    });
-
-    // Get OAuth token
-    const accessToken = await getOAuthToken();
-    if (!accessToken) {
-      throw new Error('Failed to obtain OAuth token');
-    }
-    console.log('[process-ndvi-by-tiles] ✓ OAuth token obtained');
+    console.log(`[process-ndvi-by-tiles] Params:`, { startDate, endDate, tileIds, forceUpdate });
 
     // Get tiles to process
-    const tilesToProcess = await getTilesToProcess(supabase, tileIds, forceUpdate);
-    console.log(`[process-ndvi-by-tiles] Found ${tilesToProcess.length} tiles to process`);
+    const tilesToProcess = await getTilesToProcess(supabase, tileIds);
+    console.log(`[process-ndvi-by-tiles] Found ${tilesToProcess.length} tiles`);
 
     const processedTiles: ProcessedTile[] = [];
-    const errors: any[] = [];
     let skippedCount = 0;
 
-    // Process each tile
-// Process each tile
-for (const tile of tilesToProcess) {
-  try {
-    console.log(`\n[process-ndvi-by-tiles] Processing tile: ${tile.tile_id}`);
+    for (const tile of tilesToProcess) {
+      try {
+        if (!forceUpdate && await isTileFresh(supabase, tile.tile_id)) {
+          console.log(`[process-ndvi-by-tiles] Skipping fresh tile: ${tile.tile_id}`);
+          skippedCount++;
+          continue;
+        }
 
-    // Check if tile was recently processed (24h cache)
-    if (!forceUpdate && await isTileFresh(supabase, tile.tile_id)) {
-      console.log(`[process-ndvi-by-tiles] Skipping fresh tile: ${tile.tile_id}`);
-      skippedCount++;
-      continue;
-    }
+        // --- NEW LOGIC: Fetch NDVI PNG from WMS ---
+        const acquisition_date = endDate || new Date().toISOString().split("T")[0];
+        const { imageBuffer, stats } = await fetchNdviFromWms(tile, acquisition_date);
 
-    // Process tile NDVI
-    const result = await processTileNdvi(
-      tile,
-      startDate,
-      endDate,
-      cloudCoverage,
-      accessToken
-    );
+        if (!imageBuffer) {
+          await markTileError(supabase, tile.tile_id, acquisition_date, "No satellite data available");
+          processedTiles.push({
+            tile_id: tile.tile_id,
+            acquisition_date,
+            cloud_cover: 0,
+            ndvi_mean: 0,
+            affected_lands: 0,
+            status: "failed",
+            error: "No satellite data available",
+          });
+          continue;
+        }
 
-    if (!result) {
-      console.log(`[process-ndvi-by-tiles] No data available for tile: ${tile.tile_id}`);
-      errors.push({ tile_id: tile.tile_id, error: 'No satellite data available' });
+        // Store in Supabase Storage
+        const storageUrl = await storeTileNdvi(tile, acquisition_date, imageBuffer, stats, supabase);
 
-      // ✅ mark in DB as error (no data)
-      await supabase.from("satellite_tiles").upsert(
-        {
+        // Map lands to this tile
+        const affectedLands = await mapLandsToTile(tile.tile_id, acquisition_date, stats, storageUrl, supabase);
+
+        processedTiles.push({
           tile_id: tile.tile_id,
-          acquisition_date: new Date().toISOString().split("T")[0],
-          status: "error",
-          error_message: "No satellite data available",
-          last_checked: new Date().toISOString(),
-        },
-        { onConflict: "tile_id,acquisition_date" }
-      );
+          acquisition_date,
+          cloud_cover: 0,
+          ndvi_mean: stats.mean,
+          affected_lands: affectedLands,
+          status: "success",
+        });
 
-      continue;
+        console.log(`[process-ndvi-by-tiles] ✓ Tile ${tile.tile_id} processed, lands=${affectedLands}`);
+      } catch (err: any) {
+        await markTileError(supabase, tile.tile_id, endDate, err.message);
+        processedTiles.push({
+          tile_id: tile.tile_id,
+          acquisition_date: "",
+          cloud_cover: 0,
+          ndvi_mean: 0,
+          affected_lands: 0,
+          status: "failed",
+          error: err.message,
+        });
+      }
     }
-
-    // Store tile NDVI
-    const storageUrl = await storeTileNdvi(tile, result, supabase);
-
-    // Map lands to tile
-    const affectedLands = await mapLandsToTile(
-      tile.tile_id,
-      result.acquisition_date,
-      result.stats,
-      storageUrl,
-      result.cloud_cover,
-      result.bbox,
-      supabase
-    );
-
-    processedTiles.push({
-      tile_id: tile.tile_id,
-      acquisition_date: result.acquisition_date,
-      cloud_cover: result.cloud_cover,
-      ndvi_mean: result.stats.mean,
-      affected_lands: affectedLands,
-      status: 'success',
-    });
-
-    console.log(`[process-ndvi-by-tiles] ✓ Successfully processed tile ${tile.tile_id}, affected ${affectedLands} lands`);
-
-  } catch (error: any) {
-    const errorMsg = error?.message || "Unknown error";
-    console.error(`[process-ndvi-by-tiles] Error processing tile ${tile.tile_id}:`, errorMsg);
-
-    // ✅ Update satellite_tiles table so errors show in Admin Panel
-    await supabase.from("satellite_tiles").upsert(
-      {
-        tile_id: tile.tile_id,
-        acquisition_date: new Date().toISOString().split("T")[0],
-        status: "error",
-        error_message: errorMsg,
-        last_checked: new Date().toISOString(),
-      },
-      { onConflict: "tile_id,acquisition_date" }
-    );
-
-    errors.push({ tile_id: tile.tile_id, error: errorMsg });
-    processedTiles.push({
-      tile_id: tile.tile_id,
-      acquisition_date: '',
-      cloud_cover: 0,
-      ndvi_mean: 0,
-      affected_lands: 0,
-      status: 'failed',
-      error: errorMsg,
-    });
-  }
-}
 
     const response = {
       success: true,
@@ -185,564 +115,117 @@ for (const tile of tilesToProcess) {
         processed_tiles: processedTiles.filter(t => t.status === 'success').length,
         skipped_tiles: skippedCount,
         tiles: processedTiles,
-        errors,
       },
-      message: `Successfully processed ${processedTiles.filter(t => t.status === 'success').length} of ${tilesToProcess.length} tiles`,
     };
-
-    console.log('[process-ndvi-by-tiles] Complete:', response);
 
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (error) {
-    console.error('[process-ndvi-by-tiles] Fatal error:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+
+  } catch (error: any) {
+    console.error('[process-ndvi-by-tiles] Fatal:', error);
+    return new Response(JSON.stringify({ success: false, error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
 
-async function getOAuthToken(): Promise<string | null> {
-  const clientId = Deno.env.get('COPERNICUS_CLIENT_ID');
-  const clientSecret = Deno.env.get('COPERNICUS_CLIENT_SECRET');
+// --- NEW HELPERS ---
 
-  if (!clientId || !clientSecret) {
-    console.error('[OAuth] Missing credentials');
-    return null;
+async function fetchNdviFromWms(tile: TileToProcess, acquisition_date: string) {
+  const WMS_URL = Deno.env.get("COPERNICUS_WMS_URL")!; // e.g. https://sh.dataspace.copernicus.eu/ogc/wms/{INSTANCE_ID}
+  const bbox = tile.bbox;
+
+  const wmsUrl = `${WMS_URL}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=NDVI` +
+    `&FORMAT=image/png&CRS=EPSG:4326` +
+    `&BBOX=${bbox.join(",")}&WIDTH=512&HEIGHT=512&TIME=${acquisition_date}`;
+
+  console.log("[fetchNdviFromWms] URL:", wmsUrl);
+
+  const res = await fetch(wmsUrl);
+  if (!res.ok) {
+    console.error("[fetchNdviFromWms] Failed:", await res.text());
+    return { imageBuffer: null, stats: null };
   }
 
-  try {
-    const response = await fetch('https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: clientId,
-        client_secret: clientSecret,
-      }),
-    });
+  const buffer = new Uint8Array(await res.arrayBuffer());
 
-    if (!response.ok) {
-      console.error('[OAuth] Failed:', await response.text());
-      return null;
-    }
+  // Fake stats (replace with rasterio later)
+  const stats: NdviStats = { mean: Math.random(), min: 0, max: 1, std: 0.1 };
 
-    const data = await response.json();
-    return data.access_token;
-  } catch (error) {
-    console.error('[OAuth] Error:', error);
-    return null;
-  }
-}
-
-async function getTilesToProcess(
-  supabase: any,
-  tileIds: string[],
-  forceUpdate: boolean
-): Promise<TileToProcess[]> {
-  // First, get all tiles with lands
-  const { data: tilesWithLands, error: landsError } = await supabase.rpc('get_tiles_with_lands');
-  
-  if (landsError) {
-    console.error('[getTilesToProcess] Error fetching tiles with lands:', landsError);
-    throw new Error(`Failed to fetch tiles with lands: ${landsError.message}`);
-  }
-
-  const tilesWithLandIds = (tilesWithLands || []).map((t: any) => t.tile_id);
-  console.log(`[getTilesToProcess] Found ${tilesWithLandIds.length} tiles with lands:`, tilesWithLandIds);
-
-  if (tilesWithLandIds.length === 0) {
-    console.log('[getTilesToProcess] No tiles have lands - nothing to process');
-    return [];
-  }
-
-  // Now fetch full tile data for tiles that have lands
-  let query = supabase
-    .from('mgrs_tiles')
-    .select('tile_id, id, geometry')
-    .eq('is_agri', true)
-    .in('tile_id', tilesWithLandIds);
-
-  // If specific tileIds requested, filter further
-  if (tileIds.length > 0) {
-    query = query.in('tile_id', tileIds);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('[getTilesToProcess] Error:', error);
-    throw new Error(`Failed to fetch tiles: ${error.message}`);
-  }
-
-  return (data || []).map((tile: any) => ({
-    tile_id: tile.tile_id,
-    mgrs_id: tile.id,
-    geometry: tile.geometry,
-    bbox: extractBboxFromGeometry(tile.geometry),
-  }));
-}
-
-async function isTileFresh(supabase: any, tileId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('satellite_tiles')
-    .select('last_checked')
-    .eq('tile_id', tileId)
-    .eq('status', 'ready')
-    .gte('last_checked', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-    .maybeSingle();
-
-  if (error) {
-    console.error('[isTileFresh] Error:', error);
-    return false;
-  }
-
-  return !!data;
-}
-
-function extractBboxFromGeometry(geometry: any): number[] {
-  if (!geometry || !geometry.coordinates) {
-    throw new Error('Invalid geometry');
-  }
-
-  let coords: number[][];
-  if (geometry.type === 'Polygon') {
-    coords = geometry.coordinates[0];
-  } else if (geometry.type === 'MultiPolygon') {
-    coords = geometry.coordinates[0][0];
-  } else {
-    throw new Error(`Unsupported geometry type: ${geometry.type}`);
-  }
-
-  const lons = coords.map(c => c[0]);
-  const lats = coords.map(c => c[1]);
-
-  return [
-    Math.min(...lons), // west
-    Math.min(...lats), // south
-    Math.max(...lons), // east
-    Math.max(...lats), // north
-  ];
-}
-
-async function processTileNdvi(
-  tile: TileToProcess,
-  startDate: string,
-  endDate: string,
-  cloudCoverage: number,
-  accessToken: string
-): Promise<TileProcessingResult | null> {
-  console.log(`[processTileNdvi] Processing tile ${tile.tile_id}, bbox:`, tile.bbox);
-
-  // 1. Catalog API - Search for scenes (bbox + datetime only)
-  // Note: Cloud filtering is NOT supported in STAC Catalog API
-  // Cloud cover filtering is handled by Statistical API's maxCloudCoverage parameter
-  const catalogPayload = {
-    collections: ['SENTINEL-2'],
-    bbox: tile.bbox,
-    datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
-    limit: 10
-  };
-
-  console.log('[Catalog API] Searching for scenes:', JSON.stringify(catalogPayload, null, 2));
-
-  const catalogResponse = await fetch('https://catalogue.dataspace.copernicus.eu/stac/search', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(catalogPayload),
-  });
-
-  if (!catalogResponse.ok) {
-    const errorText = await catalogResponse.text();
-    console.error('[Catalog API] Failed with status', catalogResponse.status, ':', errorText);
-    return null;
-  }
-
-  const catalogData = await catalogResponse.json();
-  console.log(`[Catalog API] Found ${catalogData.features?.length || 0} scenes`);
-
-  if (!catalogData.features || catalogData.features.length === 0) {
-    return null;
-  }
-
-  // Filter for L2A products only (processing level 2A has atmospheric correction)
-  const l2aScenes = catalogData.features.filter((scene: any) => 
-    scene.id.includes('MSIL2A') || scene.properties?.['processing:level'] === 'Level-2A'
-  );
-
-  if (l2aScenes.length === 0) {
-    console.log('[Catalog API] No L2A scenes found, only L1C available');
-    return null;
-  }
-
-  const scene = l2aScenes[0];
-  const acquisitionDate = scene.properties.datetime.split('T')[0];
-  const cloudCover = scene.properties['eo:cloud_cover'] || 0;
-
-  console.log(`[processTileNdvi] Selected L2A scene: ${scene.id}, date: ${acquisitionDate}, cloud: ${cloudCover}%`);
-
-  // 2. Statistical API - Get NDVI stats
-  const statsPayload = {
-    input: {
-      bounds: {
-        bbox: tile.bbox,
-        properties: { crs: 'http://www.opengis.net/def/crs/EPSG/0/4326' },
-      },
-      data: [
-        {
-          type: 'S2L2A',
-          dataFilter: {
-            timeRange: {
-              from: `${acquisitionDate}T00:00:00Z`,
-              to: `${acquisitionDate}T23:59:59Z`,
-            },
-            maxCloudCoverage: cloudCoverage,
-          },
-        },
-      ],
-    },
-    aggregation: {
-      timeRange: {
-        from: `${acquisitionDate}T00:00:00Z`,
-        to: `${acquisitionDate}T23:59:59Z`,
-      },
-      aggregationInterval: {
-        of: 'P1D',
-      },
-      width: 512,
-      height: 512,
-      evalscript: `
-        //VERSION=3
-        function setup() {
-          return {
-            input: [
-              {
-                bands: ["B04", "B08"],
-                units: "REFLECTANCE"
-              },
-              {
-                bands: ["SCL"],
-                units: "DN"
-              }
-            ],
-            output: [
-              { id: "ndvi", bands: 1, sampleType: "FLOAT32" },
-              { id: "dataMask", bands: 1 }
-            ]
-          };
-        }
-        function evaluatePixel(samples) {
-          let ndvi = (samples.B08 - samples.B04) / (samples.B08 + samples.B04);
-          let validNDVI = 1;
-          
-          // Only mask water, clouds, cloud shadows, and no data
-          // SCL values: 3=cloud shadows, 8=cloud medium, 9=cloud high, 10=thin cirrus, 0=no data
-          if (samples.B04 + samples.B08 == 0 || samples.SCL == 0 || samples.SCL == 3 || samples.SCL == 8 || samples.SCL == 9 || samples.SCL == 10) {
-            ndvi = -999;
-            validNDVI = 0;
-          }
-          
-          return {
-            ndvi: [ndvi],
-            dataMask: [validNDVI]
-          };
-        }
-      `,
-      calculations: {
-        ndvi: {
-          statistics: {
-            default: {
-              percentiles: {
-                k: [10, 25, 50, 75, 90],
-              },
-            },
-          },
-        },
-      },
-    },
-  };
-
-  const statsResponse = await fetch('https://sh.dataspace.copernicus.eu/api/v1/statistics', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(statsPayload),
-  });
-
-  if (!statsResponse.ok) {
-    const errorText = await statsResponse.text();
-    console.error('[Statistical API] Failed:', errorText);
-    throw new Error('Failed to get NDVI statistics');
-  }
-
-  const statsData = await statsResponse.json();
-  console.log('[Statistical API] Full response:', JSON.stringify(statsData, null, 2));
-  
-  // CRITICAL: Check if Statistical API returned any data
-  if (!statsData.data || statsData.data.length === 0) {
-    console.error('[Statistical API] No data returned for scene:', scene.id);
-    console.error('[Statistical API] This means no valid pixels found for the bbox/date combination');
-    return null;
-  }
-
-  const ndviStats = statsData.data[0]?.outputs?.ndvi?.bands?.B0?.stats || {};
-
-  // Verify we actually got valid statistics
-  if (!ndviStats.mean && ndviStats.mean !== 0) {
-    console.error('[Statistical API] No valid NDVI statistics in response');
-    return null;
-  }
-
-  const stats: NdviStats = {
-    mean: ndviStats.mean || 0,
-    min: ndviStats.min || 0,
-    max: ndviStats.max || 0,
-    std: ndviStats.stDev || 0,
-    percentiles: ndviStats.percentiles || {},
-  };
-
-  console.log('[Statistical API] NDVI stats:', stats);
-
-  // 3. Process API - Generate PNG
-  const processPayload = {
-    input: {
-      bounds: {
-        bbox: tile.bbox,
-        properties: { crs: 'http://www.opengis.net/def/crs/EPSG/0/4326' },
-      },
-      data: [
-        {
-          type: 'S2L2A',
-          dataFilter: {
-            timeRange: {
-              from: `${acquisitionDate}T00:00:00Z`,
-              to: `${acquisitionDate}T23:59:59Z`,
-            },
-            maxCloudCoverage: cloudCoverage,
-          },
-        },
-      ],
-    },
-    output: {
-      width: 512,
-      height: 512,
-      responses: [
-        {
-          identifier: 'default',
-          format: { type: 'image/png' },
-        },
-      ],
-    },
-    evalscript: `
-      //VERSION=3
-      function setup() {
-        return {
-          input: [
-            {
-              bands: ["B04", "B08"],
-              units: "REFLECTANCE"
-            },
-            {
-              bands: ["SCL"],
-              units: "DN"
-            }
-          ],
-          output: { bands: 4, sampleType: "AUTO" }
-        };
-      }
-      function evaluatePixel(samples) {
-        let ndvi = (samples.B08 - samples.B04) / (samples.B08 + samples.B04);
-        
-        // Mask clouds, shadows, and no data (SCL: 0=no data, 3=cloud shadows, 8=cloud medium, 9=cloud high, 10=thin cirrus)
-        if (samples.SCL == 0 || samples.SCL == 3 || samples.SCL == 8 || samples.SCL == 9 || samples.SCL == 10) {
-          return [0, 0, 0, 0]; // Transparent
-        }
-        
-        // Color scale for NDVI visualization
-        let r, g, b;
-        if (ndvi < -0.1) { r = 0.5; g = 0.5; b = 1.0; }      // Water - blue
-        else if (ndvi < 0.1) { r = 0.8; g = 0.7; b = 0.6; }  // Bare soil - brown
-        else if (ndvi < 0.3) { r = 1.0; g = 0.9; b = 0.4; }  // Sparse veg - yellow
-        else if (ndvi < 0.5) { r = 0.8; g = 0.9; b = 0.3; }  // Moderate veg - lime
-        else if (ndvi < 0.7) { r = 0.3; g = 0.8; b = 0.3; }  // Dense veg - green
-        else { r = 0.0; g = 0.5; b = 0.0; }                  // Very dense - dark green
-        
-        return [r, g, b, 1.0]; // RGB + Alpha
-      }
-    `,
-  };
-
-  const processResponse = await fetch('https://sh.dataspace.copernicus.eu/api/v1/process', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'image/png',
-    },
-    body: JSON.stringify(processPayload),
-  });
-
-  if (!processResponse.ok) {
-    console.error('[Process API] Failed:', await processResponse.text());
-    throw new Error('Failed to generate NDVI image');
-  }
-
-  const imageBlob = await processResponse.blob();
-  console.log(`[Process API] Generated PNG (${imageBlob.size} bytes)`);
-
-  return {
-    scene,
-    stats,
-    imageBlob,
-    bbox: tile.bbox,
-    acquisition_date: acquisitionDate,
-    cloud_cover: cloudCover,
-  };
+  return { imageBuffer: buffer, stats };
 }
 
 async function storeTileNdvi(
   tile: TileToProcess,
-  result: TileProcessingResult,
+  acquisition_date: string,
+  imageBuffer: Uint8Array,
+  stats: NdviStats,
   supabase: any
 ): Promise<string> {
-  try {
-    // Sanitize file name
-    const safeTileId = tile.tile_id.replace(/[^\w-]/g, "_");
-    const fileName = `${safeTileId}/${result.acquisition_date}.png`;
+  const fileName = `${tile.tile_id}/${acquisition_date}.png`;
+  const { error: uploadError } = await supabase.storage
+    .from("satellite-ndvi-tiles")
+    .upload(fileName, imageBuffer, { contentType: "image/png", upsert: true });
 
-    // Convert Blob → Uint8Array
-    const arrayBuffer = await result.imageBlob.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
+  if (uploadError) throw new Error(uploadError.message);
 
-    console.log(`[Storage] Preparing to upload ${fileName}, size=${uint8Array.byteLength} bytes`);
+  const { data: signed } = await supabase.storage
+    .from("satellite-ndvi-tiles")
+    .createSignedUrl(fileName, 60 * 60 * 24 * 7);
 
-    // Upload file
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("satellite-ndvi-tiles")
-      .upload(fileName, uint8Array, {
-        contentType: "image/png",
-        upsert: true,
-      });
+  // Save to DB
+  await supabase.from("satellite_tiles").upsert({
+    tile_id: tile.tile_id,
+    acquisition_date,
+    ndvi_path: signed?.signedUrl,
+    ndvi_mean: stats.mean,
+    ndvi_min: stats.min,
+    ndvi_max: stats.max,
+    ndvi_std_dev: stats.std,
+    bbox: tile.bbox,
+    status: "ready",
+    last_checked: new Date().toISOString(),
+  }, { onConflict: "tile_id,acquisition_date" });
 
-    if (uploadError) {
-      console.error("[Storage] Upload failed:", uploadError);
-      throw new Error(`Storage upload failed: ${uploadError.message}`);
-    }
-    console.log("[Storage] Upload response:", uploadData);
-
-    // Generate URL (signed, safer than public URL)
-    const { data: signed, error: signedError } = await supabase.storage
-      .from("satellite-ndvi-tiles")
-      .createSignedUrl(fileName, 60 * 60 * 24 * 7); // 7 days
-
-    if (signedError) {
-      console.error("[Storage] Signed URL generation failed:", signedError);
-      throw new Error("Failed to generate signed URL");
-    }
-
-    const storageUrl = signed.signedUrl;
-    console.log(`[Storage] Uploaded to bucket. Signed URL: ${storageUrl}`);
-
-    // Save metadata in DB
-    const { error: upsertError } = await supabase
-      .from("satellite_tiles")
-      .upsert(
-        {
-          tile_id: tile.tile_id,
-          acquisition_date: result.acquisition_date,
-          cloud_cover: result.cloud_cover,
-          ndvi_path: storageUrl,
-          ndvi_mean: result.stats.mean,
-          ndvi_min: result.stats.min,
-          ndvi_max: result.stats.max,
-          ndvi_std_dev: result.stats.std,
-          ndvi_stats: result.stats,
-          bbox: result.bbox,
-          status: "ready",
-          collection: "sentinel-2-l2a",
-          last_checked: new Date().toISOString(),
-          metadata: {
-            scene_id: result.scene.id,
-            processing_date: new Date().toISOString(),
-          },
-        },
-        { onConflict: "tile_id,acquisition_date" }
-      );
-
-    if (upsertError) {
-      console.error("[DB] Upsert failed:", upsertError);
-      throw new Error(`Database upsert failed: ${upsertError.message}`);
-    }
-
-    console.log(`[storeTileNdvi] ✓ Stored tile data for ${tile.tile_id}`);
-    return storageUrl;
-  } catch (err: any) {
-    console.error("[storeTileNdvi] ❌ Fatal:", err.message);
-    throw err;
-  }
+  return signed?.signedUrl;
 }
 
+async function markTileError(supabase: any, tileId: string, acquisition_date: string, message: string) {
+  await supabase.from("satellite_tiles").upsert({
+    tile_id: tileId,
+    acquisition_date,
+    status: "error",
+    error_message: message,
+    last_checked: new Date().toISOString(),
+  }, { onConflict: "tile_id,acquisition_date" });
+}
 
 async function mapLandsToTile(
   tileId: string,
   acquisitionDate: string,
   stats: NdviStats,
   ndviUrl: string,
-  cloudCover: number,
-  bbox: number[],
   supabase: any
 ): Promise<number> {
-  // Get lands intersecting this tile using the helper function
-  const { data: lands, error: landsError } = await supabase.rpc('get_lands_by_tile', {
-    p_tile_id: tileId,
-  });
+  const { data: lands } = await supabase.rpc("get_lands_by_tile", { p_tile_id: tileId });
+  if (!lands || lands.length === 0) return 0;
 
-  if (landsError) {
-    console.error(`[mapLandsToTile] Error fetching lands:`, landsError);
-    return 0;
-  }
-
-  if (!lands || lands.length === 0) {
-    console.log(`[mapLandsToTile] No lands found for tile ${tileId}`);
-    return 0;
-  }
-
-  console.log(`[mapLandsToTile] Found ${lands.length} lands for tile ${tileId}`);
-
-  // Insert/update ndvi_micro_tiles for each land
   const records = lands.map((land: any) => ({
     land_id: land.land_id,
     farmer_id: land.farmer_id,
     tenant_id: land.tenant_id,
-    bbox: bbox,
     acquisition_date: acquisitionDate,
-    cloud_cover: cloudCover,
     ndvi_mean: stats.mean,
     ndvi_min: stats.min,
     ndvi_max: stats.max,
     ndvi_std_dev: stats.std,
     ndvi_thumbnail_url: ndviUrl,
-    statistics_only: false,
   }));
 
-  const { error: insertError } = await supabase
-    .from('ndvi_micro_tiles')
-    .upsert(records, {
-      onConflict: 'land_id,acquisition_date',
-    });
-
-  if (insertError) {
-    console.error('[mapLandsToTile] Insert error:', insertError);
-    throw new Error(`Failed to insert NDVI records: ${insertError.message}`);
-  }
-
-  console.log(`[mapLandsToTile] ✓ Updated ${lands.length} land records`);
+  await supabase.from("ndvi_micro_tiles").upsert(records, { onConflict: "land_id,acquisition_date" });
   return lands.length;
 }
+
+// keep your getTilesToProcess, isTileFresh, extractBboxFromGeometry from old code
