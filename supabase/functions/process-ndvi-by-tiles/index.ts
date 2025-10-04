@@ -206,6 +206,8 @@ async function processTileNdvi(
     query: { 'eo:cloud_cover': { lte: cloudCoverage } }
   };
 
+  console.log(`[processTileNdvi] Catalog request:`, JSON.stringify(catalogPayload));
+  
   const catalogResponse = await fetch(COPERNICUS_CATALOG_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -213,7 +215,14 @@ async function processTileNdvi(
   });
 
   if (!catalogResponse.ok) {
-    throw new Error(`Catalog API failed: ${catalogResponse.statusText}`);
+    const errorText = await catalogResponse.text();
+    console.error(`[processTileNdvi] Catalog API error:`, {
+      status: catalogResponse.status,
+      statusText: catalogResponse.statusText,
+      body: errorText,
+      payload: catalogPayload
+    });
+    throw new Error(`Catalog API failed: ${catalogResponse.statusText} - ${errorText}`);
   }
 
   const catalogData = await catalogResponse.json();
