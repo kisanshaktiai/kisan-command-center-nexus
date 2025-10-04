@@ -15,41 +15,60 @@ export async function processPlanetaryComputer(supabase: any, params: {
 
   const STAC_API_URL = 'https://planetarycomputer.microsoft.com/api/stac/v1';
   
-  // Get lands to process
-  const { data: lands, error: landsError } = await supabase
-    .from('lands')
-    .select('id, tenant_id, boundary, mgrs_tile_id')
-    .in('mgrs_tile_id', params.tileIds.length > 0 ? params.tileIds : undefined);
+  // Get MGRS tiles to process
+  let query = supabase
+    .from('mgrs_tiles')
+    .select('id, tile_id, geometry');
+  
+  if (params.tileIds.length > 0) {
+    query = query.in('tile_id', params.tileIds);
+  } else {
+    query = query.eq('is_agri', true);
+  }
+  
+  const { data: tiles, error: tilesError } = await query;
 
-  if (landsError) {
-    throw new Error(`Failed to fetch lands: ${landsError.message}`);
+  if (tilesError) {
+    throw new Error(`Failed to fetch tiles: ${tilesError.message}`);
   }
 
-  console.log(`[MPC] Found ${lands?.length || 0} lands to process`);
+  console.log(`[MPC] Found ${tiles?.length || 0} tiles to process`);
 
   let processed = 0;
   let success = 0;
   const results = [];
 
-  for (const land of lands || []) {
+  for (const tile of tiles || []) {
     try {
-      if (!land.boundary?.coordinates) {
-        console.log(`[MPC] Land ${land.id} has no boundary, skipping`);
+      if (!tile.geometry) {
+        console.log(`[MPC] Tile ${tile.tile_id} has no geometry, skipping`);
         continue;
       }
 
-      // Extract bbox from land boundary
-      const coords = land.boundary.coordinates[0];
-      const lons = coords.map((c: number[]) => c[0]);
-      const lats = coords.map((c: number[]) => c[1]);
+      // Convert PostGIS geometry to bbox using ST_Extent
+      const { data: bboxData, error: bboxError } = await supabase
+        .rpc('st_extent', { geom: tile.geometry });
+      
+      if (bboxError || !bboxData) {
+        console.log(`[MPC] Failed to get bbox for tile ${tile.tile_id}`);
+        continue;
+      }
+
+      // Parse bbox from PostgreSQL BOX format: BOX(xmin ymin, xmax ymax)
+      const match = bboxData.match(/BOX\(([^ ]+) ([^ ]+),([^ ]+) ([^ ]+)\)/);
+      if (!match) {
+        console.log(`[MPC] Invalid bbox format for tile ${tile.tile_id}`);
+        continue;
+      }
+
       const bbox = [
-        Math.min(...lons), 
-        Math.min(...lats),
-        Math.max(...lons),
-        Math.max(...lats)
+        parseFloat(match[1]), // xmin (lon)
+        parseFloat(match[2]), // ymin (lat)
+        parseFloat(match[3]), // xmax (lon)
+        parseFloat(match[4])  // ymax (lat)
       ];
 
-      console.log(`[MPC] Searching STAC for land ${land.id}, bbox: ${bbox}`);
+      console.log(`[MPC] Searching STAC for tile ${tile.tile_id}, bbox: ${bbox}`);
 
       // Search STAC catalog
       const searchResponse = await fetch(`${STAC_API_URL}/search`, {
@@ -73,10 +92,10 @@ export async function processPlanetaryComputer(supabase: any, params: {
       const searchData = await searchResponse.json();
       const scenes = searchData.features || [];
 
-      console.log(`[MPC] Found ${scenes.length} scenes for land ${land.id}`);
+      console.log(`[MPC] Found ${scenes.length} scenes for tile ${tile.tile_id}`);
 
       if (scenes.length === 0) {
-        console.log(`[MPC] No scenes found for land ${land.id}`);
+        console.log(`[MPC] No scenes found for tile ${tile.tile_id}`);
         continue;
       }
 
@@ -90,12 +109,12 @@ export async function processPlanetaryComputer(supabase: any, params: {
       const acquisitionDate = bestScene.properties.datetime;
       const cloudCover = bestScene.properties['eo:cloud_cover'] || 0;
 
-      console.log(`[MPC] Best scene for land ${land.id}: ${acquisitionDate}, cloud: ${cloudCover}%`);
+      console.log(`[MPC] Best scene for tile ${tile.tile_id}: ${acquisitionDate}, cloud: ${cloudCover}%`);
 
       if (params.downloadFiles && redBandUrl && nirBandUrl) {
         // Download and store band files
-        const redPath = `satellite-bands/mpc/${land.mgrs_tile_id}/${acquisitionDate}/red_B04.tif`;
-        const nirPath = `satellite-bands/mpc/${land.mgrs_tile_id}/${acquisitionDate}/nir_B08.tif`;
+        const redPath = `satellite-bands/mpc/${tile.tile_id}/${acquisitionDate}/red_B04.tif`;
+        const nirPath = `satellite-bands/mpc/${tile.tile_id}/${acquisitionDate}/nir_B08.tif`;
 
         // Download Red band
         const redResponse = await fetch(redBandUrl);
@@ -113,35 +132,37 @@ export async function processPlanetaryComputer(supabase: any, params: {
           upsert: true
         });
 
-        console.log(`[MPC] Downloaded bands for land ${land.id}`);
+        console.log(`[MPC] Downloaded bands for tile ${tile.tile_id}`);
 
         // Update satellite_tiles record
-        await supabase.from('satellite_tiles').upsert({
-          tile_id: land.mgrs_tile_id,
-          tenant_id: land.tenant_id,
+        const { error: upsertError } = await supabase.from('satellite_tiles').upsert({
+          tile_id: tile.tile_id,
           acquisition_date: acquisitionDate,
           cloud_coverage: cloudCover,
           api_source: 'planetary_computer',
           red_band_path: redPath,
           nir_band_path: nirPath,
-          processing_status: 'completed',
+          status: 'completed',
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'tile_id,acquisition_date'
         });
+
+        if (upsertError) {
+          console.error(`[MPC] Error upserting satellite_tiles:`, upsertError);
+        }
       }
 
       processed++;
       success++;
       results.push({
-        land_id: land.id,
-        tile_id: land.mgrs_tile_id,
+        tile_id: tile.tile_id,
         acquisition_date: acquisitionDate,
         cloud_coverage: cloudCover
       });
 
     } catch (error: any) {
-      console.error(`[MPC] Error processing land ${land.id}:`, error);
+      console.error(`[MPC] Error processing tile ${tile.tile_id}:`, error);
       processed++;
     }
   }
