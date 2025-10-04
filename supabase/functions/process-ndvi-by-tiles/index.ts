@@ -220,13 +220,13 @@ async function processTileNdvi(
 
   console.log(`[processTileNdvi] ✓ Bbox size valid (${bboxAreaKm.toFixed(2)} km²)`);
 
-  // Step 1: Search Catalog API
+  // Step 1: Search Catalog API (Copernicus STAC format)
   const catalogPayload = {
     collections: ['SENTINEL-2'],
     bbox: bbox,
     datetime: `${startDate}T00:00:00Z/${endDate}T23:59:59Z`,
-    limit: 10,
-    query: { 'eo:cloud_cover': { lte: cloudCoverage } }
+    limit: 10
+    // Note: Cloud cover filter will be applied client-side after retrieval
   };
 
   console.log(`[processTileNdvi] Catalog request:`, JSON.stringify(catalogPayload));
@@ -260,9 +260,15 @@ async function processTileNdvi(
     };
   }
 
-  // Filter for L2A only
-  const l2aScenes = catalogData.features.filter((f: any) => f.id?.includes('MSIL2A'));
+  // Filter for L2A scenes with acceptable cloud cover (apply client-side)
+  const l2aScenes = catalogData.features.filter((f: any) => {
+    const isL2A = f.id?.includes('MSIL2A');
+    const cloudCover = f.properties?.['eo:cloud_cover'] || 100;
+    return isL2A && cloudCover <= cloudCoverage;
+  });
+
   if (l2aScenes.length === 0) {
+    console.log(`[processTileNdvi] No L2A scenes found with cloud cover <= ${cloudCoverage}%`);
     return {
       imageBuffer: null,
       stats: null,
@@ -271,6 +277,7 @@ async function processTileNdvi(
     };
   }
 
+  // Sort by cloud cover (lowest first)
   const scene = l2aScenes.sort((a: any, b: any) => 
     (a.properties?.['eo:cloud_cover'] || 100) - (b.properties?.['eo:cloud_cover'] || 100)
   )[0];
