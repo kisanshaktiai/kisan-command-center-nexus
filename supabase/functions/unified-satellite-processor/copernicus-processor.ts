@@ -145,6 +145,9 @@ export async function processCopernicus(supabase: any, params: {
           red_band_path: redPath,
           nir_band_path: nirPath,
           status: 'completed',
+          collection: 'SENTINEL-2',
+          processing_level: 'L2A',
+          country_id: 'IN', // Default to India
           copernicus_red_band_url: redBandUrl,
           copernicus_nir_band_url: nirBandUrl,
           copernicus_download_attempted_at: new Date().toISOString(),

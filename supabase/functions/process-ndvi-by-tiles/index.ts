@@ -921,7 +921,7 @@ async function storeTileNdvi(
 
   const { data: signed } = await supabase.storage.from("satellite-ndvi-tiles").createSignedUrl(fileName, 60 * 60 * 24 * 7);
 
-  // FIX: Use updated_at instead of last_updated
+  // FIX: Use updated_at instead of last_updated and correct column names
   await supabase.from("satellite_tiles").upsert({
     tile_id: tile.tile_id,
     acquisition_date,
@@ -930,13 +930,15 @@ async function storeTileNdvi(
     ndvi_min: stats.min,
     ndvi_max: stats.max,
     ndvi_std_dev: stats.std,
-    bbox: tile.bbox,
-    status: "ready",
+    status: "completed", // Changed from "ready" to match schema
+    cloud_cover: cloudCover, // Use cloud_cover instead of metadata
+    collection: 'sentinel-2-l2a',
+    processing_level: 'L2A',
+    country_id: 'IN', // Default to India
     updated_at: new Date().toISOString(),
     data_quality_score: dataQuality,
     data_source: 'copernicus_sentinel2',
     metadata: {
-      cloud_cover: cloudCover,
       is_historical: isHistorical,
       processing_notes: isHistorical ? 'Historical data used - no recent data with acceptable cloud cover' : null
     }

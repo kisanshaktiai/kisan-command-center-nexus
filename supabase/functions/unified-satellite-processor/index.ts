@@ -203,7 +203,9 @@ async function trackApiUsage(supabase: any, params: {
   failure_count: number;
 }) {
   try {
+    // Note: tenant_id can be null for system-level tracking
     await supabase.from('satellite_api_usage').insert({
+      tenant_id: null, // System-level tracking
       api_source: params.api_source,
       operation_type: params.operation_type,
       tiles_processed: params.tiles_processed,

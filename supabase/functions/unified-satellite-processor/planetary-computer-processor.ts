@@ -131,6 +131,9 @@ export async function processPlanetaryComputer(supabase: any, params: {
           red_band_path: redPath,
           nir_band_path: nirPath,
           status: 'completed',
+          collection: 'sentinel-2-l2a',
+          processing_level: 'L2A',
+          country_id: 'IN', // Default to India
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'tile_id,acquisition_date'
