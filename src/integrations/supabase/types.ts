@@ -10577,6 +10577,56 @@ export type Database = {
           },
         ]
       }
+      satellite_api_usage: {
+        Row: {
+          api_source: string
+          bandwidth_mb: number | null
+          created_at: string | null
+          date: string | null
+          failure_count: number | null
+          id: string
+          operation_type: string
+          success_count: number | null
+          tenant_id: string | null
+          tiles_processed: number | null
+          total_cost_estimate: number | null
+        }
+        Insert: {
+          api_source: string
+          bandwidth_mb?: number | null
+          created_at?: string | null
+          date?: string | null
+          failure_count?: number | null
+          id?: string
+          operation_type: string
+          success_count?: number | null
+          tenant_id?: string | null
+          tiles_processed?: number | null
+          total_cost_estimate?: number | null
+        }
+        Update: {
+          api_source?: string
+          bandwidth_mb?: number | null
+          created_at?: string | null
+          date?: string | null
+          failure_count?: number | null
+          id?: string
+          operation_type?: string
+          success_count?: number | null
+          tenant_id?: string | null
+          tiles_processed?: number | null
+          total_cost_estimate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "satellite_api_usage_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       satellite_imagery: {
         Row: {
           acquisition_date: string
@@ -10717,6 +10767,7 @@ export type Database = {
         Row: {
           acquisition_date: string
           actual_download_status: string | null
+          api_source: string | null
           band_data_verified: boolean | null
           band_statistics: Json | null
           bandwidth_usage_mb: number | null
@@ -10789,6 +10840,7 @@ export type Database = {
         Insert: {
           acquisition_date: string
           actual_download_status?: string | null
+          api_source?: string | null
           band_data_verified?: boolean | null
           band_statistics?: Json | null
           bandwidth_usage_mb?: number | null
@@ -10861,6 +10913,7 @@ export type Database = {
         Update: {
           acquisition_date?: string
           actual_download_status?: string | null
+          api_source?: string | null
           band_data_verified?: boolean | null
           band_statistics?: Json | null
           bandwidth_usage_mb?: number | null
@@ -12089,6 +12142,53 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      system_satellite_config: {
+        Row: {
+          auto_switch_on_failure: boolean | null
+          copernicus_client_id: string | null
+          copernicus_client_secret: string | null
+          created_at: string | null
+          fallback_enabled: boolean | null
+          id: string
+          max_retries_per_source: number | null
+          preferred_api_source: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_switch_on_failure?: boolean | null
+          copernicus_client_id?: string | null
+          copernicus_client_secret?: string | null
+          created_at?: string | null
+          fallback_enabled?: boolean | null
+          id?: string
+          max_retries_per_source?: number | null
+          preferred_api_source?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_switch_on_failure?: boolean | null
+          copernicus_client_id?: string | null
+          copernicus_client_secret?: string | null
+          created_at?: string | null
+          fallback_enabled?: boolean | null
+          id?: string
+          max_retries_per_source?: number | null
+          preferred_api_source?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_satellite_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       talukas: {
         Row: {

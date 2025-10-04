@@ -60,6 +60,8 @@ export default function NdviDataStatus() {
     cloudCoverMax: 100,
     country: 'all'
   });
+  
+  const [selectedApiSource, setSelectedApiSource] = useState<'planetary_computer' | 'copernicus_sentinel_hub'>('planetary_computer');
 
   const {
     data,
@@ -105,9 +107,12 @@ export default function NdviDataStatus() {
       // Small delay to ensure DB writes are visible
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Step 2: Sync NDVI data for those tiles
+      // Step 2: Sync NDVI data for those tiles with selected API
       console.log('[NdviDataStatus] Step 2: Syncing NDVI data for agricultural tiles');
-      const result = await syncNdviData.mutateAsync(params);
+      const result = await syncNdviData.mutateAsync({
+        ...params,
+        api_source: selectedApiSource
+      } as any);
       
       if (result) {
         setSyncDetails(result);
@@ -171,6 +176,128 @@ export default function NdviDataStatus() {
 
   return (
     <div className="space-y-6">
+      {/* API Source Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5" />
+            Satellite Data API Configuration
+          </CardTitle>
+          <CardDescription>
+            Choose which satellite data provider to use for downloading NDVI data
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card 
+              className={`cursor-pointer transition-all ${
+                selectedApiSource === 'planetary_computer' 
+                  ? 'border-primary ring-2 ring-primary' 
+                  : 'hover:border-primary/50'
+              }`}
+              onClick={() => setSelectedApiSource('planetary_computer')}
+            >
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    Microsoft Planetary Computer
+                  </CardTitle>
+                  <Badge variant="default">Recommended</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Free API access</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Fast COG downloads</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Global coverage</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>No authentication required</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Uses Microsoft's Planetary Computer STAC API for Sentinel-2 L2A data
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card 
+              className={`cursor-pointer transition-all ${
+                selectedApiSource === 'copernicus_sentinel_hub' 
+                  ? 'border-primary ring-2 ring-primary' 
+                  : 'hover:border-primary/50'
+              }`}
+              onClick={() => setSelectedApiSource('copernicus_sentinel_hub')}
+            >
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    Copernicus Sentinel Hub
+                  </CardTitle>
+                  <Badge variant="outline">Alternative</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Official ESA source</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Real-time updates</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                  <span>Requires authentication</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                  <span>API rate limits apply</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Uses Copernicus Data Space Ecosystem for Sentinel-2 data
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <span className="text-sm font-medium">Selected API:</span>
+              <Badge variant={selectedApiSource === 'planetary_computer' ? 'default' : 'outline'}>
+                {selectedApiSource === 'planetary_computer' ? 'Microsoft PC' : 'Copernicus SH'}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <span className="text-sm font-medium">Fallback:</span>
+              <Badge variant="outline">
+                {selectedApiSource === 'planetary_computer' ? 'Copernicus SH' : 'Microsoft PC'}
+              </Badge>
+            </div>
+          </div>
+
+          {selectedApiSource === 'copernicus_sentinel_hub' && (
+            <Alert className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Authentication Required</AlertTitle>
+              <AlertDescription>
+                Copernicus Sentinel Hub requires OAuth credentials. Make sure to configure your 
+                <code className="mx-1 px-2 py-0.5 bg-muted rounded">COPERNICUS_CLIENT_ID</code> and 
+                <code className="mx-1 px-2 py-0.5 bg-muted rounded">COPERNICUS_CLIENT_SECRET</code> 
+                in edge function secrets.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
