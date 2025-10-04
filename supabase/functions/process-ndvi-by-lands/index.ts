@@ -4,11 +4,18 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 
-const COPERNICUS_CLIENT_ID = Deno.env.get('COPERNICUS_CLIENT_ID')!;
-const COPERNICUS_CLIENT_SECRET = Deno.env.get('COPERNICUS_CLIENT_SECRET')!;
+const COPERNICUS_CLIENT_ID = Deno.env.get('COPERNICUS_CLIENT_ID');
+const COPERNICUS_CLIENT_SECRET = Deno.env.get('COPERNICUS_CLIENT_SECRET');
 const COPERNICUS_CATALOG_API = 'https://catalogue.dataspace.copernicus.eu/stac/search';
 const COPERNICUS_STATISTICAL_API = 'https://sh.dataspace.copernicus.eu/api/v1/statistics';
 const COPERNICUS_PROCESS_API = 'https://sh.dataspace.copernicus.eu/api/v1/process';
+
+// Validate credentials at startup
+if (!COPERNICUS_CLIENT_ID || !COPERNICUS_CLIENT_SECRET) {
+  console.error('[process-ndvi-by-lands] CRITICAL: Missing Copernicus credentials');
+  console.error('[process-ndvi-by-lands] CLIENT_ID:', COPERNICUS_CLIENT_ID ? 'SET' : 'MISSING');
+  console.error('[process-ndvi-by-lands] CLIENT_SECRET:', COPERNICUS_CLIENT_SECRET ? 'SET' : 'MISSING');
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,6 +43,13 @@ interface LandNdviResult {
 
 // Get Copernicus OAuth token
 async function getCopernicusToken(): Promise<string> {
+  if (!COPERNICUS_CLIENT_ID || !COPERNICUS_CLIENT_SECRET) {
+    throw new Error('Copernicus credentials not configured. Please set COPERNICUS_CLIENT_ID and COPERNICUS_CLIENT_SECRET in Supabase secrets.');
+  }
+
+  console.log('[getCopernicusToken] Requesting OAuth token...');
+  console.log('[getCopernicusToken] Client ID:', COPERNICUS_CLIENT_ID ? `${COPERNICUS_CLIENT_ID.substring(0, 8)}...` : 'MISSING');
+  
   const response = await fetch('https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -46,8 +60,16 @@ async function getCopernicusToken(): Promise<string> {
     }),
   });
 
-  if (!response.ok) throw new Error('Failed to get Copernicus token');
+  console.log('[getCopernicusToken] Response status:', response.status);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[getCopernicusToken] Error:', errorText);
+    throw new Error(`Failed to get Copernicus token (${response.status}): ${errorText}`);
+  }
+  
   const data = await response.json();
+  console.log('[getCopernicusToken] ✓ Token obtained successfully');
   return data.access_token;
 }
 

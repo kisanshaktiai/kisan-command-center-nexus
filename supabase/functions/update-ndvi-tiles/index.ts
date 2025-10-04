@@ -372,8 +372,13 @@ serve(async (req) => {
     const clientId = Deno.env.get('COPERNICUS_CLIENT_ID');
     const clientSecret = Deno.env.get('COPERNICUS_CLIENT_SECRET');
     
+    console.log('[update-ndvi-tiles] Checking credentials:', {
+      clientId: clientId ? `${clientId.substring(0, 8)}...` : 'MISSING',
+      clientSecret: clientSecret ? `SET (length: ${clientSecret.length})` : 'MISSING'
+    });
+    
     if (!clientId || !clientSecret) {
-      throw new Error('Copernicus credentials not configured');
+      throw new Error('Copernicus credentials not configured. Please set COPERNICUS_CLIENT_ID and COPERNICUS_CLIENT_SECRET in Supabase secrets.');
     }
 
     // Parse request body for user-provided parameters
