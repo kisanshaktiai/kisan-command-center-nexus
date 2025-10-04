@@ -584,16 +584,17 @@ async function storeTileNdvi(
   supabase: any
 ): Promise<string> {
   try {
-    // Prepare file path and convert Blob → Uint8Array
-    const fileName = `${tile.tile_id}/${result.acquisition_date}.png`;
+    // Sanitize file name
+    const safeTileId = tile.tile_id.replace(/[^\w-]/g, "_");
+    const fileName = `${safeTileId}/${result.acquisition_date}.png`;
+
+    // Convert Blob → Uint8Array
     const arrayBuffer = await result.imageBlob.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
 
-    console.log(
-      `[Storage] Uploading ${fileName}, size=${uint8Array.byteLength} bytes`
-    );
+    console.log(`[Storage] Preparing to upload ${fileName}, size=${uint8Array.byteLength} bytes`);
 
-    // Upload to Supabase storage
+    // Upload file
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("satellite-ndvi-tiles")
       .upload(fileName, uint8Array, {
@@ -605,22 +606,22 @@ async function storeTileNdvi(
       console.error("[Storage] Upload failed:", uploadError);
       throw new Error(`Storage upload failed: ${uploadError.message}`);
     }
+    console.log("[Storage] Upload response:", uploadData);
 
-    console.log("[Storage] Upload success:", uploadData);
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
+    // Generate URL (signed, safer than public URL)
+    const { data: signed, error: signedError } = await supabase.storage
       .from("satellite-ndvi-tiles")
-      .getPublicUrl(fileName);
+      .createSignedUrl(fileName, 60 * 60 * 24 * 7); // 7 days
 
-    if (!urlData || !urlData.publicUrl) {
-      throw new Error("Failed to generate public URL for uploaded file");
+    if (signedError) {
+      console.error("[Storage] Signed URL generation failed:", signedError);
+      throw new Error("Failed to generate signed URL");
     }
 
-    const storageUrl = urlData.publicUrl;
-    console.log(`[Storage] File accessible at: ${storageUrl}`);
+    const storageUrl = signed.signedUrl;
+    console.log(`[Storage] Uploaded to bucket. Signed URL: ${storageUrl}`);
 
-    // Upsert into DB
+    // Save metadata in DB
     const { error: upsertError } = await supabase
       .from("satellite_tiles")
       .upsert(
@@ -643,9 +644,7 @@ async function storeTileNdvi(
             processing_date: new Date().toISOString(),
           },
         },
-        {
-          onConflict: "tile_id,acquisition_date",
-        }
+        { onConflict: "tile_id,acquisition_date" }
       );
 
     if (upsertError) {
@@ -655,8 +654,8 @@ async function storeTileNdvi(
 
     console.log(`[storeTileNdvi] ✓ Stored tile data for ${tile.tile_id}`);
     return storageUrl;
-  } catch (err) {
-    console.error(`[storeTileNdvi] Fatal error for ${tile.tile_id}:`, err);
+  } catch (err: any) {
+    console.error("[storeTileNdvi] ❌ Fatal:", err.message);
     throw err;
   }
 }
