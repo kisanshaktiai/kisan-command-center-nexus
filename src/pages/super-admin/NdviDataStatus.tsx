@@ -95,6 +95,7 @@ export default function NdviDataStatus() {
     cloudCoverage: number;
     regions: string[];
     tileIds?: string[];
+    forceRefresh?: boolean;
   }) => {
     setSyncError(null);
     setSyncDetails(null);
@@ -946,6 +947,7 @@ export default function NdviDataStatus() {
         onOpenChange={setIsSyncDialogOpen}
         onSync={handleSync}
         isSyncing={syncNdviData.isPending}
+        selectedApiSource={selectedApiSource}
       />
     </div>
   );

@@ -35,6 +35,7 @@ interface SyncNdviDialogProps {
     regions: string[];
     tileIds?: string[];
     useTileFirst?: boolean;
+    forceRefresh?: boolean;
   }) => void;
   isSyncing: boolean;
   syncProgress?: {
@@ -43,6 +44,7 @@ interface SyncNdviDialogProps {
     processed_tiles?: number;
     current_step?: string;
   };
+  selectedApiSource?: 'planetary_computer' | 'copernicus_sentinel_hub';
 }
 
 interface RegionStats {
@@ -57,6 +59,7 @@ export function SyncNdviDialog({
   onSync,
   isSyncing,
   syncProgress,
+  selectedApiSource = 'planetary_computer',
 }: SyncNdviDialogProps) {
   // End date is always yesterday (1 day before today)
   const fixedEndDate = format(new Date(Date.now() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
@@ -70,6 +73,7 @@ export function SyncNdviDialog({
   const [maxTilesPerRun, setMaxTilesPerRun] = useState(50);
   const [dateError, setDateError] = useState('');
   const [useTileFirst, setUseTileFirst] = useState(true);
+  const [forceRefresh, setForceRefresh] = useState(false);
 
   // Fetch last successful NDVI download date and available regions
   useEffect(() => {
@@ -203,6 +207,7 @@ export function SyncNdviDialog({
       cloudCoverage,
       regions: regionsToSync,
       useTileFirst,
+      forceRefresh,
     });
   };
 
@@ -229,9 +234,12 @@ export function SyncNdviDialog({
           <DialogTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
             Sync NDVI Data
+            <Badge variant={selectedApiSource === 'planetary_computer' ? 'default' : 'outline'} className="text-[10px]">
+              {selectedApiSource === 'planetary_computer' ? 'Microsoft PC' : 'Copernicus SH'}
+            </Badge>
           </DialogTitle>
           <DialogDescription>
-            Configure parameters for NDVI synchronization
+            Configure parameters for {selectedApiSource === 'planetary_computer' ? 'Microsoft Planetary Computer' : 'Copernicus Sentinel Hub'} API
           </DialogDescription>
         </DialogHeader>
 
@@ -369,6 +377,21 @@ export function SyncNdviDialog({
             </div>
           )}
 
+          {/* API-specific Configuration */}
+          {selectedApiSource === 'copernicus_sentinel_hub' && (
+            <div className="space-y-2 p-3 border border-yellow-200 dark:border-yellow-800 rounded-lg bg-yellow-50 dark:bg-yellow-950/30">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                <p className="text-xs font-medium text-yellow-900 dark:text-yellow-100">
+                  Copernicus Authentication Required
+                </p>
+              </div>
+              <p className="text-[10px] text-yellow-700 dark:text-yellow-300 ml-6">
+                Ensure COPERNICUS_CLIENT_ID and COPERNICUS_CLIENT_SECRET are configured in edge function secrets
+              </p>
+            </div>
+          )}
+
           {/* Processing Mode Selection */}
           <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
             <div className="flex items-center gap-2">
@@ -389,6 +412,26 @@ export function SyncNdviDialog({
               {useTileFirst 
                 ? '✓ Tile-first: 1 API call per tile, reused by all lands' 
                 : '⚠ Land-first: Multiple API calls per land (slower, more expensive)'}
+            </p>
+          </div>
+
+          {/* Force Refresh Option */}
+          <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="force-refresh"
+                checked={forceRefresh}
+                onCheckedChange={(checked) => setForceRefresh(checked as boolean)}
+                disabled={isSyncing}
+              />
+              <Label htmlFor="force-refresh" className="text-xs cursor-pointer">
+                Force re-download existing data
+              </Label>
+            </div>
+            <p className="text-[10px] text-muted-foreground ml-6">
+              {forceRefresh 
+                ? '⚠ Will re-download all data even if already cached' 
+                : '✓ Skip tiles that are already downloaded (faster)'}
             </p>
           </div>
 
