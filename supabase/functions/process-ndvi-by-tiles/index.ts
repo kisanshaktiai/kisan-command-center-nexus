@@ -185,7 +185,279 @@ async function isTileFresh(supabase: any, tileId: string): Promise<boolean> {
 }
 
 /**
- * Process NDVI for a single tile using Copernicus APIs
+ * Multi-strategy NDVI data retrieval with progressive fallbacks
+ */
+async function processTileNdviMultiStrategy(
+  token: string,
+  tile: TileToProcess,
+  startDate: string,
+  endDate: string,
+  cloudCoverage: number,
+  supabase: any
+): Promise<NdviProcessResult> {
+  // Strategy 1: Progressive date range expansion
+  const dateRanges = [
+    { start: startDate, end: endDate, label: 'Requested Period' },
+    { start: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], end: endDate, label: '60 Days' },
+    { start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], end: endDate, label: '90 Days' }
+  ];
+
+  // Strategy 2: Progressive cloud cover relaxation
+  const cloudThresholds = [cloudCoverage, 30, 50, 80];
+
+  console.log(`[processTileNdviMultiStrategy] Starting multi-strategy NDVI retrieval for tile ${tile.tile_id}`);
+
+  // Try each strategy combination
+  for (const dateRange of dateRanges) {
+    for (const cloudThreshold of cloudThresholds) {
+      console.log(`[processTileNdviMultiStrategy] Trying ${dateRange.label} with cloud cover <= ${cloudThreshold}%`);
+      
+      try {
+        const result = await processTileNdvi(token, tile, dateRange.start, dateRange.end, cloudThreshold);
+        
+        if (result.imageBuffer && result.stats) {
+          console.log(`[processTileNdviMultiStrategy] ✓ Success with ${dateRange.label}, cloud <= ${cloudThreshold}%`);
+          return result;
+        }
+      } catch (error) {
+        // Check if it's a "too large" error - if so, fallback to land-first
+        if (error.message?.includes('too large')) {
+          console.log(`[processTileNdviMultiStrategy] Tile too large, falling back to land-first processing`);
+          return await fallbackToLandFirst(supabase, tile, token);
+        }
+        console.warn(`[processTileNdviMultiStrategy] Failed with ${dateRange.label}, cloud <= ${cloudThreshold}%:`, error.message);
+      }
+    }
+  }
+
+  // Strategy 3: Fallback to land-first processing if no data found
+  console.log(`[processTileNdviMultiStrategy] All strategies failed, falling back to land-first processing`);
+  return await fallbackToLandFirst(supabase, tile, token);
+}
+
+/**
+ * Fallback to land-first processing for large tiles or when no data available
+ */
+async function fallbackToLandFirst(supabase: any, tile: TileToProcess, token: string): Promise<NdviProcessResult> {
+  console.log(`[fallbackToLandFirst] Processing lands within tile ${tile.tile_id}`);
+  
+  // Get all lands in this tile
+  const { data: lands, error } = await supabase.rpc('get_lands_by_tile', { p_tile_id: tile.tile_id });
+  
+  if (error || !lands || lands.length === 0) {
+    console.log(`[fallbackToLandFirst] No lands found for tile ${tile.tile_id}`);
+    return {
+      imageBuffer: null,
+      stats: null,
+      acquisitionDate: new Date().toISOString().split('T')[0],
+      cloudCover: 0
+    };
+  }
+
+  // Cluster lands for processing
+  const { data: clusters } = await supabase.rpc('cluster_lands_for_ndvi', {
+    p_tenant_id: lands[0].tenant_id,
+    p_max_distance_km: 1.0,
+    p_max_cluster_area_km2: 25.0
+  });
+
+  if (!clusters || clusters.length === 0) {
+    return {
+      imageBuffer: null,
+      stats: null,
+      acquisitionDate: new Date().toISOString().split('T')[0],
+      cloudCover: 0
+    };
+  }
+
+  // Process first cluster
+  const cluster = clusters[0];
+  const landIds = cluster.land_ids.filter((id: string) => lands.some((l: any) => l.land_id === id));
+  
+  if (landIds.length === 0) {
+    return {
+      imageBuffer: null,
+      stats: null,
+      acquisitionDate: new Date().toISOString().split('T')[0],
+      cloudCover: 0
+    };
+  }
+
+  // Call land-first processing logic
+  const results = await processClusterNdviInline(supabase, {
+    ...cluster,
+    land_ids: landIds
+  }, lands[0].tenant_id, token);
+
+  if (results.length === 0) {
+    return {
+      imageBuffer: null,
+      stats: null,
+      acquisitionDate: new Date().toISOString().split('T')[0],
+      cloudCover: 0
+    };
+  }
+
+  // Aggregate stats from all lands
+  const avgStats = {
+    mean: results.reduce((sum, r) => sum + r.ndvi_mean, 0) / results.length,
+    min: Math.min(...results.map(r => r.ndvi_min)),
+    max: Math.max(...results.map(r => r.ndvi_max)),
+    std: Math.sqrt(results.reduce((sum, r) => sum + Math.pow(r.ndvi_stddev, 2), 0) / results.length)
+  };
+
+  console.log(`[fallbackToLandFirst] ✓ Processed ${results.length} lands with avg NDVI: ${avgStats.mean.toFixed(3)}`);
+
+  return {
+    imageBuffer: null, // No tile-wide image, only land-specific data
+    stats: avgStats,
+    acquisitionDate: results[0].acquisition_date,
+    cloudCover: results[0].cloud_coverage
+  };
+}
+
+/**
+ * Inline cluster processing (extracted from process-ndvi-by-lands)
+ */
+async function processClusterNdviInline(
+  supabase: any,
+  cluster: any,
+  tenantId: string,
+  token: string
+): Promise<Array<{ land_id: string; ndvi_mean: number; ndvi_min: number; ndvi_max: number; ndvi_stddev: number; acquisition_date: string; cloud_coverage: number }>> {
+  const results: any[] = [];
+
+  // Search for recent Sentinel-2 imagery
+  const catalogPayload = {
+    collections: ['SENTINEL-2'],
+    bbox: cluster.cluster_bbox,
+    datetime: `${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}/${new Date().toISOString().split('T')[0]}`,
+    limit: 10
+  };
+
+  const catalogResponse = await fetch(COPERNICUS_CATALOG_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(catalogPayload),
+  });
+
+  if (!catalogResponse.ok) return results;
+
+  const catalogData = await catalogResponse.json();
+  if (!catalogData.features || catalogData.features.length === 0) return results;
+
+  // Filter for L2A with low cloud cover
+  const l2aScenes = catalogData.features
+    .filter((f: any) => f.id?.includes('MSIL2A') && (f.properties?.['eo:cloud_cover'] || 100) <= 30)
+    .sort((a: any, b: any) => (a.properties?.['eo:cloud_cover'] || 100) - (b.properties?.['eo:cloud_cover'] || 100));
+
+  if (l2aScenes.length === 0) return results;
+
+  const scene = l2aScenes[0];
+  const acquisitionDate = scene.properties.datetime;
+  const cloudCoverage = scene.properties['eo:cloud_cover'] || 0;
+
+  // Process each land
+  for (const landId of cluster.land_ids) {
+    const { data: land } = await supabase.from('lands').select('boundary').eq('id', landId).single();
+    if (!land?.boundary) continue;
+
+    const landGeometry = typeof land.boundary === 'string' ? JSON.parse(land.boundary) : land.boundary;
+
+    const statisticsPayload = {
+      input: {
+        bounds: {
+          geometry: landGeometry,
+          properties: { crs: 'http://www.opengis.net/def/crs/EPSG/0/4326' }
+        },
+        data: [{
+          type: 'sentinel-2-l2a',
+          dataFilter: {
+            timeRange: {
+              from: new Date(new Date(acquisitionDate).getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+              to: new Date(new Date(acquisitionDate).getTime() + 3 * 24 * 60 * 60 * 1000).toISOString()
+            },
+            maxCloudCoverage: 30
+          }
+        }]
+      },
+      aggregation: {
+        timeRange: {
+          from: new Date(new Date(acquisitionDate).getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          to: new Date(new Date(acquisitionDate).getTime() + 3 * 24 * 60 * 60 * 1000).toISOString()
+        },
+        aggregationInterval: { of: 'P1D' },
+        evalscript: `
+          //VERSION=3
+          function setup() {
+            return {
+              input: [{bands: ["B04", "B08", "SCL"], units: "REFLECTANCE"}],
+              output: [{id: "ndvi", bands: 1, sampleType: "FLOAT32"}]
+            };
+          }
+          function evaluatePixel(sample) {
+            if (sample.SCL === 3 || sample.SCL === 8 || sample.SCL === 9 || sample.SCL === 10 || sample.SCL === 11) {
+              return [NaN];
+            }
+            let ndvi = (sample.B08 - sample.B04) / (sample.B08 + sample.B04);
+            return [ndvi];
+          }
+        `
+      },
+      calculations: {
+        ndvi: {
+          statistics: {
+            default: { percentiles: { k: [25, 50, 75] } }
+          }
+        }
+      }
+    };
+
+    const statResponse = await fetch(COPERNICUS_STATISTICAL_API, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(statisticsPayload),
+    });
+
+    if (!statResponse.ok) continue;
+
+    const statData = await statResponse.json();
+    if (!statData.data || statData.data.length === 0) continue;
+
+    const ndviStats = statData.data[0].outputs.ndvi.bands.B0.stats;
+    
+    results.push({
+      land_id: landId,
+      ndvi_mean: ndviStats.mean || 0,
+      ndvi_min: ndviStats.min || 0,
+      ndvi_max: ndviStats.max || 0,
+      ndvi_stddev: ndviStats.stDev || 0,
+      acquisition_date: acquisitionDate,
+      cloud_coverage: cloudCoverage,
+    });
+
+    // Store in database
+    await supabase.from('ndvi_micro_tiles').upsert({
+      land_id: landId,
+      acquisition_date: acquisitionDate,
+      ndvi_mean: ndviStats.mean || 0,
+      ndvi_min: ndviStats.min || 0,
+      ndvi_max: ndviStats.max || 0,
+      ndvi_stddev: ndviStats.stDev || 0,
+      cloud_coverage: cloudCoverage,
+      data_source: 'copernicus_sentinel2',
+      processing_method: 'land_cluster_fallback',
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Process NDVI for a single tile using Copernicus APIs (base implementation)
  */
 async function processTileNdvi(
   token: string,
@@ -557,8 +829,8 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Process NDVI using proper API workflow
-        const result = await processTileNdvi(token, tile, startDate, endDate, cloudCoverage);
+        // Process NDVI with multi-strategy fallback
+        const result = await processTileNdviMultiStrategy(token, tile, startDate, endDate, cloudCoverage, supabase);
 
         if (!result.imageBuffer || !result.stats) {
           console.log(`[process-ndvi-by-tiles] No data available for tile: ${tile.tile_id}`);
