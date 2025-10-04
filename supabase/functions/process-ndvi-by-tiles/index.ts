@@ -84,70 +84,99 @@ Deno.serve(async (req) => {
     let skippedCount = 0;
 
     // Process each tile
-    for (const tile of tilesToProcess) {
-      try {
-        console.log(`\n[process-ndvi-by-tiles] Processing tile: ${tile.tile_id}`);
+// Process each tile
+for (const tile of tilesToProcess) {
+  try {
+    console.log(`\n[process-ndvi-by-tiles] Processing tile: ${tile.tile_id}`);
 
-        // Check if tile was recently processed (24h cache)
-        if (!forceUpdate && await isTileFresh(supabase, tile.tile_id)) {
-          console.log(`[process-ndvi-by-tiles] Skipping fresh tile: ${tile.tile_id}`);
-          skippedCount++;
-          continue;
-        }
-
-        // Process tile NDVI
-        const result = await processTileNdvi(
-          tile,
-          startDate,
-          endDate,
-          cloudCoverage,
-          accessToken
-        );
-
-        if (!result) {
-          console.log(`[process-ndvi-by-tiles] No data available for tile: ${tile.tile_id}`);
-          errors.push({ tile_id: tile.tile_id, error: 'No satellite data available' });
-          continue;
-        }
-
-        // Store tile NDVI
-        const storageUrl = await storeTileNdvi(tile, result, supabase);
-
-        // Map lands to tile
-        const affectedLands = await mapLandsToTile(
-          tile.tile_id,
-          result.acquisition_date,
-          result.stats,
-          storageUrl,
-          result.cloud_cover,
-          result.bbox,
-          supabase
-        );
-
-        processedTiles.push({
-          tile_id: tile.tile_id,
-          acquisition_date: result.acquisition_date,
-          cloud_cover: result.cloud_cover,
-          ndvi_mean: result.stats.mean,
-          affected_lands: affectedLands,
-          status: 'success',
-        });
-
-        console.log(`[process-ndvi-by-tiles] ✓ Successfully processed tile ${tile.tile_id}, affected ${affectedLands} lands`);
-      } catch (error) {
-        console.error(`[process-ndvi-by-tiles] Error processing tile ${tile.tile_id}:`, error);
-        errors.push({ tile_id: tile.tile_id, error: error.message });
-        processedTiles.push({
-          tile_id: tile.tile_id,
-          acquisition_date: '',
-          cloud_cover: 0,
-          ndvi_mean: 0,
-          affected_lands: 0,
-          status: 'failed',
-          error: error.message,
-        });
-      }
+    // Check if tile was recently processed (24h cache)
+    if (!forceUpdate && await isTileFresh(supabase, tile.tile_id)) {
+      console.log(`[process-ndvi-by-tiles] Skipping fresh tile: ${tile.tile_id}`);
+      skippedCount++;
+      continue;
     }
+
+    // Process tile NDVI
+    const result = await processTileNdvi(
+      tile,
+      startDate,
+      endDate,
+      cloudCoverage,
+      accessToken
+    );
+
+    if (!result) {
+      console.log(`[process-ndvi-by-tiles] No data available for tile: ${tile.tile_id}`);
+      errors.push({ tile_id: tile.tile_id, error: 'No satellite data available' });
+
+      // ✅ mark in DB as error (no data)
+      await supabase.from("satellite_tiles").upsert(
+        {
+          tile_id: tile.tile_id,
+          acquisition_date: new Date().toISOString().split("T")[0],
+          status: "error",
+          error_message: "No satellite data available",
+          last_checked: new Date().toISOString(),
+        },
+        { onConflict: "tile_id,acquisition_date" }
+      );
+
+      continue;
+    }
+
+    // Store tile NDVI
+    const storageUrl = await storeTileNdvi(tile, result, supabase);
+
+    // Map lands to tile
+    const affectedLands = await mapLandsToTile(
+      tile.tile_id,
+      result.acquisition_date,
+      result.stats,
+      storageUrl,
+      result.cloud_cover,
+      result.bbox,
+      supabase
+    );
+
+    processedTiles.push({
+      tile_id: tile.tile_id,
+      acquisition_date: result.acquisition_date,
+      cloud_cover: result.cloud_cover,
+      ndvi_mean: result.stats.mean,
+      affected_lands: affectedLands,
+      status: 'success',
+    });
+
+    console.log(`[process-ndvi-by-tiles] ✓ Successfully processed tile ${tile.tile_id}, affected ${affectedLands} lands`);
+
+  } catch (error: any) {
+    const errorMsg = error?.message || "Unknown error";
+    console.error(`[process-ndvi-by-tiles] Error processing tile ${tile.tile_id}:`, errorMsg);
+
+    // ✅ Update satellite_tiles table so errors show in Admin Panel
+    await supabase.from("satellite_tiles").upsert(
+      {
+        tile_id: tile.tile_id,
+        acquisition_date: new Date().toISOString().split("T")[0],
+        status: "error",
+        error_message: errorMsg,
+        last_checked: new Date().toISOString(),
+      },
+      { onConflict: "tile_id,acquisition_date" }
+    );
+
+    errors.push({ tile_id: tile.tile_id, error: errorMsg });
+    processedTiles.push({
+      tile_id: tile.tile_id,
+      acquisition_date: '',
+      cloud_cover: 0,
+      ndvi_mean: 0,
+      affected_lands: 0,
+      status: 'failed',
+      error: errorMsg,
+    });
+  }
+}
 
     const response = {
       success: true,
