@@ -69,6 +69,13 @@ export default function NdviDataStatus() {
     try {
       console.log('[NdviDataStatus] Starting NDVI fetch with params:', { cloudCover, lookbackDays });
       
+      // Get the current session to ensure we're authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('Not authenticated. Please sign in again.');
+      }
+
       const { data, error } = await supabase.functions.invoke('ndvi-data-process', {
         body: {
           cloud_cover: cloudCover,
@@ -79,6 +86,7 @@ export default function NdviDataStatus() {
       console.log('[NdviDataStatus] Edge function response:', { data, error });
 
       if (error) {
+        console.error('[NdviDataStatus] Edge function error details:', error);
         throw new Error(error.message || 'Edge function call failed');
       }
 
