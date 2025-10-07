@@ -59,57 +59,43 @@ export default function NdviDataStatus() {
     }
   };
 
-  // Sync satellite tiles via external worker
+  // Sync satellite tiles via Supabase Edge Function
   const handleSync = async () => {
     setIsSyncing(true);
     const syncTimestamp = new Date().toISOString();
     
     try {
-      console.log('[NdviDataStatus] Starting sync to external worker API');
+      console.log('[NdviDataStatus] Starting sync via Supabase Edge Function');
       
-      const response = await fetch('https://tile-fetch-worker.onrender.com/run', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        mode: 'cors'
+      const { data, error } = await supabase.functions.invoke('update-ndvi-tiles', {
+        body: {
+          forceUpdate: true,
+          cloudCoverage: 30,
+          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          endDate: new Date().toISOString().split('T')[0]
+        }
       });
 
-      console.log('[NdviDataStatus] Response status:', response.status);
+      console.log('[NdviDataStatus] Edge function response:', { data, error });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      if (error) throw error;
 
-      const result = await response.json();
-      console.log('[NdviDataStatus] Response data:', result);
-
-      if (result.status === 'success') {
+      if (data && data.success) {
         setLastSync({ timestamp: syncTimestamp, status: 'success' });
         toast({
           title: 'Sync Successful',
-          description: 'Satellite tiles have been synced successfully',
+          description: data.message || 'NDVI tiles processing started',
           variant: 'default'
         });
         // Refresh table
         await fetchTiles();
       } else {
-        throw new Error(result.message || 'Sync failed');
+        throw new Error(data?.error || 'Sync failed');
       }
     } catch (error: any) {
       console.error('[NdviDataStatus] Sync error:', error);
       
-      let errorMessage = 'Failed to sync satellite tiles';
-      
-      // Detailed error messages
-      if (error.message === 'Failed to fetch') {
-        errorMessage = 'Cannot connect to worker API. The service may be down or CORS is blocking the request. Check if https://tile-fetch-worker.onrender.com/run is accessible.';
-      } else if (error.message.includes('HTTP')) {
-        errorMessage = error.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      let errorMessage = error.message || 'Failed to sync satellite tiles';
       
       setLastSync({ 
         timestamp: syncTimestamp, 
