@@ -65,12 +65,25 @@ export default function NdviDataStatus() {
     const syncTimestamp = new Date().toISOString();
     
     try {
+      console.log('[NdviDataStatus] Starting sync to external worker API');
+      
       const response = await fetch('https://tile-fetch-worker.onrender.com/run', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        mode: 'cors'
       });
 
+      console.log('[NdviDataStatus] Response status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const result = await response.json();
+      console.log('[NdviDataStatus] Response data:', result);
 
       if (result.status === 'success') {
         setLastSync({ timestamp: syncTimestamp, status: 'success' });
@@ -86,15 +99,29 @@ export default function NdviDataStatus() {
       }
     } catch (error: any) {
       console.error('[NdviDataStatus] Sync error:', error);
+      
+      let errorMessage = 'Failed to sync satellite tiles';
+      
+      // Detailed error messages
+      if (error.message === 'Failed to fetch') {
+        errorMessage = 'Cannot connect to worker API. The service may be down or CORS is blocking the request. Check if https://tile-fetch-worker.onrender.com/run is accessible.';
+      } else if (error.message.includes('HTTP')) {
+        errorMessage = error.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setLastSync({ 
         timestamp: syncTimestamp, 
         status: 'error', 
-        message: error.message 
+        message: errorMessage 
       });
+      
       toast({
         title: 'Sync Failed',
-        description: error.message || 'Failed to sync satellite tiles',
-        variant: 'destructive'
+        description: errorMessage,
+        variant: 'destructive',
+        duration: 10000
       });
     } finally {
       setIsSyncing(false);
@@ -194,7 +221,20 @@ export default function NdviDataStatus() {
                 </Badge>
               </div>
               {lastSync.message && (
-                <p className="text-sm text-muted-foreground mt-2">{lastSync.message}</p>
+                <div className="mt-2 space-y-2">
+                  <p className="text-sm text-muted-foreground">{lastSync.message}</p>
+                  {lastSync.status === 'error' && (
+                    <div className="text-xs text-muted-foreground">
+                      <p className="font-medium mb-1">Possible causes:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Worker API at https://tile-fetch-worker.onrender.com may be down</li>
+                        <li>CORS policy blocking cross-origin requests</li>
+                        <li>Network connectivity issues</li>
+                      </ul>
+                      <p className="mt-2 font-medium">Try testing the endpoint directly in your browser or use an API testing tool.</p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
