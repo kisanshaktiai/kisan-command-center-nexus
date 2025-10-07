@@ -32,7 +32,9 @@ export default function NdviDataStatus() {
   const [tiles, setTiles] = useState<SatelliteTile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSync, setLastSync] = useState<{ timestamp: string; status: 'success' | 'error'; message?: string } | null>(null);
+  const [cloudCover, setCloudCover] = useState(20);
+  const [lookbackDays, setLookbackDays] = useState(5);
+  const [lastSync, setLastSync] = useState<{ timestamp: string; status: 'success' | 'error'; message?: string; response?: any } | null>(null);
   const { toast } = useToast();
 
   // Fetch satellite tiles from Supabase
@@ -59,57 +61,47 @@ export default function NdviDataStatus() {
     }
   };
 
-  // Sync satellite tiles via external worker
+  // Run NDVI fetch via edge function
   const handleSync = async () => {
     setIsSyncing(true);
     const syncTimestamp = new Date().toISOString();
     
     try {
-      console.log('[NdviDataStatus] Starting sync to external worker API');
+      console.log('[NdviDataStatus] Starting NDVI fetch with params:', { cloudCover, lookbackDays });
       
-      const response = await fetch('https://tile-fetch-worker.onrender.com/run', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+      const { data, error } = await supabase.functions.invoke('ndvi-data-process', {
+        body: {
+          cloud_cover: cloudCover,
+          lookback_days: lookbackDays,
         },
-        mode: 'cors'
       });
 
-      console.log('[NdviDataStatus] Response status:', response.status);
+      console.log('[NdviDataStatus] Edge function response:', { data, error });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (error) {
+        throw new Error(error.message || 'Edge function call failed');
       }
 
-      const result = await response.json();
-      console.log('[NdviDataStatus] Response data:', result);
-
-      if (result.status === 'success') {
-        setLastSync({ timestamp: syncTimestamp, status: 'success' });
+      if (data && data.status === 'success') {
+        setLastSync({ 
+          timestamp: syncTimestamp, 
+          status: 'success',
+          response: data 
+        });
         toast({
-          title: 'Sync Successful',
-          description: 'Satellite tiles have been synced successfully',
+          title: 'NDVI Fetch Successful',
+          description: 'Satellite data processing started successfully',
           variant: 'default'
         });
-        // Refresh table
-        await fetchTiles();
+        // Refresh table after a short delay to allow processing
+        setTimeout(() => fetchTiles(), 2000);
       } else {
-        throw new Error(result.message || 'Sync failed');
+        throw new Error(data?.message || 'NDVI fetch failed');
       }
     } catch (error: any) {
       console.error('[NdviDataStatus] Sync error:', error);
       
-      let errorMessage = 'Failed to sync satellite tiles';
-      
-      // Detailed error messages
-      if (error.message === 'Failed to fetch') {
-        errorMessage = 'Cannot connect to worker API. The service may be down or CORS is blocking the request. Check if https://tile-fetch-worker.onrender.com/run is accessible.';
-      } else if (error.message.includes('HTTP')) {
-        errorMessage = error.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      const errorMessage = error.message || 'Failed to fetch NDVI data';
       
       setLastSync({ 
         timestamp: syncTimestamp, 
@@ -118,7 +110,7 @@ export default function NdviDataStatus() {
       });
       
       toast({
-        title: 'Sync Failed',
+        title: 'NDVI Fetch Failed',
         description: errorMessage,
         variant: 'destructive',
         duration: 10000
@@ -167,18 +159,59 @@ export default function NdviDataStatus() {
         </div>
       </div>
 
-      {/* Sync Button */}
+      {/* NDVI Fetch Controls */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5" />
-            Manual Sync
+            NDVI Data Fetch
           </CardTitle>
           <CardDescription>
-            Trigger satellite tile fetch from external worker
+            Configure and trigger satellite data fetch from external worker
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
+          {/* Cloud Cover Slider */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Cloud Cover</label>
+              <span className="text-sm text-muted-foreground">{cloudCover}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={cloudCover}
+              onChange={(e) => setCloudCover(Number(e.target.value))}
+              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+              disabled={isSyncing}
+            />
+            <p className="text-xs text-muted-foreground">
+              Maximum cloud cover percentage for satellite imagery
+            </p>
+          </div>
+
+          {/* Lookback Days Slider */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Lookback Days</label>
+              <span className="text-sm text-muted-foreground">{lookbackDays} days</span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="90"
+              value={lookbackDays}
+              onChange={(e) => setLookbackDays(Number(e.target.value))}
+              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+              disabled={isSyncing}
+            />
+            <p className="text-xs text-muted-foreground">
+              Number of days to look back for satellite data
+            </p>
+          </div>
+
+          {/* Run Button */}
           <Button 
             onClick={handleSync}
             disabled={isSyncing}
@@ -188,24 +221,24 @@ export default function NdviDataStatus() {
             {isSyncing ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Syncing Satellite Tiles...
+                Running NDVI Fetch...
               </>
             ) : (
               <>
                 <Zap className="h-5 w-5" />
-                Sync Satellite Tiles
+                Run NDVI Fetch
               </>
             )}
           </Button>
 
-          {/* Status Bar */}
+          {/* Results Panel */}
           {lastSync && (
-            <div className={`p-3 rounded-lg border ${
+            <div className={`p-4 rounded-lg border ${
               lastSync.status === 'success' 
                 ? 'bg-success/10 border-success' 
                 : 'bg-destructive/10 border-destructive'
             }`}>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   {lastSync.status === 'success' ? (
                     <CheckCircle className="h-4 w-4 text-success" />
@@ -213,27 +246,38 @@ export default function NdviDataStatus() {
                     <XCircle className="h-4 w-4 text-destructive" />
                   )}
                   <span className="text-sm font-medium">
-                    Last Sync: {format(new Date(lastSync.timestamp), 'PPpp')}
+                    Last Run: {format(new Date(lastSync.timestamp), 'PPpp')}
                   </span>
                 </div>
                 <Badge variant={lastSync.status === 'success' ? 'default' : 'destructive'}>
                   {lastSync.status === 'success' ? 'Success' : 'Error'}
                 </Badge>
               </div>
-              {lastSync.message && (
-                <div className="mt-2 space-y-2">
-                  <p className="text-sm text-muted-foreground">{lastSync.message}</p>
-                  {lastSync.status === 'error' && (
-                    <div className="text-xs text-muted-foreground">
-                      <p className="font-medium mb-1">Possible causes:</p>
-                      <ul className="list-disc list-inside space-y-1">
-                        <li>Worker API at https://tile-fetch-worker.onrender.com may be down</li>
-                        <li>CORS policy blocking cross-origin requests</li>
-                        <li>Network connectivity issues</li>
-                      </ul>
-                      <p className="mt-2 font-medium">Try testing the endpoint directly in your browser or use an API testing tool.</p>
+
+              {lastSync.status === 'success' && lastSync.response && (
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cloud Cover:</span>
+                    <span className="font-medium">{lastSync.response.cloud_cover}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Lookback Days:</span>
+                    <span className="font-medium">{lastSync.response.lookback_days} days</span>
+                  </div>
+                  {lastSync.response.worker_response && (
+                    <div className="mt-3 pt-3 border-t border-success/20">
+                      <p className="text-xs font-medium mb-1">Worker Response:</p>
+                      <pre className="text-xs bg-background/50 p-2 rounded overflow-auto max-h-32">
+                        {JSON.stringify(lastSync.response.worker_response, null, 2)}
+                      </pre>
                     </div>
                   )}
+                </div>
+              )}
+
+              {lastSync.message && lastSync.status === 'error' && (
+                <div className="mt-2">
+                  <p className="text-sm text-destructive">{lastSync.message}</p>
                 </div>
               )}
             </div>
