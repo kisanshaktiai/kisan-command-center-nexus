@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,12 +17,17 @@ import {
   Calendar,
   Layers,
   MapPin,
-  Activity
+  Activity,
+  Download,
+  BarChart3,
+  PieChart,
+  TrendingUp
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { BarChart, Bar, PieChart as RePieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface SatelliteTile {
   id: string;
@@ -32,6 +37,8 @@ interface SatelliteTile {
   status: string;
   red_band_path: string | null;
   nir_band_path: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function NdviDataStatus() {
@@ -49,7 +56,7 @@ export default function NdviDataStatus() {
     try {
       const { data, error } = await supabase
         .from('satellite_tiles')
-        .select('id, tile_id, acquisition_date, cloud_cover, status, red_band_path, nir_band_path')
+        .select('id, tile_id, acquisition_date, cloud_cover, status, red_band_path, nir_band_path, created_at, updated_at')
         .order('acquisition_date', { ascending: false })
         .limit(100);
 
@@ -66,6 +73,56 @@ export default function NdviDataStatus() {
       setIsLoading(false);
     }
   };
+
+  // Calculate chart data
+  const chartData = useMemo(() => {
+    // Cloud cover distribution
+    const cloudCoverBuckets = {
+      '0-20%': 0,
+      '20-40%': 0,
+      '40-60%': 0,
+      '60-80%': 0,
+      '80-100%': 0
+    };
+    
+    tiles.forEach(tile => {
+      if (tile.cloud_cover < 20) cloudCoverBuckets['0-20%']++;
+      else if (tile.cloud_cover < 40) cloudCoverBuckets['20-40%']++;
+      else if (tile.cloud_cover < 60) cloudCoverBuckets['40-60%']++;
+      else if (tile.cloud_cover < 80) cloudCoverBuckets['60-80%']++;
+      else cloudCoverBuckets['80-100%']++;
+    });
+
+    const cloudCoverData = Object.entries(cloudCoverBuckets).map(([range, count]) => ({
+      range,
+      count
+    }));
+
+    // Status breakdown
+    const statusCounts: Record<string, number> = {};
+    tiles.forEach(tile => {
+      statusCounts[tile.status] = (statusCounts[tile.status] || 0) + 1;
+    });
+
+    const statusData = Object.entries(statusCounts).map(([status, count]) => ({
+      status: status.charAt(0).toUpperCase() + status.slice(1),
+      count
+    }));
+
+    // Tiles over time (last 30 days)
+    const tilesOverTime: Record<string, number> = {};
+    tiles.forEach(tile => {
+      const date = format(new Date(tile.acquisition_date), 'MMM d');
+      tilesOverTime[date] = (tilesOverTime[date] || 0) + 1;
+    });
+
+    const timeData = Object.entries(tilesOverTime)
+      .map(([date, count]) => ({ date, count }))
+      .reverse()
+      .slice(0, 10);
+
+    return { cloudCoverData, statusData, timeData };
+  }, [tiles]);
 
   // Run NDVI fetch via edge function
   const handleSync = async () => {
@@ -182,31 +239,31 @@ export default function NdviDataStatus() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* NDVI Fetch Controls - Compact Card */}
-        <Card className="lg:col-span-1 border-primary/20 bg-gradient-to-br from-card to-primary/5">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Zap className="h-4 w-4 text-primary" />
-              Data Fetch Controls
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Configure processing parameters
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Compact Cloud Cover Control */}
+      {/* NDVI Fetch Controls - Full Width */}
+      <Card className="border-primary/20 bg-gradient-to-br from-card to-primary/5">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-primary" />
+            Data Fetch Controls
+          </CardTitle>
+          <CardDescription>
+            Configure and execute satellite data processing
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {/* Cloud Cover Control */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
-                  <Cloud className="h-3.5 w-3.5" />
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Cloud className="h-4 w-4 text-muted-foreground" />
                   Cloud Cover
                 </label>
                 <Input 
                   type="number"
                   value={cloudCover}
                   onChange={(e) => setCloudCover(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
-                  className="h-7 w-16 text-xs text-center font-mono"
+                  className="h-8 w-20 text-sm text-center font-mono"
                   min={0}
                   max={100}
                   disabled={isSyncing}
@@ -218,26 +275,26 @@ export default function NdviDataStatus() {
                 max="100"
                 value={cloudCover}
                 onChange={(e) => setCloudCover(Number(e.target.value))}
-                className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
                 disabled={isSyncing}
               />
-              <p className="text-[10px] text-muted-foreground leading-tight">
-                Max cloud coverage threshold (%)
+              <p className="text-xs text-muted-foreground">
+                Maximum cloud coverage threshold (%)
               </p>
             </div>
 
-            {/* Compact Lookback Days Control */}
+            {/* Lookback Days Control */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
-                  <Calendar className="h-3.5 w-3.5" />
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
                   Lookback Days
                 </label>
                 <Input 
                   type="number"
                   value={lookbackDays}
                   onChange={(e) => setLookbackDays(Math.min(90, Math.max(1, parseInt(e.target.value) || 1)))}
-                  className="h-7 w-16 text-xs text-center font-mono"
+                  className="h-8 w-20 text-sm text-center font-mono"
                   min={1}
                   max={90}
                   disabled={isSyncing}
@@ -249,59 +306,62 @@ export default function NdviDataStatus() {
                 max="90"
                 value={lookbackDays}
                 onChange={(e) => setLookbackDays(Number(e.target.value))}
-                className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
                 disabled={isSyncing}
               />
-              <p className="text-[10px] text-muted-foreground leading-tight">
+              <p className="text-xs text-muted-foreground">
                 Historical data range (days)
               </p>
             </div>
 
             {/* Fetch Button */}
-            <Button 
-              onClick={handleSync} 
-              disabled={isSyncing}
-              className="w-full mt-2"
-              size="default"
-            >
-              {isSyncing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Activity className="mr-2 h-4 w-4" />
-                  Run NDVI Fetch
-                </>
-              )}
-            </Button>
+            <div className="space-y-2">
+              <label className="text-sm font-medium opacity-0">Action</label>
+              <Button 
+                onClick={handleSync} 
+                disabled={isSyncing}
+                className="w-full"
+                size="lg"
+              >
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Activity className="mr-2 h-4 w-4" />
+                    Run NDVI Fetch
+                  </>
+                )}
+              </Button>
+            </div>
 
-            {/* Last Sync Compact Result */}
+            {/* Last Sync Result */}
             {lastSync && (
-              <div className={`p-3 rounded-lg border text-xs ${
+              <div className={`p-4 rounded-lg border ${
                 lastSync.status === 'success' 
                   ? 'bg-success/10 border-success/30' 
                   : 'bg-destructive/10 border-destructive/30'
               }`}>
                 <div className="flex items-start gap-2">
                   {lastSync.status === 'success' ? (
-                    <CheckCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-success" />
+                    <CheckCircle className="h-4 w-4 mt-0.5 shrink-0 text-success" />
                   ) : (
-                    <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-destructive" />
+                    <XCircle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-xs">
+                    <p className="font-medium text-sm">
                       {lastSync.status === 'success' ? 'Success' : 'Failed'}
                     </p>
-                    <p className="text-[10px] opacity-80 truncate">
+                    <p className="text-xs opacity-80 truncate">
                       {format(new Date(lastSync.timestamp), 'MMM d, h:mm a')}
                     </p>
                     {lastSync.message && (
-                      <p className="text-[10px] mt-1 leading-tight text-destructive">{lastSync.message}</p>
+                      <p className="text-xs mt-1 leading-tight">{lastSync.message}</p>
                     )}
                     {lastSync.response && (
-                      <div className="mt-1.5 p-1.5 bg-background/50 rounded text-[10px] font-mono space-y-0.5">
+                      <div className="mt-2 p-2 bg-background/50 rounded text-xs font-mono space-y-1">
                         <p>Cloud: {lastSync.response.cloud_cover}%</p>
                         <p>Days: {lastSync.response.lookback_days}</p>
                       </div>
@@ -310,11 +370,117 @@ export default function NdviDataStatus() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Satellite Tiles Table - Enhanced 2/3 width */}
-        <Card className="lg:col-span-2">
+      {/* Data Visualization Charts */}
+      {tiles.length > 0 && (
+        <div className="grid gap-6 md:grid-cols-3">
+          {/* Cloud Cover Distribution */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Cloud Cover Distribution
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={chartData.cloudCoverData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="range" className="text-xs" tick={{ fontSize: 10 }} />
+                  <YAxis className="text-xs" tick={{ fontSize: 10 }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }} 
+                  />
+                  <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Status Breakdown */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <PieChart className="h-4 w-4 text-primary" />
+                Status Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <RePieChart>
+                  <Pie
+                    data={chartData.statusData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ status, percent }) => `${status} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={70}
+                    fill="hsl(var(--primary))"
+                    dataKey="count"
+                  >
+                    {chartData.statusData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={`hsl(var(--chart-${(index % 5) + 1}))`}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }} 
+                  />
+                </RePieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Tiles Over Time */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                Recent Acquisition Trend
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={chartData.timeData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 10 }} />
+                  <YAxis className="text-xs" tick={{ fontSize: 10 }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="count" 
+                    stroke="hsl(var(--primary))" 
+                    strokeWidth={2}
+                    dot={{ fill: 'hsl(var(--primary))' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Satellite Tiles Table - Full Width */}
+      <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -390,6 +556,18 @@ export default function NdviDataStatus() {
                           Status
                         </div>
                       </TableHead>
+                      <TableHead className="font-semibold">
+                        <div className="flex items-center gap-2">
+                          <Download className="h-3.5 w-3.5" />
+                          Downloaded
+                        </div>
+                      </TableHead>
+                      <TableHead className="font-semibold">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5" />
+                          Last Updated
+                        </div>
+                      </TableHead>
                       <TableHead className="font-semibold">Red Band</TableHead>
                       <TableHead className="font-semibold">NIR Band</TableHead>
                     </TableRow>
@@ -419,6 +597,18 @@ export default function NdviDataStatus() {
                           </Badge>
                         </TableCell>
                         <TableCell>{getStatusBadge(tile.status)}</TableCell>
+                        <TableCell className="text-sm">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-medium">{format(new Date(tile.created_at), 'MMM d, yyyy')}</span>
+                            <span className="text-xs text-muted-foreground">{format(new Date(tile.created_at), 'h:mm a')}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-medium">{format(new Date(tile.updated_at), 'MMM d, yyyy')}</span>
+                            <span className="text-xs text-muted-foreground">{format(new Date(tile.updated_at), 'h:mm a')}</span>
+                          </div>
+                        </TableCell>
                         <TableCell className="max-w-[200px]">
                           {tile.red_band_path ? (
                             <span className="text-xs text-muted-foreground truncate block" title={tile.red_band_path}>
@@ -456,7 +646,6 @@ export default function NdviDataStatus() {
             )}
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }
