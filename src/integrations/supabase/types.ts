@@ -5544,76 +5544,6 @@ export type Database = {
           },
         ]
       }
-      harvest_queue: {
-        Row: {
-          attempts: number | null
-          country_id: string | null
-          created_at: string | null
-          id: string
-          job_id: string | null
-          last_attempt_at: string | null
-          next_retry_at: string | null
-          priority: number | null
-          requested_date: string | null
-          status: string | null
-          tenant_id: string
-          tile_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          attempts?: number | null
-          country_id?: string | null
-          created_at?: string | null
-          id?: string
-          job_id?: string | null
-          last_attempt_at?: string | null
-          next_retry_at?: string | null
-          priority?: number | null
-          requested_date?: string | null
-          status?: string | null
-          tenant_id: string
-          tile_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          attempts?: number | null
-          country_id?: string | null
-          created_at?: string | null
-          id?: string
-          job_id?: string | null
-          last_attempt_at?: string | null
-          next_retry_at?: string | null
-          priority?: number | null
-          requested_date?: string | null
-          status?: string | null
-          tenant_id?: string
-          tile_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "harvest_queue_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "system_jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "harvest_queue_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "harvest_queue_tile_id_country_id_fkey"
-            columns: ["tile_id", "country_id"]
-            isOneToOne: false
-            referencedRelation: "mgrs_tiles"
-            referencedColumns: ["tile_id", "country_id"]
-          },
-        ]
-      }
       integration_sync_logs: {
         Row: {
           completed_at: string | null
@@ -5961,58 +5891,58 @@ export type Database = {
       land_tile_mapping: {
         Row: {
           created_at: string | null
-          farmer_id: string | null
+          farmer_id: string
           id: string
           land_area_acres: number | null
           land_area_hectares: number | null
           land_bbox: Json
           land_centroid: Json | null
-          land_id: string | null
+          land_id: string
           last_ndvi_request_date: string | null
           last_ndvi_value: number | null
           mgrs_tile_id: string | null
           ndvi_cache_expiry: string | null
           needs_refresh: boolean | null
           request_priority: number | null
-          tenant_id: string | null
+          tenant_id: string
           tile_id: string | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
-          farmer_id?: string | null
+          farmer_id: string
           id?: string
           land_area_acres?: number | null
           land_area_hectares?: number | null
           land_bbox: Json
           land_centroid?: Json | null
-          land_id?: string | null
+          land_id: string
           last_ndvi_request_date?: string | null
           last_ndvi_value?: number | null
           mgrs_tile_id?: string | null
           ndvi_cache_expiry?: string | null
           needs_refresh?: boolean | null
           request_priority?: number | null
-          tenant_id?: string | null
+          tenant_id: string
           tile_id?: string | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
-          farmer_id?: string | null
+          farmer_id?: string
           id?: string
           land_area_acres?: number | null
           land_area_hectares?: number | null
           land_bbox?: Json
           land_centroid?: Json | null
-          land_id?: string | null
+          land_id?: string
           last_ndvi_request_date?: string | null
           last_ndvi_value?: number | null
           mgrs_tile_id?: string | null
           ndvi_cache_expiry?: string | null
           needs_refresh?: boolean | null
           request_priority?: number | null
-          tenant_id?: string | null
+          tenant_id?: string
           tile_id?: string | null
           updated_at?: string | null
         }
@@ -6027,14 +5957,14 @@ export type Database = {
           {
             foreignKeyName: "land_tile_mapping_land_id_fkey"
             columns: ["land_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "land_agent_context"
             referencedColumns: ["land_id"]
           },
           {
             foreignKeyName: "land_tile_mapping_land_id_fkey"
             columns: ["land_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "lands"
             referencedColumns: ["id"]
           },
@@ -6087,12 +6017,15 @@ export type Database = {
           land_type: string | null
           last_crop: string | null
           last_harvest_date: string | null
+          last_ndvi_calculation: string | null
+          last_ndvi_value: number | null
           last_soil_test_date: string | null
           last_sowing_date: string | null
           location_context: Json | null
           location_coords: Json | null
           marketplace_enabled: boolean | null
           name: string
+          ndvi_thumbnail_url: string | null
           nitrogen_kg_per_ha: number | null
           notes: string | null
           organic_carbon_percent: number | null
@@ -6148,12 +6081,15 @@ export type Database = {
           land_type?: string | null
           last_crop?: string | null
           last_harvest_date?: string | null
+          last_ndvi_calculation?: string | null
+          last_ndvi_value?: number | null
           last_soil_test_date?: string | null
           last_sowing_date?: string | null
           location_context?: Json | null
           location_coords?: Json | null
           marketplace_enabled?: boolean | null
           name: string
+          ndvi_thumbnail_url?: string | null
           nitrogen_kg_per_ha?: number | null
           notes?: string | null
           organic_carbon_percent?: number | null
@@ -6209,12 +6145,15 @@ export type Database = {
           land_type?: string | null
           last_crop?: string | null
           last_harvest_date?: string | null
+          last_ndvi_calculation?: string | null
+          last_ndvi_value?: number | null
           last_soil_test_date?: string | null
           last_sowing_date?: string | null
           location_context?: Json | null
           location_coords?: Json | null
           marketplace_enabled?: boolean | null
           name?: string
+          ndvi_thumbnail_url?: string | null
           nitrogen_kg_per_ha?: number | null
           notes?: string | null
           organic_carbon_percent?: number | null
@@ -7733,120 +7672,285 @@ export type Database = {
           ai_metadata: Json | null
           ai_recommendable: boolean | null
           application_method: string | null
+          application_timing: Json | null
           approval_authority: string | null
+          approval_date: string | null
           approved_at: string | null
           approved_by: string | null
+          available_pack_sizes: Json | null
+          barcode: string | null
+          batch_number: string | null
           brand: string | null
+          cas_number: string | null
           category_id: string
           company_id: string
+          compatibility_info: Json | null
           composition: string | null
+          country_of_origin: string | null
           created_at: string | null
           created_by: string | null
+          crop_stages: Json | null
+          currency: string | null
           description: string | null
+          discount_applicable: boolean | null
+          discount_details: Json | null
+          disease_targets: Json | null
+          disposal_instructions: string | null
           distributor_id: string | null
           documents: Json | null
           dosage_instructions: string | null
           effectiveness_rating: number | null
+          environmental_impact: Json | null
           expiry_date: string | null
+          first_aid_measures: string | null
+          germination_rate: number | null
+          handling_precautions: string | null
+          hsn_code: string | null
           id: string
           images: Json | null
+          import_license_required: boolean | null
+          is_bestseller: boolean | null
+          is_featured: boolean | null
+          lab_test_reports: Json | null
           manufacturer_id: string | null
+          manufacturing_date: string | null
+          market_availability: string | null
+          maximum_order_quantity: number | null
           metadata: Json | null
+          minimum_order_quantity: number | null
+          mixing_instructions: string | null
           name: string
+          nutrient_analysis: Json | null
           organic_certified: boolean | null
           origin_country: string | null
           packaging_options: Json | null
+          pest_targets: Json | null
+          ph_range: Json | null
+          popularity_score: number | null
+          pre_harvest_interval_days: number | null
+          price_per_unit: number | null
           price_range: Json | null
           product_type: string | null
+          purity_percentage: number | null
+          quality_certifications: Json | null
+          re_entry_interval_hours: number | null
+          recommended_season: Json | null
           registration_number: string | null
+          safety_data_sheet_url: string | null
           safety_level: string | null
+          sales_count: number | null
+          seed_variety_details: Json | null
+          shelf_life_months: number | null
           sku: string
+          spray_volume_per_acre: Json | null
           status: string | null
+          storage_instructions: string | null
+          storage_temperature_range: Json | null
           suitable_crops: Json | null
           suitable_soil_types: Json | null
+          tax_rate: number | null
+          technical_data_sheet_url: string | null
           translations: Json | null
+          unit_of_measure: string | null
           updated_at: string | null
+          usage_restrictions: string | null
+          user_reviews_summary: Json | null
+          video_urls: Json | null
+          view_count: number | null
+          warnings: string | null
+          water_solubility: string | null
           weather_conditions: Json | null
+          weed_targets: Json | null
         }
         Insert: {
           active_ingredients?: Json | null
           ai_metadata?: Json | null
           ai_recommendable?: boolean | null
           application_method?: string | null
+          application_timing?: Json | null
           approval_authority?: string | null
+          approval_date?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          available_pack_sizes?: Json | null
+          barcode?: string | null
+          batch_number?: string | null
           brand?: string | null
+          cas_number?: string | null
           category_id: string
           company_id: string
+          compatibility_info?: Json | null
           composition?: string | null
+          country_of_origin?: string | null
           created_at?: string | null
           created_by?: string | null
+          crop_stages?: Json | null
+          currency?: string | null
           description?: string | null
+          discount_applicable?: boolean | null
+          discount_details?: Json | null
+          disease_targets?: Json | null
+          disposal_instructions?: string | null
           distributor_id?: string | null
           documents?: Json | null
           dosage_instructions?: string | null
           effectiveness_rating?: number | null
+          environmental_impact?: Json | null
           expiry_date?: string | null
+          first_aid_measures?: string | null
+          germination_rate?: number | null
+          handling_precautions?: string | null
+          hsn_code?: string | null
           id?: string
           images?: Json | null
+          import_license_required?: boolean | null
+          is_bestseller?: boolean | null
+          is_featured?: boolean | null
+          lab_test_reports?: Json | null
           manufacturer_id?: string | null
+          manufacturing_date?: string | null
+          market_availability?: string | null
+          maximum_order_quantity?: number | null
           metadata?: Json | null
+          minimum_order_quantity?: number | null
+          mixing_instructions?: string | null
           name: string
+          nutrient_analysis?: Json | null
           organic_certified?: boolean | null
           origin_country?: string | null
           packaging_options?: Json | null
+          pest_targets?: Json | null
+          ph_range?: Json | null
+          popularity_score?: number | null
+          pre_harvest_interval_days?: number | null
+          price_per_unit?: number | null
           price_range?: Json | null
           product_type?: string | null
+          purity_percentage?: number | null
+          quality_certifications?: Json | null
+          re_entry_interval_hours?: number | null
+          recommended_season?: Json | null
           registration_number?: string | null
+          safety_data_sheet_url?: string | null
           safety_level?: string | null
+          sales_count?: number | null
+          seed_variety_details?: Json | null
+          shelf_life_months?: number | null
           sku: string
+          spray_volume_per_acre?: Json | null
           status?: string | null
+          storage_instructions?: string | null
+          storage_temperature_range?: Json | null
           suitable_crops?: Json | null
           suitable_soil_types?: Json | null
+          tax_rate?: number | null
+          technical_data_sheet_url?: string | null
           translations?: Json | null
+          unit_of_measure?: string | null
           updated_at?: string | null
+          usage_restrictions?: string | null
+          user_reviews_summary?: Json | null
+          video_urls?: Json | null
+          view_count?: number | null
+          warnings?: string | null
+          water_solubility?: string | null
           weather_conditions?: Json | null
+          weed_targets?: Json | null
         }
         Update: {
           active_ingredients?: Json | null
           ai_metadata?: Json | null
           ai_recommendable?: boolean | null
           application_method?: string | null
+          application_timing?: Json | null
           approval_authority?: string | null
+          approval_date?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          available_pack_sizes?: Json | null
+          barcode?: string | null
+          batch_number?: string | null
           brand?: string | null
+          cas_number?: string | null
           category_id?: string
           company_id?: string
+          compatibility_info?: Json | null
           composition?: string | null
+          country_of_origin?: string | null
           created_at?: string | null
           created_by?: string | null
+          crop_stages?: Json | null
+          currency?: string | null
           description?: string | null
+          discount_applicable?: boolean | null
+          discount_details?: Json | null
+          disease_targets?: Json | null
+          disposal_instructions?: string | null
           distributor_id?: string | null
           documents?: Json | null
           dosage_instructions?: string | null
           effectiveness_rating?: number | null
+          environmental_impact?: Json | null
           expiry_date?: string | null
+          first_aid_measures?: string | null
+          germination_rate?: number | null
+          handling_precautions?: string | null
+          hsn_code?: string | null
           id?: string
           images?: Json | null
+          import_license_required?: boolean | null
+          is_bestseller?: boolean | null
+          is_featured?: boolean | null
+          lab_test_reports?: Json | null
           manufacturer_id?: string | null
+          manufacturing_date?: string | null
+          market_availability?: string | null
+          maximum_order_quantity?: number | null
           metadata?: Json | null
+          minimum_order_quantity?: number | null
+          mixing_instructions?: string | null
           name?: string
+          nutrient_analysis?: Json | null
           organic_certified?: boolean | null
           origin_country?: string | null
           packaging_options?: Json | null
+          pest_targets?: Json | null
+          ph_range?: Json | null
+          popularity_score?: number | null
+          pre_harvest_interval_days?: number | null
+          price_per_unit?: number | null
           price_range?: Json | null
           product_type?: string | null
+          purity_percentage?: number | null
+          quality_certifications?: Json | null
+          re_entry_interval_hours?: number | null
+          recommended_season?: Json | null
           registration_number?: string | null
+          safety_data_sheet_url?: string | null
           safety_level?: string | null
+          sales_count?: number | null
+          seed_variety_details?: Json | null
+          shelf_life_months?: number | null
           sku?: string
+          spray_volume_per_acre?: Json | null
           status?: string | null
+          storage_instructions?: string | null
+          storage_temperature_range?: Json | null
           suitable_crops?: Json | null
           suitable_soil_types?: Json | null
+          tax_rate?: number | null
+          technical_data_sheet_url?: string | null
           translations?: Json | null
+          unit_of_measure?: string | null
           updated_at?: string | null
+          usage_restrictions?: string | null
+          user_reviews_summary?: Json | null
+          video_urls?: Json | null
+          view_count?: number | null
+          warnings?: string | null
+          water_solubility?: string | null
           weather_conditions?: Json | null
+          weed_targets?: Json | null
         }
         Relationships: [
           {
@@ -8084,6 +8188,7 @@ export type Database = {
           cloud_coverage: number | null
           collection_id: string | null
           computed_at: string | null
+          coverage: number | null
           coverage_percentage: number | null
           created_at: string
           date: string
@@ -8095,6 +8200,9 @@ export type Database = {
           mean_ndvi: number | null
           metadata: Json | null
           min_ndvi: number | null
+          ndvi_max: number | null
+          ndvi_min: number | null
+          ndvi_std: number | null
           ndvi_value: number | null
           ndwi_value: number | null
           processing_level: string | null
@@ -8105,6 +8213,7 @@ export type Database = {
           tenant_id: string
           tile_id: string | null
           total_pixels: number | null
+          updated_at: string | null
           valid_pixels: number | null
         }
         Insert: {
@@ -8112,6 +8221,7 @@ export type Database = {
           cloud_coverage?: number | null
           collection_id?: string | null
           computed_at?: string | null
+          coverage?: number | null
           coverage_percentage?: number | null
           created_at?: string
           date: string
@@ -8123,6 +8233,9 @@ export type Database = {
           mean_ndvi?: number | null
           metadata?: Json | null
           min_ndvi?: number | null
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          ndvi_std?: number | null
           ndvi_value?: number | null
           ndwi_value?: number | null
           processing_level?: string | null
@@ -8133,6 +8246,7 @@ export type Database = {
           tenant_id: string
           tile_id?: string | null
           total_pixels?: number | null
+          updated_at?: string | null
           valid_pixels?: number | null
         }
         Update: {
@@ -8140,6 +8254,7 @@ export type Database = {
           cloud_coverage?: number | null
           collection_id?: string | null
           computed_at?: string | null
+          coverage?: number | null
           coverage_percentage?: number | null
           created_at?: string
           date?: string
@@ -8151,6 +8266,9 @@ export type Database = {
           mean_ndvi?: number | null
           metadata?: Json | null
           min_ndvi?: number | null
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          ndvi_std?: number | null
           ndvi_value?: number | null
           ndwi_value?: number | null
           processing_level?: string | null
@@ -8161,6 +8279,7 @@ export type Database = {
           tenant_id?: string
           tile_id?: string | null
           total_pixels?: number | null
+          updated_at?: string | null
           valid_pixels?: number | null
         }
         Relationships: [
@@ -8293,11 +8412,13 @@ export type Database = {
           error_details: Json | null
           error_message: string | null
           id: string
+          land_id: string | null
           metadata: Json | null
           processing_step: string
-          satellite_tile_id: string
+          satellite_tile_id: string | null
           started_at: string | null
           step_status: string
+          tenant_id: string | null
         }
         Insert: {
           completed_at?: string | null
@@ -8306,11 +8427,13 @@ export type Database = {
           error_details?: Json | null
           error_message?: string | null
           id?: string
+          land_id?: string | null
           metadata?: Json | null
           processing_step: string
-          satellite_tile_id: string
+          satellite_tile_id?: string | null
           started_at?: string | null
           step_status: string
+          tenant_id?: string | null
         }
         Update: {
           completed_at?: string | null
@@ -8319,18 +8442,27 @@ export type Database = {
           error_details?: Json | null
           error_message?: string | null
           id?: string
+          land_id?: string | null
           metadata?: Json | null
           processing_step?: string
-          satellite_tile_id?: string
+          satellite_tile_id?: string | null
           started_at?: string | null
           step_status?: string
+          tenant_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "ndvi_processing_logs_satellite_tile_id_fkey"
-            columns: ["satellite_tile_id"]
+            foreignKeyName: "ndvi_processing_logs_land_id_fkey"
+            columns: ["land_id"]
             isOneToOne: false
-            referencedRelation: "latest_satellite_tiles"
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_processing_logs_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
             referencedColumns: ["id"]
           },
           {
@@ -8340,19 +8472,25 @@ export type Database = {
             referencedRelation: "satellite_tiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ndvi_processing_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ndvi_request_queue: {
         Row: {
           batch_size: number | null
-          cloud_coverage: number | null
           completed_at: string | null
           created_at: string | null
-          date_from: string
-          date_to: string
           error_message: string | null
+          farmer_id: string | null
           id: string
           land_ids: string[]
+          metadata: Json | null
           priority: number | null
           processed_count: number | null
           processing_units_consumed: number | null
@@ -8365,14 +8503,13 @@ export type Database = {
         }
         Insert: {
           batch_size?: number | null
-          cloud_coverage?: number | null
           completed_at?: string | null
           created_at?: string | null
-          date_from: string
-          date_to: string
           error_message?: string | null
+          farmer_id?: string | null
           id?: string
           land_ids: string[]
+          metadata?: Json | null
           priority?: number | null
           processed_count?: number | null
           processing_units_consumed?: number | null
@@ -8385,14 +8522,13 @@ export type Database = {
         }
         Update: {
           batch_size?: number | null
-          cloud_coverage?: number | null
           completed_at?: string | null
           created_at?: string | null
-          date_from?: string
-          date_to?: string
           error_message?: string | null
+          farmer_id?: string | null
           id?: string
           land_ids?: string[]
+          metadata?: Json | null
           priority?: number | null
           processed_count?: number | null
           processing_units_consumed?: number | null
@@ -8457,13 +8593,6 @@ export type Database = {
           vegetation_zones?: Json | null
         }
         Relationships: [
-          {
-            foreignKeyName: "ndvi_spatial_analytics_satellite_tile_id_fkey"
-            columns: ["satellite_tile_id"]
-            isOneToOne: false
-            referencedRelation: "latest_satellite_tiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "ndvi_spatial_analytics_satellite_tile_id_fkey"
             columns: ["satellite_tile_id"]
@@ -10751,13 +10880,6 @@ export type Database = {
             foreignKeyName: "satellite_storage_audit_satellite_tile_id_fkey"
             columns: ["satellite_tile_id"]
             isOneToOne: false
-            referencedRelation: "latest_satellite_tiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "satellite_storage_audit_satellite_tile_id_fkey"
-            columns: ["satellite_tile_id"]
-            isOneToOne: false
             referencedRelation: "satellite_tiles"
             referencedColumns: ["id"]
           },
@@ -10768,72 +10890,37 @@ export type Database = {
           acquisition_date: string
           actual_download_status: string | null
           api_source: string | null
-          band_data_verified: boolean | null
-          band_statistics: Json | null
-          bandwidth_usage_mb: number | null
           bbox: Json | null
-          checksum: string | null
           cloud_cover: number | null
           collection: string
-          copernicus_download_attempted_at: string | null
-          copernicus_nir_band_url: string | null
-          copernicus_red_band_url: string | null
           country_id: string | null
           created_at: string | null
           data_completeness_percent: number | null
-          data_quality_score: number | null
-          data_source: string | null
           error_message: string | null
           file_size_mb: number | null
-          full_resolution_processed_at: string | null
-          full_resolution_requested: boolean | null
           id: string
-          last_checked: string | null
-          last_error: string | null
-          last_verification_at: string | null
-          medium_ndvi_path: string | null
-          metadata: Json | null
           mgrs_tile_id: string | null
           ndvi_calculation_timestamp: string | null
-          ndvi_checksum: string | null
           ndvi_max: number | null
           ndvi_mean: number | null
           ndvi_min: number | null
           ndvi_path: string | null
           ndvi_size_bytes: number | null
-          ndvi_statistics: Json | null
-          ndvi_stats: Json | null
           ndvi_std_dev: number | null
-          ndvi_verified: boolean | null
-          nir_band_checksum: string | null
           nir_band_path: string | null
           nir_band_size_bytes: number | null
-          nir_band_verified: boolean | null
-          overview_ndvi_path: string | null
           pixel_count: number | null
           processing_completed_at: string | null
           processing_level: string | null
           processing_method: string | null
           processing_stage: string | null
-          raw_paths: Json | null
-          red_band_checksum: string | null
           red_band_path: string | null
           red_band_size_bytes: number | null
-          red_band_verified: boolean | null
           resolution: string | null
-          resolution_level: string | null
-          retry_count: number | null
           status: string | null
-          storage_paths_verified: Json | null
-          storage_verification_date: string | null
-          storage_verified: boolean | null
-          thumbnail_url: string | null
           tile_id: string
           updated_at: string | null
           valid_pixel_count: number | null
-          validation_errors: Json | null
-          validation_metadata: Json | null
-          validation_status: string | null
           vegetation_coverage_percent: number | null
           vegetation_health_score: number | null
         }
@@ -10841,72 +10928,37 @@ export type Database = {
           acquisition_date: string
           actual_download_status?: string | null
           api_source?: string | null
-          band_data_verified?: boolean | null
-          band_statistics?: Json | null
-          bandwidth_usage_mb?: number | null
           bbox?: Json | null
-          checksum?: string | null
           cloud_cover?: number | null
           collection?: string
-          copernicus_download_attempted_at?: string | null
-          copernicus_nir_band_url?: string | null
-          copernicus_red_band_url?: string | null
           country_id?: string | null
           created_at?: string | null
           data_completeness_percent?: number | null
-          data_quality_score?: number | null
-          data_source?: string | null
           error_message?: string | null
           file_size_mb?: number | null
-          full_resolution_processed_at?: string | null
-          full_resolution_requested?: boolean | null
           id?: string
-          last_checked?: string | null
-          last_error?: string | null
-          last_verification_at?: string | null
-          medium_ndvi_path?: string | null
-          metadata?: Json | null
           mgrs_tile_id?: string | null
           ndvi_calculation_timestamp?: string | null
-          ndvi_checksum?: string | null
           ndvi_max?: number | null
           ndvi_mean?: number | null
           ndvi_min?: number | null
           ndvi_path?: string | null
           ndvi_size_bytes?: number | null
-          ndvi_statistics?: Json | null
-          ndvi_stats?: Json | null
           ndvi_std_dev?: number | null
-          ndvi_verified?: boolean | null
-          nir_band_checksum?: string | null
           nir_band_path?: string | null
           nir_band_size_bytes?: number | null
-          nir_band_verified?: boolean | null
-          overview_ndvi_path?: string | null
           pixel_count?: number | null
           processing_completed_at?: string | null
           processing_level?: string | null
           processing_method?: string | null
           processing_stage?: string | null
-          raw_paths?: Json | null
-          red_band_checksum?: string | null
           red_band_path?: string | null
           red_band_size_bytes?: number | null
-          red_band_verified?: boolean | null
           resolution?: string | null
-          resolution_level?: string | null
-          retry_count?: number | null
           status?: string | null
-          storage_paths_verified?: Json | null
-          storage_verification_date?: string | null
-          storage_verified?: boolean | null
-          thumbnail_url?: string | null
           tile_id: string
           updated_at?: string | null
           valid_pixel_count?: number | null
-          validation_errors?: Json | null
-          validation_metadata?: Json | null
-          validation_status?: string | null
           vegetation_coverage_percent?: number | null
           vegetation_health_score?: number | null
         }
@@ -10914,72 +10966,37 @@ export type Database = {
           acquisition_date?: string
           actual_download_status?: string | null
           api_source?: string | null
-          band_data_verified?: boolean | null
-          band_statistics?: Json | null
-          bandwidth_usage_mb?: number | null
           bbox?: Json | null
-          checksum?: string | null
           cloud_cover?: number | null
           collection?: string
-          copernicus_download_attempted_at?: string | null
-          copernicus_nir_band_url?: string | null
-          copernicus_red_band_url?: string | null
           country_id?: string | null
           created_at?: string | null
           data_completeness_percent?: number | null
-          data_quality_score?: number | null
-          data_source?: string | null
           error_message?: string | null
           file_size_mb?: number | null
-          full_resolution_processed_at?: string | null
-          full_resolution_requested?: boolean | null
           id?: string
-          last_checked?: string | null
-          last_error?: string | null
-          last_verification_at?: string | null
-          medium_ndvi_path?: string | null
-          metadata?: Json | null
           mgrs_tile_id?: string | null
           ndvi_calculation_timestamp?: string | null
-          ndvi_checksum?: string | null
           ndvi_max?: number | null
           ndvi_mean?: number | null
           ndvi_min?: number | null
           ndvi_path?: string | null
           ndvi_size_bytes?: number | null
-          ndvi_statistics?: Json | null
-          ndvi_stats?: Json | null
           ndvi_std_dev?: number | null
-          ndvi_verified?: boolean | null
-          nir_band_checksum?: string | null
           nir_band_path?: string | null
           nir_band_size_bytes?: number | null
-          nir_band_verified?: boolean | null
-          overview_ndvi_path?: string | null
           pixel_count?: number | null
           processing_completed_at?: string | null
           processing_level?: string | null
           processing_method?: string | null
           processing_stage?: string | null
-          raw_paths?: Json | null
-          red_band_checksum?: string | null
           red_band_path?: string | null
           red_band_size_bytes?: number | null
-          red_band_verified?: boolean | null
           resolution?: string | null
-          resolution_level?: string | null
-          retry_count?: number | null
           status?: string | null
-          storage_paths_verified?: Json | null
-          storage_verification_date?: string | null
-          storage_verified?: boolean | null
-          thumbnail_url?: string | null
           tile_id?: string
           updated_at?: string | null
           valid_pixel_count?: number | null
-          validation_errors?: Json | null
-          validation_metadata?: Json | null
-          validation_status?: string | null
           vegetation_coverage_percent?: number | null
           vegetation_health_score?: number | null
         }
@@ -11414,16 +11431,42 @@ export type Database = {
       soil_health: {
         Row: {
           bulk_density: number | null
+          cec: number | null
+          clay_percent: number | null
+          confidence_level: string | null
           created_at: string
+          data_completeness: number | null
+          data_quality_flags: Json | null
+          data_quality_warnings: Json | null
+          farmer_id: string | null
+          fertility_class: string | null
+          field_area_ha: number | null
           id: string
           land_id: string
+          nitrogen_est: number | null
+          nitrogen_kg_per_ha: number | null
           nitrogen_level: string | null
+          nitrogen_text: string | null
+          nitrogen_total_kg: number | null
+          note: string | null
           organic_carbon: number | null
+          organic_carbon_text: string | null
           ph_level: number | null
+          ph_text: string | null
+          phosphorus_est: number | null
+          phosphorus_kg_per_ha: number | null
           phosphorus_level: string | null
+          phosphorus_text: string | null
+          phosphorus_total_kg: number | null
+          potassium_est: number | null
+          potassium_kg_per_ha: number | null
           potassium_level: string | null
+          potassium_text: string | null
+          potassium_total_kg: number | null
+          sand_percent: number | null
+          silt_percent: number | null
           soil_type: string | null
-          source: string | null
+          source: string
           tenant_id: string
           test_date: string | null
           test_report_url: string | null
@@ -11432,16 +11475,42 @@ export type Database = {
         }
         Insert: {
           bulk_density?: number | null
+          cec?: number | null
+          clay_percent?: number | null
+          confidence_level?: string | null
           created_at?: string
+          data_completeness?: number | null
+          data_quality_flags?: Json | null
+          data_quality_warnings?: Json | null
+          farmer_id?: string | null
+          fertility_class?: string | null
+          field_area_ha?: number | null
           id?: string
           land_id: string
+          nitrogen_est?: number | null
+          nitrogen_kg_per_ha?: number | null
           nitrogen_level?: string | null
+          nitrogen_text?: string | null
+          nitrogen_total_kg?: number | null
+          note?: string | null
           organic_carbon?: number | null
+          organic_carbon_text?: string | null
           ph_level?: number | null
+          ph_text?: string | null
+          phosphorus_est?: number | null
+          phosphorus_kg_per_ha?: number | null
           phosphorus_level?: string | null
+          phosphorus_text?: string | null
+          phosphorus_total_kg?: number | null
+          potassium_est?: number | null
+          potassium_kg_per_ha?: number | null
           potassium_level?: string | null
+          potassium_text?: string | null
+          potassium_total_kg?: number | null
+          sand_percent?: number | null
+          silt_percent?: number | null
           soil_type?: string | null
-          source?: string | null
+          source?: string
           tenant_id: string
           test_date?: string | null
           test_report_url?: string | null
@@ -11450,16 +11519,42 @@ export type Database = {
         }
         Update: {
           bulk_density?: number | null
+          cec?: number | null
+          clay_percent?: number | null
+          confidence_level?: string | null
           created_at?: string
+          data_completeness?: number | null
+          data_quality_flags?: Json | null
+          data_quality_warnings?: Json | null
+          farmer_id?: string | null
+          fertility_class?: string | null
+          field_area_ha?: number | null
           id?: string
           land_id?: string
+          nitrogen_est?: number | null
+          nitrogen_kg_per_ha?: number | null
           nitrogen_level?: string | null
+          nitrogen_text?: string | null
+          nitrogen_total_kg?: number | null
+          note?: string | null
           organic_carbon?: number | null
+          organic_carbon_text?: string | null
           ph_level?: number | null
+          ph_text?: string | null
+          phosphorus_est?: number | null
+          phosphorus_kg_per_ha?: number | null
           phosphorus_level?: string | null
+          phosphorus_text?: string | null
+          phosphorus_total_kg?: number | null
+          potassium_est?: number | null
+          potassium_kg_per_ha?: number | null
           potassium_level?: string | null
+          potassium_text?: string | null
+          potassium_total_kg?: number | null
+          sand_percent?: number | null
+          silt_percent?: number | null
           soil_type?: string | null
-          source?: string | null
+          source?: string
           tenant_id?: string
           test_date?: string | null
           test_report_url?: string | null
@@ -11468,10 +11563,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_soil_health_tenant"
-            columns: ["tenant_id"]
+            foreignKeyName: "soil_health_farmer_id_fkey"
+            columns: ["farmer_id"]
             isOneToOne: false
-            referencedRelation: "tenants"
+            referencedRelation: "farmers"
             referencedColumns: ["id"]
           },
           {
@@ -11486,6 +11581,13 @@ export type Database = {
             columns: ["land_id"]
             isOneToOne: false
             referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "soil_health_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -14974,72 +15076,6 @@ export type Database = {
           },
         ]
       }
-      latest_satellite_tiles: {
-        Row: {
-          acquisition_date: string | null
-          actual_download_status: string | null
-          band_statistics: Json | null
-          bandwidth_usage_mb: number | null
-          checksum: string | null
-          cloud_cover: number | null
-          collection: string | null
-          copernicus_download_attempted_at: string | null
-          copernicus_nir_band_url: string | null
-          copernicus_red_band_url: string | null
-          country_id: string | null
-          created_at: string | null
-          data_quality_score: number | null
-          data_source: string | null
-          error_message: string | null
-          file_size_mb: number | null
-          full_resolution_processed_at: string | null
-          full_resolution_requested: boolean | null
-          id: string | null
-          last_error: string | null
-          last_verification_at: string | null
-          medium_ndvi_path: string | null
-          metadata: Json | null
-          ndvi_checksum: string | null
-          ndvi_path: string | null
-          ndvi_size_bytes: number | null
-          ndvi_verified: boolean | null
-          nir_band_checksum: string | null
-          nir_band_path: string | null
-          nir_band_size_bytes: number | null
-          nir_band_verified: boolean | null
-          overview_ndvi_path: string | null
-          processing_completed_at: string | null
-          processing_level: string | null
-          processing_stage: string | null
-          raw_paths: Json | null
-          red_band_checksum: string | null
-          red_band_path: string | null
-          red_band_size_bytes: number | null
-          red_band_verified: boolean | null
-          resolution: string | null
-          resolution_level: string | null
-          retry_count: number | null
-          status: string | null
-          storage_paths_verified: Json | null
-          storage_verification_date: string | null
-          storage_verified: boolean | null
-          thumbnail_url: string | null
-          tile_id: string | null
-          updated_at: string | null
-          validation_errors: Json | null
-          validation_metadata: Json | null
-          validation_status: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "satellite_tiles_tile_id_country_id_fkey"
-            columns: ["tile_id", "country_id"]
-            isOneToOne: false
-            referencedRelation: "mgrs_tiles"
-            referencedColumns: ["tile_id", "country_id"]
-          },
-        ]
-      }
       ndvi_coverage_stats: {
         Row: {
           lands_with_ndvi: number | null
@@ -15295,6 +15331,10 @@ export type Database = {
           p_encryption_key_id: string
           p_tenant_id: string
         }
+        Returns: Json
+      }
+      assign_mgrs_tile_to_land: {
+        Args: Record<PropertyKey, never>
         Returns: Json
       }
       award_activity_points: {
