@@ -54,6 +54,7 @@ interface MasterProduct {
   ai_recommendable: boolean;
   ai_metadata: any;
   images: any[];
+  video_urls?: any;
   documents: any[];
   status: string;
   approved_by: string | null;
@@ -447,6 +448,8 @@ export default function MasterProducts() {
       market_availability: product.market_availability || 'in_stock',
       minimum_order_quantity: 1,
       discount_applicable: false,
+      images: (product.images as ProductImage[]) || [],
+      video_urls: (product.video_urls as VideoUrls) || { youtube: [], instagram: [], facebook: [] },
       effectiveness_rating: product.effectiveness_rating || 0,
       ai_recommendable: product.ai_recommendable,
       status: product.status,
