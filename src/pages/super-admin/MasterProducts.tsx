@@ -944,16 +944,15 @@ export default function MasterProducts() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="manufacturer_id">Manufacturer</Label>
+                      <Label htmlFor="manufacturer_id">Manufacturer (Optional)</Label>
                       <Select 
-                        value={formData.manufacturer_id} 
+                        value={formData.manufacturer_id || undefined} 
                         onValueChange={(value) => setFormData({ ...formData, manufacturer_id: value })}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select manufacturer" />
+                          <SelectValue placeholder="Select manufacturer (optional)" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
                           {companies?.map((company) => (
                             <SelectItem key={company.id} value={company.id}>
                               {company.name}
