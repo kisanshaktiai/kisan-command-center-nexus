@@ -4,12 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
   Plus, Search, Filter, Package, Edit, Trash2, Star, Shield, Leaf, 
-  ChevronRight, ChevronLeft, Check, Upload, FileText, Image as ImageIcon,
+  ChevronRight, ChevronLeft, Check, FileText, Image as ImageIcon,
   AlertCircle, Sparkles, TrendingUp, Clock, DollarSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
