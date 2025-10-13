@@ -5,8 +5,10 @@ import { toast } from 'sonner';
 import { 
   Plus, Search, Filter, Package, Edit, Trash2, Star, Shield, Leaf, 
   ChevronRight, ChevronLeft, Check, FileText, Image as ImageIcon,
-  AlertCircle, Sparkles, TrendingUp, Clock, DollarSign
+  AlertCircle, Sparkles, TrendingUp, Clock, DollarSign, Video
 } from 'lucide-react';
+import { ProductImageUpload, ProductImage } from '@/components/products/ProductImageUpload';
+import { SocialMediaLinks, VideoUrls } from '@/components/products/SocialMediaLinks';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -71,7 +73,7 @@ const FORM_STEPS = [
   { id: 3, title: 'Agriculture', icon: Leaf },
   { id: 4, title: 'Compliance', icon: Shield },
   { id: 5, title: 'Pricing', icon: DollarSign },
-  { id: 6, title: 'Media', icon: ImageIcon },
+  { id: 6, title: 'Media & Assets', icon: ImageIcon },
 ];
 
 export default function MasterProducts() {
@@ -130,7 +132,13 @@ export default function MasterProducts() {
     minimum_order_quantity: 1,
     discount_applicable: false,
     
-    // Step 6: Settings
+    // Step 6: Media & Settings
+    images: [] as ProductImage[],
+    video_urls: {
+      youtube: [],
+      instagram: [],
+      facebook: []
+    } as VideoUrls,
     effectiveness_rating: 0,
     ai_recommendable: true,
     status: 'active',
@@ -391,6 +399,8 @@ export default function MasterProducts() {
       market_availability: 'in_stock',
       minimum_order_quantity: 1,
       discount_applicable: false,
+      images: [] as ProductImage[],
+      video_urls: { youtube: [], instagram: [], facebook: [] } as VideoUrls,
       effectiveness_rating: 0,
       ai_recommendable: true,
       status: 'active',
@@ -1341,13 +1351,49 @@ export default function MasterProducts() {
               </div>
             )}
 
-            {/* Step 6: AI & Settings */}
+            {/* Step 6: Media & Assets */}
             {currentStep === 6 && (
-              <div className="space-y-6 py-4">
+              <div className="space-y-8 py-4">
+                {/* Product Images Section */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5 text-primary" />
+                    Product Images (Max 5) *
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Upload high-quality product images. Images will be automatically compressed to WebP format (~500KB) for optimal performance.
+                  </p>
+                  <ProductImageUpload
+                    images={formData.images}
+                    onImagesChange={(images) => setFormData({ ...formData, images })}
+                    maxImages={5}
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Social Media & Video Links */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Video className="h-5 w-5 text-primary" />
+                    Social Media & Video Links
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Add links to product videos on YouTube, Instagram, and Facebook to enhance product visibility.
+                  </p>
+                  <SocialMediaLinks
+                    videoUrls={formData.video_urls}
+                    onVideoUrlsChange={(urls) => setFormData({ ...formData, video_urls: urls })}
+                  />
+                </div>
+
+                <Separator />
+
+                {/* AI & Display Settings */}
                 <div>
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" />
-                    AI & Product Settings
+                    AI & Display Settings
                   </h3>
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -1458,7 +1504,7 @@ export default function MasterProducts() {
                         <div className="flex-1">
                           <h4 className="font-medium text-sm mb-1">Ready to Submit?</h4>
                           <p className="text-xs text-muted-foreground">
-                            Make sure all required information is filled out correctly. 
+                            Make sure all required information (including at least 1 product image) is filled out correctly. 
                             You can always edit this product later.
                           </p>
                         </div>
