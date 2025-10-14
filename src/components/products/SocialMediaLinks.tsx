@@ -79,19 +79,21 @@ export const SocialMediaLinks = ({ videoUrls, onVideoUrlsChange }: SocialMediaLi
       return;
     }
 
-    if (videoUrls[platform].includes(url)) {
+    const currentUrls = videoUrls?.[platform] || [];
+    
+    if (currentUrls.includes(url)) {
       toast.error('This URL has already been added');
       return;
     }
 
-    if (videoUrls[platform].length >= 5) {
+    if (currentUrls.length >= 5) {
       toast.error('Maximum 5 URLs per platform');
       return;
     }
 
     onVideoUrlsChange({
       ...videoUrls,
-      [platform]: [...videoUrls[platform], url]
+      [platform]: [...currentUrls, url]
     });
 
     setNewUrls({ ...newUrls, [platform]: '' });
@@ -99,9 +101,10 @@ export const SocialMediaLinks = ({ videoUrls, onVideoUrlsChange }: SocialMediaLi
   };
 
   const handleRemoveUrl = (platform: keyof VideoUrls, index: number) => {
+    const currentUrls = videoUrls?.[platform] || [];
     onVideoUrlsChange({
       ...videoUrls,
-      [platform]: videoUrls[platform].filter((_, i) => i !== index)
+      [platform]: currentUrls.filter((_, i) => i !== index)
     });
     toast.success('URL removed');
   };
@@ -118,7 +121,7 @@ export const SocialMediaLinks = ({ videoUrls, onVideoUrlsChange }: SocialMediaLi
       {(Object.keys(PLATFORM_CONFIGS) as Array<keyof VideoUrls>).map((platform) => {
         const config = PLATFORM_CONFIGS[platform];
         const Icon = config.icon;
-        const urls = videoUrls[platform];
+        const urls = videoUrls?.[platform] || [];
 
         return (
           <Card key={platform} className="p-4">
