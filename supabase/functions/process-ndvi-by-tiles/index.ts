@@ -110,13 +110,12 @@ function calculateBboxAreaKm2(bbox: number[]): number {
 // ==================== DATA RETRIEVAL ====================
 
 async function getTilesToProcess(supabase: any, tileIds: string[]): Promise<TileToProcess[]> {
-  console.log('[getTilesToProcess] Fetching tiles...');
+  console.log('[getTilesToProcess] Fetching tiles that intersect with land boundaries...');
   
-  const { data: tilesWithLands, error } = await supabase
-    .from('mgrs_tiles')
-    .select('id, tile_id, geometry, is_agri, total_lands_count')
-    .eq('is_agri', true)
-    .gt('total_lands_count', 0);
+  // Use the new function to only get tiles that contain farmer lands
+  const { data: tilesWithLands, error } = tileIds && tileIds.length > 0
+    ? await supabase.rpc('get_tiles_intersecting_lands', { tile_ids: tileIds })
+    : await supabase.rpc('get_tiles_intersecting_lands');
 
   if (error) {
     console.error('[getTilesToProcess] Error:', error);

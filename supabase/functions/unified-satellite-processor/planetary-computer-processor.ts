@@ -15,18 +15,10 @@ export async function processPlanetaryComputer(supabase: any, params: {
 
   const STAC_API_URL = 'https://planetarycomputer.microsoft.com/api/stac/v1';
   
-  // Get MGRS tiles to process
-  let query = supabase
-    .from('mgrs_tiles')
-    .select('id, tile_id, geometry');
-  
-  if (params.tileIds.length > 0) {
-    query = query.in('tile_id', params.tileIds);
-  } else {
-    query = query.eq('is_agri', true);
-  }
-  
-  const { data: tiles, error: tilesError } = await query;
+  // Get MGRS tiles that intersect with land boundaries
+  const { data: tiles, error: tilesError } = params.tileIds.length > 0
+    ? await supabase.rpc('get_tiles_intersecting_lands', { tile_ids: params.tileIds })
+    : await supabase.rpc('get_tiles_intersecting_lands');
 
   if (tilesError) {
     throw new Error(`Failed to fetch tiles: ${tilesError.message}`);

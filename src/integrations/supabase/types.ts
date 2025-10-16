@@ -1817,6 +1817,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cart_items_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "cart_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -1992,6 +1999,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "communities_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "communities_crop_id_fkey"
             columns: ["crop_id"]
             isOneToOne: false
@@ -2068,6 +2082,13 @@ export type Database = {
             referencedRelation: "farmers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "community_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
         ]
       }
       community_member_activity: {
@@ -2128,6 +2149,13 @@ export type Database = {
             referencedRelation: "farmers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "community_member_activity_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
         ]
       }
       community_members: {
@@ -2172,6 +2200,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_members_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -2255,6 +2290,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "community_messages_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "community_messages_parent_message_id_fkey"
             columns: ["parent_message_id"]
             isOneToOne: false
@@ -2317,6 +2359,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "community_moderation_moderator_id_fkey"
+            columns: ["moderator_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "community_moderation_target_message_id_fkey"
             columns: ["target_message_id"]
             isOneToOne: false
@@ -2329,6 +2378,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_moderation_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -2388,6 +2444,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "community_polls_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "community_polls_message_id_fkey"
             columns: ["message_id"]
             isOneToOne: false
@@ -2439,11 +2502,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "content_moderation_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "content_moderation_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_moderation_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -2494,6 +2571,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_reports_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -3781,11 +3865,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "direct_messages_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "direct_messages_sender_id_fkey"
             columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -4258,6 +4356,13 @@ export type Database = {
             referencedRelation: "farmers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "farmer_achievements_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
         ]
       }
       farmer_analytics: {
@@ -4383,6 +4488,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "farmer_communications_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "farmer_communications_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4443,6 +4555,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "farmer_engagement_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "farmer_engagement_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4479,11 +4598,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "farmer_follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "farmer_follows_following_id_fkey"
             columns: ["following_id"]
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farmer_follows_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -4549,6 +4682,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farmer_gamification_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: true
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -4681,6 +4821,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "farmer_leads_converted_farmer_id_fkey"
+            columns: ["converted_farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "farmer_leads_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4730,6 +4877,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farmer_notes_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "farmer_notes_tenant_id_fkey"
@@ -4848,6 +5002,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "farmer_subscriptions_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: true
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "farmer_subscriptions_plan_id_fkey"
             columns: ["plan_id"]
             isOneToOne: false
@@ -4907,6 +5068,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "farmer_tags_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "farmer_tags_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4963,6 +5131,7 @@ export type Database = {
           total_queries: number | null
           total_sales: number | null
           updated_at: string | null
+          user_profile_id: string | null
           verification_documents: Json | null
           verified_at: string | null
           verified_by: string | null
@@ -5014,6 +5183,7 @@ export type Database = {
           total_queries?: number | null
           total_sales?: number | null
           updated_at?: string | null
+          user_profile_id?: string | null
           verification_documents?: Json | null
           verified_at?: string | null
           verified_by?: string | null
@@ -5065,6 +5235,7 @@ export type Database = {
           total_queries?: number | null
           total_sales?: number | null
           updated_at?: string | null
+          user_profile_id?: string | null
           verification_documents?: Json | null
           verified_at?: string | null
           verified_by?: string | null
@@ -5075,6 +5246,20 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farmers_user_profile_id_fkey"
+            columns: ["user_profile_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["user_profile_id"]
+          },
+          {
+            foreignKeyName: "farmers_user_profile_id_fkey"
+            columns: ["user_profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5392,11 +5577,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "followers_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "followers_following_id_fkey"
             columns: ["following_id"]
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followers_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -5432,6 +5631,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_chat_members_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "group_chat_members_group_id_fkey"
@@ -5494,6 +5700,13 @@ export type Database = {
             referencedRelation: "farmers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "group_chats_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
         ]
       }
       group_messages: {
@@ -5541,6 +5754,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -5955,6 +6175,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "land_tile_mapping_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "land_tile_mapping_land_id_fkey"
             columns: ["land_id"]
             isOneToOne: true
@@ -6019,12 +6246,14 @@ export type Database = {
           last_harvest_date: string | null
           last_ndvi_calculation: string | null
           last_ndvi_value: number | null
+          last_processed_at: string | null
           last_soil_test_date: string | null
           last_sowing_date: string | null
           location_context: Json | null
           location_coords: Json | null
           marketplace_enabled: boolean | null
           name: string
+          ndvi_tested: boolean | null
           ndvi_thumbnail_url: string | null
           nitrogen_kg_per_ha: number | null
           notes: string | null
@@ -6037,6 +6266,7 @@ export type Database = {
           previous_crop_id: string | null
           slope_percentage: number | null
           soil_ph: number | null
+          soil_tested: boolean | null
           soil_type: string | null
           state: string | null
           state_id: string | null
@@ -6083,12 +6313,14 @@ export type Database = {
           last_harvest_date?: string | null
           last_ndvi_calculation?: string | null
           last_ndvi_value?: number | null
+          last_processed_at?: string | null
           last_soil_test_date?: string | null
           last_sowing_date?: string | null
           location_context?: Json | null
           location_coords?: Json | null
           marketplace_enabled?: boolean | null
           name: string
+          ndvi_tested?: boolean | null
           ndvi_thumbnail_url?: string | null
           nitrogen_kg_per_ha?: number | null
           notes?: string | null
@@ -6101,6 +6333,7 @@ export type Database = {
           previous_crop_id?: string | null
           slope_percentage?: number | null
           soil_ph?: number | null
+          soil_tested?: boolean | null
           soil_type?: string | null
           state?: string | null
           state_id?: string | null
@@ -6147,12 +6380,14 @@ export type Database = {
           last_harvest_date?: string | null
           last_ndvi_calculation?: string | null
           last_ndvi_value?: number | null
+          last_processed_at?: string | null
           last_soil_test_date?: string | null
           last_sowing_date?: string | null
           location_context?: Json | null
           location_coords?: Json | null
           marketplace_enabled?: boolean | null
           name?: string
+          ndvi_tested?: boolean | null
           ndvi_thumbnail_url?: string | null
           nitrogen_kg_per_ha?: number | null
           notes?: string | null
@@ -6165,6 +6400,7 @@ export type Database = {
           previous_crop_id?: string | null
           slope_percentage?: number | null
           soil_ph?: number | null
+          soil_tested?: boolean | null
           soil_type?: string | null
           state?: string | null
           state_id?: string | null
@@ -6219,6 +6455,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lands_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "lands_previous_crop_id_fkey"
@@ -6677,6 +6920,13 @@ export type Database = {
             referencedRelation: "farmers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "leaderboards_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
         ]
       }
       leads: {
@@ -7099,6 +7349,13 @@ export type Database = {
             referencedRelation: "farmers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "marketplace_chats_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
         ]
       }
       marketplace_orders: {
@@ -7162,11 +7419,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "marketplace_orders_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "marketplace_orders_seller_id_fkey"
             columns: ["seller_id"]
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_orders_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "marketplace_orders_tenant_id_fkey"
@@ -7260,6 +7531,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "marketplace_products_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "marketplace_products_land_id_fkey"
             columns: ["land_id"]
             isOneToOne: false
@@ -7279,6 +7557,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_products_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "marketplace_products_tenant_id_fkey"
@@ -8103,11 +8388,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "messages_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "messages_sender_id_fkey"
             columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -8118,6 +8417,7 @@ export type Database = {
           created_at: string | null
           district: string | null
           district_id: string | null
+          geojson_geometry: Json | null
           geometry: unknown
           id: string
           is_agri: boolean | null
@@ -8138,6 +8438,7 @@ export type Database = {
           created_at?: string | null
           district?: string | null
           district_id?: string | null
+          geojson_geometry?: Json | null
           geometry: unknown
           id?: string
           is_agri?: boolean | null
@@ -8158,6 +8459,7 @@ export type Database = {
           created_at?: string | null
           district?: string | null
           district_id?: string | null
+          geojson_geometry?: Json | null
           geometry?: unknown
           id?: string
           is_agri?: boolean | null
@@ -8181,6 +8483,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mgrs_tiles_backup: {
+        Row: {
+          agri_area_km2: number | null
+          country_id: string | null
+          created_at: string | null
+          district: string | null
+          district_id: string | null
+          geometry: unknown | null
+          id: string | null
+          is_agri: boolean | null
+          last_checked: string | null
+          last_land_check: string | null
+          state: string | null
+          state_id: string | null
+          taluka_id: string | null
+          tile_id: string | null
+          total_area_km2: number | null
+          total_lands_count: number | null
+          updated_at: string | null
+          village_id: string | null
+        }
+        Insert: {
+          agri_area_km2?: number | null
+          country_id?: string | null
+          created_at?: string | null
+          district?: string | null
+          district_id?: string | null
+          geometry?: unknown | null
+          id?: string | null
+          is_agri?: boolean | null
+          last_checked?: string | null
+          last_land_check?: string | null
+          state?: string | null
+          state_id?: string | null
+          taluka_id?: string | null
+          tile_id?: string | null
+          total_area_km2?: number | null
+          total_lands_count?: number | null
+          updated_at?: string | null
+          village_id?: string | null
+        }
+        Update: {
+          agri_area_km2?: number | null
+          country_id?: string | null
+          created_at?: string | null
+          district?: string | null
+          district_id?: string | null
+          geometry?: unknown | null
+          id?: string | null
+          is_agri?: boolean | null
+          last_checked?: string | null
+          last_land_check?: string | null
+          state?: string | null
+          state_id?: string | null
+          taluka_id?: string | null
+          tile_id?: string | null
+          total_area_km2?: number | null
+          total_lands_count?: number | null
+          updated_at?: string | null
+          village_id?: string | null
+        }
+        Relationships: []
       }
       ndvi_data: {
         Row: {
@@ -8382,6 +8747,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ndvi_micro_tiles_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "ndvi_micro_tiles_land_id_fkey"
             columns: ["land_id"]
             isOneToOne: false
@@ -8490,10 +8862,14 @@ export type Database = {
           farmer_id: string | null
           id: string
           land_ids: string[]
+          last_error: string | null
           metadata: Json | null
           priority: number | null
           processed_count: number | null
+          processing_duration_ms: number | null
           processing_units_consumed: number | null
+          requested_at: string | null
+          retry_count: number | null
           scheduled_for: string | null
           started_at: string | null
           statistics_only: boolean | null
@@ -8509,10 +8885,14 @@ export type Database = {
           farmer_id?: string | null
           id?: string
           land_ids: string[]
+          last_error?: string | null
           metadata?: Json | null
           priority?: number | null
           processed_count?: number | null
+          processing_duration_ms?: number | null
           processing_units_consumed?: number | null
+          requested_at?: string | null
+          retry_count?: number | null
           scheduled_for?: string | null
           started_at?: string | null
           statistics_only?: boolean | null
@@ -8528,10 +8908,14 @@ export type Database = {
           farmer_id?: string | null
           id?: string
           land_ids?: string[]
+          last_error?: string | null
           metadata?: Json | null
           priority?: number | null
           processed_count?: number | null
+          processing_duration_ms?: number | null
           processing_units_consumed?: number | null
+          requested_at?: string | null
+          retry_count?: number | null
           scheduled_for?: string | null
           started_at?: string | null
           statistics_only?: boolean | null
@@ -8684,6 +9068,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_sync_queue_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -8867,6 +9258,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "order_items_order_id_fkey"
@@ -9426,6 +9824,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "poll_votes_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "poll_votes_poll_id_fkey"
             columns: ["poll_id"]
             isOneToOne: false
@@ -9483,6 +9888,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "post_comments_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "post_comments_parent_comment_id_fkey"
             columns: ["parent_comment_id"]
             isOneToOne: false
@@ -9529,6 +9941,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "post_interactions_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "post_interactions_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
@@ -9563,6 +9982,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_likes_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "post_likes_post_id_fkey"
@@ -9645,6 +10071,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "post_saves_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "post_saves_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
@@ -9688,6 +10121,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_shares_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "post_shares_post_id_fkey"
@@ -9759,6 +10199,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -10169,6 +10616,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "product_reviews_order_id_fkey"
@@ -11413,6 +11867,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "social_posts_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
             foreignKeyName: "social_posts_parent_post_id_fkey"
             columns: ["parent_post_id"]
             isOneToOne: false
@@ -11568,6 +12029,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "soil_health_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "soil_health_land_id_fkey"
@@ -13379,6 +13847,13 @@ export type Database = {
             referencedRelation: "farmers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "user_badges_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
         ]
       }
       user_invitations: {
@@ -13510,6 +13985,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_points_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -13698,6 +14180,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_profiles_farmer_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
         ]
       }
@@ -14045,6 +14534,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weather_aggregates_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "weather_aggregates_land_id_fkey"
@@ -14499,6 +14995,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weather_observations_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "weather_observations_land_id_fkey"
@@ -15074,6 +15577,13 @@ export type Database = {
             referencedRelation: "farmers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lands_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
         ]
       }
       ndvi_coverage_stats: {
@@ -15085,13 +15595,69 @@ export type Database = {
         }
         Relationships: []
       }
-      tile_land_mapping_stats: {
+      ndvi_full_view: {
         Row: {
-          land_count: number | null
-          land_names: string | null
-          tile_id: string | null
+          area_acres: number | null
+          cloud_cover: number | null
+          cloud_coverage: number | null
+          collection_id: string | null
+          coverage: number | null
+          date: string | null
+          district: string | null
+          evi_value: number | null
+          farmer_code: string | null
+          farmer_id: string | null
+          farmer_mobile: string | null
+          farmer_name: string | null
+          image_url: string | null
+          land_id: string | null
+          land_name: string | null
+          last_ndvi_calculation: string | null
+          last_ndvi_value: number | null
+          ndvi_created_at: string | null
+          ndvi_id: string | null
+          ndvi_max: number | null
+          ndvi_min: number | null
+          ndvi_std: number | null
+          ndvi_thumbnail_url: string | null
+          ndvi_updated_at: string | null
+          ndvi_value: number | null
+          ndwi_value: number | null
+          satellite_source: string | null
+          savi_value: number | null
+          state: string | null
+          tenant_id: string | null
+          user_district: string | null
+          user_full_name: string | null
+          user_mobile: string | null
+          user_profile_id: string | null
+          user_state: string | null
+          user_village: string | null
+          village: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_ndvi_data_tenant"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       weather_with_location: {
         Row: {
@@ -15145,6 +15711,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weather_observations_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
           },
           {
             foreignKeyName: "weather_observations_land_id_fkey"
@@ -16269,6 +16842,17 @@ export type Database = {
           tile_id: string
         }[]
       }
+      get_tiles_intersecting_lands: {
+        Args: Record<PropertyKey, never> | { tile_ids: string[] }
+        Returns: {
+          geojson_geometry: Json
+          geometry: unknown
+          id: string
+          is_agri: boolean
+          tile_id: string
+          total_lands_count: number
+        }[]
+      }
       get_tiles_with_lands: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -16542,7 +17126,7 @@ export type Database = {
         Args:
           | { tbl_oid: unknown; use_typmod?: boolean }
           | { use_typmod?: boolean }
-        Returns: number
+        Returns: string
       }
       postgis_addbbox: {
         Args: { "": unknown }
@@ -17800,7 +18384,7 @@ export type Database = {
         Args:
           | { p_force_new?: boolean; p_tenant_id: string }
           | { p_tenant_id: string; p_version?: number }
-        Returns: Json
+        Returns: string
       }
       suspend_tenant: {
         Args: { p_reason?: string; p_tenant_id: string }
