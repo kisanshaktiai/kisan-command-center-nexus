@@ -8442,8 +8442,11 @@ export type Database = {
           geometry: unknown
           id: string
           is_agri: boolean | null
+          is_land_contain: boolean | null
+          is_ndvi_ready: boolean | null
           last_checked: string | null
           last_land_check: string | null
+          last_ndvi_update: string | null
           state: string | null
           state_id: string | null
           taluka_id: string | null
@@ -8463,8 +8466,11 @@ export type Database = {
           geometry: unknown
           id?: string
           is_agri?: boolean | null
+          is_land_contain?: boolean | null
+          is_ndvi_ready?: boolean | null
           last_checked?: string | null
           last_land_check?: string | null
+          last_ndvi_update?: string | null
           state?: string | null
           state_id?: string | null
           taluka_id?: string | null
@@ -8484,8 +8490,11 @@ export type Database = {
           geometry?: unknown
           id?: string
           is_agri?: boolean | null
+          is_land_contain?: boolean | null
+          is_ndvi_ready?: boolean | null
           last_checked?: string | null
           last_land_check?: string | null
+          last_ndvi_update?: string | null
           state?: string | null
           state_id?: string | null
           taluka_id?: string | null
