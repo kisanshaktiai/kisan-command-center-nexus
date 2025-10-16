@@ -6108,6 +6108,27 @@ export type Database = {
           },
         ]
       }
+      land_tile_intersections: {
+        Row: {
+          created_at: string | null
+          id: string
+          land_id: string
+          tile_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          land_id: string
+          tile_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          land_id?: string
+          tile_id?: string
+        }
+        Relationships: []
+      }
       land_tile_mapping: {
         Row: {
           created_at: string | null
@@ -18424,6 +18445,10 @@ export type Database = {
       }
       update_community_trending_score: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      update_tiles_for_land: {
+        Args: { p_land_id: string }
         Returns: undefined
       }
       update_user_presence: {
