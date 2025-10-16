@@ -18,7 +18,7 @@ BEGIN
   FROM public.lands
   WHERE id = p_land_id;
 
-  -- If no geometry found, exit
+  -- Exit if no geometry found
   IF land_geom IS NULL AND land_json_geom IS NULL THEN
     RETURN;
   END IF;
@@ -28,91 +28,40 @@ BEGIN
     land_geom := ST_GeomFromGeoJSON(land_json_geom::text);
   END IF;
 
-  -- Update all intersecting tiles
-  UPDATE public.mgrs_tiles
+  -- Update tiles that intersect this land
+  UPDATE public.mgrs_tiles mt
   SET 
     is_agri = true,
     is_land_contain = true,
-    last_land_check = now(),
-    total_lands_count = COALESCE(total_lands_count, 0) + 1
+    last_land_check = now()
   WHERE ST_Intersects(
-    geojson_geometry,
+    ST_GeomFromGeoJSON(mt.geojson_geometry::text),
     land_geom
-  )
-  AND NOT EXISTS (
-    -- Prevent duplicate counting: only increment if this land hasn't been counted before
-    SELECT 1 
-    FROM public.land_tile_intersections lti
-    WHERE lti.land_id = p_land_id 
-    AND lti.tile_id = mgrs_tiles.tile_id
   );
 
-  -- Track which tiles intersect with this land (for accurate counting)
+  -- Insert new land-tile relationships (avoid duplicates)
   INSERT INTO public.land_tile_intersections (land_id, tile_id, created_at)
   SELECT 
     p_land_id,
     mt.tile_id,
     now()
   FROM public.mgrs_tiles mt
-  WHERE ST_Intersects(mt.geojson_geometry, land_geom)
+  WHERE ST_Intersects(
+    ST_GeomFromGeoJSON(mt.geojson_geometry::text),
+    land_geom
+  )
   ON CONFLICT (land_id, tile_id) DO NOTHING;
 
-END;
-$$;
-
--- Create tracking table for land-tile intersections (prevents duplicate counting)
-CREATE TABLE IF NOT EXISTS public.land_tile_intersections (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  land_id uuid NOT NULL,
-  tile_id text NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  UNIQUE(land_id, tile_id)
-);
-
--- Enable RLS on tracking table
-ALTER TABLE public.land_tile_intersections ENABLE ROW LEVEL SECURITY;
-
--- Create RLS policies for tracking table
-CREATE POLICY "Tenant users can view land-tile intersections"
-ON public.land_tile_intersections
-FOR SELECT
-USING (
-  land_id IN (
-    SELECT id FROM public.lands 
-    WHERE tenant_id IN (
-      SELECT tenant_id FROM public.user_tenants 
-      WHERE user_id = auth.uid() AND is_active = true
-    )
+  -- Recalculate total_lands_count accurately for all affected tiles
+  UPDATE public.mgrs_tiles mt
+  SET total_lands_count = (
+    SELECT COUNT(*)
+    FROM public.land_tile_intersections lti
+    WHERE lti.tile_id = mt.tile_id
   )
-);
+  WHERE mt.tile_id IN (
+    SELECT tile_id FROM public.land_tile_intersections WHERE land_id = p_land_id
+  );
 
--- Trigger function to automatically update tiles when land is created or updated
-CREATE OR REPLACE FUNCTION public.trigger_update_tiles_for_land()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  -- Call the update function for the affected land
-  PERFORM public.update_tiles_for_land(NEW.id);
-  RETURN NEW;
 END;
 $$;
-
--- Create trigger on lands table for INSERT
-DROP TRIGGER IF EXISTS on_land_insert_update_tiles ON public.lands;
-CREATE TRIGGER on_land_insert_update_tiles
-AFTER INSERT ON public.lands
-FOR EACH ROW
-EXECUTE FUNCTION public.trigger_update_tiles_for_land();
-
--- Create trigger on lands table for UPDATE (when boundary changes)
-DROP TRIGGER IF EXISTS on_land_update_update_tiles ON public.lands;
-CREATE TRIGGER on_land_update_update_tiles
-AFTER UPDATE OF boundary, boundary_polygon_old ON public.lands
-FOR EACH ROW
-WHEN (
-  NEW.boundary IS DISTINCT FROM OLD.boundary 
-  OR NEW.boundary_polygon_old IS DISTINCT FROM OLD.boundary_polygon_old
-)
-EXECUTE FUNCTION public.trigger_update_tiles_for_land();
