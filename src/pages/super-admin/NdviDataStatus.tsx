@@ -45,6 +45,7 @@ export default function NdviDataStatus() {
   const [tiles, setTiles] = useState<SatelliteTile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isRegeneratingTiles, setIsRegeneratingTiles] = useState(false);
   const [cloudCover, setCloudCover] = useState(20);
   const [lookbackDays, setLookbackDays] = useState(5);
   const [lastSync, setLastSync] = useState<{ timestamp: string; status: 'success' | 'error'; message?: string; response?: any } | null>(null);
@@ -205,6 +206,68 @@ export default function NdviDataStatus() {
     }
   };
 
+  const handleRegenerateTiles = async () => {
+    if (isRegeneratingTiles) return;
+
+    const confirmed = window.confirm(
+      'This will DELETE all existing MGRS tiles and regenerate them from Microsoft Planetary Computer.\n\n' +
+      'This process may take 5-10 minutes.\n\n' +
+      'Are you sure you want to continue?'
+    );
+
+    if (!confirmed) return;
+
+    setIsRegeneratingTiles(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('Not authenticated. Please sign in again.');
+      }
+
+      toast({
+        title: 'Regenerating MGRS Tiles',
+        description: 'Querying Microsoft Planetary Computer API for India coverage...',
+        duration: 5000
+      });
+
+      const { data, error } = await supabase.functions.invoke('generate-mgrs-tiles-india', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data && data.success) {
+        toast({
+          title: 'MGRS Tiles Regenerated Successfully',
+          description: `Generated ${data.stats.tiles_inserted} tiles from ${data.stats.unique_tiles_found} unique MGRS tiles found in India.`,
+          duration: 10000
+        });
+
+        // Refresh tiles table
+        setTimeout(() => fetchTiles(), 1000);
+      } else {
+        throw new Error(data?.error || 'Tile regeneration failed');
+      }
+    } catch (error: any) {
+      console.error('[NdviDataStatus] Tile regeneration error:', error);
+      
+      toast({
+        title: 'Tile Regeneration Failed',
+        description: error.message || 'Failed to regenerate MGRS tiles',
+        variant: 'destructive',
+        duration: 10000
+      });
+    } finally {
+      setIsRegeneratingTiles(false);
+    }
+  };
+
   // Load tiles on mount
   useEffect(() => {
     fetchTiles();
@@ -346,6 +409,25 @@ export default function NdviDataStatus() {
                   <>
                     <Activity className="mr-2 h-4 w-4" />
                     Run NDVI Fetch
+                  </>
+                )}
+              </Button>
+              <Button 
+                onClick={handleRegenerateTiles} 
+                disabled={isRegeneratingTiles}
+                variant="destructive"
+                className="w-full mt-2"
+                size="lg"
+              >
+                {isRegeneratingTiles ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Regenerating...
+                  </>
+                ) : (
+                  <>
+                    <Satellite className="mr-2 h-4 w-4" />
+                    Regenerate Tiles
                   </>
                 )}
               </Button>

@@ -137,6 +137,9 @@ verify_jwt = false
 [functions.ndvi-data-process]
 verify_jwt = false
 
+[functions.generate-mgrs-tiles-india]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323
