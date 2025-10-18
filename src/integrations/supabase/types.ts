@@ -16242,22 +16242,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
-      find_intersecting_districts: {
-        Args: { tile_geom: unknown }
-        Returns: {
-          district_code: string
-          id: string
-          name: string
-        }[]
-      }
-      find_intersecting_states: {
-        Args: { tile_geom: unknown }
-        Returns: {
-          id: string
-          name: string
-          state_code: string
-        }[]
-      }
       find_mgrs_tile_for_land: {
         Args: { land_geom: unknown }
         Returns: {
