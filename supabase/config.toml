@@ -107,28 +107,13 @@ secret = ""
 [db]
 port = 54322
 
-[functions.weekly-ndvi-sync]
-verify_jwt = false
-
 [functions.batch-calculate-ndvi]
-verify_jwt = false
-
-[functions.process-ndvi-by-lands]
-verify_jwt = false
-
-[functions.unified-satellite-processor]
 verify_jwt = false
 
 [functions.mark-agricultural-tiles]
 verify_jwt = false
 
-[functions.process-ndvi-by-tiles]
-verify_jwt = false
-
 [functions.sync-ndvi-complete]
-verify_jwt = false
-
-[functions.update-ndvi-tiles]
 verify_jwt = false
 
 [functions.fetch-s2-ndvi-lite]
