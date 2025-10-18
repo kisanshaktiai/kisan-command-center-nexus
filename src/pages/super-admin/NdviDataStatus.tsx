@@ -28,6 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, PieChart as RePieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { TileMarkingProgressDialog } from '@/components/super-admin/TileMarkingProgressDialog';
 
 interface SatelliteTile {
   id: string;
@@ -48,6 +49,9 @@ export default function NdviDataStatus() {
   const [cloudCover, setCloudCover] = useState(20);
   const [lookbackDays, setLookbackDays] = useState(5);
   const [lastSync, setLastSync] = useState<{ timestamp: string; status: 'success' | 'error'; message?: string; response?: any } | null>(null);
+  const [showProgressDialog, setShowProgressDialog] = useState(false);
+  const [currentExecutionId, setCurrentExecutionId] = useState<string | null>(null);
+  const [isMarkingTiles, setIsMarkingTiles] = useState(false);
   const { toast } = useToast();
 
   // Fetch satellite tiles from Supabase
@@ -123,6 +127,48 @@ export default function NdviDataStatus() {
 
     return { cloudCoverData, statusData, timeData };
   }, [tiles]);
+
+  // Mark agricultural tiles manually
+  const handleMarkTiles = async () => {
+    setIsMarkingTiles(true);
+    
+    try {
+      console.log('[NdviDataStatus] Starting manual tile marking');
+      
+      const { data, error } = await supabase.functions.invoke('mark-agricultural-tiles', {
+        body: { source: 'manual' },
+      });
+
+      console.log('[NdviDataStatus] Tile marking response:', { data, error });
+
+      if (error) {
+        throw new Error(error.message || 'Tile marking failed');
+      }
+
+      if (data && data.success && data.execution_id) {
+        setCurrentExecutionId(data.execution_id);
+        setShowProgressDialog(true);
+        
+        toast({
+          title: 'Tile Marking Started',
+          description: `Processing ${data.data?.total_lands || 0} lands`,
+          variant: 'default'
+        });
+      } else {
+        throw new Error(data?.message || 'Tile marking failed');
+      }
+    } catch (error: any) {
+      console.error('[NdviDataStatus] Tile marking error:', error);
+      
+      toast({
+        title: 'Tile Marking Failed',
+        description: error.message || 'Failed to mark agricultural tiles',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsMarkingTiles(false);
+    }
+  };
 
   // Run NDVI fetch via edge function
   const handleSync = async () => {
@@ -314,27 +360,48 @@ export default function NdviDataStatus() {
               </p>
             </div>
 
-            {/* Fetch Button */}
+            {/* Action Buttons */}
             <div className="space-y-2">
-              <label className="text-sm font-medium opacity-0">Action</label>
-              <Button 
-                onClick={handleSync} 
-                disabled={isSyncing}
-                className="w-full"
-                size="lg"
-              >
-                {isSyncing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Activity className="mr-2 h-4 w-4" />
-                    Run NDVI Fetch
-                  </>
-                )}
-              </Button>
+              <label className="text-sm font-medium opacity-0">Actions</label>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleMarkTiles} 
+                  disabled={isMarkingTiles || isSyncing}
+                  className="flex-1"
+                  size="lg"
+                  variant="outline"
+                >
+                  {isMarkingTiles ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Marking...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="mr-2 h-4 w-4" />
+                      Mark Tiles
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={handleSync} 
+                  disabled={isSyncing || isMarkingTiles}
+                  className="flex-1"
+                  size="lg"
+                >
+                  {isSyncing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Activity className="mr-2 h-4 w-4" />
+                      Run NDVI Fetch
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
             {/* Last Sync Result */}
@@ -646,6 +713,13 @@ export default function NdviDataStatus() {
             )}
           </CardContent>
         </Card>
+      
+      {/* Progress Dialog */}
+      <TileMarkingProgressDialog
+        open={showProgressDialog}
+        onOpenChange={setShowProgressDialog}
+        executionId={currentExecutionId}
+      />
     </div>
   );
 }

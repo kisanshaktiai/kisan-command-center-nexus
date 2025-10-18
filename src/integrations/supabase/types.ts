@@ -6108,6 +6108,27 @@ export type Database = {
           },
         ]
       }
+      land_tile_intersections: {
+        Row: {
+          created_at: string | null
+          id: string
+          land_id: string
+          tile_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          land_id: string
+          tile_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          land_id?: string
+          tile_id?: string
+        }
+        Relationships: []
+      }
       land_tile_mapping: {
         Row: {
           created_at: string | null
@@ -8421,8 +8442,11 @@ export type Database = {
           geometry: unknown
           id: string
           is_agri: boolean | null
+          is_land_contain: boolean | null
+          is_ndvi_ready: boolean | null
           last_checked: string | null
           last_land_check: string | null
+          last_ndvi_update: string | null
           state: string | null
           state_id: string | null
           taluka_id: string | null
@@ -8442,8 +8466,11 @@ export type Database = {
           geometry: unknown
           id?: string
           is_agri?: boolean | null
+          is_land_contain?: boolean | null
+          is_ndvi_ready?: boolean | null
           last_checked?: string | null
           last_land_check?: string | null
+          last_ndvi_update?: string | null
           state?: string | null
           state_id?: string | null
           taluka_id?: string | null
@@ -8463,8 +8490,11 @@ export type Database = {
           geometry?: unknown
           id?: string
           is_agri?: boolean | null
+          is_land_contain?: boolean | null
+          is_ndvi_ready?: boolean | null
           last_checked?: string | null
           last_land_check?: string | null
+          last_ndvi_update?: string | null
           state?: string | null
           state_id?: string | null
           taluka_id?: string | null
@@ -13707,6 +13737,54 @@ export type Database = {
         }
         Relationships: []
       }
+      tile_marking_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_land_id: string | null
+          current_step: string | null
+          errors: Json | null
+          execution_id: string
+          id: string
+          marked_tiles_count: number | null
+          processed_lands: number | null
+          started_at: string | null
+          status: string | null
+          total_lands: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_land_id?: string | null
+          current_step?: string | null
+          errors?: Json | null
+          execution_id: string
+          id?: string
+          marked_tiles_count?: number | null
+          processed_lands?: number | null
+          started_at?: string | null
+          status?: string | null
+          total_lands?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_land_id?: string | null
+          current_step?: string | null
+          errors?: Json | null
+          execution_id?: string
+          id?: string
+          marked_tiles_count?: number | null
+          processed_lands?: number | null
+          started_at?: string | null
+          status?: string | null
+          total_lands?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       trending_topics: {
         Row: {
           crop_id: string | null
@@ -16212,6 +16290,22 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      find_intersecting_districts: {
+        Args: { tile_geom: unknown }
+        Returns: {
+          district_code: string
+          id: string
+          name: string
+        }[]
+      }
+      find_intersecting_states: {
+        Args: { tile_geom: unknown }
+        Returns: {
+          id: string
+          name: string
+          state_code: string
+        }[]
+      }
       find_mgrs_tile_for_land: {
         Args: { land_geom: unknown }
         Returns: {
@@ -18424,6 +18518,10 @@ export type Database = {
       }
       update_community_trending_score: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      update_tiles_for_land: {
+        Args: { p_land_id: string }
         Returns: undefined
       }
       update_user_presence: {

@@ -15,8 +15,20 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Generate execution ID for progress tracking
+    const executionId = crypto.randomUUID();
 
-    console.log('[mark-agricultural-tiles] Starting agricultural tile detection');
+    console.log('[mark-agricultural-tiles] Starting agricultural tile detection', { executionId });
+
+    // Initialize progress tracking
+    await supabase
+      .from('tile_marking_progress')
+      .insert({
+        execution_id: executionId,
+        status: 'running',
+        current_step: 'Fetching lands with boundaries...'
+      });
 
     // Get all lands with boundaries (boundary is geometry type, not JSONB)
     const { data: lands, error: landsError } = await supabase
@@ -26,15 +38,42 @@ serve(async (req) => {
 
     if (landsError) {
       console.error('[mark-agricultural-tiles] Error fetching lands:', landsError);
+      await supabase
+        .from('tile_marking_progress')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          errors: JSON.stringify([{ error: landsError.message }])
+        })
+        .eq('execution_id', executionId);
       throw landsError;
     }
 
-    console.log(`[mark-agricultural-tiles] Found ${lands?.length || 0} lands to process`);
+    const totalLands = lands?.length || 0;
+    console.log(`[mark-agricultural-tiles] Found ${totalLands} lands to process`);
+
+    // Update progress with total count
+    await supabase
+      .from('tile_marking_progress')
+      .update({
+        total_lands: totalLands,
+        current_step: totalLands > 0 ? 'Processing land boundaries...' : 'No lands found'
+      })
+      .eq('execution_id', executionId);
 
     if (!lands || lands.length === 0) {
+      await supabase
+        .from('tile_marking_progress')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('execution_id', executionId);
+        
       return new Response(
         JSON.stringify({
           success: true,
+          execution_id: executionId,
           data: {
             total_lands: 0,
             processed_lands: 0,
@@ -58,6 +97,16 @@ serve(async (req) => {
       try {
         console.log(`[mark-agricultural-tiles] Processing land ${land.id}`);
         
+        // Update progress for current land
+        await supabase
+          .from('tile_marking_progress')
+          .update({
+            current_land_id: land.id,
+            processed_lands: processedLands,
+            current_step: `Processing land ${processedLands + 1}/${totalLands}: Checking intersections...`
+          })
+          .eq('execution_id', executionId);
+        
         // Calculate land area in km² from geometry
         const { data: areaData, error: areaError } = await supabase
           .rpc('calculate_area_km2', { geom: land.boundary });
@@ -70,7 +119,15 @@ serve(async (req) => {
 
         const landAreaKm2 = areaData || 0;
         
-        // Find MGRS tile containing this land
+        // Update step: Finding intersecting tiles
+        await supabase
+          .from('tile_marking_progress')
+          .update({
+            current_step: `Processing land ${processedLands + 1}/${totalLands}: Finding MGRS tiles...`
+          })
+          .eq('execution_id', executionId);
+        
+        // Find MGRS tile containing this land using spatial intersection
         const { data: containingTiles, error: tileError } = await supabase
           .rpc('find_mgrs_tile_for_land', { land_geom: land.boundary });
 
@@ -85,6 +142,14 @@ serve(async (req) => {
           
           console.log(`[mark-agricultural-tiles] Land ${land.id} -> MGRS tile ${mgrsTile.tile_id} (${landAreaKm2.toFixed(4)} km²)`);
 
+          // Update step: Marking tile
+          await supabase
+            .from('tile_marking_progress')
+            .update({
+              current_step: `Processing land ${processedLands + 1}/${totalLands}: Marking tile ${mgrsTile.tile_id}...`
+            })
+            .eq('execution_id', executionId);
+
           // Use RPC function to properly mark tile and increment counts
           const { error: markError } = await supabase
             .rpc('mark_agricultural_tile', {
@@ -97,6 +162,14 @@ serve(async (req) => {
             errors.push({ land_id: land.id, tile_id: mgrsTile.tile_id, error: markError.message });
           } else {
             markedTiles.add(mgrsTile.tile_id);
+            
+            // Update progress with marked tiles count
+            await supabase
+              .from('tile_marking_progress')
+              .update({
+                marked_tiles_count: markedTiles.size
+              })
+              .eq('execution_id', executionId);
           }
 
           // Ensure satellite_tile record exists
@@ -137,10 +210,24 @@ serve(async (req) => {
       }
     }
 
+    // Mark as completed
+    await supabase
+      .from('tile_marking_progress')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        processed_lands: processedLands,
+        marked_tiles_count: markedTiles.size,
+        errors: JSON.stringify(errors),
+        current_step: 'Completed successfully'
+      })
+      .eq('execution_id', executionId);
+
     const result = {
       success: true,
+      execution_id: executionId,
       data: {
-        total_lands: lands?.length || 0,
+        total_lands: totalLands,
         processed_lands: processedLands,
         marked_tiles: Array.from(markedTiles),
         marked_tiles_count: markedTiles.size,
@@ -159,6 +246,23 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[mark-agricultural-tiles] Fatal error:', error);
+    
+    // Try to mark as failed in progress table
+    try {
+      const executionId = crypto.randomUUID();
+      await supabase
+        .from('tile_marking_progress')
+        .insert({
+          execution_id: executionId,
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          errors: JSON.stringify([{ error: error.message }]),
+          current_step: 'Failed with error'
+        });
+    } catch (progError) {
+      console.error('[mark-agricultural-tiles] Failed to log error:', progError);
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
