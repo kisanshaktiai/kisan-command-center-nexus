@@ -6108,27 +6108,6 @@ export type Database = {
           },
         ]
       }
-      land_tile_intersections: {
-        Row: {
-          created_at: string | null
-          id: string
-          land_id: string
-          tile_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          land_id: string
-          tile_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          land_id?: string
-          tile_id?: string
-        }
-        Relationships: []
-      }
       land_tile_mapping: {
         Row: {
           created_at: string | null
@@ -8442,11 +8421,8 @@ export type Database = {
           geometry: unknown
           id: string
           is_agri: boolean | null
-          is_land_contain: boolean | null
-          is_ndvi_ready: boolean | null
           last_checked: string | null
           last_land_check: string | null
-          last_ndvi_update: string | null
           state: string | null
           state_id: string | null
           taluka_id: string | null
@@ -8466,11 +8442,8 @@ export type Database = {
           geometry: unknown
           id?: string
           is_agri?: boolean | null
-          is_land_contain?: boolean | null
-          is_ndvi_ready?: boolean | null
           last_checked?: string | null
           last_land_check?: string | null
-          last_ndvi_update?: string | null
           state?: string | null
           state_id?: string | null
           taluka_id?: string | null
@@ -8490,11 +8463,8 @@ export type Database = {
           geometry?: unknown
           id?: string
           is_agri?: boolean | null
-          is_land_contain?: boolean | null
-          is_ndvi_ready?: boolean | null
           last_checked?: string | null
           last_land_check?: string | null
-          last_ndvi_update?: string | null
           state?: string | null
           state_id?: string | null
           taluka_id?: string | null
@@ -18454,10 +18424,6 @@ export type Database = {
       }
       update_community_trending_score: {
         Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      update_tiles_for_land: {
-        Args: { p_land_id: string }
         Returns: undefined
       }
       update_user_presence: {
