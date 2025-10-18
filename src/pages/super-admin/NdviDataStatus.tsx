@@ -145,13 +145,15 @@ export default function NdviDataStatus() {
         throw new Error(error.message || 'Tile marking failed');
       }
 
-      if (data && data.success && data.execution_id) {
-        setCurrentExecutionId(data.execution_id);
-        setShowProgressDialog(true);
+      if (data && data.success) {
+        if (data.execution_id) {
+          setCurrentExecutionId(data.execution_id);
+          setShowProgressDialog(true);
+        }
         
         toast({
-          title: 'Tile Marking Started',
-          description: `Processing ${data.data?.total_lands || 0} lands`,
+          title: 'Tile Marking Completed',
+          description: data.message || `Successfully processed ${data.data?.total_lands || 0} lands`,
           variant: 'default'
         });
       } else {
