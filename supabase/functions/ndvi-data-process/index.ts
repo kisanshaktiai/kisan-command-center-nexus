@@ -23,51 +23,27 @@ serve(async (req) => {
       throw new Error('lookback_days must be a number between 1 and 90');
     }
 
-    // Call external worker API with timeout
+    // Call external worker API
     console.log('[ndvi-data-process] Calling external worker API');
-    
-    // Create an AbortController for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
-    
-    let workerResponse;
-    try {
-      workerResponse = await fetch('https://tile-fetch-worker.onrender.com/run', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          cloud_cover,
-          lookback_days,
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
-        throw new Error('External worker API request timed out after 2 minutes. The Render service may be sleeping (cold start takes 30-60 seconds). Please try again.');
-      }
-      throw new Error(`Failed to connect to external worker API: ${fetchError.message}`);
-    }
+    const workerResponse = await fetch('https://tile-fetch-worker.onrender.com/run', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        cloud_cover,
+        lookback_days,
+      }),
+    });
 
     console.log('[ndvi-data-process] Worker API response status:', workerResponse.status);
 
     if (!workerResponse.ok) {
-      const errorText = await workerResponse.text();
-      console.error('[ndvi-data-process] Worker API error response:', errorText);
-      throw new Error(`Worker API failed with status ${workerResponse.status}: ${workerResponse.statusText}. Details: ${errorText.substring(0, 200)}`);
+      throw new Error(`Worker API failed with status ${workerResponse.status}: ${workerResponse.statusText}`);
     }
 
-    let workerData;
-    try {
-      workerData = await workerResponse.json();
-      console.log('[ndvi-data-process] Worker API response:', workerData);
-    } catch (parseError: any) {
-      console.error('[ndvi-data-process] Failed to parse worker response:', parseError);
-      throw new Error('Worker API returned invalid JSON response');
-    }
+    const workerData = await workerResponse.json();
+    console.log('[ndvi-data-process] Worker API response:', workerData);
 
     // Return success response
     return new Response(

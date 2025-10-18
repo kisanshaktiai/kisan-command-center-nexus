@@ -139,13 +139,6 @@ export default function NdviDataStatus() {
         throw new Error('Not authenticated. Please sign in again.');
       }
 
-      // Show initial toast for long-running operation
-      toast({
-        title: 'Processing Started',
-        description: 'This may take 30-120 seconds if the external service is waking up...',
-        duration: 5000
-      });
-
       const { data, error } = await supabase.functions.invoke('ndvi-data-process', {
         body: {
           cloud_cover: cloudCover,
@@ -173,20 +166,13 @@ export default function NdviDataStatus() {
         });
         // Refresh table after a short delay to allow processing
         setTimeout(() => fetchTiles(), 2000);
-      } else if (data && data.status === 'error') {
-        throw new Error(data.message || 'NDVI fetch failed');
       } else {
-        throw new Error('Unexpected response from edge function');
+        throw new Error(data?.message || 'NDVI fetch failed');
       }
     } catch (error: any) {
       console.error('[NdviDataStatus] Sync error:', error);
       
-      let errorMessage = error.message || 'Failed to fetch NDVI data';
-      
-      // Check if it's a timeout error
-      if (errorMessage.includes('timeout') || errorMessage.includes('AbortError')) {
-        errorMessage = 'Request timed out. The external service may be sleeping. Please try again - it should be faster on the second attempt.';
-      }
+      const errorMessage = error.message || 'Failed to fetch NDVI data';
       
       setLastSync({ 
         timestamp: syncTimestamp, 
