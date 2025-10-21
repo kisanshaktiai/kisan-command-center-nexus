@@ -187,7 +187,6 @@ serve(async (req) => {
                 tile_id: mgrsTile.tile_id,
                 mgrs_tile_id: mgrsTile.id,
                 status: 'pending',
-                data_source: 'copernicus',
                 acquisition_date: new Date().toISOString().split('T')[0],
                 collection: 'SENTINEL-2'
               });
