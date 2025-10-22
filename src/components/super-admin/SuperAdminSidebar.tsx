@@ -106,13 +106,14 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
         to={item.route}
         onClick={() => handleTabClick(item.tab)}
         className={cn(
-          "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group w-full text-left",
+          "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 group w-full text-left",
+          isOpen ? "px-4 py-3" : "px-2 py-4 justify-center",
           isActive
             ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
             : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
         )}
       >
-        <item.icon className="w-5 h-5 flex-shrink-0" />
+        <item.icon className={cn("flex-shrink-0", isOpen ? "w-5 h-5" : "w-6 h-6")} />
         {isOpen && (
           <span className="transition-opacity duration-200">
             {item.title}
@@ -175,8 +176,8 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
 
         {/* Navigation with ScrollArea */}
         <div className="flex-1 flex flex-col">
-          <ScrollArea className="flex-1 px-4 py-2">
-            <div className="space-y-2">
+          <ScrollArea className={cn("flex-1 py-2", isOpen ? "px-4" : "px-2")}>
+            <div className={cn(isOpen ? "space-y-2" : "space-y-3")}>
               {navigationItems.map((group) => (
                 <div key={group.title}>
                   {isOpen ? (
@@ -206,7 +207,7 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
                       </CollapsibleContent>
                     </Collapsible>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {group.items.map((item) => (
                         <NavItem key={item.title} item={item} />
                       ))}
