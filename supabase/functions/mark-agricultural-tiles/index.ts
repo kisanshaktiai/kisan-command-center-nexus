@@ -172,30 +172,31 @@ serve(async (req) => {
               .eq('execution_id', executionId);
           }
 
-          // Ensure satellite_tile record exists
-          const { data: existingSatTile } = await supabase
-            .from('satellite_tiles')
-            .select('id')
-            .eq('tile_id', mgrsTile.tile_id)
-            .eq('acquisition_date', new Date().toISOString().split('T')[0])
-            .maybeSingle();
+          // Trigger tile fetch via NDVI data process API
+          console.log(`[mark-agricultural-tiles] Triggering tile fetch for ${mgrsTile.tile_id}`);
+          
+          try {
+            const ndviResponse = await fetch(`${supabaseUrl}/functions/v1/ndvi-data-process`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseKey}`
+              },
+              body: JSON.stringify({
+                cloud_cover: 20,
+                lookback_days: 30
+              })
+            });
 
-          if (!existingSatTile) {
-            const { error: satTileError } = await supabase
-              .from('satellite_tiles')
-              .insert({
-                tile_id: mgrsTile.tile_id,
-                mgrs_tile_id: mgrsTile.id,
-                status: 'pending',
-                acquisition_date: new Date().toISOString().split('T')[0],
-                collection: 'SENTINEL-2'
-              });
-
-            if (satTileError) {
-              console.error(`[mark-agricultural-tiles] Error creating satellite tile:`, satTileError);
-            } else {
+            if (ndviResponse.ok) {
+              const ndviResult = await ndviResponse.json();
+              console.log(`[mark-agricultural-tiles] Tile fetch triggered for ${mgrsTile.tile_id}:`, ndviResult.status);
               createdSatTiles.push(mgrsTile.tile_id);
+            } else {
+              console.error(`[mark-agricultural-tiles] Failed to trigger tile fetch for ${mgrsTile.tile_id}`);
             }
+          } catch (fetchError: any) {
+            console.error(`[mark-agricultural-tiles] Error calling ndvi-data-process:`, fetchError.message);
           }
 
           processedLands++;
