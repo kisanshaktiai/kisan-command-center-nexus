@@ -1,7 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 
-const WORKER_API_URL = 'https://tile-fetch-worker.onrender.com/run';
+// FastAPI Worker v1.8.2 endpoints
+const WORKER_BASE_URL = 'https://tile-fetch-worker.onrender.com';
+const WORKER_API_URL = `${WORKER_BASE_URL}/run`; // POST endpoint for background worker
+const WORKER_HEALTH_URL = `${WORKER_BASE_URL}/health`; // Health check endpoint
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
 const REQUEST_TIMEOUT_MS = 300000; // 5 minutes
