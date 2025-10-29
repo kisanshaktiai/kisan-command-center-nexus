@@ -198,7 +198,20 @@ export default function NdviDataStatus() {
 
       if (error) {
         console.error('[NdviDataStatus] Edge function error details:', error);
-        throw new Error(error.message || 'Edge function call failed');
+        
+        // Try to extract the actual error message from the response
+        let errorMessage = 'Edge function call failed';
+        
+        if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        // If data contains error details even when error object exists
+        if (data && typeof data === 'object' && 'error' in data) {
+          errorMessage = data.error || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       if (data && data.status === 'success') {

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { handleError } from '../_shared/errorHandler.ts';
 
 // FastAPI Worker v1.8.2 endpoints
 const WORKER_BASE_URL = 'https://tile-fetch-worker.onrender.com';
@@ -129,17 +130,6 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error('[ndvi-data-process] Error:', error);
-
-    return new Response(
-      JSON.stringify({
-        status: 'error',
-        message: error.message || 'Failed to process NDVI data',
-        details: error.toString(),
-      }),
-      {
-        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-        status: 500,
-      }
-    );
+    return handleError(error, 503, req);
   }
 });
