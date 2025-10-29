@@ -158,17 +158,6 @@ const handler = async (req: Request): Promise<Response> => {
         userId = newUser.user.id;
         isNewUser = true;
         console.log('Created new user:', userId);
-
-        // Verify user was actually created by querying auth.users
-        console.log('Verifying user creation in auth.users...');
-        const { data: verifyUser, error: verifyError } = await supabase.auth.admin.getUserById(userId);
-        
-        if (verifyError || !verifyUser.user) {
-          console.error('User verification failed:', verifyError);
-          throw new Error(`User creation verification failed: ${verifyError?.message || 'User not found after creation'}`);
-        }
-        
-        console.log('User creation verified successfully:', verifyUser.user.email);
       }
 
       // Send welcome email if requested

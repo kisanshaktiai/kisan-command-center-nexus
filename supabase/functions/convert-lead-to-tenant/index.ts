@@ -288,36 +288,13 @@ serve(async (req) => {
       userId = registrationData.userId;
       console.log('User registered successfully:', userId, registrationData.isNewUser ? '(new user)' : '(existing user)');
 
-      // CRITICAL: Validate that userId exists before proceeding
-      if (!userId) {
-        throw new Error('User registration succeeded but no userId was returned');
-      }
-
-      // Verify the user exists in auth.users
-      console.log('Verifying user exists in auth.users...');
-      const { data: verifyUser, error: verifyError } = await supabase.auth.admin.getUserById(userId);
-      
-      if (verifyError || !verifyUser.user) {
-        console.error('User verification failed:', verifyError);
-        throw new Error(`User does not exist in auth.users after registration: ${verifyError?.message || 'User not found'}`);
-      }
-      
-      if (verifyUser.user.email !== adminEmail) {
-        throw new Error(`User email mismatch: expected ${adminEmail}, got ${verifyUser.user.email}`);
-      }
-      
-      console.log('User verified in auth.users:', verifyUser.user.email);
-
       // Use the global manage-user-tenant function to create the relationship
       if (userId) {
         console.log('Creating user-tenant relationship using global manage-user-tenant function...');
-        console.log('Using newly created userId:', userId);
         
-        // CRITICAL: Use service role key to bypass auth checks in manage-user-tenant
-        // This ensures we use the NEW user's ID, not the calling admin's ID
         const relationshipResponse = await supabase.functions.invoke('manage-user-tenant', {
           body: {
-            user_id: userId, // This is the newly created user's ID
+            user_id: userId,
             tenant_id: tenantId,
             role: 'tenant_admin',
             is_active: true,
@@ -331,8 +308,7 @@ serve(async (req) => {
             operation: 'upsert'
           },
           headers: {
-            // Use service role key to bypass authorization checks
-            'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
+            'authorization': req.headers.get('authorization') || '',
             'x-request-id': `lead-conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             'x-correlation-id': `lead-${leadId}-tenant-${tenantId}`
           }
@@ -351,54 +327,10 @@ serve(async (req) => {
 
         userTenantCreated = true;
         console.log('User-tenant relationship created successfully via global function:', relationshipData);
-        
-        // Final verification: Check that user_tenants record was created correctly
-        console.log('Verifying user-tenant relationship...');
-        const { data: verifyRelationship, error: verifyRelError } = await supabase
-          .from('user_tenants')
-          .select('user_id, tenant_id, role')
-          .eq('user_id', userId)
-          .eq('tenant_id', tenantId)
-          .single();
-        
-        if (verifyRelError || !verifyRelationship) {
-          throw new Error('User-tenant relationship verification failed - record not found in database');
-        }
-        
-        if (verifyRelationship.user_id !== userId) {
-          throw new Error(`User-tenant relationship has wrong user_id: expected ${userId}, got ${verifyRelationship.user_id}`);
-        }
-        
-        console.log('User-tenant relationship verified:', verifyRelationship);
       }
 
     } catch (error) {
       console.error('Error in user registration or relationship creation:', error);
-      
-      // ROLLBACK: Delete the tenant and revert lead status
-      console.log('Rolling back tenant creation due to user/relationship error...');
-      
-      try {
-        // Delete tenant
-        await supabase
-          .from('tenants')
-          .delete()
-          .eq('id', tenantId);
-        
-        // Revert lead status
-        await supabase
-          .from('leads')
-          .update({ 
-            status: 'qualified', 
-            converted_tenant_id: null, 
-            converted_at: null 
-          })
-          .eq('id', leadId);
-        
-        console.log('Rollback completed successfully');
-      } catch (rollbackError) {
-        console.error('Rollback failed:', rollbackError);
-      }
       
       const response: ConversionResponse = {
         success: false,
@@ -430,21 +362,6 @@ serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
-    }
-
-    // Run diagnostics to verify complete conversion
-    console.log('Running conversion diagnostics...');
-    try {
-      const { data: diagnostics, error: diagError } = await supabase.rpc(
-        'get_conversion_diagnostics',
-        { p_lead_id: leadId }
-      );
-      
-      if (!diagError && diagnostics) {
-        console.log('Conversion diagnostics:', JSON.stringify(diagnostics, null, 2));
-      }
-    } catch (diagError) {
-      console.warn('Diagnostics failed (non-critical):', diagError);
     }
 
     // Return comprehensive success response
