@@ -198,20 +198,7 @@ export default function NdviDataStatus() {
 
       if (error) {
         console.error('[NdviDataStatus] Edge function error details:', error);
-        
-        // Try to extract the actual error message from the response
-        let errorMessage = 'Edge function call failed';
-        
-        if (error.message) {
-          errorMessage = error.message;
-        }
-        
-        // If data contains error details even when error object exists
-        if (data && typeof data === 'object' && 'error' in data) {
-          errorMessage = data.error || errorMessage;
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error(error.message || 'Edge function call failed');
       }
 
       if (data && data.status === 'success') {
@@ -233,17 +220,7 @@ export default function NdviDataStatus() {
     } catch (error: any) {
       console.error('[NdviDataStatus] Sync error:', error);
       
-      let errorMessage = error.message || 'Failed to fetch NDVI data';
-      let errorDescription = '';
-      
-      // Check for common error patterns and provide helpful guidance
-      if (errorMessage.includes('sleeping') || errorMessage.includes('down') || errorMessage.includes('Cannot reach')) {
-        errorDescription = '⏳ The external worker service is currently unavailable. This is common with free-tier services that sleep after inactivity. Please wait 1-2 minutes and try again.';
-      } else if (errorMessage.includes('503') || errorMessage.includes('Service Unavailable')) {
-        errorDescription = '🔄 The external data processing service is temporarily unavailable. Please try again in a few moments.';
-      } else {
-        errorDescription = errorMessage;
-      }
+      const errorMessage = error.message || 'Failed to fetch NDVI data';
       
       setLastSync({ 
         timestamp: syncTimestamp, 
@@ -253,9 +230,9 @@ export default function NdviDataStatus() {
       
       toast({
         title: 'NDVI Fetch Failed',
-        description: errorDescription,
+        description: errorMessage,
         variant: 'destructive',
-        duration: 15000
+        duration: 10000
       });
     } finally {
       setIsSyncing(false);

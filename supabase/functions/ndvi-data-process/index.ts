@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
-import { handleError } from '../_shared/errorHandler.ts';
 
 // FastAPI Worker v1.8.2 endpoints
 const WORKER_BASE_URL = 'https://tile-fetch-worker.onrender.com';
@@ -9,7 +8,6 @@ const WORKER_HEALTH_URL = `${WORKER_BASE_URL}/health`; // Health check endpoint
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
 const REQUEST_TIMEOUT_MS = 300000; // 5 minutes
-const HEALTH_CHECK_TIMEOUT_MS = 10000; // 10 seconds for health check
 
 // Helper function to fetch with timeout
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number) {
@@ -99,31 +97,6 @@ serve(async (req) => {
   try {
     console.log('[ndvi-data-process] Request received');
 
-    // Quick health check before processing
-    try {
-      console.log('[ndvi-data-process] Checking worker service health...');
-      const healthResponse = await fetchWithTimeout(
-        WORKER_HEALTH_URL,
-        { method: 'GET' },
-        HEALTH_CHECK_TIMEOUT_MS
-      );
-      
-      if (!healthResponse.ok) {
-        throw new Error(
-          `Worker service is unavailable (HTTP ${healthResponse.status}). ` +
-          `The Render.com service may be sleeping or down. Please try again in a few moments.`
-        );
-      }
-      console.log('[ndvi-data-process] Worker service is healthy');
-    } catch (healthError: any) {
-      console.error('[ndvi-data-process] Health check failed:', healthError.message);
-      throw new Error(
-        `Cannot reach worker service at ${WORKER_BASE_URL}. ` +
-        `The service may be down or sleeping (common with free-tier Render.com services). ` +
-        `Please try again in 1-2 minutes to allow the service to wake up.`
-      );
-    }
-
     // Parse request body
     const { cloud_cover = 20, lookback_days = 5 } = await req.json();
 
@@ -156,6 +129,17 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error('[ndvi-data-process] Error:', error);
-    return handleError(error, 503, req);
+
+    return new Response(
+      JSON.stringify({
+        status: 'error',
+        message: error.message || 'Failed to process NDVI data',
+        details: error.toString(),
+      }),
+      {
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        status: 500,
+      }
+    );
   }
 });
