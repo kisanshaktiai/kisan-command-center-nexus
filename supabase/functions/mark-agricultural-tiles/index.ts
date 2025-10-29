@@ -37,25 +37,25 @@ serve(async (req) => {
     
     console.log(`[mark-agricultural-tiles] Total lands in database: ${totalLandsCount}`);
 
-    // Check lands with boundaries
+    // Check lands with boundaries (using boundary_geom which is the actual column with data)
     const { count: landsWithBoundaries } = await supabase
       .from('lands')
       .select('*', { count: 'exact', head: true })
-      .not('boundary', 'is', null);
+      .not('boundary_geom', 'is', null);
     
     console.log(`[mark-agricultural-tiles] Lands with boundaries: ${landsWithBoundaries}`);
 
-    // Get all lands with boundaries (boundary is geometry type, not JSONB)
+    // Get all lands with boundaries (boundary_geom is the actual geometry column with data)
     // Join with farmers to ensure we're only processing active lands
     const { data: lands, error: landsError } = await supabase
       .from('lands')
       .select(`
         id, 
-        boundary,
+        boundary_geom,
         farmer_id,
         farmers!inner(id, tenant_id)
       `)
-      .not('boundary', 'is', null);
+      .not('boundary_geom', 'is', null);
 
     if (landsError) {
       console.error('[mark-agricultural-tiles] Error fetching lands:', landsError);
@@ -135,7 +135,7 @@ serve(async (req) => {
         
         // Calculate land area in km² from geometry
         const { data: areaData, error: areaError } = await supabase
-          .rpc('calculate_area_km2', { geom: land.boundary });
+          .rpc('calculate_area_km2', { geom: land.boundary_geom });
         
         if (areaError) {
           console.error(`[mark-agricultural-tiles] Error calculating area for land ${land.id}:`, areaError);
@@ -155,7 +155,7 @@ serve(async (req) => {
         
         // Find MGRS tile containing this land using spatial intersection
         const { data: containingTiles, error: tileError } = await supabase
-          .rpc('find_mgrs_tile_for_land', { land_geom: land.boundary });
+          .rpc('find_mgrs_tile_for_land', { land_geom: land.boundary_geom });
 
         if (tileError) {
           console.error(`[mark-agricultural-tiles] Error finding tile for land ${land.id}:`, tileError);
