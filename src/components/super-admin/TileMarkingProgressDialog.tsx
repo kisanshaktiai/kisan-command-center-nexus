@@ -192,6 +192,9 @@ export function TileMarkingProgressDialog({
                   <p className="text-2xl font-bold text-primary">
                     {progress.processed_lands}
                   </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    of {progress.total_lands} with boundaries
+                  </p>
                 </div>
                 <div className="rounded-lg border p-3 space-y-1">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -200,6 +203,9 @@ export function TileMarkingProgressDialog({
                   </div>
                   <p className="text-2xl font-bold text-primary">
                     {progress.marked_tiles_count}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    unique MGRS tiles
                   </p>
                 </div>
               </div>

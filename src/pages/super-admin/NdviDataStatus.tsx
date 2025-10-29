@@ -201,10 +201,16 @@ export default function NdviDataStatus() {
           setShowProgressDialog(true);
         }
         
+        const stats = data.data || {};
+        const statsMessage = stats.total_lands_in_db 
+          ? `Database: ${stats.total_lands_in_db} total lands, ${stats.lands_with_boundaries || 0} with boundaries, ${stats.total_lands || 0} processable`
+          : `Successfully processed ${stats.total_lands || 0} lands`;
+        
         toast({
           title: 'Tile Marking Completed',
-          description: data.message || `Successfully processed ${data.data?.total_lands || 0} lands`,
-          variant: 'default'
+          description: data.message || statsMessage,
+          variant: 'default',
+          duration: 10000
         });
       } else {
         throw new Error(data?.message || 'Tile marking failed');

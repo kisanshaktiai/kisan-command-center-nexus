@@ -30,10 +30,31 @@ serve(async (req) => {
         current_step: 'Fetching lands with boundaries...'
       });
 
+    // Check total lands in database
+    const { count: totalLandsCount } = await supabase
+      .from('lands')
+      .select('*', { count: 'exact', head: true });
+    
+    console.log(`[mark-agricultural-tiles] Total lands in database: ${totalLandsCount}`);
+
+    // Check lands with boundaries
+    const { count: landsWithBoundaries } = await supabase
+      .from('lands')
+      .select('*', { count: 'exact', head: true })
+      .not('boundary', 'is', null);
+    
+    console.log(`[mark-agricultural-tiles] Lands with boundaries: ${landsWithBoundaries}`);
+
     // Get all lands with boundaries (boundary is geometry type, not JSONB)
+    // Join with farmers to ensure we're only processing active lands
     const { data: lands, error: landsError } = await supabase
       .from('lands')
-      .select('id, boundary')
+      .select(`
+        id, 
+        boundary,
+        farmer_id,
+        farmers!inner(id, tenant_id)
+      `)
       .not('boundary', 'is', null);
 
     if (landsError) {
@@ -50,14 +71,17 @@ serve(async (req) => {
     }
 
     const totalLands = lands?.length || 0;
-    console.log(`[mark-agricultural-tiles] Found ${totalLands} lands to process`);
+    console.log(`[mark-agricultural-tiles] Found ${totalLands} lands to process (with valid boundaries and farmer associations)`);
+    console.log(`[mark-agricultural-tiles] Database stats: ${totalLandsCount} total lands, ${landsWithBoundaries} with boundaries, ${totalLands} processable`);
 
-    // Update progress with total count
+    // Update progress with total count and statistics
     await supabase
       .from('tile_marking_progress')
       .update({
         total_lands: totalLands,
-        current_step: totalLands > 0 ? 'Processing land boundaries...' : 'No lands found'
+        current_step: totalLands > 0 
+          ? `Processing ${totalLands} lands with boundaries (${totalLandsCount} total in DB)...` 
+          : `No processable lands found (${totalLandsCount} total, ${landsWithBoundaries} with boundaries)`
       })
       .eq('execution_id', executionId);
 
@@ -76,13 +100,15 @@ serve(async (req) => {
           execution_id: executionId,
           data: {
             total_lands: 0,
+            total_lands_in_db: totalLandsCount,
+            lands_with_boundaries: landsWithBoundaries,
             processed_lands: 0,
             marked_tiles: [],
             marked_tiles_count: 0,
             created_satellite_tiles: [],
             errors: []
           },
-          message: 'No lands with boundaries found'
+          message: `No processable lands found. Database has ${totalLandsCount} total lands, ${landsWithBoundaries} have boundaries, but none have valid farmer associations.`
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -227,6 +253,8 @@ serve(async (req) => {
       success: true,
       execution_id: executionId,
       data: {
+        total_lands_in_db: totalLandsCount,
+        lands_with_boundaries: landsWithBoundaries,
         total_lands: totalLands,
         processed_lands: processedLands,
         marked_tiles: Array.from(markedTiles),
@@ -234,7 +262,7 @@ serve(async (req) => {
         created_satellite_tiles: createdSatTiles,
         errors
       },
-      message: `Successfully marked ${markedTiles.size} MGRS tiles as agricultural from ${processedLands} lands`
+      message: `Successfully marked ${markedTiles.size} MGRS tiles as agricultural from ${processedLands}/${totalLands} lands (${totalLandsCount} total in DB, ${landsWithBoundaries} with boundaries)`
     };
 
     console.log('[mark-agricultural-tiles] Complete:', result);
