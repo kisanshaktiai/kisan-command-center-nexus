@@ -46,6 +46,8 @@ export default function NdviDataStatus() {
   const [tiles, setTiles] = useState<SatelliteTile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isWakingService, setIsWakingService] = useState(false);
+  const [serviceStatus, setServiceStatus] = useState<'unknown' | 'awake' | 'sleeping'>('unknown');
   const [cloudCover, setCloudCover] = useState(20);
   const [lookbackDays, setLookbackDays] = useState(5);
   const [lastSync, setLastSync] = useState<{ timestamp: string; status: 'success' | 'error'; message?: string; response?: any } | null>(null);
@@ -128,6 +130,54 @@ export default function NdviDataStatus() {
     return { cloudCoverData, statusData, timeData };
   }, [tiles]);
 
+  // Wake up the external service
+  const handleWakeService = async () => {
+    setIsWakingService(true);
+    setServiceStatus('unknown');
+    
+    try {
+      toast({
+        title: '🔄 Waking up external service',
+        description: 'This may take 30-60 seconds for a cold start',
+        duration: 10000,
+      });
+
+      const response = await fetch('https://tile-fetch-worker.onrender.com/health', {
+        method: 'GET',
+        signal: AbortSignal.timeout(60000),
+      });
+
+      if (response.ok) {
+        setServiceStatus('awake');
+        toast({
+          title: '✅ Service is awake',
+          description: 'You can now process NDVI data',
+          variant: 'default',
+          duration: 5000,
+        });
+      } else {
+        setServiceStatus('sleeping');
+        toast({
+          title: '❌ Service did not respond',
+          description: 'Please try again or check Render.com dashboard',
+          variant: 'destructive',
+          duration: 10000,
+        });
+      }
+    } catch (error: any) {
+      console.error('[NdviDataStatus] Wake service error:', error);
+      setServiceStatus('sleeping');
+      toast({
+        title: '❌ Failed to wake service',
+        description: error.message || 'The service may be down',
+        variant: 'destructive',
+        duration: 10000,
+      });
+    } finally {
+      setIsWakingService(false);
+    }
+  };
+
   // Mark agricultural tiles manually
   const handleMarkTiles = async () => {
     setIsMarkingTiles(true);
@@ -198,10 +248,12 @@ export default function NdviDataStatus() {
 
       if (error) {
         console.error('[NdviDataStatus] Edge function error details:', error);
+        setServiceStatus('sleeping');
         throw new Error(error.message || 'Edge function call failed');
       }
 
       if (data && data.status === 'success') {
+        setServiceStatus('awake');
         setLastSync({ 
           timestamp: syncTimestamp, 
           status: 'success',
@@ -219,6 +271,7 @@ export default function NdviDataStatus() {
       }
     } catch (error: any) {
       console.error('[NdviDataStatus] Sync error:', error);
+      setServiceStatus('sleeping');
       
       const errorMessage = error.message || 'Failed to fetch NDVI data';
       
@@ -290,15 +343,54 @@ export default function NdviDataStatus() {
       {/* NDVI Fetch Controls - Full Width */}
       <Card className="border-primary/20 bg-gradient-to-br from-card to-primary/5">
         <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-primary" />
-            Data Fetch Controls
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              Data Fetch Controls
+            </div>
+            {serviceStatus !== 'unknown' && (
+              <Badge variant={serviceStatus === 'awake' ? 'default' : 'destructive'} className="gap-1">
+                <div className={`h-2 w-2 rounded-full ${serviceStatus === 'awake' ? 'bg-success' : 'bg-destructive'} animate-pulse`} />
+                {serviceStatus === 'awake' ? 'Service Awake' : 'Service Sleeping'}
+              </Badge>
+            )}
           </CardTitle>
           <CardDescription>
             Configure and execute satellite data processing
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Service Status Alert */}
+          {serviceStatus === 'sleeping' && (
+            <Alert className="mb-4 border-amber-500/50 bg-amber-500/10">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertTitle>External Service Sleeping</AlertTitle>
+              <AlertDescription className="mt-2 space-y-2">
+                <p className="text-sm">
+                  The external worker service at Render.com appears to be sleeping (common with free-tier services).
+                </p>
+                <Button 
+                  onClick={handleWakeService} 
+                  disabled={isWakingService}
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                >
+                  {isWakingService ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Waking Service...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="mr-2 h-4 w-4" />
+                      Wake Up Service
+                    </>
+                  )}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {/* Cloud Cover Control */}
             <div className="space-y-2">
