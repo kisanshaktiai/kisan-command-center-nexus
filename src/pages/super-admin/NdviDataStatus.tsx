@@ -233,7 +233,17 @@ export default function NdviDataStatus() {
     } catch (error: any) {
       console.error('[NdviDataStatus] Sync error:', error);
       
-      const errorMessage = error.message || 'Failed to fetch NDVI data';
+      let errorMessage = error.message || 'Failed to fetch NDVI data';
+      let errorDescription = '';
+      
+      // Check for common error patterns and provide helpful guidance
+      if (errorMessage.includes('sleeping') || errorMessage.includes('down') || errorMessage.includes('Cannot reach')) {
+        errorDescription = '⏳ The external worker service is currently unavailable. This is common with free-tier services that sleep after inactivity. Please wait 1-2 minutes and try again.';
+      } else if (errorMessage.includes('503') || errorMessage.includes('Service Unavailable')) {
+        errorDescription = '🔄 The external data processing service is temporarily unavailable. Please try again in a few moments.';
+      } else {
+        errorDescription = errorMessage;
+      }
       
       setLastSync({ 
         timestamp: syncTimestamp, 
@@ -243,9 +253,9 @@ export default function NdviDataStatus() {
       
       toast({
         title: 'NDVI Fetch Failed',
-        description: errorMessage,
+        description: errorDescription,
         variant: 'destructive',
-        duration: 10000
+        duration: 15000
       });
     } finally {
       setIsSyncing(false);
