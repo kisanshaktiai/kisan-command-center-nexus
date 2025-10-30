@@ -23,6 +23,7 @@ import { LogoUploadSection } from '@/components/white-label/LogoUploadSection';
 import { DomainValidationSection } from '@/components/white-label/DomainValidationSection';
 import { EmailTemplatesPanel } from '@/components/white-label/EmailTemplatesPanel';
 import { EnhancedMobileThemePanel } from '@/components/white-label/EnhancedMobileThemePanel';
+import { WebAppThemePanel } from '@/components/white-label/WebAppThemePanel';
 
 interface WhiteLabelConfig {
   id: string;
@@ -295,8 +296,13 @@ export default function WhiteLabelConfig() {
   const handleSave = async () => {
     if (!config || !selectedTenant) return;
     
-    // Ensure brand_identity includes all fields
-    const configData = {
+    console.log('Saving config with mobile_theme:', {
+      hasMobileTheme: !!config.mobile_theme,
+      mobileThemeKeys: config.mobile_theme ? Object.keys(config.mobile_theme) : []
+    });
+    
+    // Build config data to save
+    const configData: any = {
       brand_identity: {
         logo_url: config.brand_identity?.logo_url || '',
         primary_color: config.brand_identity?.primary_color || '#6366f1',
@@ -319,6 +325,25 @@ export default function WhiteLabelConfig() {
       domain_health: config.domain_health
     };
     
+    // Only include mobile_theme if it exists and has content
+    if (config.mobile_theme && Object.keys(config.mobile_theme).length > 0) {
+      configData.mobile_theme = config.mobile_theme;
+    }
+    
+    // Include other optional fields only if they exist
+    if (config.theme_colors !== undefined) {
+      configData.theme_colors = config.theme_colors;
+    }
+    if (config.api_version !== undefined) {
+      configData.api_version = config.api_version;
+    }
+    if (config.is_validated !== undefined) {
+      configData.is_validated = config.is_validated;
+    }
+    if (config.validation_errors !== undefined) {
+      configData.validation_errors = config.validation_errors;
+    }
+    
     try {
       await saveConfig(configData);
       setHasUnsavedChanges(false);
@@ -329,6 +354,16 @@ export default function WhiteLabelConfig() {
 
   const updateConfig = (section: keyof WhiteLabelConfig, field: string, value: any) => {
     if (!config) return;
+    
+    // Special handling for root-level fields like theme_colors and mobile_theme
+    if ((section === 'theme_colors' || section === 'mobile_theme') && field === '') {
+      setConfig({
+        ...config,
+        [section]: value
+      });
+      setHasUnsavedChanges(true);
+      return;
+    }
     
     const currentSection = config[section];
     const sectionValue = typeof currentSection === 'object' && currentSection !== null ? currentSection : {};
@@ -350,8 +385,14 @@ export default function WhiteLabelConfig() {
         return;
       }
     }
+    // Clear config to show loading state
+    setConfig(null);
     setSelectedTenant(newTenantId);
     setHasUnsavedChanges(false);
+    // Refetch config immediately for the new tenant
+    if (newTenantId) {
+      refetchConfig();
+    }
   };
 
   const generateEmailPreview = (template: string) => {
@@ -410,7 +451,18 @@ export default function WhiteLabelConfig() {
         </CardContent>
       </Card>
 
-      {selectedTenant && (
+      {configLoading && selectedTenant && (
+        <Card>
+          <CardContent className="py-8">
+            <div className="flex items-center justify-center space-x-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Loading white-label configuration...</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedTenant && !configLoading && (
         <Tabs defaultValue="branding" className="space-y-4">
           <div className="flex justify-between items-center">
             <TabsList className="grid grid-cols-8 w-full max-w-4xl">
@@ -425,6 +477,10 @@ export default function WhiteLabelConfig() {
               <TabsTrigger value="email">
                 <Mail className="h-4 w-4 mr-1" />
                 Email
+              </TabsTrigger>
+              <TabsTrigger value="webapp">
+                <Monitor className="h-4 w-4 mr-1" />
+                Web App
               </TabsTrigger>
               <TabsTrigger value="mobile">
                 <Smartphone className="h-4 w-4 mr-1" />
@@ -661,6 +717,17 @@ export default function WhiteLabelConfig() {
           {/* Email Tab */}
           <TabsContent value="email" className="space-y-4">
             <EmailTemplatesPanel config={config} updateConfig={updateConfig} />
+          </TabsContent>
+
+          {/* Web App Tab */}
+          <TabsContent value="webapp" className="space-y-4">
+            <WebAppThemePanel 
+              tenantId={selectedTenant}
+              onThemeChange={(theme) => {
+                // Optionally update the config state if needed
+                console.log('Web app theme changed:', theme);
+              }}
+            />
           </TabsContent>
 
           {/* Mobile Tab */}

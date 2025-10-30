@@ -29,15 +29,18 @@ serve(async (req) => {
 
     switch (action) {
       case 'auto_assign':
+        if (!leadId) throw new Error('leadId is required for auto_assign');
         return await autoAssignLead(supabase, leadId);
       
       case 'calculate_score':
+        if (!leadId) throw new Error('leadId is required for calculate_score');
         return await calculateLeadScore(supabase, leadId);
       
       case 'detect_duplicates':
         return await detectDuplicates(supabase, leadData);
       
       case 'enrich_data':
+        if (!leadId) throw new Error('leadId is required for enrich_data');
         return await enrichLeadData(supabase, leadId);
       
       default:
@@ -46,7 +49,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Lead processing error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

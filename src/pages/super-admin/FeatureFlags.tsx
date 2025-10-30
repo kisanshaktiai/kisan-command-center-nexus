@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,89 +10,71 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Flag, Plus, Edit, Trash2, Users, Percent } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Flag, Plus, Edit, Trash2, BarChart3, History, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { EnhancedFeatureService } from '@/services/EnhancedFeatureService';
+import { FeatureFlagStats } from '@/components/super-admin/feature-flags/FeatureFlagStats';
+import { AuditLogTab } from '@/components/super-admin/feature-flags/AuditLogTab';
+import { OverridesTab } from '@/components/super-admin/feature-flags/OverridesTab';
+import { AnalyticsTab } from '@/components/super-admin/feature-flags/AnalyticsTab';
+import { format } from 'date-fns';
 
 const FeatureFlags = () => {
   const [newFlagOpen, setNewFlagOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('flags');
   const queryClient = useQueryClient();
 
-  // Fetch feature flags from database
+  // Fetch feature flags
   const { data: featureFlags, isLoading } = useQuery({
-    queryKey: ['super-admin-feature-flags'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('feature_flags')
-        .select('*')
-        .order('created_at', { ascending: false });
+    queryKey: ['feature-flags-enhanced'],
+    queryFn: () => EnhancedFeatureService.getAllFlags()
+  });
 
-      if (error) {
-        console.error('Error fetching feature flags:', error);
-        throw error;
-      }
-
-      return data || [];
-    },
+  // Fetch stats
+  const { data: stats } = useQuery({
+    queryKey: ['feature-flag-stats'],
+    queryFn: () => EnhancedFeatureService.getStats()
   });
 
   // Toggle feature flag mutation
   const toggleFlagMutation = useMutation({
-    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const { data, error } = await supabase
-        .from('feature_flags')
-        .update({ is_enabled: enabled, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error toggling feature flag:', error);
-        throw error;
-      }
-
-      return data;
-    },
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      EnhancedFeatureService.toggleFlag(id, enabled),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['super-admin-feature-flags'] });
+      queryClient.invalidateQueries({ queryKey: ['feature-flags-enhanced'] });
+      queryClient.invalidateQueries({ queryKey: ['feature-flag-stats'] });
       toast.success('Feature flag updated');
     },
-    onError: (error: any) => {
-      toast.error('Failed to update feature flag: ' + error.message);
+    onError: () => {
+      toast.error('Failed to update feature flag');
     },
   });
 
   // Create feature flag mutation
   const createFlagMutation = useMutation({
-    mutationFn: async (flagData: any) => {
-      const { data, error } = await supabase
-        .from('feature_flags')
-        .insert({
-          flag_name: flagData.flag_name,
-          description: flagData.description,
-          is_enabled: flagData.is_enabled || false,
-          rollout_percentage: flagData.rollout_percentage || 0,
-          target_tenants: flagData.target_tenants || [],
-          conditions: flagData.conditions || {},
-          metadata: flagData.metadata || {}
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating feature flag:', error);
-        throw error;
-      }
-
-      return data;
-    },
+    mutationFn: (flagData: any) => EnhancedFeatureService.createFlag(flagData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['super-admin-feature-flags'] });
+      queryClient.invalidateQueries({ queryKey: ['feature-flags-enhanced'] });
+      queryClient.invalidateQueries({ queryKey: ['feature-flag-stats'] });
       setNewFlagOpen(false);
       toast.success('Feature flag created successfully');
     },
-    onError: (error: any) => {
-      toast.error('Failed to create feature flag: ' + error.message);
+    onError: () => {
+      toast.error('Failed to create feature flag');
+    },
+  });
+
+  // Delete feature flag mutation
+  const deleteFlagMutation = useMutation({
+    mutationFn: (flagId: string) => EnhancedFeatureService.deleteFlag(flagId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feature-flags-enhanced'] });
+      queryClient.invalidateQueries({ queryKey: ['feature-flag-stats'] });
+      toast.success('Feature flag deleted');
+    },
+    onError: () => {
+      toast.error('Failed to delete feature flag');
     },
   });
 
@@ -104,7 +85,7 @@ const FeatureFlags = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Feature Flags</h1>
           <p className="text-muted-foreground">
-            Control feature rollouts and A/B testing across the platform
+            World-class feature management with live data and real-time analytics
           </p>
         </div>
         
@@ -130,139 +111,138 @@ const FeatureFlags = () => {
         </Dialog>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Flags</CardTitle>
-            <Flag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{featureFlags?.length || 0}</div>
-          </CardContent>
-        </Card>
+      {/* Stats Dashboard */}
+      {stats && <FeatureFlagStats stats={stats} />}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Flags</CardTitle>
-            <Flag className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {featureFlags?.filter(f => f.is_enabled).length || 0}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="flags">
+            <Flag className="h-4 w-4 mr-2" />
+            Flags
+          </TabsTrigger>
+          <TabsTrigger value="analytics">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Analytics
+          </TabsTrigger>
+          <TabsTrigger value="overrides">
+            <Settings2 className="h-4 w-4 mr-2" />
+            Overrides
+          </TabsTrigger>
+          <TabsTrigger value="audit">
+            <History className="h-4 w-4 mr-2" />
+            Audit Log
+          </TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">A/B Tests</CardTitle>
-            <Percent className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {featureFlags?.filter(f => f.rollout_percentage > 0 && f.rollout_percentage < 100).length || 0}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Flags Tab */}
+        <TabsContent value="flags">
+          <Card>
+            <CardHeader>
+              <CardTitle>Feature Flags</CardTitle>
+              <CardDescription>
+                Manage feature rollouts, experiments, and permissions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading feature flags...</div>
+              ) : !featureFlags || featureFlags.length === 0 ? (
+                <div className="text-center py-12">
+                  <Flag className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No feature flags yet</p>
+                  <p className="text-sm text-muted-foreground mt-2">Create your first feature flag to get started</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Flag Name</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Rollout</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {featureFlags?.map((flag) => (
+                      <TableRow key={flag.id}>
+                        <TableCell>
+                          <div className="font-medium font-mono">{flag.flag_name}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-xs truncate text-muted-foreground">{flag.description || '-'}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {flag.flag_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              checked={flag.is_enabled}
+                              onCheckedChange={(checked) => 
+                                toggleFlagMutation.mutate({ id: flag.id, enabled: checked })
+                              }
+                              disabled={toggleFlagMutation.isPending}
+                            />
+                            <Badge variant={flag.is_enabled ? 'default' : 'secondary'}>
+                              {flag.is_enabled ? 'Enabled' : 'Disabled'}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <div className="text-sm font-medium">{flag.rollout_percentage}%</div>
+                            {flag.rollout_percentage > 0 && flag.rollout_percentage < 100 && (
+                              <Badge variant="outline" className="text-warning">Gradual</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground">
+                            {format(new Date(flag.created_at), 'PP')}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end space-x-1">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => deleteFlagMutation.mutate(flag.id)}
+                              disabled={deleteFlagMutation.isPending}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Targeted</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {featureFlags?.filter(f => f.target_tenants && f.target_tenants.length > 0).length || 0}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        {/* Analytics Tab */}
+        <TabsContent value="analytics">
+          <AnalyticsTab />
+        </TabsContent>
 
-      {/* Feature Flags Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Feature Flags</CardTitle>
-          <CardDescription>
-            Manage feature rollouts and experimentation
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Loading feature flags...</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Flag Name</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Rollout</TableHead>
-                  <TableHead>Targeting</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {featureFlags?.map((flag) => (
-                  <TableRow key={flag.id}>
-                    <TableCell>
-                      <div className="font-medium">{flag.flag_name}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="max-w-xs truncate">{flag.description}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={flag.is_enabled}
-                          onCheckedChange={(checked) => 
-                            toggleFlagMutation.mutate({ id: flag.id, enabled: checked })
-                          }
-                          disabled={toggleFlagMutation.isPending}
-                        />
-                        <Badge variant={flag.is_enabled ? 'default' : 'secondary'}>
-                          {flag.is_enabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <div className="text-sm font-medium">{flag.rollout_percentage}%</div>
-                        {flag.rollout_percentage > 0 && flag.rollout_percentage < 100 && (
-                          <Badge variant="outline">A/B Test</Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {flag.target_tenants && flag.target_tenants.length > 0 ? (
-                        <Badge variant="outline">
-                          {flag.target_tenants.length} tenants
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">All tenants</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(flag.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end space-x-1">
-                        <Button variant="ghost" size="sm">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+        {/* Overrides Tab */}
+        <TabsContent value="overrides">
+          <OverridesTab />
+        </TabsContent>
+
+        {/* Audit Log Tab */}
+        <TabsContent value="audit">
+          <AuditLogTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
@@ -273,7 +253,7 @@ const FeatureFlagForm = ({ onSubmit, isLoading }: { onSubmit: (data: any) => voi
     description: '',
     is_enabled: false,
     rollout_percentage: [0],
-    target_tenants: []
+    flag_type: 'release' as 'release' | 'experiment' | 'operational' | 'permission'
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -292,9 +272,10 @@ const FeatureFlagForm = ({ onSubmit, isLoading }: { onSubmit: (data: any) => voi
           id="flag_name"
           value={formData.flag_name}
           onChange={(e) => setFormData({ ...formData, flag_name: e.target.value })}
-          placeholder="new_feature_enabled"
+          placeholder="ai_chat_enabled"
           required
         />
+        <p className="text-xs text-muted-foreground">Use snake_case for flag names</p>
       </div>
 
       <div className="space-y-2">
@@ -306,6 +287,21 @@ const FeatureFlagForm = ({ onSubmit, isLoading }: { onSubmit: (data: any) => voi
           placeholder="Describe what this feature flag controls"
           required
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="flag_type">Flag Type</Label>
+        <select
+          id="flag_type"
+          className="w-full p-2 border rounded-md bg-background"
+          value={formData.flag_type}
+          onChange={(e) => setFormData({ ...formData, flag_type: e.target.value as any })}
+        >
+          <option value="release">Release (Feature Toggle)</option>
+          <option value="experiment">Experiment (A/B Test)</option>
+          <option value="operational">Operational (Kill Switch)</option>
+          <option value="permission">Permission (Access Control)</option>
+        </select>
       </div>
 
       <div className="space-y-2">
@@ -328,7 +324,7 @@ const FeatureFlagForm = ({ onSubmit, isLoading }: { onSubmit: (data: any) => voi
           className="w-full"
         />
         <div className="text-xs text-muted-foreground">
-          Controls what percentage of users see this feature
+          Controls what percentage of tenants see this feature
         </div>
       </div>
 

@@ -122,12 +122,14 @@ export const useRealTimeSystemMetrics = () => {
 
   // Generate mock system metrics as fallback
   const generateMockSystemMetrics = (): SystemMetrics[] => {
+    // Only generate mock data if we absolutely need it
+    console.warn('Using fallback system metrics - real-time data not available');
     return [
       {
-        id: '1',
-        cpu_usage: Math.round(20 + Math.random() * 60),
-        memory_usage: Math.round(30 + Math.random() * 50),
-        disk_usage: Math.round(40 + Math.random() * 40),
+        id: 'mock-1',
+        cpu_usage: 45,
+        memory_usage: 62,
+        disk_usage: 38,
         health_score: 95,
         timestamp: new Date().toISOString(),
         created_at: new Date().toISOString()
@@ -137,13 +139,15 @@ export const useRealTimeSystemMetrics = () => {
 
   // Generate mock resource metrics as fallback
   const generateMockResourceMetrics = (): ResourceMetrics[] => {
+    // Only generate mock data if we absolutely need it
+    console.warn('Using fallback resource metrics - real-time data not available');
     return [
       {
-        id: '1',
-        storage_used_gb: Math.round(100 + Math.random() * 400),
+        id: 'mock-1',
+        storage_used_gb: 256,
         storage_total_gb: 1000,
-        database_connections: Math.round(10 + Math.random() * 40),
-        active_users: Math.round(100 + Math.random() * 500),
+        database_connections: 24,
+        active_users: 342,
         timestamp: new Date().toISOString(),
         created_at: new Date().toISOString()
       }
@@ -212,13 +216,13 @@ export const useRealTimeSystemMetrics = () => {
   return {
     systemMetrics: mergedSystemData,
     resourceMetrics: mergedResourceData,
-    currentCpuUsage: currentSystemMetric?.cpu_usage || Math.round(20 + Math.random() * 60),
-    currentMemoryUsage: currentSystemMetric?.memory_usage || Math.round(30 + Math.random() * 50),
-    currentDiskUsage: currentSystemMetric?.disk_usage || Math.round(40 + Math.random() * 40),
+    currentCpuUsage: currentSystemMetric?.cpu_usage || 45,
+    currentMemoryUsage: currentSystemMetric?.memory_usage || 62,
+    currentDiskUsage: currentSystemMetric?.disk_usage || 38,
     currentHealthScore: currentSystemMetric?.health_score || 95,
-    currentStorageUsed: currentResourceMetric?.storage_used_gb || Math.round(100 + Math.random() * 400),
+    currentStorageUsed: currentResourceMetric?.storage_used_gb || 256,
     currentStorageTotal: currentResourceMetric?.storage_total_gb || 1000,
-    currentActiveUsers: currentResourceMetric?.active_users || Math.round(100 + Math.random() * 500),
+    currentActiveUsers: currentResourceMetric?.active_users || 342,
     isLoading: systemLoading || resourceLoading,
     hasRealtimeUpdates: realtimeSystemData.length > 0 || realtimeResourceData.length > 0,
     error: systemError || resourceError

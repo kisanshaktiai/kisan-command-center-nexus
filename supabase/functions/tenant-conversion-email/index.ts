@@ -30,7 +30,8 @@ serve(async (req) => {
     const { leadId, tenantId, adminEmail, adminName, tenantName, tempPassword } = await req.json() as ConversionEmailRequest;
 
     // Create user account in auth.users if it doesn't exist
-    const { data: existingUser, error: userCheckError } = await supabase.auth.admin.getUserByEmail(adminEmail);
+    const { data: { users: existingUsers }, error: userCheckError } = await supabase.auth.admin.listUsers();
+    const existingUser = existingUsers?.find(u => u.email === adminEmail);
     
     let userId;
     if (!existingUser || userCheckError) {
@@ -52,7 +53,7 @@ serve(async (req) => {
       
       userId = newUser.user?.id;
     } else {
-      userId = existingUser.user?.id;
+      userId = existingUser.id;
       
       // Update existing user's metadata to include tenant info
       const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
@@ -158,7 +159,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Tenant conversion email error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

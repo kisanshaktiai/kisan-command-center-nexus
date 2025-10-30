@@ -107,16 +107,16 @@ secret = ""
 [db]
 port = 54322
 
-[functions.send-user-invite]
-verify_jwt = true
+[functions.batch-calculate-ndvi]
+verify_jwt = false
 
-[functions.start-onboarding-workflow]
-verify_jwt = true
+[functions.mark-agricultural-tiles]
+verify_jwt = false
 
-[functions.process-legal-document]
-verify_jwt = true
+[functions.sync-ndvi-complete]
+verify_jwt = false
 
-[functions.get-white-label-config]
+[functions.fetch-s2-ndvi-lite]
 verify_jwt = false
 
 [storage]

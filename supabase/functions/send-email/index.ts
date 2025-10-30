@@ -123,7 +123,7 @@ async function sendViaSmtp(emailRequest: EmailRequest): Promise<EmailResponse> {
     console.error('SMTP sending failed:', error);
     return {
       success: false,
-      error: error.message || 'SMTP delivery failed',
+      error: (error instanceof Error ? error.message : String(error)) || 'SMTP delivery failed',
       method: 'smtp'
     };
   }
@@ -151,7 +151,7 @@ async function sendViaFallback(emailRequest: EmailRequest): Promise<EmailRespons
   } catch (error) {
     return {
       success: false,
-      error: error.message || 'Fallback service failed',
+      error: (error instanceof Error ? error.message : String(error)) || 'Fallback service failed',
       method: 'fallback'
     };
   }

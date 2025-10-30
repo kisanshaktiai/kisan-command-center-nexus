@@ -12,6 +12,7 @@ import { Palette, Smartphone, Wand2, Settings, CheckCircle, AlertCircle, Copy, S
 import { toast } from 'sonner';
 import { MobileAppPreview } from './MobileAppPreview';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import type { WhiteLabelConfigData } from '@/hooks/useWhiteLabelConfig';
 
 interface Modern2025Theme {
   core: {
@@ -256,24 +257,104 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
   appName,
   logoUrl
 }) => {
-  const [currentTheme, setCurrentTheme] = useState<Modern2025Theme>(defaultTheme);
+  // Get theme from config or use default - ensure complete structure
+  const getThemeFromConfig = () => {
+    // First check if we have mobile_theme with proper structure
+    if (config?.mobile_theme && typeof config.mobile_theme === 'object') {
+      const mobileTheme = config.mobile_theme as any;
+      if (mobileTheme.core) {
+        console.log('Loading saved mobile_theme from config:', mobileTheme);
+        return {
+          core: { ...defaultTheme.core, ...(mobileTheme.core || {}) },
+          neutral: { ...defaultTheme.neutral, ...(mobileTheme.neutral || {}) },
+          status: { ...defaultTheme.status, ...(mobileTheme.status || {}) },
+          support: { ...defaultTheme.support, ...(mobileTheme.support || {}) },
+          typography: mobileTheme.typography || defaultTheme.typography,
+          spacing: mobileTheme.spacing || defaultTheme.spacing,
+          border_radius: mobileTheme.border_radius || defaultTheme.border_radius,
+          shadows: mobileTheme.shadows || defaultTheme.shadows,
+        };
+      }
+    }
+    
+    // Check app_store_config mobile theme
+    if (config?.app_store_config?.mobile_theme) {
+      const appTheme = config.app_store_config.mobile_theme;
+      if (appTheme.core) {
+        console.log('Loading mobile_theme from app_store_config:', appTheme);
+        return {
+          core: { ...defaultTheme.core, ...(appTheme.core || {}) },
+          neutral: { ...defaultTheme.neutral, ...(appTheme.neutral || {}) },
+          status: { ...defaultTheme.status, ...(appTheme.status || {}) },
+          support: { ...defaultTheme.support, ...(appTheme.support || {}) },
+          typography: appTheme.typography || defaultTheme.typography,
+          spacing: appTheme.spacing || defaultTheme.spacing,
+          border_radius: appTheme.border_radius || defaultTheme.border_radius,
+          shadows: appTheme.shadows || defaultTheme.shadows,
+        };
+      }
+    }
+    
+    // Convert from theme_colors (web format) to mobile format if available
+    if (config?.theme_colors && config.theme_colors.core) {
+      console.log('Converting theme_colors to mobile format:', config.theme_colors);
+      const webTheme = config.theme_colors;
+      
+      // Map web theme to mobile theme structure
+      return {
+        core: {
+          primary: webTheme.core?.primary || defaultTheme.core.primary,
+          primary_variant: webTheme.core?.primary?.replace('36%', '30%') || defaultTheme.core.primary_variant,
+          secondary: webTheme.core?.secondary || defaultTheme.core.secondary,
+          secondary_variant: webTheme.core?.secondary?.replace('48%', '40%') || defaultTheme.core.secondary_variant,
+          tertiary: webTheme.core?.accent || defaultTheme.core.tertiary,
+          accent: webTheme.core?.accent || defaultTheme.core.accent,
+        },
+        neutral: {
+          background: webTheme.core?.background || defaultTheme.neutral.background,
+          surface: webTheme.core?.card || defaultTheme.neutral.surface,
+          on_background: webTheme.core?.foreground || defaultTheme.neutral.on_background,
+          on_surface: webTheme.core?.card_foreground || defaultTheme.neutral.on_surface,
+          border: webTheme.core?.border || defaultTheme.neutral.border,
+        },
+        status: {
+          success: webTheme.core?.success || defaultTheme.status.success,
+          warning: webTheme.weather?.sunny || '38 92% 50%',
+          error: webTheme.core?.destructive || defaultTheme.status.error,
+          info: webTheme.core?.accent || defaultTheme.status.info,
+        },
+        support: defaultTheme.support,
+        typography: defaultTheme.typography,
+        spacing: defaultTheme.spacing,
+        border_radius: defaultTheme.border_radius,
+        shadows: defaultTheme.shadows,
+      };
+    }
+    
+    console.log('Using default theme - no config found');
+    return defaultTheme;
+  };
+
+  const [currentTheme, setCurrentTheme] = useState<Modern2025Theme>(getThemeFromConfig());
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [lastLoadedTenantId, setLastLoadedTenantId] = useState<string | null>(null);
+  const [hasLocalChanges, setHasLocalChanges] = useState(false);
 
-  // Initialize theme from config when it changes
+  // Keep theme in sync with config changes ONLY when tenant changes
   useEffect(() => {
-    if (config?.mobile_theme) {
-      console.log('Loading mobile theme from config:', config.mobile_theme);
-      setCurrentTheme(config.mobile_theme);
-    } else if (config?.app_store_config?.mobile_theme) {
-      console.log('Loading mobile theme from app_store_config:', config.app_store_config.mobile_theme);
-      setCurrentTheme(config.app_store_config.mobile_theme);
-    } else {
-      console.log('No saved theme found, using default theme');
-      setCurrentTheme(defaultTheme);
+    // Only reload theme if tenant changed, not on every config update
+    if (tenantId !== lastLoadedTenantId) {
+      const configTheme = getThemeFromConfig();
+      setCurrentTheme(configTheme);
+      setSelectedPreset(null); // Reset preset when tenant changes
+      setValidationErrors([]); // Clear validation errors
+      setHasLocalChanges(false); // Reset local changes flag
+      setLastLoadedTenantId(tenantId);
+      console.log('Theme loaded for new tenant:', tenantId, configTheme);
     }
-  }, [config, tenantId]);
+  }, [tenantId]); // Only depend on tenantId, not the entire config
 
   const validateTheme = (theme: Modern2025Theme): string[] => {
     const errors: string[] = [];
@@ -328,6 +409,7 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
       }
     };
     setCurrentTheme(updatedTheme);
+    setHasLocalChanges(true); // Track local changes
   };
 
   const applyPresetTheme = (presetId: string) => {
@@ -335,6 +417,7 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
     if (preset) {
       setCurrentTheme(preset.theme);
       setSelectedPreset(presetId);
+      setHasLocalChanges(true); // Track local changes
       toast.success(`Applied ${preset.name} theme`);
     }
   };
@@ -364,6 +447,7 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
       }
     };
     setCurrentTheme(updated);
+    setHasLocalChanges(true); // Track local changes
     toast.success('Generated color variants');
   };
 
@@ -375,7 +459,21 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
       return;
     }
 
+    console.log('Saving mobile theme:', {
+      themeKeys: Object.keys(currentTheme),
+      primaryColor: currentTheme.core?.primary,
+      tenantId: config?.tenant_id
+    });
+
+    // Save mobile theme with proper structure
     updateConfig('mobile_theme', '', currentTheme);
+    setHasLocalChanges(false); // Reset local changes flag after save
+    toast.success('Mobile theme saved! Click "Save Theme Configuration" to persist changes.');
+    
+    // Also update app_store_config for backward compatibility
+    updateConfig('app_store_config', 'mobile_theme', currentTheme);
+    
+    // Set validation flags
     updateConfig('api_version', '', 'v1');
     updateConfig('is_validated', '', true);
     updateConfig('validation_errors', '', []);

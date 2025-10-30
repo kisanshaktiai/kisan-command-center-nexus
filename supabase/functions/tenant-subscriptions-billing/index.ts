@@ -127,7 +127,17 @@ serve(async (req) => {
       .reduce((sum, i) => sum + (i.amount || 0), 0) || 0;
 
     const response: SubscriptionBillingResponse = {
-      active_subscriptions: subscriptions || [],
+      active_subscriptions: subscriptions?.map((sub: any) => ({
+        id: sub.id,
+        status: sub.status,
+        current_period_start: sub.current_period_start,
+        current_period_end: sub.current_period_end,
+        billing_plan: sub.billing_plans && sub.billing_plans.length > 0 ? {
+          name: sub.billing_plans[0].name,
+          price_monthly: sub.billing_plans[0].price_monthly,
+          price_annually: sub.billing_plans[0].price_annually
+        } : null
+      })) || [],
       payment_records: payments || [],
       invoices: invoices || [],
       upcoming_renewals: renewals || [],
@@ -146,7 +156,7 @@ serve(async (req) => {
     console.error('Error in tenant-subscriptions-billing:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error.message 
+      message: error instanceof Error ? error.message : String(error) 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

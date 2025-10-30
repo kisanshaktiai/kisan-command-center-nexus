@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Code, Eye, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import type { WhiteLabelConfigData } from '@/hooks/useWhiteLabelConfig';
 
 interface CSSInjectionPanelProps {
-  config: any;
+  config: WhiteLabelConfigData | null;
   updateConfig: (section: string, field: string, value: any) => void;
 }
 

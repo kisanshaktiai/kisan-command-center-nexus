@@ -57,7 +57,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Notification error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -71,7 +71,7 @@ async function sendNewLeadNotification(supabase: any, lead: any) {
     .eq('role', 'super_admin')
     .eq('is_active', true);
 
-  const notifications = superAdmins?.map(admin => ({
+  const notifications = superAdmins?.map((admin: any) => ({
     recipient_id: admin.id,
     title: 'New Lead Received',
     message: `A new lead "${lead.contact_name}" from ${lead.organization_name || 'Unknown Organization'} has been received.`,
@@ -141,7 +141,7 @@ async function sendSLABreachAlert(supabase: any, lead: any, metadata: any) {
     .in('role', ['super_admin', 'platform_admin'])
     .eq('is_active', true);
 
-  const notifications = admins?.map(admin => ({
+  const notifications = admins?.map((admin: any) => ({
     recipient_id: admin.id,
     title: 'SLA Breach Alert',
     message: `Lead "${lead.contact_name}" has breached SLA requirements. ${metadata?.breach_type || 'Response time exceeded'}.`,

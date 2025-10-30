@@ -59,7 +59,7 @@ serve(async (req) => {
         app_name: 'KisanShakti AI',
         app_tagline: 'Empowering Farmers with AI Technology',
         font_family: 'Inter',
-        logo_url: null
+        logo_url: undefined
       },
       features: {
         ai_chat: true,
@@ -93,7 +93,7 @@ serve(async (req) => {
     console.error('Error in tenant-default-branding:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      message: error.message 
+      message: error instanceof Error ? error.message : String(error) 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

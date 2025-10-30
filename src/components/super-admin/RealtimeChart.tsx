@@ -47,52 +47,88 @@ export const RealtimeChart: React.FC<RealtimeChartProps> = ({
   }, [data, timeKey]);
 
   return (
-    <Card className="border-0 shadow-lg bg-gradient-to-br from-white/90 to-slate-50/90 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold text-slate-800">{title}</CardTitle>
+    <Card className="border-0 bg-gradient-to-br from-card/95 to-card/50 backdrop-blur-sm shadow-xl">
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none rounded-lg" />
+      <CardHeader className="relative">
+        <CardTitle className="text-lg font-semibold">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={200}>
           {chartType === 'area' ? (
             <AreaChart data={processedData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" />
-              <YAxis stroke="hsl(var(--muted-foreground))" />
+              <defs>
+                <linearGradient id={`area-gradient-${title.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor={color} stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.1} />
+              <XAxis 
+                dataKey="time" 
+                stroke="hsl(var(--muted-foreground))" 
+                fontSize={12}
+                tickLine={false}
+                axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 0.5 }}
+              />
+              <YAxis 
+                stroke="hsl(var(--muted-foreground))" 
+                fontSize={12}
+                tickLine={false}
+                axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 0.5 }}
+              />
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: 'hsl(var(--background))', 
+                  backgroundColor: 'hsl(var(--card))', 
                   border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px'
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 }} 
               />
               <Area 
                 type="monotone" 
                 dataKey="value" 
                 stroke={color} 
-                fill={color} 
-                fillOpacity={0.3}
+                fill={`url(#area-gradient-${title.replace(/\s+/g, '-')})`}
                 strokeWidth={2}
               />
             </AreaChart>
           ) : (
             <LineChart data={processedData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" />
-              <YAxis stroke="hsl(var(--muted-foreground))" />
+              <defs>
+                <linearGradient id={`line-gradient-${title.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.6}/>
+                  <stop offset="100%" stopColor={color} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.1} />
+              <XAxis 
+                dataKey="time" 
+                stroke="hsl(var(--muted-foreground))" 
+                fontSize={12}
+                tickLine={false}
+                axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 0.5 }}
+              />
+              <YAxis 
+                stroke="hsl(var(--muted-foreground))" 
+                fontSize={12}
+                tickLine={false}
+                axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 0.5 }}
+              />
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: 'hsl(var(--background))', 
+                  backgroundColor: 'hsl(var(--card))', 
                   border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px'
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 }} 
               />
               <Line 
                 type="monotone" 
                 dataKey="value" 
-                stroke={color} 
-                strokeWidth={2}
-                dot={{ fill: color, strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6, stroke: color, strokeWidth: 2 }}
+                stroke={`url(#line-gradient-${title.replace(/\s+/g, '-')})`}
+                strokeWidth={2.5}
+                dot={{ fill: color, strokeWidth: 0, r: 3 }}
+                activeDot={{ r: 5, stroke: color, strokeWidth: 2, fill: 'hsl(var(--card))' }}
               />
             </LineChart>
           )}

@@ -13,7 +13,7 @@ const OptimizedOverview = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 p-6">
+      <div className="space-y-6">
         <div className="animate-pulse space-y-8">
           <div className="h-8 bg-slate-200 rounded w-64"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -27,7 +27,7 @@ const OptimizedOverview = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 p-6 space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

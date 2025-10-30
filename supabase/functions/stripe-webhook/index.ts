@@ -26,8 +26,8 @@ serve(async (req) => {
       Deno.env.get("STRIPE_WEBHOOK_SECRET")!
     )
   } catch (err) {
-    console.error(`Webhook signature verification failed.`, err.message)
-    return new Response(err.message, { status: 400 })
+    console.error(`Webhook signature verification failed.`, err instanceof Error ? err.message : String(err))
+    return new Response(err instanceof Error ? err.message : String(err), { status: 400 })
   }
 
   console.log(`Received event: ${event.type}`)
@@ -59,7 +59,7 @@ serve(async (req) => {
     })
   } catch (error) {
     console.error('Webhook handler error:', error)
-    return new Response(error.message, { status: 500 })
+    return new Response(error instanceof Error ? error.message : String(error), { status: 500 })
   }
 })
 
@@ -76,7 +76,7 @@ async function handleInvoiceCreated(invoice: Stripe.Invoice) {
     status: 'sent',
     due_date: new Date(invoice.due_date * 1000).toISOString().split('T')[0],
     stripe_invoice_id: invoice.id,
-    line_items: invoice.lines.data.map(line => ({
+    line_items: invoice.lines.data.map((line: any) => ({
       description: line.description,
       amount: line.amount / 100,
       quantity: line.quantity

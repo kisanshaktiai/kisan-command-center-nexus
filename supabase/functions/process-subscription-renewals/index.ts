@@ -186,7 +186,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error processing renewals:', error)
     return new Response(JSON.stringify({ 
-      error: error.message 
+      error: error instanceof Error ? error.message : String(error) 
     }), {
       headers: { "Content-Type": "application/json" },
       status: 500,

@@ -18,7 +18,8 @@ import {
   Briefcase,
   Building,
   Package,
-  Layers
+  Layers,
+  Satellite
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -44,6 +45,7 @@ const navigationItems = [
       { title: 'Master Companies', tab: 'master-companies', route: '/super-admin/master-companies', icon: Building },
       { title: 'Product Categories', tab: 'product-categories', route: '/super-admin/product-categories', icon: Layers },
       { title: 'Master Products', tab: 'master-products', route: '/super-admin/master-products', icon: Package },
+      { title: 'NDVI Data Status', tab: 'ndvi-data-status', route: '/super-admin/ndvi-data-status', icon: Satellite },
     ]
   },
   {
@@ -104,7 +106,8 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
         to={item.route}
         onClick={() => handleTabClick(item.tab)}
         className={cn(
-          "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group w-full text-left",
+          "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 group w-full text-left",
+          isOpen ? "px-4 py-3" : "px-3 py-3 justify-center",
           isActive
             ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
             : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
@@ -173,8 +176,8 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
 
         {/* Navigation with ScrollArea */}
         <div className="flex-1 flex flex-col">
-          <ScrollArea className="flex-1 px-4 py-2">
-            <div className="space-y-2">
+          <ScrollArea className={cn("flex-1 py-2", isOpen ? "px-4" : "px-2")}>
+            <div className={cn(isOpen ? "space-y-2" : "space-y-3")}>
               {navigationItems.map((group) => (
                 <div key={group.title}>
                   {isOpen ? (
@@ -204,7 +207,7 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
                       </CollapsibleContent>
                     </Collapsible>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {group.items.map((item) => (
                         <NavItem key={item.title} item={item} />
                       ))}

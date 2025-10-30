@@ -68,6 +68,16 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         }
       }
       
+      // Log what we're loading for debugging
+      if (data) {
+        const configData = data as any;
+        console.log('Loaded white-label config for tenant:', tenantId, {
+          hasMobileTheme: !!configData.mobile_theme,
+          hasThemeColors: !!configData.theme_colors,
+          hasAppStoreConfig: !!configData.app_store_config?.mobile_theme
+        });
+      }
+      
       return data as WhiteLabelConfigData | null;
     },
     enabled: !!tenantId,
@@ -82,8 +92,21 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         throw new Error('No tenant selected');
       }
 
-      // Clean up the data to ensure we're not sending invalid JSON
-      const cleanedData = {
+      // Get current user for tracking
+      const { data: { user } } = await supabase.auth.getUser();
+      const now = new Date().toISOString();
+
+      // Debug logging
+      console.log('Saving white-label config:', {
+        tenantId,
+        userId: user?.id,
+        hasMobileTheme: !!configData.mobile_theme,
+        mobileThemeKeys: configData.mobile_theme ? Object.keys(configData.mobile_theme) : [],
+        existingConfig: !!config
+      });
+
+      // Build cleaned data, preserving mobile_theme if it exists
+      const cleanedData: any = {
         brand_identity: configData.brand_identity || {},
         domain_config: configData.domain_config || {},
         email_templates: configData.email_templates || {},
@@ -95,14 +118,35 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         content_management: configData.content_management || {},
         distribution: configData.distribution || {},
         domain_health: configData.domain_health || {},
-        mobile_theme: configData.mobile_theme || undefined,
-        theme_colors: configData.theme_colors || undefined,
-        api_version: configData.api_version || undefined,
-        validation_errors: configData.validation_errors || undefined,
-        is_validated: configData.is_validated || undefined,
-        last_synced_at: configData.last_synced_at || undefined,
-        updated_at: new Date().toISOString()
+        updated_at: now,
+        updated_by: user?.id || null
       };
+
+      // Only include these fields if they are explicitly provided
+      if (configData.mobile_theme !== undefined) {
+        cleanedData.mobile_theme = configData.mobile_theme;
+      }
+      if (configData.theme_colors !== undefined) {
+        cleanedData.theme_colors = configData.theme_colors;
+      }
+      if (configData.api_version !== undefined) {
+        cleanedData.api_version = configData.api_version;
+      }
+      if (configData.validation_errors !== undefined) {
+        cleanedData.validation_errors = configData.validation_errors;
+      }
+      if (configData.is_validated !== undefined) {
+        cleanedData.is_validated = configData.is_validated;
+      }
+      if (configData.last_synced_at !== undefined) {
+        cleanedData.last_synced_at = configData.last_synced_at;
+      }
+
+      console.log('Cleaned data to save:', {
+        hasMobileTheme: !!cleanedData.mobile_theme,
+        mobileThemeKeys: cleanedData.mobile_theme ? Object.keys(cleanedData.mobile_theme) : [],
+        updatedBy: cleanedData.updated_by
+      });
 
       if (config?.id) {
         // Update existing config
@@ -117,16 +161,45 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
           console.error('Error updating white-label config:', error);
           throw error;
         }
+        
+        // Create audit log entry for update
+        const auditEntry = {
+          white_label_id: config.id,
+          tenant_id: tenantId,
+          change_type: 'UPDATE',
+          changed_by: user?.id || null,
+          full_snapshot: data,
+          created_at: now
+        };
+        
+        const { error: auditError } = await supabase
+          .from('white_label_audit_log')
+          .insert([auditEntry]);
+          
+        if (auditError) {
+          console.error('Error creating audit log:', auditError);
+          // Don't fail the operation if audit logging fails
+        }
+        
+        console.log('Updated config result:', {
+          hasMobileTheme: !!data?.mobile_theme,
+          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : [],
+          auditLogged: !auditError
+        });
+        
         return data;
       } else {
         // Create new config
+        const createData = { 
+          ...cleanedData, 
+          tenant_id: tenantId,
+          created_at: now,
+          created_by: user?.id || null
+        };
+        
         const { data, error } = await supabase
           .from('white_label_configs')
-          .insert([{ 
-            ...cleanedData, 
-            tenant_id: tenantId,
-            created_at: new Date().toISOString()
-          }])
+          .insert([createData])
           .select()
           .single();
         
@@ -134,13 +207,41 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
           console.error('Error creating white-label config:', error);
           throw error;
         }
+        
+        // Create audit log entry for creation
+        const auditEntry = {
+          white_label_id: data.id,
+          tenant_id: tenantId,
+          change_type: 'CREATE',
+          changed_by: user?.id || null,
+          full_snapshot: data,
+          created_at: now
+        };
+        
+        const { error: auditError } = await supabase
+          .from('white_label_audit_log')
+          .insert([auditEntry]);
+          
+        if (auditError) {
+          console.error('Error creating audit log:', auditError);
+          // Don't fail the operation if audit logging fails
+        }
+        
+        console.log('Created config result:', {
+          hasMobileTheme: !!data?.mobile_theme,
+          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : [],
+          auditLogged: !auditError
+        });
+        
         return data;
       }
     },
     onSuccess: (data) => {
+      // Update cache instantly with latest DB values
       queryClient.setQueryData(['white-label-config', tenantId], data);
-      queryClient.invalidateQueries({ queryKey: ['white-label-config', tenantId] });
-      toast.success('Configuration saved successfully');
+
+      // No need to wait for background refetch, preview gets instant update
+      toast.success('Configuration saved successfully — Preview updated');
     },
     onError: (error: any) => {
       console.error('Save configuration error:', error);

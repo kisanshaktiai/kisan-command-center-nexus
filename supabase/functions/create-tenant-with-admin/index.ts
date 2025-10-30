@@ -113,7 +113,7 @@ serve(async (req) => {
 
     // Enhanced validation for required fields
     const requiredFields = ['name', 'slug', 'owner_email', 'owner_name'];
-    const missingFields = requiredFields.filter(field => !requestBody[field] || !requestBody[field].toString().trim());
+    const missingFields = requiredFields.filter(field => !(requestBody as any)[field] || !(requestBody as any)[field].toString().trim());
     
     if (missingFields.length > 0) {
       console.error(`[${requestId}] Missing required fields: ${missingFields.join(', ')}`);

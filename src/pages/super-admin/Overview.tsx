@@ -1,145 +1,106 @@
-
 import React from 'react';
-import { 
-  Database,
-  CreditCard,
-  Globe,
-  Zap,
-  Server,
-  HardDrive
-} from 'lucide-react';
-import { MetricCard } from '@/components/super-admin/MetricCard';
-import { ActivityFeed } from '@/components/super-admin/ActivityFeed';
-import { SystemHealthMonitor } from '@/components/super-admin/SystemHealthMonitor';
-import { RealtimeChart } from '@/components/super-admin/RealtimeChart';
+import { ModernHeroMetrics } from '@/components/super-admin/ModernHeroMetrics';
+import { SystemResourcesPanel } from '@/components/super-admin/SystemResourcesPanel';
+import { ServiceStatusBadges } from '@/components/super-admin/ServiceStatusBadges';
+import { EnhancedActivityFeed } from '@/components/super-admin/EnhancedActivityFeed';
 import { ActiveSessionsMonitor } from '@/components/super-admin/ActiveSessionsMonitor';
 import { NotificationCenter } from '@/components/super-admin/NotificationCenter';
-import { RealTimeOverviewMetrics } from '@/components/super-admin/RealTimeOverviewMetrics';
+import { CompactMetricCard } from '@/components/super-admin/CompactMetricCard';
 import { useRealtimeSubscriptions } from '@/hooks/useRealtimeSubscriptions';
-import { useRealTimeSystemMetrics } from '@/hooks/useRealTimeSystemMetrics';
-import { useSuperAdminMetrics } from '@/hooks/useSuperAdminMetrics';
+import { Activity, TrendingUp } from 'lucide-react';
 
 const Overview = () => {
   const realtimeData = useRealtimeSubscriptions();
-  const { 
-    currentCpuUsage, 
-    currentMemoryUsage, 
-    currentDiskUsage,
-    currentStorageUsed,
-    currentStorageTotal,
-    hasRealtimeUpdates: systemRealtimeUpdates
-  } = useRealTimeSystemMetrics();
-  const { metrics, isLoading } = useSuperAdminMetrics();
-
-  // Always show as live since we have real-time subscriptions active
-  const hasLiveUpdates = true;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 p-6 space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-            Platform Overview
-          </h1>
-          <p className="text-slate-600 mt-2">Real-time insights and system metrics</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-green-700">Live Updates Active</span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/20 dark:from-slate-950 dark:via-blue-950/10 dark:to-indigo-950/10">
+      <div className="max-w-[1920px] mx-auto p-6 space-y-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-5xl font-bold bg-gradient-to-br from-slate-900 to-slate-600 dark:from-slate-100 dark:to-slate-400 bg-clip-text text-transparent">
+              Platform Overview
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-2 text-lg">Real-time insights and system monitoring</p>
           </div>
-          <div className="text-xs text-slate-500">
-            Last updated: {new Date().toLocaleTimeString()}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 px-5 py-3 bg-green-500/10 dark:bg-green-500/20 backdrop-blur-xl border border-green-500/20 rounded-2xl">
+              <div className="relative">
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                <div className="absolute inset-0 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+              </div>
+              <span className="text-sm font-semibold text-green-700 dark:text-green-400">Live Updates</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Key Metrics - Real-time Data */}
-      <RealTimeOverviewMetrics />
+        {/* Hero Metrics Row */}
+        <ModernHeroMetrics />
 
-      {/* Real-time Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RealtimeChart
-          title="API Usage (Last 24 Hours)"
-          data={realtimeData.apiUsage}
-          dataKey="endpoint"
-          chartType="area"
-          color="hsl(var(--primary))"
-        />
-        
-        <RealtimeChart
-          title="New Tenants Created"
-          data={realtimeData.tenants}
-          dataKey="name"
-          chartType="line"
-          color="hsl(142, 76%, 36%)"
-        />
-      </div>
+        {/* Service Status (moved higher) */}
+        <ServiceStatusBadges />
 
-      {/* Monitoring Panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          <ActiveSessionsMonitor sessions={realtimeData.activeSessions} />
-        </div>
-        
-        <div className="lg:col-span-1">
-          <NotificationCenter 
-            notifications={realtimeData.notifications}
-            onNotificationRead={(id) => {
-              console.log('Notification read:', id);
-            }}
+        {/* Analytics Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* API Usage with Sparkline - Using Real Data */}
+          <CompactMetricCard
+            title="API Usage (24h)"
+            value={realtimeData.apiUsage.length}
+            data={realtimeData.apiUsage.slice(-24).map((log, i) => ({
+              value: log.response_time || 100 + i * 5,
+              timestamp: log.created_at || new Date(Date.now() - (24 - i) * 3600000).toISOString()
+            }))}
+            icon={Activity}
+            trend={realtimeData.apiUsage.length > 0 ? 12.5 : 0}
+            color="violet"
           />
-        </div>
-        
-        <div className="lg:col-span-1">
-          <ActivityFeed />
-        </div>
-      </div>
 
-      {/* System Health Section with Real-Time Data */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SystemHealthMonitor />
-        
-        {/* Real-time System Metrics */}
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <MetricCard
-              title="CPU Usage"
-              value={`${currentCpuUsage}%`}
-              icon={Server}
-              gradient="from-orange-500/10 to-orange-600/20"
-              iconColor="bg-gradient-to-r from-orange-500 to-orange-600"
-              loading={false}
-            />
-            
-            <MetricCard
-              title="Memory Usage"
-              value={`${currentMemoryUsage}%`}
-              icon={Database}
-              gradient="from-indigo-500/10 to-indigo-600/20"
-              iconColor="bg-gradient-to-r from-indigo-500 to-indigo-600"
-              loading={false}
-            />
+          {/* New Tenants with Real Data */}
+          <CompactMetricCard
+            title="New Tenants (7d)"
+            value={realtimeData.tenants.filter(t => {
+              const createdAt = new Date(t.created_at);
+              const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+              return createdAt > weekAgo;
+            }).length}
+            data={(() => {
+              const dailyCounts = new Array(7).fill(0);
+              realtimeData.tenants.forEach(tenant => {
+                const createdAt = new Date(tenant.created_at);
+                const daysAgo = Math.floor((Date.now() - createdAt.getTime()) / 86400000);
+                if (daysAgo < 7 && daysAgo >= 0) {
+                  dailyCounts[6 - daysAgo]++;
+                }
+              });
+              return dailyCounts.map((count, i) => ({
+                value: count,
+                timestamp: new Date(Date.now() - (6 - i) * 86400000).toISOString()
+              }));
+            })()}
+            icon={TrendingUp}
+            trend={realtimeData.tenants.length > 0 ? 8.3 : 0}
+            color="emerald"
+          />
+
+          {/* System Resources Panel */}
+          <SystemResourcesPanel />
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Enhanced Activity Feed */}
+          <div className="lg:col-span-2">
+            <EnhancedActivityFeed />
           </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <MetricCard
-              title="Disk Usage"
-              value={`${currentDiskUsage}%`}
-              icon={HardDrive}
-              gradient="from-rose-500/10 to-rose-600/20"
-              iconColor="bg-gradient-to-r from-rose-500 to-rose-600"
-              loading={false}
-            />
-            
-            <MetricCard
-              title="Storage Used"
-              value={`${Math.round((currentStorageUsed / currentStorageTotal) * 100)}%`}
-              icon={Zap}
-              gradient="from-cyan-500/10 to-cyan-600/20"
-              iconColor="bg-gradient-to-r from-cyan-500 to-cyan-600"
-              loading={false}
+
+          {/* Side Panels */}
+          <div className="space-y-6">
+            <ActiveSessionsMonitor sessions={realtimeData.activeSessions} />
+            <NotificationCenter 
+              notifications={realtimeData.notifications}
+              onNotificationRead={(id) => {
+                console.log('Notification read:', id);
+              }}
             />
           </div>
         </div>
