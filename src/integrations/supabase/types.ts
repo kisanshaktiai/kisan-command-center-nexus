@@ -5425,53 +5425,245 @@ export type Database = {
           },
         ]
       }
+      feature_environments: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      feature_flag_analytics: {
+        Row: {
+          created_at: string | null
+          date: string
+          disabled_count: number | null
+          enabled_count: number | null
+          flag_id: string | null
+          id: string
+          metrics: Json | null
+          total_evaluations: number | null
+          unique_tenants: number | null
+          unique_users: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          disabled_count?: number | null
+          enabled_count?: number | null
+          flag_id?: string | null
+          id?: string
+          metrics?: Json | null
+          total_evaluations?: number | null
+          unique_tenants?: number | null
+          unique_users?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          disabled_count?: number | null
+          enabled_count?: number | null
+          flag_id?: string | null
+          id?: string
+          metrics?: Json | null
+          total_evaluations?: number | null
+          unique_tenants?: number | null
+          unique_users?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flag_analytics_flag_id_fkey"
+            columns: ["flag_id"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_flag_audit_log: {
+        Row: {
+          action: string
+          change_reason: string | null
+          changed_by: string | null
+          created_at: string | null
+          flag_id: string | null
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+        }
+        Insert: {
+          action: string
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          flag_id?: string | null
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Update: {
+          action?: string
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          flag_id?: string | null
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flag_audit_log_flag_id_fkey"
+            columns: ["flag_id"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_flag_evaluations: {
+        Row: {
+          context: Json | null
+          created_at: string | null
+          evaluated_value: boolean | null
+          evaluation_reason: string | null
+          flag_id: string | null
+          id: string
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string | null
+          evaluated_value?: boolean | null
+          evaluation_reason?: string | null
+          flag_id?: string | null
+          id?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string | null
+          evaluated_value?: boolean | null
+          evaluation_reason?: string | null
+          flag_id?: string | null
+          id?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flag_evaluations_flag_id_fkey"
+            columns: ["flag_id"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feature_flag_evaluations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_flags: {
         Row: {
           conditions: Json | null
           created_at: string
           created_by: string | null
+          default_value: Json | null
+          dependencies: Json | null
           description: string | null
+          environment_id: string | null
           expires_at: string | null
           flag_name: string
+          flag_status: string | null
+          flag_type: string | null
           id: string
           is_enabled: boolean
           metadata: Json | null
+          metrics: Json | null
           rollout_percentage: number
+          scheduling: Json | null
+          tags: Json | null
           target_tenants: string[] | null
           target_users: string[] | null
           updated_at: string
+          variation_config: Json | null
         }
         Insert: {
           conditions?: Json | null
           created_at?: string
           created_by?: string | null
+          default_value?: Json | null
+          dependencies?: Json | null
           description?: string | null
+          environment_id?: string | null
           expires_at?: string | null
           flag_name: string
+          flag_status?: string | null
+          flag_type?: string | null
           id?: string
           is_enabled?: boolean
           metadata?: Json | null
+          metrics?: Json | null
           rollout_percentage?: number
+          scheduling?: Json | null
+          tags?: Json | null
           target_tenants?: string[] | null
           target_users?: string[] | null
           updated_at?: string
+          variation_config?: Json | null
         }
         Update: {
           conditions?: Json | null
           created_at?: string
           created_by?: string | null
+          default_value?: Json | null
+          dependencies?: Json | null
           description?: string | null
+          environment_id?: string | null
           expires_at?: string | null
           flag_name?: string
+          flag_status?: string | null
+          flag_type?: string | null
           id?: string
           is_enabled?: boolean
           metadata?: Json | null
+          metrics?: Json | null
           rollout_percentage?: number
+          scheduling?: Json | null
+          tags?: Json | null
           target_tenants?: string[] | null
           target_users?: string[] | null
           updated_at?: string
+          variation_config?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "feature_flags_environment_id_fkey"
+            columns: ["environment_id"]
+            isOneToOne: false
+            referencedRelation: "feature_environments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       financial_analytics: {
         Row: {
@@ -13568,6 +13760,57 @@ export type Database = {
           },
         ]
       }
+      tenant_feature_overrides: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          expires_at: string | null
+          flag_id: string | null
+          id: string
+          override_enabled: boolean
+          override_reason: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          flag_id?: string | null
+          id?: string
+          override_enabled: boolean
+          override_reason?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          flag_id?: string | null
+          id?: string
+          override_enabled?: boolean
+          override_reason?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_feature_overrides_flag_id_fkey"
+            columns: ["flag_id"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_feature_overrides_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_features: {
         Row: {
           advanced_analytics: boolean | null
@@ -16667,6 +16910,15 @@ export type Database = {
         Returns: boolean
       }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      evaluate_feature_flag: {
+        Args: {
+          p_context?: Json
+          p_flag_name: string
+          p_tenant_id: string
+          p_user_id?: string
+        }
+        Returns: boolean
+      }
       expire_old_invites: { Args: never; Returns: number }
       find_intersecting_districts: {
         Args: { tile_geom: unknown }
