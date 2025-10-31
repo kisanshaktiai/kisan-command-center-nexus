@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useBillingRealtime } from '@/hooks/useBillingRealtime';
 import { TableRowSkeleton } from '@/components/ui/loading-skeleton';
+import { useCurrency } from '@/services/billing/CurrencyService';
 
 interface WalletTransaction {
   id: string;
@@ -25,8 +26,9 @@ interface WalletTransaction {
 export function WalletManagement() {
   const [selectedTenantId, setSelectedTenantId] = useState<string>('');
   const [topupAmount, setTopupAmount] = useState<string>('');
-  const [topupCurrency, setTopupCurrency] = useState<string>('USD');
+  const [topupCurrency, setTopupCurrency] = useState<string>('INR');
   const queryClient = useQueryClient();
+  const { formatCurrency: formatCurrencyHook, currency } = useCurrency();
 
   const { data: wallets, isLoading: walletsLoading } = useQuery({
     queryKey: ['tenant-wallets'],
@@ -114,8 +116,8 @@ export function WalletManagement() {
     },
   });
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount || 0);
+  const formatCurrency = (amount: number, curr?: string) => {
+    return formatCurrencyHook(amount, curr as any);
   };
 
   const getTransactionIcon = (type: string) => {
@@ -185,8 +187,8 @@ export function WalletManagement() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="USD">USD</SelectItem>
                         <SelectItem value="INR">INR</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
                         <SelectItem value="EUR">EUR</SelectItem>
                         <SelectItem value="GBP">GBP</SelectItem>
                       </SelectContent>

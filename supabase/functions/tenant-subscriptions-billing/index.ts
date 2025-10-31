@@ -16,14 +16,14 @@ const log = (level: 'info' | 'error' | 'warn', message: string, data?: unknown) 
 interface SubscriptionBillingResponse {
   active_subscriptions: Array<{
     id: string;
+    tenant_id: string;
+    tenant_name: string;
     status: string;
     current_period_start: string;
     current_period_end: string;
-    billing_plan: {
-      name: string;
-      price_monthly: number;
-      price_annually: number;
-    } | null;
+    plan_name: string;
+    amount: number;
+    plan_type: string;
   }>;
   payment_records: Array<{
     id: string;
@@ -92,16 +92,19 @@ serve(async (req) => {
       .from('tenant_subscriptions')
       .select(`
         id,
+        tenant_id,
         status,
         current_period_start,
         current_period_end,
-        billing_plans (
+        plan_id,
+        billing_plans!inner (
           name,
-          price_monthly,
-          price_annually
+          base_price
+        ),
+        tenants!inner (
+          name
         )
-      `)
-      .eq('status', 'active');
+      `);
 
     let paymentsQuery = supabaseClient
       .from('payment_records')
@@ -177,14 +180,14 @@ serve(async (req) => {
     const response: SubscriptionBillingResponse = {
       active_subscriptions: subscriptions?.map((sub: any) => ({
         id: sub.id,
+        tenant_id: sub.tenant_id,
+        tenant_name: sub.tenants?.name || 'Unknown Tenant',
         status: sub.status,
         current_period_start: sub.current_period_start,
         current_period_end: sub.current_period_end,
-        billing_plan: sub.billing_plans && sub.billing_plans.length > 0 ? {
-          name: sub.billing_plans[0].name,
-          price_monthly: sub.billing_plans[0].price_monthly,
-          price_annually: sub.billing_plans[0].price_annually
-        } : null
+        plan_name: sub.billing_plans?.name || 'Unknown Plan',
+        amount: sub.billing_plans?.base_price || 0,
+        plan_type: 'standard'
       })) || [],
       payment_records: payments || [],
       invoices: invoices || [],

@@ -6,8 +6,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useBillingRealtime } from '@/hooks/useBillingRealtime';
 import { ChartSkeleton, MetricCardSkeleton } from '@/components/ui/loading-skeleton';
+import { useCurrency } from '@/services/billing/CurrencyService';
 
 export function AdvancedAnalytics() {
+  const { formatCurrency } = useCurrency();
+  
   const { data: analyticsData, isLoading } = useQuery({
     queryKey: ['billing-analytics'],
     queryFn: async () => {
@@ -54,9 +57,7 @@ export function AdvancedAnalytics() {
     showNotifications: false
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount || 0);
-  };
+  // Remove the local formatCurrency function since we're using the hook
 
   if (isLoading) {
     return (

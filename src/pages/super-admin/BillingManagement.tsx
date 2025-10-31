@@ -17,11 +17,14 @@ import { MetricCardSkeleton } from '@/components/ui/loading-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { useCurrency } from '@/services/billing/CurrencyService';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function BillingManagement() {
   const [isRealtime, setIsRealtime] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const queryClient = useQueryClient();
+  const { currency, setCurrency, formatCurrency: formatCurrencyHook, currencies } = useCurrency();
 
   const { data: billingMetrics, isLoading, error, refetch } = useQuery({
     queryKey: ['tenant-subscriptions-billing'],
@@ -100,10 +103,7 @@ export default function BillingManagement() {
   });
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount || 0);
+    return formatCurrencyHook(amount);
   };
 
   const handleManualRefresh = async () => {
@@ -126,6 +126,18 @@ export default function BillingManagement() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Select value={currency} onValueChange={(value) => setCurrency(value as any)}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {currencies.map((curr) => (
+                <SelectItem key={curr.code} value={curr.code}>
+                  {curr.symbol} {curr.code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             variant="outline"
             size="sm"
