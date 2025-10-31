@@ -53,14 +53,7 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const tenantId = url.pathname.split('/')[3]; // Extract tenant ID from path
-
-    if (!tenantId) {
-      return new Response(JSON.stringify({ error: 'Tenant ID is required' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      });
-    }
+    const tenantId = url.pathname.split('/')[3]; // Extract tenant ID from path (optional)
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -68,8 +61,8 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    // Get active subscriptions with billing plans
-    const { data: subscriptions } = await supabaseClient
+    // Build queries - if tenantId is provided, filter by it; otherwise get all tenants
+    let subscriptionsQuery = supabaseClient
       .from('tenant_subscriptions')
       .select(`
         id,
@@ -82,33 +75,40 @@ serve(async (req) => {
           price_annually
         )
       `)
-      .eq('tenant_id', tenantId)
       .eq('status', 'active');
 
-    // Get payment records
-    const { data: payments } = await supabaseClient
+    let paymentsQuery = supabaseClient
       .from('payment_records')
       .select('id, amount, status, created_at, payment_method')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(100);
 
-    // Get invoices
-    const { data: invoices } = await supabaseClient
+    let invoicesQuery = supabaseClient
       .from('invoices')
       .select('id, amount, status, created_at, due_date')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(100);
 
-    // Get upcoming renewals
-    const { data: renewals } = await supabaseClient
+    let renewalsQuery = supabaseClient
       .from('subscription_renewals')
       .select('id, renewal_date, amount, status')
-      .eq('tenant_id', tenantId)
       .gte('renewal_date', new Date().toISOString())
       .order('renewal_date', { ascending: true })
-      .limit(5);
+      .limit(100);
+
+    // Apply tenant filter if tenantId is provided
+    if (tenantId) {
+      subscriptionsQuery = subscriptionsQuery.eq('tenant_id', tenantId);
+      paymentsQuery = paymentsQuery.eq('tenant_id', tenantId);
+      invoicesQuery = invoicesQuery.eq('tenant_id', tenantId);
+      renewalsQuery = renewalsQuery.eq('tenant_id', tenantId);
+    }
+
+    // Execute all queries
+    const { data: subscriptions } = await subscriptionsQuery;
+    const { data: payments } = await paymentsQuery;
+    const { data: invoices } = await invoicesQuery;
+    const { data: renewals } = await renewalsQuery;
 
     // Calculate billing summary
     const completedPayments = payments?.filter(p => p.status === 'completed') || [];
