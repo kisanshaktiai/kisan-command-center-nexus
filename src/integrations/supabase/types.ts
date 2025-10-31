@@ -88,6 +88,7 @@ export type Database = {
       }
       activation_codes: {
         Row: {
+          archived: boolean | null
           code: string
           created_at: string | null
           created_by: string | null
@@ -97,10 +98,15 @@ export type Database = {
           last_used_at: string | null
           max_uses: number | null
           metadata: Json | null
+          plan_id: string | null
+          redeemed_at: string | null
+          redeemed_by: string | null
+          status: string | null
           tenant_id: string
           used_count: number | null
         }
         Insert: {
+          archived?: boolean | null
           code: string
           created_at?: string | null
           created_by?: string | null
@@ -110,10 +116,15 @@ export type Database = {
           last_used_at?: string | null
           max_uses?: number | null
           metadata?: Json | null
+          plan_id?: string | null
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          status?: string | null
           tenant_id: string
           used_count?: number | null
         }
         Update: {
+          archived?: boolean | null
           code?: string
           created_at?: string | null
           created_by?: string | null
@@ -123,10 +134,35 @@ export type Database = {
           last_used_at?: string | null
           max_uses?: number | null
           metadata?: Json | null
+          plan_id?: string | null
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          status?: string | null
           tenant_id?: string
           used_count?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "activation_codes_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activation_codes_redeemed_by_fkey"
+            columns: ["redeemed_by"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activation_codes_redeemed_by_fkey"
+            columns: ["redeemed_by"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
           {
             foreignKeyName: "activation_codes_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -2875,6 +2911,136 @@ export type Database = {
         }
         Relationships: []
       }
+      coupon_redemptions: {
+        Row: {
+          coupon_id: string
+          discount_applied: number
+          farmer_id: string | null
+          id: string
+          invoice_id: string | null
+          metadata: Json | null
+          redeemed_at: string
+          subscription_id: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          coupon_id: string
+          discount_applied: number
+          farmer_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          metadata?: Json | null
+          redeemed_at?: string
+          subscription_id?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          coupon_id?: string
+          discount_applied?: number
+          farmer_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          metadata?: Json | null
+          redeemed_at?: string
+          subscription_id?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_redemptions_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_redemptions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_redemptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_notes: {
+        Row: {
+          amount: number
+          applied_at: string | null
+          created_at: string
+          credit_note_number: string
+          currency: string
+          id: string
+          invoice_id: string | null
+          issued_at: string | null
+          metadata: Json | null
+          notes: string | null
+          reason: string | null
+          status: string
+          stripe_credit_note_id: string | null
+          tenant_id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          applied_at?: string | null
+          created_at?: string
+          credit_note_number: string
+          currency?: string
+          id?: string
+          invoice_id?: string | null
+          issued_at?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          reason?: string | null
+          status?: string
+          stripe_credit_note_id?: string | null
+          tenant_id: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          applied_at?: string | null
+          created_at?: string
+          credit_note_number?: string
+          currency?: string
+          id?: string
+          invoice_id?: string | null
+          issued_at?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          reason?: string | null
+          status?: string
+          stripe_credit_note_id?: string | null
+          tenant_id?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_notes_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crop_groups: {
         Row: {
           created_at: string
@@ -5222,15 +5388,25 @@ export type Database = {
         Row: {
           auto_renew: boolean
           billing_interval: Database["public"]["Enums"]["billing_interval"]
+          cancellation_reason: string | null
           created_at: string
           end_date: string | null
           farmer_id: string
+          grace_period_ends_at: string | null
           id: string
+          last_payment_amount: number | null
+          last_payment_date: string | null
           metadata: Json | null
+          next_billing_date: string | null
+          paid_by_tenant: boolean | null
+          paying_tenant_id: string | null
           payment_method: Json | null
+          payment_method_id: string | null
           plan_id: string
           start_date: string
           status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           tenant_id: string
           tenant_subscription_id: string | null
           trial_end_date: string | null
@@ -5239,15 +5415,25 @@ export type Database = {
         Insert: {
           auto_renew?: boolean
           billing_interval?: Database["public"]["Enums"]["billing_interval"]
+          cancellation_reason?: string | null
           created_at?: string
           end_date?: string | null
           farmer_id: string
+          grace_period_ends_at?: string | null
           id?: string
+          last_payment_amount?: number | null
+          last_payment_date?: string | null
           metadata?: Json | null
+          next_billing_date?: string | null
+          paid_by_tenant?: boolean | null
+          paying_tenant_id?: string | null
           payment_method?: Json | null
+          payment_method_id?: string | null
           plan_id: string
           start_date?: string
           status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           tenant_id: string
           tenant_subscription_id?: string | null
           trial_end_date?: string | null
@@ -5256,15 +5442,25 @@ export type Database = {
         Update: {
           auto_renew?: boolean
           billing_interval?: Database["public"]["Enums"]["billing_interval"]
+          cancellation_reason?: string | null
           created_at?: string
           end_date?: string | null
           farmer_id?: string
+          grace_period_ends_at?: string | null
           id?: string
+          last_payment_amount?: number | null
+          last_payment_date?: string | null
           metadata?: Json | null
+          next_billing_date?: string | null
+          paid_by_tenant?: boolean | null
+          paying_tenant_id?: string | null
           payment_method?: Json | null
+          payment_method_id?: string | null
           plan_id?: string
           start_date?: string
           status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           tenant_id?: string
           tenant_subscription_id?: string | null
           trial_end_date?: string | null
@@ -5284,6 +5480,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "ndvi_full_view"
             referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "farmer_subscriptions_paying_tenant_id_fkey"
+            columns: ["paying_tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "farmer_subscriptions_plan_id_fkey"
@@ -5365,8 +5568,10 @@ export type Database = {
           aadhaar_number: string | null
           annual_income_range: string | null
           app_install_date: string | null
+          archived: boolean | null
           associated_tenants: string[] | null
           created_at: string | null
+          current_subscription_id: string | null
           failed_login_attempts: number | null
           farm_type: string | null
           farmer_code: string | null
@@ -5402,6 +5607,8 @@ export type Database = {
           shc_id: string | null
           store_description: string | null
           store_name: string | null
+          subscription_expires_at: string | null
+          subscription_status: string | null
           tenant_id: string | null
           total_app_opens: number | null
           total_land_acres: number | null
@@ -5417,8 +5624,10 @@ export type Database = {
           aadhaar_number?: string | null
           annual_income_range?: string | null
           app_install_date?: string | null
+          archived?: boolean | null
           associated_tenants?: string[] | null
           created_at?: string | null
+          current_subscription_id?: string | null
           failed_login_attempts?: number | null
           farm_type?: string | null
           farmer_code?: string | null
@@ -5454,6 +5663,8 @@ export type Database = {
           shc_id?: string | null
           store_description?: string | null
           store_name?: string | null
+          subscription_expires_at?: string | null
+          subscription_status?: string | null
           tenant_id?: string | null
           total_app_opens?: number | null
           total_land_acres?: number | null
@@ -5469,8 +5680,10 @@ export type Database = {
           aadhaar_number?: string | null
           annual_income_range?: string | null
           app_install_date?: string | null
+          archived?: boolean | null
           associated_tenants?: string[] | null
           created_at?: string | null
+          current_subscription_id?: string | null
           failed_login_attempts?: number | null
           farm_type?: string | null
           farmer_code?: string | null
@@ -5506,6 +5719,8 @@ export type Database = {
           shc_id?: string | null
           store_description?: string | null
           store_name?: string | null
+          subscription_expires_at?: string | null
+          subscription_status?: string | null
           tenant_id?: string | null
           total_app_opens?: number | null
           total_land_acres?: number | null
@@ -5518,6 +5733,20 @@ export type Database = {
           verified_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "farmers_current_subscription_id_fkey"
+            columns: ["current_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "active_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farmers_current_subscription_id_fkey"
+            columns: ["current_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "farmers_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -6369,6 +6598,60 @@ export type Database = {
           used_at?: string | null
         }
         Relationships: []
+      }
+      invoice_line_items: {
+        Row: {
+          addon_id: string | null
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          invoice_id: string
+          metadata: Json | null
+          plan_id: string | null
+          quantity: number
+          unit_price: number
+        }
+        Insert: {
+          addon_id?: string | null
+          amount: number
+          created_at?: string
+          description: string
+          id?: string
+          invoice_id: string
+          metadata?: Json | null
+          plan_id?: string | null
+          quantity?: number
+          unit_price: number
+        }
+        Update: {
+          addon_id?: string | null
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: string
+          invoice_id?: string
+          metadata?: Json | null
+          plan_id?: string | null
+          quantity?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoice_templates: {
         Row: {
@@ -10210,6 +10493,80 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_methods: {
+        Row: {
+          account_last4: string | null
+          bank_name: string | null
+          card_brand: string | null
+          card_exp_month: number | null
+          card_exp_year: number | null
+          card_last4: string | null
+          created_at: string
+          farmer_id: string | null
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          is_verified: boolean | null
+          metadata: Json | null
+          provider: string
+          stripe_payment_method_id: string | null
+          tenant_id: string | null
+          type: string
+          updated_at: string
+          upi_id: string | null
+        }
+        Insert: {
+          account_last4?: string | null
+          bank_name?: string | null
+          card_brand?: string | null
+          card_exp_month?: number | null
+          card_exp_year?: number | null
+          card_last4?: string | null
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          is_verified?: boolean | null
+          metadata?: Json | null
+          provider?: string
+          stripe_payment_method_id?: string | null
+          tenant_id?: string | null
+          type: string
+          updated_at?: string
+          upi_id?: string | null
+        }
+        Update: {
+          account_last4?: string | null
+          bank_name?: string | null
+          card_brand?: string | null
+          card_exp_month?: number | null
+          card_exp_year?: number | null
+          card_last4?: string | null
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          is_verified?: boolean | null
+          metadata?: Json | null
+          provider?: string
+          stripe_payment_method_id?: string | null
+          tenant_id?: string | null
+          type?: string
+          updated_at?: string
+          upi_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_methods_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_records: {
         Row: {
           amount: number
@@ -10311,6 +10668,91 @@ export type Database = {
           },
         ]
       }
+      payment_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          failure_code: string | null
+          failure_message: string | null
+          farmer_id: string | null
+          id: string
+          invoice_id: string | null
+          metadata: Json | null
+          payment_method_id: string | null
+          processed_at: string | null
+          status: string
+          stripe_charge_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_refund_id: string | null
+          subscription_id: string | null
+          tenant_id: string | null
+          type: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          failure_code?: string | null
+          failure_message?: string | null
+          farmer_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          metadata?: Json | null
+          payment_method_id?: string | null
+          processed_at?: string | null
+          status: string
+          stripe_charge_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
+          subscription_id?: string | null
+          tenant_id?: string | null
+          type: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          failure_code?: string | null
+          failure_message?: string | null
+          farmer_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          metadata?: Json | null
+          payment_method_id?: string | null
+          processed_at?: string | null
+          status?: string
+          stripe_charge_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
+          subscription_id?: string | null
+          tenant_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -10380,6 +10822,81 @@ export type Database = {
           },
         ]
       }
+      payouts: {
+        Row: {
+          amount: number
+          archived: boolean | null
+          commission_rate: number | null
+          created_at: string | null
+          currency: string | null
+          failed_at: string | null
+          failure_reason: string | null
+          gateway_response: Json | null
+          id: string
+          metadata: Json | null
+          payout_method: string | null
+          processed_at: string | null
+          status: string | null
+          tenant_id: string
+          transaction_id: string | null
+          transfer_ref: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          archived?: boolean | null
+          commission_rate?: number | null
+          created_at?: string | null
+          currency?: string | null
+          failed_at?: string | null
+          failure_reason?: string | null
+          gateway_response?: Json | null
+          id?: string
+          metadata?: Json | null
+          payout_method?: string | null
+          processed_at?: string | null
+          status?: string | null
+          tenant_id: string
+          transaction_id?: string | null
+          transfer_ref?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          archived?: boolean | null
+          commission_rate?: number | null
+          created_at?: string | null
+          currency?: string | null
+          failed_at?: string | null
+          failure_reason?: string | null
+          gateway_response?: Json | null
+          id?: string
+          metadata?: Json | null
+          payout_method?: string | null
+          processed_at?: string | null
+          status?: string | null
+          tenant_id?: string
+          transaction_id?: string | null
+          transfer_ref?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payouts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payouts_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_admin_requests: {
         Row: {
           approved_at: string | null
@@ -10424,6 +10941,71 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      plans: {
+        Row: {
+          archived: boolean | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          duration_days: number
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          is_global: boolean | null
+          limits: Json | null
+          plan_type: string | null
+          price: number
+          sort_order: number | null
+          tenant_id: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          archived?: boolean | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          duration_days?: number
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_global?: boolean | null
+          limits?: Json | null
+          plan_type?: string | null
+          price: number
+          sort_order?: number | null
+          tenant_id?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          archived?: boolean | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          duration_days?: number
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_global?: boolean | null
+          limits?: Json | null
+          plan_type?: string | null
+          price?: number
+          sort_order?: number | null
+          tenant_id?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       platform_alerts: {
         Row: {
@@ -13164,6 +13746,107 @@ export type Database = {
           },
         ]
       }
+      subscription_addon_assignments: {
+        Row: {
+          added_at: string
+          addon_id: string
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          quantity: number
+          removed_at: string | null
+          subscription_id: string
+        }
+        Insert: {
+          added_at?: string
+          addon_id: string
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          quantity?: number
+          removed_at?: string | null
+          subscription_id: string
+        }
+        Update: {
+          added_at?: string
+          addon_id?: string
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          quantity?: number
+          removed_at?: string | null
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_addon_assignments_addon_id_fkey"
+            columns: ["addon_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_addons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_addons: {
+        Row: {
+          addon_type: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_metered: boolean | null
+          metadata: Json | null
+          name: string
+          plan_category: string
+          price_annually: number
+          price_monthly: number
+          sort_order: number | null
+          stripe_price_id_annually: string | null
+          stripe_price_id_monthly: string | null
+          stripe_product_id: string | null
+          unit_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          addon_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_metered?: boolean | null
+          metadata?: Json | null
+          name: string
+          plan_category?: string
+          price_annually?: number
+          price_monthly?: number
+          sort_order?: number | null
+          stripe_price_id_annually?: string | null
+          stripe_price_id_monthly?: string | null
+          stripe_product_id?: string | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          addon_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_metered?: boolean | null
+          metadata?: Json | null
+          name?: string
+          plan_category?: string
+          price_annually?: number
+          price_monthly?: number
+          sort_order?: number | null
+          stripe_price_id_annually?: string | null
+          stripe_price_id_monthly?: string | null
+          stripe_product_id?: string | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscription_change_history: {
         Row: {
           change_type: string
@@ -13220,53 +13903,155 @@ export type Database = {
           },
         ]
       }
+      subscription_coupons: {
+        Row: {
+          applicable_plan_ids: string[] | null
+          code: string
+          coupon_type: string
+          created_at: string
+          currency: string | null
+          description: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
+          duration: string
+          duration_in_months: number | null
+          id: string
+          is_active: boolean | null
+          max_redemptions: number | null
+          metadata: Json | null
+          minimum_amount: number | null
+          name: string
+          plan_category: string | null
+          stripe_coupon_id: string | null
+          times_redeemed: number | null
+          trial_days_extension: number | null
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          applicable_plan_ids?: string[] | null
+          code: string
+          coupon_type: string
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          duration: string
+          duration_in_months?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_redemptions?: number | null
+          metadata?: Json | null
+          minimum_amount?: number | null
+          name: string
+          plan_category?: string | null
+          stripe_coupon_id?: string | null
+          times_redeemed?: number | null
+          trial_days_extension?: number | null
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          applicable_plan_ids?: string[] | null
+          code?: string
+          coupon_type?: string
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          duration?: string
+          duration_in_months?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_redemptions?: number | null
+          metadata?: Json | null
+          minimum_amount?: number | null
+          name?: string
+          plan_category?: string | null
+          stripe_coupon_id?: string | null
+          times_redeemed?: number | null
+          trial_days_extension?: number | null
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       subscription_plans: {
         Row: {
+          billing_interval: string | null
           created_at: string | null
           description: string | null
           features: Json | null
           id: string
           is_active: boolean | null
           is_custom: boolean | null
+          is_public: boolean | null
           limits: Json | null
           name: string
+          plan_category: string | null
           plan_type: Database["public"]["Enums"]["subscription_plan_type"]
           price_annually: number | null
           price_monthly: number | null
           price_quarterly: number | null
+          sort_order: number | null
+          stripe_price_id_annually: string | null
+          stripe_price_id_monthly: string | null
+          stripe_product_id: string | null
           tenant_id: string | null
+          trial_days: number | null
           updated_at: string | null
         }
         Insert: {
+          billing_interval?: string | null
           created_at?: string | null
           description?: string | null
           features?: Json | null
           id?: string
           is_active?: boolean | null
           is_custom?: boolean | null
+          is_public?: boolean | null
           limits?: Json | null
           name: string
+          plan_category?: string | null
           plan_type: Database["public"]["Enums"]["subscription_plan_type"]
           price_annually?: number | null
           price_monthly?: number | null
           price_quarterly?: number | null
+          sort_order?: number | null
+          stripe_price_id_annually?: string | null
+          stripe_price_id_monthly?: string | null
+          stripe_product_id?: string | null
           tenant_id?: string | null
+          trial_days?: number | null
           updated_at?: string | null
         }
         Update: {
+          billing_interval?: string | null
           created_at?: string | null
           description?: string | null
           features?: Json | null
           id?: string
           is_active?: boolean | null
           is_custom?: boolean | null
+          is_public?: boolean | null
           limits?: Json | null
           name?: string
+          plan_category?: string | null
           plan_type?: Database["public"]["Enums"]["subscription_plan_type"]
           price_annually?: number | null
           price_monthly?: number | null
           price_quarterly?: number | null
+          sort_order?: number | null
+          stripe_price_id_annually?: string | null
+          stripe_price_id_monthly?: string | null
+          stripe_product_id?: string | null
           tenant_id?: string | null
+          trial_days?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -13393,6 +14178,159 @@ export type Database = {
             foreignKeyName: "subscription_settings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_usage_logs: {
+        Row: {
+          billing_period_end: string
+          billing_period_start: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          metric_name: string
+          quantity: number
+          subscription_id: string | null
+          tenant_id: string
+          unit: string
+          usage_date: string
+        }
+        Insert: {
+          billing_period_end: string
+          billing_period_start: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_name: string
+          quantity: number
+          subscription_id?: string | null
+          tenant_id: string
+          unit: string
+          usage_date?: string
+        }
+        Update: {
+          billing_period_end?: string
+          billing_period_start?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_name?: string
+          quantity?: number
+          subscription_id?: string | null
+          tenant_id?: string
+          unit?: string
+          usage_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_usage_logs_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_usage_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          activation_code_id: string | null
+          amount: number
+          archived: boolean | null
+          auto_renew: boolean | null
+          created_at: string | null
+          currency: string | null
+          end_date: string | null
+          farmer_id: string
+          id: string
+          metadata: Json | null
+          payment_gateway: string | null
+          payment_id: string | null
+          plan_id: string
+          start_date: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          activation_code_id?: string | null
+          amount: number
+          archived?: boolean | null
+          auto_renew?: boolean | null
+          created_at?: string | null
+          currency?: string | null
+          end_date?: string | null
+          farmer_id: string
+          id?: string
+          metadata?: Json | null
+          payment_gateway?: string | null
+          payment_id?: string | null
+          plan_id: string
+          start_date?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          activation_code_id?: string | null
+          amount?: number
+          archived?: boolean | null
+          auto_renew?: boolean | null
+          created_at?: string | null
+          currency?: string | null
+          end_date?: string | null
+          farmer_id?: string
+          id?: string
+          metadata?: Json | null
+          payment_gateway?: string | null
+          payment_id?: string | null
+          plan_id?: string
+          start_date?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_activation_code_id_fkey"
+            columns: ["activation_code_id"]
+            isOneToOne: false
+            referencedRelation: "activation_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -14562,14 +15500,23 @@ export type Database = {
           auto_renew: boolean | null
           billing_address: Json | null
           billing_interval: Database["public"]["Enums"]["billing_interval"]
+          cancellation_feedback: string | null
+          cancellation_reason: string | null
           created_at: string | null
           current_period_end: string | null
           current_period_start: string | null
+          grace_period_ends_at: string | null
           id: string
+          last_payment_amount: number | null
+          last_payment_date: string | null
           metadata: Json | null
+          next_billing_date: string | null
           payment_method: Json | null
+          payment_method_id: string | null
           plan_id: string | null
           status: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           tenant_id: string | null
           updated_at: string | null
         }
@@ -14577,14 +15524,23 @@ export type Database = {
           auto_renew?: boolean | null
           billing_address?: Json | null
           billing_interval: Database["public"]["Enums"]["billing_interval"]
+          cancellation_feedback?: string | null
+          cancellation_reason?: string | null
           created_at?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
+          grace_period_ends_at?: string | null
           id?: string
+          last_payment_amount?: number | null
+          last_payment_date?: string | null
           metadata?: Json | null
+          next_billing_date?: string | null
           payment_method?: Json | null
+          payment_method_id?: string | null
           plan_id?: string | null
           status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           tenant_id?: string | null
           updated_at?: string | null
         }
@@ -14592,14 +15548,23 @@ export type Database = {
           auto_renew?: boolean | null
           billing_address?: Json | null
           billing_interval?: Database["public"]["Enums"]["billing_interval"]
+          cancellation_feedback?: string | null
+          cancellation_reason?: string | null
           created_at?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
+          grace_period_ends_at?: string | null
           id?: string
+          last_payment_amount?: number | null
+          last_payment_date?: string | null
           metadata?: Json | null
+          next_billing_date?: string | null
           payment_method?: Json | null
+          payment_method_id?: string | null
           plan_id?: string | null
           status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           tenant_id?: string | null
           updated_at?: string | null
         }
@@ -14667,11 +15632,16 @@ export type Database = {
       tenants: {
         Row: {
           activated_at: string | null
+          archived: boolean | null
           archived_at: string | null
+          bank_details: Json | null
+          billing_address: Json | null
+          billing_email: string | null
           branding_updated_at: string | null
           branding_version: number | null
           business_address: Json | null
           business_registration: string | null
+          commission_rate: number | null
           created_at: string | null
           created_by: string | null
           custom_domain: string | null
@@ -14679,6 +15649,8 @@ export type Database = {
           established_date: string | null
           id: string
           is_default: boolean | null
+          kyc_documents: Json | null
+          kyc_status: string | null
           max_api_calls_per_day: number | null
           max_dealers: number | null
           max_farmers: number | null
@@ -14691,10 +15663,13 @@ export type Database = {
           owner_email: string | null
           owner_name: string | null
           owner_phone: string | null
+          payment_terms: string | null
+          payout_method: string | null
           reactivated_at: string | null
           settings: Json | null
           slug: string
           status: Database["public"]["Enums"]["tenant_status"] | null
+          stripe_customer_id: string | null
           subdomain: string | null
           subscription_end_date: string | null
           subscription_plan:
@@ -14702,6 +15677,7 @@ export type Database = {
             | null
           subscription_start_date: string | null
           suspended_at: string | null
+          tax_id: string | null
           trial_ends_at: string | null
           type: Database["public"]["Enums"]["tenant_type"]
           updated_at: string | null
@@ -14709,11 +15685,16 @@ export type Database = {
         }
         Insert: {
           activated_at?: string | null
+          archived?: boolean | null
           archived_at?: string | null
+          bank_details?: Json | null
+          billing_address?: Json | null
+          billing_email?: string | null
           branding_updated_at?: string | null
           branding_version?: number | null
           business_address?: Json | null
           business_registration?: string | null
+          commission_rate?: number | null
           created_at?: string | null
           created_by?: string | null
           custom_domain?: string | null
@@ -14721,6 +15702,8 @@ export type Database = {
           established_date?: string | null
           id?: string
           is_default?: boolean | null
+          kyc_documents?: Json | null
+          kyc_status?: string | null
           max_api_calls_per_day?: number | null
           max_dealers?: number | null
           max_farmers?: number | null
@@ -14733,10 +15716,13 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          payment_terms?: string | null
+          payout_method?: string | null
           reactivated_at?: string | null
           settings?: Json | null
           slug: string
           status?: Database["public"]["Enums"]["tenant_status"] | null
+          stripe_customer_id?: string | null
           subdomain?: string | null
           subscription_end_date?: string | null
           subscription_plan?:
@@ -14744,6 +15730,7 @@ export type Database = {
             | null
           subscription_start_date?: string | null
           suspended_at?: string | null
+          tax_id?: string | null
           trial_ends_at?: string | null
           type: Database["public"]["Enums"]["tenant_type"]
           updated_at?: string | null
@@ -14751,11 +15738,16 @@ export type Database = {
         }
         Update: {
           activated_at?: string | null
+          archived?: boolean | null
           archived_at?: string | null
+          bank_details?: Json | null
+          billing_address?: Json | null
+          billing_email?: string | null
           branding_updated_at?: string | null
           branding_version?: number | null
           business_address?: Json | null
           business_registration?: string | null
+          commission_rate?: number | null
           created_at?: string | null
           created_by?: string | null
           custom_domain?: string | null
@@ -14763,6 +15755,8 @@ export type Database = {
           established_date?: string | null
           id?: string
           is_default?: boolean | null
+          kyc_documents?: Json | null
+          kyc_status?: string | null
           max_api_calls_per_day?: number | null
           max_dealers?: number | null
           max_farmers?: number | null
@@ -14775,10 +15769,13 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          payment_terms?: string | null
+          payout_method?: string | null
           reactivated_at?: string | null
           settings?: Json | null
           slug?: string
           status?: Database["public"]["Enums"]["tenant_status"] | null
+          stripe_customer_id?: string | null
           subdomain?: string | null
           subscription_end_date?: string | null
           subscription_plan?:
@@ -14786,6 +15783,7 @@ export type Database = {
             | null
           subscription_start_date?: string | null
           suspended_at?: string | null
+          tax_id?: string | null
           trial_ends_at?: string | null
           type?: Database["public"]["Enums"]["tenant_type"]
           updated_at?: string | null
@@ -14840,6 +15838,117 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          archived: boolean | null
+          created_at: string | null
+          currency: string | null
+          failure_reason: string | null
+          farmer_id: string | null
+          gateway: string
+          gateway_response: Json | null
+          gateway_txn_id: string | null
+          id: string
+          metadata: Json | null
+          payment_intent_id: string | null
+          payment_method: string | null
+          payment_mode: string | null
+          processed_at: string | null
+          refund_amount: number | null
+          refunded_at: string | null
+          status: string | null
+          subscription_id: string | null
+          tenant_id: string
+          updated_at: string | null
+          virtual_mode: boolean | null
+        }
+        Insert: {
+          amount: number
+          archived?: boolean | null
+          created_at?: string | null
+          currency?: string | null
+          failure_reason?: string | null
+          farmer_id?: string | null
+          gateway: string
+          gateway_response?: Json | null
+          gateway_txn_id?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_intent_id?: string | null
+          payment_method?: string | null
+          payment_mode?: string | null
+          processed_at?: string | null
+          refund_amount?: number | null
+          refunded_at?: string | null
+          status?: string | null
+          subscription_id?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          virtual_mode?: boolean | null
+        }
+        Update: {
+          amount?: number
+          archived?: boolean | null
+          created_at?: string | null
+          currency?: string | null
+          failure_reason?: string | null
+          farmer_id?: string | null
+          gateway?: string
+          gateway_response?: Json | null
+          gateway_txn_id?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_intent_id?: string | null
+          payment_method?: string | null
+          payment_mode?: string | null
+          processed_at?: string | null
+          refund_amount?: number | null
+          refunded_at?: string | null
+          status?: string | null
+          subscription_id?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          virtual_mode?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "transactions_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "active_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       trending_topics: {
         Row: {
@@ -16767,6 +17876,69 @@ export type Database = {
       }
     }
     Views: {
+      active_subscriptions: {
+        Row: {
+          activation_code_id: string | null
+          amount: number | null
+          archived: boolean | null
+          auto_renew: boolean | null
+          created_at: string | null
+          currency: string | null
+          duration_days: number | null
+          end_date: string | null
+          farmer_id: string | null
+          farmer_name: string | null
+          id: string | null
+          metadata: Json | null
+          mobile_number: string | null
+          payment_gateway: string | null
+          payment_id: string | null
+          plan_id: string | null
+          plan_title: string | null
+          start_date: string | null
+          status: string | null
+          tenant_id: string | null
+          tenant_name: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_activation_code_id_fkey"
+            columns: ["activation_code_id"]
+            isOneToOne: false
+            referencedRelation: "activation_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       geography_columns: {
         Row: {
           coord_dimension: number | null
@@ -16971,6 +18143,48 @@ export type Database = {
             columns: ["land_id"]
             isOneToOne: false
             referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_payouts: {
+        Row: {
+          amount: number | null
+          archived: boolean | null
+          bank_details: Json | null
+          commission_rate: number | null
+          created_at: string | null
+          currency: string | null
+          current_commission_rate: number | null
+          failed_at: string | null
+          failure_reason: string | null
+          gateway: string | null
+          gateway_response: Json | null
+          id: string | null
+          metadata: Json | null
+          payout_method: string | null
+          processed_at: string | null
+          status: string | null
+          tenant_id: string | null
+          tenant_name: string | null
+          transaction_amount: number | null
+          transaction_id: string | null
+          transfer_ref: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payouts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payouts_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
@@ -17499,8 +18713,10 @@ export type Database = {
           tile_id: string
         }[]
       }
+      generate_credit_note_number: { Args: never; Returns: string }
       generate_farmer_code: { Args: { p_tenant_id: string }; Returns: string }
       generate_invite_token: { Args: never; Returns: string }
+      generate_invoice_number: { Args: never; Returns: string }
       generate_otp: { Args: { p_length?: number }; Returns: string }
       generate_slug_suggestions: {
         Args: { p_organization_name: string }
@@ -17849,6 +19065,7 @@ export type Database = {
         }[]
       }
       gettransactionid: { Args: never; Returns: unknown }
+      has_tenant_access: { Args: { check_tenant_id: string }; Returns: boolean }
       is_authenticated_admin: { Args: never; Returns: boolean }
       is_bootstrap_completed: { Args: never; Returns: boolean }
       is_bootstrap_required: { Args: never; Returns: boolean }
