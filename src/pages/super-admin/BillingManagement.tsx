@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DollarSign, CreditCard, Users, TrendingUp, Calendar, FileText, RefreshCw, Radio, Package, Wallet, Webhook, BarChart3 } from 'lucide-react';
-import { PlanCard } from '@/components/billing/core/PlanCard';
+import { SubscriptionPlanCard } from '@/components/billing/SubscriptionPlanCard';
 import { SubscriptionList } from '@/components/billing/core/SubscriptionList';
 import { TransactionList } from '@/components/billing/core/TransactionList';
 import { PayoutList } from '@/components/billing/core/PayoutList';
 import { AdvancedAnalyticsDashboard } from '@/components/billing/AdvancedAnalyticsDashboard';
 import { WebhookManager } from '@/components/billing/WebhookManager';
-import { usePlans, useSubscriptions, useTransactions, usePayouts } from '@/hooks/useBillingCore';
+import { useSubscriptionPlans } from '@/hooks/useSubscriptionPlans';
+import { useSubscriptions, useTransactions, usePayouts } from '@/hooks/useBillingCore';
 import { useBillingAnalytics } from '@/hooks/useBillingAnalytics';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,7 +24,11 @@ export default function BillingManagement() {
   const queryClient = useQueryClient();
 
   // Fetch billing data using new hooks
-  const { data: plans, isLoading: plansLoading } = usePlans();
+  const { data: subscriptionPlans, isLoading: plansLoading } = useSubscriptionPlans({ 
+    isActive: true,
+    isPublic: true,
+    tenantId: null // Only global plans
+  });
   const { data: subscriptions, isLoading: subscriptionsLoading } = useSubscriptions();
   const { data: transactions, isLoading: transactionsLoading } = useTransactions();
   const { data: payouts, isLoading: payoutsLoading } = usePayouts();
@@ -40,9 +45,9 @@ export default function BillingManagement() {
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'plans'
+        table: 'subscription_plans'
       }, () => {
-        queryClient.invalidateQueries({ queryKey: ['plans'] });
+        queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
         setLastUpdate(new Date());
       })
       .on('postgres_changes', {
@@ -90,7 +95,7 @@ export default function BillingManagement() {
   const handleManualRefresh = async () => {
     toast.info('Refreshing billing data...');
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['plans'] }),
+      queryClient.invalidateQueries({ queryKey: ['subscription-plans'] }),
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
       queryClient.invalidateQueries({ queryKey: ['transactions'] }),
       queryClient.invalidateQueries({ queryKey: ['payouts'] }),
@@ -256,7 +261,7 @@ export default function BillingManagement() {
               <CardContent className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Plans:</span>
-                  <span className="font-medium">{plans?.length || 0}</span>
+                  <span className="font-medium">{subscriptionPlans?.length || 0}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Active Subscriptions:</span>
@@ -302,15 +307,36 @@ export default function BillingManagement() {
         <TabsContent value="plans">
           <Card>
             <CardHeader>
-              <CardTitle>Subscription Plans</CardTitle>
-              <CardDescription>Manage all subscription plans</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Subscription Plans</CardTitle>
+                  <CardDescription>
+                    Global subscription plans from subscription_plans table
+                  </CardDescription>
+                </div>
+                <Badge variant="outline">
+                  {subscriptionPlans?.length || 0} Plans
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {plans?.map((plan) => (
-                  <PlanCard key={plan.id} plan={plan} />
-                ))}
-              </div>
+              {plansLoading ? (
+                <div className="text-center py-8">Loading plans...</div>
+              ) : subscriptionPlans && subscriptionPlans.length > 0 ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {subscriptionPlans.map((plan) => (
+                    <SubscriptionPlanCard 
+                      key={plan.id} 
+                      plan={plan}
+                      showActions={false}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No subscription plans found
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
