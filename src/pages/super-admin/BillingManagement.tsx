@@ -1,114 +1,102 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, CreditCard, Users, TrendingUp, Calendar, FileText, RefreshCw, Radio } from 'lucide-react';
-import { SubscriptionOverview } from '@/components/billing/SubscriptionOverview';
-import { PaymentProcessing } from '@/components/billing/PaymentProcessing';
-import { InvoiceManagement } from '@/components/billing/InvoiceManagement';
-import { SubscriptionRenewals } from '@/components/billing/SubscriptionRenewals';
-import { AdvancedAnalytics } from '@/components/billing/AdvancedAnalytics';
-import { WalletManagement } from '@/components/billing/WalletManagement';
-import { MultiCurrencySettings } from '@/components/billing/MultiCurrencySettings';
-import { AutomationRules } from '@/components/billing/AutomationRules';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { DollarSign, CreditCard, Users, TrendingUp, Calendar, FileText, RefreshCw, Radio, Package, Wallet, Webhook, BarChart3 } from 'lucide-react';
+import { PlanCard } from '@/components/billing/core/PlanCard';
+import { SubscriptionList } from '@/components/billing/core/SubscriptionList';
+import { TransactionList } from '@/components/billing/core/TransactionList';
+import { PayoutList } from '@/components/billing/core/PayoutList';
+import { AdvancedAnalyticsDashboard } from '@/components/billing/AdvancedAnalyticsDashboard';
+import { WebhookManager } from '@/components/billing/WebhookManager';
+import { usePlans, useSubscriptions, useTransactions, usePayouts } from '@/hooks/useBillingCore';
+import { useBillingAnalytics } from '@/hooks/useBillingAnalytics';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useBillingRealtime } from '@/hooks/useBillingRealtime';
 import { MetricCardSkeleton } from '@/components/ui/loading-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { useCurrency } from '@/services/billing/CurrencyService';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function BillingManagement() {
   const [isRealtime, setIsRealtime] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const queryClient = useQueryClient();
-  const { currency, setCurrency, formatCurrency: formatCurrencyHook, currencies } = useCurrency();
 
-  const { data: billingMetrics, isLoading, error, refetch } = useQuery({
-    queryKey: ['tenant-subscriptions-billing'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('tenant-subscriptions-billing', {
-          method: 'GET',
-        });
+  // Fetch billing data using new hooks
+  const { data: plans, isLoading: plansLoading } = usePlans();
+  const { data: subscriptions, isLoading: subscriptionsLoading } = useSubscriptions();
+  const { data: transactions, isLoading: transactionsLoading } = useTransactions();
+  const { data: payouts, isLoading: payoutsLoading } = usePayouts();
+  const { data: analytics, isLoading: analyticsLoading, refetch: refetchAnalytics } = useBillingAnalytics();
 
-        if (error) throw error;
+  const isLoading = plansLoading || subscriptionsLoading || transactionsLoading || payoutsLoading || analyticsLoading;
 
-        // Validate response structure
-        if (!data || typeof data !== 'object') {
-          throw new Error('Invalid response from billing service');
-        }
+  // Setup real-time listeners for all billing tables
+  useEffect(() => {
+    if (!isRealtime) return;
 
+    const channel = supabase
+      .channel('billing-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'plans'
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['plans'] });
         setLastUpdate(new Date());
-
-        return {
-          totalRevenue: data.billing_summary?.total_revenue || 0,
-          thisMonthRevenue: data.billing_summary?.monthly_revenue || 0,
-          outstandingAmount: data.billing_summary?.outstanding_amount || 0,
-          upcomingRenewals: data.upcoming_renewals?.length || 0,
-          mrr: data.billing_summary?.monthly_revenue || 0,
-          totalSubscriptions: data.active_subscriptions?.length || 0,
-          activeSubscriptions: data.active_subscriptions?.length || 0,
-          rawData: data
-        };
-      } catch (error) {
-        console.error('Error in billing metrics query:', error);
-        toast.error('Failed to fetch billing metrics');
-        throw error;
-      }
-    },
-    refetchInterval: isRealtime ? false : 60000,
-    staleTime: isRealtime ? Infinity : 30000,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
-
-  // Real-time subscription for billing updates
-  useBillingRealtime({
-    eventType: 'subscription',
-    queryKey: ['tenant-subscriptions-billing'],
-    showNotifications: false,
-    onUpdate: () => {
-      if (isRealtime) {
-        refetch();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'subscriptions'
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+        queryClient.invalidateQueries({ queryKey: ['billing-analytics'] });
         setLastUpdate(new Date());
-      }
-    }
-  });
-
-  useBillingRealtime({
-    eventType: 'payment',
-    queryKey: ['tenant-subscriptions-billing'],
-    showNotifications: false,
-    onUpdate: () => {
-      if (isRealtime) {
-        refetch();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'transactions'
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['billing-analytics'] });
         setLastUpdate(new Date());
-      }
-    }
-  });
-
-  useBillingRealtime({
-    eventType: 'invoice',
-    queryKey: ['tenant-subscriptions-billing'],
-    showNotifications: false,
-    onUpdate: () => {
-      if (isRealtime) {
-        refetch();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'payouts'
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['payouts'] });
+        queryClient.invalidateQueries({ queryKey: ['billing-analytics'] });
         setLastUpdate(new Date());
-      }
-    }
-  });
+      })
+      .subscribe();
 
-  const formatCurrency = (amount: number) => {
-    return formatCurrencyHook(amount);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isRealtime, queryClient]);
+
+  const formatCurrency = (amount: number, currency: string = 'USD') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0
+    }).format(amount);
   };
 
   const handleManualRefresh = async () => {
     toast.info('Refreshing billing data...');
-    await refetch();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['plans'] }),
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+      queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+      queryClient.invalidateQueries({ queryKey: ['payouts'] }),
+      refetchAnalytics()
+    ]);
+    setLastUpdate(new Date());
     toast.success('Billing data refreshed');
   };
 
@@ -126,18 +114,6 @@ export default function BillingManagement() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Select value={currency} onValueChange={(value) => setCurrency(value as any)}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {currencies.map((curr) => (
-                <SelectItem key={curr.code} value={curr.code}>
-                  {curr.symbol} {curr.code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Button
             variant="outline"
             size="sm"
@@ -166,9 +142,6 @@ export default function BillingManagement() {
           <span className="text-muted-foreground">
             Last updated: {lastUpdate.toLocaleTimeString()}
           </span>
-          {error && (
-            <Badge variant="destructive">Error loading data</Badge>
-          )}
         </div>
       </div>
 
@@ -183,96 +156,207 @@ export default function BillingManagement() {
           </>
         ) : (
           <>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(billingMetrics?.totalRevenue || 0)}</div>
-            <p className="text-xs text-muted-foreground">All time revenue</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(analytics?.revenue.total || 0)}</div>
+                <p className="text-xs text-muted-foreground">
+                  {formatCurrency(analytics?.revenue.monthly || 0)} this month
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(billingMetrics?.thisMonthRevenue || 0)}</div>
-            <p className="text-xs text-muted-foreground">Revenue this month</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analytics?.subscriptions.active || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  {analytics?.subscriptions.total || 0} total
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(billingMetrics?.outstandingAmount || 0)}</div>
-            <p className="text-xs text-muted-foreground">Pending invoices</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {analytics?.transactions.success_rate.toFixed(1) || 0}%
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {analytics?.transactions.completed || 0} completed
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming Renewals</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{billingMetrics?.upcomingRenewals || 0}</div>
-            <p className="text-xs text-muted-foreground">Next 7 days</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">MRR / ARR</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(analytics?.subscriptions.mrr || 0)}</div>
+                <p className="text-xs text-muted-foreground">
+                  {formatCurrency(analytics?.subscriptions.arr || 0)} annually
+                </p>
+              </CardContent>
+            </Card>
           </>
         )}
       </div>
 
       {/* Enhanced Billing Tabs */}
-      <Tabs defaultValue="subscriptions" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
-          <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="renewals">Renewals</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="wallet">Wallets</TabsTrigger>
-          <TabsTrigger value="currency">Currency</TabsTrigger>
-          <TabsTrigger value="automation">Automation</TabsTrigger>
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7">
+          <TabsTrigger value="overview">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="plans">
+            <Package className="h-4 w-4 mr-2" />
+            Plans
+          </TabsTrigger>
+          <TabsTrigger value="subscriptions">
+            <Users className="h-4 w-4 mr-2" />
+            Subscriptions
+          </TabsTrigger>
+          <TabsTrigger value="transactions">
+            <CreditCard className="h-4 w-4 mr-2" />
+            Transactions
+          </TabsTrigger>
+          <TabsTrigger value="payouts">
+            <Wallet className="h-4 w-4 mr-2" />
+            Payouts
+          </TabsTrigger>
+          <TabsTrigger value="webhooks">
+            <Webhook className="h-4 w-4 mr-2" />
+            Webhooks
+          </TabsTrigger>
+          <TabsTrigger value="analytics">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Analytics
+          </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Stats</CardTitle>
+                <CardDescription>Overview of billing system</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Plans:</span>
+                  <span className="font-medium">{plans?.length || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Active Subscriptions:</span>
+                  <span className="font-medium">{subscriptions?.filter(s => s.status === 'active').length || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Pending Payouts:</span>
+                  <span className="font-medium">{payouts?.filter(p => p.status === 'pending').length || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Completed Transactions:</span>
+                  <span className="font-medium">{transactions?.filter(t => t.status === 'completed').length || 0}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Latest billing events</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  {transactions?.slice(0, 5).map((txn) => (
+                    <div key={txn.id} className="flex justify-between items-center py-2 border-b last:border-0">
+                      <div>
+                        <p className="font-medium">{formatCurrency(txn.amount, txn.currency)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(txn.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Badge variant={txn.status === 'completed' ? 'default' : 'secondary'}>
+                        {txn.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="plans">
+          <Card>
+            <CardHeader>
+              <CardTitle>Subscription Plans</CardTitle>
+              <CardDescription>Manage all subscription plans</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {plans?.map((plan) => (
+                  <PlanCard key={plan.id} plan={plan} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="subscriptions">
-          <SubscriptionOverview />
+          <Card>
+            <CardHeader>
+              <CardTitle>All Subscriptions</CardTitle>
+              <CardDescription>Monitor farmer subscriptions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SubscriptionList />
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="invoices">
-          <InvoiceManagement />
+        <TabsContent value="transactions">
+          <Card>
+            <CardHeader>
+              <CardTitle>Transaction History</CardTitle>
+              <CardDescription>All payment transactions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TransactionList />
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="payments">
-          <PaymentProcessing />
+        <TabsContent value="payouts">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tenant Payouts</CardTitle>
+              <CardDescription>Manage commission payouts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PayoutList showProcessButton={true} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="renewals">
-          <SubscriptionRenewals />
+        <TabsContent value="webhooks">
+          <WebhookManager />
         </TabsContent>
 
         <TabsContent value="analytics">
-          <AdvancedAnalytics />
-        </TabsContent>
-
-        <TabsContent value="wallet">
-          <WalletManagement />
-        </TabsContent>
-
-        <TabsContent value="currency">
-          <MultiCurrencySettings />
-        </TabsContent>
-
-        <TabsContent value="automation">
-          <AutomationRules />
+          <AdvancedAnalyticsDashboard />
         </TabsContent>
       </Tabs>
     </div>
