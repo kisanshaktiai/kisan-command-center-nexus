@@ -1244,6 +1244,163 @@ export type Database = {
           },
         ]
       }
+      billing_analytics: {
+        Row: {
+          active_subscriptions: number | null
+          arr: number | null
+          average_revenue_per_user: number | null
+          cancelled_subscriptions: number | null
+          churn_rate: number | null
+          contraction_revenue: number | null
+          created_at: string | null
+          expansion_revenue: number | null
+          id: string
+          ltv: number | null
+          metadata: Json | null
+          metric_date: string
+          mrr: number | null
+          new_subscriptions: number | null
+          payment_success_rate: number | null
+          tenant_id: string | null
+        }
+        Insert: {
+          active_subscriptions?: number | null
+          arr?: number | null
+          average_revenue_per_user?: number | null
+          cancelled_subscriptions?: number | null
+          churn_rate?: number | null
+          contraction_revenue?: number | null
+          created_at?: string | null
+          expansion_revenue?: number | null
+          id?: string
+          ltv?: number | null
+          metadata?: Json | null
+          metric_date: string
+          mrr?: number | null
+          new_subscriptions?: number | null
+          payment_success_rate?: number | null
+          tenant_id?: string | null
+        }
+        Update: {
+          active_subscriptions?: number | null
+          arr?: number | null
+          average_revenue_per_user?: number | null
+          cancelled_subscriptions?: number | null
+          churn_rate?: number | null
+          contraction_revenue?: number | null
+          created_at?: string | null
+          expansion_revenue?: number | null
+          id?: string
+          ltv?: number | null
+          metadata?: Json | null
+          metric_date?: string
+          mrr?: number | null
+          new_subscriptions?: number | null
+          payment_success_rate?: number | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_analytics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_automation_rules: {
+        Row: {
+          action_config: Json
+          created_at: string | null
+          execution_count: number | null
+          id: string
+          is_active: boolean | null
+          last_executed_at: string | null
+          rule_name: string
+          rule_type: string
+          trigger_condition: Json
+          updated_at: string | null
+        }
+        Insert: {
+          action_config: Json
+          created_at?: string | null
+          execution_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_executed_at?: string | null
+          rule_name: string
+          rule_type: string
+          trigger_condition: Json
+          updated_at?: string | null
+        }
+        Update: {
+          action_config?: Json
+          created_at?: string | null
+          execution_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_executed_at?: string | null
+          rule_name?: string
+          rule_type?: string
+          trigger_condition?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      billing_notifications: {
+        Row: {
+          channel: string
+          content: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          notification_type: string
+          recipient: string
+          sent_at: string | null
+          status: string | null
+          subject: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          channel: string
+          content?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          notification_type: string
+          recipient: string
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          channel?: string
+          content?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          notification_type?: string
+          recipient?: string
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_plans: {
         Row: {
           base_price: number
@@ -3168,6 +3325,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      currency_rates: {
+        Row: {
+          base_currency: string
+          created_at: string | null
+          id: string
+          rate: number
+          source: string | null
+          target_currency: string
+          updated_at: string | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          base_currency?: string
+          created_at?: string | null
+          id?: string
+          rate: number
+          source?: string | null
+          target_currency: string
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          base_currency?: string
+          created_at?: string | null
+          id?: string
+          rate?: number
+          source?: string | null
+          target_currency?: string
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: []
       }
       custom_reports: {
         Row: {
@@ -6176,6 +6369,65 @@ export type Database = {
           used_at?: string | null
         }
         Relationships: []
+      }
+      invoice_templates: {
+        Row: {
+          company_details: Json
+          created_at: string | null
+          currency: string | null
+          custom_fields: Json | null
+          digital_signature_enabled: boolean | null
+          id: string
+          is_default: boolean | null
+          locale: string | null
+          qr_code_enabled: boolean | null
+          tax_details: Json | null
+          template_name: string
+          template_type: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_details: Json
+          created_at?: string | null
+          currency?: string | null
+          custom_fields?: Json | null
+          digital_signature_enabled?: boolean | null
+          id?: string
+          is_default?: boolean | null
+          locale?: string | null
+          qr_code_enabled?: boolean | null
+          tax_details?: Json | null
+          template_name: string
+          template_type?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_details?: Json
+          created_at?: string | null
+          currency?: string | null
+          custom_fields?: Json | null
+          digital_signature_enabled?: boolean | null
+          id?: string
+          is_default?: boolean | null
+          locale?: string | null
+          qr_code_enabled?: boolean | null
+          tax_details?: Json | null
+          template_name?: string
+          template_type?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoices: {
         Row: {
@@ -10018,6 +10270,47 @@ export type Database = {
           },
         ]
       }
+      payment_retry_logs: {
+        Row: {
+          created_at: string | null
+          failure_reason: string | null
+          gateway_response: Json | null
+          id: string
+          next_retry_at: string | null
+          payment_id: string | null
+          retry_attempt: number
+          retry_status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          failure_reason?: string | null
+          gateway_response?: Json | null
+          id?: string
+          next_retry_at?: string | null
+          payment_id?: string | null
+          retry_attempt: number
+          retry_status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          failure_reason?: string | null
+          gateway_response?: Json | null
+          id?: string
+          next_retry_at?: string | null
+          payment_id?: string | null
+          retry_attempt?: number
+          retry_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_retry_logs_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payment_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -10824,6 +11117,65 @@ export type Database = {
             columns: ["land_id"]
             isOneToOne: false
             referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_models: {
+        Row: {
+          base_price: number | null
+          billing_interval: string | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          model_name: string
+          model_type: string
+          tenant_id: string | null
+          tier_config: Json | null
+          updated_at: string | null
+          usage_metrics: Json | null
+          volume_discounts: Json | null
+        }
+        Insert: {
+          base_price?: number | null
+          billing_interval?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          model_name: string
+          model_type: string
+          tenant_id?: string | null
+          tier_config?: Json | null
+          updated_at?: string | null
+          usage_metrics?: Json | null
+          volume_discounts?: Json | null
+        }
+        Update: {
+          base_price?: number | null
+          billing_interval?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          model_name?: string
+          model_type?: string
+          tenant_id?: string | null
+          tier_config?: Json | null
+          updated_at?: string | null
+          usage_metrics?: Json | null
+          volume_discounts?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_models_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -12812,6 +13164,62 @@ export type Database = {
           },
         ]
       }
+      subscription_change_history: {
+        Row: {
+          change_type: string
+          created_at: string | null
+          effective_date: string
+          id: string
+          initiated_by: string | null
+          metadata: Json | null
+          new_plan_id: string | null
+          new_price: number | null
+          old_plan_id: string | null
+          old_price: number | null
+          proration_amount: number | null
+          reason: string | null
+          subscription_id: string | null
+        }
+        Insert: {
+          change_type: string
+          created_at?: string | null
+          effective_date: string
+          id?: string
+          initiated_by?: string | null
+          metadata?: Json | null
+          new_plan_id?: string | null
+          new_price?: number | null
+          old_plan_id?: string | null
+          old_price?: number | null
+          proration_amount?: number | null
+          reason?: string | null
+          subscription_id?: string | null
+        }
+        Update: {
+          change_type?: string
+          created_at?: string | null
+          effective_date?: string
+          id?: string
+          initiated_by?: string | null
+          metadata?: Json | null
+          new_plan_id?: string | null
+          new_price?: number | null
+          old_plan_id?: string | null
+          old_price?: number | null
+          proration_amount?: number | null
+          reason?: string | null
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_change_history_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           created_at: string | null
@@ -13391,6 +13799,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tax_configurations: {
+        Row: {
+          country_code: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          region: string | null
+          reverse_charge_applicable: boolean | null
+          tax_id_required: boolean | null
+          tax_rate: number
+          tax_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          country_code: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          region?: string | null
+          reverse_charge_applicable?: boolean | null
+          tax_id_required?: boolean | null
+          tax_rate: number
+          tax_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          country_code?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          region?: string | null
+          reverse_charge_applicable?: boolean | null
+          tax_id_required?: boolean | null
+          tax_rate?: number
+          tax_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       team_invitations: {
         Row: {
@@ -14163,6 +14613,50 @@ export type Database = {
           },
           {
             foreignKeyName: "tenant_subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_wallets: {
+        Row: {
+          auto_topup_amount: number | null
+          auto_topup_enabled: boolean | null
+          auto_topup_threshold: number | null
+          balance: number | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          auto_topup_amount?: number | null
+          auto_topup_enabled?: boolean | null
+          auto_topup_threshold?: number | null
+          balance?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          auto_topup_amount?: number | null
+          auto_topup_enabled?: boolean | null
+          auto_topup_threshold?: number | null
+          balance?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_wallets_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -14975,6 +15469,56 @@ export type Database = {
             columns: ["taluka_id"]
             isOneToOne: false
             referencedRelation: "talukas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          balance_after: number | null
+          balance_before: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          reference_id: string | null
+          reference_type: string | null
+          transaction_type: string
+          wallet_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after?: number | null
+          balance_before?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          reference_id?: string | null
+          reference_type?: string | null
+          transaction_type: string
+          wallet_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number | null
+          balance_before?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          reference_id?: string | null
+          reference_type?: string | null
+          transaction_type?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_wallets"
             referencedColumns: ["id"]
           },
         ]

@@ -6,6 +6,10 @@ import { SubscriptionOverview } from '@/components/billing/SubscriptionOverview'
 import { PaymentProcessing } from '@/components/billing/PaymentProcessing';
 import { InvoiceManagement } from '@/components/billing/InvoiceManagement';
 import { SubscriptionRenewals } from '@/components/billing/SubscriptionRenewals';
+import { AdvancedAnalytics } from '@/components/billing/AdvancedAnalytics';
+import { WalletManagement } from '@/components/billing/WalletManagement';
+import { MultiCurrencySettings } from '@/components/billing/MultiCurrencySettings';
+import { AutomationRules } from '@/components/billing/AutomationRules';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -111,13 +115,17 @@ export default function BillingManagement() {
         </Card>
       </div>
 
-      {/* Billing Tabs */}
+      {/* Enhanced Billing Tabs */}
       <Tabs defaultValue="subscriptions" className="space-y-4">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
           <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="renewals">Renewals</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="wallet">Wallets</TabsTrigger>
+          <TabsTrigger value="currency">Currency</TabsTrigger>
+          <TabsTrigger value="automation">Automation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="subscriptions">
@@ -134,6 +142,22 @@ export default function BillingManagement() {
 
         <TabsContent value="renewals">
           <SubscriptionRenewals />
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <AdvancedAnalytics />
+        </TabsContent>
+
+        <TabsContent value="wallet">
+          <WalletManagement />
+        </TabsContent>
+
+        <TabsContent value="currency">
+          <MultiCurrencySettings />
+        </TabsContent>
+
+        <TabsContent value="automation">
+          <AutomationRules />
         </TabsContent>
       </Tabs>
     </div>
