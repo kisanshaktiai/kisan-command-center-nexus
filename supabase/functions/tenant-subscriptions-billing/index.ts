@@ -7,6 +7,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Utility function for logging with context
+const log = (level: 'info' | 'error' | 'warn', message: string, data?: unknown) => {
+  const timestamp = new Date().toISOString();
+  console.log(JSON.stringify({ timestamp, level, message, data }));
+};
+
 interface SubscriptionBillingResponse {
   active_subscriptions: Array<{
     id: string;
@@ -47,18 +53,38 @@ interface SubscriptionBillingResponse {
 }
 
 serve(async (req) => {
+  const requestId = crypto.randomUUID();
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  
   try {
     const url = new URL(req.url);
     const tenantId = url.pathname.split('/')[3]; // Extract tenant ID from path (optional)
+    
+    log('info', 'Processing billing request', { requestId, tenantId, method: req.method });
+
+    // Validate environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      log('error', 'Missing required environment variables', { requestId });
+      throw new Error('Server configuration error');
+    }
 
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false } }
+      supabaseUrl,
+      supabaseKey,
+      { 
+        auth: { persistSession: false },
+        global: {
+          headers: { 'x-request-id': requestId }
+        }
+      }
     );
 
     // Build queries - if tenantId is provided, filter by it; otherwise get all tenants
@@ -104,11 +130,33 @@ serve(async (req) => {
       renewalsQuery = renewalsQuery.eq('tenant_id', tenantId);
     }
 
-    // Execute all queries
-    const { data: subscriptions } = await subscriptionsQuery;
-    const { data: payments } = await paymentsQuery;
-    const { data: invoices } = await invoicesQuery;
-    const { data: renewals } = await renewalsQuery;
+    // Execute all queries with error handling
+    const [subscriptionsResult, paymentsResult, invoicesResult, renewalsResult] = await Promise.allSettled([
+      subscriptionsQuery,
+      paymentsQuery,
+      invoicesQuery,
+      renewalsQuery
+    ]);
+
+    // Extract data with fallbacks
+    const subscriptions = subscriptionsResult.status === 'fulfilled' ? subscriptionsResult.value.data : [];
+    const payments = paymentsResult.status === 'fulfilled' ? paymentsResult.value.data : [];
+    const invoices = invoicesResult.status === 'fulfilled' ? invoicesResult.value.data : [];
+    const renewals = renewalsResult.status === 'fulfilled' ? renewalsResult.value.data : [];
+
+    // Log any failures
+    if (subscriptionsResult.status === 'rejected') {
+      log('error', 'Failed to fetch subscriptions', { requestId, error: subscriptionsResult.reason });
+    }
+    if (paymentsResult.status === 'rejected') {
+      log('error', 'Failed to fetch payments', { requestId, error: paymentsResult.reason });
+    }
+    if (invoicesResult.status === 'rejected') {
+      log('error', 'Failed to fetch invoices', { requestId, error: invoicesResult.reason });
+    }
+    if (renewalsResult.status === 'rejected') {
+      log('error', 'Failed to fetch renewals', { requestId, error: renewalsResult.reason });
+    }
 
     // Calculate billing summary
     const completedPayments = payments?.filter(p => p.status === 'completed') || [];
@@ -148,18 +196,67 @@ serve(async (req) => {
       },
     };
 
+    const duration = Date.now() - startTime;
+    log('info', 'Request completed successfully', { 
+      requestId, 
+      duration, 
+      tenantId,
+      recordCounts: {
+        subscriptions: response.active_subscriptions.length,
+        payments: response.payment_records.length,
+        invoices: response.invoices.length,
+        renewals: response.upcoming_renewals.length
+      }
+    });
+
     return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'application/json',
+        'X-Request-ID': requestId,
+        'X-Response-Time': `${duration}ms`
+      },
       status: 200,
     });
   } catch (error) {
-    console.error('Error in tenant-subscriptions-billing:', error);
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    log('error', 'Request failed', { 
+      requestId, 
+      duration,
+      error: errorMessage,
+      stack: errorStack
+    });
+
+    // Determine appropriate status code
+    let statusCode = 500;
+    let userMessage = 'Internal server error';
+
+    if (errorMessage.includes('configuration')) {
+      statusCode = 503;
+      userMessage = 'Service temporarily unavailable';
+    } else if (errorMessage.includes('authentication') || errorMessage.includes('unauthorized')) {
+      statusCode = 401;
+      userMessage = 'Authentication required';
+    } else if (errorMessage.includes('not found')) {
+      statusCode = 404;
+      userMessage = 'Resource not found';
+    }
+
     return new Response(JSON.stringify({ 
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : String(error) 
+      error: userMessage,
+      message: errorMessage,
+      requestId,
+      timestamp: new Date().toISOString()
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'application/json',
+        'X-Request-ID': requestId 
+      },
+      status: statusCode,
     });
   }
 });

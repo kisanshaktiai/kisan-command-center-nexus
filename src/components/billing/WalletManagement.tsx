@@ -10,6 +10,8 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useBillingRealtime } from '@/hooks/useBillingRealtime';
+import { TableRowSkeleton } from '@/components/ui/loading-skeleton';
 
 interface WalletTransaction {
   id: string;
@@ -34,9 +36,21 @@ export function WalletManagement() {
         .select('*, tenants(name)')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching wallets:', error);
+        throw error;
+      }
       return data;
     },
+    staleTime: 10000,
+    retry: 2,
+  });
+
+  // Real-time updates for wallets
+  useBillingRealtime({
+    eventType: 'wallet',
+    queryKey: ['tenant-wallets'],
+    showNotifications: true
   });
 
   const { data: transactions } = useQuery({
@@ -114,7 +128,13 @@ export function WalletManagement() {
   };
 
   if (walletsLoading) {
-    return <div className="text-center py-8">Loading wallets...</div>;
+    return (
+      <div className="space-y-4">
+        <TableRowSkeleton />
+        <TableRowSkeleton />
+        <TableRowSkeleton />
+      </div>
+    );
   }
 
   return (

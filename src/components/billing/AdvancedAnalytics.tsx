@@ -4,6 +4,8 @@ import { TrendingUp, TrendingDown, DollarSign, Users, Target, Zap } from 'lucide
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useBillingRealtime } from '@/hooks/useBillingRealtime';
+import { ChartSkeleton, MetricCardSkeleton } from '@/components/ui/loading-skeleton';
 
 export function AdvancedAnalytics() {
   const { data: analyticsData, isLoading } = useQuery({
@@ -15,7 +17,10 @@ export function AdvancedAnalytics() {
         .order('metric_date', { ascending: false })
         .limit(30);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching analytics:', error);
+        throw error;
+      }
       
       // Calculate aggregates from the data
       const latestMetric = data?.[0];
@@ -38,7 +43,15 @@ export function AdvancedAnalytics() {
         })) || []
       };
     },
-    refetchInterval: 60000,
+    staleTime: 30000,
+    retry: 2,
+  });
+
+  // Real-time updates for analytics
+  useBillingRealtime({
+    eventType: 'analytics',
+    queryKey: ['billing-analytics'],
+    showNotifications: false
   });
 
   const formatCurrency = (amount: number) => {
@@ -46,7 +59,17 @@ export function AdvancedAnalytics() {
   };
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading advanced analytics...</div>;
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-4">
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+        </div>
+        <ChartSkeleton />
+      </div>
+    );
   }
 
   return (

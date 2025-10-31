@@ -7,6 +7,8 @@ import { Globe, RefreshCw, TrendingUp, DollarSign } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useBillingRealtime } from '@/hooks/useBillingRealtime';
+import { TableRowSkeleton } from '@/components/ui/loading-skeleton';
 
 export function MultiCurrencySettings() {
   const [newRate, setNewRate] = useState<{ base: string; target: string; rate: string }>({
@@ -25,9 +27,21 @@ export function MultiCurrencySettings() {
         .order('base_currency')
         .order('target_currency');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching currency rates:', error);
+        throw error;
+      }
       return data;
     },
+    staleTime: 60000,
+    retry: 2,
+  });
+
+  // Real-time updates for currency rates
+  useBillingRealtime({
+    eventType: 'subscription',
+    queryKey: ['currency-rates'],
+    showNotifications: false
   });
 
   const { data: taxConfigs } = useQuery({
@@ -71,7 +85,13 @@ export function MultiCurrencySettings() {
   const currencies = ['USD', 'INR', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'SGD'];
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading currency settings...</div>;
+    return (
+      <div className="space-y-4">
+        <TableRowSkeleton />
+        <TableRowSkeleton />
+        <TableRowSkeleton />
+      </div>
+    );
   }
 
   return (

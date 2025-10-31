@@ -6,6 +6,8 @@ import { Zap, Mail, MessageSquare, RefreshCw, Bell } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useBillingRealtime } from '@/hooks/useBillingRealtime';
+import { TableRowSkeleton } from '@/components/ui/loading-skeleton';
 
 export function AutomationRules() {
   const queryClient = useQueryClient();
@@ -19,9 +21,21 @@ export function AutomationRules() {
         .order('rule_type')
         .order('rule_name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching automation rules:', error);
+        throw error;
+      }
       return data;
     },
+    staleTime: 30000,
+    retry: 2,
+  });
+
+  // Real-time updates for automation rules
+  useBillingRealtime({
+    eventType: 'subscription',
+    queryKey: ['billing-automation-rules'],
+    showNotifications: false
   });
 
   const { data: notifications } = useQuery({
@@ -75,7 +89,13 @@ export function AutomationRules() {
   };
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading automation rules...</div>;
+    return (
+      <div className="space-y-4">
+        <TableRowSkeleton />
+        <TableRowSkeleton />
+        <TableRowSkeleton />
+      </div>
+    );
   }
 
   return (
