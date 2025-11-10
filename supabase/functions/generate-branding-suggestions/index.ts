@@ -43,7 +43,7 @@ Return ONLY a JSON array with 3 objects, each containing "appName" and "tagLine"
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
           { 
             role: 'system', 
@@ -51,18 +51,21 @@ Return ONLY a JSON array with 3 objects, each containing "appName" and "tagLine"
           },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 500,
+        max_tokens: 500,
+        temperature: 0.8,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('OpenAI Response:', JSON.stringify(data, null, 2));
     const content = data.choices[0].message.content;
+    console.log('Generated content:', content);
     
     // Parse the JSON response
     let suggestions;
