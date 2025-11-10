@@ -163,8 +163,10 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     // Send email via Resend
+    // Use a safe display name without special characters to avoid domain verification issues
+    const safeCompanyName = companyName.replace(/[<>@]/g, '').trim() || 'KisanShaktiAI';
     const emailResponse = await resend.emails.send({
-      from: `${companyName} <onboarding@resend.dev>`,
+      from: `${safeCompanyName} <onboarding@resend.dev>`,
       to: [email],
       subject,
       html: htmlContent,
