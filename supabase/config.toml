@@ -134,6 +134,9 @@ verify_jwt = false
 [functions.user-permissions]
 verify_jwt = false
 
+[functions.generate-branding-suggestions]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323

@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor, Code, Settings, Save, Loader2 } from 'lucide-react';
+import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor, Code, Settings, Save, Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -169,6 +169,10 @@ export default function WhiteLabelConfig() {
   const [config, setConfig] = useState<WhiteLabelConfig | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const MAX_APP_NAME_LENGTH = 15;
+  const MAX_TAGLINE_LENGTH = 26;
 
   // Fetch tenants
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery({
@@ -406,6 +410,39 @@ export default function WhiteLabelConfig() {
       .replace(/\{\{company_name\}\}/g, companyName);
   };
 
+  const handleGenerateBrandingSuggestions = async () => {
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-branding-suggestions', {
+        body: {
+          companyName: config?.brand_identity?.company_name || '',
+          industry: 'Agriculture/AgriTech',
+          description: 'A white-label platform empowering organizations'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.suggestions && data.suggestions.length > 0) {
+        const suggestion = data.suggestions[0];
+        updateConfig('brand_identity', 'app_name', suggestion.appName);
+        updateConfig('brand_identity', 'tagline', suggestion.tagLine);
+        toast.success('AI suggestions applied!', {
+          description: `Generated: ${suggestion.appName} - ${suggestion.tagLine}`
+        });
+      } else {
+        toast.error('No suggestions generated');
+      }
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+      toast.error('Failed to generate suggestions', {
+        description: error instanceof Error ? error.message : 'Please try again'
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   if (tenantsLoading) {
     return <div className="text-center py-8">Loading tenants...</div>;
   }
@@ -542,28 +579,80 @@ export default function WhiteLabelConfig() {
                   onLogoChange={(url) => updateConfig('brand_identity', 'logo_url', url)} 
                 />
                 
-                {/* App Name and Tag Line */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="app-name">App Name</Label>
-                    <Input
-                      id="app-name"
-                      type="text"
-                      placeholder="Enter your app name"
-                      value={config?.brand_identity?.app_name || ''}
-                      onChange={(e) => updateConfig('brand_identity', 'app_name', e.target.value)}
-                    />
+                {/* App Name and Tag Line with AI Suggestions */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">App Identity</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateBrandingSuggestions}
+                      disabled={isGenerating}
+                      className="flex items-center gap-2"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          AI Suggest
+                        </>
+                      )}
+                    </Button>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="tag-line">Tag Line</Label>
-                    <Input
-                      id="tag-line"
-                      type="text"
-                      placeholder="Enter your tag line"
-                      value={config?.brand_identity?.tagline || ''}
-                      onChange={(e) => updateConfig('brand_identity', 'tagline', e.target.value)}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="app-name">App Name</Label>
+                        <span className={`text-xs ${
+                          (config?.brand_identity?.app_name || '').length > MAX_APP_NAME_LENGTH 
+                            ? 'text-destructive' 
+                            : 'text-muted-foreground'
+                        }`}>
+                          {(config?.brand_identity?.app_name || '').length}/{MAX_APP_NAME_LENGTH}
+                        </span>
+                      </div>
+                      <Input
+                        id="app-name"
+                        type="text"
+                        placeholder="Enter your app name"
+                        value={config?.brand_identity?.app_name || ''}
+                        onChange={(e) => {
+                          const value = e.target.value.substring(0, MAX_APP_NAME_LENGTH);
+                          updateConfig('brand_identity', 'app_name', value);
+                        }}
+                        maxLength={MAX_APP_NAME_LENGTH}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="tag-line">Tag Line</Label>
+                        <span className={`text-xs ${
+                          (config?.brand_identity?.tagline || '').length > MAX_TAGLINE_LENGTH 
+                            ? 'text-destructive' 
+                            : 'text-muted-foreground'
+                        }`}>
+                          {(config?.brand_identity?.tagline || '').length}/{MAX_TAGLINE_LENGTH}
+                        </span>
+                      </div>
+                      <Input
+                        id="tag-line"
+                        type="text"
+                        placeholder="Enter your tag line"
+                        value={config?.brand_identity?.tagline || ''}
+                        onChange={(e) => {
+                          const value = e.target.value.substring(0, MAX_TAGLINE_LENGTH);
+                          updateConfig('brand_identity', 'tagline', value);
+                        }}
+                        maxLength={MAX_TAGLINE_LENGTH}
+                      />
+                    </div>
                   </div>
                 </div>
                 
