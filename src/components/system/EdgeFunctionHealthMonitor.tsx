@@ -15,10 +15,10 @@ interface EdgeFunctionStatus {
 }
 
 const EDGE_FUNCTIONS = [
-  'convert-lead-to-tenant',
-  'assign-admin-role',
-  'send-admin-invite',
-  'verify-admin-invite',
+  'user-invitations',
+  'user-operations',
+  'user-permissions',
+  'tenant-data',
   'collect-metrics',
   'admin-utilities',
 ];

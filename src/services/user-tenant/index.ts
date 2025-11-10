@@ -55,7 +55,7 @@ export class UserTenantService {
       if (tenantId) params.append('tenant_id', tenantId);
       if (includeInactive) params.append('include_inactive', 'true');
 
-      const { data, error } = await supabase.functions.invoke('manage-user-tenant', {
+      const { data, error } = await supabase.functions.invoke('user-permissions', {
         method: 'GET',
         headers: {
           'x-request-id': `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

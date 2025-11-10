@@ -45,8 +45,11 @@ export class InviteVerificationService extends BaseService {
         throw new Error('Invite token is required');
       }
 
-      const { data, error } = await supabase.functions.invoke('verify-admin-invite', {
-        body: { token }
+      const { data, error } = await supabase.functions.invoke('user-invitations', {
+        body: { 
+          action: 'verify',
+          token 
+        }
       });
 
       if (error) {
@@ -85,8 +88,10 @@ export class InviteVerificationService extends BaseService {
         throw new Error('Password is required');
       }
 
-      const { data, error } = await supabase.functions.invoke('verify-admin-invite/accept', {
+      const { data, error } = await supabase.functions.invoke('user-invitations', {
         body: {
+          action: 'accept',
+          invitation_type: 'admin',
           token: inviteData.token,
           fullName: inviteData.fullName.trim(),
           password: inviteData.password,

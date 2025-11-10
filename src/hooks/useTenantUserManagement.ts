@@ -36,8 +36,11 @@ export const useTenantUserManagement = () => {
     try {
       console.log('useTenantUserManagement: Checking user exists for:', email);
       
-      const { data, error } = await supabase.functions.invoke('check-user-exists', {
-        body: { email }
+      const { data, error } = await supabase.functions.invoke('user-operations', {
+        body: { 
+          operation: 'check-exists',
+          email 
+        }
       });
 
       if (error) {
@@ -164,8 +167,9 @@ export const useTenantUserManagement = () => {
     try {
       console.log('useTenantUserManagement: Creating tenant user:', { email, fullName, tenantId });
       
-      const { data, error } = await supabase.functions.invoke('register-user-with-welcome', {
+      const { data, error } = await supabase.functions.invoke('user-operations', {
         body: {
+          operation: 'register',
           email,
           fullName,
           tenantId,
@@ -215,8 +219,9 @@ export const useTenantUserManagement = () => {
     try {
       console.log('useTenantUserManagement: Creating admin user:', { email, fullName, tenantId });
       
-      const { data, error } = await supabase.functions.invoke('register-user-with-welcome', {
+      const { data, error} = await supabase.functions.invoke('user-operations', {
         body: {
+          operation: 'register',
           email,
           fullName,
           tenantId,

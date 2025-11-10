@@ -125,7 +125,13 @@ verify_jwt = false
 [functions.admin-utilities]
 verify_jwt = false
 
-[functions.tenant-data]
+[functions.user-invitations]
+verify_jwt = false
+
+[functions.user-operations]
+verify_jwt = false
+
+[functions.user-permissions]
 verify_jwt = false
 
 [storage]

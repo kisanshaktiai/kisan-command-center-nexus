@@ -85,8 +85,10 @@ export class InvitationService {
       console.log('InvitationService: Current user ID:', user.id);
 
       // Include userId in the request body instead of headers
-      const { data, error } = await supabase.functions.invoke('send-user-invite', {
+      const { data, error } = await supabase.functions.invoke('user-invitations', {
         body: {
+          action: 'send',
+          invitation_type: 'user',
           ...request,
           userId: user.id
         }

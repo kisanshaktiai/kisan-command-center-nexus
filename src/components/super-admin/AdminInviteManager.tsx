@@ -93,14 +93,16 @@ export const AdminInviteManager = () => {
   // Send invite mutation
   const sendInviteMutation = useMutation({
     mutationFn: async (inviteData: { email: string; role: string }) => {
-      const response = await supabase.functions.invoke('send-admin-invite', {
-        body: JSON.stringify({
+      const response = await supabase.functions.invoke('user-invitations', {
+        body: {
+          action: 'send',
+          invitation_type: 'admin',
           email: inviteData.email,
           role: inviteData.role,
           invitedBy: user?.id,
           organizationName: 'Platform Admin',
           primaryColor: '#2563eb'
-        })
+        }
       });
 
       if (response.error) {
@@ -130,14 +132,16 @@ export const AdminInviteManager = () => {
         .eq('id', invite.id);
 
       // Send new invite
-      const response = await supabase.functions.invoke('send-admin-invite', {
-        body: JSON.stringify({
+      const response = await supabase.functions.invoke('user-invitations', {
+        body: {
+          action: 'send',
+          invitation_type: 'admin',
           email: invite.email,
           role: invite.role,
           invitedBy: user?.id,
           organizationName: 'Platform Admin',
           primaryColor: '#2563eb'
-        })
+        }
       });
 
       if (response.error) {

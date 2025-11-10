@@ -168,8 +168,10 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
       const inviterName = user.user_metadata?.full_name || 'Team Admin';
 
       // Call the edge function with userId in the request body
-      const { data, error } = await supabase.functions.invoke('send-user-invite', {
+      const { data, error } = await supabase.functions.invoke('user-invitations', {
         body: {
+          action: 'send',
+          invitation_type: 'user',
           tenantId,
           email: newUser.email,
           firstName: newUser.firstName,
@@ -219,8 +221,10 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
 
       const inviterName = user.user_metadata?.full_name || 'Team Admin';
 
-      const { data, error } = await supabase.functions.invoke('send-user-invite', {
+      const { data, error } = await supabase.functions.invoke('user-invitations', {
         body: {
+          action: 'send',
+          invitation_type: 'user',
           tenantId,
           email: invitation.email,
           firstName: invitation.first_name,
