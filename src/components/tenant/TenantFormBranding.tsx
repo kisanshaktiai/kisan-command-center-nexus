@@ -8,6 +8,7 @@ import { Upload, Palette, Smartphone, Sparkles, Loader2 } from 'lucide-react';
 import { BrandingPreview } from './BrandingPreview';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { BrandingSuggestionsDialog } from '@/components/white-label/BrandingSuggestionsDialog';
 
 interface TenantFormBrandingProps {
   formData: any;
@@ -51,6 +52,8 @@ const colorThemes = [
 export const TenantFormBranding: React.FC<TenantFormBrandingProps> = ({ formData, onChange }) => {
   const [logoPreview, setLogoPreview] = useState<string | null>(formData.branding?.logo_url || null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showSuggestionsDialog, setShowSuggestionsDialog] = useState(false);
+  const [suggestions, setSuggestions] = useState<Array<{ appName: string; tagLine: string }>>([]);
 
   const MAX_APP_NAME_LENGTH = 15;
   const MAX_TAGLINE_LENGTH = 26;
@@ -91,13 +94,8 @@ export const TenantFormBranding: React.FC<TenantFormBrandingProps> = ({ formData
       if (error) throw error;
 
       if (data?.suggestions && data.suggestions.length > 0) {
-        // Use the first suggestion
-        const suggestion = data.suggestions[0];
-        onChange?.('branding.app_name', suggestion.appName);
-        onChange?.('branding.app_tagline', suggestion.tagLine);
-        toast.success('AI suggestions applied!', {
-          description: `Generated: ${suggestion.appName} - ${suggestion.tagLine}`
-        });
+        setSuggestions(data.suggestions);
+        setShowSuggestionsDialog(true);
       } else {
         toast.error('No suggestions generated');
       }
@@ -109,6 +107,14 @@ export const TenantFormBranding: React.FC<TenantFormBrandingProps> = ({ formData
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleSelectSuggestion = (suggestion: { appName: string; tagLine: string }) => {
+    onChange?.('branding.app_name', suggestion.appName);
+    onChange?.('branding.app_tagline', suggestion.tagLine);
+    toast.success('Suggestion applied!', {
+      description: `${suggestion.appName} - ${suggestion.tagLine}`
+    });
   };
 
   return (
@@ -325,6 +331,14 @@ export const TenantFormBranding: React.FC<TenantFormBrandingProps> = ({ formData
         secondaryColor={formData.branding?.secondary_color || '#065F46'}
         appName={formData.branding?.app_name || formData.name || 'KisanShakti AI'}
         appTagline={formData.branding?.app_tagline || 'Empowering Farmers with AI Technology'}
+      />
+
+      {/* Branding Suggestions Dialog */}
+      <BrandingSuggestionsDialog
+        open={showSuggestionsDialog}
+        onOpenChange={setShowSuggestionsDialog}
+        suggestions={suggestions}
+        onSelectSuggestion={handleSelectSuggestion}
       />
     </div>
   );

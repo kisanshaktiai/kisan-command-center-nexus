@@ -24,6 +24,7 @@ import { DomainValidationSection } from '@/components/white-label/DomainValidati
 import { EmailTemplatesPanel } from '@/components/white-label/EmailTemplatesPanel';
 import { EnhancedMobileThemePanel } from '@/components/white-label/EnhancedMobileThemePanel';
 import { WebAppThemePanel } from '@/components/white-label/WebAppThemePanel';
+import { BrandingSuggestionsDialog } from '@/components/white-label/BrandingSuggestionsDialog';
 
 interface WhiteLabelConfig {
   id: string;
@@ -170,6 +171,8 @@ export default function WhiteLabelConfig() {
   const [previewMode, setPreviewMode] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showSuggestionsDialog, setShowSuggestionsDialog] = useState(false);
+  const [suggestions, setSuggestions] = useState<Array<{ appName: string; tagLine: string }>>([]);
 
   const MAX_APP_NAME_LENGTH = 15;
   const MAX_TAGLINE_LENGTH = 26;
@@ -424,12 +427,8 @@ export default function WhiteLabelConfig() {
       if (error) throw error;
 
       if (data?.suggestions && data.suggestions.length > 0) {
-        const suggestion = data.suggestions[0];
-        updateConfig('brand_identity', 'app_name', suggestion.appName);
-        updateConfig('brand_identity', 'tagline', suggestion.tagLine);
-        toast.success('AI suggestions applied!', {
-          description: `Generated: ${suggestion.appName} - ${suggestion.tagLine}`
-        });
+        setSuggestions(data.suggestions);
+        setShowSuggestionsDialog(true);
       } else {
         toast.error('No suggestions generated');
       }
@@ -441,6 +440,14 @@ export default function WhiteLabelConfig() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleSelectSuggestion = (suggestion: { appName: string; tagLine: string }) => {
+    updateConfig('brand_identity', 'app_name', suggestion.appName);
+    updateConfig('brand_identity', 'tagline', suggestion.tagLine);
+    toast.success('Suggestion applied!', {
+      description: `${suggestion.appName} - ${suggestion.tagLine}`
+    });
   };
 
   if (tenantsLoading) {
@@ -952,6 +959,14 @@ export default function WhiteLabelConfig() {
           </TabsContent>
         </Tabs>
       )}
+
+      {/* Branding Suggestions Dialog */}
+      <BrandingSuggestionsDialog
+        open={showSuggestionsDialog}
+        onOpenChange={setShowSuggestionsDialog}
+        suggestions={suggestions}
+        onSelectSuggestion={handleSelectSuggestion}
+      />
     </div>
   );
 }
