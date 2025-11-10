@@ -125,6 +125,9 @@ verify_jwt = false
 [functions.admin-utilities]
 verify_jwt = false
 
+[functions.tenant-data]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323

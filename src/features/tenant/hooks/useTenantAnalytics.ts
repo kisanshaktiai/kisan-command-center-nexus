@@ -46,7 +46,7 @@ export const useTenantAnalytics = ({
       
       // Call edge function with tenant_id as query parameter
       const { data, error: fetchError } = await supabase.functions.invoke(
-        `tenant-real-time-metrics?tenant_id=${tenantId}`,
+        `tenant-data?tenant_id=${tenantId}&data_type=metrics`,
         {
           method: 'GET'
         }
