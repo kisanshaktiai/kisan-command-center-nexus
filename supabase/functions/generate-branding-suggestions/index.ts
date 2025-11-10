@@ -19,9 +19,11 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not configured');
     }
 
-    const prompt = `Generate 3 creative and professional suggestions for:
-1. App Name (maximum 15 characters with space)
-2. Tag Line (maximum 26 characters with space)
+    const prompt = `You must respond with ONLY a valid JSON array. No explanations, no markdown, no code blocks.
+
+Generate 3 creative and professional suggestions with these exact requirements:
+- App Name: maximum 15 characters including spaces
+- Tag Line: maximum 26 characters including spaces
 
 Context:
 - Company: ${companyName || 'Not provided'}
@@ -34,7 +36,12 @@ Requirements:
 - Both should be professional and suitable for a SaaS platform
 - Focus on agriculture, technology, and empowerment themes
 
-Return ONLY a JSON array with 3 objects, each containing "appName" and "tagLine" fields. No markdown formatting.`;
+Response format (return ONLY this, nothing else):
+[
+  {"appName": "Example1", "tagLine": "Example tagline one"},
+  {"appName": "Example2", "tagLine": "Example tagline two"},
+  {"appName": "Example3", "tagLine": "Example tagline three"}
+]`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -63,18 +70,33 @@ Return ONLY a JSON array with 3 objects, each containing "appName" and "tagLine"
     }
 
     const data = await response.json();
-    console.log('OpenAI Response:', JSON.stringify(data, null, 2));
     const content = data.choices[0].message.content;
-    console.log('Generated content:', content);
+    console.log('Raw OpenAI content:', content);
     
     // Parse the JSON response
     let suggestions;
     try {
-      // Remove markdown code blocks if present
-      const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      // Remove markdown code blocks, extra whitespace, and any text before/after JSON
+      let cleanContent = content.trim();
+      
+      // Remove markdown code blocks
+      cleanContent = cleanContent.replace(/```json\n?/gi, '').replace(/```\n?/g, '');
+      
+      // Find JSON array in the content (handles cases where AI adds extra text)
+      const jsonMatch = cleanContent.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        cleanContent = jsonMatch[0];
+      }
+      
+      console.log('Cleaned content:', cleanContent);
       suggestions = JSON.parse(cleanContent);
+      
+      if (!Array.isArray(suggestions) || suggestions.length === 0) {
+        throw new Error('Response is not a valid array');
+      }
     } catch (parseError) {
-      console.error('Failed to parse AI response:', content);
+      console.error('Parse error:', parseError);
+      console.error('Failed to parse AI response. Content was:', content);
       throw new Error('Failed to parse AI suggestions');
     }
 
