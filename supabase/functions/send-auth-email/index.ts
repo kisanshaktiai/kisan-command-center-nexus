@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "npm:resend@2.0.0";
 
-const resendApiKey = Deno.env.get("RESEND_API_KEY");
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -12,9 +10,8 @@ const corsHeaders = {
 };
 
 interface AuthEmailRequest {
-  type: 'signup' | 'recovery' | 'magiclink' | 'email_change' | 'invite';
+  type: 'signup' | 'recovery' | 'magiclink' | 'email_change' | 'invite' | 'admin_invite' | 'user_invite' | 'tenant_admin_invite';
   email: string;
-  token?: string;
   redirectTo?: string;
   userId?: string;
   tenantId?: string;
@@ -28,10 +25,9 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const resend = new Resend(resendApiKey);
     
     const requestData: AuthEmailRequest = await req.json();
-    const { type, email, token, redirectTo, userId, tenantId, metadata } = requestData;
+    const { type, email, redirectTo, userId, tenantId, metadata } = requestData;
 
     console.log('Processing auth email:', { type, email, tenantId });
 
@@ -55,7 +51,10 @@ const handler = async (req: Request): Promise<Response> => {
       'recovery': 'password_reset',
       'magiclink': 'magic_link',
       'email_change': 'email_change',
-      'invite': 'user_invite'
+      'invite': 'user_invite',
+      'admin_invite': 'admin_invite',
+      'user_invite': 'user_invite',
+      'tenant_admin_invite': 'tenant_admin_invite'
     };
     
     const templateType = templateTypeMap[type] || 'email_verification';
@@ -100,9 +99,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Build variables for template rendering
-    const appName = brandConfig?.brand_identity?.app_name || 'Our App';
-    const companyName = brandConfig?.brand_identity?.company_name || 'Our Company';
-    const primaryColor = brandConfig?.brand_identity?.primary_color || '#6366f1';
+    const appName = brandConfig?.brand_identity?.app_name || metadata?.app_name || 'KisanShaktiAI';
+    const companyName = brandConfig?.brand_identity?.company_name || metadata?.company_name || 'KisanShaktiAI';
+    const primaryColor = brandConfig?.brand_identity?.primary_color || metadata?.primary_color || '#6366f1';
     
     const variables: Record<string, string> = {
       app_name: appName,
@@ -110,11 +109,16 @@ const handler = async (req: Request): Promise<Response> => {
       primary_color: primaryColor,
       user_name: metadata?.user_name || email.split('@')[0],
       email: email,
-      verification_url: token ? `${redirectTo || supabaseUrl}/auth/verify?token=${token}` : '',
-      reset_url: token ? `${redirectTo || supabaseUrl}/auth/reset-password?token=${token}` : '',
-      magic_link_url: token ? `${redirectTo || supabaseUrl}/auth/verify?token=${token}&type=magiclink` : '',
-      reset_code: token?.substring(0, 6) || '',
-      support_email: 'support@example.com',
+      invite_url: metadata?.invite_url || redirectTo || '',
+      role: metadata?.role || 'User',
+      organization_name: metadata?.organization_name || companyName,
+      tenant_name: metadata?.tenant_name || companyName,
+      inviter_name: metadata?.inviter_name || 'Team Admin',
+      verification_url: redirectTo || `${supabaseUrl}/auth/verify`,
+      reset_url: redirectTo || `${supabaseUrl}/auth/reset-password`,
+      magic_link_url: redirectTo || `${supabaseUrl}/auth/verify`,
+      reset_code: metadata?.reset_code || '',
+      support_email: metadata?.support_email || 'support@kisanshaktiai.in',
       app_url: redirectTo || supabaseUrl
     };
 
@@ -134,7 +138,7 @@ const handler = async (req: Request): Promise<Response> => {
     const htmlContent = renderTemplate(template.html_template);
     const textContent = template.text_template ? renderTemplate(template.text_template) : undefined;
 
-    // Log email sending
+    // Log email sending attempt
     const { data: logData } = await supabase
       .from('email_logs')
       .insert({
@@ -151,14 +155,43 @@ const handler = async (req: Request): Promise<Response> => {
       .select()
       .single();
 
-    // Send email via Resend
-    const emailResponse = await resend.emails.send({
-      from: "Auth <onboarding@resend.dev>",
-      to: [email],
-      subject,
-      html: htmlContent,
-      text: textContent
-    });
+    // Use Supabase Auth to send email via configured SMTP
+    let sendResult;
+    
+    if (type === 'invite' || type === 'admin_invite' || type === 'user_invite' || type === 'tenant_admin_invite') {
+      // For invites, use inviteUserByEmail
+      const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+        redirectTo: redirectTo || metadata?.invite_url || supabaseUrl,
+        data: {
+          ...metadata,
+          email_subject: subject,
+          email_html: htmlContent,
+          email_text: textContent
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Failed to send invite email: ${error.message}`);
+      }
+      
+      sendResult = { id: data?.user?.id || 'invite-sent' };
+    } else {
+      // For other auth emails, use generateLink
+      const { data, error } = await supabase.auth.admin.generateLink({
+        type: type === 'recovery' ? 'recovery' : type === 'magiclink' ? 'magiclink' : 'signup',
+        email,
+        options: {
+          redirectTo: redirectTo || supabaseUrl,
+          data: metadata
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Failed to generate auth link: ${error.message}`);
+      }
+      
+      sendResult = { id: data?.properties?.action_link || 'link-generated' };
+    }
 
     // Update log status
     if (logData) {
@@ -166,18 +199,18 @@ const handler = async (req: Request): Promise<Response> => {
         .from('email_logs')
         .update({
           status: 'sent',
-          external_message_id: emailResponse.data?.id,
+          external_message_id: String(sendResult.id),
           sent_at: new Date().toISOString()
         })
         .eq('id', logData.id);
     }
 
-    console.log('Auth email sent successfully:', { messageId: emailResponse.data?.id });
+    console.log('Auth email sent successfully via Supabase SMTP:', { messageId: sendResult.id });
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        messageId: emailResponse.data?.id 
+        messageId: sendResult.id 
       }),
       {
         status: 200,

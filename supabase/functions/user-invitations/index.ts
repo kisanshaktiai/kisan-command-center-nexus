@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
-import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -76,11 +75,6 @@ const handler = async (req: Request): Promise<Response> => {
 
 // Send admin invitation
 async function sendAdminInvite(supabase: any, body: any): Promise<Response> {
-  const resendApiKey = Deno.env.get('RESEND_API_KEY');
-  if (!resendApiKey) {
-    throw new Error('RESEND_API_KEY not configured');
-  }
-
   const {
     email,
     role,
@@ -149,53 +143,37 @@ async function sendAdminInvite(supabase: any, body: any): Promise<Response> {
   const siteUrl = Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com') || 'https://app.kisanshaktiai.in';
   const inviteUrl = `${siteUrl}/register?invite=${inviteToken}`;
 
-  const resend = new Resend(resendApiKey);
-  const emailTemplate = `
-    <style>
-      .email-container { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; }
-      .header { background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%); padding: 40px 30px; text-align: center; border-radius: 12px 12px 0 0; }
-      .logo { max-height: 60px; margin-bottom: 20px; }
-      .title { color: white; font-size: 28px; font-weight: bold; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-      .content { padding: 40px 30px; background: white; border-radius: 0 0 12px 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-      .button { display: inline-block; background: ${primaryColor}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 24px 0; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
-      .footer { background: #f8f9fa; padding: 30px; text-align: center; color: #6b7280; font-size: 14px; border-radius: 0 0 12px 12px; }
-    </style>
-    <div class="email-container">
-      <div class="header">
-        ${appLogo ? `<img src="${appLogo}" alt="${organizationName}" class="logo">` : ''}
-        <h1 class="title">Admin Invitation</h1>
-      </div>
-      <div class="content">
-        <p>You've been invited to join <strong>${organizationName}</strong> as an administrator!</p>
-        <div style="text-align: center; margin: 32px 0;">
-          <a href="${inviteUrl}" class="button">Accept Invitation & Create Account</a>
-        </div>
-        <p style="color: #6b7280; font-size: 14px;">If the button doesn't work, copy and paste this link: <br><a href="${inviteUrl}">${inviteUrl}</a></p>
-      </div>
-      <div class="footer">
-        <p><strong>${organizationName}</strong> - Empowering Agricultural Innovation</p>
-        <p>© ${new Date().getFullYear()} ${organizationName}. All rights reserved.</p>
-      </div>
-    </div>
-  `;
-
-  const emailResult = await resend.emails.send({
-    from: `${organizationName} <admin@kisanshaktiai.in>`,
-    to: [email],
-    subject: `Admin Invitation - ${organizationName}`,
-    html: emailTemplate,
+  // Call send-auth-email function instead of using Resend directly
+  const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-auth-email', {
+    body: {
+      type: 'admin_invite',
+      email: email,
+      redirectTo: inviteUrl,
+      metadata: {
+        app_name: organizationName,
+        company_name: organizationName,
+        primary_color: primaryColor,
+        role: role,
+        organization_name: organizationName,
+        invite_url: inviteUrl,
+        user_name: email.split('@')[0]
+      }
+    }
   });
 
-  if (emailResult.error) {
+  if (emailError) {
+    console.error('Failed to send email:', emailError);
     await supabase.from('admin_invites').delete().eq('id', invite.id);
-    throw new Error(`Failed to send email: ${emailResult.error.message}`);
+    throw new Error(`Failed to send email: ${emailError.message}`);
   }
+
+  console.log('Admin invite email sent:', emailResult);
 
   return new Response(JSON.stringify({
     success: true,
     inviteId: invite.id,
     message: 'Admin invitation sent successfully',
-    emailId: emailResult.data?.id
+    emailId: emailResult?.messageId
   }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -299,11 +277,50 @@ async function sendUserInvite(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  const siteUrl = Deno.env.get('SITE_URL') || 'https://your-app.com';
+  const siteUrl = Deno.env.get('SITE_URL') || Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com') || 'https://app.kisanshaktiai.in';
+  const inviteUrl = `${siteUrl}/accept-invitation?token=${invitationToken}`;
+
+  // Fetch tenant branding for white-label support
+  const { data: whiteLabelConfig } = await supabase
+    .from('white_label_configs')
+    .select('brand_identity')
+    .eq('tenant_id', tenantId)
+    .single();
+
+  const brandIdentity = whiteLabelConfig?.brand_identity || {};
+
+  // Call send-auth-email function
+  const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-auth-email', {
+    body: {
+      type: 'user_invite',
+      email: email,
+      tenantId: tenantId,
+      redirectTo: inviteUrl,
+      metadata: {
+        app_name: brandIdentity.app_name || 'KisanShaktiAI',
+        company_name: brandIdentity.company_name || 'KisanShaktiAI',
+        primary_color: brandIdentity.primary_color || '#6366f1',
+        role: role,
+        tenant_name: tenantName || tenantData.name,
+        inviter_name: inviterName || 'Team Admin',
+        invite_url: inviteUrl,
+        user_name: firstName
+      }
+    }
+  });
+
+  if (emailError) {
+    console.error('Failed to send user invite email:', emailError);
+    // Don't delete the invitation, just log the error
+    console.warn('Invitation created but email failed to send');
+  }
+
+  console.log('User invite email sent:', emailResult);
+
   return new Response(JSON.stringify({
     success: true,
     invitation_id: invitation.id,
-    inviteUrl: `${siteUrl}/accept-invitation?token=${invitationToken}`,
+    inviteUrl: inviteUrl,
     message: 'Invitation sent successfully'
   }), {
     status: 200,
