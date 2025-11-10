@@ -1,139 +1,388 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, CreditCard, Users, TrendingUp, Calendar, FileText } from 'lucide-react';
-import { SubscriptionOverview } from '@/components/billing/SubscriptionOverview';
-import { PaymentProcessing } from '@/components/billing/PaymentProcessing';
-import { InvoiceManagement } from '@/components/billing/InvoiceManagement';
-import { SubscriptionRenewals } from '@/components/billing/SubscriptionRenewals';
-import { useQuery } from '@tanstack/react-query';
+import { DollarSign, CreditCard, Users, TrendingUp, Calendar, FileText, RefreshCw, Radio, Package, Wallet, Webhook, BarChart3 } from 'lucide-react';
+import { SubscriptionPlanCard } from '@/components/billing/SubscriptionPlanCard';
+import { SubscriptionList } from '@/components/billing/core/SubscriptionList';
+import { TransactionList } from '@/components/billing/core/TransactionList';
+import { PayoutList } from '@/components/billing/core/PayoutList';
+import { AdvancedAnalyticsDashboard } from '@/components/billing/AdvancedAnalyticsDashboard';
+import { WebhookManager } from '@/components/billing/WebhookManager';
+import { useSubscriptionPlans } from '@/hooks/useSubscriptionPlans';
+import { useSubscriptions, useTransactions, usePayouts } from '@/hooks/useBillingCore';
+import { useBillingAnalytics } from '@/hooks/useBillingAnalytics';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { MetricCardSkeleton } from '@/components/ui/loading-skeleton';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 export default function BillingManagement() {
-  const { data: billingMetrics, isLoading } = useQuery({
-    queryKey: ['tenant-subscriptions-billing'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('tenant-subscriptions-billing', {
-          method: 'GET',
-        });
+  const [isRealtime, setIsRealtime] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const queryClient = useQueryClient();
 
-        if (error) throw error;
-
-        // Transform the response to match the expected format
-        return {
-          totalRevenue: data.billing_summary?.total_revenue || 0,
-          thisMonthRevenue: data.billing_summary?.monthly_revenue || 0,
-          outstandingAmount: data.billing_summary?.outstanding_amount || 0,
-          upcomingRenewals: data.upcoming_renewals?.length || 0,
-          mrr: data.billing_summary?.monthly_revenue || 0,
-          totalSubscriptions: data.active_subscriptions?.length || 0,
-          activeSubscriptions: data.active_subscriptions?.length || 0
-        };
-      } catch (error) {
-        console.error('Error in billing metrics query:', error);
-        return {
-          totalRevenue: 0,
-          thisMonthRevenue: 0,
-          outstandingAmount: 0,
-          upcomingRenewals: 0,
-          mrr: 0,
-          totalSubscriptions: 0,
-          activeSubscriptions: 0
-        };
-      }
-    },
-    refetchInterval: 30000,
+  // Fetch billing data using new hooks
+  const { data: subscriptionPlans, isLoading: plansLoading } = useSubscriptionPlans({ 
+    isActive: true,
+    isPublic: true,
+    tenantId: null // Only global plans
   });
+  const { data: subscriptions, isLoading: subscriptionsLoading } = useSubscriptions();
+  const { data: transactions, isLoading: transactionsLoading } = useTransactions();
+  const { data: payouts, isLoading: payoutsLoading } = usePayouts();
+  const { data: analytics, isLoading: analyticsLoading, refetch: refetchAnalytics } = useBillingAnalytics();
 
-  const formatCurrency = (amount: number) => {
+  const isLoading = plansLoading || subscriptionsLoading || transactionsLoading || payoutsLoading || analyticsLoading;
+
+  // Setup real-time listeners for all billing tables
+  useEffect(() => {
+    if (!isRealtime) return;
+
+    const channel = supabase
+      .channel('billing-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'subscription_plans'
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
+        setLastUpdate(new Date());
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'subscriptions'
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+        queryClient.invalidateQueries({ queryKey: ['billing-analytics'] });
+        setLastUpdate(new Date());
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'transactions'
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['billing-analytics'] });
+        setLastUpdate(new Date());
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'payouts'
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['payouts'] });
+        queryClient.invalidateQueries({ queryKey: ['billing-analytics'] });
+        setLastUpdate(new Date());
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isRealtime, queryClient]);
+
+  const formatCurrency = (amount: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
-    }).format(amount || 0);
+      currency,
+      minimumFractionDigits: 0
+    }).format(amount);
   };
 
-  if (isLoading) {
-    return <div className="text-center py-8">Loading billing data...</div>;
-  }
+  const handleManualRefresh = async () => {
+    toast.info('Refreshing billing data...');
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['subscription-plans'] }),
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+      queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+      queryClient.invalidateQueries({ queryKey: ['payouts'] }),
+      refetchAnalytics()
+    ]);
+    setLastUpdate(new Date());
+    toast.success('Billing data refreshed');
+  };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Billing Management</h1>
-        <p className="text-muted-foreground">Monitor and manage platform billing, invoices, and payments</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">Billing Management</h1>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-muted-foreground">Monitor and manage platform billing, invoices, and payments</p>
+            <Badge variant={isRealtime ? "default" : "secondary"} className="flex items-center gap-1">
+              <Radio className="h-3 w-3" />
+              {isRealtime ? "Live" : "Polling"}
+            </Badge>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleManualRefresh}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setIsRealtime(!isRealtime);
+              toast.info(isRealtime ? 'Switched to manual refresh mode' : 'Switched to real-time mode');
+            }}
+          >
+            {isRealtime ? 'Disable' : 'Enable'} Real-time
+          </Button>
+        </div>
+      </div>
+
+      {/* Status Bar */}
+      <div className="flex items-center justify-between p-3 bg-muted rounded-lg text-sm">
+        <div className="flex items-center gap-4">
+          <span className="text-muted-foreground">
+            Last updated: {lastUpdate.toLocaleTimeString()}
+          </span>
+        </div>
       </div>
 
       {/* Overview Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(billingMetrics?.totalRevenue || 0)}</div>
-            <p className="text-xs text-muted-foreground">All time revenue</p>
-          </CardContent>
-        </Card>
+        {isLoading ? (
+          <>
+            <MetricCardSkeleton />
+            <MetricCardSkeleton />
+            <MetricCardSkeleton />
+            <MetricCardSkeleton />
+          </>
+        ) : (
+          <>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(analytics?.revenue.total || 0)}</div>
+                <p className="text-xs text-muted-foreground">
+                  {formatCurrency(analytics?.revenue.monthly || 0)} this month
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(billingMetrics?.thisMonthRevenue || 0)}</div>
-            <p className="text-xs text-muted-foreground">Revenue this month</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analytics?.subscriptions.active || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  {analytics?.subscriptions.total || 0} total
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(billingMetrics?.outstandingAmount || 0)}</div>
-            <p className="text-xs text-muted-foreground">Pending invoices</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {analytics?.transactions.success_rate.toFixed(1) || 0}%
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {analytics?.transactions.completed || 0} completed
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming Renewals</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{billingMetrics?.upcomingRenewals || 0}</div>
-            <p className="text-xs text-muted-foreground">Next 7 days</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">MRR / ARR</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(analytics?.subscriptions.mrr || 0)}</div>
+                <p className="text-xs text-muted-foreground">
+                  {formatCurrency(analytics?.subscriptions.arr || 0)} annually
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
-      {/* Billing Tabs */}
-      <Tabs defaultValue="subscriptions" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="renewals">Renewals</TabsTrigger>
+      {/* Enhanced Billing Tabs */}
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7">
+          <TabsTrigger value="overview">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="plans">
+            <Package className="h-4 w-4 mr-2" />
+            Plans
+          </TabsTrigger>
+          <TabsTrigger value="subscriptions">
+            <Users className="h-4 w-4 mr-2" />
+            Subscriptions
+          </TabsTrigger>
+          <TabsTrigger value="transactions">
+            <CreditCard className="h-4 w-4 mr-2" />
+            Transactions
+          </TabsTrigger>
+          <TabsTrigger value="payouts">
+            <Wallet className="h-4 w-4 mr-2" />
+            Payouts
+          </TabsTrigger>
+          <TabsTrigger value="webhooks">
+            <Webhook className="h-4 w-4 mr-2" />
+            Webhooks
+          </TabsTrigger>
+          <TabsTrigger value="analytics">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Analytics
+          </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Stats</CardTitle>
+                <CardDescription>Overview of billing system</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Plans:</span>
+                  <span className="font-medium">{subscriptionPlans?.length || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Active Subscriptions:</span>
+                  <span className="font-medium">{subscriptions?.filter(s => s.status === 'active').length || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Pending Payouts:</span>
+                  <span className="font-medium">{payouts?.filter(p => p.status === 'pending').length || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Completed Transactions:</span>
+                  <span className="font-medium">{transactions?.filter(t => t.status === 'completed').length || 0}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Latest billing events</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  {transactions?.slice(0, 5).map((txn) => (
+                    <div key={txn.id} className="flex justify-between items-center py-2 border-b last:border-0">
+                      <div>
+                        <p className="font-medium">{formatCurrency(txn.amount, txn.currency)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(txn.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Badge variant={txn.status === 'completed' ? 'default' : 'secondary'}>
+                        {txn.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="plans">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Subscription Plans</CardTitle>
+                  <CardDescription>
+                    Global subscription plans from subscription_plans table
+                  </CardDescription>
+                </div>
+                <Badge variant="outline">
+                  {subscriptionPlans?.length || 0} Plans
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {plansLoading ? (
+                <div className="text-center py-8">Loading plans...</div>
+              ) : subscriptionPlans && subscriptionPlans.length > 0 ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {subscriptionPlans.map((plan) => (
+                    <SubscriptionPlanCard 
+                      key={plan.id} 
+                      plan={plan}
+                      showActions={false}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No subscription plans found
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="subscriptions">
-          <SubscriptionOverview />
+          <Card>
+            <CardHeader>
+              <CardTitle>All Subscriptions</CardTitle>
+              <CardDescription>Monitor farmer subscriptions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SubscriptionList />
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="invoices">
-          <InvoiceManagement />
+        <TabsContent value="transactions">
+          <Card>
+            <CardHeader>
+              <CardTitle>Transaction History</CardTitle>
+              <CardDescription>All payment transactions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TransactionList />
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="payments">
-          <PaymentProcessing />
+        <TabsContent value="payouts">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tenant Payouts</CardTitle>
+              <CardDescription>Manage commission payouts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PayoutList showProcessButton={true} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="renewals">
-          <SubscriptionRenewals />
+        <TabsContent value="webhooks">
+          <WebhookManager />
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <AdvancedAnalyticsDashboard />
         </TabsContent>
       </Tabs>
     </div>
