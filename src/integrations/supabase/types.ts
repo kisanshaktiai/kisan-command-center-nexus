@@ -599,6 +599,66 @@ export type Database = {
         }
         Relationships: []
       }
+      agri_marketing_insights: {
+        Row: {
+          affected_farmers_count: number | null
+          affected_lands_count: number | null
+          ai_reasoning: string
+          confidence_score: number | null
+          created_at: string | null
+          crop_type: string | null
+          id: string
+          insight_type: string
+          predicted_demand_quantity: number | null
+          predicted_demand_unit: string | null
+          recommendations: string | null
+          region: string | null
+          supporting_data: Json
+          tenant_id: string
+          time_window_end: string
+          time_window_start: string
+          total_area_hectares: number | null
+        }
+        Insert: {
+          affected_farmers_count?: number | null
+          affected_lands_count?: number | null
+          ai_reasoning: string
+          confidence_score?: number | null
+          created_at?: string | null
+          crop_type?: string | null
+          id?: string
+          insight_type: string
+          predicted_demand_quantity?: number | null
+          predicted_demand_unit?: string | null
+          recommendations?: string | null
+          region?: string | null
+          supporting_data: Json
+          tenant_id: string
+          time_window_end: string
+          time_window_start: string
+          total_area_hectares?: number | null
+        }
+        Update: {
+          affected_farmers_count?: number | null
+          affected_lands_count?: number | null
+          ai_reasoning?: string
+          confidence_score?: number | null
+          created_at?: string | null
+          crop_type?: string | null
+          id?: string
+          insight_type?: string
+          predicted_demand_quantity?: number | null
+          predicted_demand_unit?: string | null
+          recommendations?: string | null
+          region?: string | null
+          supporting_data?: Json
+          tenant_id?: string
+          time_window_end?: string
+          time_window_start?: string
+          total_area_hectares?: number | null
+        }
+        Relationships: []
+      }
       agro_climatic_zones: {
         Row: {
           country_id: string | null
@@ -685,10 +745,12 @@ export type Database = {
           farmer_id: string
           feedback_rating: number | null
           feedback_text: string | null
+          feedback_timestamp: string | null
           id: string
           image_urls: string[] | null
           ip_address: unknown
           is_edited: boolean | null
+          is_training_candidate: boolean | null
           land_context: Json | null
           language: string | null
           location_context: Json | null
@@ -722,10 +784,12 @@ export type Database = {
           farmer_id: string
           feedback_rating?: number | null
           feedback_text?: string | null
+          feedback_timestamp?: string | null
           id?: string
           image_urls?: string[] | null
           ip_address?: unknown
           is_edited?: boolean | null
+          is_training_candidate?: boolean | null
           land_context?: Json | null
           language?: string | null
           location_context?: Json | null
@@ -759,10 +823,12 @@ export type Database = {
           farmer_id?: string
           feedback_rating?: number | null
           feedback_text?: string | null
+          feedback_timestamp?: string | null
           id?: string
           image_urls?: string[] | null
           ip_address?: unknown
           is_edited?: boolean | null
+          is_training_candidate?: boolean | null
           land_context?: Json | null
           language?: string | null
           location_context?: Json | null
@@ -839,6 +905,134 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_decision_log: {
+        Row: {
+          confidence_score: number | null
+          created_at: string | null
+          decision_type: string
+          error_message: string | null
+          execution_time_ms: number | null
+          farmer_id: string | null
+          feedback_comment: string | null
+          feedback_score: number | null
+          id: string
+          input_data: Json
+          land_id: string | null
+          model_version: string | null
+          ndvi_data: Json | null
+          output_data: Json
+          reasoning: string
+          schedule_id: string | null
+          soil_data: Json | null
+          success: boolean | null
+          tenant_id: string
+          weather_data: Json | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_type: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          farmer_id?: string | null
+          feedback_comment?: string | null
+          feedback_score?: number | null
+          id?: string
+          input_data: Json
+          land_id?: string | null
+          model_version?: string | null
+          ndvi_data?: Json | null
+          output_data: Json
+          reasoning: string
+          schedule_id?: string | null
+          soil_data?: Json | null
+          success?: boolean | null
+          tenant_id: string
+          weather_data?: Json | null
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_type?: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          farmer_id?: string | null
+          feedback_comment?: string | null
+          feedback_score?: number | null
+          id?: string
+          input_data?: Json
+          land_id?: string | null
+          model_version?: string | null
+          ndvi_data?: Json | null
+          output_data?: Json
+          reasoning?: string
+          schedule_id?: string | null
+          soil_data?: Json | null
+          success?: boolean | null
+          tenant_id?: string
+          weather_data?: Json | null
+        }
+        Relationships: []
+      }
+      ai_insights: {
+        Row: {
+          created_at: string
+          data_source: Json | null
+          description: string
+          id: string
+          impact_score: number | null
+          insight_type: string
+          is_resolved: boolean | null
+          priority: string
+          recommendation: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_source?: Json | null
+          description: string
+          id?: string
+          impact_score?: number | null
+          insight_type: string
+          is_resolved?: boolean | null
+          priority?: string
+          recommendation?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_source?: Json | null
+          description?: string
+          id?: string
+          impact_score?: number | null
+          insight_type?: string
+          is_resolved?: boolean | null
+          priority?: string
+          recommendation?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_insights_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_model_metrics: {
         Row: {
           accuracy_score: number | null
@@ -892,16 +1086,76 @@ export type Database = {
           },
         ]
       }
+      ai_schedule_refinements: {
+        Row: {
+          ai_reasoning: string
+          applied_at: string | null
+          created_at: string | null
+          farmer_id: string
+          id: string
+          land_id: string
+          new_date: string | null
+          original_date: string | null
+          recommended_action: string
+          refinement_type: string
+          schedule_id: string
+          severity: string | null
+          status: string | null
+          task_id: string | null
+          tenant_id: string
+          trigger_data: Json
+        }
+        Insert: {
+          ai_reasoning: string
+          applied_at?: string | null
+          created_at?: string | null
+          farmer_id: string
+          id?: string
+          land_id: string
+          new_date?: string | null
+          original_date?: string | null
+          recommended_action: string
+          refinement_type: string
+          schedule_id: string
+          severity?: string | null
+          status?: string | null
+          task_id?: string | null
+          tenant_id: string
+          trigger_data: Json
+        }
+        Update: {
+          ai_reasoning?: string
+          applied_at?: string | null
+          created_at?: string | null
+          farmer_id?: string
+          id?: string
+          land_id?: string
+          new_date?: string | null
+          original_date?: string | null
+          recommended_action?: string
+          refinement_type?: string
+          schedule_id?: string
+          severity?: string | null
+          status?: string | null
+          task_id?: string | null
+          tenant_id?: string
+          trigger_data?: Json
+        }
+        Relationships: []
+      }
       ai_training_context: {
         Row: {
           context_data: Json
           context_type: string
           created_at: string
+          farmer_id: string | null
           id: string
           is_active: boolean | null
           language: string | null
+          message_id: string | null
           region: string
           source: string | null
+          success_metrics: Json | null
           tenant_id: string
           updated_at: string
           validity_end: string | null
@@ -911,11 +1165,14 @@ export type Database = {
           context_data: Json
           context_type: string
           created_at?: string
+          farmer_id?: string | null
           id?: string
           is_active?: boolean | null
           language?: string | null
+          message_id?: string | null
           region: string
           source?: string | null
+          success_metrics?: Json | null
           tenant_id: string
           updated_at?: string
           validity_end?: string | null
@@ -925,17 +1182,115 @@ export type Database = {
           context_data?: Json
           context_type?: string
           created_at?: string
+          farmer_id?: string | null
           id?: string
           is_active?: boolean | null
           language?: string | null
+          message_id?: string | null
           region?: string
           source?: string | null
+          success_metrics?: Json | null
           tenant_id?: string
           updated_at?: string
           validity_end?: string | null
           validity_start?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_training_context_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "ai_chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_notifications: {
+        Row: {
+          alert_type: string
+          chat_message_id: string | null
+          clicked_at: string | null
+          created_at: string
+          data: Json | null
+          farmer_id: string
+          id: string
+          land_id: string | null
+          message: string
+          priority: string
+          read_at: string | null
+          sent_at: string
+          tenant_id: string
+          title: string
+        }
+        Insert: {
+          alert_type: string
+          chat_message_id?: string | null
+          clicked_at?: string | null
+          created_at?: string
+          data?: Json | null
+          farmer_id: string
+          id?: string
+          land_id?: string | null
+          message: string
+          priority?: string
+          read_at?: string | null
+          sent_at?: string
+          tenant_id: string
+          title: string
+        }
+        Update: {
+          alert_type?: string
+          chat_message_id?: string | null
+          clicked_at?: string | null
+          created_at?: string
+          data?: Json | null
+          farmer_id?: string
+          id?: string
+          land_id?: string | null
+          message?: string
+          priority?: string
+          read_at?: string | null
+          sent_at?: string
+          tenant_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_notifications_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "alert_notifications_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "alert_notifications_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "alert_notifications_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "alert_notifications_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       analytics_reports: {
         Row: {
@@ -1275,6 +1630,65 @@ export type Database = {
             foreignKeyName: "appearance_settings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_logs: {
+        Row: {
+          action_type: string
+          created_at: string
+          field_name: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          new_value: Json | null
+          old_value: Json | null
+          record_id: string
+          table_name: string
+          tenant_id: string
+          user_agent: string | null
+          user_email: string | null
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          field_name?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          new_value?: Json | null
+          old_value?: Json | null
+          record_id: string
+          table_name: string
+          tenant_id: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          field_name?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          new_value?: Json | null
+          old_value?: Json | null
+          record_id?: string
+          table_name?: string
+          tenant_id?: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -1975,33 +2389,49 @@ export type Database = {
       }
       cart_items: {
         Row: {
-          added_at: string | null
-          farmer_id: string | null
+          added_at: string
+          cart_id: string
+          farmer_id: string
           id: string
-          product_id: string | null
+          notes: string | null
+          product_id: string
           quantity: number
-          tenant_id: string | null
-          user_id: string
+          tenant_id: string
+          unit_price: number
+          updated_at: string
         }
         Insert: {
-          added_at?: string | null
-          farmer_id?: string | null
+          added_at?: string
+          cart_id: string
+          farmer_id: string
           id?: string
-          product_id?: string | null
-          quantity?: number
-          tenant_id?: string | null
-          user_id: string
+          notes?: string | null
+          product_id: string
+          quantity: number
+          tenant_id: string
+          unit_price: number
+          updated_at?: string
         }
         Update: {
-          added_at?: string | null
-          farmer_id?: string | null
+          added_at?: string
+          cart_id?: string
+          farmer_id?: string
           id?: string
-          product_id?: string | null
+          notes?: string | null
+          product_id?: string
           quantity?: number
-          tenant_id?: string | null
-          user_id?: string
+          tenant_id?: string
+          unit_price?: number
+          updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "cart_items_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_carts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cart_items_farmer_id_fkey"
             columns: ["farmer_id"]
@@ -2020,7 +2450,7 @@ export type Database = {
             foreignKeyName: "cart_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "marketplace_products"
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
@@ -3041,6 +3471,75 @@ export type Database = {
           },
         ]
       }
+      crop_baseline_guidelines: {
+        Row: {
+          best_practices: string | null
+          climate_zone: string | null
+          common_diseases: Json | null
+          common_pests: Json | null
+          confidence_level: string | null
+          created_at: string | null
+          crop_name: string
+          crop_variety: string | null
+          fertilizer_schedule: Json | null
+          growth_duration_days: number
+          id: string
+          is_active: boolean | null
+          optimal_temp_max: number | null
+          optimal_temp_min: number | null
+          region: string | null
+          soil_type: string | null
+          source: string | null
+          stages: Json
+          updated_at: string | null
+          water_requirement_mm: number | null
+        }
+        Insert: {
+          best_practices?: string | null
+          climate_zone?: string | null
+          common_diseases?: Json | null
+          common_pests?: Json | null
+          confidence_level?: string | null
+          created_at?: string | null
+          crop_name: string
+          crop_variety?: string | null
+          fertilizer_schedule?: Json | null
+          growth_duration_days: number
+          id?: string
+          is_active?: boolean | null
+          optimal_temp_max?: number | null
+          optimal_temp_min?: number | null
+          region?: string | null
+          soil_type?: string | null
+          source?: string | null
+          stages: Json
+          updated_at?: string | null
+          water_requirement_mm?: number | null
+        }
+        Update: {
+          best_practices?: string | null
+          climate_zone?: string | null
+          common_diseases?: Json | null
+          common_pests?: Json | null
+          confidence_level?: string | null
+          created_at?: string | null
+          crop_name?: string
+          crop_variety?: string | null
+          fertilizer_schedule?: Json | null
+          growth_duration_days?: number
+          id?: string
+          is_active?: boolean | null
+          optimal_temp_max?: number | null
+          optimal_temp_min?: number | null
+          region?: string | null
+          soil_type?: string | null
+          source?: string | null
+          stages?: Json
+          updated_at?: string | null
+          water_requirement_mm?: number | null
+        }
+        Relationships: []
+      }
       crop_groups: {
         Row: {
           created_at: string
@@ -3280,62 +3779,143 @@ export type Database = {
       crop_schedules: {
         Row: {
           ai_model: string | null
+          bio_fertilizer_units: number | null
+          bio_pesticide_ml: number | null
+          calculated_for_area_acres: number | null
           completed_at: string | null
+          country: string | null
           created_at: string | null
           crop_name: string
           crop_variety: string | null
+          expected_gross_revenue: number | null
           expected_harvest_date: string | null
+          expected_market_price_per_quintal: number | null
+          expected_net_profit: number | null
+          expected_yield_per_acre: number | null
+          expected_yield_quintals: number | null
           farmer_id: string
+          fertilizer_k_kg: number | null
+          fertilizer_n_kg: number | null
+          fertilizer_p_kg: number | null
+          fungicide_gm: number | null
           generated_at: string | null
+          generation_language: string | null
           generation_params: Json | null
+          growth_regulators: Json | null
+          herbicide_ml: number | null
           id: string
+          insecticide_ml: number | null
           is_active: boolean | null
           land_id: string
           last_weather_update: string | null
+          organic_fertilizer_kg: number | null
+          organic_input_details: Json | null
+          organic_manure_kg: number | null
+          pesticide_requirements: Json | null
+          pgr_hormone_ml: number | null
+          recommended_products: Json | null
           schedule_version: number | null
+          seed_quantity_kg: number | null
           sowing_date: string
           tenant_id: string
+          total_estimated_cost: number | null
+          total_water_requirement_liters: number | null
           updated_at: string | null
+          vermicompost_kg: number | null
           weather_data: Json | null
         }
         Insert: {
           ai_model?: string | null
+          bio_fertilizer_units?: number | null
+          bio_pesticide_ml?: number | null
+          calculated_for_area_acres?: number | null
           completed_at?: string | null
+          country?: string | null
           created_at?: string | null
           crop_name: string
           crop_variety?: string | null
+          expected_gross_revenue?: number | null
           expected_harvest_date?: string | null
+          expected_market_price_per_quintal?: number | null
+          expected_net_profit?: number | null
+          expected_yield_per_acre?: number | null
+          expected_yield_quintals?: number | null
           farmer_id: string
+          fertilizer_k_kg?: number | null
+          fertilizer_n_kg?: number | null
+          fertilizer_p_kg?: number | null
+          fungicide_gm?: number | null
           generated_at?: string | null
+          generation_language?: string | null
           generation_params?: Json | null
+          growth_regulators?: Json | null
+          herbicide_ml?: number | null
           id?: string
+          insecticide_ml?: number | null
           is_active?: boolean | null
           land_id: string
           last_weather_update?: string | null
+          organic_fertilizer_kg?: number | null
+          organic_input_details?: Json | null
+          organic_manure_kg?: number | null
+          pesticide_requirements?: Json | null
+          pgr_hormone_ml?: number | null
+          recommended_products?: Json | null
           schedule_version?: number | null
+          seed_quantity_kg?: number | null
           sowing_date: string
           tenant_id: string
+          total_estimated_cost?: number | null
+          total_water_requirement_liters?: number | null
           updated_at?: string | null
+          vermicompost_kg?: number | null
           weather_data?: Json | null
         }
         Update: {
           ai_model?: string | null
+          bio_fertilizer_units?: number | null
+          bio_pesticide_ml?: number | null
+          calculated_for_area_acres?: number | null
           completed_at?: string | null
+          country?: string | null
           created_at?: string | null
           crop_name?: string
           crop_variety?: string | null
+          expected_gross_revenue?: number | null
           expected_harvest_date?: string | null
+          expected_market_price_per_quintal?: number | null
+          expected_net_profit?: number | null
+          expected_yield_per_acre?: number | null
+          expected_yield_quintals?: number | null
           farmer_id?: string
+          fertilizer_k_kg?: number | null
+          fertilizer_n_kg?: number | null
+          fertilizer_p_kg?: number | null
+          fungicide_gm?: number | null
           generated_at?: string | null
+          generation_language?: string | null
           generation_params?: Json | null
+          growth_regulators?: Json | null
+          herbicide_ml?: number | null
           id?: string
+          insecticide_ml?: number | null
           is_active?: boolean | null
           land_id?: string
           last_weather_update?: string | null
+          organic_fertilizer_kg?: number | null
+          organic_input_details?: Json | null
+          organic_manure_kg?: number | null
+          pesticide_requirements?: Json | null
+          pgr_hormone_ml?: number | null
+          recommended_products?: Json | null
           schedule_version?: number | null
+          seed_quantity_kg?: number | null
           sowing_date?: string
           tenant_id?: string
+          total_estimated_cost?: number | null
+          total_water_requirement_liters?: number | null
           updated_at?: string | null
+          vermicompost_kg?: number | null
           weather_data?: Json | null
         }
         Relationships: [
@@ -3875,62 +4455,69 @@ export type Database = {
       dealer_commissions: {
         Row: {
           base_amount: number
-          calculation_details: Json | null
           commission_amount: number
           commission_rate: number
-          commission_type: string
+          commission_status: string
           created_at: string
           dealer_id: string
           id: string
-          notes: string | null
+          order_id: string
           payment_date: string | null
           payment_reference: string | null
-          payment_status: string | null
-          period_end: string
-          period_start: string
           tenant_id: string
-          transaction_id: string | null
           updated_at: string
         }
         Insert: {
           base_amount: number
-          calculation_details?: Json | null
           commission_amount: number
           commission_rate: number
-          commission_type: string
+          commission_status?: string
           created_at?: string
           dealer_id: string
           id?: string
-          notes?: string | null
+          order_id: string
           payment_date?: string | null
           payment_reference?: string | null
-          payment_status?: string | null
-          period_end: string
-          period_start: string
           tenant_id: string
-          transaction_id?: string | null
           updated_at?: string
         }
         Update: {
           base_amount?: number
-          calculation_details?: Json | null
           commission_amount?: number
           commission_rate?: number
-          commission_type?: string
+          commission_status?: string
           created_at?: string
           dealer_id?: string
           id?: string
-          notes?: string | null
+          order_id?: string
           payment_date?: string | null
           payment_reference?: string | null
-          payment_status?: string | null
-          period_end?: string
-          period_start?: string
           tenant_id?: string
-          transaction_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "dealer_commissions_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealer_commissions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealer_commissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dealer_communications: {
         Row: {
@@ -4808,6 +5395,66 @@ export type Database = {
           },
         ]
       }
+      farmer_alerts: {
+        Row: {
+          action_required: string | null
+          actioned_at: string | null
+          ai_reasoning: string | null
+          alert_type: string
+          created_at: string | null
+          data_source: Json | null
+          expires_at: string | null
+          farmer_id: string
+          id: string
+          is_actioned: boolean | null
+          is_read: boolean | null
+          land_id: string
+          message: string
+          priority: string
+          schedule_id: string | null
+          tenant_id: string
+          title: string
+        }
+        Insert: {
+          action_required?: string | null
+          actioned_at?: string | null
+          ai_reasoning?: string | null
+          alert_type: string
+          created_at?: string | null
+          data_source?: Json | null
+          expires_at?: string | null
+          farmer_id: string
+          id?: string
+          is_actioned?: boolean | null
+          is_read?: boolean | null
+          land_id: string
+          message: string
+          priority: string
+          schedule_id?: string | null
+          tenant_id: string
+          title: string
+        }
+        Update: {
+          action_required?: string | null
+          actioned_at?: string | null
+          ai_reasoning?: string | null
+          alert_type?: string
+          created_at?: string | null
+          data_source?: Json | null
+          expires_at?: string | null
+          farmer_id?: string
+          id?: string
+          is_actioned?: boolean | null
+          is_read?: boolean | null
+          land_id?: string
+          message?: string
+          priority?: string
+          schedule_id?: string | null
+          tenant_id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       farmer_analytics: {
         Row: {
           adoption_score: number | null
@@ -5409,6 +6056,7 @@ export type Database = {
           stripe_subscription_id: string | null
           tenant_id: string
           tenant_subscription_id: string | null
+          trial_days: number | null
           trial_end_date: string | null
           updated_at: string
         }
@@ -5436,6 +6084,7 @@ export type Database = {
           stripe_subscription_id?: string | null
           tenant_id: string
           tenant_subscription_id?: string | null
+          trial_days?: number | null
           trial_end_date?: string | null
           updated_at?: string
         }
@@ -5463,6 +6112,7 @@ export type Database = {
           stripe_subscription_id?: string | null
           tenant_id?: string
           tenant_subscription_id?: string | null
+          trial_days?: number | null
           trial_end_date?: string | null
           updated_at?: string
         }
@@ -6562,6 +7212,100 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      inventory_movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          dealer_id: string | null
+          farmer_id: string | null
+          id: string
+          movement_type: string
+          notes: string | null
+          order_id: string | null
+          product_id: string
+          quantity_change: number
+          reference_number: string | null
+          stock_after: number
+          stock_before: number
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          dealer_id?: string | null
+          farmer_id?: string | null
+          id?: string
+          movement_type: string
+          notes?: string | null
+          order_id?: string | null
+          product_id: string
+          quantity_change: number
+          reference_number?: string | null
+          stock_after: number
+          stock_before: number
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          dealer_id?: string | null
+          farmer_id?: string | null
+          id?: string
+          movement_type?: string
+          notes?: string | null
+          order_id?: string | null
+          product_id?: string
+          quantity_change?: number
+          reference_number?: string | null
+          stock_after?: number
+          stock_before?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invites: {
         Row: {
@@ -10206,6 +10950,169 @@ export type Database = {
           },
         ]
       }
+      order_deliveries: {
+        Row: {
+          actual_delivery_date: string | null
+          courier_name: string | null
+          created_at: string
+          dealer_id: string | null
+          delivered_to: string | null
+          delivery_method: string
+          delivery_notes: string | null
+          delivery_status: string
+          expected_delivery_date: string | null
+          farmer_id: string
+          id: string
+          order_id: string
+          signature_url: string | null
+          tenant_id: string
+          tracking_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_delivery_date?: string | null
+          courier_name?: string | null
+          created_at?: string
+          dealer_id?: string | null
+          delivered_to?: string | null
+          delivery_method: string
+          delivery_notes?: string | null
+          delivery_status?: string
+          expected_delivery_date?: string | null
+          farmer_id: string
+          id?: string
+          order_id: string
+          signature_url?: string | null
+          tenant_id: string
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_delivery_date?: string | null
+          courier_name?: string | null
+          created_at?: string
+          dealer_id?: string | null
+          delivered_to?: string | null
+          delivery_method?: string
+          delivery_notes?: string | null
+          delivery_status?: string
+          expected_delivery_date?: string | null
+          farmer_id?: string
+          id?: string
+          order_id?: string
+          signature_url?: string | null
+          tenant_id?: string
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_deliveries_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_deliveries_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_deliveries_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "order_deliveries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_deliveries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_fulfillment: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          dealer_id: string | null
+          delivered_at: string | null
+          fulfillment_status: string
+          id: string
+          order_id: string
+          packed_at: string | null
+          packing_notes: string | null
+          shipped_at: string | null
+          tenant_id: string
+          updated_at: string
+          warehouse_location: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          dealer_id?: string | null
+          delivered_at?: string | null
+          fulfillment_status?: string
+          id?: string
+          order_id: string
+          packed_at?: string | null
+          packing_notes?: string | null
+          shipped_at?: string | null
+          tenant_id: string
+          updated_at?: string
+          warehouse_location?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          dealer_id?: string | null
+          delivered_at?: string | null
+          fulfillment_status?: string
+          id?: string
+          order_id?: string
+          packed_at?: string | null
+          packing_notes?: string | null
+          shipped_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+          warehouse_location?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_fulfillment_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_fulfillment_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_fulfillment_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string | null
@@ -10273,6 +11180,74 @@ export type Database = {
             foreignKeyName: "order_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_analytics: {
+        Row: {
+          active_dealers: number | null
+          active_farmers: number | null
+          active_products: number | null
+          api_calls_today: number | null
+          calculated_at: string
+          created_at: string
+          engagement_rate: number | null
+          id: string
+          last_activity_at: string | null
+          revenue_impact: number | null
+          storage_used_mb: number | null
+          tenant_id: string
+          total_campaigns: number | null
+          total_dealers: number | null
+          total_farmers: number | null
+          total_products: number | null
+          updated_at: string
+        }
+        Insert: {
+          active_dealers?: number | null
+          active_farmers?: number | null
+          active_products?: number | null
+          api_calls_today?: number | null
+          calculated_at?: string
+          created_at?: string
+          engagement_rate?: number | null
+          id?: string
+          last_activity_at?: string | null
+          revenue_impact?: number | null
+          storage_used_mb?: number | null
+          tenant_id: string
+          total_campaigns?: number | null
+          total_dealers?: number | null
+          total_farmers?: number | null
+          total_products?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active_dealers?: number | null
+          active_farmers?: number | null
+          active_products?: number | null
+          api_calls_today?: number | null
+          calculated_at?: string
+          created_at?: string
+          engagement_rate?: number | null
+          id?: string
+          last_activity_at?: string | null
+          revenue_impact?: number | null
+          storage_used_mb?: number | null
+          tenant_id?: string
+          total_campaigns?: number | null
+          total_dealers?: number | null
+          total_farmers?: number | null
+          total_products?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_analytics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -10492,6 +11467,92 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      payment_intents: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string | null
+          dummy_payment_data: Json | null
+          error_message: string | null
+          expires_at: string | null
+          farmer_id: string | null
+          id: string
+          payment_method: string | null
+          plan_id: string
+          status: string | null
+          subscription_type: string
+          tenant_id: string | null
+          transaction_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency?: string | null
+          dummy_payment_data?: Json | null
+          error_message?: string | null
+          expires_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          payment_method?: string | null
+          plan_id: string
+          status?: string | null
+          subscription_type: string
+          tenant_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string | null
+          dummy_payment_data?: Json | null
+          error_message?: string | null
+          expires_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          payment_method?: string | null
+          plan_id?: string
+          status?: string | null
+          subscription_type?: string
+          tenant_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_intents_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_intents_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "payment_intents_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_intents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_methods: {
         Row: {
@@ -11926,9 +12987,13 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          icon: string | null
           icon_url: string | null
           id: string
+          import_metadata: Json | null
           is_active: boolean | null
+          master_category_id: string | null
+          metadata: Json | null
           name: string
           parent_id: string | null
           slug: string
@@ -11939,9 +13004,13 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          icon?: string | null
           icon_url?: string | null
           id?: string
+          import_metadata?: Json | null
           is_active?: boolean | null
+          master_category_id?: string | null
+          metadata?: Json | null
           name: string
           parent_id?: string | null
           slug: string
@@ -11952,9 +13021,13 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          icon?: string | null
           icon_url?: string | null
           id?: string
+          import_metadata?: Json | null
           is_active?: boolean | null
+          master_category_id?: string | null
+          metadata?: Json | null
           name?: string
           parent_id?: string | null
           slug?: string
@@ -11964,10 +13037,73 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "product_categories_master_category_id_fkey"
+            columns: ["master_category_id"]
+            isOneToOne: false
+            referencedRelation: "master_product_categories"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "product_categories_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_import_history: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_log: Json | null
+          id: string
+          import_type: string
+          imported_by: string | null
+          items_failed: number | null
+          items_imported: number | null
+          items_skipped: number | null
+          items_updated: number | null
+          metadata: Json | null
+          source: string | null
+          tenant_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_log?: Json | null
+          id?: string
+          import_type: string
+          imported_by?: string | null
+          items_failed?: number | null
+          items_imported?: number | null
+          items_skipped?: number | null
+          items_updated?: number | null
+          metadata?: Json | null
+          source?: string | null
+          tenant_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_log?: Json | null
+          id?: string
+          import_type?: string
+          imported_by?: string | null
+          items_failed?: number | null
+          items_imported?: number | null
+          items_skipped?: number | null
+          items_updated?: number | null
+          metadata?: Json | null
+          source?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_import_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -12098,6 +13234,7 @@ export type Database = {
           bulk_pricing: Json | null
           category_id: string | null
           certification_details: Json | null
+          company_id: string | null
           created_at: string
           credit_options: Json | null
           dealer_locations: Json | null
@@ -12107,12 +13244,14 @@ export type Database = {
           expiry_date: string | null
           id: string
           images: string[] | null
+          import_metadata: Json | null
           is_active: boolean | null
           is_featured: boolean | null
           is_organic: boolean | null
           last_restocked_at: string | null
           manufacturer: string | null
           manufacturing_date: string | null
+          master_product_id: string | null
           max_order_quantity: number | null
           min_order_quantity: number | null
           minimum_stock_level: number | null
@@ -12148,6 +13287,7 @@ export type Database = {
           bulk_pricing?: Json | null
           category_id?: string | null
           certification_details?: Json | null
+          company_id?: string | null
           created_at?: string
           credit_options?: Json | null
           dealer_locations?: Json | null
@@ -12157,12 +13297,14 @@ export type Database = {
           expiry_date?: string | null
           id?: string
           images?: string[] | null
+          import_metadata?: Json | null
           is_active?: boolean | null
           is_featured?: boolean | null
           is_organic?: boolean | null
           last_restocked_at?: string | null
           manufacturer?: string | null
           manufacturing_date?: string | null
+          master_product_id?: string | null
           max_order_quantity?: number | null
           min_order_quantity?: number | null
           minimum_stock_level?: number | null
@@ -12198,6 +13340,7 @@ export type Database = {
           bulk_pricing?: Json | null
           category_id?: string | null
           certification_details?: Json | null
+          company_id?: string | null
           created_at?: string
           credit_options?: Json | null
           dealer_locations?: Json | null
@@ -12207,12 +13350,14 @@ export type Database = {
           expiry_date?: string | null
           id?: string
           images?: string[] | null
+          import_metadata?: Json | null
           is_active?: boolean | null
           is_featured?: boolean | null
           is_organic?: boolean | null
           last_restocked_at?: string | null
           manufacturer?: string | null
           manufacturing_date?: string | null
+          master_product_id?: string | null
           max_order_quantity?: number | null
           min_order_quantity?: number | null
           minimum_stock_level?: number | null
@@ -12247,7 +13392,60 @@ export type Database = {
             referencedRelation: "product_categories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "products_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "master_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_master_product_id_fkey"
+            columns: ["master_product_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth_key: string
+          created_at: string
+          endpoint: string
+          farmer_id: string
+          id: string
+          is_active: boolean
+          p256dh_key: string
+          tenant_id: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          auth_key: string
+          created_at?: string
+          endpoint: string
+          farmer_id: string
+          id?: string
+          is_active?: boolean
+          p256dh_key: string
+          tenant_id: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          auth_key?: string
+          created_at?: string
+          endpoint?: string
+          farmer_id?: string
+          id?: string
+          is_active?: boolean
+          p256dh_key?: string
+          tenant_id?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: []
       }
       rate_limits: {
         Row: {
@@ -12456,6 +13654,442 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "resource_utilization_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_analytics: {
+        Row: {
+          created_at: string
+          date: string
+          dimensions: Json | null
+          id: string
+          metric_type: string
+          metrics: Json | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          dimensions?: Json | null
+          id?: string
+          metric_type: string
+          metrics?: Json | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          dimensions?: Json | null
+          id?: string
+          metric_type?: string
+          metrics?: Json | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_analytics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_order_items: {
+        Row: {
+          created_at: string
+          dealer_commission_amount: number | null
+          dealer_commission_rate: number | null
+          dealer_id: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
+          farmer_id: string
+          id: string
+          line_total: number
+          notes: string | null
+          order_id: string
+          product_id: string
+          product_name: string
+          product_sku: string | null
+          quantity: number
+          tax_amount: number | null
+          tax_percentage: number | null
+          tenant_id: string
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dealer_commission_amount?: number | null
+          dealer_commission_rate?: number | null
+          dealer_id?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          farmer_id: string
+          id?: string
+          line_total?: number
+          notes?: string | null
+          order_id: string
+          product_id: string
+          product_name: string
+          product_sku?: string | null
+          quantity: number
+          tax_amount?: number | null
+          tax_percentage?: number | null
+          tenant_id: string
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dealer_commission_amount?: number | null
+          dealer_commission_rate?: number | null
+          dealer_id?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          farmer_id?: string
+          id?: string
+          line_total?: number
+          notes?: string | null
+          order_id?: string
+          product_id?: string
+          product_name?: string
+          product_sku?: string | null
+          quantity?: number
+          tax_amount?: number | null
+          tax_percentage?: number | null
+          tenant_id?: string
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_items_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_orders: {
+        Row: {
+          billing_address: Json | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          created_by: string | null
+          dealer_id: string | null
+          delivered_at: string | null
+          delivery_address: Json | null
+          discount_amount: number
+          farmer_id: string
+          fulfillment_status: string
+          id: string
+          metadata: Json | null
+          notes: string | null
+          order_number: string
+          order_source: string
+          order_status: string
+          order_type: string
+          payment_method: string | null
+          payment_status: string
+          shipping_charges: number
+          subtotal_amount: number
+          tax_amount: number
+          tenant_id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          billing_address?: Json | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          dealer_id?: string | null
+          delivered_at?: string | null
+          delivery_address?: Json | null
+          discount_amount?: number
+          farmer_id: string
+          fulfillment_status?: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          order_number: string
+          order_source?: string
+          order_status?: string
+          order_type?: string
+          payment_method?: string | null
+          payment_status?: string
+          shipping_charges?: number
+          subtotal_amount?: number
+          tax_amount?: number
+          tenant_id: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          billing_address?: Json | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          dealer_id?: string | null
+          delivered_at?: string | null
+          delivery_address?: Json | null
+          discount_amount?: number
+          farmer_id?: string
+          fulfillment_status?: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          order_number?: string
+          order_source?: string
+          order_status?: string
+          order_type?: string
+          payment_method?: string | null
+          payment_status?: string
+          shipping_charges?: number
+          subtotal_amount?: number
+          tax_amount?: number
+          tenant_id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_orders_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "sales_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_return_items: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          order_item_id: string
+          product_id: string
+          quantity: number
+          refund_amount: number
+          return_condition: string
+          return_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_item_id: string
+          product_id: string
+          quantity: number
+          refund_amount?: number
+          return_condition: string
+          return_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_item_id?: string
+          product_id?: string
+          quantity?: number
+          refund_amount?: number
+          return_condition?: string
+          return_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_return_items_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_return_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_return_items_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "sales_returns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_return_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_returns: {
+        Row: {
+          approved_at: string | null
+          created_at: string
+          dealer_id: string | null
+          farmer_id: string
+          id: string
+          notes: string | null
+          order_id: string
+          received_at: string | null
+          refund_method: string | null
+          refund_status: string | null
+          refunded_at: string | null
+          requested_at: string
+          return_amount: number
+          return_number: string
+          return_reason: string
+          return_status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string
+          dealer_id?: string | null
+          farmer_id: string
+          id?: string
+          notes?: string | null
+          order_id: string
+          received_at?: string | null
+          refund_method?: string | null
+          refund_status?: string | null
+          refunded_at?: string | null
+          requested_at?: string
+          return_amount?: number
+          return_number: string
+          return_reason: string
+          return_status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string
+          dealer_id?: string | null
+          farmer_id?: string
+          id?: string
+          notes?: string | null
+          order_id?: string
+          received_at?: string | null
+          refund_method?: string | null
+          refund_status?: string | null
+          refunded_at?: string | null
+          requested_at?: string
+          return_amount?: number
+          return_number?: string
+          return_reason?: string
+          return_status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_returns_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_returns_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_returns_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "sales_returns_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_returns_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -12925,19 +14559,131 @@ export type Database = {
           },
         ]
       }
+      schedule_climate_monitoring: {
+        Row: {
+          adjustment_reason: string | null
+          adjustment_triggered: boolean | null
+          created_at: string | null
+          id: string
+          monitoring_date: string
+          ndvi_value: number | null
+          rainfall_24h: number | null
+          schedule_id: string
+          tasks_rescheduled: number | null
+          temperature_avg: number | null
+        }
+        Insert: {
+          adjustment_reason?: string | null
+          adjustment_triggered?: boolean | null
+          created_at?: string | null
+          id?: string
+          monitoring_date: string
+          ndvi_value?: number | null
+          rainfall_24h?: number | null
+          schedule_id: string
+          tasks_rescheduled?: number | null
+          temperature_avg?: number | null
+        }
+        Update: {
+          adjustment_reason?: string | null
+          adjustment_triggered?: boolean | null
+          created_at?: string | null
+          id?: string
+          monitoring_date?: string
+          ndvi_value?: number | null
+          rainfall_24h?: number | null
+          schedule_id?: string
+          tasks_rescheduled?: number | null
+          temperature_avg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_climate_monitoring_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "crop_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedule_monitoring: {
+        Row: {
+          alerts_generated: number | null
+          check_date: string
+          created_at: string | null
+          disease_detected: boolean | null
+          farmer_id: string
+          health_score: number | null
+          id: string
+          land_id: string
+          ndvi_value: number | null
+          npk_levels: Json | null
+          pest_detected: boolean | null
+          refinements_applied: number | null
+          schedule_id: string
+          soil_moisture: number | null
+          soil_ph: number | null
+          tenant_id: string
+          weather_conditions: Json | null
+        }
+        Insert: {
+          alerts_generated?: number | null
+          check_date: string
+          created_at?: string | null
+          disease_detected?: boolean | null
+          farmer_id: string
+          health_score?: number | null
+          id?: string
+          land_id: string
+          ndvi_value?: number | null
+          npk_levels?: Json | null
+          pest_detected?: boolean | null
+          refinements_applied?: number | null
+          schedule_id: string
+          soil_moisture?: number | null
+          soil_ph?: number | null
+          tenant_id: string
+          weather_conditions?: Json | null
+        }
+        Update: {
+          alerts_generated?: number | null
+          check_date?: string
+          created_at?: string | null
+          disease_detected?: boolean | null
+          farmer_id?: string
+          health_score?: number | null
+          id?: string
+          land_id?: string
+          ndvi_value?: number | null
+          npk_levels?: Json | null
+          pest_detected?: boolean | null
+          refinements_applied?: number | null
+          schedule_id?: string
+          soil_moisture?: number | null
+          soil_ph?: number | null
+          tenant_id?: string
+          weather_conditions?: Json | null
+        }
+        Relationships: []
+      }
       schedule_tasks: {
         Row: {
           auto_rescheduled: boolean | null
+          climate_adjusted: boolean | null
+          climate_adjustment_reason: string | null
           completed_at: string | null
           completed_by: string | null
           completion_notes: string | null
           created_at: string | null
+          currency: string | null
           duration_hours: number | null
           estimated_cost: number | null
           id: string
           ideal_weather: Json | null
           instructions: string[] | null
+          language: string | null
           original_date: string | null
+          original_date_before_climate_adjust: string | null
           precautions: string[] | null
           priority: string | null
           reschedule_reason: string | null
@@ -12954,16 +14700,21 @@ export type Database = {
         }
         Insert: {
           auto_rescheduled?: boolean | null
+          climate_adjusted?: boolean | null
+          climate_adjustment_reason?: string | null
           completed_at?: string | null
           completed_by?: string | null
           completion_notes?: string | null
           created_at?: string | null
+          currency?: string | null
           duration_hours?: number | null
           estimated_cost?: number | null
           id?: string
           ideal_weather?: Json | null
           instructions?: string[] | null
+          language?: string | null
           original_date?: string | null
+          original_date_before_climate_adjust?: string | null
           precautions?: string[] | null
           priority?: string | null
           reschedule_reason?: string | null
@@ -12980,16 +14731,21 @@ export type Database = {
         }
         Update: {
           auto_rescheduled?: boolean | null
+          climate_adjusted?: boolean | null
+          climate_adjustment_reason?: string | null
           completed_at?: string | null
           completed_by?: string | null
           completion_notes?: string | null
           created_at?: string | null
+          currency?: string | null
           duration_hours?: number | null
           estimated_cost?: number | null
           id?: string
           ideal_weather?: Json | null
           instructions?: string[] | null
+          language?: string | null
           original_date?: string | null
+          original_date_before_climate_adjust?: string | null
           precautions?: string[] | null
           priority?: string | null
           reschedule_reason?: string | null
@@ -13209,6 +14965,74 @@ export type Database = {
             foreignKeyName: "security_settings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_carts: {
+        Row: {
+          cart_status: string
+          created_at: string
+          dealer_id: string | null
+          farmer_id: string
+          id: string
+          last_activity_at: string
+          metadata: Json | null
+          session_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          cart_status?: string
+          created_at?: string
+          dealer_id?: string | null
+          farmer_id: string
+          id?: string
+          last_activity_at?: string
+          metadata?: Json | null
+          session_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          cart_status?: string
+          created_at?: string
+          dealer_id?: string | null
+          farmer_id?: string
+          id?: string
+          last_activity_at?: string
+          metadata?: Json | null
+          session_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_carts_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_carts_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_carts_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "shopping_carts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -13985,14 +15809,17 @@ export type Database = {
         Row: {
           billing_interval: string | null
           created_at: string | null
+          created_by_tenant_id: string | null
           description: string | null
           features: Json | null
           id: string
           is_active: boolean | null
           is_custom: boolean | null
+          is_custom_plan: boolean | null
           is_public: boolean | null
           limits: Json | null
           name: string
+          parent_plan_id: string | null
           plan_category: string | null
           plan_type: Database["public"]["Enums"]["subscription_plan_type"]
           price_annually: number | null
@@ -14009,14 +15836,17 @@ export type Database = {
         Insert: {
           billing_interval?: string | null
           created_at?: string | null
+          created_by_tenant_id?: string | null
           description?: string | null
           features?: Json | null
           id?: string
           is_active?: boolean | null
           is_custom?: boolean | null
+          is_custom_plan?: boolean | null
           is_public?: boolean | null
           limits?: Json | null
           name: string
+          parent_plan_id?: string | null
           plan_category?: string | null
           plan_type: Database["public"]["Enums"]["subscription_plan_type"]
           price_annually?: number | null
@@ -14033,14 +15863,17 @@ export type Database = {
         Update: {
           billing_interval?: string | null
           created_at?: string | null
+          created_by_tenant_id?: string | null
           description?: string | null
           features?: Json | null
           id?: string
           is_active?: boolean | null
           is_custom?: boolean | null
+          is_custom_plan?: boolean | null
           is_public?: boolean | null
           limits?: Json | null
           name?: string
+          parent_plan_id?: string | null
           plan_category?: string | null
           plan_type?: Database["public"]["Enums"]["subscription_plan_type"]
           price_annually?: number | null
@@ -14055,6 +15888,20 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "subscription_plans_created_by_tenant_id_fkey"
+            columns: ["created_by_tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_plans_parent_plan_id_fkey"
+            columns: ["parent_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "subscription_plans_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -14733,7 +16580,112 @@ export type Database = {
             foreignKeyName: "task_completions_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "farmer_upcoming_needs"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "task_completions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
             referencedRelation: "schedule_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          notification_type: string
+          opened_at: string | null
+          scheduled_for: string
+          sent_at: string | null
+          status: string | null
+          task_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notification_type: string
+          opened_at?: string | null
+          scheduled_for: string
+          sent_at?: string | null
+          status?: string | null
+          task_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notification_type?: string
+          opened_at?: string | null
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string | null
+          task_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_notifications_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_upcoming_needs"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "task_notifications_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_product_mappings: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_category: string | null
+          product_type: string
+          quantity_multiplier: number | null
+          recommended_product_ids: string[] | null
+          task_type: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_category?: string | null
+          product_type: string
+          quantity_multiplier?: number | null
+          recommended_product_ids?: string[] | null
+          task_type: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_category?: string | null
+          product_type?: string
+          quantity_multiplier?: number | null
+          recommended_product_ids?: string[] | null
+          task_type?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_product_mappings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -15148,6 +17100,63 @@ export type Database = {
           },
         ]
       }
+      tenant_farmer_pricing: {
+        Row: {
+          base_plan_id: string
+          created_at: string | null
+          custom_features: Json | null
+          custom_limits: Json | null
+          custom_price_annually: number | null
+          custom_price_monthly: number | null
+          custom_price_quarterly: number | null
+          id: string
+          is_active: boolean | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          base_plan_id: string
+          created_at?: string | null
+          custom_features?: Json | null
+          custom_limits?: Json | null
+          custom_price_annually?: number | null
+          custom_price_monthly?: number | null
+          custom_price_quarterly?: number | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          base_plan_id?: string
+          created_at?: string | null
+          custom_features?: Json | null
+          custom_limits?: Json | null
+          custom_price_annually?: number | null
+          custom_price_monthly?: number | null
+          custom_price_quarterly?: number | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_farmer_pricing_base_plan_id_fkey"
+            columns: ["base_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_farmer_pricing_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_feature_overrides: {
         Row: {
           created_at: string | null
@@ -15518,6 +17527,7 @@ export type Database = {
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           tenant_id: string | null
+          trial_days: number | null
           updated_at: string | null
         }
         Insert: {
@@ -15542,6 +17552,7 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           tenant_id?: string | null
+          trial_days?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -15566,6 +17577,7 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           tenant_id?: string | null
+          trial_days?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -16546,6 +18558,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      video_tutorials: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          is_active: boolean | null
+          is_featured: boolean | null
+          language: string | null
+          subcategory: string | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          video_url: string
+          view_count: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          language?: string | null
+          subcategory?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          video_url: string
+          view_count?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          language?: string | null
+          subcategory?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          video_url?: string
+          view_count?: number | null
+        }
+        Relationships: []
       }
       villages: {
         Row: {
@@ -17939,6 +20005,26 @@ export type Database = {
           },
         ]
       }
+      farmer_upcoming_needs: {
+        Row: {
+          crop_name: string | null
+          crop_variety: string | null
+          days_until_task: number | null
+          estimated_cost: number | null
+          farmer_id: string | null
+          farmer_name: string | null
+          location: string | null
+          mobile_number: string | null
+          resources: Json | null
+          status: string | null
+          task_date: string | null
+          task_id: string | null
+          task_name: string | null
+          task_type: string | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
       geography_columns: {
         Row: {
           coord_dimension: number | null
@@ -18499,6 +20585,14 @@ export type Database = {
         Args: { workflow_id: string }
         Returns: number
       }
+      calculate_product_demand: {
+        Args: { p_days?: number; p_tenant_id: string }
+        Returns: {
+          predicted_demand: number
+          product_type: string
+          urgency_level: string
+        }[]
+      }
       calculate_vegetation_health_score: {
         Args: {
           p_data_completeness: number
@@ -18529,6 +20623,21 @@ export type Database = {
         Returns: {
           profile: Json
           user_exists: boolean
+        }[]
+      }
+      check_product_duplicate: {
+        Args: {
+          p_brand?: string
+          p_name?: string
+          p_sku?: string
+          p_tenant_id: string
+        }
+        Returns: {
+          brand: string
+          id: string
+          match_type: string
+          name: string
+          sku: string
         }[]
       }
       check_registration_status: {
@@ -18678,6 +20787,10 @@ export type Database = {
         Returns: boolean
       }
       expire_old_invites: { Args: never; Returns: number }
+      extract_numeric_quantity: {
+        Args: { resources: Json; task_type: string }
+        Returns: number
+      }
       find_intersecting_districts: {
         Args: { tile_geom: unknown }
         Returns: {
@@ -18717,6 +20830,7 @@ export type Database = {
       generate_farmer_code: { Args: { p_tenant_id: string }; Returns: string }
       generate_invite_token: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
+      generate_order_number: { Args: { p_tenant_id: string }; Returns: string }
       generate_otp: { Args: { p_length?: number }; Returns: string }
       generate_slug_suggestions: {
         Args: { p_organization_name: string }
@@ -18898,9 +21012,24 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      get_current_farmer_id: { Args: never; Returns: string }
       get_current_tenant_id: { Args: never; Returns: string }
       get_current_user_email: { Args: never; Returns: string }
       get_geometry_bbox: { Args: { geom: unknown }; Returns: number[] }
+      get_header_farmer_id: { Args: never; Returns: string }
+      get_header_tenant_id: { Args: never; Returns: string }
+      get_inventory_gap: {
+        Args: { p_days?: number; p_tenant_id: string }
+        Returns: {
+          current_stock: number
+          gap: number
+          gap_percentage: number
+          predicted_demand: number
+          product_type: string
+          urgency_level: string
+        }[]
+      }
+      get_jwt_dealer_id: { Args: never; Returns: string }
       get_jwt_farmer_id: { Args: never; Returns: string }
       get_jwt_tenant_id: { Args: never; Returns: string }
       get_lands_by_tile: {
@@ -19044,6 +21173,7 @@ export type Database = {
           tile_id: string
         }[]
       }
+      get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
       get_user_tenant_relationships: {
         Args: {
           p_include_inactive?: boolean
@@ -19066,6 +21196,36 @@ export type Database = {
       }
       gettransactionid: { Args: never; Returns: unknown }
       has_tenant_access: { Args: { check_tenant_id: string }; Returns: boolean }
+      insert_land_with_geometry: {
+        Args: {
+          p_area_acres: number
+          p_area_guntas?: number
+          p_area_sqft?: number
+          p_boundary_geojson?: Json
+          p_center_geojson?: Json
+          p_cultivation_date?: string
+          p_current_crop?: string
+          p_district?: string
+          p_district_id?: string
+          p_farmer_id: string
+          p_irrigation_type?: string
+          p_last_harvest_date?: string
+          p_name: string
+          p_ownership_type: string
+          p_previous_crop?: string
+          p_soil_type?: string
+          p_state?: string
+          p_state_id?: string
+          p_survey_number?: string
+          p_taluka?: string
+          p_taluka_id?: string
+          p_tenant_id: string
+          p_village?: string
+          p_village_id?: string
+          p_water_source?: string
+        }
+        Returns: Json
+      }
       is_authenticated_admin: { Args: never; Returns: boolean }
       is_bootstrap_completed: { Args: never; Returns: boolean }
       is_bootstrap_required: { Args: never; Returns: boolean }
@@ -19074,7 +21234,9 @@ export type Database = {
       is_invite_valid: { Args: { invite_token: string }; Returns: boolean }
       is_moderator: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
-      is_tenant_admin: { Args: { _tenant_id: string }; Returns: boolean }
+      is_tenant_admin:
+        | { Args: never; Returns: boolean }
+        | { Args: { _tenant_id: string }; Returns: boolean }
       is_user_tenant_admin: {
         Args: { target_tenant_id: string }
         Returns: boolean
@@ -19223,6 +21385,11 @@ export type Database = {
       record_failed_login: {
         Args: { p_email: string; p_ip_address?: unknown }
         Returns: Json
+      }
+      refresh_farmer_upcoming_needs: { Args: never; Returns: undefined }
+      refresh_organization_analytics: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
       }
       remove_onboarding_workflow: {
         Args: { p_workflow_id: string }
