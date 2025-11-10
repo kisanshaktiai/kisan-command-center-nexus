@@ -246,20 +246,18 @@ async function sendUserInvite(supabase: any, body: any): Promise<Response> {
   const invitationData = {
     tenant_id: tenantId,
     email: email.toLowerCase().trim(),
-    invited_name: `${firstName} ${lastName || ''}`.trim(),
+    first_name: firstName,
+    last_name: lastName || '',
     role: role,
     invitation_token: invitationToken,
     invitation_type: 'team_member',
     status: 'sent',
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     created_by: userId,
+    inviter_name: inviterName || 'Team Admin',
+    tenant_name: tenantName || tenantData.name,
     metadata: {
-      first_name: firstName,
-      last_name: lastName || '',
-      role: role,
-      invitation_source: 'onboarding',
-      tenant_name: tenantName || tenantData.name,
-      inviter_name: inviterName || 'Team Admin'
+      invitation_source: 'onboarding'
     },
     sent_at: new Date().toISOString()
   };
