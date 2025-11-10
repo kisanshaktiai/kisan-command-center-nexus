@@ -15,7 +15,7 @@ site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://lovable.dev"]
 jwt_expiry = 3600
 enable_signup = true
-enable_confirmations = false
+enable_confirmations = true
 
 [auth.external.apple]
 enabled = false
@@ -135,6 +135,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-branding-suggestions]
+verify_jwt = false
+
+[functions.send-auth-email]
 verify_jwt = false
 
 [storage]

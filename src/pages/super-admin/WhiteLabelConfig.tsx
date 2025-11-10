@@ -21,7 +21,7 @@ import { DistributionOptionsPanel } from '@/components/white-label/DistributionO
 import { AdvancedAppCustomizationPanel } from '@/components/white-label/AdvancedAppCustomizationPanel';
 import { LogoUploadSection } from '@/components/white-label/LogoUploadSection';
 import { DomainValidationSection } from '@/components/white-label/DomainValidationSection';
-import { EmailTemplatesPanel } from '@/components/white-label/EmailTemplatesPanel';
+import { EmailTemplatesPanelNew } from '@/components/white-label/EmailTemplatesPanelNew';
 import { EnhancedMobileThemePanel } from '@/components/white-label/EnhancedMobileThemePanel';
 import { WebAppThemePanel } from '@/components/white-label/WebAppThemePanel';
 import { BrandingSuggestionsDialog } from '@/components/white-label/BrandingSuggestionsDialog';
@@ -509,7 +509,7 @@ export default function WhiteLabelConfig() {
       {selectedTenant && !configLoading && (
         <Tabs defaultValue="branding" className="space-y-4">
           <div className="flex justify-between items-center">
-            <TabsList className="grid grid-cols-8 w-full max-w-4xl">
+            <TabsList className="grid grid-cols-9 w-full max-w-5xl">
               <TabsTrigger value="branding">
                 <Palette className="h-4 w-4 mr-1" />
                 Branding
@@ -812,7 +812,7 @@ export default function WhiteLabelConfig() {
 
           {/* Email Tab */}
           <TabsContent value="email" className="space-y-4">
-            <EmailTemplatesPanel config={config} updateConfig={updateConfig} />
+            <EmailTemplatesPanelNew tenantId={selectedTenant} />
           </TabsContent>
 
           {/* Web App Tab */}
