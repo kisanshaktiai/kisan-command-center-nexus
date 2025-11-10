@@ -150,10 +150,10 @@ export function DomainHealthPanel({ config, updateConfig }: DomainHealthPanelPro
                 <span className="text-sm font-medium">Performance</span>
               </div>
               <div className={`text-xl font-bold ${
-                domainHealth.performance_score >= 90 ? 'text-green-600' :
-                domainHealth.performance_score >= 70 ? 'text-yellow-600' : 'text-red-600'
+                (domainHealth.performance_score || 0) >= 90 ? 'text-green-600' :
+                (domainHealth.performance_score || 0) >= 70 ? 'text-yellow-600' : 'text-red-600'
               }`}>
-                {domainHealth.performance_score}/100
+                {domainHealth.performance_score || 0}/100
               </div>
             </div>
 
@@ -163,10 +163,10 @@ export function DomainHealthPanel({ config, updateConfig }: DomainHealthPanelPro
                 <span className="text-sm font-medium">Uptime</span>
               </div>
               <div className={`text-xl font-bold ${
-                domainHealth.uptime_percentage >= 99.9 ? 'text-green-600' :
-                domainHealth.uptime_percentage >= 95 ? 'text-yellow-600' : 'text-red-600'
+                (domainHealth.uptime_percentage || 0) >= 99.9 ? 'text-green-600' :
+                (domainHealth.uptime_percentage || 0) >= 95 ? 'text-yellow-600' : 'text-red-600'
               }`}>
-                {domainHealth.uptime_percentage.toFixed(1)}%
+                {(domainHealth.uptime_percentage || 0).toFixed(1)}%
               </div>
             </div>
           </div>
