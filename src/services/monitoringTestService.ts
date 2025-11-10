@@ -74,7 +74,9 @@ export class MonitoringTestService {
     // Test system metrics collection
     try {
       const startTime = Date.now();
-      const { error } = await supabase.functions.invoke('collect-system-metrics');
+      const { error } = await supabase.functions.invoke('collect-metrics', {
+        body: { metric_type: 'system' }
+      });
       
       if (error) {
         results.push({
@@ -102,7 +104,9 @@ export class MonitoringTestService {
     // Test resource metrics collection
     try {
       const startTime = Date.now();
-      const { error } = await supabase.functions.invoke('collect-resource-metrics');
+      const { error } = await supabase.functions.invoke('collect-metrics', {
+        body: { metric_type: 'resource' }
+      });
       
       if (error) {
         results.push({
@@ -130,7 +134,9 @@ export class MonitoringTestService {
     // Test financial metrics collection
     try {
       const startTime = Date.now();
-      const { error } = await supabase.functions.invoke('collect-financial-metrics');
+      const { error } = await supabase.functions.invoke('collect-metrics', {
+        body: { metric_type: 'financial' }
+      });
       
       if (error) {
         results.push({
