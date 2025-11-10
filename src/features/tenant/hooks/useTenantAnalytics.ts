@@ -44,15 +44,11 @@ export const useTenantAnalytics = ({
     try {
       console.log('useTenantAnalytics: Fetching metrics for tenant:', tenantId);
       
-      // Fix the API call to use proper headers instead of body for GET request
+      // Call edge function with tenant_id as query parameter
       const { data, error: fetchError } = await supabase.functions.invoke(
-        'tenant-real-time-metrics',
+        `tenant-real-time-metrics?tenant_id=${tenantId}`,
         {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-tenant-id': tenantId
-          }
+          method: 'GET'
         }
       );
       
@@ -65,41 +61,44 @@ export const useTenantAnalytics = ({
       console.log('useTenantAnalytics: Metrics data received:', data);
       
       // Transform the data to match the TenantMetrics interface
+      // Map from edge function response structure to frontend interface
       const transformedMetrics: TenantMetrics = {
         usageMetrics: {
           farmers: { 
-            current: data?.usageMetrics?.farmers?.current || 0, 
-            limit: data?.usageMetrics?.farmers?.limit || 1000,
-            percentage: data?.usageMetrics?.farmers?.percentage || 0
+            current: data?.capacity_status?.farmers_usage?.current || data?.usage?.farmers || 0, 
+            limit: data?.capacity_status?.farmers_usage?.limit || data?.limits?.farmers || 1000,
+            percentage: data?.capacity_status?.farmers_usage?.percentage || 0
           },
           dealers: { 
-            current: data?.usageMetrics?.dealers?.current || 0, 
-            limit: data?.usageMetrics?.dealers?.limit || 500,
-            percentage: data?.usageMetrics?.dealers?.percentage || 0
+            current: data?.capacity_status?.dealers_usage?.current || data?.usage?.dealers || 0, 
+            limit: data?.capacity_status?.dealers_usage?.limit || data?.limits?.dealers || 500,
+            percentage: data?.capacity_status?.dealers_usage?.percentage || 0
           },
           products: { 
-            current: data?.usageMetrics?.products?.current || 0, 
-            limit: data?.usageMetrics?.products?.limit || 10000,
-            percentage: data?.usageMetrics?.products?.percentage || 0
+            current: data?.usage?.products || 0, 
+            limit: data?.limits?.products || 10000,
+            percentage: data?.usage?.products && data?.limits?.products 
+              ? (data.usage.products / data.limits.products) * 100 
+              : 0
           },
           storage: { 
-            current: data?.usageMetrics?.storage?.current || 0, 
-            limit: data?.usageMetrics?.storage?.limit || 100,
-            percentage: data?.usageMetrics?.storage?.percentage || 0
+            current: data?.capacity_status?.storage_usage?.current || data?.usage?.storage || 0, 
+            limit: data?.capacity_status?.storage_usage?.limit || data?.limits?.storage || 100,
+            percentage: data?.capacity_status?.storage_usage?.percentage || 0
           },
           apiCalls: { 
-            current: data?.usageMetrics?.apiCalls?.current || 0, 
-            limit: data?.usageMetrics?.apiCalls?.limit || 100000,
-            percentage: data?.usageMetrics?.apiCalls?.percentage || 0
+            current: data?.capacity_status?.api_usage?.current || data?.usage?.api_calls || 0, 
+            limit: data?.capacity_status?.api_usage?.limit || data?.limits?.api_calls || 100000,
+            percentage: data?.capacity_status?.api_usage?.percentage || 0
           }
         },
         growthTrends: {
-          farmers: data?.growthTrends?.farmers || [],
-          revenue: data?.growthTrends?.revenue || [],
-          apiUsage: data?.growthTrends?.apiUsage || []
+          farmers: data?.trends?.farmers || [],
+          revenue: data?.trends?.revenue || [],
+          apiUsage: data?.trends?.apiUsage || []
         },
-        healthScore: data?.healthScore || 85,
-        lastActivityDate: data?.lastActivityDate || new Date().toISOString()
+        healthScore: data?.health_score || 85,
+        lastActivityDate: data?.last_activity || new Date().toISOString()
       };
       
       // Update the metrics for this specific tenant
