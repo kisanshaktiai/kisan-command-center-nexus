@@ -267,12 +267,12 @@ export const EmailTemplatesPanelNew: React.FC<EmailTemplatesPanelNewProps> = ({ 
                   className="pl-10"
                 />
               </div>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select value={selectedCategory || "all"} onValueChange={(value) => setSelectedCategory(value === "all" ? "" : value)}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="All categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All categories</SelectItem>
+                  <SelectItem value="all">All categories</SelectItem>
                   {categories.map(cat => (
                     <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                   ))}
