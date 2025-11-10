@@ -18,8 +18,8 @@ export const DataGeneratorButton: React.FC = () => {
         toast.success('Data generation stopped');
       } else {
         // Start generation by invoking edge function
-        const { error } = await supabase.functions.invoke('generate-monitoring-data', {
-          body: { action: 'generate' }
+        const { error } = await supabase.functions.invoke('admin-utilities', {
+          body: { operation: 'generate-monitoring-data' }
         });
         
         if (error) throw error;

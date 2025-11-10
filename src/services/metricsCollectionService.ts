@@ -6,7 +6,9 @@ export class MetricsCollectionService {
    */
   static async collectSystemMetrics(): Promise<void> {
     try {
-      const { error } = await supabase.functions.invoke('collect-system-metrics');
+      const { error } = await supabase.functions.invoke('collect-metrics', {
+        body: { metric_type: 'system' }
+      });
       
       if (error) {
         console.error('Error collecting system metrics:', error);
@@ -25,7 +27,9 @@ export class MetricsCollectionService {
    */
   static async collectResourceMetrics(): Promise<void> {
     try {
-      const { error } = await supabase.functions.invoke('collect-resource-metrics');
+      const { error } = await supabase.functions.invoke('collect-metrics', {
+        body: { metric_type: 'resource' }
+      });
       
       if (error) {
         console.error('Error collecting resource metrics:', error);
@@ -44,7 +48,9 @@ export class MetricsCollectionService {
    */
   static async collectFinancialMetrics(): Promise<void> {
     try {
-      const { error } = await supabase.functions.invoke('collect-financial-metrics');
+      const { error } = await supabase.functions.invoke('collect-metrics', {
+        body: { metric_type: 'financial' }
+      });
       
       if (error) {
         console.error('Error collecting financial metrics:', error);

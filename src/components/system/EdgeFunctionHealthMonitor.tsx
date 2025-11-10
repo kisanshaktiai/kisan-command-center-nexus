@@ -19,7 +19,8 @@ const EDGE_FUNCTIONS = [
   'assign-admin-role',
   'send-admin-invite',
   'verify-admin-invite',
-  'create-super-admin',
+  'collect-metrics',
+  'admin-utilities',
 ];
 
 export const EdgeFunctionHealthMonitor: React.FC = () => {
@@ -51,8 +52,11 @@ export const EdgeFunctionHealthMonitor: React.FC = () => {
         case 'verify-admin-invite':
           testPayload = { token: 'health-check' };
           break;
-        case 'create-super-admin':
-          testPayload = { email: 'health@check.com', password: 'health-check' };
+        case 'collect-metrics':
+          testPayload = { metric_type: 'system' };
+          break;
+        case 'admin-utilities':
+          testPayload = { operation: 'validate-email', email: 'health@check.com' };
           break;
       }
 
