@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Resend } from "npm:resend@2.0.0";
 
+const resendApiKey = Deno.env.get("RESEND_API_KEY");
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -24,7 +26,12 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    if (!resendApiKey) {
+      throw new Error('RESEND_API_KEY not configured. Please add it in Secrets.');
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const resend = new Resend(resendApiKey);
     
     const requestData: AuthEmailRequest = await req.json();
     const { type, email, redirectTo, userId, tenantId, metadata } = requestData;
@@ -155,43 +162,14 @@ const handler = async (req: Request): Promise<Response> => {
       .select()
       .single();
 
-    // Use Supabase Auth to send email via configured SMTP
-    let sendResult;
-    
-    if (type === 'invite' || type === 'admin_invite' || type === 'user_invite' || type === 'tenant_admin_invite') {
-      // For invites, use inviteUserByEmail
-      const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo: redirectTo || metadata?.invite_url || supabaseUrl,
-        data: {
-          ...metadata,
-          email_subject: subject,
-          email_html: htmlContent,
-          email_text: textContent
-        }
-      });
-      
-      if (error) {
-        throw new Error(`Failed to send invite email: ${error.message}`);
-      }
-      
-      sendResult = { id: data?.user?.id || 'invite-sent' };
-    } else {
-      // For other auth emails, use generateLink
-      const { data, error } = await supabase.auth.admin.generateLink({
-        type: type === 'recovery' ? 'recovery' : type === 'magiclink' ? 'magiclink' : 'signup',
-        email,
-        options: {
-          redirectTo: redirectTo || supabaseUrl,
-          data: metadata
-        }
-      });
-      
-      if (error) {
-        throw new Error(`Failed to generate auth link: ${error.message}`);
-      }
-      
-      sendResult = { id: data?.properties?.action_link || 'link-generated' };
-    }
+    // Send email via Resend
+    const emailResponse = await resend.emails.send({
+      from: `${companyName} <onboarding@resend.dev>`,
+      to: [email],
+      subject,
+      html: htmlContent,
+      text: textContent
+    });
 
     // Update log status
     if (logData) {
@@ -199,18 +177,18 @@ const handler = async (req: Request): Promise<Response> => {
         .from('email_logs')
         .update({
           status: 'sent',
-          external_message_id: String(sendResult.id),
+          external_message_id: emailResponse.data?.id,
           sent_at: new Date().toISOString()
         })
         .eq('id', logData.id);
     }
 
-    console.log('Auth email sent successfully via Supabase SMTP:', { messageId: sendResult.id });
+    console.log('Auth email sent successfully:', { messageId: emailResponse.data?.id });
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        messageId: sendResult.id 
+        messageId: emailResponse.data?.id 
       }),
       {
         status: 200,
