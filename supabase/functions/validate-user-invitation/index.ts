@@ -99,19 +99,23 @@ async function validateInvitation(
     };
   }
   
-  // Step 2: Check auth.users for existing user
-  const { data: authUser, error: authError } = await supabase
-    .from('auth.users')
-    .select('id, email, email_confirmed_at, created_at')
-    .eq('email', normalizedEmail)
-    .maybeSingle();
+  // Step 2: Check auth.users for existing user using Auth Admin API
+  let userId: string | undefined;
+  let exists = false;
   
-  if (authError) {
-    console.error('[validate-user-invitation] Error checking auth.users:', authError);
+  try {
+    const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+    
+    if (authError) {
+      console.error('[validate-user-invitation] Error checking auth.users:', authError);
+    } else if (authData?.users) {
+      const authUser = authData.users.find(u => u.email?.toLowerCase() === normalizedEmail);
+      userId = authUser?.id;
+      exists = !!authUser;
+    }
+  } catch (error) {
+    console.error('[validate-user-invitation] Exception checking auth users:', error);
   }
-  
-  const userId = authUser?.id;
-  const exists = !!authUser;
   
   console.log('[validate-user-invitation] Auth user check:', { exists, userId });
   
