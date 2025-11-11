@@ -185,8 +185,29 @@ export const AdminInviteManager = () => {
       return;
     }
 
+    // Validate invitation before sending
     setIsSubmitting(true);
     try {
+      console.log('Validating admin invitation...');
+      const { data: validation, error: validationError } = await supabase.functions.invoke('validate-user-invitation', {
+        body: {
+          email: formData.email,
+          invitationType: 'admin',
+          role: formData.role
+        }
+      });
+
+      if (validationError) {
+        toast.error(`Validation failed: ${validationError.message}`);
+        return;
+      }
+
+      if (!validation.isValid) {
+        toast.error(validation.issues.join('. '));
+        return;
+      }
+
+      // Proceed with sending invitation
       await sendInviteMutation.mutateAsync(formData);
     } finally {
       setIsSubmitting(false);

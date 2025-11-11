@@ -138,31 +138,34 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newUser.email)) {
-      showError('Please enter a valid email address');
-      return;
-    }
-
-    // Check if email already exists
-    const existingInvitation = invitations.find(inv => 
-      inv.email.toLowerCase() === newUser.email.toLowerCase() && 
-      inv.status !== 'expired' && 
-      inv.status !== 'cancelled'
-    );
-
-    if (existingInvitation) {
-      showError('An invitation for this email already exists');
-      return;
-    }
-
     try {
       setIsSending(newUser.email);
 
-      // Get current user info for the invitation
+      // Get current user info
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('User not authenticated');
+      }
+
+      // Comprehensive validation via backend
+      console.log('Validating invitation before sending...');
+      const { data: validation, error: validationError } = await supabase.functions.invoke('validate-user-invitation', {
+        body: {
+          email: newUser.email,
+          tenantId,
+          invitationType: 'user',
+          role: newUser.role
+        }
+      });
+
+      if (validationError) {
+        throw new Error(`Validation failed: ${validationError.message}`);
+      }
+
+      if (!validation.isValid) {
+        showError(validation.issues.join('. '));
+        setIsSending(null);
+        return;
       }
 
       const inviterName = user.user_metadata?.full_name || 'Team Admin';

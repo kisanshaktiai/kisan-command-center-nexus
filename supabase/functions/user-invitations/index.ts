@@ -103,29 +103,44 @@ async function sendAdminInvite(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  const inviteToken = generateInviteToken();
+  // Comprehensive validation via validate-user-invitation function
+  console.log('[sendAdminInvite] Validating invitation for:', email);
+  const { data: validation, error: validationError } = await supabase.functions.invoke('validate-user-invitation', {
+    body: {
+      email,
+      invitationType: 'admin',
+      role
+    }
+  });
 
-  const { data: existingInvite } = await supabase
-    .from('admin_invites')
-    .select('id, status')
-    .eq('email', email)
-    .eq('status', 'pending')
-    .gte('expires_at', new Date().toISOString())
-    .single();
-
-  if (existingInvite) {
+  if (validationError) {
+    console.error('[sendAdminInvite] Validation error:', validationError);
     return new Response(JSON.stringify({ 
-      error: 'User already has a pending invite' 
+      error: `Validation failed: ${validationError.message}` 
     }), {
-      status: 409,
+      status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 
+  if (!validation.isValid) {
+    console.log('[sendAdminInvite] Validation failed:', validation.issues);
+    return new Response(JSON.stringify({ 
+      error: validation.issues.join('; '),
+      validationDetails: validation
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  }
+
+  const normalizedEmail = validation.normalizedEmail;
+  const inviteToken = generateInviteToken();
+
   const { data: invite, error: inviteError } = await supabase
     .from('admin_invites')
     .insert({
-      email,
+      email: normalizedEmail,
       role,
       invite_token: inviteToken,
       invited_by: invitedBy,
@@ -147,7 +162,7 @@ async function sendAdminInvite(supabase: any, body: any): Promise<Response> {
   const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-auth-email', {
     body: {
       type: 'admin_invite',
-      email: email,
+      email: normalizedEmail,
       redirectTo: inviteUrl,
       metadata: {
         app_name: organizationName,
@@ -156,7 +171,7 @@ async function sendAdminInvite(supabase: any, body: any): Promise<Response> {
         role: role,
         organization_name: organizationName,
         invite_url: inviteUrl,
-        user_name: email.split('@')[0]
+        user_name: normalizedEmail.split('@')[0]
       }
     }
   });
@@ -199,6 +214,42 @@ async function sendUserInvite(supabase: any, body: any): Promise<Response> {
     });
   }
 
+  // Comprehensive validation via validate-user-invitation function
+  console.log('[sendUserInvite] Validating invitation for:', email, 'tenant:', tenantId);
+  const { data: validation, error: validationError } = await supabase.functions.invoke('validate-user-invitation', {
+    body: {
+      email,
+      tenantId,
+      invitationType: 'user',
+      role
+    }
+  });
+
+  if (validationError) {
+    console.error('[sendUserInvite] Validation error:', validationError);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: `Validation failed: ${validationError.message}` 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+
+  if (!validation.isValid) {
+    console.log('[sendUserInvite] Validation failed:', validation.issues);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: validation.issues.join('; '),
+      validationDetails: validation
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+
+  const normalizedEmail = validation.normalizedEmail;
+
   const { data: tenantData, error: tenantError } = await supabase
     .from('tenants')
     .select('id, name')
@@ -227,25 +278,11 @@ async function sendUserInvite(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  const { data: existingInvites } = await supabase
-    .from('user_invitations')
-    .select('id')
-    .eq('tenant_id', tenantId)
-    .eq('email', email.toLowerCase().trim())
-    .in('status', ['pending', 'sent']);
-
-  if (existingInvites && existingInvites.length > 0) {
-    return new Response(JSON.stringify({ success: false, error: 'Active invitation already exists for this email' }), {
-      status: 409,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
-  }
-
   const invitationToken = crypto.randomUUID();
 
   const invitationData = {
     tenant_id: tenantId,
-    email: email.toLowerCase().trim(),
+    email: normalizedEmail,
     first_name: firstName,
     last_name: lastName || '',
     role: role,
@@ -291,7 +328,7 @@ async function sendUserInvite(supabase: any, body: any): Promise<Response> {
   const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-auth-email', {
     body: {
       type: 'user_invite',
-      email: email,
+      email: normalizedEmail,
       tenantId: tenantId,
       redirectTo: inviteUrl,
       metadata: {

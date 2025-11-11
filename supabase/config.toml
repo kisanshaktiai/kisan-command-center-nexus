@@ -140,6 +140,9 @@ verify_jwt = false
 [functions.send-auth-email]
 verify_jwt = false
 
+[functions.validate-user-invitation]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323
