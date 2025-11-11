@@ -22,11 +22,14 @@ import {
   Shield,
   AlertTriangle,
   Copy,
-  ExternalLink
+  ExternalLink,
+  AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEmailValidation } from '@/hooks/useEmailValidation';
+import { cn } from '@/lib/utils';
 
 // Define AdminInvite interface locally
 interface AdminInvite {
@@ -59,6 +62,14 @@ export const AdminInviteManager = () => {
   const [formData, setFormData] = useState({
     email: '',
     role: 'admin' as 'admin' | 'platform_admin' | 'super_admin'
+  });
+
+  // Real-time email validation
+  const emailValidation = useEmailValidation({
+    email: formData.email,
+    invitationType: 'admin',
+    role: formData.role,
+    enabled: isDialogOpen && formData.email.length > 0
   });
 
   // Fetch existing invites
@@ -281,14 +292,49 @@ export const AdminInviteManager = () => {
             <form onSubmit={handleSendInvite} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="admin@example.com"
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="admin@example.com"
+                    required
+                    disabled={isSubmitting}
+                    className={cn(
+                      emailValidation.isChecking && "border-blue-400",
+                      emailValidation.isValid === true && "border-green-500",
+                      emailValidation.isValid === false && "border-red-500"
+                    )}
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {emailValidation.isChecking && (
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                    )}
+                    {!emailValidation.isChecking && emailValidation.isValid === true && (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    )}
+                    {!emailValidation.isChecking && emailValidation.isValid === false && (
+                      <XCircle className="w-4 h-4 text-red-500" />
+                    )}
+                  </div>
+                </div>
+                {emailValidation.issues.length > 0 && (
+                  <div className="space-y-1">
+                    {emailValidation.issues.map((issue, index) => (
+                      <p key={index} className="text-sm text-red-600 flex items-start gap-1">
+                        <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <span>{issue}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
+                {emailValidation.error && (
+                  <p className="text-sm text-red-600 flex items-start gap-1">
+                    <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    <span>{emailValidation.error}</span>
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -342,7 +388,12 @@ export const AdminInviteManager = () => {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={isSubmitting}
+                  disabled={
+                    isSubmitting || 
+                    !formData.email || 
+                    emailValidation.isChecking ||
+                    emailValidation.isValid === false
+                  }
                 >
                   {isSubmitting ? (
                     <>

@@ -100,10 +100,16 @@ async function validateInvitation(
   }
   
   // Step 2: Check auth.users for existing user
-  const { data: authUsers } = await supabase
-    .rpc('get_auth_user_by_email', { user_email: normalizedEmail });
+  const { data: authUser, error: authError } = await supabase
+    .from('auth.users')
+    .select('id, email, email_confirmed_at, created_at')
+    .eq('email', normalizedEmail)
+    .maybeSingle();
   
-  const authUser = authUsers && authUsers.length > 0 ? authUsers[0] : null;
+  if (authError) {
+    console.error('[validate-user-invitation] Error checking auth.users:', authError);
+  }
+  
   const userId = authUser?.id;
   const exists = !!authUser;
   
