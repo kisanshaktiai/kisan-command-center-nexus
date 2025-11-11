@@ -202,24 +202,19 @@ serve(async (req) => {
           console.log(`[mark-agricultural-tiles] Triggering tile fetch for ${mgrsTile.tile_id}`);
           
           try {
-            const ndviResponse = await fetch(`${supabaseUrl}/functions/v1/ndvi-data-process`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${supabaseKey}`
-              },
-              body: JSON.stringify({
+            const { data: ndviResult, error: ndviError } = await supabase.functions.invoke('ndvi-data-process', {
+              body: {
+                tile_id: mgrsTile.tile_id,
                 cloud_cover: 20,
                 lookback_days: 30
-              })
+              }
             });
 
-            if (ndviResponse.ok) {
-              const ndviResult = await ndviResponse.json();
-              console.log(`[mark-agricultural-tiles] Tile fetch triggered for ${mgrsTile.tile_id}:`, ndviResult.status);
+            if (!ndviError && ndviResult) {
+              console.log(`[mark-agricultural-tiles] Tile fetch triggered for ${mgrsTile.tile_id}:`, ndviResult.status || 'success');
               createdSatTiles.push(mgrsTile.tile_id);
             } else {
-              console.error(`[mark-agricultural-tiles] Failed to trigger tile fetch for ${mgrsTile.tile_id}`);
+              console.error(`[mark-agricultural-tiles] Failed to trigger tile fetch for ${mgrsTile.tile_id}:`, ndviError?.message || 'Unknown error');
             }
           } catch (fetchError: any) {
             console.error(`[mark-agricultural-tiles] Error calling ndvi-data-process:`, fetchError.message);
