@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
+import { applyRateLimit, RATE_LIMITS } from '../_shared/rateLimiter.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -168,6 +169,18 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ error: "Method not allowed" }),
       { status: 405, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
+  }
+
+  // Apply rate limiting
+  const rateLimitResult = await applyRateLimit(
+    req,
+    'send-email',
+    RATE_LIMITS.HIGH_SENSITIVITY,
+    corsHeaders
+  );
+
+  if (!rateLimitResult.allowed && rateLimitResult.response) {
+    return rateLimitResult.response;
   }
 
   try {
