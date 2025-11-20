@@ -120,14 +120,17 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { action } = await req.json();
+    const body = await req.json();
+    const { action } = body;
+
+    console.log('[admin-utilities] Received action:', action);
 
     // Route to appropriate handler
     switch (action) {
-      case 'cloudflare_dns':
-        return await handleCloudflareDNS(req);
+      case 'cloudflare-dns':
+        return await handleCloudflareDNS(body);
       default:
-        return await handleAdminUserCreation(req);
+        return await handleAdminUserCreation(body);
     }
   } catch (error: any) {
     console.error('[admin-utilities] Error:', error);
@@ -139,9 +142,9 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 // Cloudflare DNS Management Handler
-const handleCloudflareDNS = async (req: Request): Promise<Response> => {
+const handleCloudflareDNS = async (body: any): Promise<Response> => {
   try {
-    const { operation, tenant_id, domain, proxied } = await req.json();
+    const { operation, tenant_id, domain, proxied } = body;
 
     // Read Cloudflare credentials from environment secrets
     const zone_id = Deno.env.get('CLOUDFLARE_ZONE_ID');
@@ -302,9 +305,9 @@ const handleCloudflareDNS = async (req: Request): Promise<Response> => {
   }
 };
 
-const handleAdminUserCreation = async (req: Request): Promise<Response> => {
+const handleAdminUserCreation = async (body: any): Promise<Response> => {
   try {
-    const { operation, ...payload } = await req.json();
+    const { operation, ...payload } = body;
 
     if (!operation || !['create-super-admin', 'validate-email', 'generate-monitoring-data'].includes(operation)) {
       return new Response(
