@@ -11,13 +11,15 @@ interface DomainValidationSectionProps {
   onDomainChange: (domain: string) => void;
   type: 'subdomain' | 'custom_domain';
   tenantId?: string;
+  domainPurpose?: 'public_website' | 'tenant_portal' | 'farmer_app';
 }
 
 export const DomainValidationSection: React.FC<DomainValidationSectionProps> = ({
   domain,
   onDomainChange,
   type,
-  tenantId
+  tenantId,
+  domainPurpose = 'tenant_portal'
 }) => {
   const [isChecking, setIsChecking] = useState(false);
   const [validationResult, setValidationResult] = useState<{
@@ -68,22 +70,22 @@ export const DomainValidationSection: React.FC<DomainValidationSectionProps> = (
             code: 'INVALID_FORMAT'
           });
         } else {
-          // Check if domain is already in use
+          // Check if domain is already in use (check all domain types)
           const { data, error } = await supabase
             .from('tenants')
             .select('id')
-            .eq('custom_domain', domainToValidate)
+            .or(`custom_domain.eq.${domainToValidate},subdomain.eq.${domainToValidate}`)
             .neq('id', tenantId || '')
-            .single();
+            .limit(1);
 
-          if (error && error.code !== 'PGRST116') {
+          if (error) {
             throw error;
           }
 
           setValidationResult({
-            valid: !data,
-            message: data ? 'Domain is already in use' : 'Domain is available',
-            code: data ? 'ALREADY_IN_USE' : 'AVAILABLE'
+            valid: !data || data.length === 0,
+            message: (data && data.length > 0) ? 'Domain is already in use' : 'Domain is available',
+            code: (data && data.length > 0) ? 'ALREADY_IN_USE' : 'AVAILABLE'
           });
         }
       }
