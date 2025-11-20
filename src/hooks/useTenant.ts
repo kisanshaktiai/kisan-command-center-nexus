@@ -58,6 +58,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             type: tenant.type as TenantType,
             status: tenant.status as TenantStatus,
             subscription_plan: tenant.subscription_plan as SubscriptionPlan,
+            domain_config: tenant.domain_config as any,
             metadata: (tenant.metadata as Record<string, any>) || {}
           })) || [];
 
@@ -146,6 +147,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               max_api_calls_per_day: safeTenant.max_api_calls_per_day,
               subdomain: safeTenant.subdomain,
               custom_domain: safeTenant.custom_domain,
+              domain_config: safeTenant.domain_config as any,
               metadata: (safeTenant.metadata as Record<string, any>) || {},
               created_at: safeTenant.created_at || new Date().toISOString(),
               updated_at: safeTenant.updated_at || new Date().toISOString()

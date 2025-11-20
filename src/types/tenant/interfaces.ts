@@ -6,6 +6,27 @@ export type TenantID = string & { readonly brand: unique symbol };
 
 export const createTenantID = (id: string): TenantID => id as TenantID;
 
+export interface DomainConfig {
+  public_website: {
+    custom_domain: string;
+    ssl_enabled: boolean;
+    dns_verified: boolean;
+    status: 'not_configured' | 'pending' | 'active' | 'error';
+  };
+  tenant_portal: {
+    custom_domain: string;
+    ssl_enabled: boolean;
+    dns_verified: boolean;
+    status: 'not_configured' | 'pending' | 'active' | 'error';
+  };
+  farmer_app: {
+    custom_domain: string;
+    ssl_enabled: boolean;
+    dns_verified: boolean;
+    status: 'not_configured' | 'pending' | 'active' | 'error';
+  };
+}
+
 export interface TenantBranding {
   primary_color?: string;
   secondary_color?: string;
@@ -63,8 +84,14 @@ export interface Tenant {
   max_products?: number;
   max_storage_gb?: number;
   max_api_calls_per_day?: number;
+  
+  // NEW: Triple domain configuration
+  domain_config?: DomainConfig;
+  
+  // LEGACY: Kept for backward compatibility, auto-synced from domain_config
   subdomain?: string;
   custom_domain?: string;
+  
   metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -137,5 +164,6 @@ export const convertDatabaseTenant = (dbTenant: any): Tenant => {
     created_by: dbTenant.created_by || undefined,
     branding: dbTenant.tenant_branding?.[0] || null,
     features: dbTenant.tenant_features?.[0] || null,
+    domain_config: dbTenant.domain_config as DomainConfig | undefined,
   };
 };

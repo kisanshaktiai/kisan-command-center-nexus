@@ -39,7 +39,8 @@ export type {
   TenantFeatures,
   TenantFilters,
   TenantFormData,
-  RpcResponse
+  RpcResponse,
+  DomainConfig
 } from './interfaces';
 
 export type {
