@@ -255,8 +255,9 @@ serve(async (req) => {
     try {
       console.log('Registering user with welcome email...');
       
-      const registrationResponse = await supabase.functions.invoke('register-user-with-welcome', {
+      const registrationResponse = await supabase.functions.invoke('user-management', {
         body: {
+          operation: 'register',
           email: adminEmail,
           fullName: adminName,
           password: tempPassword !== 'recovery-no-password' ? tempPassword : undefined,
@@ -288,12 +289,13 @@ serve(async (req) => {
       userId = registrationData.userId;
       console.log('User registered successfully:', userId, registrationData.isNewUser ? '(new user)' : '(existing user)');
 
-      // Use the global manage-user-tenant function to create the relationship
+      // Use the user-permissions function to create the relationship
       if (userId) {
-        console.log('Creating user-tenant relationship using global manage-user-tenant function...');
+        console.log('Creating user-tenant relationship using user-permissions function...');
         
-        const relationshipResponse = await supabase.functions.invoke('manage-user-tenant', {
+        const relationshipResponse = await supabase.functions.invoke('user-permissions', {
           body: {
+            operation: 'manage-tenant',
             user_id: userId,
             tenant_id: tenantId,
             role: 'tenant_admin',
@@ -377,7 +379,7 @@ serve(async (req) => {
       userTenantCreated: userTenantCreated
     };
 
-    console.log('Conversion completed successfully using global manage-user-tenant function');
+    console.log('Conversion completed successfully using user-management and user-permissions functions');
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
