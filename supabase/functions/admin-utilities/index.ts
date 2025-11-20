@@ -141,20 +141,19 @@ const handler = async (req: Request): Promise<Response> => {
 // Cloudflare DNS Management Handler
 const handleCloudflareDNS = async (req: Request): Promise<Response> => {
   try {
-    const { operation, tenant_id, portal_type, domain, cloudflare_config } = await req.json();
+    const { operation, tenant_id, domain, proxied } = await req.json();
 
-    if (!tenant_id || !cloudflare_config) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: tenant_id, cloudflare_config' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Read Cloudflare credentials from environment secrets
+    const zone_id = Deno.env.get('CLOUDFLARE_ZONE_ID');
+    const api_token = Deno.env.get('CLOUDFLARE_API_TOKEN');
 
-    const { zone_id, api_token, proxied } = cloudflare_config;
-    
     if (!zone_id || !api_token) {
+      console.error('[Cloudflare DNS] Missing Cloudflare secrets');
       return new Response(
-        JSON.stringify({ error: 'Missing Cloudflare credentials' }),
+        JSON.stringify({ 
+          error: 'Cloudflare integration not configured. Please add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID secrets.',
+          configured: false
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -167,7 +166,67 @@ const handleCloudflareDNS = async (req: Request): Promise<Response> => {
     let result;
 
     switch (operation) {
+      case 'get_zone_info': {
+        // Fetch zone information including nameservers
+        const zoneResponse = await fetch(
+          `https://api.cloudflare.com/client/v4/zones/${zone_id}`,
+          { headers: cfHeaders }
+        );
+
+        const zoneData = await zoneResponse.json();
+        if (!zoneResponse.ok) {
+          throw new Error(`Cloudflare API error: ${JSON.stringify(zoneData)}`);
+        }
+
+        // Fetch DNS records
+        const recordsResponse = await fetch(
+          `https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records`,
+          { headers: cfHeaders }
+        );
+
+        const recordsData = await recordsResponse.json();
+        if (!recordsResponse.ok) {
+          throw new Error(`Cloudflare API error: ${JSON.stringify(recordsData)}`);
+        }
+
+        result = { 
+          success: true, 
+          configured: true,
+          zone: zoneData.result,
+          nameservers: zoneData.result.name_servers || [],
+          dns_records: recordsData.result || [],
+          cname_target: 'your-app.lovable.app'
+        };
+        break;
+      }
+
+      case 'get_nameservers': {
+        const response = await fetch(
+          `https://api.cloudflare.com/client/v4/zones/${zone_id}`,
+          { headers: cfHeaders }
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(`Cloudflare API error: ${JSON.stringify(data)}`);
+        }
+
+        result = { 
+          success: true,
+          configured: true,
+          nameservers: data.result.name_servers || []
+        };
+        break;
+      }
+
       case 'create_record': {
+        if (!domain) {
+          return new Response(
+            JSON.stringify({ error: 'Domain is required for create_record operation' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         const record = {
           type: domain.includes('.') ? 'CNAME' : 'A',
           name: domain,
@@ -190,7 +249,7 @@ const handleCloudflareDNS = async (req: Request): Promise<Response> => {
           throw new Error(`Cloudflare API error: ${JSON.stringify(data)}`);
         }
 
-        result = { success: true, record: data.result };
+        result = { success: true, configured: true, record: data.result };
         break;
       }
 
@@ -205,7 +264,7 @@ const handleCloudflareDNS = async (req: Request): Promise<Response> => {
           throw new Error(`Cloudflare API error: ${JSON.stringify(data)}`);
         }
 
-        result = { success: true, records: data.result };
+        result = { success: true, configured: true, records: data.result };
         break;
       }
 
@@ -220,7 +279,7 @@ const handleCloudflareDNS = async (req: Request): Promise<Response> => {
           throw new Error(`Cloudflare API error: ${JSON.stringify(data)}`);
         }
 
-        result = { success: true, ssl_status: data.result };
+        result = { success: true, configured: true, ssl_status: data.result };
         break;
       }
 
@@ -237,7 +296,7 @@ const handleCloudflareDNS = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error('[Cloudflare DNS] Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message, configured: false }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

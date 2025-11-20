@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -10,14 +9,15 @@ import {
   Globe, 
   Users, 
   Smartphone, 
-  Shield, 
+  CheckCircle,
+  XCircle,
   Loader2,
-  Cloud,
-  ExternalLink,
-  CheckCircle
+  Copy,
+  Server,
+  ExternalLink
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { useNotifications } from '@/hooks/useNotifications';
 import { z } from 'zod';
 
 // Domain validation schema
@@ -48,19 +48,17 @@ interface DomainPortalConfig {
   status: 'not_configured' | 'pending' | 'active' | 'failed' | 'verifying';
 }
 
-interface CloudflareConfig {
-  enabled: boolean;
-  zone_id?: string | null;
-  api_token?: string | null;
-  auto_dns: boolean;
-  proxied: boolean;
-}
-
 interface DomainConfig {
   public_website: DomainPortalConfig;
   tenant_portal: DomainPortalConfig;
   farmer_app: DomainPortalConfig;
-  cloudflare: CloudflareConfig;
+}
+
+interface DNSInfo {
+  nameservers: string[];
+  dns_records: any[];
+  cname_target: string;
+  configured: boolean;
 }
 
 type PortalType = 'public_website' | 'tenant_portal' | 'farmer_app';
@@ -78,6 +76,8 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
   onUpdate,
   isLoading = false
 }) => {
+  const { showSuccess, showError, showInfo } = useNotifications();
+  
   // Extract base domain from public_website custom_domain
   const getBaseDomain = () => {
     return domainConfig?.public_website?.custom_domain || '';
@@ -96,14 +96,18 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
   const [tenantPrefix, setTenantPrefix] = useState(getSubdomainPrefix('tenant_portal'));
   const [farmerPrefix, setFarmerPrefix] = useState(getSubdomainPrefix('farmer_app'));
   
-  const [cloudflareConfig, setCloudflareConfig] = useState<CloudflareConfig>(
-    domainConfig?.cloudflare || {
-      enabled: false,
-      auto_dns: false,
-      proxied: true
-    }
-  );
-  const [isTesting, setIsTesting] = useState(false);
+  // Validation states
+  const [mainDomainValid, setMainDomainValid] = useState<boolean | null>(null);
+  const [tenantPrefixValid, setTenantPrefixValid] = useState<boolean | null>(null);
+  const [farmerPrefixValid, setFarmerPrefixValid] = useState<boolean | null>(null);
+  const [mainDomainError, setMainDomainError] = useState<string>('');
+  const [tenantPrefixError, setTenantPrefixError] = useState<string>('');
+  const [farmerPrefixError, setFarmerPrefixError] = useState<string>('');
+
+  // DNS Info state
+  const [dnsInfo, setDnsInfo] = useState<DNSInfo | null>(null);
+  const [loadingDNS, setLoadingDNS] = useState(false);
+  const [dnsError, setDnsError] = useState<string>('');
 
   // Sync state when domainConfig changes
   useEffect(() => {
@@ -112,359 +116,497 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
     setFarmerPrefix(getSubdomainPrefix('farmer_app'));
   }, [domainConfig]);
 
-  const handleMainDomainUpdate = (value: string) => {
-    setMainDomain(value);
-    
-    // Validate domain
-    if (value) {
-      const validation = domainSchema.safeParse(value);
-      if (!validation.success) {
-        toast.error(validation.error.errors[0].message);
-        return;
-      }
-    }
+  // Fetch DNS info on mount
+  useEffect(() => {
+    fetchDNSInfo();
+  }, []);
 
-    // Update all three portals
-    onUpdate({
-      ...domainConfig,
-      public_website: {
-        ...(domainConfig?.public_website || {}),
-        custom_domain: value || null,
-        ssl_enabled: true,
-        dns_verified: false,
-        status: value ? 'pending' : 'not_configured'
-      },
-      tenant_portal: {
-        ...(domainConfig?.tenant_portal || {}),
-        custom_domain: tenantPrefix && value ? `${tenantPrefix}.${value}` : null,
-        ssl_enabled: true,
-        dns_verified: false,
-        status: tenantPrefix && value ? 'pending' : 'not_configured'
-      },
-      farmer_app: {
-        ...(domainConfig?.farmer_app || {}),
-        custom_domain: farmerPrefix && value ? `${farmerPrefix}.${value}` : null,
-        ssl_enabled: true,
-        dns_verified: false,
-        status: farmerPrefix && value ? 'pending' : 'not_configured'
-      }
-    });
-  };
-
-  const handleSubdomainPrefixUpdate = (portalType: 'tenant_portal' | 'farmer_app', prefix: string) => {
-    // Validate prefix
-    if (prefix) {
-      const validation = subdomainPrefixSchema.safeParse(prefix);
-      if (!validation.success) {
-        toast.error(validation.error.errors[0].message);
-        return;
-      }
-    }
-
-    if (portalType === 'tenant_portal') {
-      setTenantPrefix(prefix);
-    } else {
-      setFarmerPrefix(prefix);
-    }
-
-    // Update domain config
-    onUpdate({
-      ...domainConfig,
-      [portalType]: {
-        ...(domainConfig?.[portalType] || {}),
-        custom_domain: prefix && mainDomain ? `${prefix}.${mainDomain}` : null,
-        ssl_enabled: true,
-        dns_verified: false,
-        status: prefix && mainDomain ? 'pending' : 'not_configured'
-      }
-    });
-  };
-
-  const handleCloudflareUpdate = (field: keyof CloudflareConfig, value: any) => {
-    const updated = {
-      ...cloudflareConfig,
-      [field]: value
-    };
-    setCloudflareConfig(updated);
-    
-    // Pass the updated domainConfig object directly (not wrapped)
-    onUpdate({
-      ...domainConfig,
-      cloudflare: updated
-    });
-  };
-
-  const testCloudflareConnection = async () => {
-    if (!cloudflareConfig.zone_id || !cloudflareConfig.api_token) {
-      toast.error('Please enter both Zone ID and API Token');
-      return;
-    }
-
-    setIsTesting(true);
+  const fetchDNSInfo = async () => {
+    setLoadingDNS(true);
+    setDnsError('');
     try {
       const { data, error } = await supabase.functions.invoke('admin-utilities', {
         body: {
-          action: 'cloudflare_dns',
-          operation: 'list_records',
-          tenant_id: tenantId,
-          cloudflare_config: {
-            zone_id: cloudflareConfig.zone_id,
-            api_token: cloudflareConfig.api_token,
-            proxied: cloudflareConfig.proxied
-          }
+          action: 'cloudflare-dns',
+          operation: 'get_zone_info',
+          tenant_id: tenantId
         }
       });
 
       if (error) throw error;
 
-      if (data?.success) {
-        toast.success('Cloudflare connection successful!');
+      if (data?.configured === false) {
+        setDnsError('Cloudflare integration not configured. Please add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID secrets.');
+        setDnsInfo(null);
+      } else if (data?.success) {
+        setDnsInfo({
+          nameservers: data.nameservers || [],
+          dns_records: data.dns_records || [],
+          cname_target: data.cname_target || 'your-app.lovable.app',
+          configured: true
+        });
       } else {
-        toast.error(data?.error || 'Failed to connect to Cloudflare');
+        throw new Error(data?.error || 'Failed to fetch DNS info');
       }
     } catch (error: any) {
-      console.error('Cloudflare test error:', error);
-      toast.error(`Connection failed: ${error.message}`);
+      console.error('Error fetching DNS info:', error);
+      setDnsError(error.message || 'Failed to fetch DNS information');
     } finally {
-      setIsTesting(false);
+      setLoadingDNS(false);
     }
   };
 
-  const getFullDomain = (prefix: string) => {
-    if (!mainDomain) return '';
-    return prefix ? `${prefix}.${mainDomain}` : mainDomain;
+  const validateMainDomain = (value: string) => {
+    if (!value) {
+      setMainDomainValid(null);
+      setMainDomainError('');
+      return true;
+    }
+    
+    const validation = domainSchema.safeParse(value);
+    if (!validation.success) {
+      setMainDomainValid(false);
+      setMainDomainError(validation.error.errors[0].message);
+      return false;
+    }
+    
+    setMainDomainValid(true);
+    setMainDomainError('');
+    return true;
+  };
+
+  const validateSubdomainPrefix = (value: string, type: 'tenant' | 'farmer') => {
+    if (!value) {
+      if (type === 'tenant') {
+        setTenantPrefixValid(null);
+        setTenantPrefixError('');
+      } else {
+        setFarmerPrefixValid(null);
+        setFarmerPrefixError('');
+      }
+      return true;
+    }
+    
+    const validation = subdomainPrefixSchema.safeParse(value);
+    const isValid = validation.success;
+    const errorMsg = isValid ? '' : validation.error.errors[0].message;
+    
+    if (type === 'tenant') {
+      setTenantPrefixValid(isValid);
+      setTenantPrefixError(errorMsg);
+    } else {
+      setFarmerPrefixValid(isValid);
+      setFarmerPrefixError(errorMsg);
+    }
+    
+    return isValid;
+  };
+
+  const handleMainDomainBlur = () => {
+    const isValid = validateMainDomain(mainDomain);
+    if (isValid && mainDomain) {
+      // Update domain config
+      const updates = {
+        public_website: {
+          ...domainConfig.public_website,
+          custom_domain: mainDomain,
+          status: 'pending' as const
+        },
+        tenant_portal: {
+          ...domainConfig.tenant_portal,
+          custom_domain: tenantPrefix ? `${tenantPrefix}.${mainDomain}` : '',
+          status: tenantPrefix ? 'pending' as const : 'not_configured' as const
+        },
+        farmer_app: {
+          ...domainConfig.farmer_app,
+          custom_domain: farmerPrefix ? `${farmerPrefix}.${mainDomain}` : '',
+          status: farmerPrefix ? 'pending' as const : 'not_configured' as const
+        }
+      };
+      onUpdate(updates);
+      showSuccess('Main domain updated');
+    }
+  };
+
+  const handleSubdomainBlur = (type: 'tenant' | 'farmer') => {
+    const prefix = type === 'tenant' ? tenantPrefix : farmerPrefix;
+    const isValid = validateSubdomainPrefix(prefix, type);
+    
+    if (isValid && mainDomain) {
+      const portalType = type === 'tenant' ? 'tenant_portal' : 'farmer_app';
+      const updates = {
+        [portalType]: {
+          ...domainConfig[portalType],
+          custom_domain: prefix ? `${prefix}.${mainDomain}` : '',
+          status: prefix ? 'pending' as const : 'not_configured' as const
+        }
+      };
+      onUpdate(updates);
+      showSuccess(`${type === 'tenant' ? 'Tenant Portal' : 'Farmer App'} subdomain updated`);
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    showSuccess(`${label} copied to clipboard`);
+  };
+
+  const getValidationIcon = (valid: boolean | null) => {
+    if (valid === null) return null;
+    return valid ? (
+      <CheckCircle className="h-5 w-5 text-success" />
+    ) : (
+      <XCircle className="h-5 w-5 text-destructive" />
+    );
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Globe className="h-5 w-5" />
-          Domain Configuration
-        </CardTitle>
-        <CardDescription>
-          Set up your main domain and subdomain prefixes for tenant portal and farmer app
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Cloudflare Integration */}
-        <Card className="border-primary/20 bg-primary/5">
+    <div className="space-y-6">
+      {/* Main Domain Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Domain Configuration
+          </CardTitle>
+          <CardDescription>
+            Configure your main domain and subdomains for different portal types
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Main Domain */}
+          <div className="space-y-2">
+            <Label htmlFor="main-domain" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Main Domain (Public Website)
+            </Label>
+            <div className="flex gap-2 items-start">
+              <div className="flex-1">
+                <Input
+                  id="main-domain"
+                  placeholder="example.com or www.example.com"
+                  value={mainDomain}
+                  onChange={(e) => {
+                    setMainDomain(e.target.value);
+                    setMainDomainValid(null); // Reset validation on change
+                  }}
+                  onBlur={handleMainDomainBlur}
+                  disabled={isLoading}
+                  className={mainDomainValid === false ? 'border-destructive' : ''}
+                />
+                {mainDomainError && (
+                  <p className="text-sm text-destructive mt-1">{mainDomainError}</p>
+                )}
+              </div>
+              {getValidationIcon(mainDomainValid)}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Tenant Portal Subdomain */}
+          <div className="space-y-2">
+            <Label htmlFor="tenant-prefix" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Tenant Portal Subdomain Prefix
+            </Label>
+            <div className="flex gap-2 items-start">
+              <div className="flex-1">
+                <div className="flex gap-2">
+                  <Input
+                    id="tenant-prefix"
+                    placeholder="partner, portal, etc."
+                    value={tenantPrefix}
+                    onChange={(e) => {
+                      setTenantPrefix(e.target.value);
+                      setTenantPrefixValid(null);
+                    }}
+                    onBlur={() => handleSubdomainBlur('tenant')}
+                    disabled={isLoading || !mainDomain}
+                    className={tenantPrefixValid === false ? 'border-destructive' : ''}
+                  />
+                  {mainDomain && (
+                    <div className="flex items-center px-3 bg-muted rounded-md text-sm text-muted-foreground">
+                      .{mainDomain}
+                    </div>
+                  )}
+                </div>
+                {tenantPrefixError && (
+                  <p className="text-sm text-destructive mt-1">{tenantPrefixError}</p>
+                )}
+                {tenantPrefix && mainDomain && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Full domain: <span className="font-medium">{tenantPrefix}.{mainDomain}</span>
+                  </p>
+                )}
+              </div>
+              {getValidationIcon(tenantPrefixValid)}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Farmer App Subdomain */}
+          <div className="space-y-2">
+            <Label htmlFor="farmer-prefix" className="flex items-center gap-2">
+              <Smartphone className="h-4 w-4" />
+              Farmer App Subdomain Prefix
+            </Label>
+            <div className="flex gap-2 items-start">
+              <div className="flex-1">
+                <div className="flex gap-2">
+                  <Input
+                    id="farmer-prefix"
+                    placeholder="app, farmer, mobile, etc."
+                    value={farmerPrefix}
+                    onChange={(e) => {
+                      setFarmerPrefix(e.target.value);
+                      setFarmerPrefixValid(null);
+                    }}
+                    onBlur={() => handleSubdomainBlur('farmer')}
+                    disabled={isLoading || !mainDomain}
+                    className={farmerPrefixValid === false ? 'border-destructive' : ''}
+                  />
+                  {mainDomain && (
+                    <div className="flex items-center px-3 bg-muted rounded-md text-sm text-muted-foreground">
+                      .{mainDomain}
+                    </div>
+                  )}
+                </div>
+                {farmerPrefixError && (
+                  <p className="text-sm text-destructive mt-1">{farmerPrefixError}</p>
+                )}
+                {farmerPrefix && mainDomain && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Full domain: <span className="font-medium">{farmerPrefix}.{mainDomain}</span>
+                  </p>
+                )}
+              </div>
+              {getValidationIcon(farmerPrefixValid)}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Domain Summary */}
+      {mainDomain && (
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Cloud className="h-4 w-4" />
-              Cloudflare DNS Integration
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              Domain Summary
             </CardTitle>
             <CardDescription>
-              Automatically manage DNS records via Cloudflare
+              Overview of your configured domains
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Enable Cloudflare</Label>
-                <p className="text-xs text-muted-foreground">
-                  Automatic DNS management and SSL provisioning
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Globe className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium">Public Website</p>
+                    <p className="text-sm text-muted-foreground">{mainDomain}</p>
+                  </div>
+                </div>
+                <Badge variant={mainDomainValid ? 'default' : 'secondary'}>
+                  {domainConfig?.public_website?.status || 'Not Configured'}
+                </Badge>
+              </div>
+
+              {tenantPrefix && (
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Users className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">Tenant Portal</p>
+                      <p className="text-sm text-muted-foreground">{tenantPrefix}.{mainDomain}</p>
+                    </div>
+                  </div>
+                  <Badge variant={tenantPrefixValid ? 'default' : 'secondary'}>
+                    {domainConfig?.tenant_portal?.status || 'Not Configured'}
+                  </Badge>
+                </div>
+              )}
+
+              {farmerPrefix && (
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Smartphone className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">Farmer App</p>
+                      <p className="text-sm text-muted-foreground">{farmerPrefix}.{mainDomain}</p>
+                    </div>
+                  </div>
+                  <Badge variant={farmerPrefixValid ? 'default' : 'secondary'}>
+                    {domainConfig?.farmer_app?.status || 'Not Configured'}
+                  </Badge>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* DNS Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Server className="h-5 w-5" />
+                DNS Configuration
+              </CardTitle>
+              <CardDescription>
+                DNS records and nameservers for Cloudflare setup
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchDNSInfo}
+              disabled={loadingDNS}
+            >
+              {loadingDNS ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                'Refresh'
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {dnsError ? (
+            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <p className="text-sm text-destructive">{dnsError}</p>
+            </div>
+          ) : loadingDNS ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : dnsInfo?.configured ? (
+            <>
+              {/* Nameservers */}
+              {dnsInfo.nameservers.length > 0 && (
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold">Cloudflare Nameservers</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Update your domain's nameservers at your domain registrar to these values:
+                  </p>
+                  <div className="space-y-2">
+                    {dnsInfo.nameservers.map((ns, index) => (
+                      <div key={index} className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                        <code className="flex-1 text-sm font-mono">{ns}</code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(ns, 'Nameserver')}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Required DNS Records */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Required DNS Records</Label>
+                <p className="text-sm text-muted-foreground">
+                  Ensure these DNS records are configured in Cloudflare:
                 </p>
-              </div>
-              <Switch
-                checked={cloudflareConfig.enabled}
-                onCheckedChange={(checked) => handleCloudflareUpdate('enabled', checked)}
-              />
-            </div>
+                <div className="space-y-3">
+                  {/* A Record for main domain */}
+                  {mainDomain && (
+                    <div className="p-3 bg-muted rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="secondary">A Record</Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard('185.158.133.1', 'IP Address')}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="text-sm space-y-1">
+                        <p><span className="font-medium">Name:</span> {mainDomain}</p>
+                        <p><span className="font-medium">Value:</span> <code>185.158.133.1</code></p>
+                      </div>
+                    </div>
+                  )}
 
-            {cloudflareConfig.enabled && (
-              <>
-                <Separator />
-                <div className="space-y-4">
+                  {/* CNAME for subdomains */}
+                  {tenantPrefix && mainDomain && (
+                    <div className="p-3 bg-muted rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="secondary">CNAME Record</Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(dnsInfo.cname_target, 'CNAME Target')}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="text-sm space-y-1">
+                        <p><span className="font-medium">Name:</span> {tenantPrefix}.{mainDomain}</p>
+                        <p><span className="font-medium">Value:</span> <code>{dnsInfo.cname_target}</code></p>
+                      </div>
+                    </div>
+                  )}
+
+                  {farmerPrefix && mainDomain && (
+                    <div className="p-3 bg-muted rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="secondary">CNAME Record</Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(dnsInfo.cname_target, 'CNAME Target')}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="text-sm space-y-1">
+                        <p><span className="font-medium">Name:</span> {farmerPrefix}.{mainDomain}</p>
+                        <p><span className="font-medium">Value:</span> <code>{dnsInfo.cname_target}</code></p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* DNS Setup Guide */}
+              <div className="p-4 bg-info/10 border border-info/20 rounded-lg">
+                <div className="flex gap-3">
+                  <ExternalLink className="h-5 w-5 text-info flex-shrink-0 mt-0.5" />
                   <div className="space-y-2">
-                    <Label htmlFor="cloudflare-zone-id">Zone ID</Label>
-                    <Input
-                      id="cloudflare-zone-id"
-                      placeholder="Enter your Cloudflare Zone ID"
-                      value={cloudflareConfig.zone_id || ''}
-                      onChange={(e) => handleCloudflareUpdate('zone_id', e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="cloudflare-api-token">API Token</Label>
-                    <Input
-                      id="cloudflare-api-token"
-                      type="password"
-                      placeholder="Enter your Cloudflare API Token"
-                      value={cloudflareConfig.api_token || ''}
-                      onChange={(e) => handleCloudflareUpdate('api_token', e.target.value)}
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={testCloudflareConnection}
-                      disabled={isTesting || !cloudflareConfig.zone_id || !cloudflareConfig.api_token}
-                    >
-                      {isTesting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      Test Connection
-                    </Button>
-
-                    <Button variant="outline" size="sm" asChild>
-                      <a 
-                        href="https://dash.cloudflare.com" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Cloudflare Dashboard
-                      </a>
-                    </Button>
+                    <p className="text-sm font-medium">DNS Setup Instructions</p>
+                    <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                      <li>Update nameservers at your domain registrar</li>
+                      <li>Wait for DNS propagation (can take up to 48 hours)</li>
+                      <li>Verify DNS records are properly configured in Cloudflare</li>
+                      <li>SSL certificates will be automatically provisioned</li>
+                    </ol>
                   </div>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Separator />
-
-        {/* Main Domain Configuration */}
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              Main Domain
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Enter your primary domain (this will be used for the public website)
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="main-domain">Main Domain *</Label>
-            <Input
-              id="main-domain"
-              placeholder="www.kisanai.com"
-              value={mainDomain}
-              onChange={(e) => handleMainDomainUpdate(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Example: www.kisanai.com or kisanai.com
-            </p>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Subdomain Prefixes */}
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Subdomain Prefixes
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Enter prefixes for tenant portal and farmer app (they will use the main domain)
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {/* Tenant Portal Prefix */}
-            <div className="space-y-2">
-              <Label htmlFor="tenant-prefix" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Tenant Portal Prefix
-              </Label>
-              <Input
-                id="tenant-prefix"
-                placeholder="partner"
-                value={tenantPrefix}
-                onChange={(e) => handleSubdomainPrefixUpdate('tenant_portal', e.target.value)}
-                disabled={!mainDomain}
-              />
-              <div className="flex items-center gap-1 text-xs">
-                <span className="text-muted-foreground">Full domain:</span>
-                <code className="bg-muted px-2 py-0.5 rounded font-mono">
-                  {getFullDomain(tenantPrefix) || 'Enter prefix'}
-                </code>
               </div>
+            </>
+          ) : (
+            <div className="p-4 bg-muted rounded-lg text-center">
+              <p className="text-sm text-muted-foreground">No DNS information available</p>
             </div>
-
-            {/* Farmer App Prefix */}
-            <div className="space-y-2">
-              <Label htmlFor="farmer-prefix" className="flex items-center gap-2">
-                <Smartphone className="h-4 w-4" />
-                Farmer App Prefix
-              </Label>
-              <Input
-                id="farmer-prefix"
-                placeholder="app"
-                value={farmerPrefix}
-                onChange={(e) => handleSubdomainPrefixUpdate('farmer_app', e.target.value)}
-                disabled={!mainDomain}
-              />
-              <div className="flex items-center gap-1 text-xs">
-                <span className="text-muted-foreground">Full domain:</span>
-                <code className="bg-muted px-2 py-0.5 rounded font-mono">
-                  {getFullDomain(farmerPrefix) || 'Enter prefix'}
-                </code>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Domain Summary */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              Domain Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Public Website</p>
-                  <p className="text-xs text-muted-foreground">Main domain</p>
-                </div>
-              </div>
-              <code className="text-sm font-mono bg-background px-2 py-1 rounded">
-                {mainDomain || 'Not configured'}
-              </code>
-            </div>
-
-            <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Tenant Portal</p>
-                  <p className="text-xs text-muted-foreground">Partner management</p>
-                </div>
-              </div>
-              <code className="text-sm font-mono bg-background px-2 py-1 rounded">
-                {getFullDomain(tenantPrefix) || 'Not configured'}
-              </code>
-            </div>
-
-            <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2">
-                <Smartphone className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Farmer App</p>
-                  <p className="text-xs text-muted-foreground">Mobile interface</p>
-                </div>
-              </div>
-              <code className="text-sm font-mono bg-background px-2 py-1 rounded">
-                {getFullDomain(farmerPrefix) || 'Not configured'}
-              </code>
-            </div>
-          </CardContent>
-        </Card>
-      </CardContent>
-    </Card>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
