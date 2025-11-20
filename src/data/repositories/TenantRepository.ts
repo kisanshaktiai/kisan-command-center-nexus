@@ -22,6 +22,7 @@ export class TenantRepository extends BaseTenantRepository {
     return this.executeQuery(() => 
       this.buildSelectQuery(`
         *,
+        domain_config,
         tenant_subscriptions (
           id,
           subscription_plan,
@@ -38,6 +39,7 @@ export class TenantRepository extends BaseTenantRepository {
     return this.executeQuery(() => 
       this.buildSelectQuery(`
         *,
+        domain_config,
         tenant_subscriptions (*),
         tenant_features (*),
         tenant_branding (*)

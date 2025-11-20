@@ -127,17 +127,15 @@ export class WhiteLabelSyncService extends BaseService {
   }
 
   /**
-   * Sync tenant data FROM white_label_configs TO tenants table
-   * This keeps minimal branding info in tenants table for quick access
-   * Handles both old flat structure and new triple domain structure
+   * Sync white-label data to tenant table
+   * Directly syncs the entire domain_config structure
    */
   async syncToTenant(tenantId: string): Promise<ServiceResult<boolean>> {
     return this.executeOperation(
       async () => {
-        // Get white_label_config (source of truth)
         const { data: wlConfig, error: wlError } = await supabase
           .from('white_label_configs')
-          .select('*')
+          .select('domain_config, brand_identity')
           .eq('tenant_id', tenantId)
           .single();
 
@@ -145,52 +143,23 @@ export class WhiteLabelSyncService extends BaseService {
           throw new Error('White-label config not found for tenant');
         }
 
-        // Extract branding data with type safety
-        const domainConfig = (wlConfig.domain_config as any) || {};
-        
-        // Detect structure and extract values
-        let customDomain = null;
-        let subdomain = null;
-        
-        if (domainConfig.public_website) {
-          // NEW STRUCTURE: Triple domain architecture
-          customDomain = domainConfig.public_website?.custom_domain || null;
-          
-          // Extract subdomain prefix from tenant_portal if it follows pattern
-          const tenantPortalDomain = domainConfig.tenant_portal?.custom_domain;
-          const publicDomain = customDomain;
-          
-          if (tenantPortalDomain && publicDomain && tenantPortalDomain.endsWith(`.${publicDomain}`)) {
-            // Extract the prefix (e.g., "portal" from "portal.kisanai.com")
-            subdomain = tenantPortalDomain.replace(`.${publicDomain}`, '');
-          }
-        } else {
-          // OLD STRUCTURE: Flat domain config
-          customDomain = domainConfig.custom_domain || null;
-          subdomain = domainConfig.subdomain || null;
-        }
-
-        // Update tenant with synchronized data
+        // Direct sync of domain_config structure to tenant
         const { error: updateError } = await supabase
           .from('tenants')
           .update({
-            subdomain: subdomain,
-            custom_domain: customDomain,
+            domain_config: wlConfig.domain_config,
             metadata: {
               branding_synced_from_wl: true,
               branding_sync_at: new Date().toISOString(),
-              white_label_config_id: wlConfig.id,
-              domain_structure: domainConfig.public_website ? 'triple' : 'flat'
+              white_label_config_id: tenantId
             }
           })
           .eq('id', tenantId);
 
         if (updateError) throw updateError;
 
-        console.log('Synced white-label config to tenant:', tenantId, {
-          customDomain,
-          subdomain,
-          structureType: domainConfig.public_website ? 'triple' : 'flat'
+        console.log('✅ Synced white-label domain_config to tenant:', tenantId, {
+          domain_config: wlConfig.domain_config
         });
         
         return true;
