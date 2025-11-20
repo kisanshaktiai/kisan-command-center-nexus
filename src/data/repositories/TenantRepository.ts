@@ -2,6 +2,7 @@ import { BaseTenantRepository } from './BaseTenantRepository';
 import { ServiceResult } from '@/services/BaseService';
 import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
 import { supabase } from '@/integrations/supabase/client';
+import { whiteLabelSyncService } from '@/services/WhiteLabelSyncService';
 
 export class TenantRepository extends BaseTenantRepository {
   private static instance: TenantRepository;
@@ -60,7 +61,22 @@ export class TenantRepository extends BaseTenantRepository {
       
       const { data, error } = await this.buildInsertQuery(finalTenantData).single();
       if (error) throw error;
-      return data;
+      if (!data) throw new Error('No data returned from tenant creation');
+
+      // Type assertion after validation
+      const createdTenant = data as any;
+
+      // Create white_label_config (source of truth for branding)
+      const brandingData = {
+        subdomain: tenantData.subdomain,
+        custom_domain: tenantData.custom_domain,
+        company_name: tenantData.name,
+        ...(tenantData.metadata as any)?.branding
+      };
+
+      await whiteLabelSyncService.createWhiteLabelConfig(createdTenant.id, brandingData);
+      
+      return createdTenant;
     }, 'createTenant');
   }
 
@@ -86,6 +102,10 @@ export class TenantRepository extends BaseTenantRepository {
       
       const { data, error } = await this.buildUpdateQuery(id, finalUpdateData).single();
       if (error) throw error;
+
+      // Sync changes to white_label_configs (source of truth)
+      await whiteLabelSyncService.syncFromTenant(id, finalUpdateData);
+      
       return data;
     }, 'updateTenant');
   }

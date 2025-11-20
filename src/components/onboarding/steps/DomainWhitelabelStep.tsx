@@ -9,6 +9,7 @@ import { Globe, Shield, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
 import { platformConfigService } from '@/services/platformConfig';
+import { whiteLabelSyncService } from '@/services/WhiteLabelSyncService';
 
 interface DomainWhitelabelStepProps {
   tenantId: string;
@@ -92,21 +93,44 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
     try {
       setIsSubmitting(true);
 
-      // Update tenant with domain configuration
-      const { error } = await supabase
+      // Save to white_label_configs (source of truth)
+      const { data: wlConfig, error: wlError } = await supabase
+        .from('white_label_configs')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (wlError || !wlConfig) {
+        // Create if doesn't exist
+        await whiteLabelSyncService.createWhiteLabelConfig(tenantId, {
+          subdomain: formData.subdomain,
+          custom_domain: formData.customDomain
+        });
+      } else {
+        // Update existing config
+        await whiteLabelSyncService.updateWhiteLabelConfig(tenantId, {
+          domain_config: {
+            custom_domain: formData.customDomain,
+            subdomain: formData.subdomain,
+            ssl_enabled: formData.sslEnabled
+          }
+        });
+      }
+
+      // Also update tenant table (will be synced automatically)
+      const { error: tenantError } = await supabase
         .from('tenants')
         .update({
           custom_domain: formData.customDomain,
           subdomain: formData.subdomain,
           metadata: {
-            ...formData,
             domainConfigured: true,
             configuredAt: new Date().toISOString()
           }
         })
         .eq('id', tenantId);
 
-      if (error) throw error;
+      if (tenantError) throw tenantError;
 
       showSuccess('Domain configuration saved successfully');
       onComplete(formData);

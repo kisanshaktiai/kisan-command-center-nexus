@@ -14,6 +14,7 @@ import SubscriptionManagement from './super-admin/SubscriptionManagement';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
 import FeatureFlags from './super-admin/FeatureFlags';
 import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
+import WhiteLabelDataFix from './super-admin/WhiteLabelDataFix';
 import MasterCompanies from './super-admin/MasterCompanies';
 import MasterProducts from './super-admin/MasterProducts';
 import ProductCategories from './super-admin/ProductCategories';
@@ -96,6 +97,7 @@ const SuperAdmin = () => {
             <Route path="/platform-monitoring" element={<PlatformMonitoring />} />
             <Route path="/feature-flags" element={<FeatureFlags />} />
             <Route path="/white-label-config" element={<WhiteLabelConfig />} />
+            <Route path="/white-label-data-fix" element={<WhiteLabelDataFix />} />
             <Route path="/master-companies" element={<MasterCompanies />} />
             <Route path="/master-products" element={<MasterProducts />} />
             <Route path="/product-categories" element={<ProductCategories />} />
