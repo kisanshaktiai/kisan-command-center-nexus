@@ -22,6 +22,18 @@ import {
 import { DomainValidationSection } from './DomainValidationSection';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { z } from 'zod';
+
+// URL validation schema
+const urlSchema = z.string().refine(
+  (val) => {
+    if (!val) return true; // Allow empty
+    // Domain regex: alphanumeric, hyphens, dots, minimum 2-char TLD
+    const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+    return domainRegex.test(val);
+  },
+  { message: 'Invalid domain format (e.g., example.com or sub.example.com)' }
+);
 
 interface DomainPortalConfig {
   subdomain?: string | null;
@@ -89,16 +101,24 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
   };
 
   const handleDomainUpdate = (portalType: PortalType, field: 'subdomain' | 'custom_domain', value: string) => {
+    // Validate URL if it's a custom_domain
+    if (field === 'custom_domain' && value) {
+      const validation = urlSchema.safeParse(value);
+      if (!validation.success) {
+        toast.error(validation.error.errors[0].message);
+        return;
+      }
+    }
+
     const currentConfig = portalType === 'public_website' ? publicWebsite : 
                          portalType === 'tenant_portal' ? tenantPortal : farmerApp;
     
+    // Pass the updated domainConfig object directly (not wrapped)
     onUpdate({
-      domain_config: {
-        ...domainConfig,
-        [portalType]: {
-          ...currentConfig,
-          [field]: value || null
-        }
+      ...domainConfig,
+      [portalType]: {
+        ...currentConfig,
+        [field]: value || null
       }
     });
   };
@@ -109,11 +129,11 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
       [field]: value
     };
     setCloudflareConfig(updated);
+    
+    // Pass the updated domainConfig object directly (not wrapped)
     onUpdate({
-      domain_config: {
-        ...domainConfig,
-        cloudflare: updated
-      }
+      ...domainConfig,
+      cloudflare: updated
     });
   };
 
