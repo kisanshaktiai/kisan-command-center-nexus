@@ -26,6 +26,7 @@ import { EmailTemplatesPanelNew } from '@/components/white-label/EmailTemplatesP
 import { EnhancedMobileThemePanel } from '@/components/white-label/EnhancedMobileThemePanel';
 import { WebAppThemePanel } from '@/components/white-label/WebAppThemePanel';
 import { BrandingSuggestionsDialog } from '@/components/white-label/BrandingSuggestionsDialog';
+import { TripleDomainConfigSection } from '@/components/white-label/TripleDomainConfigSection';
 
 interface WhiteLabelConfig {
   id: string;
@@ -769,51 +770,18 @@ export default function WhiteLabelConfig() {
 
           {/* Domain Tab */}
           <TabsContent value="domain" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Domain Configuration</CardTitle>
-                <CardDescription>Set up custom domain and subdomain settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <DomainValidationSection 
-                  domain={config?.domain_config?.custom_domain || ''} 
-                  onDomainChange={(domain) => updateConfig('domain_config', 'custom_domain', domain)}
-                  type="custom_domain"
-                  tenantId={selectedTenant}
-                />
-                
-                <div className="space-y-2">
-                  <Label htmlFor="custom-domain">Custom Domain</Label>
-                  <Input
-                    id="custom-domain"
-                    value={config?.domain_config?.custom_domain || ''}
-                    onChange={(e) => updateConfig('domain_config', 'custom_domain', e.target.value)}
-                    placeholder="app.yourdomain.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="subdomain">Subdomain</Label>
-                  <Input
-                    id="subdomain"
-                    value={config?.domain_config?.subdomain || ''}
-                    onChange={(e) => updateConfig('domain_config', 'subdomain', e.target.value)}
-                    placeholder="yourcompany"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="ssl-enabled"
-                    checked={config?.domain_config?.ssl_enabled || false}
-                    onCheckedChange={(checked) => updateConfig('domain_config', 'ssl_enabled', checked)}
-                  />
-                  <Label htmlFor="ssl-enabled">Enable SSL/HTTPS</Label>
-                </div>
-
-                <DomainHealthPanel config={config} />
-              </CardContent>
-            </Card>
+            <TripleDomainConfigSection
+              domainConfig={config?.domain_config as any || {}}
+              tenantId={selectedTenant || ''}
+              onUpdate={(updates) => {
+                setConfig(prev => ({
+                  ...prev,
+                  domain_config: updates
+                }));
+                setHasUnsavedChanges(true);
+              }}
+              isLoading={isSaving}
+            />
           </TabsContent>
 
           {/* Email Tab */}
