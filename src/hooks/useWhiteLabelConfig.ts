@@ -150,18 +150,20 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
       });
 
       if (config?.id) {
-        // Update existing config
-        const { data, error } = await supabase
-          .from('white_label_configs')
-          .update(cleanedData)
-          .eq('id', config.id)
-          .select()
-          .single();
+        // Update existing config using sync service
+        console.log('Updating existing config with ID:', config.id);
         
-        if (error) {
-          console.error('Error updating white-label config:', error);
-          throw error;
+        const result = await whiteLabelSyncService.updateWhiteLabelConfig(
+          tenantId,
+          cleanedData
+        );
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to update configuration');
         }
+        
+        const data = result.data;
+        const error = null;
         
         // Create audit log entry for update
         const auditEntry = {
@@ -190,24 +192,20 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         
         return data;
       } else {
-        // Create new config
-        const createData = { 
-          ...cleanedData, 
-          tenant_id: tenantId,
-          created_at: now,
-          created_by: user?.id || null
-        };
+        // Create new config using sync service
+        console.log('Creating new config for tenant:', tenantId);
         
-        const { data, error } = await supabase
-          .from('white_label_configs')
-          .insert([createData])
-          .select()
-          .single();
+        const result = await whiteLabelSyncService.createWhiteLabelConfig(
+          tenantId,
+          cleanedData
+        );
         
-        if (error) {
-          console.error('Error creating white-label config:', error);
-          throw error;
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to create configuration');
         }
+        
+        const data = result.data;
+        const error = null;
         
         // Create audit log entry for creation
         const auditEntry = {
@@ -257,6 +255,9 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         throw new Error('No configuration to delete');
       }
 
+      const tenantId = config.tenant_id;
+
+      // Delete the white_label_config
       const { error } = await supabase
         .from('white_label_configs')
         .delete()
@@ -266,6 +267,19 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         console.error('Error deleting white-label config:', error);
         throw error;
       }
+
+      // Clear tenant's branding data
+      await supabase
+        .from('tenants')
+        .update({
+          subdomain: null,
+          custom_domain: null,
+          metadata: {
+            branding_synced_from_wl: false,
+            branding_deleted_at: new Date().toISOString()
+          }
+        })
+        .eq('id', tenantId);
     },
     onSuccess: () => {
       queryClient.setQueryData(['white-label-config', tenantId], null);

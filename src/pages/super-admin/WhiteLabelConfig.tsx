@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useWhiteLabelConfig } from '@/hooks/useWhiteLabelConfig';
+import { WhiteLabelSyncStatus } from '@/components/super-admin/WhiteLabelSyncStatus';
 
 // Import the new components
 import { CSSInjectionPanel } from '@/components/white-label/CSSInjectionPanel';
@@ -494,6 +495,11 @@ export default function WhiteLabelConfig() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sync Status Monitoring */}
+      {selectedTenant && (
+        <WhiteLabelSyncStatus />
+      )}
 
       {configLoading && selectedTenant && (
         <Card>
