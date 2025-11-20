@@ -129,6 +129,7 @@ export class WhiteLabelSyncService extends BaseService {
   /**
    * Sync tenant data FROM white_label_configs TO tenants table
    * This keeps minimal branding info in tenants table for quick access
+   * Handles both old flat structure and new triple domain structure
    */
   async syncToTenant(tenantId: string): Promise<ServiceResult<boolean>> {
     return this.executeOperation(
@@ -145,26 +146,53 @@ export class WhiteLabelSyncService extends BaseService {
         }
 
         // Extract branding data with type safety
-        const brandIdentity = (wlConfig.brand_identity as any) || {};
         const domainConfig = (wlConfig.domain_config as any) || {};
+        
+        // Detect structure and extract values
+        let customDomain = null;
+        let subdomain = null;
+        
+        if (domainConfig.public_website) {
+          // NEW STRUCTURE: Triple domain architecture
+          customDomain = domainConfig.public_website?.custom_domain || null;
+          
+          // Extract subdomain prefix from tenant_portal if it follows pattern
+          const tenantPortalDomain = domainConfig.tenant_portal?.custom_domain;
+          const publicDomain = customDomain;
+          
+          if (tenantPortalDomain && publicDomain && tenantPortalDomain.endsWith(`.${publicDomain}`)) {
+            // Extract the prefix (e.g., "portal" from "portal.kisanai.com")
+            subdomain = tenantPortalDomain.replace(`.${publicDomain}`, '');
+          }
+        } else {
+          // OLD STRUCTURE: Flat domain config
+          customDomain = domainConfig.custom_domain || null;
+          subdomain = domainConfig.subdomain || null;
+        }
 
         // Update tenant with synchronized data
         const { error: updateError } = await supabase
           .from('tenants')
           .update({
-            subdomain: domainConfig.subdomain || null,
-            custom_domain: domainConfig.custom_domain || null,
+            subdomain: subdomain,
+            custom_domain: customDomain,
             metadata: {
               branding_synced_from_wl: true,
               branding_sync_at: new Date().toISOString(),
-              white_label_config_id: wlConfig.id
+              white_label_config_id: wlConfig.id,
+              domain_structure: domainConfig.public_website ? 'triple' : 'flat'
             }
           })
           .eq('id', tenantId);
 
         if (updateError) throw updateError;
 
-        console.log('Synced white-label config to tenant:', tenantId);
+        console.log('Synced white-label config to tenant:', tenantId, {
+          customDomain,
+          subdomain,
+          structureType: domainConfig.public_website ? 'triple' : 'flat'
+        });
+        
         return true;
       },
       'syncToTenant'
@@ -174,6 +202,7 @@ export class WhiteLabelSyncService extends BaseService {
   /**
    * Sync tenant data FROM tenants TO white_label_configs
    * Use this when tenant is updated and we need to reflect changes in white_label_configs
+   * Preserves structure type (flat vs triple domain)
    */
   async syncFromTenant(tenantId: string, tenantData: any): Promise<ServiceResult<boolean>> {
     return this.executeOperation(
@@ -186,8 +215,13 @@ export class WhiteLabelSyncService extends BaseService {
           .single();
 
         if (wlError) {
-          // If config doesn't exist, create it
-          await this.createWhiteLabelConfig(tenantId, tenantData);
+          // If config doesn't exist, create it with new triple domain structure
+          const brandingData = {
+            ...tenantData,
+            // Create new structure by default
+            _useTripleDomain: true
+          };
+          await this.createWhiteLabelConfig(tenantId, brandingData);
           return true;
         }
 
@@ -203,13 +237,33 @@ export class WhiteLabelSyncService extends BaseService {
         const wlDomainConfig = (wlConfig.domain_config as any) || {};
         const wlBrandIdentity = (wlConfig.brand_identity as any) || {};
 
-        // Sync domain data
+        // Sync domain data based on structure type
         if (tenantData.subdomain || tenantData.custom_domain) {
-          updates.domain_config = {
-            ...wlDomainConfig,
-            subdomain: tenantData.subdomain || wlDomainConfig.subdomain,
-            custom_domain: tenantData.custom_domain || wlDomainConfig.custom_domain
-          };
+          if (wlDomainConfig.public_website) {
+            // NEW STRUCTURE: Update nested domains
+            updates.domain_config = {
+              ...wlDomainConfig,
+              public_website: {
+                ...(wlDomainConfig.public_website || {}),
+                custom_domain: tenantData.custom_domain || wlDomainConfig.public_website?.custom_domain
+              }
+            };
+            
+            // Update tenant_portal if subdomain changed
+            if (tenantData.subdomain && tenantData.custom_domain) {
+              updates.domain_config.tenant_portal = {
+                ...(wlDomainConfig.tenant_portal || {}),
+                custom_domain: `${tenantData.subdomain}.${tenantData.custom_domain}`
+              };
+            }
+          } else {
+            // OLD STRUCTURE: Update flat structure
+            updates.domain_config = {
+              ...wlDomainConfig,
+              subdomain: tenantData.subdomain || wlDomainConfig.subdomain,
+              custom_domain: tenantData.custom_domain || wlDomainConfig.custom_domain
+            };
+          }
         }
 
         // Sync branding from metadata if exists
@@ -228,7 +282,9 @@ export class WhiteLabelSyncService extends BaseService {
 
         if (updateError) throw updateError;
 
-        console.log('Synced tenant data to white-label config:', tenantId);
+        console.log('Synced tenant data to white-label config:', tenantId, {
+          structureType: wlDomainConfig.public_website ? 'triple' : 'flat'
+        });
         return true;
       },
       'syncFromTenant'
@@ -292,6 +348,79 @@ export class WhiteLabelSyncService extends BaseService {
   }
 
   /**
+   * Migrate old flat domain config to new triple domain structure
+   * This helps transition tenants from legacy structure to new architecture
+   */
+  async migrateToTripleDomainStructure(tenantId: string): Promise<ServiceResult<boolean>> {
+    return this.executeOperation(
+      async () => {
+        const { data: wlConfig, error: wlError } = await supabase
+          .from('white_label_configs')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .single();
+
+        if (wlError || !wlConfig) {
+          throw new Error('White-label config not found');
+        }
+
+        const domainConfig = (wlConfig.domain_config as any) || {};
+        
+        // Check if already using new structure
+        if (domainConfig.public_website) {
+          console.log('Already using triple domain structure for tenant:', tenantId);
+          return true;
+        }
+
+        // Migrate to new structure
+        const customDomain = domainConfig.custom_domain || '';
+        const subdomain = domainConfig.subdomain || '';
+
+        const newDomainConfig = {
+          public_website: {
+            custom_domain: customDomain,
+            ssl_enabled: domainConfig.ssl_enabled !== false,
+            dns_verified: false,
+            status: customDomain ? 'pending' as const : 'not_configured' as const
+          },
+          tenant_portal: {
+            custom_domain: subdomain && customDomain ? `${subdomain}.${customDomain}` : '',
+            ssl_enabled: true,
+            dns_verified: false,
+            status: subdomain ? 'pending' as const : 'not_configured' as const
+          },
+          farmer_app: {
+            custom_domain: '',
+            ssl_enabled: true,
+            dns_verified: false,
+            status: 'not_configured' as const
+          }
+        };
+
+        const { data: { user } } = await supabase.auth.getUser();
+
+        const { error: updateError } = await supabase
+          .from('white_label_configs')
+          .update({
+            domain_config: newDomainConfig,
+            updated_by: user?.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('tenant_id', tenantId);
+
+        if (updateError) throw updateError;
+
+        // Re-sync to tenants table with new structure
+        await this.syncToTenant(tenantId);
+
+        console.log('Migrated domain config to triple domain structure:', tenantId);
+        return true;
+      },
+      'migrateToTripleDomainStructure'
+    );
+  }
+
+  /**
    * Update white_label_config and sync back to tenant
    * This is the primary update method to use when modifying branding
    */
@@ -319,6 +448,7 @@ export class WhiteLabelSyncService extends BaseService {
         // Sync critical data back to tenant
         await this.syncToTenant(tenantId);
 
+        console.log('Updated white-label config and synced to tenant:', tenantId);
         return data;
       },
       'updateWhiteLabelConfig'
