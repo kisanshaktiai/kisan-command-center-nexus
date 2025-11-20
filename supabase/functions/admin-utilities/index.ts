@@ -244,6 +244,7 @@ const handleCloudflareDNS = async (req: Request): Promise<Response> => {
 };
 
 const handleAdminUserCreation = async (req: Request): Promise<Response> => {
+  try {
     const { operation, ...payload } = await req.json();
 
     if (!operation || !['create-super-admin', 'validate-email', 'generate-monitoring-data'].includes(operation)) {
@@ -475,6 +476,11 @@ const handleAdminUserCreation = async (req: Request): Promise<Response> => {
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      default:
+        return new Response(
+          JSON.stringify({ success: false, error: 'Unknown operation' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
     }
 
   } catch (error) {
