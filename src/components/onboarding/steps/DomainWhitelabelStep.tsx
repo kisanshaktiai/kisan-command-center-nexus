@@ -101,17 +101,20 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
         .single();
 
       if (wlError || !wlConfig) {
-        // Create if doesn't exist
+        // Create if doesn't exist (this will auto-sync to tenant)
         const createResult = await whiteLabelSyncService.createWhiteLabelConfig(tenantId, {
-          subdomain: formData.subdomain,
-          custom_domain: formData.customDomain
+          domain_config: {
+            subdomain: formData.subdomain,
+            custom_domain: formData.customDomain,
+            ssl_enabled: formData.sslEnabled
+          }
         });
         
         if (!createResult.success) {
           throw new Error(createResult.error || 'Failed to create white-label configuration');
         }
       } else {
-        // Update existing config
+        // Update existing config (this will auto-sync to tenant)
         const updateResult = await whiteLabelSyncService.updateWhiteLabelConfig(tenantId, {
           domain_config: {
             custom_domain: formData.customDomain,
@@ -125,21 +128,7 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
         }
       }
 
-      // Also update tenant table (will be synced automatically)
-      const { error: tenantError } = await supabase
-        .from('tenants')
-        .update({
-          custom_domain: formData.customDomain,
-          subdomain: formData.subdomain,
-          metadata: {
-            domainConfigured: true,
-            configuredAt: new Date().toISOString()
-          }
-        })
-        .eq('id', tenantId);
-
-      if (tenantError) throw tenantError;
-
+      // That's it! No manual tenant update needed - triggers handle sync automatically
       showSuccess('Domain configuration saved successfully');
       onComplete(formData);
     } catch (error) {
