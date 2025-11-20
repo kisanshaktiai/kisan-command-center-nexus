@@ -1,38 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { 
   Globe, 
   Users, 
   Smartphone, 
   Shield, 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle,
   Loader2,
   Cloud,
-  ExternalLink
+  ExternalLink,
+  CheckCircle
 } from 'lucide-react';
-import { DomainValidationSection } from './DomainValidationSection';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-// URL validation schema
-const urlSchema = z.string().refine(
+// Domain validation schema
+const domainSchema = z.string().refine(
   (val) => {
-    if (!val) return true; // Allow empty
-    // Domain regex: alphanumeric, hyphens, dots, minimum 2-char TLD
+    if (!val) return true;
     const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
     return domainRegex.test(val);
   },
-  { message: 'Invalid domain format (e.g., example.com or sub.example.com)' }
+  { message: 'Invalid domain format (e.g., example.com or www.example.com)' }
+);
+
+// Subdomain prefix validation
+const subdomainPrefixSchema = z.string().refine(
+  (val) => {
+    if (!val) return true;
+    const prefixRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/;
+    return prefixRegex.test(val);
+  },
+  { message: 'Invalid subdomain prefix (use only letters, numbers, and hyphens)' }
 );
 
 interface DomainPortalConfig {
@@ -73,7 +78,24 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
   onUpdate,
   isLoading = false
 }) => {
-  const [activeTab, setActiveTab] = useState<PortalType>('public_website');
+  // Extract base domain from public_website custom_domain
+  const getBaseDomain = () => {
+    return domainConfig?.public_website?.custom_domain || '';
+  };
+
+  // Extract subdomain prefixes
+  const getSubdomainPrefix = (portalType: 'tenant_portal' | 'farmer_app') => {
+    const fullDomain = domainConfig?.[portalType]?.custom_domain || '';
+    const baseDomain = getBaseDomain();
+    if (!fullDomain || !baseDomain) return '';
+    // Extract prefix (e.g., "partner" from "partner.kisanai.com")
+    return fullDomain.replace(`.${baseDomain}`, '');
+  };
+
+  const [mainDomain, setMainDomain] = useState(getBaseDomain());
+  const [tenantPrefix, setTenantPrefix] = useState(getSubdomainPrefix('tenant_portal'));
+  const [farmerPrefix, setFarmerPrefix] = useState(getSubdomainPrefix('farmer_app'));
+  
   const [cloudflareConfig, setCloudflareConfig] = useState<CloudflareConfig>(
     domainConfig?.cloudflare || {
       enabled: false,
@@ -83,42 +105,77 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
   );
   const [isTesting, setIsTesting] = useState(false);
 
-  // Initialize domain configs with defaults
-  const publicWebsite = domainConfig?.public_website || { 
-    ssl_enabled: true, 
-    dns_verified: false, 
-    status: 'not_configured' as const 
-  };
-  const tenantPortal = domainConfig?.tenant_portal || { 
-    ssl_enabled: true, 
-    dns_verified: false, 
-    status: 'not_configured' as const 
-  };
-  const farmerApp = domainConfig?.farmer_app || { 
-    ssl_enabled: true, 
-    dns_verified: false, 
-    status: 'not_configured' as const 
-  };
+  // Sync state when domainConfig changes
+  useEffect(() => {
+    setMainDomain(getBaseDomain());
+    setTenantPrefix(getSubdomainPrefix('tenant_portal'));
+    setFarmerPrefix(getSubdomainPrefix('farmer_app'));
+  }, [domainConfig]);
 
-  const handleDomainUpdate = (portalType: PortalType, field: 'subdomain' | 'custom_domain', value: string) => {
-    // Validate URL if it's a custom_domain
-    if (field === 'custom_domain' && value) {
-      const validation = urlSchema.safeParse(value);
+  const handleMainDomainUpdate = (value: string) => {
+    setMainDomain(value);
+    
+    // Validate domain
+    if (value) {
+      const validation = domainSchema.safeParse(value);
       if (!validation.success) {
         toast.error(validation.error.errors[0].message);
         return;
       }
     }
 
-    const currentConfig = portalType === 'public_website' ? publicWebsite : 
-                         portalType === 'tenant_portal' ? tenantPortal : farmerApp;
-    
-    // Pass the updated domainConfig object directly (not wrapped)
+    // Update all three portals
+    onUpdate({
+      ...domainConfig,
+      public_website: {
+        ...(domainConfig?.public_website || {}),
+        custom_domain: value || null,
+        ssl_enabled: true,
+        dns_verified: false,
+        status: value ? 'pending' : 'not_configured'
+      },
+      tenant_portal: {
+        ...(domainConfig?.tenant_portal || {}),
+        custom_domain: tenantPrefix && value ? `${tenantPrefix}.${value}` : null,
+        ssl_enabled: true,
+        dns_verified: false,
+        status: tenantPrefix && value ? 'pending' : 'not_configured'
+      },
+      farmer_app: {
+        ...(domainConfig?.farmer_app || {}),
+        custom_domain: farmerPrefix && value ? `${farmerPrefix}.${value}` : null,
+        ssl_enabled: true,
+        dns_verified: false,
+        status: farmerPrefix && value ? 'pending' : 'not_configured'
+      }
+    });
+  };
+
+  const handleSubdomainPrefixUpdate = (portalType: 'tenant_portal' | 'farmer_app', prefix: string) => {
+    // Validate prefix
+    if (prefix) {
+      const validation = subdomainPrefixSchema.safeParse(prefix);
+      if (!validation.success) {
+        toast.error(validation.error.errors[0].message);
+        return;
+      }
+    }
+
+    if (portalType === 'tenant_portal') {
+      setTenantPrefix(prefix);
+    } else {
+      setFarmerPrefix(prefix);
+    }
+
+    // Update domain config
     onUpdate({
       ...domainConfig,
       [portalType]: {
-        ...currentConfig,
-        [field]: value || null
+        ...(domainConfig?.[portalType] || {}),
+        custom_domain: prefix && mainDomain ? `${prefix}.${mainDomain}` : null,
+        ssl_enabled: true,
+        dns_verified: false,
+        status: prefix && mainDomain ? 'pending' : 'not_configured'
       }
     });
   };
@@ -173,130 +230,9 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
     }
   };
 
-  const getPortalIcon = (portalType: PortalType) => {
-    const icons = {
-      public_website: Globe,
-      tenant_portal: Users,
-      farmer_app: Smartphone
-    };
-    const Icon = icons[portalType];
-    return <Icon className="h-4 w-4" />;
-  };
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any; label: string; icon: any }> = {
-      active: { variant: 'default', label: 'Active', icon: CheckCircle },
-      pending: { variant: 'secondary', label: 'Pending', icon: Loader2 },
-      failed: { variant: 'destructive', label: 'Failed', icon: XCircle },
-      verifying: { variant: 'secondary', label: 'Verifying', icon: Loader2 },
-      not_configured: { variant: 'outline', label: 'Not Configured', icon: AlertCircle }
-    };
-    
-    const config = variants[status] || variants.not_configured;
-    const Icon = config.icon;
-    
-    return (
-      <Badge variant={config.variant} className="gap-1">
-        <Icon className="h-3 w-3" />
-        {config.label}
-      </Badge>
-    );
-  };
-
-  const getPortalTypeDescription = (portalType: PortalType): string => {
-    const descriptions: Record<PortalType, string> = {
-      public_website: 'Main website for public access (e.g., www.kisanai.com)',
-      tenant_portal: 'Partner/tenant management portal (e.g., partner.kisanai.com)',
-      farmer_app: 'Mobile app and farmer interface (e.g., app.kisanai.com)'
-    };
-    return descriptions[portalType];
-  };
-
-  const getPortalTypeLabel = (portalType: PortalType): string => {
-    const labels: Record<PortalType, string> = {
-      public_website: 'Public Website',
-      tenant_portal: 'Tenant Portal',
-      farmer_app: 'Farmer App'
-    };
-    return labels[portalType];
-  };
-
-  const renderDomainPortalConfig = (portalType: PortalType) => {
-    const config = portalType === 'public_website' ? publicWebsite :
-                   portalType === 'tenant_portal' ? tenantPortal : farmerApp;
-    
-    return (
-      <div className="space-y-6">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            {getPortalIcon(portalType)}
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold">{getPortalTypeLabel(portalType)}</h3>
-            <p className="text-sm text-muted-foreground">{getPortalTypeDescription(portalType)}</p>
-          </div>
-          {getStatusBadge(config.status)}
-        </div>
-
-        <Separator />
-
-        <div className="space-y-2">
-          <Label>Subdomain</Label>
-          <p className="text-xs text-muted-foreground">
-            Example: {portalType === 'public_website' ? 'www' : portalType === 'tenant_portal' ? 'partner' : 'app'}.yourdomain.com
-          </p>
-          <DomainValidationSection
-            domain={config.subdomain || ''}
-            onDomainChange={(value) => handleDomainUpdate(portalType, 'subdomain', value)}
-            type="subdomain"
-            tenantId={tenantId}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Custom Domain</Label>
-          <p className="text-xs text-muted-foreground">
-            Full domain (e.g., {portalType === 'public_website' ? 'www.yourdomain.com' : portalType === 'tenant_portal' ? 'partner.yourdomain.com' : 'app.yourdomain.com'})
-          </p>
-          <DomainValidationSection
-            domain={config.custom_domain || ''}
-            onDomainChange={(value) => handleDomainUpdate(portalType, 'custom_domain', value)}
-            type="custom_domain"
-            tenantId={tenantId}
-          />
-        </div>
-
-        <div className="flex items-center justify-between rounded-lg border p-4">
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-primary" />
-            <div>
-              <p className="text-sm font-medium">SSL Certificate</p>
-              <p className="text-xs text-muted-foreground">
-                {config.ssl_enabled ? 'Enabled and active' : 'Not configured'}
-              </p>
-            </div>
-          </div>
-          <Switch checked={config.ssl_enabled} disabled />
-        </div>
-
-        <div className="flex items-center justify-between rounded-lg border p-4">
-          <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-primary" />
-            <div>
-              <p className="text-sm font-medium">DNS Verification</p>
-              <p className="text-xs text-muted-foreground">
-                {config.dns_verified ? 'Verified' : 'Pending verification'}
-              </p>
-            </div>
-          </div>
-          {config.dns_verified ? (
-            <CheckCircle className="h-5 w-5 text-green-500" />
-          ) : (
-            <AlertCircle className="h-5 w-5 text-yellow-500" />
-          )}
-        </div>
-      </div>
-    );
+  const getFullDomain = (prefix: string) => {
+    if (!mainDomain) return '';
+    return prefix ? `${prefix}.${mainDomain}` : mainDomain;
   };
 
   return (
@@ -304,13 +240,14 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Globe className="h-5 w-5" />
-          Triple Domain Configuration
+          Domain Configuration
         </CardTitle>
         <CardDescription>
-          Configure three separate domains: Public Website, Partner Portal, and Farmer App
+          Set up your main domain and subdomain prefixes for tenant portal and farmer app
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Cloudflare Integration */}
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -360,27 +297,29 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
                     />
                   </div>
 
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={testCloudflareConnection}
-                    disabled={isTesting || !cloudflareConfig.zone_id || !cloudflareConfig.api_token}
-                  >
-                    {isTesting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    Test Connection
-                  </Button>
-
-                  <Button variant="outline" size="sm" className="w-full" asChild>
-                    <a 
-                      href="https://dash.cloudflare.com" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2"
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={testCloudflareConnection}
+                      disabled={isTesting || !cloudflareConfig.zone_id || !cloudflareConfig.api_token}
                     >
-                      <ExternalLink className="h-4 w-4" />
-                      Open Cloudflare Dashboard
-                    </a>
-                  </Button>
+                      {isTesting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      Test Connection
+                    </Button>
+
+                    <Button variant="outline" size="sm" asChild>
+                      <a 
+                        href="https://dash.cloudflare.com" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Cloudflare Dashboard
+                      </a>
+                    </Button>
+                  </div>
                 </div>
               </>
             )}
@@ -389,57 +328,139 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
 
         <Separator />
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as PortalType)}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="public_website" className="gap-2">
-              <Globe className="h-4 w-4" />
-              Public
-            </TabsTrigger>
-            <TabsTrigger value="tenant_portal" className="gap-2">
-              <Users className="h-4 w-4" />
-              Partner
-            </TabsTrigger>
-            <TabsTrigger value="farmer_app" className="gap-2">
-              <Smartphone className="h-4 w-4" />
-              Farmer
-            </TabsTrigger>
-          </TabsList>
+        {/* Main Domain Configuration */}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Main Domain
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Enter your primary domain (this will be used for the public website)
+            </p>
+          </div>
 
-          <TabsContent value="public_website" className="mt-6">
-            {renderDomainPortalConfig('public_website')}
-          </TabsContent>
+          <div className="space-y-2">
+            <Label htmlFor="main-domain">Main Domain *</Label>
+            <Input
+              id="main-domain"
+              placeholder="www.kisanai.com"
+              value={mainDomain}
+              onChange={(e) => handleMainDomainUpdate(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Example: www.kisanai.com or kisanai.com
+            </p>
+          </div>
+        </div>
 
-          <TabsContent value="tenant_portal" className="mt-6">
-            {renderDomainPortalConfig('tenant_portal')}
-          </TabsContent>
+        <Separator />
 
-          <TabsContent value="farmer_app" className="mt-6">
-            {renderDomainPortalConfig('farmer_app')}
-          </TabsContent>
-        </Tabs>
+        {/* Subdomain Prefixes */}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Subdomain Prefixes
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Enter prefixes for tenant portal and farmer app (they will use the main domain)
+            </p>
+          </div>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Tenant Portal Prefix */}
+            <div className="space-y-2">
+              <Label htmlFor="tenant-prefix" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Tenant Portal Prefix
+              </Label>
+              <Input
+                id="tenant-prefix"
+                placeholder="partner"
+                value={tenantPrefix}
+                onChange={(e) => handleSubdomainPrefixUpdate('tenant_portal', e.target.value)}
+                disabled={!mainDomain}
+              />
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-muted-foreground">Full domain:</span>
+                <code className="bg-muted px-2 py-0.5 rounded font-mono">
+                  {getFullDomain(tenantPrefix) || 'Enter prefix'}
+                </code>
+              </div>
+            </div>
+
+            {/* Farmer App Prefix */}
+            <div className="space-y-2">
+              <Label htmlFor="farmer-prefix" className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4" />
+                Farmer App Prefix
+              </Label>
+              <Input
+                id="farmer-prefix"
+                placeholder="app"
+                value={farmerPrefix}
+                onChange={(e) => handleSubdomainPrefixUpdate('farmer_app', e.target.value)}
+                disabled={!mainDomain}
+              />
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-muted-foreground">Full domain:</span>
+                <code className="bg-muted px-2 py-0.5 rounded font-mono">
+                  {getFullDomain(farmerPrefix) || 'Enter prefix'}
+                </code>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Domain Summary */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Domain Overview</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Domain Summary
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Public Website:</span>
-              <span className="font-mono">
-                {publicWebsite.custom_domain || publicWebsite.subdomain || 'Not configured'}
-              </span>
+          <CardContent className="space-y-3">
+            <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Public Website</p>
+                  <p className="text-xs text-muted-foreground">Main domain</p>
+                </div>
+              </div>
+              <code className="text-sm font-mono bg-background px-2 py-1 rounded">
+                {mainDomain || 'Not configured'}
+              </code>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Partner Portal:</span>
-              <span className="font-mono">
-                {tenantPortal.custom_domain || tenantPortal.subdomain || 'Not configured'}
-              </span>
+
+            <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Tenant Portal</p>
+                  <p className="text-xs text-muted-foreground">Partner management</p>
+                </div>
+              </div>
+              <code className="text-sm font-mono bg-background px-2 py-1 rounded">
+                {getFullDomain(tenantPrefix) || 'Not configured'}
+              </code>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Farmer App:</span>
-              <span className="font-mono">
-                {farmerApp.custom_domain || farmerApp.subdomain || 'Not configured'}
-              </span>
+
+            <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Farmer App</p>
+                  <p className="text-xs text-muted-foreground">Mobile interface</p>
+                </div>
+              </div>
+              <code className="text-sm font-mono bg-background px-2 py-1 rounded">
+                {getFullDomain(farmerPrefix) || 'Not configured'}
+              </code>
             </div>
           </CardContent>
         </Card>
