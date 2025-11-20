@@ -102,19 +102,27 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
 
       if (wlError || !wlConfig) {
         // Create if doesn't exist
-        await whiteLabelSyncService.createWhiteLabelConfig(tenantId, {
+        const createResult = await whiteLabelSyncService.createWhiteLabelConfig(tenantId, {
           subdomain: formData.subdomain,
           custom_domain: formData.customDomain
         });
+        
+        if (!createResult.success) {
+          throw new Error(createResult.error || 'Failed to create white-label configuration');
+        }
       } else {
         // Update existing config
-        await whiteLabelSyncService.updateWhiteLabelConfig(tenantId, {
+        const updateResult = await whiteLabelSyncService.updateWhiteLabelConfig(tenantId, {
           domain_config: {
             custom_domain: formData.customDomain,
             subdomain: formData.subdomain,
             ssl_enabled: formData.sslEnabled
           }
         });
+        
+        if (!updateResult.success) {
+          throw new Error(updateResult.error || 'Failed to update white-label configuration');
+        }
       }
 
       // Also update tenant table (will be synced automatically)
