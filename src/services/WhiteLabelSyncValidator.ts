@@ -12,7 +12,7 @@ export class WhiteLabelSyncValidator {
     isInSync: boolean;
     differences: string[];
   }> {
-    // Fetch both records
+    // Fetch both records with new domain_config structure
     const [wlResult, tenantResult] = await Promise.all([
       supabase
         .from('white_label_configs')
@@ -21,7 +21,7 @@ export class WhiteLabelSyncValidator {
         .single(),
       supabase
         .from('tenants')
-        .select('subdomain, custom_domain')
+        .select('domain_config, subdomain, custom_domain')
         .eq('id', tenantId)
         .single()
     ]);
@@ -32,16 +32,46 @@ export class WhiteLabelSyncValidator {
 
     const wlConfig = wlResult.data;
     const tenant = tenantResult.data;
-    const domainConfig = (wlConfig.domain_config as any) || {};
+    const wlDomainConfig = (wlConfig.domain_config as any) || {};
+    const tenantDomainConfig = (tenant.domain_config as any) || {};
     
     const differences: string[] = [];
 
-    if (domainConfig.subdomain !== tenant.subdomain) {
-      differences.push(`Subdomain mismatch: WL="${domainConfig.subdomain}" vs Tenant="${tenant.subdomain}"`);
-    }
+    // Check if using new triple domain structure
+    const isTripleDomain = wlDomainConfig.public_website !== undefined;
 
-    if (domainConfig.custom_domain !== tenant.custom_domain) {
-      differences.push(`Custom domain mismatch: WL="${domainConfig.custom_domain}" vs Tenant="${tenant.custom_domain}"`);
+    if (isTripleDomain) {
+      // NEW STRUCTURE: Compare triple domain configs
+      
+      // Compare public_website
+      const wlPublic = wlDomainConfig.public_website?.custom_domain || '';
+      const tenantPublic = tenantDomainConfig.public_website?.custom_domain || '';
+      if (wlPublic !== tenantPublic) {
+        differences.push(`Public Website domain mismatch: WL="${wlPublic}" vs Tenant="${tenantPublic}"`);
+      }
+
+      // Compare tenant_portal
+      const wlPortal = wlDomainConfig.tenant_portal?.custom_domain || '';
+      const tenantPortal = tenantDomainConfig.tenant_portal?.custom_domain || '';
+      if (wlPortal !== tenantPortal) {
+        differences.push(`Tenant Portal domain mismatch: WL="${wlPortal}" vs Tenant="${tenantPortal}"`);
+      }
+
+      // Compare farmer_app
+      const wlFarmer = wlDomainConfig.farmer_app?.custom_domain || '';
+      const tenantFarmer = tenantDomainConfig.farmer_app?.custom_domain || '';
+      if (wlFarmer !== tenantFarmer) {
+        differences.push(`Farmer App domain mismatch: WL="${wlFarmer}" vs Tenant="${tenantFarmer}"`);
+      }
+    } else {
+      // OLD STRUCTURE: Compare flat domain config
+      if (wlDomainConfig.subdomain !== tenant.subdomain) {
+        differences.push(`Subdomain mismatch: WL="${wlDomainConfig.subdomain}" vs Tenant="${tenant.subdomain}"`);
+      }
+
+      if (wlDomainConfig.custom_domain !== tenant.custom_domain) {
+        differences.push(`Custom domain mismatch: WL="${wlDomainConfig.custom_domain}" vs Tenant="${tenant.custom_domain}"`);
+      }
     }
 
     return {
