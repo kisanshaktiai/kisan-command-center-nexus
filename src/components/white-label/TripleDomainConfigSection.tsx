@@ -69,14 +69,53 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
 }) => {
   const { showSuccess } = useNotifications();
   
+  // Safely normalize domain config to expected structure
+  const normalizedConfig = React.useMemo(() => {
+    if (!domainConfig) {
+      return {
+        public_website: { ssl_enabled: true, dns_verified: false, status: 'not_configured' as const },
+        tenant_portal: { ssl_enabled: true, dns_verified: false, status: 'not_configured' as const },
+        farmer_app: { ssl_enabled: true, dns_verified: false, status: 'not_configured' as const }
+      };
+    }
+    
+    // If already in correct format, return as is
+    if ('public_website' in domainConfig) {
+      return domainConfig as DomainConfig;
+    }
+    
+    // Convert old flat format to new nested format
+    const flatConfig = domainConfig as any;
+    return {
+      public_website: {
+        custom_domain: flatConfig.custom_domain || '',
+        ssl_enabled: flatConfig.ssl_enabled !== false,
+        dns_verified: false,
+        status: flatConfig.custom_domain ? 'pending' as const : 'not_configured' as const
+      },
+      tenant_portal: {
+        custom_domain: '',
+        ssl_enabled: true,
+        dns_verified: false,
+        status: 'not_configured' as const
+      },
+      farmer_app: {
+        custom_domain: '',
+        ssl_enabled: true,
+        dns_verified: false,
+        status: 'not_configured' as const
+      }
+    };
+  }, [domainConfig]);
+  
   // Extract base domain from public_website custom_domain
   const getBaseDomain = () => {
-    return domainConfig?.public_website?.custom_domain || '';
+    return normalizedConfig.public_website?.custom_domain || '';
   };
 
   // Extract subdomain prefixes
   const getSubdomainPrefix = (portalType: 'tenant_portal' | 'farmer_app') => {
-    const fullDomain = domainConfig?.[portalType]?.custom_domain || '';
+    const fullDomain = normalizedConfig[portalType]?.custom_domain || '';
     const baseDomain = getBaseDomain();
     if (!fullDomain || !baseDomain) return '';
     // Extract prefix (e.g., "partner" from "partner.kisanai.com")
@@ -100,7 +139,7 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
     setMainDomain(getBaseDomain());
     setTenantPrefix(getSubdomainPrefix('tenant_portal'));
     setFarmerPrefix(getSubdomainPrefix('farmer_app'));
-  }, [domainConfig]);
+  }, [normalizedConfig]);
 
   const validateMainDomain = (value: string) => {
     if (!value) {
@@ -154,17 +193,17 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
       // Update domain config
       const updates = {
         public_website: {
-          ...domainConfig.public_website,
+          ...normalizedConfig.public_website,
           custom_domain: mainDomain,
           status: 'pending' as const
         },
         tenant_portal: {
-          ...domainConfig.tenant_portal,
+          ...normalizedConfig.tenant_portal,
           custom_domain: tenantPrefix ? `${tenantPrefix}.${mainDomain}` : '',
           status: tenantPrefix ? 'pending' as const : 'not_configured' as const
         },
         farmer_app: {
-          ...domainConfig.farmer_app,
+          ...normalizedConfig.farmer_app,
           custom_domain: farmerPrefix ? `${farmerPrefix}.${mainDomain}` : '',
           status: farmerPrefix ? 'pending' as const : 'not_configured' as const
         }
@@ -181,8 +220,9 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
     if (isValid && mainDomain) {
       const portalType = type === 'tenant' ? 'tenant_portal' : 'farmer_app';
       const updates = {
+        ...normalizedConfig,
         [portalType]: {
-          ...domainConfig[portalType],
+          ...normalizedConfig[portalType],
           custom_domain: prefix ? `${prefix}.${mainDomain}` : '',
           status: prefix ? 'pending' as const : 'not_configured' as const
         }
@@ -357,7 +397,7 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
                   </div>
                 </div>
                 <Badge variant={mainDomainValid ? 'default' : 'secondary'}>
-                  {domainConfig?.public_website?.status || 'Not Configured'}
+                  {normalizedConfig.public_website?.status || 'Not Configured'}
                 </Badge>
               </div>
 
@@ -371,7 +411,7 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
                     </div>
                   </div>
                   <Badge variant={tenantPrefixValid ? 'default' : 'secondary'}>
-                    {domainConfig?.tenant_portal?.status || 'Not Configured'}
+                    {normalizedConfig.tenant_portal?.status || 'Not Configured'}
                   </Badge>
                 </div>
               )}
@@ -386,7 +426,7 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
                     </div>
                   </div>
                   <Badge variant={farmerPrefixValid ? 'default' : 'secondary'}>
-                    {domainConfig?.farmer_app?.status || 'Not Configured'}
+                    {normalizedConfig.farmer_app?.status || 'Not Configured'}
                   </Badge>
                 </div>
               )}
