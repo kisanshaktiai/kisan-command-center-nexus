@@ -16,7 +16,7 @@ interface EdgeFunctionStatus {
 
 const EDGE_FUNCTIONS = [
   'user-invitations',
-  'user-operations',
+  'user-management',
   'user-permissions',
   'tenant-data',
   'collect-metrics',
