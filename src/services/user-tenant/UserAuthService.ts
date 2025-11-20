@@ -25,7 +25,7 @@ export class UserAuthService {
         };
       }
 
-      const { data: authUserResponse, error: authError } = await supabase.functions.invoke('user-operations', {
+      const { data: authUserResponse, error: authError } = await supabase.functions.invoke('user-management', {
         body: { 
           operation: 'get',
           user_email: email.trim() 
