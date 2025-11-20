@@ -120,6 +120,130 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    const { action } = await req.json();
+
+    // Route to appropriate handler
+    switch (action) {
+      case 'cloudflare_dns':
+        return await handleCloudflareDNS(req);
+      default:
+        return await handleAdminUserCreation(req);
+    }
+  } catch (error: any) {
+    console.error('[admin-utilities] Error:', error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message || 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+};
+
+// Cloudflare DNS Management Handler
+const handleCloudflareDNS = async (req: Request): Promise<Response> => {
+  try {
+    const { operation, tenant_id, portal_type, domain, cloudflare_config } = await req.json();
+
+    if (!tenant_id || !cloudflare_config) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: tenant_id, cloudflare_config' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { zone_id, api_token, proxied } = cloudflare_config;
+    
+    if (!zone_id || !api_token) {
+      return new Response(
+        JSON.stringify({ error: 'Missing Cloudflare credentials' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const cfHeaders = {
+      'Authorization': `Bearer ${api_token}`,
+      'Content-Type': 'application/json',
+    };
+
+    let result;
+
+    switch (operation) {
+      case 'create_record': {
+        const record = {
+          type: domain.includes('.') ? 'CNAME' : 'A',
+          name: domain,
+          content: domain.includes('.') ? 'your-app.lovable.app' : '185.158.133.1',
+          proxied: proxied ?? true,
+          ttl: proxied ? 1 : 3600,
+        };
+
+        const response = await fetch(
+          `https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records`,
+          {
+            method: 'POST',
+            headers: cfHeaders,
+            body: JSON.stringify(record),
+          }
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(`Cloudflare API error: ${JSON.stringify(data)}`);
+        }
+
+        result = { success: true, record: data.result };
+        break;
+      }
+
+      case 'list_records': {
+        const response = await fetch(
+          `https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records`,
+          { headers: cfHeaders }
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(`Cloudflare API error: ${JSON.stringify(data)}`);
+        }
+
+        result = { success: true, records: data.result };
+        break;
+      }
+
+      case 'verify_ssl': {
+        const response = await fetch(
+          `https://api.cloudflare.com/client/v4/zones/${zone_id}/ssl/verification`,
+          { headers: cfHeaders }
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(`Cloudflare API error: ${JSON.stringify(data)}`);
+        }
+
+        result = { success: true, ssl_status: data.result };
+        break;
+      }
+
+      default:
+        return new Response(
+          JSON.stringify({ error: 'Invalid operation' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+    }
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error: any) {
+    console.error('[Cloudflare DNS] Error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+};
+
+const handleAdminUserCreation = async (req: Request): Promise<Response> => {
     const { operation, ...payload } = await req.json();
 
     if (!operation || !['create-super-admin', 'validate-email', 'generate-monitoring-data'].includes(operation)) {

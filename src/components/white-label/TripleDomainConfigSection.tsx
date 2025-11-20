@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { 
   Globe, 
   Users, 
@@ -20,13 +20,38 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { DomainValidationSection } from './DomainValidationSection';
-import type { DomainConfig, PortalType, CloudflareConfig } from '@/types/whiteLabelConfig';
-import { getPortalTypeLabel, getPortalTypeDescription, getDomainExample } from '@/types/whiteLabelConfig';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface DomainPortalConfig {
+  subdomain?: string | null;
+  custom_domain?: string | null;
+  ssl_enabled: boolean;
+  dns_verified: boolean;
+  status: 'not_configured' | 'pending' | 'active' | 'failed' | 'verifying';
+}
+
+interface CloudflareConfig {
+  enabled: boolean;
+  zone_id?: string | null;
+  api_token?: string | null;
+  auto_dns: boolean;
+  proxied: boolean;
+}
+
+interface DomainConfig {
+  public_website: DomainPortalConfig;
+  tenant_portal: DomainPortalConfig;
+  farmer_app: DomainPortalConfig;
+  cloudflare: CloudflareConfig;
+}
+
+type PortalType = 'public_website' | 'tenant_portal' | 'farmer_app';
 
 interface TripleDomainConfigSectionProps {
-  domainConfig: DomainConfig;
+  domainConfig: Partial<DomainConfig>;
   tenantId: string;
-  onUpdate: (updates: Partial<DomainConfig>) => void;
+  onUpdate: (updates: any) => void;
   isLoading?: boolean;
 }
 
@@ -44,12 +69,36 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
       proxied: true
     }
   );
+  const [isTesting, setIsTesting] = useState(false);
+
+  // Initialize domain configs with defaults
+  const publicWebsite = domainConfig?.public_website || { 
+    ssl_enabled: true, 
+    dns_verified: false, 
+    status: 'not_configured' as const 
+  };
+  const tenantPortal = domainConfig?.tenant_portal || { 
+    ssl_enabled: true, 
+    dns_verified: false, 
+    status: 'not_configured' as const 
+  };
+  const farmerApp = domainConfig?.farmer_app || { 
+    ssl_enabled: true, 
+    dns_verified: false, 
+    status: 'not_configured' as const 
+  };
 
   const handleDomainUpdate = (portalType: PortalType, field: 'subdomain' | 'custom_domain', value: string) => {
+    const currentConfig = portalType === 'public_website' ? publicWebsite : 
+                         portalType === 'tenant_portal' ? tenantPortal : farmerApp;
+    
     onUpdate({
-      [portalType]: {
-        ...domainConfig[portalType],
-        [field]: value || null
+      domain_config: {
+        ...domainConfig,
+        [portalType]: {
+          ...currentConfig,
+          [field]: value || null
+        }
       }
     });
   };
@@ -61,8 +110,47 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
     };
     setCloudflareConfig(updated);
     onUpdate({
-      cloudflare: updated
+      domain_config: {
+        ...domainConfig,
+        cloudflare: updated
+      }
     });
+  };
+
+  const testCloudflareConnection = async () => {
+    if (!cloudflareConfig.zone_id || !cloudflareConfig.api_token) {
+      toast.error('Please enter both Zone ID and API Token');
+      return;
+    }
+
+    setIsTesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-utilities', {
+        body: {
+          action: 'cloudflare_dns',
+          operation: 'list_records',
+          tenant_id: tenantId,
+          cloudflare_config: {
+            zone_id: cloudflareConfig.zone_id,
+            api_token: cloudflareConfig.api_token,
+            proxied: cloudflareConfig.proxied
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success('Cloudflare connection successful!');
+      } else {
+        toast.error(data?.error || 'Failed to connect to Cloudflare');
+      }
+    } catch (error: any) {
+      console.error('Cloudflare test error:', error);
+      toast.error(`Connection failed: ${error.message}`);
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const getPortalIcon = (portalType: PortalType) => {
@@ -95,8 +183,27 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
     );
   };
 
+  const getPortalTypeDescription = (portalType: PortalType): string => {
+    const descriptions: Record<PortalType, string> = {
+      public_website: 'Main website for public access (e.g., www.kisanai.com)',
+      tenant_portal: 'Partner/tenant management portal (e.g., partner.kisanai.com)',
+      farmer_app: 'Mobile app and farmer interface (e.g., app.kisanai.com)'
+    };
+    return descriptions[portalType];
+  };
+
+  const getPortalTypeLabel = (portalType: PortalType): string => {
+    const labels: Record<PortalType, string> = {
+      public_website: 'Public Website',
+      tenant_portal: 'Tenant Portal',
+      farmer_app: 'Farmer App'
+    };
+    return labels[portalType];
+  };
+
   const renderDomainPortalConfig = (portalType: PortalType) => {
-    const config = domainConfig[portalType];
+    const config = portalType === 'public_website' ? publicWebsite :
+                   portalType === 'tenant_portal' ? tenantPortal : farmerApp;
     
     return (
       <div className="space-y-6">
@@ -108,70 +215,61 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
             <h3 className="text-lg font-semibold">{getPortalTypeLabel(portalType)}</h3>
             <p className="text-sm text-muted-foreground">{getPortalTypeDescription(portalType)}</p>
           </div>
-          {getStatusBadge(config?.status || 'not_configured')}
+          {getStatusBadge(config.status)}
         </div>
 
         <Separator />
 
-        {/* Subdomain Configuration */}
         <div className="space-y-2">
-          <Label htmlFor={`${portalType}-subdomain`}>Subdomain</Label>
+          <Label>Subdomain</Label>
           <p className="text-xs text-muted-foreground">
             Example: {portalType === 'public_website' ? 'www' : portalType === 'tenant_portal' ? 'partner' : 'app'}.yourdomain.com
           </p>
           <DomainValidationSection
-            domain={config?.subdomain || ''}
+            domain={config.subdomain || ''}
             onDomainChange={(value) => handleDomainUpdate(portalType, 'subdomain', value)}
             type="subdomain"
             tenantId={tenantId}
-            domainPurpose={portalType}
           />
         </div>
 
-        {/* Custom Domain Configuration */}
         <div className="space-y-2">
-          <Label htmlFor={`${portalType}-custom-domain`}>Custom Domain</Label>
+          <Label>Custom Domain</Label>
           <p className="text-xs text-muted-foreground">
-            Example: {getDomainExample(portalType)}
+            Full domain (e.g., {portalType === 'public_website' ? 'www.yourdomain.com' : portalType === 'tenant_portal' ? 'partner.yourdomain.com' : 'app.yourdomain.com'})
           </p>
           <DomainValidationSection
-            domain={config?.custom_domain || ''}
+            domain={config.custom_domain || ''}
             onDomainChange={(value) => handleDomainUpdate(portalType, 'custom_domain', value)}
             type="custom_domain"
             tenantId={tenantId}
-            domainPurpose={portalType}
           />
         </div>
 
-        {/* SSL Status */}
         <div className="flex items-center justify-between rounded-lg border p-4">
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-primary" />
             <div>
               <p className="text-sm font-medium">SSL Certificate</p>
               <p className="text-xs text-muted-foreground">
-                {config?.ssl_enabled ? 'Enabled and active' : 'Not configured'}
+                {config.ssl_enabled ? 'Enabled and active' : 'Not configured'}
               </p>
             </div>
           </div>
-          <Switch
-            checked={config?.ssl_enabled || false}
-            disabled
-          />
+          <Switch checked={config.ssl_enabled} disabled />
         </div>
 
-        {/* DNS Verification Status */}
         <div className="flex items-center justify-between rounded-lg border p-4">
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-primary" />
             <div>
               <p className="text-sm font-medium">DNS Verification</p>
               <p className="text-xs text-muted-foreground">
-                {config?.dns_verified ? 'Verified' : 'Pending verification'}
+                {config.dns_verified ? 'Verified' : 'Pending verification'}
               </p>
             </div>
           </div>
-          {config?.dns_verified ? (
+          {config.dns_verified ? (
             <CheckCircle className="h-5 w-5 text-green-500" />
           ) : (
             <AlertCircle className="h-5 w-5 text-yellow-500" />
@@ -184,20 +282,15 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              Triple Domain Configuration
-            </CardTitle>
-            <CardDescription>
-              Configure three separate domains for different portals: Public Website, Tenant Portal, and Farmer App
-            </CardDescription>
-          </div>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <Globe className="h-5 w-5" />
+          Triple Domain Configuration
+        </CardTitle>
+        <CardDescription>
+          Configure three separate domains: Public Website, Partner Portal, and Farmer App
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Cloudflare Integration Section */}
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -205,7 +298,7 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
               Cloudflare DNS Integration
             </CardTitle>
             <CardDescription>
-              Automatically manage DNS records and SSL certificates via Cloudflare
+              Automatically manage DNS records via Cloudflare
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -245,36 +338,17 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
                       value={cloudflareConfig.api_token || ''}
                       onChange={(e) => handleCloudflareUpdate('api_token', e.target.value)}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Token will be encrypted and stored securely
-                    </p>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Auto DNS Management</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Automatically create and update DNS records
-                      </p>
-                    </div>
-                    <Switch
-                      checked={cloudflareConfig.auto_dns}
-                      onCheckedChange={(checked) => handleCloudflareUpdate('auto_dns', checked)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Use Cloudflare Proxy</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Route traffic through Cloudflare (orange cloud)
-                      </p>
-                    </div>
-                    <Switch
-                      checked={cloudflareConfig.proxied}
-                      onCheckedChange={(checked) => handleCloudflareUpdate('proxied', checked)}
-                    />
-                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={testCloudflareConnection}
+                    disabled={isTesting || !cloudflareConfig.zone_id || !cloudflareConfig.api_token}
+                  >
+                    {isTesting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Test Connection
+                  </Button>
 
                   <Button variant="outline" size="sm" className="w-full" asChild>
                     <a 
@@ -295,20 +369,19 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
 
         <Separator />
 
-        {/* Domain Tabs */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as PortalType)}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="public_website" className="gap-2">
               <Globe className="h-4 w-4" />
-              Public Website
+              Public
             </TabsTrigger>
             <TabsTrigger value="tenant_portal" className="gap-2">
               <Users className="h-4 w-4" />
-              Tenant Portal
+              Partner
             </TabsTrigger>
             <TabsTrigger value="farmer_app" className="gap-2">
               <Smartphone className="h-4 w-4" />
-              Farmer App
+              Farmer
             </TabsTrigger>
           </TabsList>
 
@@ -325,7 +398,6 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
           </TabsContent>
         </Tabs>
 
-        {/* Domain Overview */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Domain Overview</CardTitle>
@@ -334,19 +406,19 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Public Website:</span>
               <span className="font-mono">
-                {domainConfig.public_website?.custom_domain || domainConfig.public_website?.subdomain || 'Not configured'}
+                {publicWebsite.custom_domain || publicWebsite.subdomain || 'Not configured'}
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Tenant Portal:</span>
+              <span className="text-muted-foreground">Partner Portal:</span>
               <span className="font-mono">
-                {domainConfig.tenant_portal?.custom_domain || domainConfig.tenant_portal?.subdomain || 'Not configured'}
+                {tenantPortal.custom_domain || tenantPortal.subdomain || 'Not configured'}
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Farmer App:</span>
               <span className="font-mono">
-                {domainConfig.farmer_app?.custom_domain || domainConfig.farmer_app?.subdomain || 'Not configured'}
+                {farmerApp.custom_domain || farmerApp.subdomain || 'Not configured'}
               </span>
             </div>
           </CardContent>
