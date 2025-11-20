@@ -11,12 +11,10 @@ import {
   Smartphone, 
   CheckCircle,
   XCircle,
-  Loader2,
   Copy,
   Server,
   ExternalLink
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
 import { z } from 'zod';
 
@@ -54,13 +52,6 @@ interface DomainConfig {
   farmer_app: DomainPortalConfig;
 }
 
-interface DNSInfo {
-  nameservers: string[];
-  dns_records: any[];
-  cname_target: string;
-  configured: boolean;
-}
-
 type PortalType = 'public_website' | 'tenant_portal' | 'farmer_app';
 
 interface TripleDomainConfigSectionProps {
@@ -76,7 +67,7 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
   onUpdate,
   isLoading = false
 }) => {
-  const { showSuccess, showError, showInfo } = useNotifications();
+  const { showSuccess } = useNotifications();
   
   // Extract base domain from public_website custom_domain
   const getBaseDomain = () => {
@@ -104,57 +95,12 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
   const [tenantPrefixError, setTenantPrefixError] = useState<string>('');
   const [farmerPrefixError, setFarmerPrefixError] = useState<string>('');
 
-  // DNS Info state
-  const [dnsInfo, setDnsInfo] = useState<DNSInfo | null>(null);
-  const [loadingDNS, setLoadingDNS] = useState(false);
-  const [dnsError, setDnsError] = useState<string>('');
-
   // Sync state when domainConfig changes
   useEffect(() => {
     setMainDomain(getBaseDomain());
     setTenantPrefix(getSubdomainPrefix('tenant_portal'));
     setFarmerPrefix(getSubdomainPrefix('farmer_app'));
   }, [domainConfig]);
-
-  // Fetch DNS info on mount
-  useEffect(() => {
-    fetchDNSInfo();
-  }, []);
-
-  const fetchDNSInfo = async () => {
-    setLoadingDNS(true);
-    setDnsError('');
-    try {
-      const { data, error } = await supabase.functions.invoke('admin-utilities', {
-        body: {
-          action: 'cloudflare-dns',
-          operation: 'get_zone_info',
-          tenant_id: tenantId
-        }
-      });
-
-      if (error) throw error;
-
-      if (data?.configured === false) {
-        setDnsError('Cloudflare integration not configured. Please add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID secrets.');
-        setDnsInfo(null);
-      } else if (data?.success) {
-        setDnsInfo({
-          nameservers: data.nameservers || [],
-          dns_records: data.dns_records || [],
-          cname_target: data.cname_target || 'your-app.lovable.app',
-          configured: true
-        });
-      } else {
-        throw new Error(data?.error || 'Failed to fetch DNS info');
-      }
-    } catch (error: any) {
-      console.error('Error fetching DNS info:', error);
-      setDnsError(error.message || 'Failed to fetch DNS information');
-    } finally {
-      setLoadingDNS(false);
-    }
-  };
 
   const validateMainDomain = (value: string) => {
     if (!value) {
@@ -288,7 +234,7 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
                   value={mainDomain}
                   onChange={(e) => {
                     setMainDomain(e.target.value);
-                    setMainDomainValid(null); // Reset validation on change
+                    setMainDomainValid(null);
                   }}
                   onBlur={handleMainDomainBlur}
                   disabled={isLoading}
@@ -449,164 +395,145 @@ export const TripleDomainConfigSection: React.FC<TripleDomainConfigSectionProps>
         </Card>
       )}
 
-      {/* DNS Configuration */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Server className="h-5 w-5" />
-                DNS Configuration
-              </CardTitle>
-              <CardDescription>
-                DNS records and nameservers for Cloudflare setup
-              </CardDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchDNSInfo}
-              disabled={loadingDNS}
-            >
-              {loadingDNS ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                'Refresh'
-              )}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {dnsError ? (
-            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <p className="text-sm text-destructive">{dnsError}</p>
-            </div>
-          ) : loadingDNS ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : dnsInfo?.configured ? (
-            <>
-              {/* Nameservers */}
-              {dnsInfo.nameservers.length > 0 && (
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">Cloudflare Nameservers</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Update your domain's nameservers at your domain registrar to these values:
-                  </p>
-                  <div className="space-y-2">
-                    {dnsInfo.nameservers.map((ns, index) => (
-                      <div key={index} className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                        <code className="flex-1 text-sm font-mono">{ns}</code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(ns, 'Nameserver')}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <Separator />
-
-              {/* Required DNS Records */}
-              <div className="space-y-3">
-                <Label className="text-base font-semibold">Required DNS Records</Label>
-                <p className="text-sm text-muted-foreground">
-                  Ensure these DNS records are configured in Cloudflare:
+      {/* DNS Configuration Guide */}
+      {mainDomain && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Server className="h-5 w-5" />
+              DNS Configuration Guide
+            </CardTitle>
+            <CardDescription>
+              Follow these steps to configure DNS for your custom domain
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  Step 1: Point your domain to Lovable
+                </h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Add these DNS records at your domain registrar or DNS provider:
                 </p>
-                <div className="space-y-3">
-                  {/* A Record for main domain */}
-                  {mainDomain && (
-                    <div className="p-3 bg-muted rounded-lg space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="secondary">A Record</Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard('185.158.133.1', 'IP Address')}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="text-sm space-y-1">
-                        <p><span className="font-medium">Name:</span> {mainDomain}</p>
-                        <p><span className="font-medium">Value:</span> <code>185.158.133.1</code></p>
-                      </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 bg-background rounded">
+                    <div className="flex-1">
+                      <span className="text-sm font-mono">Type: A</span>
+                      <span className="text-sm font-mono ml-4">Name: @</span>
+                      <span className="text-sm font-mono ml-4">Value: 185.158.133.1</span>
                     </div>
-                  )}
-
-                  {/* CNAME for subdomains */}
-                  {tenantPrefix && mainDomain && (
-                    <div className="p-3 bg-muted rounded-lg space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="secondary">CNAME Record</Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(dnsInfo.cname_target, 'CNAME Target')}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="text-sm space-y-1">
-                        <p><span className="font-medium">Name:</span> {tenantPrefix}.{mainDomain}</p>
-                        <p><span className="font-medium">Value:</span> <code>{dnsInfo.cname_target}</code></p>
-                      </div>
-                    </div>
-                  )}
-
-                  {farmerPrefix && mainDomain && (
-                    <div className="p-3 bg-muted rounded-lg space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="secondary">CNAME Record</Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(dnsInfo.cname_target, 'CNAME Target')}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="text-sm space-y-1">
-                        <p><span className="font-medium">Name:</span> {farmerPrefix}.{mainDomain}</p>
-                        <p><span className="font-medium">Value:</span> <code>{dnsInfo.cname_target}</code></p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* DNS Setup Guide */}
-              <div className="p-4 bg-info/10 border border-info/20 rounded-lg">
-                <div className="flex gap-3">
-                  <ExternalLink className="h-5 w-5 text-info flex-shrink-0 mt-0.5" />
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">DNS Setup Instructions</p>
-                    <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                      <li>Update nameservers at your domain registrar</li>
-                      <li>Wait for DNS propagation (can take up to 48 hours)</li>
-                      <li>Verify DNS records are properly configured in Cloudflare</li>
-                      <li>SSL certificates will be automatically provisioned</li>
-                    </ol>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard('185.158.133.1', 'IP address')}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
                   </div>
+                  <div className="flex items-center justify-between p-2 bg-background rounded">
+                    <div className="flex-1">
+                      <span className="text-sm font-mono">Type: A</span>
+                      <span className="text-sm font-mono ml-4">Name: www</span>
+                      <span className="text-sm font-mono ml-4">Value: 185.158.133.1</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard('185.158.133.1', 'IP address')}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {tenantPrefix && (
+                    <div className="flex items-center justify-between p-2 bg-background rounded">
+                      <div className="flex-1">
+                        <span className="text-sm font-mono">Type: A</span>
+                        <span className="text-sm font-mono ml-4">Name: {tenantPrefix}</span>
+                        <span className="text-sm font-mono ml-4">Value: 185.158.133.1</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard('185.158.133.1', 'IP address')}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                  {farmerPrefix && (
+                    <div className="flex items-center justify-between p-2 bg-background rounded">
+                      <div className="flex-1">
+                        <span className="text-sm font-mono">Type: A</span>
+                        <span className="text-sm font-mono ml-4">Name: {farmerPrefix}</span>
+                        <span className="text-sm font-mono ml-4">Value: 185.158.133.1</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard('185.158.133.1', 'IP address')}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
-            </>
-          ) : (
-            <div className="p-4 bg-muted rounded-lg text-center">
-              <p className="text-sm text-muted-foreground">No DNS information available</p>
+
+              <div className="p-4 bg-muted rounded-lg">
+                <h4 className="font-semibold mb-2">Step 2: SSL Certificate</h4>
+                <p className="text-sm text-muted-foreground">
+                  SSL certificates will be automatically provisioned by Lovable once DNS records are properly configured and propagated (can take up to 72 hours).
+                </p>
+              </div>
+
+              <div className="p-4 bg-muted rounded-lg">
+                <h4 className="font-semibold mb-2">Step 3: Verify Domain</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  After adding the DNS records, wait for DNS propagation (usually 15-60 minutes) and verify your domain is accessible.
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                  >
+                    <a href={`https://${mainDomain}`} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Test {mainDomain}
+                    </a>
+                  </Button>
+                  {tenantPrefix && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                    >
+                      <a href={`https://${tenantPrefix}.${mainDomain}`} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Test {tenantPrefix}.{mainDomain}
+                      </a>
+                    </Button>
+                  )}
+                  {farmerPrefix && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                    >
+                      <a href={`https://${farmerPrefix}.${mainDomain}`} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Test {farmerPrefix}.{mainDomain}
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
