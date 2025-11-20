@@ -133,33 +133,62 @@ export class WhiteLabelSyncService extends BaseService {
   async syncToTenant(tenantId: string): Promise<ServiceResult<boolean>> {
     return this.executeOperation(
       async () => {
+        // Fetch white-label config with ID
         const { data: wlConfig, error: wlError } = await supabase
           .from('white_label_configs')
-          .select('domain_config, brand_identity')
+          .select('id, domain_config, brand_identity')
           .eq('tenant_id', tenantId)
           .single();
 
         if (wlError || !wlConfig) {
-          throw new Error('White-label config not found for tenant');
+          console.error('❌ White-label config not found:', wlError);
+          throw new Error(`White-label config not found for tenant: ${tenantId}`);
         }
 
-        // Direct sync of domain_config structure to tenant
-        const { error: updateError } = await supabase
+        console.log('📋 Syncing domain_config to tenant:', {
+          tenantId,
+          wlConfigId: wlConfig.id,
+          domainConfig: wlConfig.domain_config
+        });
+
+        // Fetch current tenant metadata to merge instead of overwrite
+        const { data: currentTenant } = await supabase
+          .from('tenants')
+          .select('metadata')
+          .eq('id', tenantId)
+          .single();
+
+        const currentMetadata = (currentTenant?.metadata as any) || {};
+
+        // Update tenant with domain_config
+        const { data: updateData, error: updateError } = await supabase
           .from('tenants')
           .update({
             domain_config: wlConfig.domain_config,
             metadata: {
+              ...currentMetadata,  // Preserve existing metadata
               branding_synced_from_wl: true,
               branding_sync_at: new Date().toISOString(),
-              white_label_config_id: tenantId
+              white_label_config_id: wlConfig.id  // Use correct ID
             }
           })
-          .eq('id', tenantId);
+          .eq('id', tenantId)
+          .select();  // Add select() to get updated data
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('❌ Failed to sync to tenant:', updateError);
+          throw new Error(`Failed to update tenant: ${updateError.message}`);
+        }
 
-        console.log('✅ Synced white-label domain_config to tenant:', tenantId, {
-          domain_config: wlConfig.domain_config
+        // Check if any rows were actually updated (RLS might silently block)
+        if (!updateData || updateData.length === 0) {
+          console.error('❌ No rows updated - possible RLS issue');
+          throw new Error('Tenant update was blocked. Check user permissions.');
+        }
+
+        console.log('✅ Successfully synced domain_config to tenant:', {
+          tenantId,
+          updatedData: updateData[0].domain_config
         });
         
         return true;
@@ -414,10 +443,17 @@ export class WhiteLabelSyncService extends BaseService {
 
         if (error) throw error;
 
-        // Sync critical data back to tenant
-        await this.syncToTenant(tenantId);
+        console.log('✅ Updated white-label config, now syncing to tenant...');
 
-        console.log('Updated white-label config and synced to tenant:', tenantId);
+        // Sync to tenant and CHECK the result
+        const syncResult = await this.syncToTenant(tenantId);
+        
+        if (!syncResult.success) {
+          console.error('❌ Sync to tenant failed:', syncResult.error);
+          throw new Error(`Failed to sync to tenant: ${syncResult.error}`);
+        }
+
+        console.log('✅ Updated white-label config and synced to tenant:', tenantId);
         return data;
       },
       'updateWhiteLabelConfig'

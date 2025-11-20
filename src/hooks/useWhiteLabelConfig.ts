@@ -235,16 +235,50 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         return data;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Update cache instantly with latest DB values
       queryClient.setQueryData(['white-label-config', tenantId], data);
 
       // No need to wait for background refetch, preview gets instant update
       toast.success('Configuration saved successfully — Preview updated');
+      
+      // Validate sync after a short delay
+      setTimeout(async () => {
+        if (!tenantId) return;
+        
+        try {
+          const { WhiteLabelSyncValidator } = await import('@/services/WhiteLabelSyncValidator');
+          const validation = await WhiteLabelSyncValidator.validateSync(tenantId);
+          if (!validation.isInSync) {
+            console.warn('⚠️ Sync validation failed:', validation.differences);
+            toast.warning('Configuration saved but sync validation detected differences. Click Refresh to verify.');
+          } else {
+            console.log('✅ Sync validation passed');
+          }
+        } catch (error) {
+          console.error('Validation check error:', error);
+        }
+      }, 2000);
     },
     onError: (error: any) => {
-      console.error('Save configuration error:', error);
-      toast.error('Failed to save configuration: ' + (error.message || 'Unknown error'));
+      console.error('Save configuration error:', {
+        error,
+        tenantId,
+        errorMessage: error.message,
+        errorCause: error.cause,
+        stack: error.stack
+      });
+      
+      let errorMessage = 'Failed to save configuration';
+      if (error.message?.includes('sync to tenant')) {
+        errorMessage += ' - Sync to tenant failed. Check your permissions.';
+      } else if (error.message?.includes('RLS') || error.message?.includes('blocked')) {
+        errorMessage += ' - Permission denied. Contact your administrator.';
+      } else {
+        errorMessage += ': ' + (error.message || 'Unknown error');
+      }
+      
+      toast.error(errorMessage);
     }
   });
 
