@@ -131,6 +131,9 @@ verify_jwt = false
 [functions.user-operations]
 verify_jwt = false
 
+[functions.user-management]
+verify_jwt = false
+
 [functions.user-permissions]
 verify_jwt = false
 
