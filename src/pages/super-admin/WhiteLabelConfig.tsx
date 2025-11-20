@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor, Code, Settings, Save, Loader2, Sparkles } from 'lucide-react';
+import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor, Code, Settings, Save, Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -463,16 +463,27 @@ export default function WhiteLabelConfig() {
           <h1 className="text-3xl font-bold">White-Label Configuration</h1>
           <p className="text-muted-foreground">Customize branding and appearance for tenants</p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPreviewMode(!previewMode)}
-          >
-            <Eye className="h-4 w-4 mr-1" />
-            {previewMode ? 'Edit Mode' : 'Preview'}
-          </Button>
-        </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                refetchConfig();
+                toast.success('Configuration refreshed');
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPreviewMode(!previewMode)}
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              {previewMode ? 'Edit Mode' : 'Preview'}
+            </Button>
+          </div>
       </div>
 
       {/* Tenant Selector */}
