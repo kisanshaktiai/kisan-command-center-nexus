@@ -44,10 +44,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`[user-management] operation: ${operation}`);
 
-    // Apply rate limiting based on operation
+    // Apply rate limiting based on operation and environment
+    const isProduction = Deno.env.get('ENVIRONMENT') === 'production';
     let rateLimitConfig = RATE_LIMITS.MEDIUM;
+    
     if (operation === 'register') {
-      rateLimitConfig = RATE_LIMITS.HIGH_SENSITIVITY;
+      // Stricter rate limits in production, more relaxed in development
+      rateLimitConfig = isProduction 
+        ? RATE_LIMITS.HIGH_SENSITIVITY  // 3 requests/min in production
+        : RATE_LIMITS.MEDIUM;           // 10 requests/min in development
     }
 
     const rateLimitResult = await rateLimiter.checkLimit(
@@ -105,10 +110,33 @@ const handler = async (req: Request): Promise<Response> => {
 
   } catch (error: any) {
     console.error('[user-management] Error:', error);
+    
+    // Provide specific error messages based on error type
+    let errorMessage = 'Failed to process request';
+    let statusCode = 500;
+    
+    const errorStr = error.message?.toLowerCase() || '';
+    
+    if (errorStr.includes('not found') || errorStr.includes('does not exist')) {
+      errorMessage = 'User not found';
+      statusCode = 404;
+    } else if (errorStr.includes('already exists') || errorStr.includes('duplicate')) {
+      errorMessage = 'User already exists';
+      statusCode = 409;
+    } else if (errorStr.includes('invalid') || errorStr.includes('required') || errorStr.includes('missing')) {
+      errorMessage = 'Invalid request data';
+      statusCode = 400;
+    } else if (errorStr.includes('unauthorized') || errorStr.includes('permission')) {
+      errorMessage = 'Unauthorized access';
+      statusCode = 403;
+    }
+    
     return new Response(JSON.stringify({
-      error: error.message || 'Internal server error'
+      error: errorMessage,
+      details: error.message,
+      correlationId: crypto.randomUUID()
     }), {
-      status: 500,
+      status: statusCode,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
