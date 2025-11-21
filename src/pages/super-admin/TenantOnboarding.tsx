@@ -324,13 +324,26 @@ export default function TenantOnboarding() {
   };
 
   const handleStartOnboarding = (tenantId: string) => {
+    // Validate tenantId before opening wizard
+    if (!tenantId || tenantId.trim() === '') {
+      console.error('❌ Cannot start onboarding: Invalid tenant ID:', tenantId);
+      showError('Invalid Tenant ID', {
+        description: 'Cannot start onboarding without a valid tenant ID'
+      });
+      return;
+    }
+    
+    console.log('✅ Starting onboarding for tenant:', tenantId);
     setWizardTenantId(tenantId);
     setShowWizard(true);
     
     // If there's an existing workflow, pass it to the wizard
     const existingWorkflow = workflows.find(w => w.tenant_id === tenantId);
     if (existingWorkflow) {
+      console.log('📋 Found existing workflow:', existingWorkflow.id);
       setWizardWorkflowId(existingWorkflow.id);
+    } else {
+      console.log('📋 No existing workflow found, wizard will create one');
     }
   };
 

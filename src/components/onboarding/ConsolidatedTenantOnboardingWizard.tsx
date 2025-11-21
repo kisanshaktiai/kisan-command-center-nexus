@@ -132,6 +132,13 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [stepData, setStepData] = useState<Record<string, any>>({});
 
+  // Early validation: Ensure tenantId is provided and valid
+  React.useEffect(() => {
+    if (isOpen && (!tenantId || tenantId.trim() === '')) {
+      console.error('❌ ConsolidatedTenantOnboardingWizard: Invalid or empty tenantId:', tenantId);
+    }
+  }, [isOpen, tenantId]);
+
   // Single source of truth for tenant data
   const {
     data: tenantInfo,
@@ -383,7 +390,7 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
   }, []);
 
   const isLoading = workflowLoading || tenantLoading;
-  const hasError = workflowError || tenantError;
+  const hasError = workflowError || tenantError || !tenantId || tenantId.trim() === '';
   const currentStep = transformedSteps[currentStepIndex];
   const CurrentStepComponent = currentStep?.component;
 
@@ -420,6 +427,16 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
   }
 
   if (hasError) {
+    // Determine error message
+    let errorMessage = 'Unknown error occurred';
+    if (!tenantId || tenantId.trim() === '') {
+      errorMessage = 'No tenant ID provided. Please select a tenant to start onboarding.';
+    } else if (workflowError) {
+      errorMessage = workflowError;
+    } else if (tenantError?.message) {
+      errorMessage = tenantError.message;
+    }
+    
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
@@ -435,12 +452,17 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
               <div>
                 <h3 className="font-medium text-lg">Failed to Load</h3>
                 <p className="text-sm text-muted-foreground mt-2">
-                  {workflowError || tenantError?.message || 'Unknown error occurred'}
+                  {errorMessage}
                 </p>
               </div>
-              <Button onClick={retryInitialization} className="mt-4">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Retry
+              {tenantId && tenantId.trim() !== '' && (
+                <Button onClick={retryInitialization} className="mt-4">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Retry
+                </Button>
+              )}
+              <Button variant="outline" onClick={onClose} className="mt-2">
+                Close
               </Button>
             </div>
           </div>
