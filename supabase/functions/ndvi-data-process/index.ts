@@ -7,7 +7,8 @@ const WORKER_API_URL = `${WORKER_BASE_URL}/run`; // POST endpoint for background
 const WORKER_HEALTH_URL = `${WORKER_BASE_URL}/health`; // Health check endpoint
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
-const REQUEST_TIMEOUT_MS = 45000; // 45 seconds - edge functions have limited execution time
+const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
+const HEALTH_CHECK_TIMEOUT_MS = 10000; // 10 seconds for health check
 
 // Helper function to fetch with timeout
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number) {
@@ -22,6 +23,25 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
     return response;
   } finally {
     clearTimeout(timeoutId);
+  }
+}
+
+// Quick health check to see if service is available
+async function checkWorkerHealth(): Promise<boolean> {
+  try {
+    console.log(`[ndvi-data-process] Checking worker health at ${WORKER_HEALTH_URL}`);
+    const healthResponse = await fetchWithTimeout(
+      WORKER_HEALTH_URL,
+      { method: 'GET' },
+      HEALTH_CHECK_TIMEOUT_MS
+    );
+    
+    const isHealthy = healthResponse.ok;
+    console.log(`[ndvi-data-process] Worker health check: ${isHealthy ? 'HEALTHY' : 'UNHEALTHY'} (status: ${healthResponse.status})`);
+    return isHealthy;
+  } catch (error: any) {
+    console.error(`[ndvi-data-process] Worker health check failed:`, error.message);
+    return false;
   }
 }
 
@@ -101,6 +121,16 @@ serve(async (req) => {
     const { cloud_cover = 20, lookback_days = 5 } = await req.json();
 
     console.log('[ndvi-data-process] Parameters:', { cloud_cover, lookback_days });
+
+    // Check if worker service is available first
+    const isHealthy = await checkWorkerHealth();
+    if (!isHealthy) {
+      throw new Error(
+        `Worker service at ${WORKER_BASE_URL} is not responding. ` +
+        `The service may be sleeping (free tier) or unavailable. ` +
+        `Please try waking the service by visiting ${WORKER_BASE_URL} in your browser, then retry.`
+      );
+    }
 
     // Validate parameters
     if (typeof cloud_cover !== 'number' || cloud_cover < 0 || cloud_cover > 100) {
