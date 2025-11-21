@@ -36,11 +36,18 @@ export const EnhancedPlatformMonitoringContainer: React.FC<Props> = ({ tenantId 
   }, [monitoringData, previousData]);
 
   if (error) {
+    console.error('[PlatformMonitoringContainer] Error loading data:', error);
     return (
       <Alert className="m-6">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription className="flex items-center justify-between">
-          <span>Failed to load monitoring data. Using fallback data.</span>
+          <div className="flex flex-col gap-2">
+            <span className="font-medium">Failed to load monitoring data</span>
+            <span className="text-sm text-muted-foreground">
+              {error instanceof Error ? error.message : 'Unknown error occurred'}
+            </span>
+            <span className="text-xs text-muted-foreground">Check console logs for details</span>
+          </div>
           <Button size="sm" variant="outline" onClick={() => refetch()}>
             <RefreshCw className="h-3 w-3 mr-1" />
             Retry

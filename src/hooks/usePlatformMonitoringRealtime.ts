@@ -67,6 +67,8 @@ export const usePlatformMonitoringRealtime = (tenantId?: string) => {
   const { data: monitoringData, isLoading, error, refetch } = useQuery({
     queryKey: ['platform-monitoring', tenantId],
     queryFn: async () => {
+      console.log('[PlatformMonitoring] Fetching monitoring data...');
+      
       try {
         // Fetch system health metrics
         const healthQuery = supabase
@@ -80,7 +82,11 @@ export const usePlatformMonitoringRealtime = (tenantId?: string) => {
           healthQuery.eq('tenant_id', tenantId);
         }
         
-        const { data: healthData } = await healthQuery;
+        const { data: healthData, error: healthError } = await healthQuery;
+        
+        if (healthError) {
+          console.error('[PlatformMonitoring] Error fetching health data:', healthError);
+        }
 
         // Fetch resource utilization
         const resourceQuery = supabase
@@ -93,7 +99,11 @@ export const usePlatformMonitoringRealtime = (tenantId?: string) => {
           resourceQuery.eq('tenant_id', tenantId);
         }
         
-        const { data: resourceData } = await resourceQuery;
+        const { data: resourceData, error: resourceError } = await resourceQuery;
+        
+        if (resourceError) {
+          console.error('[PlatformMonitoring] Error fetching resource data:', resourceError);
+        }
 
         // Fetch API logs
         const apiQuery = supabase
@@ -106,7 +116,11 @@ export const usePlatformMonitoringRealtime = (tenantId?: string) => {
           apiQuery.eq('tenant_id', tenantId);
         }
         
-        const { data: apiData } = await apiQuery;
+        const { data: apiData, error: apiError } = await apiQuery;
+        
+        if (apiError) {
+          console.error('[PlatformMonitoring] Error fetching API logs:', apiError);
+        }
 
         // Fetch financial analytics
         const financialQuery = supabase
@@ -120,7 +134,18 @@ export const usePlatformMonitoringRealtime = (tenantId?: string) => {
           financialQuery.eq('tenant_id', tenantId);
         }
         
-        const { data: financialData } = await financialQuery;
+        const { data: financialData, error: financialError } = await financialQuery;
+        
+        if (financialError) {
+          console.error('[PlatformMonitoring] Error fetching financial data:', financialError);
+        }
+
+        console.log('[PlatformMonitoring] Data fetched:', {
+          healthRecords: healthData?.length || 0,
+          resourceRecords: resourceData?.length || 0,
+          apiLogs: apiData?.length || 0,
+          financialRecords: financialData?.length || 0
+        });
 
         // Process and return data
         return processMonitoringData({
@@ -130,7 +155,12 @@ export const usePlatformMonitoringRealtime = (tenantId?: string) => {
           financialData
         });
       } catch (error) {
-        console.error('Error fetching monitoring data:', error);
+        console.error('[PlatformMonitoring] Fatal error fetching monitoring data:', error);
+        toast({
+          title: 'Data Fetch Error',
+          description: 'Using fallback monitoring data. Check console for details.',
+          variant: 'destructive'
+        });
         return getMockMonitoringData();
       }
     },
