@@ -19,8 +19,10 @@ const EDGE_FUNCTIONS = [
   'user-management',
   'user-permissions',
   'tenant-data',
+  'tenant-subscriptions-billing',
   'platform-monitoring',
   'admin-utilities',
+  'generic-operations',
 ];
 
 export const EdgeFunctionHealthMonitor: React.FC = () => {
@@ -36,27 +38,29 @@ export const EdgeFunctionHealthMonitor: React.FC = () => {
       let testPayload: any = {};
       
       switch (functionName) {
-        case 'convert-lead-to-tenant':
-          testPayload = { 
-            leadId: 'health-check',
-            tenantName: 'health-check', 
-            tenantSlug: 'health-check' 
-          };
+        case 'user-invitations':
+          testPayload = { action: 'verify', invitation_type: 'admin', token: 'health-check' };
           break;
-        case 'assign-admin-role':
-          testPayload = { userId: 'health-check', role: 'admin' };
+        case 'user-management':
+          testPayload = { operation: 'check-exists', email: 'health@check.com' };
           break;
-        case 'send-admin-invite':
-          testPayload = { email: 'health@check.com', role: 'admin' };
+        case 'user-permissions':
+          testPayload = { operation: 'get-tenant-relationships', user_id: 'health-check' };
           break;
-        case 'verify-admin-invite':
-          testPayload = { token: 'health-check' };
+        case 'tenant-data':
+          testPayload = { tenant_id: 'health-check', data_type: 'limits' };
+          break;
+        case 'tenant-subscriptions-billing':
+          testPayload = { tenant_id: 'health-check' };
           break;
         case 'platform-monitoring':
           testPayload = { action: 'collect-metrics', metric_type: 'system' };
           break;
         case 'admin-utilities':
           testPayload = { operation: 'validate-email', email: 'health@check.com' };
+          break;
+        case 'generic-operations':
+          testPayload = { operation: 'validate', table: 'test', data: {}, rules: ['required'] };
           break;
       }
 
