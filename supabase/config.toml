@@ -119,7 +119,7 @@ verify_jwt = false
 [functions.fetch-s2-ndvi-lite]
 verify_jwt = false
 
-[functions.collect-metrics]
+[functions.platform-monitoring]
 verify_jwt = false
 
 [functions.admin-utilities]

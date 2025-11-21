@@ -19,7 +19,7 @@ const EDGE_FUNCTIONS = [
   'user-management',
   'user-permissions',
   'tenant-data',
-  'collect-metrics',
+  'platform-monitoring',
   'admin-utilities',
 ];
 
@@ -52,8 +52,8 @@ export const EdgeFunctionHealthMonitor: React.FC = () => {
         case 'verify-admin-invite':
           testPayload = { token: 'health-check' };
           break;
-        case 'collect-metrics':
-          testPayload = { metric_type: 'system' };
+        case 'platform-monitoring':
+          testPayload = { action: 'collect-metrics', metric_type: 'system' };
           break;
         case 'admin-utilities':
           testPayload = { operation: 'validate-email', email: 'health@check.com' };
