@@ -6,8 +6,8 @@ export class MetricsCollectionService {
    */
   static async collectSystemMetrics(): Promise<void> {
     try {
-      const { error } = await supabase.functions.invoke('collect-metrics', {
-        body: { metric_type: 'system' }
+      const { error } = await supabase.functions.invoke('platform-monitoring', {
+        body: { action: 'collect-metrics', metric_type: 'system' }
       });
       
       if (error) {
@@ -27,8 +27,8 @@ export class MetricsCollectionService {
    */
   static async collectResourceMetrics(): Promise<void> {
     try {
-      const { error } = await supabase.functions.invoke('collect-metrics', {
-        body: { metric_type: 'resource' }
+      const { error } = await supabase.functions.invoke('platform-monitoring', {
+        body: { action: 'collect-metrics', metric_type: 'resource' }
       });
       
       if (error) {
@@ -48,8 +48,8 @@ export class MetricsCollectionService {
    */
   static async collectFinancialMetrics(): Promise<void> {
     try {
-      const { error } = await supabase.functions.invoke('collect-metrics', {
-        body: { metric_type: 'financial' }
+      const { error } = await supabase.functions.invoke('platform-monitoring', {
+        body: { action: 'collect-metrics', metric_type: 'financial' }
       });
       
       if (error) {
