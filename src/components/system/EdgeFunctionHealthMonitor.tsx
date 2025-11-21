@@ -18,8 +18,7 @@ const EDGE_FUNCTIONS = [
   'user-invitations',
   'user-management',
   'user-permissions',
-  'tenant-data',
-  'tenant-subscriptions-billing',
+  'tenant-operations',
   'platform-monitoring',
   'admin-utilities',
   'generic-operations',
@@ -47,11 +46,8 @@ export const EdgeFunctionHealthMonitor: React.FC = () => {
         case 'user-permissions':
           testPayload = { operation: 'get-tenant-relationships', user_id: 'health-check' };
           break;
-        case 'tenant-data':
-          testPayload = { tenant_id: 'health-check', data_type: 'limits' };
-          break;
-        case 'tenant-subscriptions-billing':
-          testPayload = { tenant_id: 'health-check' };
+        case 'tenant-operations':
+          testPayload = { tenant_id: 'health-check', operation: 'limits' };
           break;
         case 'platform-monitoring':
           testPayload = { action: 'collect-metrics', metric_type: 'system' };

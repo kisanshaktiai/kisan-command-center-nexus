@@ -149,6 +149,9 @@ verify_jwt = false
 [functions.payment-webhooks]
 verify_jwt = false
 
+[functions.tenant-operations]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323
