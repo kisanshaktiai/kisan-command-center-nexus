@@ -6,48 +6,39 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const allowedOrigins = [
-  "https://f7f3ec00-3a42-4b69-b48b-a0622a7f7b10.lovableproject.com",
-  "https://id-preview--f7f3ec00-3a42-4b69-b48b-a0622a7f7b10.lovable.app",
-  "https://f7f3ec00-3a42-4b69-b48b-a0622a7f7b10.sandbox.lovable.dev",
-];
-
-function getCorsHeaders(origin: string) {
-  return {
-    "Access-Control-Allow-Origin": allowedOrigins.includes(origin) ? origin : "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, referrer-policy",
-  };
-}
+const log = (level: 'info' | 'error' | 'warn', message: string, data?: unknown) => {
+  const timestamp = new Date().toISOString();
+  console.log(JSON.stringify({ timestamp, level, message, data }));
+};
 
 serve(async (req) => {
-  const origin = req.headers.get("origin") || "*";
-  const corsHeaders = getCorsHeaders(origin);
-
+  const requestId = crypto.randomUUID();
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  
   try {
     const url = new URL(req.url);
     let tenantId = url.searchParams.get('tenant_id');
-    let dataType = url.searchParams.get('data_type') || 'limits';
+    let operation = url.searchParams.get('operation') || 'limits';
     const period = url.searchParams.get('period') || '30d';
     const limit = parseInt(url.searchParams.get('limit') || '20');
     const offset = parseInt(url.searchParams.get('offset') || '0');
 
-    console.log(`[${new Date().toISOString()}] tenant-data: ${req.method} ${req.url}`);
-    console.log(`[DEBUG] Query params - tenant_id: ${tenantId}, data_type: ${dataType}`);
+    log('info', 'Processing tenant operation', { requestId, tenantId, operation, method: req.method });
 
     // Handle POST requests
     if (!tenantId && req.method === 'POST') {
       try {
         const body = await req.json();
         tenantId = body?.tenantId || body?.tenant_id;
-        dataType = body?.data_type || dataType;
-        console.log(`[DEBUG] POST body - tenant_id: ${tenantId}, data_type: ${dataType}`);
+        operation = body?.operation || body?.data_type || operation;
+        log('info', 'POST body parsed', { requestId, tenantId, operation });
       } catch (error) {
-        console.warn(`[DEBUG] Failed to parse POST body: ${error instanceof Error ? error.message : String(error)}`);
+        log('warn', 'Failed to parse POST body', { requestId, error: error instanceof Error ? error.message : String(error) });
       }
     }
 
@@ -58,62 +49,60 @@ serve(async (req) => {
         const lastPart = pathParts[pathParts.length - 1];
         if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(lastPart)) {
           tenantId = lastPart;
-          console.log(`[DEBUG] Path tenant_id: ${tenantId}`);
+          log('info', 'Tenant ID from path', { requestId, tenantId });
         }
       }
     }
 
-    if (!tenantId) {
-      console.error(`[ERROR] No tenant_id found`);
-      return new Response(JSON.stringify({ 
-        error: 'Missing tenant_id parameter',
-        debug: {
-          method: req.method,
-          queryParams: Object.fromEntries(url.searchParams.entries()),
-          pathname: url.pathname
-        }
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      });
-    }
-
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(tenantId)) {
-      console.error(`[ERROR] Invalid tenant ID format: ${tenantId}`);
-      return new Response(JSON.stringify({ error: 'Invalid tenant ID format' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      });
+    // Validate environment
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      log('error', 'Missing environment variables', { requestId });
+      throw new Error('Server configuration error');
     }
 
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false } }
+      supabaseUrl,
+      supabaseKey,
+      { 
+        auth: { persistSession: false },
+        global: { headers: { 'x-request-id': requestId } }
+      }
     );
 
-    // Get tenant information
-    const { data: tenant, error: tenantError } = await supabaseClient
-      .from('tenants')
-      .select('*')
-      .eq('id', tenantId)
-      .single();
+    // Validate tenant if provided
+    let tenant = null;
+    if (tenantId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(tenantId)) {
+        return new Response(JSON.stringify({ error: 'Invalid tenant ID format' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        });
+      }
 
-    if (tenantError || !tenant) {
-      console.error(`[ERROR] Tenant not found:`, tenantError);
-      return new Response(JSON.stringify({ error: 'Tenant not found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 404,
-      });
+      const { data: tenantData, error: tenantError } = await supabaseClient
+        .from('tenants')
+        .select('*')
+        .eq('id', tenantId)
+        .single();
+
+      if (tenantError || !tenantData) {
+        log('error', 'Tenant not found', { requestId, tenantId, error: tenantError });
+        return new Response(JSON.stringify({ error: 'Tenant not found' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404,
+        });
+      }
+      tenant = tenantData;
     }
 
-    console.log(`[INFO] Processing ${dataType} for tenant: ${tenant.name}`);
-
-    // Route to appropriate handler based on data_type
+    // Route to appropriate handler
     let response;
-    switch (dataType) {
+    switch (operation) {
+      // Tenant Data Operations
       case 'limits':
         response = await handleLimitsQuotas(supabaseClient, tenant);
         break;
@@ -126,34 +115,80 @@ serve(async (req) => {
       case 'activity':
         response = await handleActivityFeed(supabaseClient, tenant, limit, offset);
         break;
+      
+      // Billing Operations
+      case 'billing':
+      case 'subscriptions':
+        response = await handleSubscriptionsBilling(supabaseClient, tenantId);
+        break;
+      
       default:
-        return new Response(JSON.stringify({ error: `Invalid data_type: ${dataType}. Valid types: limits, metrics, analytics, activity` }), {
+        return new Response(JSON.stringify({ 
+          error: `Invalid operation: ${operation}`,
+          valid_operations: ['limits', 'metrics', 'analytics', 'activity', 'billing', 'subscriptions']
+        }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400,
         });
     }
 
-    console.log(`[INFO] Successfully processed ${dataType} for tenant ${tenantId}`);
+    const duration = Date.now() - startTime;
+    log('info', 'Operation completed', { requestId, operation, tenantId, duration });
 
     return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'application/json',
+        'X-Request-ID': requestId,
+        'X-Response-Time': `${duration}ms`
+      },
       status: 200,
     });
 
   } catch (error) {
-    console.error(`[ERROR] Exception in tenant-data:`, error);
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    log('error', 'Request failed', { 
+      requestId, 
+      duration,
+      error: errorMessage,
+      stack: errorStack
+    });
+
+    let statusCode = 500;
+    let userMessage = 'Internal server error';
+
+    if (errorMessage.includes('configuration')) {
+      statusCode = 503;
+      userMessage = 'Service temporarily unavailable';
+    } else if (errorMessage.includes('authentication') || errorMessage.includes('unauthorized')) {
+      statusCode = 401;
+      userMessage = 'Authentication required';
+    } else if (errorMessage.includes('not found')) {
+      statusCode = 404;
+      userMessage = 'Resource not found';
+    }
+
     return new Response(JSON.stringify({ 
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : String(error),
+      error: userMessage,
+      message: errorMessage,
+      requestId,
       timestamp: new Date().toISOString()
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'application/json',
+        'X-Request-ID': requestId 
+      },
+      status: statusCode,
     });
   }
 });
 
-// Handler for limits/quotas data
+// ============= TENANT DATA HANDLERS =============
+
 async function handleLimitsQuotas(supabaseClient: any, tenant: any) {
   const mockUsage = {
     farmers: Math.floor(Math.random() * (tenant.max_farmers || 1000)),
@@ -184,7 +219,6 @@ async function handleLimitsQuotas(supabaseClient: any, tenant: any) {
   };
 }
 
-// Handler for real-time metrics
 async function handleRealTimeMetrics(supabaseClient: any, tenant: any) {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   
@@ -196,7 +230,7 @@ async function handleRealTimeMetrics(supabaseClient: any, tenant: any) {
     .limit(1000);
 
   if (apiError) {
-    console.warn(`[WARN] API logs fetch error:`, apiError);
+    log('warn', 'API logs fetch error', { error: apiError });
   }
 
   const [farmersResult, dealersResult, productsResult] = await Promise.allSettled([
@@ -330,7 +364,6 @@ async function handleRealTimeMetrics(supabaseClient: any, tenant: any) {
   };
 }
 
-// Handler for analytics data
 async function handleAnalytics(supabaseClient: any, tenant: any, period: string) {
   const endDate = new Date();
   const startDate = new Date();
@@ -437,120 +470,184 @@ async function handleAnalytics(supabaseClient: any, tenant: any, period: string)
   };
 }
 
-// Handler for activity feed
 async function handleActivityFeed(supabaseClient: any, tenant: any, limit: number, offset: number) {
   const [
     apiLogsResult,
     adminAuditResult,
     securityEventsResult,
     activationLogsResult,
-    tenantDetectionResult
   ] = await Promise.all([
     supabaseClient
       .from('api_logs')
       .select('*')
       .eq('tenant_id', tenant.id)
       .order('created_at', { ascending: false })
-      .limit(limit / 5),
+      .limit(limit / 4),
 
     supabaseClient
       .from('admin_audit_logs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(limit / 5),
+      .limit(limit / 4),
 
     supabaseClient
       .from('security_events')
       .select('*')
       .eq('tenant_id', tenant.id)
       .order('created_at', { ascending: false })
-      .limit(limit / 5),
+      .limit(limit / 4),
 
     supabaseClient
       .from('activation_logs')
       .select('*')
       .eq('tenant_id', tenant.id)
       .order('created_at', { ascending: false })
-      .limit(limit / 5),
-
-    supabaseClient
-      .from('tenant_detection_events')
-      .select('*')
-      .eq('tenant_id', tenant.id)
-      .order('created_at', { ascending: false })
-      .limit(limit / 5)
+      .limit(limit / 4),
   ]);
 
-  const activities = [];
-
-  if (apiLogsResult.data) {
-    activities.push(...apiLogsResult.data.map((log: any) => ({
-      id: log.id,
-      type: 'api_activity',
-      title: `API ${log.method} ${log.endpoint}`,
-      description: `Status: ${log.status_code} - Response time: ${log.response_time_ms}ms`,
+  const activities = [
+    ...(apiLogsResult.data || []).map((log: any) => ({
+      type: 'api_call',
       timestamp: log.created_at,
-      metadata: { endpoint: log.endpoint, method: log.method, status_code: log.status_code },
-      severity: log.status_code >= 400 ? 'high' : 'low',
-    })));
-  }
-
-  if (adminAuditResult.data) {
-    activities.push(...adminAuditResult.data.map((log: any) => ({
-      id: log.id,
+      details: log
+    })),
+    ...(adminAuditResult.data || []).map((log: any) => ({
       type: 'admin_action',
-      title: `Admin Action: ${log.action}`,
-      description: `Admin action performed`,
       timestamp: log.created_at,
-      metadata: log.details || {},
-      severity: 'medium',
-      user_id: log.admin_id,
-    })));
-  }
-
-  if (securityEventsResult.data) {
-    activities.push(...securityEventsResult.data.map((event: any) => ({
-      id: event.id,
-      type: 'security_event',
-      title: `Security Event: ${event.event_type}`,
-      description: `Security event detected`,
+      details: log
+    })),
+    ...(securityEventsResult.data || []).map((event: any) => ({
+      type: 'security',
       timestamp: event.created_at,
-      metadata: event.metadata || {},
-      severity: 'high',
-      user_id: event.user_id,
-    })));
-  }
-
-  if (activationLogsResult.data) {
-    activities.push(...activationLogsResult.data.map((log: any) => ({
-      id: log.id,
+      details: event
+    })),
+    ...(activationLogsResult.data || []).map((log: any) => ({
       type: 'activation',
-      title: log.success ? 'Activation Successful' : 'Activation Failed',
-      description: log.error_message || 'Activation code used',
       timestamp: log.created_at,
-      metadata: log.metadata || {},
-      severity: log.success ? 'low' : 'medium',
-    })));
-  }
-
-  if (tenantDetectionResult.data) {
-    activities.push(...tenantDetectionResult.data.map((event: any) => ({
-      id: event.id,
-      type: 'tenant_detection',
-      title: `Tenant Detection: ${event.event_type}`,
-      description: `Domain: ${event.domain}`,
-      timestamp: event.created_at,
-      metadata: event.metadata || {},
-      severity: 'low',
-    })));
-  }
-
-  activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  const paginatedActivities = activities.slice(offset, offset + limit);
+      details: log
+    })),
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return {
-    activities: paginatedActivities,
-    total_count: activities.length,
-    unread_count: activities.filter(a => a.severity === 'high').length,
+    activities: activities.slice(offset, offset + limit),
+    total: activities.length,
+    limit,
+    offset
+  };
+}
+
+// ============= BILLING HANDLERS =============
+
+async function handleSubscriptionsBilling(supabaseClient: any, tenantId?: string) {
+  // Build queries
+  let subscriptionsQuery = supabaseClient
+    .from('tenant_subscriptions')
+    .select(`
+      id,
+      tenant_id,
+      status,
+      current_period_start,
+      current_period_end,
+      plan_id,
+      billing_plans!inner (
+        name,
+        base_price
+      ),
+      tenants!inner (
+        name
+      )
+    `);
+
+  let paymentsQuery = supabaseClient
+    .from('payment_records')
+    .select('id, amount, status, created_at, payment_method')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  let invoicesQuery = supabaseClient
+    .from('invoices')
+    .select('id, amount, status, created_at, due_date')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  let renewalsQuery = supabaseClient
+    .from('subscription_renewals')
+    .select('id, renewal_date, amount, status')
+    .gte('renewal_date', new Date().toISOString())
+    .order('renewal_date', { ascending: true })
+    .limit(100);
+
+  // Apply tenant filter if provided
+  if (tenantId) {
+    subscriptionsQuery = subscriptionsQuery.eq('tenant_id', tenantId);
+    paymentsQuery = paymentsQuery.eq('tenant_id', tenantId);
+    invoicesQuery = invoicesQuery.eq('tenant_id', tenantId);
+    renewalsQuery = renewalsQuery.eq('tenant_id', tenantId);
+  }
+
+  // Execute all queries
+  const [subscriptionsResult, paymentsResult, invoicesResult, renewalsResult] = await Promise.allSettled([
+    subscriptionsQuery,
+    paymentsQuery,
+    invoicesQuery,
+    renewalsQuery
+  ]);
+
+  // Extract data with fallbacks
+  const subscriptions = subscriptionsResult.status === 'fulfilled' ? subscriptionsResult.value.data : [];
+  const payments = paymentsResult.status === 'fulfilled' ? paymentsResult.value.data : [];
+  const invoices = invoicesResult.status === 'fulfilled' ? invoicesResult.value.data : [];
+  const renewals = renewalsResult.status === 'fulfilled' ? renewalsResult.value.data : [];
+
+  // Log any failures
+  if (subscriptionsResult.status === 'rejected') {
+    log('error', 'Failed to fetch subscriptions', { error: subscriptionsResult.reason });
+  }
+  if (paymentsResult.status === 'rejected') {
+    log('error', 'Failed to fetch payments', { error: paymentsResult.reason });
+  }
+  if (invoicesResult.status === 'rejected') {
+    log('error', 'Failed to fetch invoices', { error: invoicesResult.reason });
+  }
+  if (renewalsResult.status === 'rejected') {
+    log('error', 'Failed to fetch renewals', { error: renewalsResult.reason });
+  }
+
+  // Calculate billing summary
+  const completedPayments = payments?.filter(p => p.status === 'completed') || [];
+  const totalRevenue = completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  
+  const thisMonthStart = new Date();
+  thisMonthStart.setDate(1);
+  thisMonthStart.setHours(0, 0, 0, 0);
+  
+  const monthlyRevenue = completedPayments
+    .filter(p => new Date(p.created_at) >= thisMonthStart)
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  const outstandingAmount = invoices
+    ?.filter(i => i.status === 'sent' || i.status === 'overdue')
+    .reduce((sum, i) => sum + (i.amount || 0), 0) || 0;
+
+  return {
+    active_subscriptions: subscriptions?.map((sub: any) => ({
+      id: sub.id,
+      tenant_id: sub.tenant_id,
+      tenant_name: sub.tenants?.name || 'Unknown Tenant',
+      status: sub.status,
+      current_period_start: sub.current_period_start,
+      current_period_end: sub.current_period_end,
+      plan_name: sub.billing_plans?.name || 'Unknown Plan',
+      amount: sub.billing_plans?.base_price || 0,
+      plan_type: 'standard'
+    })) || [],
+    payment_records: payments || [],
+    invoices: invoices || [],
+    upcoming_renewals: renewals || [],
+    billing_summary: {
+      total_revenue: totalRevenue,
+      monthly_revenue: monthlyRevenue,
+      outstanding_amount: outstandingAmount,
+    },
   };
 }

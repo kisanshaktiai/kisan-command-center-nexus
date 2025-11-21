@@ -29,7 +29,7 @@ export function SubscriptionRenewals() {
   const { data: billingData, isLoading, error } = useQuery({
     queryKey: ['tenant-subscriptions-billing', selectedTenantId],
     queryFn: async (): Promise<SubscriptionBillingData> => {
-      const { data, error } = await supabase.functions.invoke('tenant-subscriptions-billing', {
+      const { data, error } = await supabase.functions.invoke('tenant-operations?operation=billing', {
         method: 'GET',
       });
 

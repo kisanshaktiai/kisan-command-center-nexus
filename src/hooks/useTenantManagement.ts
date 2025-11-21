@@ -100,8 +100,8 @@ export const useTenantManagement = () => {
   const fetchTenantsMetrics = async (tenantList: Tenant[]) => {
     const metricsPromises = tenantList.map(async (tenant) => {
       try {
-        const response = await supabase.functions.invoke('tenant-data', {
-          body: { tenantId: tenant.id, data_type: 'limits' }
+        const response = await supabase.functions.invoke('tenant-operations', {
+          body: { tenantId: tenant.id, operation: 'limits' }
         });
 
         if (response.data) {
