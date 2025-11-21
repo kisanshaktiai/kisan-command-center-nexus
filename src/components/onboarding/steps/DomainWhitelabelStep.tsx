@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,10 +50,56 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { showSuccess, showError } = useNotifications();
 
   // Get platform configuration
   const platformConfig = platformConfigService.getConfig();
+
+  // Load existing white_label_configs data on mount
+  useEffect(() => {
+    const loadExistingData = async () => {
+      if (!tenantId) return;
+      
+      setIsLoading(true);
+      try {
+        const { data: wlConfig, error } = await supabase
+          .from('white_label_configs')
+          .select('domain_config')
+          .eq('tenant_id', tenantId)
+          .single();
+
+        if (wlConfig && wlConfig.domain_config) {
+          const domainConfig = wlConfig.domain_config as any;
+          const loadedData = {
+            public_website: {
+              subdomain: domainConfig.public_website?.subdomain || '',
+              custom_domain: domainConfig.public_website?.custom_domain || '',
+              ssl_enabled: domainConfig.public_website?.ssl_enabled ?? true
+            },
+            tenant_portal: {
+              subdomain: domainConfig.tenant_portal?.subdomain || '',
+              custom_domain: domainConfig.tenant_portal?.custom_domain || '',
+              ssl_enabled: domainConfig.tenant_portal?.ssl_enabled ?? true
+            },
+            farmer_app: {
+              subdomain: domainConfig.farmer_app?.subdomain || '',
+              custom_domain: domainConfig.farmer_app?.custom_domain || '',
+              ssl_enabled: domainConfig.farmer_app?.ssl_enabled ?? true
+            }
+          };
+          setFormData(loadedData);
+          onDataChange(loadedData);
+        }
+      } catch (error) {
+        console.error('Error loading white-label config:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadExistingData();
+  }, [tenantId, onDataChange]);
 
   const validateDomain = async (domain: string) => {
     if (!domain) return;
@@ -156,6 +202,17 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading domain configuration...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
