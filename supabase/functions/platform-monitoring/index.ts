@@ -53,6 +53,16 @@ const handler = async (req: Request): Promise<Response> => {
     }
   } catch (error) {
     console.error('[platform-monitoring] Error:', error);
+    
+    // Detailed error logging
+    if (error instanceof Error) {
+      console.error('[platform-monitoring] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+    }
+    
     return handleError(error, 500, req);
   }
 };

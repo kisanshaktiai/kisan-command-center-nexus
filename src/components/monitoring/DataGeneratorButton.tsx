@@ -18,19 +18,26 @@ export const DataGeneratorButton: React.FC = () => {
         toast.success('Data generation stopped');
       } else {
         // Start generation by invoking edge function
-        const { error } = await supabase.functions.invoke('admin-utilities', {
+        console.log('[DataGenerator] Invoking admin-utilities to generate monitoring data...');
+        
+        const { data, error } = await supabase.functions.invoke('admin-utilities', {
           body: { operation: 'generate-monitoring-data' }
         });
         
-        if (error) throw error;
+        if (error) {
+          console.error('[DataGenerator] Error response:', error);
+          throw new Error(error.message || 'Failed to start data generation');
+        }
         
+        console.log('[DataGenerator] Success response:', data);
         localStorage.setItem('monitoring-generator-status', 'running');
         setIsGenerating(true);
-        toast.success('Data generation started');
+        toast.success('Data generation started - check logs for details');
       }
     } catch (error) {
-      console.error('Error toggling data generator:', error);
-      toast.error('Failed to toggle data generator');
+      console.error('[DataGenerator] Error toggling data generator:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Failed to toggle data generator: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
