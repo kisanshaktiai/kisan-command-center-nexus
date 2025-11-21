@@ -19,12 +19,12 @@ export const WebhookManager = () => {
   const webhooks = [
     {
       name: 'Razorpay Webhook',
-      url: `${supabaseUrl}/functions/v1/razorpay-webhook`,
+      url: `${supabaseUrl}/functions/v1/payment-webhooks?gateway=razorpay`,
       description: 'Handles Razorpay payment events',
-      events: ['payment.captured', 'payment.failed', 'order.paid', 'subscription.charged'],
+      events: ['payment.captured', 'payment.failed', 'subscription.charged', 'subscription.cancelled'],
       setupSteps: [
         'Go to Razorpay Dashboard → Settings → Webhooks',
-        'Click "Create Webhook"',
+        'Click "Create New Webhook"',
         'Paste the webhook URL above',
         'Select all payment and subscription events',
         'Set your webhook secret in Supabase (RAZORPAY_WEBHOOK_SECRET)',
@@ -33,7 +33,7 @@ export const WebhookManager = () => {
     },
     {
       name: 'Stripe Webhook',
-      url: `${supabaseUrl}/functions/v1/stripe-webhook-handler`,
+      url: `${supabaseUrl}/functions/v1/payment-webhooks?gateway=stripe`,
       description: 'Handles Stripe payment events',
       events: ['payment_intent.succeeded', 'payment_intent.payment_failed', 'customer.subscription.updated'],
       setupSteps: [
@@ -41,8 +41,9 @@ export const WebhookManager = () => {
         'Click "Add endpoint"',
         'Paste the webhook URL above',
         'Select events: payment_intent, charge, customer.subscription, invoice',
-        'Copy the signing secret and add to Supabase (STRIPE_WEBHOOK_SECRET)',
-        'Save the webhook'
+        'Copy the webhook signing secret',
+        'Add it to Supabase secrets as STRIPE_WEBHOOK_SECRET',
+        'Save the endpoint'
       ]
     }
   ];
