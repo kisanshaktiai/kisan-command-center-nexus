@@ -77,10 +77,14 @@ Deno.serve(async (req) => {
     const currentMetadata = (currentTenant?.metadata as any) || {}
 
     // Update tenant (bypasses RLS with service_role)
+    // Note: Set legacy subdomain/custom_domain to NULL to avoid unique constraint violations
+    // since we're using the new three-domain structure in domain_config
     const { data: updateData, error: updateError } = await supabaseAdmin
       .from('tenants')
       .update({ 
         domain_config: wlConfig.domain_config,
+        subdomain: null,
+        custom_domain: null,
         metadata: {
           ...currentMetadata,
           branding_synced_from_wl: true,
