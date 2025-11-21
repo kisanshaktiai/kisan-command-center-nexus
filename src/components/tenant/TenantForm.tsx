@@ -79,8 +79,29 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     max_products: 100,
     max_storage_gb: 10,
     max_api_calls_per_day: 10000,
-    subdomain: '',
-    custom_domain: '',
+    domain_config: {
+      public_website: {
+        subdomain: '',
+        custom_domain: '',
+        ssl_enabled: true,
+        dns_verified: false,
+        status: 'not_configured'
+      },
+      tenant_portal: {
+        subdomain: '',
+        custom_domain: '',
+        ssl_enabled: true,
+        dns_verified: false,
+        status: 'not_configured'
+      },
+      farmer_app: {
+        subdomain: '',
+        custom_domain: '',
+        ssl_enabled: true,
+        dns_verified: false,
+        status: 'not_configured'
+      }
+    },
     metadata: {},
     branding: {
       app_name: '',
@@ -220,7 +241,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
       return;
     }
 
-    // Clean and prepare data including branding
+    // Clean and prepare data including branding with three-domain architecture
     const cleanedData = {
       ...formData,
       name: formData.name.trim(),
@@ -229,8 +250,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
       owner_name: formData.owner_name?.trim() || '',
       owner_phone: formData.owner_phone?.trim() || undefined,
       business_registration: formData.business_registration?.trim() || undefined,
-      subdomain: formData.subdomain?.trim() || undefined,
-      custom_domain: formData.custom_domain?.trim() || undefined,
+      domain_config: formData.domain_config
     };
 
     const success = await onSubmit(cleanedData);
@@ -248,6 +268,22 @@ export const TenantForm: React.FC<TenantFormProps> = ({
           ...prev.branding, 
           [brandingField]: value 
         } 
+      }));
+    } else if (field.startsWith('domain_config.')) {
+      // Handle nested domain_config updates
+      const parts = field.split('.');
+      const portalType = parts[1]; // public_website, tenant_portal, farmer_app
+      const configField = parts[2]; // subdomain, custom_domain, etc.
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        domain_config: {
+          ...prev.domain_config,
+          [portalType]: {
+            ...prev.domain_config?.[portalType as keyof typeof prev.domain_config],
+            [configField]: value
+          }
+        }
       }));
     } else {
       setFormData(prev => ({ ...prev, [field]: value }));
@@ -555,29 +591,90 @@ export const TenantForm: React.FC<TenantFormProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="subdomain" className="text-sm font-semibold">Subdomain</Label>
-                    <Input
-                      id="subdomain"
-                      value={formData.subdomain}
-                      onChange={(e) => handleInputChange('subdomain', e.target.value)}
-                      className="h-11 focus-visible:ring-primary"
-                      disabled={isSubmitting}
-                      placeholder="your-subdomain"
-                    />
+                {/* Three-Domain Architecture Configuration */}
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <Label className="text-sm font-semibold">Public Website Domain</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="public_website_subdomain" className="text-xs">Subdomain</Label>
+                        <Input
+                          id="public_website_subdomain"
+                          value={formData.domain_config?.public_website?.subdomain || ''}
+                          onChange={(e) => handleInputChange('domain_config.public_website.subdomain', e.target.value)}
+                          className="h-11 focus-visible:ring-primary"
+                          disabled={isSubmitting}
+                          placeholder="www"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="public_website_custom" className="text-xs">Custom Domain</Label>
+                        <Input
+                          id="public_website_custom"
+                          value={formData.domain_config?.public_website?.custom_domain || ''}
+                          onChange={(e) => handleInputChange('domain_config.public_website.custom_domain', e.target.value)}
+                          className="h-11 focus-visible:ring-primary"
+                          disabled={isSubmitting}
+                          placeholder="www.yourdomain.com"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="custom_domain" className="text-sm font-semibold">Custom Domain</Label>
-                    <Input
-                      id="custom_domain"
-                      value={formData.custom_domain}
-                      onChange={(e) => handleInputChange('custom_domain', e.target.value)}
-                      className="h-11 focus-visible:ring-primary"
-                      disabled={isSubmitting}
-                      placeholder="yourdomain.com"
-                    />
+                  <div className="space-y-4">
+                    <Label className="text-sm font-semibold">Tenant Portal Domain</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="tenant_portal_subdomain" className="text-xs">Subdomain</Label>
+                        <Input
+                          id="tenant_portal_subdomain"
+                          value={formData.domain_config?.tenant_portal?.subdomain || ''}
+                          onChange={(e) => handleInputChange('domain_config.tenant_portal.subdomain', e.target.value)}
+                          className="h-11 focus-visible:ring-primary"
+                          disabled={isSubmitting}
+                          placeholder="partner"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="tenant_portal_custom" className="text-xs">Custom Domain</Label>
+                        <Input
+                          id="tenant_portal_custom"
+                          value={formData.domain_config?.tenant_portal?.custom_domain || ''}
+                          onChange={(e) => handleInputChange('domain_config.tenant_portal.custom_domain', e.target.value)}
+                          className="h-11 focus-visible:ring-primary"
+                          disabled={isSubmitting}
+                          placeholder="partner.yourdomain.com"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label className="text-sm font-semibold">Farmer App Domain</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="farmer_app_subdomain" className="text-xs">Subdomain</Label>
+                        <Input
+                          id="farmer_app_subdomain"
+                          value={formData.domain_config?.farmer_app?.subdomain || ''}
+                          onChange={(e) => handleInputChange('domain_config.farmer_app.subdomain', e.target.value)}
+                          className="h-11 focus-visible:ring-primary"
+                          disabled={isSubmitting}
+                          placeholder="app"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="farmer_app_custom" className="text-xs">Custom Domain</Label>
+                        <Input
+                          id="farmer_app_custom"
+                          value={formData.domain_config?.farmer_app?.custom_domain || ''}
+                          onChange={(e) => handleInputChange('domain_config.farmer_app.custom_domain', e.target.value)}
+                          className="h-11 focus-visible:ring-primary"
+                          disabled={isSubmitting}
+                          placeholder="app.yourdomain.com"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
