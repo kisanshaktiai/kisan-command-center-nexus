@@ -5,9 +5,9 @@ import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 const WORKER_BASE_URL = 'https://tile-fetch-worker.onrender.com';
 const WORKER_API_URL = `${WORKER_BASE_URL}/run`; // POST endpoint for background worker
 const WORKER_HEALTH_URL = `${WORKER_BASE_URL}/health`; // Health check endpoint
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 2000;
-const REQUEST_TIMEOUT_MS = 300000; // 5 minutes
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+const REQUEST_TIMEOUT_MS = 45000; // 45 seconds - edge functions have limited execution time
 
 // Helper function to fetch with timeout
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number) {
