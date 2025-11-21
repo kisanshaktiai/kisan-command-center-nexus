@@ -126,7 +126,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('[admin-utilities] Received action:', action);
 
     // Route to admin user creation handler
-    return await handleAdminUserCreation(body);
+    return await handleAdminUserCreation(body, req);
   } catch (error: any) {
     console.error('[admin-utilities] Error:', error);
     return new Response(
@@ -137,7 +137,7 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 
-const handleAdminUserCreation = async (body: any): Promise<Response> => {
+const handleAdminUserCreation = async (body: any, req: Request): Promise<Response> => {
   try {
     const { operation, ...payload } = body;
 
@@ -324,12 +324,17 @@ const handleAdminUserCreation = async (body: any): Promise<Response> => {
           },
         ];
 
+        const currentUsage = Math.floor(10000 + Math.random() * 5000);
+        const maxLimit = 20000;
+        const usagePercentage = (currentUsage / maxLimit) * 100;
+        
         const resourceUtilization = [
           {
             tenant_id: tenantId,
             resource_type: 'api_calls',
-            current_usage: Math.floor(10000 + Math.random() * 5000),
-            max_limit: 20000,
+            current_usage: currentUsage,
+            max_limit: maxLimit,
+            usage_percentage: usagePercentage,
             period_start: new Date(now.getTime() - 3600000).toISOString(),
             period_end: now.toISOString(),
             metadata: { rate_limit_tier: 'standard' },
@@ -350,25 +355,53 @@ const handleAdminUserCreation = async (body: any): Promise<Response> => {
           });
         }
 
-        await Promise.all([
-          supabaseClient.from('system_health_metrics').insert(systemHealthMetrics),
-          supabaseClient.from('resource_utilization').insert(resourceUtilization),
-          supabaseClient.from('api_logs').insert(apiLogs),
-        ]);
+        console.log('[admin-utilities] Inserting monitoring data...');
+        console.log('[admin-utilities] System health metrics:', systemHealthMetrics.length);
+        console.log('[admin-utilities] Resource utilization:', resourceUtilization.length);
+        console.log('[admin-utilities] API logs:', apiLogs.length);
+        
+        try {
+          const [healthResult, resourceResult, logsResult] = await Promise.all([
+            supabaseClient.from('system_health_metrics').insert(systemHealthMetrics),
+            supabaseClient.from('resource_utilization').insert(resourceUtilization),
+            supabaseClient.from('api_logs').insert(apiLogs),
+          ]);
 
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'Monitoring data generated successfully',
-            data: {
-              health_metrics: systemHealthMetrics.length,
-              resource_records: resourceUtilization.length,
-              api_logs: apiLogs.length,
-              tenant_id: tenantId
-            }
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+          // Check for errors in each operation
+          if (healthResult.error) {
+            console.error('[admin-utilities] Error inserting health metrics:', healthResult.error);
+            throw new Error(`Failed to insert health metrics: ${healthResult.error.message}`);
+          }
+          
+          if (resourceResult.error) {
+            console.error('[admin-utilities] Error inserting resource utilization:', resourceResult.error);
+            throw new Error(`Failed to insert resource utilization: ${resourceResult.error.message}`);
+          }
+          
+          if (logsResult.error) {
+            console.error('[admin-utilities] Error inserting API logs:', logsResult.error);
+            throw new Error(`Failed to insert API logs: ${logsResult.error.message}`);
+          }
+
+          console.log('[admin-utilities] All monitoring data inserted successfully');
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: 'Monitoring data generated successfully',
+              data: {
+                health_metrics: systemHealthMetrics.length,
+                resource_records: resourceUtilization.length,
+                api_logs: apiLogs.length,
+                tenant_id: tenantId
+              }
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (dbError) {
+          console.error('[admin-utilities] Database error during insert:', dbError);
+          throw dbError;
+        }
       }
       default: {
         return new Response(
