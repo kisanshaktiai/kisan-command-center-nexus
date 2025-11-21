@@ -3,7 +3,7 @@ import { RealPlatformMonitoringDashboard } from '@/components/monitoring/RealPla
 
 export default function PlatformMonitoring() {
   return (
-    <div className="container mx-auto p-6">
+    <div className="space-y-6">
       <RealPlatformMonitoringDashboard />
     </div>
   );
