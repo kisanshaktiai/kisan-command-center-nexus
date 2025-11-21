@@ -128,67 +128,31 @@ export class WhiteLabelSyncService extends BaseService {
 
   /**
    * Sync white-label data to tenant table
-   * Directly syncs the entire domain_config structure
+   * Uses edge function to bypass RLS restrictions
    */
   async syncToTenant(tenantId: string): Promise<ServiceResult<boolean>> {
     return this.executeOperation(
       async () => {
-        // Fetch white-label config with ID
-        const { data: wlConfig, error: wlError } = await supabase
-          .from('white_label_configs')
-          .select('id, domain_config, brand_identity')
-          .eq('tenant_id', tenantId)
-          .single();
+        console.log('🔄 Syncing domain_config to tenant via edge function:', tenantId);
 
-        if (wlError || !wlConfig) {
-          console.error('❌ White-label config not found:', wlError);
-          throw new Error(`White-label config not found for tenant: ${tenantId}`);
-        }
-
-        console.log('📋 Syncing domain_config to tenant:', {
-          tenantId,
-          wlConfigId: wlConfig.id,
-          domainConfig: wlConfig.domain_config
+        // Call edge function that uses service_role to bypass RLS
+        const { data, error } = await supabase.functions.invoke('sync-tenant-domains', {
+          body: { tenantId }
         });
 
-        // Fetch current tenant metadata to merge instead of overwrite
-        const { data: currentTenant } = await supabase
-          .from('tenants')
-          .select('metadata')
-          .eq('id', tenantId)
-          .single();
-
-        const currentMetadata = (currentTenant?.metadata as any) || {};
-
-        // Update tenant with domain_config
-        const { data: updateData, error: updateError } = await supabase
-          .from('tenants')
-          .update({
-            domain_config: wlConfig.domain_config,
-            metadata: {
-              ...currentMetadata,  // Preserve existing metadata
-              branding_synced_from_wl: true,
-              branding_sync_at: new Date().toISOString(),
-              white_label_config_id: wlConfig.id  // Use correct ID
-            }
-          })
-          .eq('id', tenantId)
-          .select();  // Add select() to get updated data
-
-        if (updateError) {
-          console.error('❌ Failed to sync to tenant:', updateError);
-          throw new Error(`Failed to update tenant: ${updateError.message}`);
+        if (error) {
+          console.error('❌ Edge function error:', error);
+          throw new Error(`Failed to sync to tenant: ${error.message}`);
         }
 
-        // Check if any rows were actually updated (RLS might silently block)
-        if (!updateData || updateData.length === 0) {
-          console.error('❌ No rows updated - possible RLS issue');
-          throw new Error('Tenant update was blocked. Check user permissions.');
+        if (!data?.success) {
+          console.error('❌ Sync failed:', data?.error);
+          throw new Error(`Sync operation failed: ${data?.error || 'Unknown error'}`);
         }
 
         console.log('✅ Successfully synced domain_config to tenant:', {
           tenantId,
-          updatedData: updateData[0].domain_config
+          updatedData: data.data?.domain_config
         });
         
         return true;
