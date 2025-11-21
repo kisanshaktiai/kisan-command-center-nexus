@@ -80,7 +80,7 @@ export const RealPlatformMonitoringDashboard = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -103,6 +103,7 @@ export const RealPlatformMonitoringDashboard = () => {
         </div>
       </div>
 
+      <div className="space-y-6">
       {/* Platform Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
@@ -293,7 +294,7 @@ export const RealPlatformMonitoringDashboard = () => {
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-medium">Storage</span>
                   <span className="text-sm text-muted-foreground">
-                    {metrics.resourceUsage.storage.current} GB / {metrics.resourceUsage.storage.limit} GB
+                    {Math.round(metrics.resourceUsage.storage.current)} GB / {Math.round(metrics.resourceUsage.storage.limit)} GB
                   </span>
                 </div>
                 <Progress value={metrics.resourceUsage.storage.percentage} />
@@ -302,7 +303,7 @@ export const RealPlatformMonitoringDashboard = () => {
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-medium">Bandwidth</span>
                   <span className="text-sm text-muted-foreground">
-                    {metrics.resourceUsage.bandwidth.current} GB / {metrics.resourceUsage.bandwidth.limit} GB
+                    {Math.round(metrics.resourceUsage.bandwidth.current)} GB / {Math.round(metrics.resourceUsage.bandwidth.limit)} GB
                   </span>
                 </div>
                 <Progress value={metrics.resourceUsage.bandwidth.percentage} />
@@ -355,6 +356,7 @@ export const RealPlatformMonitoringDashboard = () => {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 };
