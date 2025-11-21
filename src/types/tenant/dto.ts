@@ -1,6 +1,14 @@
 
 import { TenantStatusValue, TenantTypeValue, SubscriptionPlanValue } from './enums';
 
+export interface DomainPortalConfig {
+  subdomain?: string | null;
+  custom_domain?: string | null;
+  ssl_enabled?: boolean;
+  dns_verified?: boolean;
+  status?: 'not_configured' | 'pending' | 'active' | 'failed' | 'verifying';
+}
+
 export interface CreateTenantDTO {
   name: string;
   slug: string;
@@ -22,8 +30,12 @@ export interface CreateTenantDTO {
   max_products?: number;
   max_storage_gb?: number;
   max_api_calls_per_day?: number;
-  subdomain?: string;
-  custom_domain?: string;
+  // Three-domain architecture
+  domain_config?: {
+    public_website?: DomainPortalConfig;
+    tenant_portal?: DomainPortalConfig;
+    farmer_app?: DomainPortalConfig;
+  };
   metadata?: Record<string, any>;
 }
 
@@ -47,7 +59,11 @@ export interface UpdateTenantDTO {
   max_products?: number;
   max_storage_gb?: number;
   max_api_calls_per_day?: number;
-  subdomain?: string;
-  custom_domain?: string;
+  // Three-domain architecture
+  domain_config?: {
+    public_website?: DomainPortalConfig;
+    tenant_portal?: DomainPortalConfig;
+    farmer_app?: DomainPortalConfig;
+  };
   metadata?: Record<string, any>;
 }

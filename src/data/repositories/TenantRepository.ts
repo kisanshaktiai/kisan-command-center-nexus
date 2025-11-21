@@ -68,10 +68,31 @@ export class TenantRepository extends BaseTenantRepository {
       // Type assertion after validation
       const createdTenant = data as any;
 
-      // Create white_label_config (source of truth for branding)
+      // Create white_label_config with three-domain architecture (source of truth)
       const brandingData = {
-        subdomain: tenantData.subdomain,
-        custom_domain: tenantData.custom_domain,
+        domain_config: tenantData.domain_config || {
+          public_website: {
+            subdomain: null,
+            custom_domain: null,
+            ssl_enabled: true,
+            dns_verified: false,
+            status: 'not_configured'
+          },
+          tenant_portal: {
+            subdomain: null,
+            custom_domain: null,
+            ssl_enabled: true,
+            dns_verified: false,
+            status: 'not_configured'
+          },
+          farmer_app: {
+            subdomain: null,
+            custom_domain: null,
+            ssl_enabled: true,
+            dns_verified: false,
+            status: 'not_configured'
+          }
+        },
         company_name: tenantData.name,
         ...(tenantData.metadata as any)?.branding
       };
@@ -105,8 +126,10 @@ export class TenantRepository extends BaseTenantRepository {
       const { data, error } = await this.buildUpdateQuery(id, finalUpdateData).single();
       if (error) throw error;
 
-      // Sync changes to white_label_configs (source of truth)
-      await whiteLabelSyncService.syncFromTenant(id, finalUpdateData);
+      // Sync domain_config changes to white_label_configs (source of truth) if provided
+      if (finalUpdateData.domain_config) {
+        await whiteLabelSyncService.syncFromTenant(id, finalUpdateData);
+      }
       
       return data;
     }, 'updateTenant');

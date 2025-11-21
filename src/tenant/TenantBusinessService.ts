@@ -48,7 +48,7 @@ export class TenantBusinessService {
       // Create tenant
       const { data: tenant, error } = await supabase
         .from('tenants')
-        .insert(tenantDataWithCreator)
+        .insert([tenantDataWithCreator as any])
         .select()
         .single();
 
@@ -97,7 +97,7 @@ export class TenantBusinessService {
       // Update tenant
       const { data: tenant, error } = await supabase
         .from('tenants')
-        .update(updateDataWithAudit)
+        .update(updateDataWithAudit as any)
         .eq('id', id)
         .select()
         .single();
