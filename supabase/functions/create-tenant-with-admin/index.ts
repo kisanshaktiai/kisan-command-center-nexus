@@ -170,6 +170,14 @@ serve(async (req) => {
 
     console.log(`[${requestId}] Creating tenant: ${requestBody.name} with slug: ${requestBody.slug}`);
 
+    // Helper function to sanitize timestamp fields - empty strings become null
+    const sanitizeTimestamp = (value: string | undefined | null): string | null => {
+      if (!value || value.trim() === '') {
+        return null;
+      }
+      return value;
+    };
+
     // Step 1: Create the tenant with proper created_by field
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
@@ -181,20 +189,20 @@ serve(async (req) => {
         subscription_plan: requestBody.subscription_plan || 'Kisan_Basic',
         owner_email: requestBody.owner_email.trim(),
         owner_name: requestBody.owner_name.trim(),
-        owner_phone: requestBody.owner_phone?.trim(),
-        business_registration: requestBody.business_registration?.trim(),
-        business_address: requestBody.business_address,
-        established_date: requestBody.established_date,
-        subscription_start_date: requestBody.subscription_start_date,
-        subscription_end_date: requestBody.subscription_end_date,
-        trial_ends_at: requestBody.trial_ends_at,
+        owner_phone: requestBody.owner_phone?.trim() || null,
+        business_registration: requestBody.business_registration?.trim() || null,
+        business_address: requestBody.business_address || null,
+        established_date: sanitizeTimestamp(requestBody.established_date),
+        subscription_start_date: sanitizeTimestamp(requestBody.subscription_start_date),
+        subscription_end_date: sanitizeTimestamp(requestBody.subscription_end_date),
+        trial_ends_at: sanitizeTimestamp(requestBody.trial_ends_at),
         max_farmers: requestBody.max_farmers || 1000,
         max_dealers: requestBody.max_dealers || 50,
         max_products: requestBody.max_products || 100,
         max_storage_gb: requestBody.max_storage_gb || 10,
         max_api_calls_per_day: requestBody.max_api_calls_per_day || 10000,
-        subdomain: requestBody.subdomain?.trim(),
-        custom_domain: requestBody.custom_domain?.trim(),
+        subdomain: requestBody.subdomain?.trim() || null,
+        custom_domain: requestBody.custom_domain?.trim() || null,
         created_by: user.id, // Critical: Set created_by to authenticated user's ID
         updated_by: user.id,
         metadata: {
