@@ -12,10 +12,10 @@ export interface PlatformConfig {
 // Default configuration - can be overridden by environment variables
 const DEFAULT_CONFIG: PlatformConfig = {
   platformName: 'KisanShakti Platform',
-  baseDomain: 'kisanshakti.com',
-  proxyDomain: 'proxy.kisanshakti.com',
+  baseDomain: 'kisanshaktiai.in',
+  proxyDomain: 'proxy.kisanshaktiai.in',
   verificationPrefix: 'kisanshakti-verify',
-  supportEmail: 'support@kisanshakti.com',
+  supportEmail: 'support@kisanshaktiai.in',
   fromEmail: 'admin@kisanshaktiai.in'
 };
 

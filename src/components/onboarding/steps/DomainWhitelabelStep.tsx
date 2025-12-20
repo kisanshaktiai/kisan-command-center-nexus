@@ -392,7 +392,7 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {(formData.public_website.custom_domain || formData.tenant_portal.custom_domain || formData.farmer_app.custom_domain) ? (
+        {(formData.public_website.custom_domain || formData.tenant_portal.custom_domain || formData.farmer_app.custom_domain) ? (
             <div className="space-y-6">
               {formData.public_website.custom_domain && (
                 <div className="p-4 bg-muted rounded-lg">
@@ -400,7 +400,7 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
                   <div className="space-y-2 font-mono text-sm">
                     <div className="flex justify-between items-center p-2 bg-background rounded">
                       <span>Type: CNAME</span>
-                      <span>Value: {platformConfig.proxyDomain}</span>
+                      <span>Value: proxy.{formData.public_website.custom_domain.split('.').slice(-2).join('.')}</span>
                     </div>
                     <div className="flex justify-between items-center p-2 bg-background rounded">
                       <span>Type: TXT (_verification)</span>
@@ -415,7 +415,7 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
                   <div className="space-y-2 font-mono text-sm">
                     <div className="flex justify-between items-center p-2 bg-background rounded">
                       <span>Type: CNAME</span>
-                      <span>Value: {platformConfig.proxyDomain}</span>
+                      <span>Value: proxy.{formData.tenant_portal.custom_domain.split('.').slice(-2).join('.')}</span>
                     </div>
                     <div className="flex justify-between items-center p-2 bg-background rounded">
                       <span>Type: TXT (_verification)</span>
@@ -430,7 +430,7 @@ export const DomainWhitelabelStep: React.FC<DomainWhitelabelStepProps> = ({
                   <div className="space-y-2 font-mono text-sm">
                     <div className="flex justify-between items-center p-2 bg-background rounded">
                       <span>Type: CNAME</span>
-                      <span>Value: {platformConfig.proxyDomain}</span>
+                      <span>Value: proxy.{formData.farmer_app.custom_domain.split('.').slice(-2).join('.')}</span>
                     </div>
                     <div className="flex justify-between items-center p-2 bg-background rounded">
                       <span>Type: TXT (_verification)</span>
