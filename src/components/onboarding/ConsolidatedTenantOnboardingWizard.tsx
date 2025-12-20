@@ -643,14 +643,23 @@ export const ConsolidatedTenantOnboardingWizard: React.FC<ConsolidatedTenantOnbo
                     </div>
                   </div>
 
-                  <Button
-                    onClick={handleNextStep}
-                    disabled={currentStepIndex === transformedSteps.length - 1}
-                    className="flex items-center gap-2"
-                  >
-                    Next
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
+                  {currentStepIndex === transformedSteps.length - 1 ? (
+                    <Button
+                      onClick={onClose}
+                      className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Finish
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleNextStep}
+                      className="flex items-center gap-2"
+                    >
+                      Next
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
