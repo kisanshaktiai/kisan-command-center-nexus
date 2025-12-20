@@ -263,15 +263,40 @@ async function sendUserInvite(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  const { data: userTenant, error: userTenantError } = await supabase
-    .from('user_tenants')
+  // Check authorization: either super_admin/platform_admin OR user_tenants record
+  let isAuthorized = false;
+  
+  // First check if user is a super_admin or platform_admin
+  const { data: adminUser, error: adminError } = await supabase
+    .from('admin_users')
     .select('id, role')
-    .eq('user_id', userId)
-    .eq('tenant_id', tenantId)
+    .eq('id', userId)
     .eq('is_active', true)
     .single();
+  
+  if (adminUser && ['super_admin', 'platform_admin'].includes(adminUser.role)) {
+    console.log('[sendUserInvite] User is authorized as admin:', adminUser.role);
+    isAuthorized = true;
+  }
+  
+  // If not admin, check user_tenants
+  if (!isAuthorized) {
+    const { data: userTenant, error: userTenantError } = await supabase
+      .from('user_tenants')
+      .select('id, role')
+      .eq('user_id', userId)
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .single();
+    
+    if (userTenant) {
+      console.log('[sendUserInvite] User is authorized via user_tenants:', userTenant.role);
+      isAuthorized = true;
+    }
+  }
 
-  if (userTenantError || !userTenant) {
+  if (!isAuthorized) {
+    console.log('[sendUserInvite] User not authorized. userId:', userId, 'tenantId:', tenantId);
     return new Response(JSON.stringify({ success: false, error: 'User not authorized to invite for this tenant' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
