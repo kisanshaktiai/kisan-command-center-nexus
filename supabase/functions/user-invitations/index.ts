@@ -6,6 +6,241 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ============= INLINED VALIDATION LOGIC (from validate-user-invitation) =============
+
+interface ValidationRequest {
+  email: string;
+  tenantId?: string;
+  invitationType: 'admin' | 'user';
+  role: string;
+}
+
+interface ValidationResponse {
+  isValid: boolean;
+  exists: boolean;
+  userId?: string;
+  issues: string[];
+  existingRoles: {
+    isAdmin: boolean;
+    isTenantUser: boolean;
+    tenantIds: string[];
+  };
+  pendingInvites: {
+    hasAdminInvite: boolean;
+    hasUserInvite: boolean;
+    tenantIds: string[];
+  };
+  normalizedEmail: string;
+}
+
+/**
+ * Enhanced email validation with regex and disposable email detection
+ */
+function validateEmailFormat(email: string): { isValid: boolean; error?: string } {
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  if (!normalizedEmail || normalizedEmail.length === 0) {
+    return { isValid: false, error: 'Email is required' };
+  }
+  
+  // Enhanced RFC 5322 compliant email regex
+  const emailRegex = /^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])$/;
+  
+  if (!emailRegex.test(normalizedEmail)) {
+    return { isValid: false, error: 'Invalid email format' };
+  }
+  
+  if (normalizedEmail.length > 255) {
+    return { isValid: false, error: 'Email address is too long (max 255 characters)' };
+  }
+  
+  const disposableDomains = [
+    'tempmail.com', 'throwaway.email', '10minutemail.com', 'guerrillamail.com',
+    'mailinator.com', 'trashmail.com', 'fakeinbox.com', 'temp-mail.org'
+  ];
+  
+  const domain = normalizedEmail.split('@')[1];
+  if (disposableDomains.includes(domain)) {
+    return { isValid: false, error: 'Disposable email addresses are not allowed' };
+  }
+  
+  return { isValid: true };
+}
+
+/**
+ * Comprehensive validation function (inlined from validate-user-invitation)
+ */
+async function validateInvitation(
+  supabase: any,
+  request: ValidationRequest
+): Promise<ValidationResponse> {
+  const issues: string[] = [];
+  const normalizedEmail = request.email.toLowerCase().trim();
+  
+  console.log('[user-invitations:validate] Validating:', {
+    email: normalizedEmail,
+    type: request.invitationType,
+    tenantId: request.tenantId
+  });
+  
+  // Step 1: Email format validation
+  const emailValidation = validateEmailFormat(request.email);
+  if (!emailValidation.isValid) {
+    issues.push(emailValidation.error!);
+    return {
+      isValid: false,
+      exists: false,
+      issues,
+      existingRoles: { isAdmin: false, isTenantUser: false, tenantIds: [] },
+      pendingInvites: { hasAdminInvite: false, hasUserInvite: false, tenantIds: [] },
+      normalizedEmail
+    };
+  }
+  
+  // Step 2: Check auth.users for existing user using Auth Admin API
+  let userId: string | undefined;
+  let exists = false;
+  
+  try {
+    const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+    
+    if (authError) {
+      console.error('[user-invitations:validate] Error checking auth.users:', authError);
+    } else if (authData?.users) {
+      const authUser = authData.users.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
+      userId = authUser?.id;
+      exists = !!authUser;
+    }
+  } catch (error) {
+    console.error('[user-invitations:validate] Exception checking auth users:', error);
+  }
+  
+  console.log('[user-invitations:validate] Auth user check:', { exists, userId });
+  
+  // Step 3: Check admin_users table
+  let isAdmin = false;
+  if (exists && userId) {
+    const { data: adminUser } = await supabase
+      .from('admin_users')
+      .select('id')
+      .eq('id', userId)
+      .eq('is_active', true)
+      .single();
+    
+    isAdmin = !!adminUser;
+    console.log('[user-invitations:validate] Admin check:', { isAdmin });
+  }
+  
+  // Step 4: Check user_tenants for tenant relationships
+  const tenantIds: string[] = [];
+  let isTenantUser = false;
+  
+  if (exists && userId) {
+    const { data: userTenants } = await supabase
+      .from('user_tenants')
+      .select('tenant_id')
+      .eq('user_id', userId)
+      .eq('is_active', true);
+    
+    if (userTenants && userTenants.length > 0) {
+      isTenantUser = true;
+      tenantIds.push(...userTenants.map((ut: any) => ut.tenant_id));
+    }
+    
+    console.log('[user-invitations:validate] Tenant relationships:', { count: tenantIds.length });
+  }
+  
+  // Step 5: Check pending admin invitations
+  const { data: adminInvites } = await supabase
+    .from('admin_invites')
+    .select('id, status, expires_at')
+    .eq('email', normalizedEmail)
+    .in('status', ['pending', 'sent']);
+  
+  const hasActiveAdminInvite = adminInvites && adminInvites.length > 0 && 
+    adminInvites.some((invite: any) => new Date(invite.expires_at) > new Date());
+  
+  console.log('[user-invitations:validate] Admin invites:', { 
+    count: adminInvites?.length || 0,
+    hasActive: hasActiveAdminInvite 
+  });
+  
+  // Step 6: Check pending user invitations
+  const { data: userInvites } = await supabase
+    .from('user_invitations')
+    .select('id, tenant_id, status, expires_at')
+    .eq('email', normalizedEmail)
+    .in('status', ['pending', 'sent']);
+  
+  const activeUserInvites = userInvites?.filter((invite: any) => 
+    new Date(invite.expires_at) > new Date()
+  ) || [];
+  
+  const userInviteTenantIds = activeUserInvites.map((invite: any) => invite.tenant_id);
+  const hasActiveUserInvite = activeUserInvites.length > 0;
+  
+  console.log('[user-invitations:validate] User invites:', { 
+    count: activeUserInvites.length,
+    tenants: userInviteTenantIds 
+  });
+  
+  // Step 7: Validation rules based on invitation type
+  if (request.invitationType === 'admin') {
+    if (exists) {
+      issues.push('This email already has an account. Admin invites are only for new users.');
+    }
+    if (hasActiveAdminInvite) {
+      issues.push('An active admin invitation already exists for this email');
+    }
+    if (isTenantUser) {
+      issues.push('This email is already associated with a tenant. Cannot invite as admin.');
+    }
+  } else {
+    if (!request.tenantId) {
+      issues.push('Tenant ID is required for user invitations');
+    }
+    if (isAdmin) {
+      issues.push('This email belongs to an admin user. Cannot invite as a team member.');
+    }
+    if (hasActiveAdminInvite) {
+      issues.push('This email has a pending admin invitation. Cannot invite as a team member.');
+    }
+    if (request.tenantId && tenantIds.includes(request.tenantId)) {
+      issues.push('User is already a member of this tenant');
+    }
+    if (request.tenantId && userInviteTenantIds.includes(request.tenantId)) {
+      issues.push('An active invitation already exists for this email in this tenant');
+    }
+  }
+  
+  const isValid = issues.length === 0;
+  
+  console.log('[user-invitations:validate] Validation result:', { 
+    isValid, 
+    issuesCount: issues.length 
+  });
+  
+  return {
+    isValid,
+    exists,
+    userId,
+    issues,
+    existingRoles: {
+      isAdmin,
+      isTenantUser,
+      tenantIds
+    },
+    pendingInvites: {
+      hasAdminInvite: hasActiveAdminInvite,
+      hasUserInvite: hasActiveUserInvite,
+      tenantIds: userInviteTenantIds
+    },
+    normalizedEmail
+  };
+}
+
+// ============= MAIN HANDLER =============
+
 function generateInviteToken(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
@@ -53,9 +288,13 @@ const handler = async (req: Request): Promise<Response> => {
       case 'accept':
         return await acceptInvite(supabase, body, invitationType);
       
+      case 'validate':
+        // New action: direct validation endpoint
+        return await handleValidate(supabase, body);
+      
       default:
         return new Response(JSON.stringify({ 
-          error: 'Invalid action. Use: send, verify, or accept' 
+          error: 'Invalid action. Use: send, verify, accept, or validate' 
         }), {
           status: 400,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -72,6 +311,32 @@ const handler = async (req: Request): Promise<Response> => {
     });
   }
 };
+
+// Handle direct validation requests (replacement for validate-user-invitation function)
+async function handleValidate(supabase: any, body: any): Promise<Response> {
+  const { email, tenantId, invitationType, role } = body;
+  
+  if (!email || !invitationType || !role) {
+    return new Response(JSON.stringify({
+      isValid: false,
+      exists: false,
+      issues: ['Missing required fields: email, invitationType, and role are required'],
+      existingRoles: { isAdmin: false, isTenantUser: false, tenantIds: [] },
+      pendingInvites: { hasAdminInvite: false, hasUserInvite: false, tenantIds: [] },
+      normalizedEmail: email || ''
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+  
+  const result = await validateInvitation(supabase, { email, tenantId, invitationType, role });
+  
+  return new Response(JSON.stringify(result), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders }
+  });
+}
 
 // Send admin invitation
 async function sendAdminInvite(supabase: any, body: any): Promise<Response> {
@@ -103,25 +368,13 @@ async function sendAdminInvite(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  // Comprehensive validation via validate-user-invitation function
+  // Comprehensive validation using inlined function (no external call)
   console.log('[sendAdminInvite] Validating invitation for:', email);
-  const { data: validation, error: validationError } = await supabase.functions.invoke('validate-user-invitation', {
-    body: {
-      email,
-      invitationType: 'admin',
-      role
-    }
+  const validation = await validateInvitation(supabase, {
+    email,
+    invitationType: 'admin',
+    role
   });
-
-  if (validationError) {
-    console.error('[sendAdminInvite] Validation error:', validationError);
-    return new Response(JSON.stringify({ 
-      error: `Validation failed: ${validationError.message}` 
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    });
-  }
 
   if (!validation.isValid) {
     console.log('[sendAdminInvite] Validation failed:', validation.issues);
@@ -214,27 +467,14 @@ async function sendUserInvite(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  // Comprehensive validation via validate-user-invitation function
+  // Comprehensive validation using inlined function (no external call)
   console.log('[sendUserInvite] Validating invitation for:', email, 'tenant:', tenantId);
-  const { data: validation, error: validationError } = await supabase.functions.invoke('validate-user-invitation', {
-    body: {
-      email,
-      tenantId,
-      invitationType: 'user',
-      role
-    }
+  const validation = await validateInvitation(supabase, {
+    email,
+    tenantId,
+    invitationType: 'user',
+    role
   });
-
-  if (validationError) {
-    console.error('[sendUserInvite] Validation error:', validationError);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: `Validation failed: ${validationError.message}` 
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
-  }
 
   if (!validation.isValid) {
     console.log('[sendUserInvite] Validation failed:', validation.issues);
@@ -371,7 +611,6 @@ async function sendUserInvite(supabase: any, body: any): Promise<Response> {
 
   if (emailError) {
     console.error('Failed to send user invite email:', emailError);
-    // Don't delete the invitation, just log the error
     console.warn('Invitation created but email failed to send');
   }
 
@@ -417,8 +656,7 @@ async function verifyInvite(supabase: any, url: URL, invitationType: string): Pr
     });
   }
 
-  const statusField = invitationType === 'admin' ? 'status' : 'status';
-  const isValid = invite[statusField] === 'pending' || invite[statusField] === 'sent';
+  const isValid = invite.status === 'pending' || invite.status === 'sent';
   const notExpired = new Date(invite.expires_at) > new Date();
 
   if (!isValid || !notExpired) {
@@ -472,13 +710,12 @@ async function acceptInvite(supabase: any, body: any, invitationType: string): P
     });
   }
 
-  const statusField = invitationType === 'admin' ? 'status' : 'status';
-  const isValid = (invite[statusField] === 'pending' || invite[statusField] === 'sent') && 
+  const isValid = (invite.status === 'pending' || invite.status === 'sent') && 
                   new Date(invite.expires_at) > new Date();
 
   if (!isValid) {
     return new Response(JSON.stringify({
-      error: invite[statusField] === 'accepted' ? 'Invite has already been used' : 'Invite has expired'
+      error: invite.status === 'accepted' ? 'Invite has already been used' : 'Invite has expired'
     }), {
       status: 410,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
