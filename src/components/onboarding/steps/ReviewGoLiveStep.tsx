@@ -34,12 +34,28 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
   const { showSuccess, showError } = useNotifications();
 
   useEffect(() => {
+    // Validate tenantId before loading
+    if (!tenantId || tenantId.trim() === '') {
+      console.error('❌ ReviewGoLiveStep: Invalid or empty tenantId provided:', tenantId);
+      setIsLoading(false);
+      showError('Invalid tenant ID', {
+        description: 'Cannot load checklist without a valid tenant ID'
+      });
+      return;
+    }
     loadGoLiveChecklist();
   }, [tenantId]);
 
   const loadGoLiveChecklist = async () => {
     try {
       setIsLoading(true);
+      
+      // Validate tenantId before making database calls
+      if (!tenantId || tenantId.trim() === '') {
+        throw new Error('Invalid or empty tenant ID provided');
+      }
+      
+      console.log('📋 Loading go-live checklist for tenant:', tenantId);
       
       // Load tenant data
       const { data: tenant, error: tenantError } = await supabase
@@ -194,6 +210,26 @@ export const ReviewGoLiveStep: React.FC<ReviewGoLiveStepProps> = ({
     const config = variants[status as keyof typeof variants] || variants.incomplete;
     return <Badge variant={config.variant}>{config.text}</Badge>;
   };
+
+  // Check for invalid tenantId
+  if (!tenantId || tenantId.trim() === '') {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-12">
+              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">Invalid Tenant ID</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Cannot load go-live checklist without a valid tenant ID.
+                Please close this wizard and try again.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

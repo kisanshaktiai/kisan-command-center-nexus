@@ -170,8 +170,11 @@ export class TenantRelationshipService {
         };
       }
 
-      const { data, error } = await supabase.functions.invoke('manage-user-tenant', {
-        body: request,
+      const { data, error } = await supabase.functions.invoke('user-permissions', {
+        body: {
+          operation: 'manage-tenant',
+          ...request
+        },
         headers: {
           'x-request-id': `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           'x-correlation-id': `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

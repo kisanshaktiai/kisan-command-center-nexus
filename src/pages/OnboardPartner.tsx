@@ -61,7 +61,7 @@ export default function OnboardPartner() {
 
   const verifyInviteToken = async () => {
     try {
-      const response = await fetch(`https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/verify-admin-invite?token=${token}`, {
+      const response = await fetch(`https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/user-invitations?action=verify&token=${token}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -92,13 +92,15 @@ export default function OnboardPartner() {
 
     setSubmitting(true);
     try {
-      const response = await fetch(`https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/verify-admin-invite/accept`, {
+      const response = await fetch(`https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/user-invitations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFma2xra3p4ZW1zYmVuaXl1Z2l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjcxNjUsImV4cCI6MjA2ODAwMzE2NX0.dUnGp7wbwYom1FPbn_4EGf3PWjgmr8mXwL2w2SdYOh4`,
         },
         body: JSON.stringify({
+          action: 'accept',
+          invitation_type: 'admin',
           token,
           fullName: data.fullName,
           password: data.password,

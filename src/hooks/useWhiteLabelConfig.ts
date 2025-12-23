@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { whiteLabelSyncService } from '@/services/WhiteLabelSyncService';
 
 export interface WhiteLabelConfigData {
   id?: string;
@@ -149,18 +150,20 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
       });
 
       if (config?.id) {
-        // Update existing config
-        const { data, error } = await supabase
-          .from('white_label_configs')
-          .update(cleanedData)
-          .eq('id', config.id)
-          .select()
-          .single();
+        // Update existing config using sync service
+        console.log('Updating existing config with ID:', config.id);
         
-        if (error) {
-          console.error('Error updating white-label config:', error);
-          throw error;
+        const result = await whiteLabelSyncService.updateWhiteLabelConfig(
+          tenantId,
+          cleanedData
+        );
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to update configuration');
         }
+        
+        const data = result.data;
+        const error = null;
         
         // Create audit log entry for update
         const auditEntry = {
@@ -189,24 +192,20 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         
         return data;
       } else {
-        // Create new config
-        const createData = { 
-          ...cleanedData, 
-          tenant_id: tenantId,
-          created_at: now,
-          created_by: user?.id || null
-        };
+        // Create new config using sync service
+        console.log('Creating new config for tenant:', tenantId);
         
-        const { data, error } = await supabase
-          .from('white_label_configs')
-          .insert([createData])
-          .select()
-          .single();
+        const result = await whiteLabelSyncService.createWhiteLabelConfig(
+          tenantId,
+          cleanedData
+        );
         
-        if (error) {
-          console.error('Error creating white-label config:', error);
-          throw error;
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to create configuration');
         }
+        
+        const data = result.data;
+        const error = null;
         
         // Create audit log entry for creation
         const auditEntry = {
@@ -236,16 +235,50 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         return data;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Update cache instantly with latest DB values
       queryClient.setQueryData(['white-label-config', tenantId], data);
 
       // No need to wait for background refetch, preview gets instant update
       toast.success('Configuration saved successfully — Preview updated');
+      
+      // Validate sync after a short delay
+      setTimeout(async () => {
+        if (!tenantId) return;
+        
+        try {
+          const { WhiteLabelSyncValidator } = await import('@/services/WhiteLabelSyncValidator');
+          const validation = await WhiteLabelSyncValidator.validateSync(tenantId);
+          if (!validation.isInSync) {
+            console.warn('⚠️ Sync validation failed:', validation.differences);
+            toast.warning('Configuration saved but sync validation detected differences. Click Refresh to verify.');
+          } else {
+            console.log('✅ Sync validation passed');
+          }
+        } catch (error) {
+          console.error('Validation check error:', error);
+        }
+      }, 2000);
     },
     onError: (error: any) => {
-      console.error('Save configuration error:', error);
-      toast.error('Failed to save configuration: ' + (error.message || 'Unknown error'));
+      console.error('Save configuration error:', {
+        error,
+        tenantId,
+        errorMessage: error.message,
+        errorCause: error.cause,
+        stack: error.stack
+      });
+      
+      let errorMessage = 'Failed to save configuration';
+      if (error.message?.includes('sync to tenant')) {
+        errorMessage += ' - Sync to tenant failed. Check your permissions.';
+      } else if (error.message?.includes('RLS') || error.message?.includes('blocked')) {
+        errorMessage += ' - Permission denied. Contact your administrator.';
+      } else {
+        errorMessage += ': ' + (error.message || 'Unknown error');
+      }
+      
+      toast.error(errorMessage);
     }
   });
 
@@ -256,6 +289,9 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         throw new Error('No configuration to delete');
       }
 
+      const tenantId = config.tenant_id;
+
+      // Delete the white_label_config
       const { error } = await supabase
         .from('white_label_configs')
         .delete()
@@ -265,6 +301,19 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         console.error('Error deleting white-label config:', error);
         throw error;
       }
+
+      // Clear tenant's branding data
+      await supabase
+        .from('tenants')
+        .update({
+          subdomain: null,
+          custom_domain: null,
+          metadata: {
+            branding_synced_from_wl: false,
+            branding_deleted_at: new Date().toISOString()
+          }
+        })
+        .eq('id', tenantId);
     },
     onSuccess: () => {
       queryClient.setQueryData(['white-label-config', tenantId], null);

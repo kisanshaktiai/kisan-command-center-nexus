@@ -51,8 +51,7 @@ export const TenantEditModalEnhanced: React.FC<TenantEditModalEnhancedProps> = (
         max_products: tenant.max_products || 0,
         max_storage_gb: tenant.max_storage_gb || 0,
         max_api_calls_per_day: tenant.max_api_calls_per_day || 0,
-        subdomain: tenant.subdomain || '',
-        custom_domain: tenant.custom_domain || '',
+        domain_config: tenant.domain_config as any,
         metadata: tenant.metadata || {},
       });
     }
@@ -284,26 +283,8 @@ export const TenantEditModalEnhanced: React.FC<TenantEditModalEnhancedProps> = (
             <Card>
               <CardHeader>
                 <CardTitle>Domain Settings</CardTitle>
-                <CardDescription>Configure domain settings for the tenant.</CardDescription>
+                <CardDescription>Domain configuration is managed through the White-Label Configuration page</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="subdomain">Subdomain</Label>
-                  <Input
-                    id="subdomain"
-                    value={formData.subdomain || ''}
-                    onChange={(e) => handleInputChange('subdomain', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="custom_domain">Custom Domain</Label>
-                  <Input
-                    id="custom_domain"
-                    value={formData.custom_domain || ''}
-                    onChange={(e) => handleInputChange('custom_domain', e.target.value)}
-                  />
-                </div>
-              </CardContent>
             </Card>
           )}
 

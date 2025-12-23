@@ -44,8 +44,7 @@ export const TenantEditModal: React.FC<TenantEditModalProps> = ({
         max_products: tenant.max_products || 100,
         max_storage_gb: tenant.max_storage_gb || 10,
         max_api_calls_per_day: tenant.max_api_calls_per_day || 10000,
-        subdomain: tenant.subdomain || '',
-        custom_domain: tenant.custom_domain || '',
+        domain_config: tenant.domain_config as any,
       });
     }
   }, [tenant]);
@@ -224,29 +223,12 @@ export const TenantEditModal: React.FC<TenantEditModalProps> = ({
             </div>
           </div>
 
-          {/* Domain Settings */}
+          {/* Domain Settings - Read Only (managed via White-Label Config) */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Domain Settings</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="subdomain">Subdomain</Label>
-                <Input
-                  id="subdomain"
-                  value={formData.subdomain || ''}
-                  onChange={(e) => handleInputChange('subdomain', e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="custom_domain">Custom Domain</Label>
-                <Input
-                  id="custom_domain"
-                  value={formData.custom_domain || ''}
-                  onChange={(e) => handleInputChange('custom_domain', e.target.value)}
-                />
-              </div>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Domain configuration is managed through the White-Label Configuration page
+            </p>
           </div>
 
           {/* Form Actions */}

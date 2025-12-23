@@ -10,6 +10,10 @@ export interface EmailTemplate {
   variables: string[];
   is_active: boolean;
   is_default: boolean;
+  category?: string;
+  preview_text?: string;
+  version?: number;
+  parent_template_id?: string;
   created_at: string;
   updated_at: string;
   created_by?: string;

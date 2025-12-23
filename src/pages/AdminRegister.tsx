@@ -51,8 +51,11 @@ const AdminRegister = () => {
       }
 
       try {
-        const response = await supabase.functions.invoke('verify-admin-invite', {
-          body: { token }
+      const response = await supabase.functions.invoke('user-invitations', {
+        body: { 
+          action: 'verify',
+          token 
+        }
         });
 
         if (response.error) {
@@ -111,14 +114,16 @@ const AdminRegister = () => {
     setError('');
 
     try {
-      const response = await supabase.functions.invoke('verify-admin-invite/accept', {
+      const response = await supabase.functions.invoke('user-invitations', {
         method: 'POST',
-        body: JSON.stringify({
+        body: { 
+          action: 'accept',
+          invitation_type: 'admin',
           token,
           fullName: formData.fullName,
           password: formData.password,
           phone: formData.phone
-        })
+        }
       });
 
       if (response.error) {

@@ -6,16 +6,20 @@ export class MetricsCollectionService {
    */
   static async collectSystemMetrics(): Promise<void> {
     try {
-      const { error } = await supabase.functions.invoke('collect-system-metrics');
+      console.log('[MetricsCollection] Invoking platform-monitoring for system metrics...');
+      
+      const { data, error } = await supabase.functions.invoke('platform-monitoring', {
+        body: { action: 'collect-metrics', metric_type: 'system' }
+      });
       
       if (error) {
-        console.error('Error collecting system metrics:', error);
-        throw error;
+        console.error('[MetricsCollection] Error collecting system metrics:', error);
+        throw new Error(`Failed to collect system metrics: ${error.message || 'Unknown error'}`);
       }
       
-      console.log('System metrics collection triggered successfully');
+      console.log('[MetricsCollection] System metrics collected successfully:', data);
     } catch (error) {
-      console.error('Failed to trigger system metrics collection:', error);
+      console.error('[MetricsCollection] Exception during system metrics collection:', error);
       throw error;
     }
   }
@@ -25,16 +29,20 @@ export class MetricsCollectionService {
    */
   static async collectResourceMetrics(): Promise<void> {
     try {
-      const { error } = await supabase.functions.invoke('collect-resource-metrics');
+      console.log('[MetricsCollection] Invoking platform-monitoring for resource metrics...');
+      
+      const { data, error } = await supabase.functions.invoke('platform-monitoring', {
+        body: { action: 'collect-metrics', metric_type: 'resource' }
+      });
       
       if (error) {
-        console.error('Error collecting resource metrics:', error);
-        throw error;
+        console.error('[MetricsCollection] Error collecting resource metrics:', error);
+        throw new Error(`Failed to collect resource metrics: ${error.message || 'Unknown error'}`);
       }
       
-      console.log('Resource metrics collection triggered successfully');
+      console.log('[MetricsCollection] Resource metrics collected successfully:', data);
     } catch (error) {
-      console.error('Failed to trigger resource metrics collection:', error);
+      console.error('[MetricsCollection] Exception during resource metrics collection:', error);
       throw error;
     }
   }
@@ -44,16 +52,20 @@ export class MetricsCollectionService {
    */
   static async collectFinancialMetrics(): Promise<void> {
     try {
-      const { error } = await supabase.functions.invoke('collect-financial-metrics');
+      console.log('[MetricsCollection] Invoking platform-monitoring for financial metrics...');
+      
+      const { data, error } = await supabase.functions.invoke('platform-monitoring', {
+        body: { action: 'collect-metrics', metric_type: 'financial' }
+      });
       
       if (error) {
-        console.error('Error collecting financial metrics:', error);
-        throw error;
+        console.error('[MetricsCollection] Error collecting financial metrics:', error);
+        throw new Error(`Failed to collect financial metrics: ${error.message || 'Unknown error'}`);
       }
       
-      console.log('Financial metrics collection triggered successfully');
+      console.log('[MetricsCollection] Financial metrics collected successfully:', data);
     } catch (error) {
-      console.error('Failed to trigger financial metrics collection:', error);
+      console.error('[MetricsCollection] Exception during financial metrics collection:', error);
       throw error;
     }
   }

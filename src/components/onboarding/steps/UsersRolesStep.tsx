@@ -137,8 +137,10 @@ export const UsersRolesStep: React.FC<UsersRolesStepProps> = ({
           console.log('Sending invitation for:', invite);
           
           // Call edge function with correct data structure matching our schema
-          const { data: response, error } = await supabase.functions.invoke('send-user-invite', {
+          const { data: response, error } = await supabase.functions.invoke('user-invitations', {
             body: {
+              action: 'send',
+              invitation_type: 'user',
               tenantId,
               email: invite.email,
               firstName: invite.firstName,

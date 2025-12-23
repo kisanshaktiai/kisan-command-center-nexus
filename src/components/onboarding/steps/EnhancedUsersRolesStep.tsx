@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { UserPlus, Mail, CheckCircle, Clock, XCircle, RotateCcw, Trash2, Crown, Shield, User } from 'lucide-react';
+import { UserPlus, Mail, CheckCircle, Clock, XCircle, RotateCcw, Trash2, Crown, Shield, User, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useEmailValidation } from '@/hooks/useEmailValidation';
+import { cn } from '@/lib/utils';
 
 interface UserInvitation {
   id: string;
@@ -72,6 +74,15 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
     lastName: '',
     email: '',
     role: 'tenant_user'
+  });
+
+  // Real-time email validation
+  const emailValidation = useEmailValidation({
+    email: newUser.email,
+    tenantId,
+    invitationType: 'user',
+    role: newUser.role,
+    enabled: isDialogOpen && newUser.email.length > 0
   });
 
   useEffect(() => {
@@ -138,38 +149,43 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newUser.email)) {
-      showError('Please enter a valid email address');
-      return;
-    }
-
-    // Check if email already exists
-    const existingInvitation = invitations.find(inv => 
-      inv.email.toLowerCase() === newUser.email.toLowerCase() && 
-      inv.status !== 'expired' && 
-      inv.status !== 'cancelled'
-    );
-
-    if (existingInvitation) {
-      showError('An invitation for this email already exists');
-      return;
-    }
-
     try {
       setIsSending(newUser.email);
 
-      // Get current user info for the invitation
+      // Get current user info
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('User not authenticated');
       }
 
+      // Comprehensive validation via backend
+      console.log('Validating invitation before sending...');
+      const { data: validation, error: validationError } = await supabase.functions.invoke('validate-user-invitation', {
+        body: {
+          email: newUser.email,
+          tenantId,
+          invitationType: 'user',
+          role: newUser.role
+        }
+      });
+
+      if (validationError) {
+        throw new Error(`Validation failed: ${validationError.message}`);
+      }
+
+      if (!validation.isValid) {
+        showError(validation.issues.join('. '));
+        setIsSending(null);
+        return;
+      }
+
       const inviterName = user.user_metadata?.full_name || 'Team Admin';
 
       // Call the edge function with userId in the request body
-      const { data, error } = await supabase.functions.invoke('send-user-invite', {
+      const { data, error } = await supabase.functions.invoke('user-invitations', {
         body: {
+          action: 'send',
+          invitation_type: 'user',
           tenantId,
           email: newUser.email,
           firstName: newUser.firstName,
@@ -219,8 +235,10 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
 
       const inviterName = user.user_metadata?.full_name || 'Team Admin';
 
-      const { data, error } = await supabase.functions.invoke('send-user-invite', {
+      const { data, error } = await supabase.functions.invoke('user-invitations', {
         body: {
+          action: 'send',
+          invitation_type: 'user',
           tenantId,
           email: invitation.email,
           firstName: invitation.first_name,
@@ -363,15 +381,50 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
                     </div>
                   </div>
                   
-                  <div>
+                  <div className="space-y-2">
                     <Label htmlFor="email">Email Address *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newUser.email}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="john.doe@example.com"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="email"
+                        type="email"
+                        value={newUser.email}
+                        onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="john.doe@example.com"
+                        disabled={isSending !== null}
+                        className={cn(
+                          emailValidation.isChecking && "border-blue-400",
+                          emailValidation.isValid === true && "border-green-500",
+                          emailValidation.isValid === false && "border-red-500"
+                        )}
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {emailValidation.isChecking && (
+                          <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                        )}
+                        {!emailValidation.isChecking && emailValidation.isValid === true && (
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                        )}
+                        {!emailValidation.isChecking && emailValidation.isValid === false && (
+                          <XCircle className="w-4 h-4 text-red-500" />
+                        )}
+                      </div>
+                    </div>
+                    {emailValidation.issues.length > 0 && (
+                      <div className="space-y-1">
+                        {emailValidation.issues.map((issue, index) => (
+                          <p key={index} className="text-sm text-red-600 flex items-start gap-1">
+                            <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                            <span>{issue}</span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {emailValidation.error && (
+                      <p className="text-sm text-red-600 flex items-start gap-1">
+                        <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <span>{emailValidation.error}</span>
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -411,9 +464,26 @@ export const EnhancedUsersRolesStep: React.FC<EnhancedUsersRolesStepProps> = ({
                     </Button>
                     <Button 
                       onClick={handleInviteUser}
-                      disabled={isSending === newUser.email}
+                      disabled={
+                        isSending === newUser.email || 
+                        emailValidation.isChecking ||
+                        emailValidation.isValid === false ||
+                        !newUser.firstName.trim() ||
+                        !newUser.lastName.trim() ||
+                        !newUser.email.trim()
+                      }
                     >
-                      {isSending === newUser.email ? 'Sending...' : 'Send Invitation'}
+                      {isSending === newUser.email ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-4 h-4 mr-2" />
+                          Send Invitation
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>

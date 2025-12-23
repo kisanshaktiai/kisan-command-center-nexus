@@ -7,11 +7,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor, Code, Settings, Save, Loader2 } from 'lucide-react';
+import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor, Code, Settings, Save, Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useWhiteLabelConfig } from '@/hooks/useWhiteLabelConfig';
+import { WhiteLabelSyncStatus } from '@/components/super-admin/WhiteLabelSyncStatus';
 
 // Import the new components
 import { CSSInjectionPanel } from '@/components/white-label/CSSInjectionPanel';
@@ -21,9 +22,11 @@ import { DistributionOptionsPanel } from '@/components/white-label/DistributionO
 import { AdvancedAppCustomizationPanel } from '@/components/white-label/AdvancedAppCustomizationPanel';
 import { LogoUploadSection } from '@/components/white-label/LogoUploadSection';
 import { DomainValidationSection } from '@/components/white-label/DomainValidationSection';
-import { EmailTemplatesPanel } from '@/components/white-label/EmailTemplatesPanel';
+import { EmailTemplatesPanelNew } from '@/components/white-label/EmailTemplatesPanelNew';
 import { EnhancedMobileThemePanel } from '@/components/white-label/EnhancedMobileThemePanel';
 import { WebAppThemePanel } from '@/components/white-label/WebAppThemePanel';
+import { BrandingSuggestionsDialog } from '@/components/white-label/BrandingSuggestionsDialog';
+import { TripleDomainConfigSection } from '@/components/white-label/TripleDomainConfigSection';
 
 interface WhiteLabelConfig {
   id: string;
@@ -169,6 +172,12 @@ export default function WhiteLabelConfig() {
   const [config, setConfig] = useState<WhiteLabelConfig | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showSuggestionsDialog, setShowSuggestionsDialog] = useState(false);
+  const [suggestions, setSuggestions] = useState<Array<{ appName: string; tagLine: string }>>([]);
+
+  const MAX_APP_NAME_LENGTH = 15;
+  const MAX_TAGLINE_LENGTH = 26;
 
   // Fetch tenants
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery({
@@ -406,6 +415,43 @@ export default function WhiteLabelConfig() {
       .replace(/\{\{company_name\}\}/g, companyName);
   };
 
+  const handleGenerateBrandingSuggestions = async () => {
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-branding-suggestions', {
+        body: {
+          companyName: config?.brand_identity?.company_name || '',
+          industry: 'Agriculture/AgriTech',
+          description: 'A white-label platform empowering organizations'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.suggestions && data.suggestions.length > 0) {
+        setSuggestions(data.suggestions);
+        setShowSuggestionsDialog(true);
+      } else {
+        toast.error('No suggestions generated');
+      }
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+      toast.error('Failed to generate suggestions', {
+        description: error instanceof Error ? error.message : 'Please try again'
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSelectSuggestion = (suggestion: { appName: string; tagLine: string }) => {
+    updateConfig('brand_identity', 'app_name', suggestion.appName);
+    updateConfig('brand_identity', 'tagline', suggestion.tagLine);
+    toast.success('Suggestion applied!', {
+      description: `${suggestion.appName} - ${suggestion.tagLine}`
+    });
+  };
+
   if (tenantsLoading) {
     return <div className="text-center py-8">Loading tenants...</div>;
   }
@@ -417,16 +463,27 @@ export default function WhiteLabelConfig() {
           <h1 className="text-3xl font-bold">White-Label Configuration</h1>
           <p className="text-muted-foreground">Customize branding and appearance for tenants</p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPreviewMode(!previewMode)}
-          >
-            <Eye className="h-4 w-4 mr-1" />
-            {previewMode ? 'Edit Mode' : 'Preview'}
-          </Button>
-        </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                refetchConfig();
+                toast.success('Configuration refreshed');
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPreviewMode(!previewMode)}
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              {previewMode ? 'Edit Mode' : 'Preview'}
+            </Button>
+          </div>
       </div>
 
       {/* Tenant Selector */}
@@ -451,6 +508,11 @@ export default function WhiteLabelConfig() {
         </CardContent>
       </Card>
 
+      {/* Sync Status Monitoring */}
+      {selectedTenant && (
+        <WhiteLabelSyncStatus />
+      )}
+
       {configLoading && selectedTenant && (
         <Card>
           <CardContent className="py-8">
@@ -465,7 +527,7 @@ export default function WhiteLabelConfig() {
       {selectedTenant && !configLoading && (
         <Tabs defaultValue="branding" className="space-y-4">
           <div className="flex justify-between items-center">
-            <TabsList className="grid grid-cols-8 w-full max-w-4xl">
+            <TabsList className="grid grid-cols-9 w-full max-w-5xl">
               <TabsTrigger value="branding">
                 <Palette className="h-4 w-4 mr-1" />
                 Branding
@@ -542,28 +604,80 @@ export default function WhiteLabelConfig() {
                   onLogoChange={(url) => updateConfig('brand_identity', 'logo_url', url)} 
                 />
                 
-                {/* App Name and Tag Line */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="app-name">App Name</Label>
-                    <Input
-                      id="app-name"
-                      type="text"
-                      placeholder="Enter your app name"
-                      value={config?.brand_identity?.app_name || ''}
-                      onChange={(e) => updateConfig('brand_identity', 'app_name', e.target.value)}
-                    />
+                {/* App Name and Tag Line with AI Suggestions */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">App Identity</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateBrandingSuggestions}
+                      disabled={isGenerating}
+                      className="flex items-center gap-2"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          AI Suggest
+                        </>
+                      )}
+                    </Button>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="tag-line">Tag Line</Label>
-                    <Input
-                      id="tag-line"
-                      type="text"
-                      placeholder="Enter your tag line"
-                      value={config?.brand_identity?.tagline || ''}
-                      onChange={(e) => updateConfig('brand_identity', 'tagline', e.target.value)}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="app-name">App Name</Label>
+                        <span className={`text-xs ${
+                          (config?.brand_identity?.app_name || '').length > MAX_APP_NAME_LENGTH 
+                            ? 'text-destructive' 
+                            : 'text-muted-foreground'
+                        }`}>
+                          {(config?.brand_identity?.app_name || '').length}/{MAX_APP_NAME_LENGTH}
+                        </span>
+                      </div>
+                      <Input
+                        id="app-name"
+                        type="text"
+                        placeholder="Enter your app name"
+                        value={config?.brand_identity?.app_name || ''}
+                        onChange={(e) => {
+                          const value = e.target.value.substring(0, MAX_APP_NAME_LENGTH);
+                          updateConfig('brand_identity', 'app_name', value);
+                        }}
+                        maxLength={MAX_APP_NAME_LENGTH}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="tag-line">Tag Line</Label>
+                        <span className={`text-xs ${
+                          (config?.brand_identity?.tagline || '').length > MAX_TAGLINE_LENGTH 
+                            ? 'text-destructive' 
+                            : 'text-muted-foreground'
+                        }`}>
+                          {(config?.brand_identity?.tagline || '').length}/{MAX_TAGLINE_LENGTH}
+                        </span>
+                      </div>
+                      <Input
+                        id="tag-line"
+                        type="text"
+                        placeholder="Enter your tag line"
+                        value={config?.brand_identity?.tagline || ''}
+                        onChange={(e) => {
+                          const value = e.target.value.substring(0, MAX_TAGLINE_LENGTH);
+                          updateConfig('brand_identity', 'tagline', value);
+                        }}
+                        maxLength={MAX_TAGLINE_LENGTH}
+                      />
+                    </div>
                   </div>
                 </div>
                 
@@ -667,56 +781,23 @@ export default function WhiteLabelConfig() {
 
           {/* Domain Tab */}
           <TabsContent value="domain" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Domain Configuration</CardTitle>
-                <CardDescription>Set up custom domain and subdomain settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <DomainValidationSection 
-                  domain={config?.domain_config?.custom_domain || ''} 
-                  onDomainChange={(domain) => updateConfig('domain_config', 'custom_domain', domain)}
-                  type="custom_domain"
-                  tenantId={selectedTenant}
-                />
-                
-                <div className="space-y-2">
-                  <Label htmlFor="custom-domain">Custom Domain</Label>
-                  <Input
-                    id="custom-domain"
-                    value={config?.domain_config?.custom_domain || ''}
-                    onChange={(e) => updateConfig('domain_config', 'custom_domain', e.target.value)}
-                    placeholder="app.yourdomain.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="subdomain">Subdomain</Label>
-                  <Input
-                    id="subdomain"
-                    value={config?.domain_config?.subdomain || ''}
-                    onChange={(e) => updateConfig('domain_config', 'subdomain', e.target.value)}
-                    placeholder="yourcompany"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="ssl-enabled"
-                    checked={config?.domain_config?.ssl_enabled || false}
-                    onCheckedChange={(checked) => updateConfig('domain_config', 'ssl_enabled', checked)}
-                  />
-                  <Label htmlFor="ssl-enabled">Enable SSL/HTTPS</Label>
-                </div>
-
-                <DomainHealthPanel config={config} />
-              </CardContent>
-            </Card>
+            <TripleDomainConfigSection
+              domainConfig={config?.domain_config as any || {}}
+              tenantId={selectedTenant || ''}
+              onUpdate={(updates) => {
+                setConfig(prev => ({
+                  ...prev,
+                  domain_config: updates
+                }));
+                setHasUnsavedChanges(true);
+              }}
+              isLoading={isSaving}
+            />
           </TabsContent>
 
           {/* Email Tab */}
           <TabsContent value="email" className="space-y-4">
-            <EmailTemplatesPanel config={config} updateConfig={updateConfig} />
+            <EmailTemplatesPanelNew tenantId={selectedTenant} />
           </TabsContent>
 
           {/* Web App Tab */}
@@ -863,6 +944,14 @@ export default function WhiteLabelConfig() {
           </TabsContent>
         </Tabs>
       )}
+
+      {/* Branding Suggestions Dialog */}
+      <BrandingSuggestionsDialog
+        open={showSuggestionsDialog}
+        onOpenChange={setShowSuggestionsDialog}
+        suggestions={suggestions}
+        onSelectSuggestion={handleSelectSuggestion}
+      />
     </div>
   );
 }

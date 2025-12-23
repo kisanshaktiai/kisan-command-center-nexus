@@ -36,8 +36,11 @@ export const useTenantUserManagement = () => {
     try {
       console.log('useTenantUserManagement: Checking user exists for:', email);
       
-      const { data, error } = await supabase.functions.invoke('check-user-exists', {
-        body: { email }
+      const { data, error } = await supabase.functions.invoke('user-management', {
+        body: { 
+          operation: 'check-exists',
+          email 
+        }
       });
 
       if (error) {
@@ -164,18 +167,21 @@ export const useTenantUserManagement = () => {
     try {
       console.log('useTenantUserManagement: Creating tenant user:', { email, fullName, tenantId });
       
-      const { data, error } = await supabase.functions.invoke('register-user-with-welcome', {
+      const { data, error } = await supabase.functions.invoke('user-management', {
         body: {
+          operation: 'register',
           email,
-          fullName,
-          tenantId,
-          role: 'tenant_user',
-          sendWelcomeEmail: true,
-          welcomeEmailData: {
-            tenantName: 'Your Organization',
-            loginUrl: `${window.location.origin}/auth`,
-            customMessage: 'You have been added as a user for your organization.'
-          }
+          full_name: fullName,
+          tenant_id: tenantId,
+          metadata: {
+            role: 'tenant_user',
+            welcomeEmailData: {
+              tenantName: 'Your Organization',
+              loginUrl: `${window.location.origin}/auth`,
+              customMessage: 'You have been added as a user for your organization.'
+            }
+          },
+          send_welcome_email: true
         }
       });
 
@@ -215,18 +221,21 @@ export const useTenantUserManagement = () => {
     try {
       console.log('useTenantUserManagement: Creating admin user:', { email, fullName, tenantId });
       
-      const { data, error } = await supabase.functions.invoke('register-user-with-welcome', {
+      const { data, error} = await supabase.functions.invoke('user-management', {
         body: {
+          operation: 'register',
           email,
-          fullName,
-          tenantId,
-          role: 'tenant_admin',
-          sendWelcomeEmail: true,
-          welcomeEmailData: {
-            tenantName: 'Your Organization',
-            loginUrl: `${window.location.origin}/auth`,
-            customMessage: 'You have been added as an admin for your organization.'
-          }
+          full_name: fullName,
+          tenant_id: tenantId,
+          metadata: {
+            role: 'tenant_admin',
+            welcomeEmailData: {
+              tenantName: 'Your Organization',
+              loginUrl: `${window.location.origin}/auth`,
+              customMessage: 'You have been added as an admin for your organization.'
+            }
+          },
+          send_welcome_email: true
         }
       });
 

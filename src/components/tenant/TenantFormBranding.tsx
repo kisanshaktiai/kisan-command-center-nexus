@@ -4,8 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, Palette, Smartphone } from 'lucide-react';
+import { Upload, Palette, Smartphone, Sparkles, Loader2 } from 'lucide-react';
 import { BrandingPreview } from './BrandingPreview';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { BrandingSuggestionsDialog } from '@/components/white-label/BrandingSuggestionsDialog';
 
 interface TenantFormBrandingProps {
   formData: any;
@@ -48,6 +51,12 @@ const colorThemes = [
 
 export const TenantFormBranding: React.FC<TenantFormBrandingProps> = ({ formData, onChange }) => {
   const [logoPreview, setLogoPreview] = useState<string | null>(formData.branding?.logo_url || null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showSuggestionsDialog, setShowSuggestionsDialog] = useState(false);
+  const [suggestions, setSuggestions] = useState<Array<{ appName: string; tagLine: string }>>([]);
+
+  const MAX_APP_NAME_LENGTH = 15;
+  const MAX_TAGLINE_LENGTH = 26;
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -69,6 +78,43 @@ export const TenantFormBranding: React.FC<TenantFormBrandingProps> = ({ formData
   const applyTheme = (theme: typeof colorThemes[0]) => {
     onChange?.('branding.primary_color', theme.primary);
     onChange?.('branding.secondary_color', theme.secondary);
+  };
+
+  const handleGenerateSuggestions = async () => {
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-branding-suggestions', {
+        body: {
+          companyName: formData.name || formData.branding?.company_name || '',
+          industry: 'Agriculture/AgriTech',
+          description: formData.description || 'A platform empowering farmers with technology'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.suggestions && data.suggestions.length > 0) {
+        setSuggestions(data.suggestions);
+        setShowSuggestionsDialog(true);
+      } else {
+        toast.error('No suggestions generated');
+      }
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+      toast.error('Failed to generate suggestions', {
+        description: error instanceof Error ? error.message : 'Please try again'
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSelectSuggestion = (suggestion: { appName: string; tagLine: string }) => {
+    onChange?.('branding.app_name', suggestion.appName);
+    onChange?.('branding.app_tagline', suggestion.tagLine);
+    toast.success('Suggestion applied!', {
+      description: `${suggestion.appName} - ${suggestion.tagLine}`
+    });
   };
 
   return (
@@ -111,27 +157,79 @@ export const TenantFormBranding: React.FC<TenantFormBrandingProps> = ({ formData
             </div>
           </div>
 
-          {/* App Name and Tagline - Fixed text input binding */}
-          <div className="grid grid-cols-1 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="app_name">App Name</Label>
-              <Input
-                id="app_name"
-                value={formData.branding?.app_name || ''}
-                onChange={(e) => handleBrandingChange('app_name', e.target.value)}
-                placeholder="KisanShakti AI"
-                className="h-11 focus-visible:ring-primary"
-              />
+          {/* App Name and Tagline with AI Suggestions */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold">App Identity</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateSuggestions}
+                disabled={isGenerating}
+                className="flex items-center gap-2"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    AI Suggest
+                  </>
+                )}
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="app_tagline">App Tagline</Label>
-              <Input
-                id="app_tagline"
-                value={formData.branding?.app_tagline || ''}
-                onChange={(e) => handleBrandingChange('app_tagline', e.target.value)}
-                placeholder="Empowering Farmers with AI Technology"
-                className="h-11 focus-visible:ring-primary"
-              />
+            
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="app_name">App Name</Label>
+                  <span className={`text-xs ${
+                    (formData.branding?.app_name || '').length > MAX_APP_NAME_LENGTH 
+                      ? 'text-destructive' 
+                      : 'text-muted-foreground'
+                  }`}>
+                    {(formData.branding?.app_name || '').length}/{MAX_APP_NAME_LENGTH}
+                  </span>
+                </div>
+                <Input
+                  id="app_name"
+                  value={formData.branding?.app_name || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.substring(0, MAX_APP_NAME_LENGTH);
+                    handleBrandingChange('app_name', value);
+                  }}
+                  placeholder="KisanShakti AI"
+                  className="h-11 focus-visible:ring-primary"
+                  maxLength={MAX_APP_NAME_LENGTH}
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="app_tagline">Tag Line</Label>
+                  <span className={`text-xs ${
+                    (formData.branding?.app_tagline || '').length > MAX_TAGLINE_LENGTH 
+                      ? 'text-destructive' 
+                      : 'text-muted-foreground'
+                  }`}>
+                    {(formData.branding?.app_tagline || '').length}/{MAX_TAGLINE_LENGTH}
+                  </span>
+                </div>
+                <Input
+                  id="app_tagline"
+                  value={formData.branding?.app_tagline || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.substring(0, MAX_TAGLINE_LENGTH);
+                    handleBrandingChange('app_tagline', value);
+                  }}
+                  placeholder="Empowering Farmers with AI"
+                  className="h-11 focus-visible:ring-primary"
+                  maxLength={MAX_TAGLINE_LENGTH}
+                />
+              </div>
             </div>
           </div>
 
@@ -233,6 +331,14 @@ export const TenantFormBranding: React.FC<TenantFormBrandingProps> = ({ formData
         secondaryColor={formData.branding?.secondary_color || '#065F46'}
         appName={formData.branding?.app_name || formData.name || 'KisanShakti AI'}
         appTagline={formData.branding?.app_tagline || 'Empowering Farmers with AI Technology'}
+      />
+
+      {/* Branding Suggestions Dialog */}
+      <BrandingSuggestionsDialog
+        open={showSuggestionsDialog}
+        onOpenChange={setShowSuggestionsDialog}
+        suggestions={suggestions}
+        onSelectSuggestion={handleSelectSuggestion}
       />
     </div>
   );

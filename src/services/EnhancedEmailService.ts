@@ -106,8 +106,11 @@ export class EnhancedEmailService {
       }
       
       // Call edge function to check user existence
-      const { data, error } = await supabase.functions.invoke('check-user-exists', {
-        body: { email: email.trim().toLowerCase() }
+      const { data, error } = await supabase.functions.invoke('user-management', {
+        body: { 
+          operation: 'check-exists',
+          email: email.trim().toLowerCase() 
+        }
       });
 
       if (error) {

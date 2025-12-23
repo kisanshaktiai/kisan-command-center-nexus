@@ -76,6 +76,7 @@ class TenantContextService {
         .from('tenants')
         .select(`
           *,
+          domain_config,
           tenant_branding (*),
           tenant_features (*)
         `)
@@ -90,6 +91,7 @@ class TenantContextService {
         type: data.type as TenantType,
         status: data.status as TenantStatus,
         subscription_plan: data.subscription_plan as SubscriptionPlan,
+        domain_config: data.domain_config as any,
         metadata: (data.metadata as Record<string, any>) || {},
         branding: data.tenant_branding?.[0] || null,
         features: data.tenant_features?.[0] || null,

@@ -1,9 +1,14 @@
 
+import { supabase } from '@/integrations/supabase/client';
+
+export type PortalType = 'public_website' | 'tenant_portal' | 'farmer_app';
+
 export interface DomainMapping {
   tenant_id: string;
-  portal_type: string;
+  portal_type: PortalType;
   branding?: any;
   features?: any;
+  config?: any;
 }
 
 export class DomainRouter {
@@ -11,6 +16,10 @@ export class DomainRouter {
   private static cacheExpiry = new Map<string, number>();
   private static CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+  /**
+   * Get domain mapping for triple domain architecture
+   * Determines which portal type based on the hostname
+   */
   static async getDomainMapping(hostname: string): Promise<DomainMapping | null> {
     // Check cache first
     if (this.domainCache.has(hostname)) {
@@ -21,20 +30,37 @@ export class DomainRouter {
     }
 
     try {
-      // Fetch from database
-      const response = await fetch('/api/internal/domain-mapping', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ hostname })
-      });
+      // Query tenants - use existing schema
+      const { data: tenant, error } = await supabase
+        .from('tenants')
+        .select('id, name, subdomain, custom_domain')
+        .or(`subdomain.eq.${hostname},custom_domain.eq.${hostname}`)
+        .single();
 
-      if (!response.ok) {
+      if (error || !tenant) {
+        console.log('No tenant found for domain:', hostname);
         return null;
       }
 
-      const mapping = await response.json();
+      // Determine portal type based on domain match
+      let portalType: PortalType = 'tenant_portal';
+      if (tenant.custom_domain === hostname) {
+        portalType = 'public_website';
+      }
+
+      // Fetch white_label_configs for full branding
+      const { data: whiteLabelConfig } = await supabase
+        .from('white_label_configs')
+        .select('*')
+        .eq('tenant_id', tenant.id)
+        .single();
+
+      const mapping: DomainMapping = {
+        tenant_id: tenant.id,
+        portal_type: portalType,
+        branding: whiteLabelConfig?.brand_identity || {},
+        config: whiteLabelConfig || null
+      };
       
       // Update cache
       this.domainCache.set(hostname, mapping);

@@ -16,7 +16,7 @@ export function SubscriptionOverview() {
   const { data: billingData, isLoading } = useQuery({
     queryKey: ['subscriptions-overview'],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('tenant-subscriptions-billing', {
+      const { data, error } = await supabase.functions.invoke('tenant-operations?operation=billing', {
         method: 'GET',
       });
 

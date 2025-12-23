@@ -81,8 +81,12 @@ export const TenantDetailsCompact = ({ tenant, onRefresh, isOpen, onClose }: Ten
 
   const handleSendInvite = async () => {
     try {
-      const { error } = await supabase.functions.invoke('send-admin-invite', {
-        body: { tenantId: tenant.id }
+      const { error } = await supabase.functions.invoke('user-invitations', {
+        body: { 
+          action: 'send',
+          invitation_type: 'admin',
+          tenantId: tenant.id 
+        }
       });
       
       if (error) {

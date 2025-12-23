@@ -2,6 +2,7 @@ import { BaseTenantRepository } from './BaseTenantRepository';
 import { ServiceResult } from '@/services/BaseService';
 import { CreateTenantDTO, UpdateTenantDTO } from '@/types/tenant';
 import { supabase } from '@/integrations/supabase/client';
+import { whiteLabelSyncService } from '@/services/WhiteLabelSyncService';
 
 export class TenantRepository extends BaseTenantRepository {
   private static instance: TenantRepository;
@@ -21,6 +22,7 @@ export class TenantRepository extends BaseTenantRepository {
     return this.executeQuery(() => 
       this.buildSelectQuery(`
         *,
+        domain_config,
         tenant_subscriptions (
           id,
           subscription_plan,
@@ -37,6 +39,7 @@ export class TenantRepository extends BaseTenantRepository {
     return this.executeQuery(() => 
       this.buildSelectQuery(`
         *,
+        domain_config,
         tenant_subscriptions (*),
         tenant_features (*),
         tenant_branding (*)
@@ -60,7 +63,43 @@ export class TenantRepository extends BaseTenantRepository {
       
       const { data, error } = await this.buildInsertQuery(finalTenantData).single();
       if (error) throw error;
-      return data;
+      if (!data) throw new Error('No data returned from tenant creation');
+
+      // Type assertion after validation
+      const createdTenant = data as any;
+
+      // Create white_label_config with three-domain architecture (source of truth)
+      const brandingData = {
+        domain_config: tenantData.domain_config || {
+          public_website: {
+            subdomain: null,
+            custom_domain: null,
+            ssl_enabled: true,
+            dns_verified: false,
+            status: 'not_configured'
+          },
+          tenant_portal: {
+            subdomain: null,
+            custom_domain: null,
+            ssl_enabled: true,
+            dns_verified: false,
+            status: 'not_configured'
+          },
+          farmer_app: {
+            subdomain: null,
+            custom_domain: null,
+            ssl_enabled: true,
+            dns_verified: false,
+            status: 'not_configured'
+          }
+        },
+        company_name: tenantData.name,
+        ...(tenantData.metadata as any)?.branding
+      };
+
+      await whiteLabelSyncService.createWhiteLabelConfig(createdTenant.id, brandingData);
+      
+      return createdTenant;
     }, 'createTenant');
   }
 
@@ -86,6 +125,12 @@ export class TenantRepository extends BaseTenantRepository {
       
       const { data, error } = await this.buildUpdateQuery(id, finalUpdateData).single();
       if (error) throw error;
+
+      // Sync domain_config changes to white_label_configs (source of truth) if provided
+      if (finalUpdateData.domain_config) {
+        await whiteLabelSyncService.syncFromTenant(id, finalUpdateData);
+      }
+      
       return data;
     }, 'updateTenant');
   }

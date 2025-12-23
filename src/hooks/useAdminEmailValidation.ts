@@ -34,8 +34,8 @@ export const useAdminEmailValidation = () => {
     try {
       console.log('useAdminEmailValidation: Validating admin email against tenants table:', email);
       
-      const { data, error } = await supabase.functions.invoke('validate-admin-email', {
-        body: { email: email.trim() }
+      const { data, error } = await supabase.functions.invoke('admin-utilities', {
+        body: { operation: 'validate-email', email: email.trim() }
       });
 
       if (error) {

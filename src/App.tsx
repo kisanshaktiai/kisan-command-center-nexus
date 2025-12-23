@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import SuperAdmin from "./pages/SuperAdmin";
 import AdminInviteRoute from "./pages/AdminInviteRoute";
+import AcceptInvitation from "./pages/AcceptInvitation";
 import ResetPassword from "./pages/auth/ResetPassword";
 import ResetPasswordConfirm from "./pages/auth/ResetPasswordConfirm";
 
@@ -27,6 +28,7 @@ function App() {
               <Route path="/auth/reset-password-confirm" element={<ResetPasswordConfirm />} />
               <Route path="/super-admin/*" element={<SuperAdmin />} />
               <Route path="/admin-invite/:token" element={<AdminInviteRoute />} />
+              <Route path="/accept-invitation" element={<AcceptInvitation />} />
             </Routes>
           </BrowserRouter>
         </TooltipProvider>

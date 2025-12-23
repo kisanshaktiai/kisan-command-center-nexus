@@ -59,7 +59,7 @@ export class MonitoringTestService {
       return {
         component: 'Real-time Subscriptions',
         status: 'fail',
-        message: `Real-time subscription failed: ${error.message}`,
+        message: `Real-time subscription failed: ${error instanceof Error ? error.message : String(error)}`,
         duration: Date.now() - startTime
       };
     }
@@ -74,16 +74,22 @@ export class MonitoringTestService {
     // Test system metrics collection
     try {
       const startTime = Date.now();
-      const { error } = await supabase.functions.invoke('collect-system-metrics');
+      console.log('[MonitoringTest] Testing system metrics collection...');
+      
+      const { data, error } = await supabase.functions.invoke('platform-monitoring', {
+        body: { action: 'collect-metrics', metric_type: 'system' }
+      });
       
       if (error) {
+        console.error('[MonitoringTest] System metrics error:', error);
         results.push({
           component: 'System Metrics Collection',
           status: 'fail',
-          message: `System metrics collection failed: ${error.message}`,
+          message: `System metrics collection failed: ${error.message || 'Unknown error'}`,
           duration: Date.now() - startTime
         });
       } else {
+        console.log('[MonitoringTest] System metrics success:', data);
         results.push({
           component: 'System Metrics Collection',
           status: 'pass',
@@ -92,26 +98,33 @@ export class MonitoringTestService {
         });
       }
     } catch (error) {
+      console.error('[MonitoringTest] System metrics exception:', error);
       results.push({
         component: 'System Metrics Collection',
         status: 'fail',
-        message: `System metrics collection error: ${error.message}`
+        message: `System metrics collection error: ${error instanceof Error ? error.message : String(error)}`
       });
     }
 
     // Test resource metrics collection
     try {
       const startTime = Date.now();
-      const { error } = await supabase.functions.invoke('collect-resource-metrics');
+      console.log('[MonitoringTest] Testing resource metrics collection...');
+      
+      const { data, error } = await supabase.functions.invoke('platform-monitoring', {
+        body: { action: 'collect-metrics', metric_type: 'resource' }
+      });
       
       if (error) {
+        console.error('[MonitoringTest] Resource metrics error:', error);
         results.push({
           component: 'Resource Metrics Collection',
           status: 'fail',
-          message: `Resource metrics collection failed: ${error.message}`,
+          message: `Resource metrics collection failed: ${error.message || 'Unknown error'}`,
           duration: Date.now() - startTime
         });
       } else {
+        console.log('[MonitoringTest] Resource metrics success:', data);
         results.push({
           component: 'Resource Metrics Collection',
           status: 'pass',
@@ -120,26 +133,33 @@ export class MonitoringTestService {
         });
       }
     } catch (error) {
+      console.error('[MonitoringTest] Resource metrics exception:', error);
       results.push({
         component: 'Resource Metrics Collection',
         status: 'fail',
-        message: `Resource metrics collection error: ${error.message}`
+        message: `Resource metrics collection error: ${error instanceof Error ? error.message : String(error)}`
       });
     }
 
     // Test financial metrics collection
     try {
       const startTime = Date.now();
-      const { error } = await supabase.functions.invoke('collect-financial-metrics');
+      console.log('[MonitoringTest] Testing financial metrics collection...');
+      
+      const { data, error } = await supabase.functions.invoke('platform-monitoring', {
+        body: { action: 'collect-metrics', metric_type: 'financial' }
+      });
       
       if (error) {
+        console.error('[MonitoringTest] Financial metrics error:', error);
         results.push({
           component: 'Financial Metrics Collection',
           status: 'fail',
-          message: `Financial metrics collection failed: ${error.message}`,
+          message: `Financial metrics collection failed: ${error.message || 'Unknown error'}`,
           duration: Date.now() - startTime
         });
       } else {
+        console.log('[MonitoringTest] Financial metrics success:', data);
         results.push({
           component: 'Financial Metrics Collection',
           status: 'pass',
@@ -148,10 +168,11 @@ export class MonitoringTestService {
         });
       }
     } catch (error) {
+      console.error('[MonitoringTest] Financial metrics exception:', error);
       results.push({
         component: 'Financial Metrics Collection',
         status: 'fail',
-        message: `Financial metrics collection error: ${error.message}`
+        message: `Financial metrics collection error: ${error instanceof Error ? error.message : String(error)}`
       });
     }
 
