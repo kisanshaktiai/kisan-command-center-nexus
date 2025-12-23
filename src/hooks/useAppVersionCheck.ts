@@ -83,47 +83,31 @@ export function useAppVersionCheck(): UseAppVersionCheckResult {
         return;
       }
 
-      // Call edge function via Supabase client
-      const { data, error: fnError } = await supabase.functions.invoke<AppVersionInfo>('app-version', {
-        method: 'GET',
-        body: undefined,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      // If invoke doesn't support query params, fallback to direct fetch
-      if (fnError) {
-        // Fallback: Direct fetch to edge function with query params
-        const response = await fetch(
-          `https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/app-version?app_key=${encodeURIComponent(APP_KEY)}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            // No version registered yet - treat as up-to-date
-            console.log('[useAppVersionCheck] No remote version found, assuming up-to-date');
-            setStatus('up-to-date');
-            setIsLoading(false);
-            return;
-          }
-          throw new Error(`HTTP ${response.status}`);
+      // Direct fetch to edge function with query params
+      // (supabase.functions.invoke doesn't support GET with query params well)
+      const response = await fetch(
+        `https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/app-version?app_key=${encodeURIComponent(APP_KEY)}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         }
+      );
 
-        const versionData: AppVersionInfo = await response.json();
-        processVersionData(versionData);
-        return;
+      if (!response.ok) {
+        if (response.status === 404) {
+          // No version registered yet - treat as up-to-date
+          console.log('[useAppVersionCheck] No remote version found, assuming up-to-date');
+          setStatus('up-to-date');
+          setIsLoading(false);
+          return;
+        }
+        throw new Error(`HTTP ${response.status}`);
       }
 
-      if (data) {
-        processVersionData(data);
-      }
+      const versionData: AppVersionInfo = await response.json();
+      processVersionData(versionData);
 
     } catch (err) {
       console.warn('[useAppVersionCheck] Failed to check version:', err);
