@@ -148,6 +148,9 @@ verify_jwt = false
 [functions.tenant-operations]
 verify_jwt = false
 
+[functions.app-version]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323

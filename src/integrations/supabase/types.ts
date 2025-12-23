@@ -599,6 +599,211 @@ export type Database = {
         }
         Relationships: []
       }
+      advisory_audit_log: {
+        Row: {
+          actions: Json
+          advisory_id: string
+          ai_adjustments: Json | null
+          causes: string[]
+          confidence: number
+          engine_version: string
+          execution_time_ms: number | null
+          farmer_id: string | null
+          farmer_rating: number | null
+          feedback_at: string | null
+          feedback_status: string | null
+          generated_at: string | null
+          generated_offline: boolean | null
+          id: string
+          input_snapshot: Json
+          land_id: string | null
+          reasoning_trace: string[] | null
+          risk_level: string
+          rules_applied: string[]
+          synced_at: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          actions: Json
+          advisory_id: string
+          ai_adjustments?: Json | null
+          causes: string[]
+          confidence: number
+          engine_version: string
+          execution_time_ms?: number | null
+          farmer_id?: string | null
+          farmer_rating?: number | null
+          feedback_at?: string | null
+          feedback_status?: string | null
+          generated_at?: string | null
+          generated_offline?: boolean | null
+          id?: string
+          input_snapshot: Json
+          land_id?: string | null
+          reasoning_trace?: string[] | null
+          risk_level: string
+          rules_applied: string[]
+          synced_at?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          actions?: Json
+          advisory_id?: string
+          ai_adjustments?: Json | null
+          causes?: string[]
+          confidence?: number
+          engine_version?: string
+          execution_time_ms?: number | null
+          farmer_id?: string | null
+          farmer_rating?: number | null
+          feedback_at?: string | null
+          feedback_status?: string | null
+          generated_at?: string | null
+          generated_offline?: boolean | null
+          id?: string
+          input_snapshot?: Json
+          land_id?: string | null
+          reasoning_trace?: string[] | null
+          risk_level?: string
+          rules_applied?: string[]
+          synced_at?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "advisory_audit_log_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "advisory_audit_log_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "advisory_audit_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "advisory_audit_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "advisory_audit_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "advisory_audit_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "advisory_audit_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "advisory_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      advisory_feedback: {
+        Row: {
+          action_id: string
+          actual_input_used: Json | null
+          advisory_id: string
+          cost_incurred: number | null
+          effectiveness_rating: number | null
+          farmer_id: string | null
+          id: string
+          notes: string | null
+          reason: string | null
+          recorded_at: string | null
+          recorded_by: string | null
+          recorded_offline: boolean | null
+          status: string
+          synced_at: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          action_id: string
+          actual_input_used?: Json | null
+          advisory_id: string
+          cost_incurred?: number | null
+          effectiveness_rating?: number | null
+          farmer_id?: string | null
+          id?: string
+          notes?: string | null
+          reason?: string | null
+          recorded_at?: string | null
+          recorded_by?: string | null
+          recorded_offline?: boolean | null
+          status: string
+          synced_at?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          action_id?: string
+          actual_input_used?: Json | null
+          advisory_id?: string
+          cost_incurred?: number | null
+          effectiveness_rating?: number | null
+          farmer_id?: string | null
+          id?: string
+          notes?: string | null
+          reason?: string | null
+          recorded_at?: string | null
+          recorded_by?: string | null
+          recorded_offline?: boolean | null
+          status?: string
+          synced_at?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "advisory_feedback_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "advisory_feedback_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "advisory_feedback_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agri_market_sources: {
         Row: {
           active: boolean | null
@@ -853,6 +1058,8 @@ export type Database = {
       }
       ai_chat_messages: {
         Row: {
+          actions_filtered_out: Json | null
+          actions_returned: Json | null
           agricultural_accuracy: number | null
           agro_climatic_zone: string | null
           ai_model: string | null
@@ -865,6 +1072,7 @@ export type Database = {
           created_at: string
           crop_context: Json | null
           crop_season: string | null
+          decision_brain_source: boolean | null
           domain_tags: string[] | null
           edited_at: string | null
           error_details: Json | null
@@ -876,6 +1084,8 @@ export type Database = {
           human_verified: boolean | null
           id: string
           image_urls: string[] | null
+          inferred_intent: string | null
+          intent_confidence: number | null
           ip_address: unknown
           is_edited: boolean | null
           is_training_candidate: boolean | null
@@ -903,6 +1113,8 @@ export type Database = {
           word_count: number | null
         }
         Insert: {
+          actions_filtered_out?: Json | null
+          actions_returned?: Json | null
           agricultural_accuracy?: number | null
           agro_climatic_zone?: string | null
           ai_model?: string | null
@@ -915,6 +1127,7 @@ export type Database = {
           created_at?: string
           crop_context?: Json | null
           crop_season?: string | null
+          decision_brain_source?: boolean | null
           domain_tags?: string[] | null
           edited_at?: string | null
           error_details?: Json | null
@@ -926,6 +1139,8 @@ export type Database = {
           human_verified?: boolean | null
           id?: string
           image_urls?: string[] | null
+          inferred_intent?: string | null
+          intent_confidence?: number | null
           ip_address?: unknown
           is_edited?: boolean | null
           is_training_candidate?: boolean | null
@@ -953,6 +1168,8 @@ export type Database = {
           word_count?: number | null
         }
         Update: {
+          actions_filtered_out?: Json | null
+          actions_returned?: Json | null
           agricultural_accuracy?: number | null
           agro_climatic_zone?: string | null
           ai_model?: string | null
@@ -965,6 +1182,7 @@ export type Database = {
           created_at?: string
           crop_context?: Json | null
           crop_season?: string | null
+          decision_brain_source?: boolean | null
           domain_tags?: string[] | null
           edited_at?: string | null
           error_details?: Json | null
@@ -976,6 +1194,8 @@ export type Database = {
           human_verified?: boolean | null
           id?: string
           image_urls?: string[] | null
+          inferred_intent?: string | null
+          intent_confidence?: number | null
           ip_address?: unknown
           is_edited?: boolean | null
           is_training_candidate?: boolean | null
@@ -1616,6 +1836,7 @@ export type Database = {
           metadata: Json | null
           min_supported_version: string | null
           release_notes: string | null
+          update_policy: string | null
           version: string
         }
         Insert: {
@@ -1633,6 +1854,7 @@ export type Database = {
           metadata?: Json | null
           min_supported_version?: string | null
           release_notes?: string | null
+          update_policy?: string | null
           version: string
         }
         Update: {
@@ -1650,6 +1872,7 @@ export type Database = {
           metadata?: Json | null
           min_supported_version?: string | null
           release_notes?: string | null
+          update_policy?: string | null
           version?: string
         }
         Relationships: []
@@ -5788,6 +6011,60 @@ export type Database = {
           territory_ids?: string[] | null
           updated_at?: string
           verification_status?: string | null
+        }
+        Relationships: []
+      }
+      decision_rules: {
+        Row: {
+          category: string
+          cause: string
+          conditions_json: Json
+          created_at: string | null
+          crop_code: string | null
+          crop_group: string
+          icar_package: string | null
+          id: string
+          is_active: boolean | null
+          priority: number
+          rule_id: string
+          scientific_source: string | null
+          stage_applicable: string[]
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          category: string
+          cause: string
+          conditions_json: Json
+          created_at?: string | null
+          crop_code?: string | null
+          crop_group: string
+          icar_package?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority: number
+          rule_id: string
+          scientific_source?: string | null
+          stage_applicable: string[]
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          category?: string
+          cause?: string
+          conditions_json?: Json
+          created_at?: string | null
+          crop_code?: string | null
+          crop_group?: string
+          icar_package?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number
+          rule_id?: string
+          scientific_source?: string | null
+          stage_applicable?: string[]
+          updated_at?: string | null
+          version?: string | null
         }
         Relationships: []
       }
