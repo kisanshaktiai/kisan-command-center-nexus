@@ -19,13 +19,15 @@ import {
   Building,
   Package,
   Layers,
-  Satellite
+  Satellite,
+  Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
+import { APP_VERSION, APP_BUILD_HASH } from '@/hooks/useAppVersionCheck';
 
 const navigationItems = [
   {
@@ -220,8 +222,37 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
           </ScrollArea>
         </div>
 
-        {/* Footer - Sign Out */}
-        <div className="border-t border-slate-700 p-4">
+        {/* Footer - Version & Sign Out */}
+        <div className="border-t border-slate-700 p-4 space-y-3">
+          {/* Version Display */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  to="/health/version"
+                  className={cn(
+                    "flex items-center gap-2 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer rounded-lg p-2 hover:bg-slate-700/30",
+                    !isOpen && "justify-center"
+                  )}
+                >
+                  <Info className="w-3.5 h-3.5 flex-shrink-0" />
+                  {isOpen && (
+                    <span className="font-mono">
+                      v{APP_VERSION} <span className="text-slate-500">({APP_BUILD_HASH.slice(0, 7)})</span>
+                    </span>
+                  )}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="ml-2">
+                <div className="text-xs">
+                  <p>Version: {APP_VERSION}</p>
+                  <p className="text-muted-foreground">Build: {APP_BUILD_HASH}</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* Sign Out Button */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
