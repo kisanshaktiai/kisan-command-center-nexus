@@ -1,0 +1,96 @@
+name: Deploy Admin (Hostinger)
+
+on:
+  push:
+    branches: [ main, production ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # --------------------------------------------------
+      # Checkout source
+      # --------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------
+      # Setup Node.js
+      # --------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # --------------------------------------------------
+      # Install & Build
+      # --------------------------------------------------
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      # --------------------------------------------------
+      # Deploy via SCP (SSH key, forced-command SAFE)
+      # --------------------------------------------------
+      - name: Deploy via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ADMIN_SSH_HOST }}
+          username: ${{ secrets.ADMIN_SSH_USER }}
+          key: ${{ secrets.ADMIN_SSH_KEY }}
+          port: ${{ secrets.ADMIN_SSH_PORT }}
+
+          # Upload build output
+          source: "dist/*"
+          target: ${{ secrets.ADMIN_REMOTE_DIR }}
+
+          # Prevent nesting dist/dist
+          strip_components: 1
+
+      # --------------------------------------------------
+      # Register version in Supabase
+      # --------------------------------------------------
+      - name: Register version in Supabase
+        if: success()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD_HASH: ${{ steps.version.outputs.build_hash }}
+        run: |
+          curl -X POST "$SUPABASE_URL/rest/v1/app_versions" \
+            -H "apikey: $SERVICE_KEY" \
+            -H "Authorization: Bearer $SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d '{
+              "app_key": "'"$APP_KEY"'",
+              "version": "'"$VERSION"'",
+              "build_hash": "'"$BUILD_HASH"'",
+              "is_current": true,
+              "deployed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
+              "metadata": {
+                "repo": "'"$GITHUB_REPOSITORY"'",
+                "commit": "'"$GITHUB_SHA"'",
+                "actor": "'"$GITHUB_ACTOR"'",
+                "workflow": "'"$GITHUB_WORKFLOW"'"
+              }
+            }'
+
+      # --------------------------------------------------
+      # Success message
+      # --------------------------------------------------
+      - name: Deployment success
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Admin panel deployed successfully"
+          echo "App Version Updated"
+          echo "🌍 Subdomain: admin.kisanshakti.in"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
