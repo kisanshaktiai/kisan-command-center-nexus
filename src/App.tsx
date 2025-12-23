@@ -11,6 +11,8 @@ import AdminInviteRoute from "./pages/AdminInviteRoute";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import ResetPassword from "./pages/auth/ResetPassword";
 import ResetPasswordConfirm from "./pages/auth/ResetPasswordConfirm";
+import HealthVersion from "./pages/HealthVersion";
+import { UpdateBanner } from "./components/version/UpdateBanner";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +22,7 @@ function App() {
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
+          <UpdateBanner />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
@@ -29,6 +32,7 @@ function App() {
               <Route path="/super-admin/*" element={<SuperAdmin />} />
               <Route path="/admin-invite/:token" element={<AdminInviteRoute />} />
               <Route path="/accept-invitation" element={<AcceptInvitation />} />
+              <Route path="/health/version" element={<HealthVersion />} />
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
