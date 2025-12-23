@@ -18,25 +18,41 @@ jobs:
         uses: actions/checkout@v4
 
       # --------------------------------------------------
-      # Setup Node.js
+      # Setup Node.js (lockfile-safe caching)
       # --------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: package-lock.json
 
       # --------------------------------------------------
-      # Install & Build
+      # Install dependencies (STRICT, reproducible)
       # --------------------------------------------------
       - name: Install dependencies
         run: npm ci
 
+      # --------------------------------------------------
+      # Build project (Vite → dist/)
+      # --------------------------------------------------
       - name: Build project
         run: npm run build
 
       # --------------------------------------------------
-      # Deploy via SCP (SSH key, forced-command SAFE)
+      # Generate version + build hash (FIXED)
+      # --------------------------------------------------
+      - name: Generate app version info
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          BUILD_HASH=$(git rev-parse --short HEAD)
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_hash=$BUILD_HASH" >> $GITHUB_OUTPUT
+
+      # --------------------------------------------------
+      # Deploy via SCP (Hostinger)
       # --------------------------------------------------
       - name: Deploy via SCP
         uses: appleboy/scp-action@v0.1.7
@@ -46,11 +62,10 @@ jobs:
           key: ${{ secrets.ADMIN_SSH_KEY }}
           port: ${{ secrets.ADMIN_SSH_PORT }}
 
-          # Upload build output
           source: "dist/*"
           target: ${{ secrets.ADMIN_REMOTE_DIR }}
 
-          # Prevent nesting dist/dist
+          # Prevent dist/dist nesting
           strip_components: 1
 
       # --------------------------------------------------
@@ -61,7 +76,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          APP_KEY: ${{ secrets.APP_KEY }}
+          APP_KEY: ${{ secrets.APP_KEY }}   # e.g. ADMIN_APP
           VERSION: ${{ steps.version.outputs.version }}
           BUILD_HASH: ${{ steps.version.outputs.build_hash }}
         run: |
@@ -91,6 +106,7 @@ jobs:
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Admin panel deployed successfully"
-          echo "App Version Updated"
-          echo "🌍 Subdomain: admin.kisanshakti.in"
+          echo "📦 Version: ${{ steps.version.outputs.version }}"
+          echo "🔖 Build:   ${{ steps.version.outputs.build_hash }}"
+          echo "🌍 URL: https://admin.kisanshakti.in"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
