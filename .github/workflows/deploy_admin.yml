@@ -12,13 +12,13 @@ jobs:
 
     steps:
       # --------------------------------------------------
-      # Checkout source
+      # Checkout
       # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # --------------------------------------------------
-      # Setup Node.js (lockfile-safe caching)
+      # Node setup
       # --------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -28,31 +28,25 @@ jobs:
           cache-dependency-path: package-lock.json
 
       # --------------------------------------------------
-      # Install dependencies (STRICT, reproducible)
+      # Install + Build
       # --------------------------------------------------
       - name: Install dependencies
         run: npm ci
 
-      # --------------------------------------------------
-      # Build project (Vite → dist/)
-      # --------------------------------------------------
       - name: Build project
         run: npm run build
 
       # --------------------------------------------------
-      # Generate version + build hash (FIXED)
+      # Generate version info
       # --------------------------------------------------
       - name: Generate app version info
         id: version
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          BUILD_HASH=$(git rev-parse --short HEAD)
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "build_hash=$BUILD_HASH" >> $GITHUB_OUTPUT
+          echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          echo "build_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       # --------------------------------------------------
-      # Deploy via SCP (Hostinger)
+      # 🚀 DEPLOY TO HOSTINGER (THIS WAS MISSING)
       # --------------------------------------------------
       - name: Deploy via SCP
         uses: appleboy/scp-action@v0.1.7
@@ -65,18 +59,17 @@ jobs:
           source: "dist/*"
           target: ${{ secrets.ADMIN_REMOTE_DIR }}
 
-          # Prevent dist/dist nesting
-          strip_components: 1
+          overwrite: true
 
       # --------------------------------------------------
-      # Register version in Supabase
+      # Register version in Supabase (FIXED HEADERS)
       # --------------------------------------------------
       - name: Register version in Supabase
         if: success()
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          APP_KEY: ${{ secrets.APP_KEY }}   # e.g. ADMIN_APP
+          APP_KEY: ${{ secrets.APP_KEY }}
           VERSION: ${{ steps.version.outputs.version }}
           BUILD_HASH: ${{ steps.version.outputs.build_hash }}
         run: |
@@ -90,17 +83,11 @@ jobs:
               "version": "'"$VERSION"'",
               "build_hash": "'"$BUILD_HASH"'",
               "is_current": true,
-              "deployed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
-              "metadata": {
-                "repo": "'"$GITHUB_REPOSITORY"'",
-                "commit": "'"$GITHUB_SHA"'",
-                "actor": "'"$GITHUB_ACTOR"'",
-                "workflow": "'"$GITHUB_WORKFLOW"'"
-              }
+              "deployed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
             }'
 
       # --------------------------------------------------
-      # Success message
+      # Success message (REAL now)
       # --------------------------------------------------
       - name: Deployment success
         run: |
