@@ -36,20 +36,40 @@ jobs:
       - name: Build project
         run: npm run build
 
-      
       # --------------------------------------------------
-      # Generate version info
+      # Generate build hash
       # --------------------------------------------------
-      - name: Generate app version info
-        id: version
+      - name: Generate build hash
+        id: build
         run: |
-          echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
           echo "build_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       # --------------------------------------------------
-      # 🚀 DEPLOY TO HOSTINGER (THIS WAS MISSING)
+      # 🔢 Compute NEXT semantic version (AUTO INCREMENT)
       # --------------------------------------------------
-      - name: Deploy via SCP
+      - name: Compute next version
+        id: next_version
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          APP_KEY: admin_portal
+        run: |
+          LAST_VERSION=$(curl -s \
+            "$SUPABASE_URL/rest/v1/app_versions?app_key=eq.$APP_KEY&select=version&order=created_at.desc&limit=1" \
+            -H "apikey: $SERVICE_KEY" \
+            -H "Authorization: Bearer $SERVICE_KEY" \
+            | jq -r '.[0].version // "1.0.0"')
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$LAST_VERSION"
+          PATCH=$((PATCH + 1))
+          NEXT_VERSION="$MAJOR.$MINOR.$PATCH"
+
+          echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+
+      # --------------------------------------------------
+      # 🚀 Deploy to Hostinger (NO dist folder)
+      # --------------------------------------------------
+      - name: Deploy Admin via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.ADMIN_SSH_HOST }}
@@ -59,10 +79,12 @@ jobs:
 
           source: "dist/*"
           target: ${{ secrets.ADMIN_REMOTE_DIR }}
-          strip_components: 1   # 🔴 THIS LINE IS THE FIX
+
+          strip_components: 1
           overwrite: true
+
       # --------------------------------------------------
-      # Register version in Supabase (UPSERT)
+      # 🧾 Register version in Supabase (UPSERT)
       # --------------------------------------------------
       - name: Register version in Supabase
         if: success()
@@ -70,8 +92,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           APP_KEY: admin_portal
-          VERSION: ${{ steps.version.outputs.version }}
-          BUILD_HASH: ${{ steps.version.outputs.build_hash }}
+          VERSION: ${{ steps.next_version.outputs.version }}
+          BUILD_HASH: ${{ steps.build.outputs.build_hash }}
         run: |
           curl -X POST "$SUPABASE_URL/rest/v1/app_versions?on_conflict=build_hash" \
             -H "apikey: $SERVICE_KEY" \
@@ -90,16 +112,16 @@ jobs:
                 "run_id": "'"$GITHUB_RUN_ID"'"
               }
             }'
-            
+
       # --------------------------------------------------
-      # Mark version as current
+      # ⭐ Mark this version as CURRENT (trigger-safe)
       # --------------------------------------------------
       - name: Mark version as current
         if: success()
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          BUILD_HASH: ${{ steps.version.outputs.build_hash }}
+          BUILD_HASH: ${{ steps.build.outputs.build_hash }}
         run: |
           curl -X PATCH "$SUPABASE_URL/rest/v1/app_versions?build_hash=eq.$BUILD_HASH" \
             -H "apikey: $SERVICE_KEY" \
@@ -108,15 +130,14 @@ jobs:
             -H "Prefer: return=minimal" \
             -d '{ "is_current": true }'
 
-           
       # --------------------------------------------------
-      # Success message (REAL now)
+      # Success message
       # --------------------------------------------------
       - name: Deployment success
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Admin panel deployed successfully"
-          echo "📦 Version: ${{ steps.version.outputs.version }}"
-          echo "🔖 Build:   ${{ steps.version.outputs.build_hash }}"
+          echo "📦 Version: ${{ steps.next_version.outputs.version }}"
+          echo "🔖 Build:   ${{ steps.build.outputs.build_hash }}"
           echo "🌍 URL: https://admin.kisanshakti.in"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
