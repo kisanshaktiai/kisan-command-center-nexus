@@ -65,7 +65,7 @@ jobs:
       # --------------------------------------------------
       # Register version in Supabase (FIXED HEADERS)
       # --------------------------------------------------
-      - name: Register version in Supabase
+      - name: Register version in Supabase (upsert)
         if: success()
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -83,7 +83,6 @@ jobs:
               "app_key": "'"$APP_KEY"'",
               "version": "'"$VERSION"'",
               "build_hash": "'"$BUILD_HASH"'",
-              "is_current": true,
               "deployed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
               "metadata": {
                 "repo": "'"$GITHUB_REPOSITORY"'",
