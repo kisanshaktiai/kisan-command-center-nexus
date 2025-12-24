@@ -36,14 +36,7 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Debug – show dist content
-        run: |
-            echo "PWD:"
-            pwd
-            echo "DIST CONTENT:"
-            ls -lah dist
-
-
+      
       # --------------------------------------------------
       # Generate version info
       # --------------------------------------------------
