@@ -92,6 +92,21 @@ jobs:
               }
             }'
 
+          - name: Mark version as current
+            if: success()
+            env:
+              SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+              SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+              BUILD_HASH: ${{ steps.version.outputs.build_hash }}
+            run: |
+              curl -X PATCH "$SUPABASE_URL/rest/v1/app_versions?build_hash=eq.$BUILD_HASH" \
+                -H "apikey: $SERVICE_KEY" \
+                -H "Authorization: Bearer $SERVICE_KEY" \
+                -H "Content-Type: application/json" \
+                -H "Prefer: return=minimal" \
+                -d '{ "is_current": true }'
+
+      
       # --------------------------------------------------
       # Success message (REAL now)
       # --------------------------------------------------
