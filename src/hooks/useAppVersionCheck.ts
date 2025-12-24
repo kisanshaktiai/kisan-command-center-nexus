@@ -2,8 +2,7 @@
  * useAppVersionCheck - Hook for checking app version updates
  * 
  * Behavior:
- * - Fetches /api/app-version from edge function
- * - Compares with current app version from build
+ * - Fetches version directly from app_versions table
  * - Returns update status and actions
  * 
  * Does NOT block initial render - runs in background.
@@ -12,10 +11,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-// Version info injected at build time
-const CURRENT_VERSION = import.meta.env.VITE_APP_VERSION || '0.0.0';
-const BUILD_HASH = import.meta.env.VITE_BUILD_HASH || 'dev';
-const APP_KEY = import.meta.env.VITE_APP_KEY || 'USER_APP';
+// App key for this portal - defaults to admin_portal for super admin
+const APP_KEY = import.meta.env.VITE_APP_KEY || 'admin_portal';
 
 // Types for version response
 interface AppVersionInfo {
@@ -48,23 +45,10 @@ interface UseAppVersionCheckResult {
   checkForUpdates: () => Promise<void>;
 }
 
-/**
- * Compare semantic versions (semver)
- * Returns: -1 if a < b, 0 if equal, 1 if a > b
- */
-function compareVersions(a: string, b: string): number {
-  const normalize = (v: string) => v.replace(/^v/, '').split('.').map(Number);
-  const [aMajor = 0, aMinor = 0, aPatch = 0] = normalize(a);
-  const [bMajor = 0, bMinor = 0, bPatch = 0] = normalize(b);
-
-  if (aMajor !== bMajor) return aMajor < bMajor ? -1 : 1;
-  if (aMinor !== bMinor) return aMinor < bMinor ? -1 : 1;
-  if (aPatch !== bPatch) return aPatch < bPatch ? -1 : 1;
-  return 0;
-}
-
 export function useAppVersionCheck(): UseAppVersionCheckResult {
   const [status, setStatus] = useState<UpdateStatus>('checking');
+  const [currentVersion, setCurrentVersion] = useState<string>('0.0.0');
+  const [buildHash, setBuildHash] = useState<string>('dev');
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [updatePolicy, setUpdatePolicy] = useState<'OPTIONAL' | 'RECOMMENDED' | 'FORCED' | null>(null);
   const [releaseNotes, setReleaseNotes] = useState<string | null>(null);
@@ -83,31 +67,40 @@ export function useAppVersionCheck(): UseAppVersionCheckResult {
         return;
       }
 
-      // Direct fetch to edge function with query params
-      // (supabase.functions.invoke doesn't support GET with query params well)
-      const response = await fetch(
-        `https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/app-version?app_key=${encodeURIComponent(APP_KEY)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      // Fetch version directly from database
+      const { data, error: dbError } = await supabase
+        .from('app_versions')
+        .select('app_key, version, build_hash, deployed_at, update_policy, min_supported_version, release_notes')
+        .eq('app_key', APP_KEY)
+        .eq('is_current', true)
+        .maybeSingle();
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          // No version registered yet - treat as up-to-date
-          console.log('[useAppVersionCheck] No remote version found, assuming up-to-date');
-          setStatus('up-to-date');
-          setIsLoading(false);
-          return;
-        }
-        throw new Error(`HTTP ${response.status}`);
+      if (dbError) {
+        console.error('[useAppVersionCheck] Database error:', dbError);
+        throw new Error(dbError.message);
       }
 
-      const versionData: AppVersionInfo = await response.json();
-      processVersionData(versionData);
+      if (!data) {
+        // No version registered yet
+        console.log('[useAppVersionCheck] No version found for app_key:', APP_KEY);
+        setStatus('up-to-date');
+        setIsLoading(false);
+        return;
+      }
+
+      // Set version info from database
+      setCurrentVersion(data.version);
+      setBuildHash(data.build_hash);
+      setLatestVersion(data.version);
+      setUpdatePolicy((data.update_policy as 'OPTIONAL' | 'RECOMMENDED' | 'FORCED') || 'OPTIONAL');
+      setReleaseNotes(data.release_notes || null);
+      setStatus('up-to-date');
+
+      console.log('[useAppVersionCheck] Version loaded:', {
+        app_key: APP_KEY,
+        version: data.version,
+        build_hash: data.build_hash,
+      });
 
     } catch (err) {
       console.warn('[useAppVersionCheck] Failed to check version:', err);
@@ -118,64 +111,21 @@ export function useAppVersionCheck(): UseAppVersionCheckResult {
     }
   }, []);
 
-  const processVersionData = (versionData: AppVersionInfo) => {
-    setLatestVersion(versionData.version);
-    setUpdatePolicy(versionData.update_policy);
-    setReleaseNotes(versionData.release_notes || null);
-
-    // Check if current version is below minimum supported
-    if (versionData.min_supported_version) {
-      const comparison = compareVersions(CURRENT_VERSION, versionData.min_supported_version);
-      if (comparison < 0) {
-        console.warn('[useAppVersionCheck] App version below minimum supported:', {
-          current: CURRENT_VERSION,
-          minSupported: versionData.min_supported_version,
-        });
-        setStatus('update-required');
-        return;
-      }
-    }
-
-    // Compare current version with latest
-    const versionComparison = compareVersions(CURRENT_VERSION, versionData.version);
-    
-    if (versionComparison < 0) {
-      // Current is older than latest
-      console.log('[useAppVersionCheck] Update available:', {
-        current: CURRENT_VERSION,
-        latest: versionData.version,
-        policy: versionData.update_policy,
-      });
-      setStatus('update-available');
-    } else {
-      // Up to date or ahead (development)
-      console.log('[useAppVersionCheck] App is up-to-date:', CURRENT_VERSION);
-      setStatus('up-to-date');
-    }
-  };
-
   // Check on mount (non-blocking)
   useEffect(() => {
     // Delay initial check to not block render
     const timer = setTimeout(() => {
       checkForUpdates();
-    }, 1000);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [checkForUpdates]);
 
-  // Log version in development
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.log(`App Version: ${CURRENT_VERSION} (build ${BUILD_HASH})`);
-    }
-  }, []);
-
   return {
     status,
-    currentVersion: CURRENT_VERSION,
+    currentVersion,
     latestVersion,
-    buildHash: BUILD_HASH,
+    buildHash,
     updatePolicy,
     releaseNotes,
     isLoading,
@@ -184,6 +134,6 @@ export function useAppVersionCheck(): UseAppVersionCheckResult {
   };
 }
 
-// Export version constants for external use
-export const APP_VERSION = CURRENT_VERSION;
-export const APP_BUILD_HASH = BUILD_HASH;
+// Export version constants that update from hook state
+export const APP_VERSION = '0.0.0'; // Fallback, actual version comes from hook
+export const APP_BUILD_HASH = 'dev'; // Fallback, actual hash comes from hook

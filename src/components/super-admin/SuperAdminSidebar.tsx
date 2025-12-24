@@ -27,7 +27,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
-import { APP_VERSION, APP_BUILD_HASH } from '@/hooks/useAppVersionCheck';
+import { useAppVersionCheck } from '@/hooks/useAppVersionCheck';
 
 const navigationItems = [
   {
@@ -76,6 +76,7 @@ interface SuperAdminSidebarProps {
 
 export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }: SuperAdminSidebarProps) {
   const { signOut } = useAuth();
+  const { currentVersion, buildHash } = useAppVersionCheck();
   const [openGroups, setOpenGroups] = useState<string[]>(['Platform Management']);
   const location = useLocation();
 
@@ -238,15 +239,15 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
                   <Info className="w-3.5 h-3.5 flex-shrink-0" />
                   {isOpen && (
                     <span className="font-mono">
-                      v{APP_VERSION} <span className="text-slate-500">({APP_BUILD_HASH.slice(0, 7)})</span>
+                      v{currentVersion} <span className="text-slate-500">({buildHash.slice(0, 7)})</span>
                     </span>
                   )}
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="right" className="ml-2">
                 <div className="text-xs">
-                  <p>Version: {APP_VERSION}</p>
-                  <p className="text-muted-foreground">Build: {APP_BUILD_HASH}</p>
+                  <p>Version: {currentVersion}</p>
+                  <p className="text-muted-foreground">Build: {buildHash}</p>
                 </div>
               </TooltipContent>
             </Tooltip>

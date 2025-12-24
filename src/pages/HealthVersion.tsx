@@ -5,7 +5,7 @@
  * Useful for debugging and verification during deployments.
  */
 
-import { useAppVersionCheck, APP_VERSION, APP_BUILD_HASH } from '@/hooks/useAppVersionCheck';
+import { useAppVersionCheck } from '@/hooks/useAppVersionCheck';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -150,9 +150,9 @@ export default function HealthVersion() {
             <pre className="p-4 bg-muted rounded-md text-xs font-mono overflow-auto">
 {JSON.stringify({
   environment: import.meta.env.MODE,
-  version: APP_VERSION,
-  buildHash: APP_BUILD_HASH,
-  appKey: import.meta.env.VITE_APP_KEY || 'USER_APP',
+  version: currentVersion,
+  buildHash: buildHash,
+  appKey: import.meta.env.VITE_APP_KEY || 'admin_portal',
   status,
   latestVersion,
   updatePolicy,
