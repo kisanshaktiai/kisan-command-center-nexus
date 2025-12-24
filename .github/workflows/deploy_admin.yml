@@ -59,7 +59,7 @@ jobs:
 
           source: "dist/*"
           target: ${{ secrets.ADMIN_REMOTE_DIR }}
-
+          strip_components: 1   # 🔴 THIS LINE IS THE FIX
           overwrite: true
 
       # --------------------------------------------------
@@ -70,21 +70,27 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          APP_KEY: ${{ secrets.APP_KEY }}
+          APP_KEY: admin_portal
           VERSION: ${{ steps.version.outputs.version }}
           BUILD_HASH: ${{ steps.version.outputs.build_hash }}
         run: |
-          curl -X POST "$SUPABASE_URL/rest/v1/app_versions" \
+          curl -X POST "$SUPABASE_URL/rest/v1/app_versions?on_conflict=build_hash" \
             -H "apikey: $SERVICE_KEY" \
             -H "Authorization: Bearer $SERVICE_KEY" \
             -H "Content-Type: application/json" \
-            -H "Prefer: return=minimal" \
+            -H "Prefer: resolution=merge-duplicates,return=minimal" \
             -d '{
               "app_key": "'"$APP_KEY"'",
               "version": "'"$VERSION"'",
               "build_hash": "'"$BUILD_HASH"'",
               "is_current": true,
-              "deployed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+              "deployed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
+              "metadata": {
+                "repo": "'"$GITHUB_REPOSITORY"'",
+                "commit": "'"$GITHUB_SHA"'",
+                "workflow": "'"$GITHUB_WORKFLOW"'",
+                "run_id": "'"$GITHUB_RUN_ID"'"
+              }
             }'
 
       # --------------------------------------------------
