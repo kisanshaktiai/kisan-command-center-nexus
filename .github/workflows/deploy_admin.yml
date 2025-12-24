@@ -95,6 +95,8 @@ jobs:
           VERSION: ${{ steps.next_version.outputs.version }}
           BUILD_HASH: ${{ steps.build.outputs.build_hash }}
         run: |
+          RELEASE_NOTES=$(git log -1 --pretty=%B | sed ':a;N;$!ba;s/\n/ /g')
+      
           curl -X POST "$SUPABASE_URL/rest/v1/app_versions?on_conflict=build_hash" \
             -H "apikey: $SERVICE_KEY" \
             -H "Authorization: Bearer $SERVICE_KEY" \
@@ -104,6 +106,10 @@ jobs:
               "app_key": "'"$APP_KEY"'",
               "version": "'"$VERSION"'",
               "build_hash": "'"$BUILD_HASH"'",
+              "release_notes": "'"$RELEASE_NOTES"'",
+              "features_added": [],
+              "bugs_fixed": [],
+              "breaking_changes": [],
               "deployed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
               "metadata": {
                 "repo": "'"$GITHUB_REPOSITORY"'",
@@ -112,6 +118,7 @@ jobs:
                 "run_id": "'"$GITHUB_RUN_ID"'"
               }
             }'
+
 
       # --------------------------------------------------
       # ⭐ Mark this version as CURRENT (trigger-safe)
