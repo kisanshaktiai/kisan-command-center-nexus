@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, CheckCircle, AlertTriangle, XCircle, Wifi, WifiOff, Loader2 } from 'lucide-react';
 
 export default function HealthVersion() {
+  const appKey = 'admin_portal';
   const {
     status,
     currentVersion,
@@ -22,7 +23,7 @@ export default function HealthVersion() {
     isLoading,
     error,
     checkForUpdates,
-  } = useAppVersionCheck();
+  } = useAppVersionCheck(appKey);
 
   // Status badge config
   const statusConfig = {
@@ -152,7 +153,7 @@ export default function HealthVersion() {
   environment: import.meta.env.MODE,
   version: currentVersion,
   buildHash: buildHash,
-  appKey: import.meta.env.VITE_APP_KEY || 'admin_portal',
+  appKey,
   status,
   latestVersion,
   updatePolicy,

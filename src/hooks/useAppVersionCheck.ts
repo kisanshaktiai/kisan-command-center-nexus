@@ -1,18 +1,17 @@
 /**
  * useAppVersionCheck - Hook for checking app version updates
- * 
+ *
  * Behavior:
- * - Fetches version directly from app_versions table
- * - Returns update status and actions
- * 
+ * - Fetches the active version for a given `app_key` from `app_versions`
+ * - Returns version info and update status/actions
+ *
  * Does NOT block initial render - runs in background.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-// App key for this portal - defaults to admin_portal for super admin
-const APP_KEY = import.meta.env.VITE_APP_KEY || 'admin_portal';
+const DEFAULT_APP_KEY = 'admin_portal';
 
 // Types for version response
 interface AppVersionInfo {
@@ -25,13 +24,13 @@ interface AppVersionInfo {
   release_notes?: string | null;
 }
 
-type UpdateStatus = 
-  | 'checking'      // Initial state, fetching version
-  | 'up-to-date'    // Current version matches latest
+type UpdateStatus =
+  | 'checking' // Initial state, fetching version
+  | 'up-to-date' // Current version matches latest
   | 'update-available' // New version exists but not required
-  | 'update-required'  // Version below min_supported_version
-  | 'error'         // Failed to check
-  | 'offline';      // Network unavailable
+  | 'update-required' // Version below min_supported_version
+  | 'error' // Failed to check
+  | 'offline'; // Network unavailable
 
 interface UseAppVersionCheckResult {
   status: UpdateStatus;
@@ -45,10 +44,10 @@ interface UseAppVersionCheckResult {
   checkForUpdates: () => Promise<void>;
 }
 
-export function useAppVersionCheck(): UseAppVersionCheckResult {
+export function useAppVersionCheck(appKey: string = DEFAULT_APP_KEY): UseAppVersionCheckResult {
   const [status, setStatus] = useState<UpdateStatus>('checking');
-  const [currentVersion, setCurrentVersion] = useState<string>('0.0.0');
-  const [buildHash, setBuildHash] = useState<string>('dev');
+  const [currentVersion, setCurrentVersion] = useState<string>('');
+  const [buildHash, setBuildHash] = useState<string>('');
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [updatePolicy, setUpdatePolicy] = useState<'OPTIONAL' | 'RECOMMENDED' | 'FORCED' | null>(null);
   const [releaseNotes, setReleaseNotes] = useState<string | null>(null);
@@ -67,11 +66,11 @@ export function useAppVersionCheck(): UseAppVersionCheckResult {
         return;
       }
 
-      // Fetch version directly from database
+      // Fetch active version directly from database
       const { data, error: dbError } = await supabase
         .from('app_versions')
         .select('app_key, version, build_hash, deployed_at, update_policy, min_supported_version, release_notes')
-        .eq('app_key', APP_KEY)
+        .eq('app_key', appKey)
         .eq('is_current', true)
         .maybeSingle();
 
@@ -82,7 +81,10 @@ export function useAppVersionCheck(): UseAppVersionCheckResult {
 
       if (!data) {
         // No version registered yet
-        console.log('[useAppVersionCheck] No version found for app_key:', APP_KEY);
+        console.log('[useAppVersionCheck] No version found for app_key:', appKey);
+        setLatestVersion(null);
+        setUpdatePolicy(null);
+        setReleaseNotes(null);
         setStatus('up-to-date');
         setIsLoading(false);
         return;
@@ -97,11 +99,10 @@ export function useAppVersionCheck(): UseAppVersionCheckResult {
       setStatus('up-to-date');
 
       console.log('[useAppVersionCheck] Version loaded:', {
-        app_key: APP_KEY,
+        app_key: appKey,
         version: data.version,
         build_hash: data.build_hash,
       });
-
     } catch (err) {
       console.warn('[useAppVersionCheck] Failed to check version:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -109,7 +110,7 @@ export function useAppVersionCheck(): UseAppVersionCheckResult {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [appKey]);
 
   // Check on mount (non-blocking)
   useEffect(() => {
@@ -134,6 +135,7 @@ export function useAppVersionCheck(): UseAppVersionCheckResult {
   };
 }
 
-// Export version constants that update from hook state
-export const APP_VERSION = '0.0.0'; // Fallback, actual version comes from hook
-export const APP_BUILD_HASH = 'dev'; // Fallback, actual hash comes from hook
+// Legacy exports kept for backwards compatibility. Prefer the hook state instead.
+export const APP_VERSION = '';
+export const APP_BUILD_HASH = '';
+

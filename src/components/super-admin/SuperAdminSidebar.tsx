@@ -76,7 +76,10 @@ interface SuperAdminSidebarProps {
 
 export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }: SuperAdminSidebarProps) {
   const { signOut } = useAuth();
-  const { currentVersion, buildHash } = useAppVersionCheck();
+  const appKey = 'admin_portal';
+  const { currentVersion, buildHash, isLoading } = useAppVersionCheck(appKey);
+  const versionLabel = currentVersion ? `v${currentVersion}` : isLoading ? 'v…' : 'v—';
+  const buildLabel = buildHash ? buildHash.slice(0, 7) : isLoading ? '…' : '—';
   const [openGroups, setOpenGroups] = useState<string[]>(['Platform Management']);
   const location = useLocation();
 
@@ -239,15 +242,15 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
                   <Info className="w-3.5 h-3.5 flex-shrink-0" />
                   {isOpen && (
                     <span className="font-mono">
-                      v{currentVersion} <span className="text-slate-500">({buildHash.slice(0, 7)})</span>
+                      {versionLabel} <span className="text-slate-500">({buildLabel})</span>
                     </span>
                   )}
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="right" className="ml-2">
                 <div className="text-xs">
-                  <p>Version: {currentVersion}</p>
-                  <p className="text-muted-foreground">Build: {buildHash}</p>
+                  <p>Version: {currentVersion || (isLoading ? '…' : '—')}</p>
+                  <p className="text-muted-foreground">Build: {buildHash || (isLoading ? '…' : '—')}</p>
                 </div>
               </TooltipContent>
             </Tooltip>
