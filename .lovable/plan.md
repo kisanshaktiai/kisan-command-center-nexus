@@ -1,81 +1,116 @@
-# NDVI Codebase Audit & Cleanup Plan
+## NDVI Data Audit + Admin Analytics Enhancement
 
-## Findings (verified against live DB)
+### A. NDVI Tables — Inventory & Audit (current state)
 
-### Production NDVI pipeline (the one actually in use)
-Three cron jobs run on the Supabase project and feed all NDVI data. **None live in this admin codebase.**
-
-| Cron job | Schedule | Calls function |
-|---|---|---|
-| `weekly-ndvi-auto-sync` | `0 2 * * 1` (weekly Mon 02:00) | `weekly-ndvi-sync` |
-| `mark-agricultural-tiles-every-5min` | `*/5 * * * *` | `mark-agricultural-tiles` |
-| `proactive-evaluator-cron` | `*/15 5-21 * * *` | `proactive-evaluator` |
-
-### Data activity (last 14 days)
-| Table | Rows | Last write | Written by |
+| Table | Rows | Status | Verdict |
 |---|---|---|---|
-| `ndvi_data` | 2,060 | **2026-04-25** (today) | `weekly-ndvi-sync` (sentinel-2, 215 rows / 14d) |
-| `ndvi_processing_logs` | 6,477 | **2026-04-25** | `weekly-ndvi-sync` |
-| `ndvi_request_queue` | 20 | **2026-03-08** (failed) | this admin codebase — last 3 entries all `status=failed` ("Land not found") |
-| `ndvi_micro_tiles` | 3 | 2025-12-16 | stale |
-| `satellite_tiles` | 16 | 2025-12-01 | `mark-agricultural-tiles` |
-| `satellite_imagery` | 0 | never | dead |
-| `satellite_api_usage` | 0 | never | dead |
+| `ndvi_data` | **2,060** (31 lands, 1 tenant, 19-Dec-2025 → 25-Apr-2026) | **LIVE** — primary time-series | Source of truth |
+| `ndvi_full_view` | view (NDVI + lands + farmers + village/district/state) | **LIVE** | Use for all dashboards |
+| `ndvi_processing_logs` | 6,477 rows, current | LIVE | Pipeline observability |
+| `land_tile_mapping` | 3 rows | LIVE | Land ↔ MGRS tile linkage |
+| `mgrs_tiles` | 638 rows | Reference | India MGRS catalog |
+| `tile_marking_progress` | 54,430 | LIVE | mark-agricultural-tiles output |
+| `ndvi_micro_tiles` | 3 rows (1 day only) | **STALE** | Legacy land-first attempt |
+| `ndvi_request_queue` | 20 rows, last March | **STALE** | Old admin trigger |
+| `ndvi_coverage_stats` | 1 row | Empty | Unused |
+| `ndvi_spatial_analytics`, `satellite_imagery`, `satellite_alerts`, `satellite_api_usage`, `copernicus_api_calls`, `land_tile_coverage`, `land_tile_intersections`, `staging_mgrs_tiles*` | 0 rows | **DEAD** | Skip in UI |
+| `satellite_tiles` | 20 rows | Pipeline metadata | Keep, low priority |
 
-### Admin-codebase NDVI edge functions — verdict
-| Function | Used? | Evidence |
-|---|---|---|
-| `batch-calculate-ndvi` | NO | not in any cron, no callers |
-| `calculate-ndvi` | NO | not in any cron, no callers |
-| `fetch-land-ndvi` | NO | only called from `LandNdviApiService` (admin UI tester), never automatically |
-| `fetch-s2-ndvi` | NO | replaced by external `weekly-ndvi-sync`; even has `index-old.ts.bak` |
-| `ndvi-data-process` | NO | unreferenced |
-| `process-ndvi-highres` | NO | unreferenced |
-| `sync-ndvi-complete` | NO | superseded by `weekly-ndvi-sync` |
-| `mark-agricultural-tiles` | **YES** | active cron every 5 min — KEEP |
+### B. Data Quality Findings (critical)
 
-The only admin-codebase NDVI write attempts (via `landNdviService.queueBatchRequest` → `ndvi_request_queue`) all failed in March and haven't been retried since.
+1. **Forward-fill artifact** — Sentinel-2 revisits every ~5 days, but rows exist for every day with the same NDVI repeated (e.g. 0.239 for 7 consecutive days, 0.243 for 3). The worker fills gaps with the latest acquisition. ✅ Acceptable, but **dashboards must distinguish "actual acquisition" vs "carry-forward"** — group by distinct `ndvi_value` per land or by `created_at` to find true revisit dates.
+2. **NDVI range** — All 2,060 values fall within [0, 0.58] — **no negative or out-of-range values**. ✅ Valid.
+3. **Cloud cover is 100% NULL** in `ndvi_data` even though the worker filters by it. ⚠️ Show as "N/A" in UI; do not chart.
+4. **Sparse extended indices**: `evi_value` 0/2060, `savi_value` 0/2060, `mcari_value` 0/2060, `soil_moisture` 0/2060. Only `ndwi_value` is populated (2060/2060). ⚠️ UI should only show NDVI + NDWI.
+5. **Dual mean columns**: `ndvi_value` (single value) populated for all rows, `mean_ndvi/min_ndvi/max_ndvi` only for 17 rows. Use `ndvi_value` as primary; treat min/max/std as optional.
+6. **Single tenant in production data** (`a2a59533-…`). Multi-tenant filter still required for safety.
+7. **Crop joining gap**: `crop_history` is empty (0 rows). Crop context must come from `lands.current_crop` / `crop_schedules` (25 rows). `crop_health_assessments` and `crop_growth_analysis` are empty.
 
-### Frontend NDVI surface
-All NDVI UI pages/components in `src/components/ndvi/` and `src/pages/super-admin/NdviDataStatus.tsx` are pure read-only viewers of the tables that the external pipeline writes. They are **fine to keep** as monitoring dashboards, but their write paths (`SyncNdviDialog`, `BulkNdviScheduler`, `landNdviService.queueBatchRequest`) hit dead/dying functions and should be removed or rewired to a no-op + "managed by external pipeline" notice.
+### C. Pipeline Audit
 
-## Recommendation: Delete dead NDVI edge functions + write paths
+```text
+[cron] → mark-agricultural-tiles → tile_marking_progress + land_tile_mapping
+                                 ↓
+[cron] → ndvi-data-process → tile-fetch-worker.onrender.com (FastAPI v1.8.2)
+                           ↓
+                    writes ndvi_data + ndvi_processing_logs
+```
 
-### Step 1 — Delete unused edge functions (frees 6 of the 99 edge-function slots)
-Delete from codebase **and** from Supabase deployment:
-- `supabase/functions/batch-calculate-ndvi/`
-- `supabase/functions/calculate-ndvi/`
-- `supabase/functions/fetch-land-ndvi/`
-- `supabase/functions/fetch-s2-ndvi/`
-- `supabase/functions/ndvi-data-process/`
-- `supabase/functions/process-ndvi-highres/`
-- `supabase/functions/sync-ndvi-complete/`
+- ✅ Healthy: worker responds 200, processed 4 tiles per recent invocation, logs flowing.
+- ⚠️ Render free tier sleeps; existing "Wake Service" UI handles this.
+- ⚠️ No alerts when a land has not received NDVI for >7 days.
+- ⚠️ No SLA dashboard for coverage % (lands with NDVI / total lands).
 
-Keep: `mark-agricultural-tiles` (active cron) and `_shared/ndvi-*` helpers only if `mark-agricultural-tiles` imports them (will verify; otherwise delete the helpers too).
+### D. RLS / Multi-Tenant Safety
 
-### Step 2 — Remove dead frontend write paths
-- Delete `src/services/landNdviService.ts` (`queueBatchRequest` writes to dead queue).
-- Delete `src/services/api/LandNdviApiService.ts` (calls deleted `fetch-land-ndvi`).
-- Delete `src/components/ndvi/SyncNdviDialog.tsx` and `BulkNdviScheduler.tsx` (UI for dead functions).
-- Strip references from `src/pages/super-admin/NdviDataStatus.tsx` and `src/components/ndvi/index.ts`.
-- Keep read-only viewers: `LandNdviCard`, `NdviApiDashboard`, `ApiCostMonitor`, `TileCacheMetrics`, `useLandNdvi` (read hooks).
+All NDVI tables have RLS ON. `ndvi_data` SELECT uses `has_tenant_access(tenant_id)` — ✅ safe. The new pages will rely on this and never fetch with service_role.
 
-### Step 3 — Add a banner on the NDVI admin page
-Show "NDVI ingestion is handled by the external `weekly-ndvi-sync` cron job. This page is read-only." so future devs don't try to wire admin triggers again.
+---
 
-### Step 4 — Optional cleanup of dead tables
-After Step 1–3, these tables receive zero writes and can be dropped in a future migration (NOT in this plan, will confirm with you separately):
-- `satellite_imagery` (0 rows ever)
-- `satellite_api_usage` (0 rows ever)
-- `ndvi_micro_tiles` (3 rows, last write Dec 2025)
-- `ndvi_request_queue` (only failed entries, only from the about-to-be-deleted code)
+### Implementation Plan (no breaking changes)
 
-## What this gives you
-- **6 freed edge function slots** (out of 99 limit).
-- Zero risk to live NDVI data (verified — production cron untouched).
-- Removes the "NDVI broken in production" confusion from the earlier audit: it isn't broken, the admin code just points at non-canonical functions.
-- Smaller, clearer admin codebase.
+All work uses **existing tables only**. No schema changes, no migrations, no edge function deletions.
 
-## Out of scope (will ask separately)
-- Dropping the dead tables.
-- Touching `mark-agricultural-tiles`, `weekly-ndvi-sync`, or `proactive-evaluator`.
+#### Step 1 — Refactor `NdviDataStatus.tsx` into a tabbed workspace
+Keep current pipeline controls, restructure into 4 tabs:
+
+1. **Pipeline** (current view: tile fetch, mark tiles, sync controls, satellite_tiles table)
+2. **Coverage** (NEW)
+3. **Tenant Analytics** (NEW)
+4. **Land Explorer** (NEW)
+
+#### Step 2 — Tab: Coverage & Health
+KPIs from `ndvi_data` + `lands`:
+- Lands with NDVI in last 7 / 14 / 30 days
+- Coverage % (lands_with_recent_ndvi / total_lands per tenant)
+- Stale lands list (no NDVI > 14 days)
+- Pipeline success rate (from `ndvi_processing_logs`)
+- Daily ingestion volume (last 30 days line chart)
+
+#### Step 3 — Tab: Tenant Analytics (uses `ndvi_full_view`)
+- **Region heatmap table**: state → district → village rollup with avg NDVI, land count, health classification
+- **Crop-wise NDVI** (joins `lands.current_crop`): bar chart of avg NDVI per crop, sorted
+- **Health distribution**: donut — Good (>0.5), Moderate (0.3–0.5), Poor (<0.3)
+- **Seasonal trend**: weekly average NDVI line, last 16 weeks, broken out by crop
+- **Low-NDVI alert zones**: districts where avg NDVI < 0.25 (sortable table)
+
+Health bands documented inline; computed client-side from existing `ndvi_value`. No new tables.
+
+#### Step 4 — Tab: Land Explorer (drill-down, farmer-level)
+- Searchable land list (name, farmer, village, district, area, latest NDVI, days-since-update)
+- Click → side panel with:
+  - Land timeline chart (NDVI over time, deduped to true acquisition dates by detecting `ndvi_value` change)
+  - 30-day moving average overlay
+  - Anomaly markers (z-score > 2 vs land's own history)
+  - Health badge + simple advisory rules (irrigation if NDVI dropped >0.1 in 14 days; nutrient stress if persistently <0.3 mid-season; harvest-ready if peaked then declining)
+  - Crop context from `lands.current_crop` + matching `crop_schedules` row
+
+#### Step 5 — AI Insights edge function (`ndvi-insights`)
+New edge function (verify_jwt_token=true) using **Lovable AI Gateway** (`google/gemini-3-flash-preview` default). Two modes:
+- `mode: "land"` → input land_id, function fetches last 90 days from `ndvi_full_view` + `lands` + `crop_schedules` + latest `weather_current` + `soil_health`, returns structured JSON (summary, trend, stress_signals[], advisory[]).
+- `mode: "tenant"` → input tenant_id, returns regional summary + risk zones + crop performance ranking + farmer segments.
+
+Strict tool-calling JSON schema — no free-text hallucination. Numeric values cited from data only. Insights cached in component state per session.
+
+UI: "Generate AI Report" button on Land Explorer panel and on Tenant Analytics tab. Results render in a styled report card with copy/export-to-markdown.
+
+#### Step 6 — Performance
+- All queries use `ndvi_full_view` already-joined view (one round trip).
+- React Query with 60s staleTime; dedupe per tab.
+- For Tenant Analytics rollups: fetch with `.select('date, ndvi_value, district, state, current_crop, land_id')` once, aggregate client-side (≤2,060 rows today, fine until ~50k).
+- Add a memoized "true-acquisition only" filter that drops carry-forward duplicates per land.
+
+#### Step 7 — Files Touched
+- **Edit**: `src/pages/super-admin/NdviDataStatus.tsx` (wrap existing UI in Tabs)
+- **New**: `src/components/ndvi/CoverageTab.tsx`
+- **New**: `src/components/ndvi/TenantAnalyticsTab.tsx`
+- **New**: `src/components/ndvi/LandExplorerTab.tsx`
+- **New**: `src/components/ndvi/AIInsightCard.tsx`
+- **New**: `src/hooks/useNdviAnalytics.ts` (one hook, multiple selectors)
+- **New**: `src/lib/ndvi/health.ts` (band logic, advisory rules, dedupe)
+- **New**: `supabase/functions/ndvi-insights/index.ts` + register in `supabase/config.toml`
+- **No changes** to existing pipeline functions, no DB migrations, no deletions.
+
+### Production Readiness Score (NDVI subsystem today): **62 / 100**
+- Ingestion: 85 ✅ • Quality: 70 ⚠️ (carry-forward, missing cloud) • Coverage visibility: 30 ❌ • Analytics: 25 ❌ • AI insights: 0 ❌ • RLS: 95 ✅
+- After this plan: projected **88 / 100**.

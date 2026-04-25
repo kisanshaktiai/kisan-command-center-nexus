@@ -24,11 +24,15 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, PieChart as RePieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TileMarkingProgressDialog } from '@/components/super-admin/TileMarkingProgressDialog';
+import { CoverageTab } from '@/components/ndvi/CoverageTab';
+import { TenantAnalyticsTab } from '@/components/ndvi/TenantAnalyticsTab';
+import { LandExplorerTab } from '@/components/ndvi/LandExplorerTab';
 
 interface SatelliteTile {
   id: string;
@@ -346,6 +350,25 @@ export default function NdviDataStatus() {
         </div>
       </div>
 
+      <Tabs defaultValue="pipeline" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+          <TabsTrigger value="coverage">Coverage</TabsTrigger>
+          <TabsTrigger value="analytics">Tenant analytics</TabsTrigger>
+          <TabsTrigger value="explorer">Land explorer</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="coverage" className="mt-6">
+          <CoverageTab />
+        </TabsContent>
+        <TabsContent value="analytics" className="mt-6">
+          <TenantAnalyticsTab />
+        </TabsContent>
+        <TabsContent value="explorer" className="mt-6">
+          <LandExplorerTab />
+        </TabsContent>
+
+        <TabsContent value="pipeline" className="mt-6 space-y-6">
       {/* NDVI Fetch Controls - Full Width */}
       <Card className="border-primary/20 bg-gradient-to-br from-card to-primary/5">
         <CardHeader className="pb-4">
@@ -813,7 +836,9 @@ export default function NdviDataStatus() {
             )}
           </CardContent>
         </Card>
-      
+        </TabsContent>
+      </Tabs>
+
       {/* Progress Dialog */}
       <TileMarkingProgressDialog
         open={showProgressDialog}
