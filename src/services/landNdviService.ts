@@ -122,7 +122,7 @@ class LandNdviService {
           date_to: dateTo,
           statistics_only: true,
           priority
-        })
+        } as any)
         .select()
         .single();
 
