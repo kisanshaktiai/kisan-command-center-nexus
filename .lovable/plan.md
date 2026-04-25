@@ -1,116 +1,198 @@
-## NDVI Data Audit + Admin Analytics Enhancement
+# SaaS Admin Enhancement Plan — 6 Critical Features
 
-### A. NDVI Tables — Inventory & Audit (current state)
-
-| Table | Rows | Status | Verdict |
-|---|---|---|---|
-| `ndvi_data` | **2,060** (31 lands, 1 tenant, 19-Dec-2025 → 25-Apr-2026) | **LIVE** — primary time-series | Source of truth |
-| `ndvi_full_view` | view (NDVI + lands + farmers + village/district/state) | **LIVE** | Use for all dashboards |
-| `ndvi_processing_logs` | 6,477 rows, current | LIVE | Pipeline observability |
-| `land_tile_mapping` | 3 rows | LIVE | Land ↔ MGRS tile linkage |
-| `mgrs_tiles` | 638 rows | Reference | India MGRS catalog |
-| `tile_marking_progress` | 54,430 | LIVE | mark-agricultural-tiles output |
-| `ndvi_micro_tiles` | 3 rows (1 day only) | **STALE** | Legacy land-first attempt |
-| `ndvi_request_queue` | 20 rows, last March | **STALE** | Old admin trigger |
-| `ndvi_coverage_stats` | 1 row | Empty | Unused |
-| `ndvi_spatial_analytics`, `satellite_imagery`, `satellite_alerts`, `satellite_api_usage`, `copernicus_api_calls`, `land_tile_coverage`, `land_tile_intersections`, `staging_mgrs_tiles*` | 0 rows | **DEAD** | Skip in UI |
-| `satellite_tiles` | 20 rows | Pipeline metadata | Keep, low priority |
-
-### B. Data Quality Findings (critical)
-
-1. **Forward-fill artifact** — Sentinel-2 revisits every ~5 days, but rows exist for every day with the same NDVI repeated (e.g. 0.239 for 7 consecutive days, 0.243 for 3). The worker fills gaps with the latest acquisition. ✅ Acceptable, but **dashboards must distinguish "actual acquisition" vs "carry-forward"** — group by distinct `ndvi_value` per land or by `created_at` to find true revisit dates.
-2. **NDVI range** — All 2,060 values fall within [0, 0.58] — **no negative or out-of-range values**. ✅ Valid.
-3. **Cloud cover is 100% NULL** in `ndvi_data` even though the worker filters by it. ⚠️ Show as "N/A" in UI; do not chart.
-4. **Sparse extended indices**: `evi_value` 0/2060, `savi_value` 0/2060, `mcari_value` 0/2060, `soil_moisture` 0/2060. Only `ndwi_value` is populated (2060/2060). ⚠️ UI should only show NDVI + NDWI.
-5. **Dual mean columns**: `ndvi_value` (single value) populated for all rows, `mean_ndvi/min_ndvi/max_ndvi` only for 17 rows. Use `ndvi_value` as primary; treat min/max/std as optional.
-6. **Single tenant in production data** (`a2a59533-…`). Multi-tenant filter still required for safety.
-7. **Crop joining gap**: `crop_history` is empty (0 rows). Crop context must come from `lands.current_crop` / `crop_schedules` (25 rows). `crop_health_assessments` and `crop_growth_analysis` are empty.
-
-### C. Pipeline Audit
-
-```text
-[cron] → mark-agricultural-tiles → tile_marking_progress + land_tile_mapping
-                                 ↓
-[cron] → ndvi-data-process → tile-fetch-worker.onrender.com (FastAPI v1.8.2)
-                           ↓
-                    writes ndvi_data + ndvi_processing_logs
-```
-
-- ✅ Healthy: worker responds 200, processed 4 tiles per recent invocation, logs flowing.
-- ⚠️ Render free tier sleeps; existing "Wake Service" UI handles this.
-- ⚠️ No alerts when a land has not received NDVI for >7 days.
-- ⚠️ No SLA dashboard for coverage % (lands with NDVI / total lands).
-
-### D. RLS / Multi-Tenant Safety
-
-All NDVI tables have RLS ON. `ndvi_data` SELECT uses `has_tenant_access(tenant_id)` — ✅ safe. The new pages will rely on this and never fetch with service_role.
+Goal: ship six missing super-admin capabilities additively. Zero changes to existing tenant/farmer-facing flows. All new work lives in **new files / new routes / new tabs**, reusing existing tables wherever possible.
 
 ---
 
-### Implementation Plan (no breaking changes)
+## Existing Foundations (verified, will be reused)
 
-All work uses **existing tables only**. No schema changes, no migrations, no edge function deletions.
+| Need | Existing asset |
+|---|---|
+| Audit trail | `admin_audit_logs`, `audit_logs`, `security_audit_log` |
+| AI cost data | `ai_model_metrics` (model_name, tenant_id, query_count, resource_usage jsonb), `ai_chat_analytics` |
+| Kill-switch | `feature_flags` + `tenant_feature_overrides` + `EnhancedFeatureService` |
+| Tenant signals | `usage_analytics`, `subscription_usage_logs`, `system_health_metrics`, `tenants` |
+| Roles | `user_roles` + `has_role()` (super_admin) |
 
-#### Step 1 — Refactor `NdviDataStatus.tsx` into a tabbed workspace
-Keep current pipeline controls, restructure into 4 tabs:
+i18n: **no `react-i18next` installed** — admin strings are hardcoded. Will add as a foundational piece.
 
-1. **Pipeline** (current view: tile fetch, mark tiles, sync controls, satellite_tiles table)
-2. **Coverage** (NEW)
-3. **Tenant Analytics** (NEW)
-4. **Land Explorer** (NEW)
+---
 
-#### Step 2 — Tab: Coverage & Health
-KPIs from `ndvi_data` + `lands`:
-- Lands with NDVI in last 7 / 14 / 30 days
-- Coverage % (lands_with_recent_ndvi / total_lands per tenant)
-- Stale lands list (no NDVI > 14 days)
-- Pipeline success rate (from `ndvi_processing_logs`)
-- Daily ingestion volume (last 30 days line chart)
+## 1. Tenant Health Score
 
-#### Step 3 — Tab: Tenant Analytics (uses `ndvi_full_view`)
-- **Region heatmap table**: state → district → village rollup with avg NDVI, land count, health classification
-- **Crop-wise NDVI** (joins `lands.current_crop`): bar chart of avg NDVI per crop, sorted
-- **Health distribution**: donut — Good (>0.5), Moderate (0.3–0.5), Poor (<0.3)
-- **Seasonal trend**: weekly average NDVI line, last 16 weeks, broken out by crop
-- **Low-NDVI alert zones**: districts where avg NDVI < 0.25 (sortable table)
+Composite 0–100 score per tenant, computed server-side, surfaced in tenant cards + new dashboard column.
 
-Health bands documented inline; computed client-side from existing `ndvi_value`. No new tables.
+**Formula (weights configurable later):**
+```
+score = 0.30 * activeFarmerRatio   // active_farmers_30d / total_farmers
+      + 0.25 * apiActivityScore    // log-scaled api calls last 7d vs plan baseline
+      + 0.20 * (1 - churnRisk)     // churnRisk derived below
+      + 0.15 * subscriptionHealth  // active/trial=1, past_due=0.4, cancelled=0
+      + 0.10 * supportLoadInverse  // 1 - min(open_tickets/10, 1) — gracefully 1 when no tickets table
+```
+churnRisk = weighted blend of: 0 active farmers in 14d, declining 4-week API trend, payment failure flag.
 
-#### Step 4 — Tab: Land Explorer (drill-down, farmer-level)
-- Searchable land list (name, farmer, village, district, area, latest NDVI, days-since-update)
-- Click → side panel with:
-  - Land timeline chart (NDVI over time, deduped to true acquisition dates by detecting `ndvi_value` change)
-  - 30-day moving average overlay
-  - Anomaly markers (z-score > 2 vs land's own history)
-  - Health badge + simple advisory rules (irrigation if NDVI dropped >0.1 in 14 days; nutrient stress if persistently <0.3 mid-season; harvest-ready if peaked then declining)
-  - Crop context from `lands.current_crop` + matching `crop_schedules` row
+**Implementation**
+- New SQL view `tenant_health_scores` (tenant_id, score, breakdown jsonb, computed_at) refreshed by:
+  - new edge function `compute-tenant-health` (cron-friendly, idempotent UPSERT into a new `tenant_health_snapshots` table — keeps history for trend sparkline).
+- New hook `useTenantHealth(tenantId?)`.
+- New component `TenantHealthBadge` (color band: ≥80 green, 60–79 amber, <60 red) added to `TenantCardRefactored` and tenant table row — additive prop, optional rendering.
+- New tab "Health" inside existing TenantDetailsModal showing breakdown bars + 30-day sparkline.
 
-#### Step 5 — AI Insights edge function (`ndvi-insights`)
-New edge function (verify_jwt_token=true) using **Lovable AI Gateway** (`google/gemini-3-flash-preview` default). Two modes:
-- `mode: "land"` → input land_id, function fetches last 90 days from `ndvi_full_view` + `lands` + `crop_schedules` + latest `weather_current` + `soil_health`, returns structured JSON (summary, trend, stress_signals[], advisory[]).
-- `mode: "tenant"` → input tenant_id, returns regional summary + risk zones + crop performance ranking + farmer segments.
+---
 
-Strict tool-calling JSON schema — no free-text hallucination. Numeric values cited from data only. Insights cached in component state per session.
+## 2. AI Cost Dashboard (per tenant per model)
 
-UI: "Generate AI Report" button on Land Explorer panel and on Tenant Analytics tab. Results render in a styled report card with copy/export-to-markdown.
+New super-admin page `/super-admin/ai-costs` (added to nav, does not replace anything).
 
-#### Step 6 — Performance
-- All queries use `ndvi_full_view` already-joined view (one round trip).
-- React Query with 60s staleTime; dedupe per tab.
-- For Tenant Analytics rollups: fetch with `.select('date, ndvi_value, district, state, current_crop, land_id')` once, aggregate client-side (≤2,060 rows today, fine until ~50k).
-- Add a memoized "true-acquisition only" filter that drops carry-forward duplicates per land.
+**Data path**
+- Source: `ai_model_metrics` (already populated). Cost derived via a new `ai_model_pricing` table:
+  ```
+  ai_model_pricing(model_name pk, input_cost_per_1k numeric, output_cost_per_1k numeric, currency text default 'USD', effective_from date)
+  ```
+  Seeded with current Lovable AI Gateway models (gemini-flash, gemini-pro, gpt-5, etc.).
+- Cost = (tokens from `resource_usage` jsonb) × pricing. Fallback: query_count × flat estimate when token data missing.
 
-#### Step 7 — Files Touched
-- **Edit**: `src/pages/super-admin/NdviDataStatus.tsx` (wrap existing UI in Tabs)
-- **New**: `src/components/ndvi/CoverageTab.tsx`
-- **New**: `src/components/ndvi/TenantAnalyticsTab.tsx`
-- **New**: `src/components/ndvi/LandExplorerTab.tsx`
-- **New**: `src/components/ndvi/AIInsightCard.tsx`
-- **New**: `src/hooks/useNdviAnalytics.ts` (one hook, multiple selectors)
-- **New**: `src/lib/ndvi/health.ts` (band logic, advisory rules, dedupe)
-- **New**: `supabase/functions/ndvi-insights/index.ts` + register in `supabase/config.toml`
-- **No changes** to existing pipeline functions, no DB migrations, no deletions.
+**UI**
+- KPIs: total spend (today / 7d / 30d), top 5 tenants by spend, top 5 models.
+- Pivot table: rows = tenants, columns = models, cells = cost + query count, sortable.
+- Line chart: daily spend trend, stacked by model.
+- CSV export.
+- Reuses `recharts` + existing card components.
 
-### Production Readiness Score (NDVI subsystem today): **62 / 100**
-- Ingestion: 85 ✅ • Quality: 70 ⚠️ (carry-forward, missing cloud) • Coverage visibility: 30 ❌ • Analytics: 25 ❌ • AI insights: 0 ❌ • RLS: 95 ✅
-- After this plan: projected **88 / 100**.
+---
+
+## 3. Per-Tenant Kill-Switch (Feature Flag Override)
+
+Already 80% built (`tenant_feature_overrides` + `EnhancedFeatureService.createTenantOverride`). Missing: a focused operator UI.
+
+**New component** `TenantKillSwitchPanel` mounted as a tab inside TenantDetailsModal:
+- Lists all active feature flags with current effective state for the tenant (global → override).
+- Toggle creates/updates/deletes a `tenant_feature_overrides` row.
+- Required `override_reason` field (validated, min 10 chars).
+- Optional `expires_at` datetime picker (auto-revert).
+- Every toggle writes to `admin_audit_logs` with action `feature_kill_switch_toggled`.
+- Bulk "Disable all non-essential features" emergency button (disables flags tagged `non-essential`).
+
+No schema change needed beyond adding a `tags` filter helper in service layer.
+
+---
+
+## 4. Impersonation ("Login as tenant admin") with Audit Trail
+
+**Security model** — never share passwords or service-role keys with the browser.
+
+New tables:
+```
+impersonation_sessions (
+  id uuid pk, super_admin_id uuid, target_user_id uuid, target_tenant_id uuid,
+  reason text not null, started_at timestamptz default now(),
+  ended_at timestamptz, ip inet, user_agent text,
+  scope text default 'read_only' check (scope in ('read_only','full'))
+)
+```
+
+**Flow**
+1. Super-admin clicks "Impersonate" on a tenant user → modal requires reason + scope.
+2. Edge function `start-impersonation` (verify_jwt true, requires `super_admin` role):
+   - Inserts `impersonation_sessions` row.
+   - Issues a short-lived (15 min) signed JWT containing `act` claim (`{ sub: target_user_id, act: { sub: super_admin_id }, scope }`) using `SUPABASE_JWT_SECRET`.
+   - Writes `admin_audit_logs` entry.
+3. Frontend stores token in **memory only** (not localStorage), opens new tab to tenant app with `?impersonation=<token>`.
+4. App-side: an `ImpersonationBanner` (sticky red bar, "You are viewing as X — End session") + interceptor adds `X-Impersonation: true` header.
+5. Edge function `end-impersonation` closes the row and revokes via short TTL natural expiry.
+6. RLS: add helper `is_impersonating()` reading JWT `act` claim; sensitive write policies can deny when `scope='read_only'`.
+
+All actions performed during a session are tagged in `audit_logs.metadata.impersonation_session_id`.
+
+---
+
+## 5. Backup / Restore Status UI
+
+Read-only operator dashboard at `/super-admin/backups`. Supabase manages the actual backups; we surface state + manual snapshot logging.
+
+**New table**
+```
+backup_events (
+  id uuid pk, kind text check (kind in ('daily_pitr','manual_snapshot','restore','export')),
+  status text check (status in ('running','succeeded','failed')),
+  size_bytes bigint, started_at timestamptz, finished_at timestamptz,
+  triggered_by uuid, notes text, metadata jsonb
+)
+```
+
+**Sources**
+- Daily edge function `backup-status-sync` calls Supabase Management API (`/v1/projects/{ref}/database/backups`) using new secret `SUPABASE_MANAGEMENT_TOKEN`, upserts rows.
+- Manual "Trigger logical export" button → edge function streams a `pg_dump`-style JSON export of selected tables to Supabase Storage bucket `admin-backups` (private, super-admin only).
+
+**UI**
+- Timeline of recent backup events with status icons.
+- Storage usage gauge.
+- Last successful backup age (red if >26h).
+- Restore is **link-out only** to Supabase dashboard (we never automate restores) — clear warning copy.
+
+---
+
+## 6. i18n Readiness for Admin Panel
+
+**Bootstrap**
+- Add deps: `react-i18next`, `i18next`, `i18next-browser-languagedetector`.
+- New `src/i18n/index.ts` initializing with namespaces: `common`, `admin`, `tenants`, `billing`, `monitoring`, `ndvi`, `ai`.
+- Locale files under `src/i18n/locales/{en,hi,mr}/*.json` (English authoritative; Hindi + Marathi stubs since farmer app already uses these).
+- Mount `<I18nextProvider>` in `App.tsx` above existing providers.
+
+**Migration strategy (non-breaking)**
+- Add `useTranslation()` to admin pages incrementally; each PR migrates one feature folder.
+- Phase 1 in this plan: wire infrastructure + migrate the 6 NEW screens above + nav labels + super-admin page titles.
+- Existing hardcoded strings keep working untouched; an ESLint rule `i18next/no-literal-string` added in **warn** mode, scoped to `src/pages/super-admin/**` and `src/components/super-admin/**`, so future code is guided without breaking the build.
+- Add a language switcher in the super-admin top bar (defaults to browser language, falls back to `en`).
+
+---
+
+## Technical Section
+
+**New files**
+- `src/i18n/index.ts`, `src/i18n/locales/{en,hi,mr}/{common,admin,tenants,billing,monitoring,ai}.json`
+- `src/components/super-admin/LanguageSwitcher.tsx`
+- `src/components/tenant/TenantHealthBadge.tsx`, `src/components/tenant/tabs/TenantHealthTab.tsx`
+- `src/hooks/useTenantHealth.ts`
+- `src/pages/super-admin/AiCostDashboard.tsx` + `src/components/ai-costs/{KpiCards,ModelTenantPivot,SpendTrendChart,ExportCsvButton}.tsx`
+- `src/hooks/useAiCosts.ts`, `src/services/AiCostService.ts`
+- `src/components/tenant/tabs/TenantKillSwitchPanel.tsx`
+- `src/components/super-admin/ImpersonateButton.tsx`, `src/components/impersonation/ImpersonationBanner.tsx`, `src/hooks/useImpersonation.ts`
+- `src/pages/super-admin/BackupStatus.tsx` + `src/components/backups/{BackupTimeline,StorageGauge,LastBackupCard}.tsx`
+- `src/hooks/useBackupEvents.ts`
+
+**New edge functions**
+- `compute-tenant-health` (scheduled hourly)
+- `start-impersonation`, `end-impersonation`
+- `backup-status-sync` (scheduled daily), `trigger-logical-export`
+
+**New tables / migrations**
+- `tenant_health_snapshots`, view `tenant_health_scores`
+- `ai_model_pricing` (+ seed)
+- `impersonation_sessions` + RLS + `is_impersonating()` helper
+- `backup_events` + private storage bucket `admin-backups`
+
+**New secrets required**
+- `SUPABASE_MANAGEMENT_TOKEN` (for backup status)
+- `LOVABLE_API_KEY` already present for any AI cost projections — no new AI secret needed.
+
+**Routing & nav**
+- Append to `nav-items.tsx` (super-admin section): "AI Costs", "Backups". No existing routes touched.
+
+**Non-breaking guarantees**
+- All schema additions are new tables — zero ALTERs on existing tables.
+- All UI additions are new routes/tabs/components — existing pages render identically.
+- Feature gating: each new page is wrapped in `RequireRole('super_admin')`.
+- i18n is opt-in per component; missing keys fall back to the literal English string.
+
+## Rollout Order
+1. i18n bootstrap (infra only, no visible change).
+2. Tenant Health Score (table + edge fn + badge).
+3. AI Cost Dashboard.
+4. Kill-Switch panel.
+5. Backup Status UI.
+6. Impersonation (last — highest security review surface).
+
+Each step is independently shippable and reversible.
