@@ -1,0 +1,18 @@
+{
+  "nav": {
+    "overview": "विहंगावलोकन",
+    "tenants": "टेनंट्स",
+    "billing": "बिलिंग",
+    "monitoring": "प्लॅटफॉर्म मॉनिटरिंग",
+    "ndvi": "NDVI डेटा",
+    "aiCosts": "AI खर्च",
+    "backups": "बॅकअप",
+    "featureFlags": "फिचर फ्लॅग्स",
+    "leads": "लीड्स"
+  },
+  "health": { "title": "टेनंट आरोग्य", "score": "आरोग्य स्कोर" },
+  "aiCosts": { "title": "AI खर्च डॅशबोर्ड" },
+  "killSwitch": { "title": "फिचर किल-स्विच" },
+  "impersonation": { "button": "इम्पर्सोनेट" },
+  "backups": { "title": "बॅकअप स्थिती" }
+}
