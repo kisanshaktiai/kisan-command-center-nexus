@@ -145,6 +145,9 @@ verify_jwt = false
 [functions.app-version]
 verify_jwt = false
 
+[functions.ndvi-insights]
+verify_jwt = true
+
 [storage]
 enabled = true
 port = 54323
