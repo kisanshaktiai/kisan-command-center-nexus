@@ -268,10 +268,14 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[mark-agricultural-tiles] Fatal error:', error);
     
     // Try to mark as failed in progress table
     try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
       const executionId = crypto.randomUUID();
       await supabase
         .from('tile_marking_progress')
@@ -279,7 +283,7 @@ serve(async (req) => {
           execution_id: executionId,
           status: 'failed',
           completed_at: new Date().toISOString(),
-          errors: JSON.stringify([{ error: error.message }]),
+          errors: JSON.stringify([{ error: errorMessage }]),
           current_step: 'Failed with error'
         });
     } catch (progError) {
@@ -289,7 +293,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: errorMessage 
       }),
       { 
         status: 500, 
