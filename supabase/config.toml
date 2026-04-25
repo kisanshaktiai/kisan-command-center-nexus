@@ -152,3 +152,6 @@ verify_jwt = true
 enabled = true
 port = 54323
 file_size_limit = "50MiB"
+
+[functions.compute-tenant-health]
+verify_jwt = false
