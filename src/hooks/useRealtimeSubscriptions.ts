@@ -61,9 +61,12 @@ export const useRealtimeSubscriptions = () => {
 
     fetchInitialData();
 
+    // Unique suffix prevents channel name collisions on StrictMode remounts
+    const uid = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
     // Set up realtime subscriptions
     const tenantChannel = supabase
-      .channel('tenants-changes')
+      .channel(`tenants-changes-${uid}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
