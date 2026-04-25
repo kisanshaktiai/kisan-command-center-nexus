@@ -119,7 +119,7 @@ serve(async (req) => {
       // Billing Operations
       case 'billing':
       case 'subscriptions':
-        response = await handleSubscriptionsBilling(supabaseClient, tenantId);
+        response = await handleSubscriptionsBilling(supabaseClient, tenantId ?? undefined);
         break;
       
       default:
@@ -614,20 +614,20 @@ async function handleSubscriptionsBilling(supabaseClient: any, tenantId?: string
   }
 
   // Calculate billing summary
-  const completedPayments = payments?.filter(p => p.status === 'completed') || [];
-  const totalRevenue = completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const completedPayments = payments?.filter((p: any) => p.status === 'completed') || [];
+  const totalRevenue = completedPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
   
   const thisMonthStart = new Date();
   thisMonthStart.setDate(1);
   thisMonthStart.setHours(0, 0, 0, 0);
   
   const monthlyRevenue = completedPayments
-    .filter(p => new Date(p.created_at) >= thisMonthStart)
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
+    .filter((p: any) => new Date(p.created_at) >= thisMonthStart)
+    .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
 
   const outstandingAmount = invoices
-    ?.filter(i => i.status === 'sent' || i.status === 'overdue')
-    .reduce((sum, i) => sum + (i.amount || 0), 0) || 0;
+    ?.filter((i: any) => i.status === 'sent' || i.status === 'overdue')
+    .reduce((sum: number, i: any) => sum + (i.amount || 0), 0) || 0;
 
   return {
     active_subscriptions: subscriptions?.map((sub: any) => ({
