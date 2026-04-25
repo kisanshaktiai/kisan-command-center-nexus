@@ -45,7 +45,7 @@ export class TenantHealthService {
       .gte('computed_at', since)
       .order('computed_at', { ascending: true });
     if (error) throw error;
-    return (data || []) as TenantHealthSnapshot[];
+    return (data || []) as unknown as TenantHealthSnapshot[];
   }
 
   static async triggerRecompute(): Promise<void> {
