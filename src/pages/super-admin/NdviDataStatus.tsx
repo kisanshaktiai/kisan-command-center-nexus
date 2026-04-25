@@ -836,7 +836,9 @@ export default function NdviDataStatus() {
             )}
           </CardContent>
         </Card>
-      
+        </TabsContent>
+      </Tabs>
+
       {/* Progress Dialog */}
       <TileMarkingProgressDialog
         open={showProgressDialog}
