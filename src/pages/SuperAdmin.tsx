@@ -19,6 +19,8 @@ import MasterCompanies from './super-admin/MasterCompanies';
 import MasterProducts from './super-admin/MasterProducts';
 import ProductCategories from './super-admin/ProductCategories';
 import NdviDataStatus from './super-admin/NdviDataStatus';
+import AiCostDashboard from './super-admin/AiCostDashboard';
+import BackupStatus from './super-admin/BackupStatus';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -102,6 +104,8 @@ const SuperAdmin = () => {
             <Route path="/master-products" element={<MasterProducts />} />
             <Route path="/product-categories" element={<ProductCategories />} />
             <Route path="/ndvi-data-status" element={<NdviDataStatus />} />
+            <Route path="/ai-costs" element={<AiCostDashboard />} />
+            <Route path="/backups" element={<BackupStatus />} />
           </Routes>
         </main>
       </div>
