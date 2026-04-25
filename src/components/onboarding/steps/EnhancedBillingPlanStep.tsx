@@ -112,7 +112,7 @@ export const EnhancedBillingPlanStep: React.FC<EnhancedBillingPlanStepProps> = (
             paymentTransactionId: transactionId,
             selectedAt: new Date().toISOString()
           }
-        })
+        } as any)
         .eq('id', tenantId);
 
       if (error) throw error;
