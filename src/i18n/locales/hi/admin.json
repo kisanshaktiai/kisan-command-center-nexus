@@ -1,0 +1,21 @@
+{
+  "nav": {
+    "overview": "अवलोकन",
+    "tenants": "टेनेंट्स",
+    "billing": "बिलिंग",
+    "monitoring": "प्लेटफ़ॉर्म निगरानी",
+    "ndvi": "NDVI डेटा",
+    "aiCosts": "AI लागत",
+    "backups": "बैकअप",
+    "featureFlags": "फ़ीचर फ़्लैग",
+    "leads": "लीड्स"
+  },
+  "health": {
+    "title": "टेनेंट स्वास्थ्य",
+    "score": "स्वास्थ्य स्कोर"
+  },
+  "aiCosts": { "title": "AI लागत डैशबोर्ड" },
+  "killSwitch": { "title": "फ़ीचर किल-स्विच" },
+  "impersonation": { "button": "इम्पर्सनेट" },
+  "backups": { "title": "बैकअप स्थिति" }
+}

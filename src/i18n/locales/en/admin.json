@@ -1,0 +1,86 @@
+{
+  "nav": {
+    "overview": "Overview",
+    "tenants": "Tenants",
+    "billing": "Billing",
+    "monitoring": "Platform Monitoring",
+    "ndvi": "NDVI Data",
+    "aiCosts": "AI Costs",
+    "backups": "Backups",
+    "featureFlags": "Feature Flags",
+    "leads": "Leads"
+  },
+  "health": {
+    "title": "Tenant Health",
+    "score": "Health Score",
+    "good": "Healthy",
+    "warning": "At Risk",
+    "critical": "Critical",
+    "breakdown": "Score Breakdown",
+    "activeFarmers": "Active farmers",
+    "apiActivity": "API activity",
+    "churnRisk": "Churn risk",
+    "subscription": "Subscription",
+    "supportLoad": "Support load",
+    "trend": "30-day trend"
+  },
+  "aiCosts": {
+    "title": "AI Cost Dashboard",
+    "subtitle": "Per-tenant per-model spend across all AI models",
+    "today": "Today",
+    "last7Days": "Last 7 days",
+    "last30Days": "Last 30 days",
+    "totalSpend": "Total spend",
+    "topTenants": "Top tenants by spend",
+    "topModels": "Top models by spend",
+    "byTenantByModel": "Spend by tenant × model",
+    "spendTrend": "Daily spend trend",
+    "queries": "Queries",
+    "cost": "Cost",
+    "noData": "No AI usage recorded for the selected period."
+  },
+  "killSwitch": {
+    "title": "Feature Kill-Switch",
+    "subtitle": "Override feature flags for this tenant. Use only for incident response or contractual exceptions.",
+    "effective": "Effective",
+    "globalDefault": "Global default",
+    "overrideOn": "Force ON",
+    "overrideOff": "Force OFF",
+    "remove": "Remove override",
+    "reasonLabel": "Reason (required, min 10 chars)",
+    "expiresLabel": "Expires at (optional)",
+    "emergencyDisable": "Emergency: disable non-essential features",
+    "auditNote": "All toggles are recorded in the admin audit log."
+  },
+  "impersonation": {
+    "button": "Impersonate",
+    "title": "Login as tenant user",
+    "warning": "All actions during this session are recorded against your super-admin identity.",
+    "reasonLabel": "Reason for impersonation (required)",
+    "scopeLabel": "Access scope",
+    "readOnly": "Read-only",
+    "fullAccess": "Full access",
+    "start": "Start session",
+    "end": "End session",
+    "active": "You are impersonating {{user}} ({{tenant}})",
+    "endButton": "End impersonation"
+  },
+  "backups": {
+    "title": "Backup & Restore Status",
+    "subtitle": "Database backup history and manual exports. Restores must be initiated from the Supabase dashboard.",
+    "lastSuccessful": "Last successful backup",
+    "ageHours": "{{hours}}h ago",
+    "stale": "Stale — investigate",
+    "fresh": "Healthy",
+    "storageUsed": "Storage used",
+    "timeline": "Recent events",
+    "triggerExport": "Trigger logical export",
+    "openSupabase": "Open Supabase backups",
+    "kind": {
+      "daily_pitr": "Point-in-time backup",
+      "manual_snapshot": "Manual snapshot",
+      "restore": "Restore",
+      "export": "Logical export"
+    }
+  }
+}
