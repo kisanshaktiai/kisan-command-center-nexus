@@ -24,11 +24,15 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, PieChart as RePieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TileMarkingProgressDialog } from '@/components/super-admin/TileMarkingProgressDialog';
+import { CoverageTab } from '@/components/ndvi/CoverageTab';
+import { TenantAnalyticsTab } from '@/components/ndvi/TenantAnalyticsTab';
+import { LandExplorerTab } from '@/components/ndvi/LandExplorerTab';
 
 interface SatelliteTile {
   id: string;
