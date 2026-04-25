@@ -1,4 +1,5 @@
 
+import './i18n';
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -13,6 +14,7 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import ResetPasswordConfirm from "./pages/auth/ResetPasswordConfirm";
 import HealthVersion from "./pages/HealthVersion";
 import { UpdateBanner } from "./components/version/UpdateBanner";
+import { ImpersonationBanner } from "./components/impersonation/ImpersonationBanner";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +25,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <UpdateBanner />
+          <ImpersonationBanner />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
