@@ -93,7 +93,7 @@ export const useRealtimeSubscriptions = () => {
       .subscribe();
 
     const sessionsChannel = supabase
-      .channel('sessions-changes')
+      .channel(`sessions-changes-${uid}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -116,7 +116,7 @@ export const useRealtimeSubscriptions = () => {
       .subscribe();
 
     const apiLogsChannel = supabase
-      .channel('api-logs-changes')
+      .channel(`api-logs-changes-${uid}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -135,7 +135,7 @@ export const useRealtimeSubscriptions = () => {
       .subscribe();
 
     const notificationsChannel = supabase
-      .channel('notifications-changes')
+      .channel(`notifications-changes-${uid}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -162,7 +162,7 @@ export const useRealtimeSubscriptions = () => {
 
     // Real-time subscriptions for monitoring metrics
     const systemMetricsChannel = supabase
-      .channel('system-metrics-changes')
+      .channel(`system-metrics-changes-${uid}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -181,7 +181,7 @@ export const useRealtimeSubscriptions = () => {
       .subscribe();
 
     const resourceMetricsChannel = supabase
-      .channel('resource-metrics-changes')
+      .channel(`resource-metrics-changes-${uid}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -195,7 +195,7 @@ export const useRealtimeSubscriptions = () => {
       .subscribe();
 
     const financialMetricsChannel = supabase
-      .channel('financial-metrics-changes')
+      .channel(`financial-metrics-changes-${uid}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
