@@ -350,6 +350,25 @@ export default function NdviDataStatus() {
         </div>
       </div>
 
+      <Tabs defaultValue="pipeline" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+          <TabsTrigger value="coverage">Coverage</TabsTrigger>
+          <TabsTrigger value="analytics">Tenant analytics</TabsTrigger>
+          <TabsTrigger value="explorer">Land explorer</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="coverage" className="mt-6">
+          <CoverageTab />
+        </TabsContent>
+        <TabsContent value="analytics" className="mt-6">
+          <TenantAnalyticsTab />
+        </TabsContent>
+        <TabsContent value="explorer" className="mt-6">
+          <LandExplorerTab />
+        </TabsContent>
+
+        <TabsContent value="pipeline" className="mt-6 space-y-6">
       {/* NDVI Fetch Controls - Full Width */}
       <Card className="border-primary/20 bg-gradient-to-br from-card to-primary/5">
         <CardHeader className="pb-4">
