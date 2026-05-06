@@ -39,6 +39,7 @@ export function RuleDetailDrawer({ ruleUuid, ruleTextId, open, onOpenChange }: P
   const { data: versions } = useRuleVersions(ruleUuid);
   const { data: conflicts } = useRuleConflicts(ruleUuid);
   const { data: lineage } = useRuleLineage(ruleUuid);
+  const { data: approvals } = useRuleApproval(ruleUuid);
   const rollback = useRollbackToVersion();
 
   const totalFired = (perf || []).reduce((s, p: any) => s + (p.times_fired || 0), 0);
