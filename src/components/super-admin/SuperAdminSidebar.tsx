@@ -22,7 +22,8 @@ import {
   Satellite,
   Info,
   Brain,
-  HardDrive
+  HardDrive,
+  Gavel
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -43,6 +44,7 @@ const navigationItems = [
       { title: 'Platform Monitoring', tab: 'platform-monitoring', route: '/super-admin/platform-monitoring', icon: Activity },
       { title: 'AI Costs', tab: 'ai-costs', route: '/super-admin/ai-costs', icon: Brain },
       { title: 'Backups', tab: 'backups', route: '/super-admin/backups', icon: HardDrive },
+      { title: 'Governance Reports', tab: 'governance-reports', route: '/super-admin/governance/reports', icon: Gavel },
     ]
   },
   {

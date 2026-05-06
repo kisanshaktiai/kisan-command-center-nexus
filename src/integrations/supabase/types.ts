@@ -10418,6 +10418,48 @@ export type Database = {
           },
         ]
       }
+      governance_audit_reports: {
+        Row: {
+          created_at: string
+          findings: Json
+          generated_at: string
+          generated_by: string | null
+          id: string
+          metrics: Json
+          report_type: string
+          severity: string
+          summary: string | null
+          title: string
+          total_issues: number
+        }
+        Insert: {
+          created_at?: string
+          findings?: Json
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          metrics?: Json
+          report_type: string
+          severity?: string
+          summary?: string | null
+          title: string
+          total_issues?: number
+        }
+        Update: {
+          created_at?: string
+          findings?: Json
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          metrics?: Json
+          report_type?: string
+          severity?: string
+          summary?: string | null
+          title?: string
+          total_issues?: number
+        }
+        Relationships: []
+      }
       group_chat_members: {
         Row: {
           farmer_id: string

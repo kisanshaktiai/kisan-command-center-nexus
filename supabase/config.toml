@@ -155,3 +155,6 @@ file_size_limit = "50MiB"
 
 [functions.compute-tenant-health]
 verify_jwt = false
+
+[functions.governance-audit]
+verify_jwt = true
