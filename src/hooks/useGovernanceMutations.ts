@@ -19,7 +19,7 @@ export function useTransitionApproval() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ workflowId, newState, notes }: { workflowId: string; newState: string; notes?: string }) => {
-      const { data, error } = await (supabase as any).schema('governance').rpc('transition_approval_state', {
+      const { data, error } = await (supabase as any).rpc('governance_transition_approval_state', {
         p_workflow_id: workflowId,
         p_new_state: newState,
         p_notes: notes ?? null,
