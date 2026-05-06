@@ -18,6 +18,9 @@ import {
   useRuleLineage,
   useRuleApproval,
 } from '@/hooks/useDecisionRules';
+import { useRollbackToVersion } from '@/hooks/useGovernanceMutations';
+import { Button } from '@/components/ui/button';
+import { Undo2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Props {
@@ -37,6 +40,7 @@ export function RuleDetailDrawer({ ruleUuid, ruleTextId, open, onOpenChange }: P
   const { data: conflicts } = useRuleConflicts(ruleUuid);
   const { data: lineage } = useRuleLineage(ruleUuid);
   const { data: approvals } = useRuleApproval(ruleUuid);
+  const rollback = useRollbackToVersion();
 
   const totalFired = (perf || []).reduce((s, p: any) => s + (p.times_fired || 0), 0);
   const avgSuccess =
@@ -168,15 +172,25 @@ export function RuleDetailDrawer({ ruleUuid, ruleTextId, open, onOpenChange }: P
             <TabsContent value="versions">
               {versions && versions.length > 0 ? (
                 <div className="space-y-2">
-                  {versions.map((v: any) => (
+                  {versions.map((v: any, idx: number) => (
                     <Card key={v.id}>
                       <CardContent className="pt-4 text-sm">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <Badge variant="default">v{v.version_number}</Badge>
                           <Badge variant="outline">{v.change_type}</Badge>
                           <span className="text-xs text-muted-foreground">
                             {format(new Date(v.created_at), 'PP p')}
                           </span>
+                          {idx > 0 && (
+                            <Button
+                              size="sm" variant="outline" className="ml-auto h-7"
+                              disabled={rollback.isPending}
+                              onClick={() => rollback.mutate({ versionId: v.id, notes: `Rollback from v${versions[0].version_number} to v${v.version_number}` })}
+                            >
+                              <Undo2 className="h-3 w-3 mr-1" />
+                              Rollback to this
+                            </Button>
+                          )}
                         </div>
                         {v.change_reason && <div className="text-xs">{v.change_reason}</div>}
                       </CardContent>

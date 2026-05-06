@@ -5,7 +5,7 @@ import { toast } from '@/hooks/use-toast';
 export function useSimulateRule() {
   return useMutation({
     mutationFn: async ({ ruleId, sampleInput }: { ruleId: string; sampleInput: Record<string, any> }) => {
-      const { data, error } = await (supabase as any).schema('governance').rpc('simulate_rule', {
+      const { data, error } = await (supabase as any).rpc('governance_simulate_rule', {
         p_rule_id: ruleId,
         p_sample_input: sampleInput,
       });
@@ -19,7 +19,7 @@ export function useTransitionApproval() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ workflowId, newState, notes }: { workflowId: string; newState: string; notes?: string }) => {
-      const { data, error } = await (supabase as any).schema('governance').rpc('transition_approval_state', {
+      const { data, error } = await (supabase as any).rpc('governance_transition_approval_state', {
         p_workflow_id: workflowId,
         p_new_state: newState,
         p_notes: notes ?? null,
@@ -40,7 +40,7 @@ export function useRollbackToVersion() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ versionId, notes }: { versionId: string; notes?: string }) => {
-      const { data, error } = await (supabase as any).schema('governance').rpc('rollback_rule_to_version', {
+      const { data, error } = await (supabase as any).rpc('governance_rollback_rule_to_version', {
         p_version_id: versionId,
         p_notes: notes ?? null,
       });
