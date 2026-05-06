@@ -40,7 +40,7 @@ export function useRollbackToVersion() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ versionId, notes }: { versionId: string; notes?: string }) => {
-      const { data, error } = await (supabase as any).schema('governance').rpc('rollback_rule_to_version', {
+      const { data, error } = await (supabase as any).rpc('governance_rollback_rule_to_version', {
         p_version_id: versionId,
         p_notes: notes ?? null,
       });
