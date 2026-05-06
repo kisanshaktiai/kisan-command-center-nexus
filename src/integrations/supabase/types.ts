@@ -3261,7 +3261,15 @@ export type Database = {
           version?: string | null
           weight_modifier?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "canonical_hint_mapping_observation_code_fkey"
+            columns: ["observation_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+        ]
       }
       cart_items: {
         Row: {
@@ -9711,7 +9719,6 @@ export type Database = {
           metadata: Json | null
           mobile_number: string | null
           notes: string | null
-          pin: string | null
           pin_hash: string | null
           pin_updated_at: string | null
           preferred_contact_method: string | null
@@ -9767,7 +9774,6 @@ export type Database = {
           metadata?: Json | null
           mobile_number?: string | null
           notes?: string | null
-          pin?: string | null
           pin_hash?: string | null
           pin_updated_at?: string | null
           preferred_contact_method?: string | null
@@ -9823,7 +9829,6 @@ export type Database = {
           metadata?: Json | null
           mobile_number?: string | null
           notes?: string | null
-          pin?: string | null
           pin_hash?: string | null
           pin_updated_at?: string | null
           preferred_contact_method?: string | null
@@ -12132,6 +12137,8 @@ export type Database = {
           center_lat: number | null
           center_lon: number | null
           center_point_old: Json | null
+          country: string
+          country_code: string
           created_at: string
           crop_stage: string | null
           cultivation_date: string | null
@@ -12209,6 +12216,8 @@ export type Database = {
           center_lat?: number | null
           center_lon?: number | null
           center_point_old?: Json | null
+          country?: string
+          country_code?: string
           created_at?: string
           crop_stage?: string | null
           cultivation_date?: string | null
@@ -12286,6 +12295,8 @@ export type Database = {
           center_lat?: number | null
           center_lon?: number | null
           center_point_old?: Json | null
+          country?: string
+          country_code?: string
           created_at?: string
           crop_stage?: string | null
           cultivation_date?: string | null
@@ -17120,6 +17131,7 @@ export type Database = {
           likes_count: number | null
           parent_comment_id: string | null
           post_id: string
+          tenant_id: string | null
           translations: Json | null
           updated_at: string | null
         }
@@ -17133,6 +17145,7 @@ export type Database = {
           likes_count?: number | null
           parent_comment_id?: string | null
           post_id: string
+          tenant_id?: string | null
           translations?: Json | null
           updated_at?: string | null
         }
@@ -17146,6 +17159,7 @@ export type Database = {
           likes_count?: number | null
           parent_comment_id?: string | null
           post_id?: string
+          tenant_id?: string | null
           translations?: Json | null
           updated_at?: string | null
         }
@@ -17342,6 +17356,39 @@ export type Database = {
           },
         ]
       }
+      post_reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          farmer_id: string
+          id: string
+          post_id: string
+          reason: string
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          farmer_id: string
+          id?: string
+          post_id: string
+          reason: string
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          farmer_id?: string
+          id?: string
+          post_id?: string
+          reason?: string
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       post_saves: {
         Row: {
           farmer_id: string
@@ -17446,6 +17493,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      post_translations: {
+        Row: {
+          content: string
+          generated_at: string
+          id: string
+          language_code: string
+          post_id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          content: string
+          generated_at?: string
+          id?: string
+          language_code: string
+          post_id: string
+          tenant_id?: string | null
+        }
+        Update: {
+          content?: string
+          generated_at?: string
+          id?: string
+          language_code?: string
+          post_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
       }
       posts: {
         Row: {
@@ -18879,6 +18953,481 @@ export type Database = {
           window_start?: string
         }
         Relationships: []
+      }
+      reels_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          description_i18n: Json | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          name_i18n: Json
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description_i18n?: Json | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name_i18n?: Json
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description_i18n?: Json | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name_i18n?: Json
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reels_comments: {
+        Row: {
+          body: string
+          created_at: string
+          farmer_id: string
+          id: string
+          is_hidden: boolean
+          language_code: string | null
+          parent_id: string | null
+          reel_id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          farmer_id: string
+          id?: string
+          is_hidden?: boolean
+          language_code?: string | null
+          parent_id?: string | null
+          reel_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          farmer_id?: string
+          id?: string
+          is_hidden?: boolean
+          language_code?: string | null
+          parent_id?: string | null
+          reel_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_comments_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_comments_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "reels_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_comments_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_likes: {
+        Row: {
+          created_at: string
+          farmer_id: string
+          id: string
+          reel_id: string
+        }
+        Insert: {
+          created_at?: string
+          farmer_id: string
+          id?: string
+          reel_id: string
+        }
+        Update: {
+          created_at?: string
+          farmer_id?: string
+          id?: string
+          reel_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_likes_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_likes_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_likes_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          farmer_id: string
+          id: string
+          reason: Database["public"]["Enums"]["reel_report_reason"]
+          reel_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          farmer_id: string
+          id?: string
+          reason: Database["public"]["Enums"]["reel_report_reason"]
+          reel_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          farmer_id?: string
+          id?: string
+          reason?: Database["public"]["Enums"]["reel_report_reason"]
+          reel_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_reports_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_reports_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_reports_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_saves: {
+        Row: {
+          created_at: string
+          farmer_id: string
+          id: string
+          reel_id: string
+        }
+        Insert: {
+          created_at?: string
+          farmer_id: string
+          id?: string
+          reel_id: string
+        }
+        Update: {
+          created_at?: string
+          farmer_id?: string
+          id?: string
+          reel_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_saves_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_saves_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_saves_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_shares: {
+        Row: {
+          channel: string | null
+          created_at: string
+          farmer_id: string
+          id: string
+          reel_id: string
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string
+          farmer_id: string
+          id?: string
+          reel_id: string
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string
+          farmer_id?: string
+          id?: string
+          reel_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_shares_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_shares_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_shares_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_videos: {
+        Row: {
+          ai_tags: Json | null
+          ai_transcript: Json | null
+          aspect_ratio: string | null
+          avg_watch_time: number | null
+          category_id: string | null
+          completion_rate: number | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_seconds: number | null
+          engagement_score: number
+          height: number | null
+          hls_url: string | null
+          id: string
+          is_featured: boolean
+          language_code: string
+          moderation_notes: string | null
+          moderation_status: Database["public"]["Enums"]["reel_moderation_status"]
+          preview_webp_url: string | null
+          publish_status: Database["public"]["Enums"]["reel_publish_status"]
+          published_at: string | null
+          source: Database["public"]["Enums"]["reel_video_source"]
+          tags: string[] | null
+          tenant_id: string | null
+          thumbnail_url: string | null
+          title: string
+          total_comments: number
+          total_likes: number
+          total_saves: number
+          total_shares: number
+          total_views: number
+          transcoding_status: Database["public"]["Enums"]["reel_transcoding_status"]
+          trending_score: number
+          updated_at: string
+          uploader_role: Database["public"]["Enums"]["reel_uploader_role"]
+          video_url: string
+          visibility_scope: Database["public"]["Enums"]["reel_visibility"]
+          width: number | null
+        }
+        Insert: {
+          ai_tags?: Json | null
+          ai_transcript?: Json | null
+          aspect_ratio?: string | null
+          avg_watch_time?: number | null
+          category_id?: string | null
+          completion_rate?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          engagement_score?: number
+          height?: number | null
+          hls_url?: string | null
+          id?: string
+          is_featured?: boolean
+          language_code?: string
+          moderation_notes?: string | null
+          moderation_status?: Database["public"]["Enums"]["reel_moderation_status"]
+          preview_webp_url?: string | null
+          publish_status?: Database["public"]["Enums"]["reel_publish_status"]
+          published_at?: string | null
+          source?: Database["public"]["Enums"]["reel_video_source"]
+          tags?: string[] | null
+          tenant_id?: string | null
+          thumbnail_url?: string | null
+          title: string
+          total_comments?: number
+          total_likes?: number
+          total_saves?: number
+          total_shares?: number
+          total_views?: number
+          transcoding_status?: Database["public"]["Enums"]["reel_transcoding_status"]
+          trending_score?: number
+          updated_at?: string
+          uploader_role: Database["public"]["Enums"]["reel_uploader_role"]
+          video_url: string
+          visibility_scope?: Database["public"]["Enums"]["reel_visibility"]
+          width?: number | null
+        }
+        Update: {
+          ai_tags?: Json | null
+          ai_transcript?: Json | null
+          aspect_ratio?: string | null
+          avg_watch_time?: number | null
+          category_id?: string | null
+          completion_rate?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          engagement_score?: number
+          height?: number | null
+          hls_url?: string | null
+          id?: string
+          is_featured?: boolean
+          language_code?: string
+          moderation_notes?: string | null
+          moderation_status?: Database["public"]["Enums"]["reel_moderation_status"]
+          preview_webp_url?: string | null
+          publish_status?: Database["public"]["Enums"]["reel_publish_status"]
+          published_at?: string | null
+          source?: Database["public"]["Enums"]["reel_video_source"]
+          tags?: string[] | null
+          tenant_id?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          total_comments?: number
+          total_likes?: number
+          total_saves?: number
+          total_shares?: number
+          total_views?: number
+          transcoding_status?: Database["public"]["Enums"]["reel_transcoding_status"]
+          trending_score?: number
+          updated_at?: string
+          uploader_role?: Database["public"]["Enums"]["reel_uploader_role"]
+          video_url?: string
+          visibility_scope?: Database["public"]["Enums"]["reel_visibility"]
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_videos_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "reels_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_videos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_views: {
+        Row: {
+          completed: boolean | null
+          created_at: string
+          farmer_id: string | null
+          id: string
+          reel_id: string
+          watched_seconds: number | null
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          reel_id: string
+          watched_seconds?: number | null
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          reel_id?: string
+          watched_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_views_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_views_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_views_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       report_executions: {
         Row: {
@@ -28507,6 +29056,15 @@ export type Database = {
         Args: never
         Returns: undefined
       }
+      nearest_lands_summary: {
+        Args: {
+          p_lat: number
+          p_lng: number
+          p_radius_m: number
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
         | { Args: { use_typmod?: boolean }; Returns: string }
@@ -28555,6 +29113,23 @@ export type Database = {
       record_failed_login: {
         Args: { p_email: string; p_ip_address?: unknown }
         Returns: Json
+      }
+      reels_bump_counter: {
+        Args: { _col: string; _delta: number; _reel_id: string }
+        Returns: undefined
+      }
+      reels_record_view: {
+        Args: {
+          _completed?: boolean
+          _farmer_id: string
+          _reel_id: string
+          _watched_seconds?: number
+        }
+        Returns: undefined
+      }
+      reels_visible_to_farmer: {
+        Args: { _farmer_id: string; _reel_id: string }
+        Returns: boolean
       }
       refresh_farmer_upcoming_needs: { Args: never; Returns: undefined }
       refresh_organization_analytics: {
@@ -29186,6 +29761,14 @@ export type Database = {
         Returns: Json
       }
       test_lead_auto_assignment: { Args: never; Returns: Json }
+      toggle_post_like: {
+        Args: { p_farmer_id: string; p_post_id: string }
+        Returns: boolean
+      }
+      toggle_post_save: {
+        Args: { p_farmer_id: string; p_post_id: string }
+        Returns: boolean
+      }
       track_admin_session: { Args: { session_data?: Json }; Returns: undefined }
       track_failed_login: {
         Args: {
@@ -29407,6 +29990,24 @@ export type Database = {
         | "chargeback"
       post_status: "draft" | "published" | "moderated" | "deleted"
       post_type: "text" | "image" | "video" | "poll"
+      reel_moderation_status: "pending" | "approved" | "rejected" | "flagged"
+      reel_publish_status: "draft" | "published" | "archived"
+      reel_report_reason:
+        | "spam"
+        | "misinformation"
+        | "abuse"
+        | "copyright"
+        | "unsafe"
+        | "other"
+      reel_transcoding_status:
+        | "not_required"
+        | "queued"
+        | "processing"
+        | "ready"
+        | "failed"
+      reel_uploader_role: "saas_admin" | "tenant_admin"
+      reel_video_source: "youtube" | "upload" | "external"
+      reel_visibility: "global" | "tenant"
       subscription_plan:
         | "Kisan_Basic"
         | "Shakti_Growth"
@@ -29647,6 +30248,26 @@ export const Constants = {
       ],
       post_status: ["draft", "published", "moderated", "deleted"],
       post_type: ["text", "image", "video", "poll"],
+      reel_moderation_status: ["pending", "approved", "rejected", "flagged"],
+      reel_publish_status: ["draft", "published", "archived"],
+      reel_report_reason: [
+        "spam",
+        "misinformation",
+        "abuse",
+        "copyright",
+        "unsafe",
+        "other",
+      ],
+      reel_transcoding_status: [
+        "not_required",
+        "queued",
+        "processing",
+        "ready",
+        "failed",
+      ],
+      reel_uploader_role: ["saas_admin", "tenant_admin"],
+      reel_video_source: ["youtube", "upload", "external"],
+      reel_visibility: ["global", "tenant"],
       subscription_plan: [
         "Kisan_Basic",
         "Shakti_Growth",
