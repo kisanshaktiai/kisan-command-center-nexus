@@ -18,6 +18,9 @@ import {
   useRuleLineage,
   useRuleApproval,
 } from '@/hooks/useDecisionRules';
+import { useRollbackToVersion } from '@/hooks/useGovernanceMutations';
+import { Button } from '@/components/ui/button';
+import { Undo2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Props {
