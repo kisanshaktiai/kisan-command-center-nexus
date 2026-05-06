@@ -25,7 +25,9 @@ import {
   HardDrive,
   Gavel,
   BookOpen,
-  Lightbulb
+  Lightbulb,
+  Eye,
+  ShieldAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -49,6 +51,8 @@ const navigationItems = [
       { title: 'Governance Reports', tab: 'governance-reports', route: '/super-admin/governance/reports', icon: Gavel },
       { title: 'Rules Console', tab: 'rules-console', route: '/super-admin/governance/rules', icon: BookOpen },
       { title: 'Hypothesis Console', tab: 'hypothesis-console', route: '/super-admin/governance/hypotheses', icon: Lightbulb },
+      { title: 'Observation Console', tab: 'observation-console', route: '/super-admin/governance/observations', icon: Eye },
+      { title: 'Safety & Regulatory', tab: 'safety-console', route: '/super-admin/governance/safety', icon: ShieldAlert },
     ]
   },
   {
