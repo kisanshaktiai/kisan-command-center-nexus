@@ -118,6 +118,8 @@ const SuperAdmin = () => {
             <Route path="/governance/hypotheses" element={<HypothesisConsole />} />
             <Route path="/governance/observations" element={<ObservationConsole />} />
             <Route path="/governance/safety" element={<SafetyConsole />} />
+            <Route path="/governance/simulate" element={<SimulationSandbox />} />
+            <Route path="/governance/queue" element={<ApprovalQueue />} />
           </Routes>
         </main>
       </div>
