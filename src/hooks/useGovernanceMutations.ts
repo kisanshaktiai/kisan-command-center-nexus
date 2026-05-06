@@ -5,7 +5,7 @@ import { toast } from '@/hooks/use-toast';
 export function useSimulateRule() {
   return useMutation({
     mutationFn: async ({ ruleId, sampleInput }: { ruleId: string; sampleInput: Record<string, any> }) => {
-      const { data, error } = await (supabase as any).schema('governance').rpc('simulate_rule', {
+      const { data, error } = await (supabase as any).rpc('governance_simulate_rule', {
         p_rule_id: ruleId,
         p_sample_input: sampleInput,
       });
