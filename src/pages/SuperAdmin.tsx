@@ -24,6 +24,8 @@ import BackupStatus from './super-admin/BackupStatus';
 import GovernanceReports from './super-admin/GovernanceReports';
 import RulesConsole from './super-admin/RulesConsole';
 import HypothesisConsole from './super-admin/HypothesisConsole';
+import ObservationConsole from './super-admin/ObservationConsole';
+import SafetyConsole from './super-admin/SafetyConsole';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -112,6 +114,8 @@ const SuperAdmin = () => {
             <Route path="/governance/reports" element={<GovernanceReports />} />
             <Route path="/governance/rules" element={<RulesConsole />} />
             <Route path="/governance/hypotheses" element={<HypothesisConsole />} />
+            <Route path="/governance/observations" element={<ObservationConsole />} />
+            <Route path="/governance/safety" element={<SafetyConsole />} />
           </Routes>
         </main>
       </div>
