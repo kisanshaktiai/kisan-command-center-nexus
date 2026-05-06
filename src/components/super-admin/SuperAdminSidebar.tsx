@@ -23,7 +23,9 @@ import {
   Info,
   Brain,
   HardDrive,
-  Gavel
+  Gavel,
+  BookOpen,
+  Lightbulb
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -45,6 +47,8 @@ const navigationItems = [
       { title: 'AI Costs', tab: 'ai-costs', route: '/super-admin/ai-costs', icon: Brain },
       { title: 'Backups', tab: 'backups', route: '/super-admin/backups', icon: HardDrive },
       { title: 'Governance Reports', tab: 'governance-reports', route: '/super-admin/governance/reports', icon: Gavel },
+      { title: 'Rules Console', tab: 'rules-console', route: '/super-admin/governance/rules', icon: BookOpen },
+      { title: 'Hypothesis Console', tab: 'hypothesis-console', route: '/super-admin/governance/hypotheses', icon: Lightbulb },
     ]
   },
   {
