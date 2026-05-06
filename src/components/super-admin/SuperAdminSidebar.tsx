@@ -55,6 +55,8 @@ const navigationItems = [
       { title: 'Hypothesis Console', tab: 'hypothesis-console', route: '/super-admin/governance/hypotheses', icon: Lightbulb },
       { title: 'Observation Console', tab: 'observation-console', route: '/super-admin/governance/observations', icon: Eye },
       { title: 'Safety & Regulatory', tab: 'safety-console', route: '/super-admin/governance/safety', icon: ShieldAlert },
+      { title: 'Simulation Sandbox', tab: 'simulation-sandbox', route: '/super-admin/governance/simulate', icon: FlaskConical },
+      { title: 'Approval Queue', tab: 'approval-queue', route: '/super-admin/governance/queue', icon: ClipboardCheck },
     ]
   },
   {
