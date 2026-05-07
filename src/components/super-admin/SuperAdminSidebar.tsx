@@ -31,7 +31,8 @@ import {
   FlaskConical,
   ClipboardCheck,
   Wand2,
-  ScanSearch
+  ScanSearch,
+  Wrench
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -61,6 +62,7 @@ const navigationItems = [
       { title: 'Approval Queue', tab: 'approval-queue', route: '/super-admin/governance/queue', icon: ClipboardCheck },
       { title: 'AI Rule Builder', tab: 'ai-rule-builder', route: '/super-admin/governance/rules/new', icon: Wand2 },
       { title: 'Narration Validation', tab: 'narration-validation', route: '/super-admin/governance/narration', icon: ScanSearch },
+      { title: 'Hardening & Cron', tab: 'hardening', route: '/super-admin/governance/hardening', icon: Wrench },
     ]
   },
   {

@@ -30,6 +30,7 @@ import SimulationSandbox from './super-admin/SimulationSandbox';
 import ApprovalQueue from './super-admin/ApprovalQueue';
 import AIRuleBuilder from './super-admin/AIRuleBuilder';
 import NarrationValidation from './super-admin/NarrationValidation';
+import HardeningConsole from './super-admin/HardeningConsole';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -124,6 +125,7 @@ const SuperAdmin = () => {
             <Route path="/governance/queue" element={<ApprovalQueue />} />
             <Route path="/governance/rules/new" element={<AIRuleBuilder />} />
             <Route path="/governance/narration" element={<NarrationValidation />} />
+            <Route path="/governance/hardening" element={<HardeningConsole />} />
           </Routes>
         </main>
       </div>

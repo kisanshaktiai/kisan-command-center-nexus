@@ -10460,6 +10460,93 @@ export type Database = {
         }
         Relationships: []
       }
+      governance_cron_jobs: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          job_name: string
+          last_error: string | null
+          last_run_at: string | null
+          last_status: string | null
+          schedule: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          job_name: string
+          last_error?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          schedule: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          job_name?: string
+          last_error?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          schedule?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      governance_migration_drafts: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          metadata: Json
+          rationale: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          reviewer_notes: string | null
+          severity: string
+          sql_draft: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          rationale?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          severity?: string
+          sql_draft: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          rationale?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          severity?: string
+          sql_draft?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       group_chat_members: {
         Row: {
           farmer_id: string
