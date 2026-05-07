@@ -28,7 +28,8 @@ import ObservationConsole from './super-admin/ObservationConsole';
 import SafetyConsole from './super-admin/SafetyConsole';
 import SimulationSandbox from './super-admin/SimulationSandbox';
 import ApprovalQueue from './super-admin/ApprovalQueue';
-import { useQuery } from '@tanstack/react-query';
+import AIRuleBuilder from './super-admin/AIRuleBuilder';
+import NarrationValidation from './super-admin/NarrationValidation';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
