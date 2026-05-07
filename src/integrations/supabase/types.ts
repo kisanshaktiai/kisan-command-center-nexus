@@ -1709,6 +1709,122 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_prompt_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          duplicates: Json
+          error: string | null
+          id: string
+          input_variables: Json
+          raw_output: Json | null
+          status: string
+          target_record_id: string | null
+          target_table: string | null
+          template_id: string
+          warnings: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          duplicates?: Json
+          error?: string | null
+          id?: string
+          input_variables?: Json
+          raw_output?: Json | null
+          status?: string
+          target_record_id?: string | null
+          target_table?: string | null
+          template_id: string
+          warnings?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          duplicates?: Json
+          error?: string | null
+          id?: string
+          input_variables?: Json
+          raw_output?: Json | null
+          status?: string
+          target_record_id?: string | null
+          target_table?: string | null
+          template_id?: string
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompt_runs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompt_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_prompt_templates: {
+        Row: {
+          auto_apply: boolean
+          created_at: string
+          created_by: string | null
+          dedupe_keys: Json
+          description: string | null
+          id: string
+          is_active: boolean
+          key: string
+          model: string
+          name: string
+          output_schema: Json
+          system_prompt: string
+          target_table: string
+          temperature: number
+          updated_at: string
+          updated_by: string | null
+          user_prompt_template: string
+          variables_schema: Json
+        }
+        Insert: {
+          auto_apply?: boolean
+          created_at?: string
+          created_by?: string | null
+          dedupe_keys?: Json
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          key: string
+          model?: string
+          name: string
+          output_schema?: Json
+          system_prompt: string
+          target_table: string
+          temperature?: number
+          updated_at?: string
+          updated_by?: string | null
+          user_prompt_template: string
+          variables_schema?: Json
+        }
+        Update: {
+          auto_apply?: boolean
+          created_at?: string
+          created_by?: string | null
+          dedupe_keys?: Json
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          key?: string
+          model?: string
+          name?: string
+          output_schema?: Json
+          system_prompt?: string
+          target_table?: string
+          temperature?: number
+          updated_at?: string
+          updated_by?: string | null
+          user_prompt_template?: string
+          variables_schema?: Json
+        }
+        Relationships: []
+      }
       ai_schedule_refinements: {
         Row: {
           ai_reasoning: string
