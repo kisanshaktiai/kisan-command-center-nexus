@@ -257,7 +257,7 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
         </div>
 
         {/* Footer - Version & Sign Out */}
-        <div className="border-t border-slate-700 p-4 space-y-3">
+        <div className="border-t border-slate-700 p-4 space-y-3 flex-shrink-0">
           {/* Version Display */}
           <TooltipProvider>
             <Tooltip>
