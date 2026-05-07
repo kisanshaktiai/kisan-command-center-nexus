@@ -52,6 +52,11 @@ const navigationItems = [
       { title: 'Admin Users', tab: 'admin-user-management', route: '/super-admin/admin-user-management', icon: Shield },
       { title: 'Platform Monitoring', tab: 'platform-monitoring', route: '/super-admin/platform-monitoring', icon: Activity },
       { title: 'AI Costs', tab: 'ai-costs', route: '/super-admin/ai-costs', icon: Brain },
+    ]
+  },
+  {
+    title: 'Governance & Operations',
+    items: [
       { title: 'Backups', tab: 'backups', route: '/super-admin/backups', icon: HardDrive },
       { title: 'Governance Reports', tab: 'governance-reports', route: '/super-admin/governance/reports', icon: Gavel },
       { title: 'Rules Console', tab: 'rules-console', route: '/super-admin/governance/rules', icon: BookOpen },
