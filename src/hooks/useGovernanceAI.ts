@@ -42,13 +42,13 @@ export function useSubmitDraftAsProposal() {
     mutationFn: async ({ draft, notes }: { draft: RuleDraft; notes?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('rule_approval_workflow')
         .insert({
           state: 'draft',
           submitted_by: user.id,
           submitted_at: new Date().toISOString(),
-          proposed_payload: draft as any,
+          proposed_payload: draft,
           agronomist_notes: notes ?? null,
           metadata: { source: 'ai_rule_builder' },
         })
