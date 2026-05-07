@@ -29,7 +29,9 @@ import {
   Eye,
   ShieldAlert,
   FlaskConical,
-  ClipboardCheck
+  ClipboardCheck,
+  Wand2,
+  ScanSearch
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
