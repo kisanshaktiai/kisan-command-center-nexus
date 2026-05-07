@@ -52,6 +52,11 @@ const navigationItems = [
       { title: 'Admin Users', tab: 'admin-user-management', route: '/super-admin/admin-user-management', icon: Shield },
       { title: 'Platform Monitoring', tab: 'platform-monitoring', route: '/super-admin/platform-monitoring', icon: Activity },
       { title: 'AI Costs', tab: 'ai-costs', route: '/super-admin/ai-costs', icon: Brain },
+    ]
+  },
+  {
+    title: 'Governance & Operations',
+    items: [
       { title: 'Backups', tab: 'backups', route: '/super-admin/backups', icon: HardDrive },
       { title: 'Governance Reports', tab: 'governance-reports', route: '/super-admin/governance/reports', icon: Gavel },
       { title: 'Rules Console', tab: 'rules-console', route: '/super-admin/governance/rules', icon: BookOpen },
@@ -104,16 +109,17 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
   const { currentVersion, buildHash, isLoading } = useAppVersionCheck(appKey);
   const versionLabel = currentVersion ? `v${currentVersion}` : isLoading ? 'v…' : 'v—';
   const buildLabel = buildHash ? buildHash.slice(0, 7) : isLoading ? '…' : '—';
-  const [openGroups, setOpenGroups] = useState<string[]>(['Platform Management']);
   const location = useLocation();
 
+  const activeGroup = navigationItems.find(g => g.items.some(i => i.route === location.pathname))?.title ?? 'Platform Management';
+  const [openGroups, setOpenGroups] = useState<string[]>([activeGroup]);
+
   const toggleGroup = (groupTitle: string) => {
-    setOpenGroups(prev => 
-      prev.includes(groupTitle) 
-        ? prev.filter(title => title !== groupTitle)
-        : [...prev, groupTitle]
+    setOpenGroups(prev =>
+      prev.includes(groupTitle) ? [] : [groupTitle]
     );
   };
+
 
   const closeSidebar = () => setIsOpen(false);
 
@@ -186,12 +192,12 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 bg-gradient-to-b from-slate-900 to-slate-800 border-r border-slate-700 shadow-2xl transform transition-all duration-300 ease-in-out",
+        "fixed inset-y-0 left-0 z-50 flex flex-col bg-gradient-to-b from-slate-900 to-slate-800 border-r border-slate-700 shadow-2xl transform transition-all duration-300 ease-in-out",
         isOpen ? "w-72" : "w-16",
         "translate-x-0"
       )}>
         {/* Header */}
-        <div className="border-b border-slate-700 p-4">
+        <div className="border-b border-slate-700 p-4 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
               <Settings className="w-5 h-5 text-white" />
@@ -206,7 +212,7 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
         </div>
 
         {/* Navigation with ScrollArea */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col">
           <ScrollArea className={cn("flex-1 py-2", isOpen ? "px-4" : "px-2")}>
             <div className={cn(isOpen ? "space-y-2" : "space-y-3")}>
               {navigationItems.map((group) => (
@@ -251,7 +257,7 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
         </div>
 
         {/* Footer - Version & Sign Out */}
-        <div className="border-t border-slate-700 p-4 space-y-3">
+        <div className="border-t border-slate-700 p-4 space-y-3 flex-shrink-0">
           {/* Version Display */}
           <TooltipProvider>
             <Tooltip>
