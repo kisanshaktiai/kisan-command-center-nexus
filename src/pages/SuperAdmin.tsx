@@ -125,6 +125,7 @@ const SuperAdmin = () => {
             <Route path="/governance/simulate" element={<SimulationSandbox />} />
             <Route path="/governance/queue" element={<ApprovalQueue />} />
             <Route path="/governance/rules/new" element={<AIRuleBuilder />} />
+            <Route path="/governance/prompts" element={<AIPromptTemplates />} />
             <Route path="/governance/narration" element={<NarrationValidation />} />
             <Route path="/governance/hardening" element={<HardeningConsole />} />
           </Routes>
