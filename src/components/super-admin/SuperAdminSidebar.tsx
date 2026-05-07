@@ -59,6 +59,8 @@ const navigationItems = [
       { title: 'Safety & Regulatory', tab: 'safety-console', route: '/super-admin/governance/safety', icon: ShieldAlert },
       { title: 'Simulation Sandbox', tab: 'simulation-sandbox', route: '/super-admin/governance/simulate', icon: FlaskConical },
       { title: 'Approval Queue', tab: 'approval-queue', route: '/super-admin/governance/queue', icon: ClipboardCheck },
+      { title: 'AI Rule Builder', tab: 'ai-rule-builder', route: '/super-admin/governance/rules/new', icon: Wand2 },
+      { title: 'Narration Validation', tab: 'narration-validation', route: '/super-admin/governance/narration', icon: ScanSearch },
     ]
   },
   {
