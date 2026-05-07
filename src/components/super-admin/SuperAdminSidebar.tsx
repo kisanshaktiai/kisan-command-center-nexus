@@ -192,12 +192,12 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 bg-gradient-to-b from-slate-900 to-slate-800 border-r border-slate-700 shadow-2xl transform transition-all duration-300 ease-in-out",
+        "fixed inset-y-0 left-0 z-50 flex flex-col bg-gradient-to-b from-slate-900 to-slate-800 border-r border-slate-700 shadow-2xl transform transition-all duration-300 ease-in-out",
         isOpen ? "w-72" : "w-16",
         "translate-x-0"
       )}>
         {/* Header */}
-        <div className="border-b border-slate-700 p-4">
+        <div className="border-b border-slate-700 p-4 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
               <Settings className="w-5 h-5 text-white" />
@@ -212,7 +212,7 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
         </div>
 
         {/* Navigation with ScrollArea */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col">
           <ScrollArea className={cn("flex-1 py-2", isOpen ? "px-4" : "px-2")}>
             <div className={cn(isOpen ? "space-y-2" : "space-y-3")}>
               {navigationItems.map((group) => (
