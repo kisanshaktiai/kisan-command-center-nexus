@@ -31,7 +31,8 @@ import {
   FlaskConical,
   ClipboardCheck,
   Wand2,
-  ScanSearch
+  ScanSearch,
+  Wrench
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
