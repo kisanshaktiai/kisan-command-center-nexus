@@ -67,6 +67,7 @@ const navigationItems = [
       { title: 'Simulation Sandbox', tab: 'simulation-sandbox', route: '/super-admin/governance/simulate', icon: FlaskConical },
       { title: 'Approval Queue', tab: 'approval-queue', route: '/super-admin/governance/queue', icon: ClipboardCheck },
       { title: 'AI Rule Builder', tab: 'ai-rule-builder', route: '/super-admin/governance/rules/new', icon: Wand2 },
+      { title: 'AI Prompt Templates', tab: 'ai-prompt-templates', route: '/super-admin/governance/prompts', icon: FileCode2 },
       { title: 'Narration Validation', tab: 'narration-validation', route: '/super-admin/governance/narration', icon: ScanSearch },
       { title: 'Hardening & Cron', tab: 'hardening', route: '/super-admin/governance/hardening', icon: Wrench },
     ]
