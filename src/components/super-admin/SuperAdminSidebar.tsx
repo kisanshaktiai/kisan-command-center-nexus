@@ -109,16 +109,17 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
   const { currentVersion, buildHash, isLoading } = useAppVersionCheck(appKey);
   const versionLabel = currentVersion ? `v${currentVersion}` : isLoading ? 'v…' : 'v—';
   const buildLabel = buildHash ? buildHash.slice(0, 7) : isLoading ? '…' : '—';
-  const [openGroups, setOpenGroups] = useState<string[]>(['Platform Management']);
   const location = useLocation();
 
+  const activeGroup = navigationItems.find(g => g.items.some(i => i.route === location.pathname))?.title ?? 'Platform Management';
+  const [openGroups, setOpenGroups] = useState<string[]>([activeGroup]);
+
   const toggleGroup = (groupTitle: string) => {
-    setOpenGroups(prev => 
-      prev.includes(groupTitle) 
-        ? prev.filter(title => title !== groupTitle)
-        : [...prev, groupTitle]
+    setOpenGroups(prev =>
+      prev.includes(groupTitle) ? [] : [groupTitle]
     );
   };
+
 
   const closeSidebar = () => setIsOpen(false);
 
