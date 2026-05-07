@@ -29,6 +29,7 @@ import SafetyConsole from './super-admin/SafetyConsole';
 import SimulationSandbox from './super-admin/SimulationSandbox';
 import ApprovalQueue from './super-admin/ApprovalQueue';
 import AIRuleBuilder from './super-admin/AIRuleBuilder';
+import AIPromptTemplates from './super-admin/AIPromptTemplates';
 import NarrationValidation from './super-admin/NarrationValidation';
 import HardeningConsole from './super-admin/HardeningConsole';
 import { useQuery } from '@tanstack/react-query';
@@ -124,6 +125,7 @@ const SuperAdmin = () => {
             <Route path="/governance/simulate" element={<SimulationSandbox />} />
             <Route path="/governance/queue" element={<ApprovalQueue />} />
             <Route path="/governance/rules/new" element={<AIRuleBuilder />} />
+            <Route path="/governance/prompts" element={<AIPromptTemplates />} />
             <Route path="/governance/narration" element={<NarrationValidation />} />
             <Route path="/governance/hardening" element={<HardeningConsole />} />
           </Routes>
