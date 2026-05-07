@@ -10666,6 +10666,66 @@ export type Database = {
           },
         ]
       }
+      hallucination_detection_logs: {
+        Row: {
+          ai_content: string
+          created_at: string
+          farmer_id: string | null
+          flagged_terms: Json
+          hallucination_score: number
+          id: string
+          judge_model: string | null
+          judge_reasoning: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          reviewer_notes: string | null
+          rules_applied: Json
+          source_id: string | null
+          source_type: string
+          tenant_id: string | null
+          updated_at: string
+          verdict: string
+        }
+        Insert: {
+          ai_content: string
+          created_at?: string
+          farmer_id?: string | null
+          flagged_terms?: Json
+          hallucination_score?: number
+          id?: string
+          judge_model?: string | null
+          judge_reasoning?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          rules_applied?: Json
+          source_id?: string | null
+          source_type: string
+          tenant_id?: string | null
+          updated_at?: string
+          verdict?: string
+        }
+        Update: {
+          ai_content?: string
+          created_at?: string
+          farmer_id?: string | null
+          flagged_terms?: Json
+          hallucination_score?: number
+          id?: string
+          judge_model?: string | null
+          judge_reasoning?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          rules_applied?: Json
+          source_id?: string | null
+          source_type?: string
+          tenant_id?: string | null
+          updated_at?: string
+          verdict?: string
+        }
+        Relationships: []
+      }
       hypothesis_conditions: {
         Row: {
           condition_key: string
