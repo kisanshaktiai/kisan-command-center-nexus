@@ -11,9 +11,13 @@ export interface BackupEvent {
   notes: string | null;
 }
 
+// `backup_events` is not present in the generated Supabase types yet,
+// so use an untyped client reference for these queries.
+const db = supabase as any;
+
 export class BackupService {
   static async list(limit = 50): Promise<BackupEvent[]> {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('backup_events')
       .select('*')
       .order('started_at', { ascending: false })
@@ -23,7 +27,7 @@ export class BackupService {
   }
 
   static async lastSuccessful(): Promise<BackupEvent | null> {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('backup_events')
       .select('*')
       .eq('status', 'succeeded')
