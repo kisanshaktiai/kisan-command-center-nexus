@@ -9,7 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import { useApprovalQueue, useTransitionApproval, type ApprovalState } from '@/hooks/useGovernanceMutations';
 import { format } from 'date-fns';
-import { ClipboardCheck, ArrowRight } from 'lucide-react';
+import { ClipboardCheck, ArrowRight, Eye } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const COLUMNS: Array<{ key: ApprovalState; label: string; next?: ApprovalState[] }> = [
   { key: 'draft', label: 'Draft', next: ['review', 'rejected'] },
@@ -85,6 +86,11 @@ export default function ApprovalQueue() {
                         {r.agronomist_notes && (
                           <div className="text-foreground line-clamp-2">{r.agronomist_notes}</div>
                         )}
+                        <Button asChild size="sm" variant="secondary" className="h-6 px-2 text-[10px] w-full">
+                          <Link to={`/super-admin/governance/review/${r.rule_id}`}>
+                            <Eye className="h-3 w-3 mr-1" />Review
+                          </Link>
+                        </Button>
                         {col.next && col.next.length > 0 && (
                           <div className="flex flex-wrap gap-1 pt-1">
                             {col.next.map(n => (

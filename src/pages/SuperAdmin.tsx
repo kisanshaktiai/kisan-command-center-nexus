@@ -23,6 +23,7 @@ import AiCostDashboard from './super-admin/AiCostDashboard';
 import BackupStatus from './super-admin/BackupStatus';
 import GovernanceReports from './super-admin/GovernanceReports';
 import RulesConsole from './super-admin/RulesConsole';
+import RuleReview from './super-admin/RuleReview';
 import HypothesisConsole from './super-admin/HypothesisConsole';
 import ObservationConsole from './super-admin/ObservationConsole';
 import SafetyConsole from './super-admin/SafetyConsole';
@@ -119,6 +120,7 @@ const SuperAdmin = () => {
             <Route path="/backups" element={<BackupStatus />} />
             <Route path="/governance/reports" element={<GovernanceReports />} />
             <Route path="/governance/rules" element={<RulesConsole />} />
+            <Route path="/governance/review/:ruleUuid" element={<RuleReview />} />
             <Route path="/governance/hypotheses" element={<HypothesisConsole />} />
             <Route path="/governance/observations" element={<ObservationConsole />} />
             <Route path="/governance/safety" element={<SafetyConsole />} />

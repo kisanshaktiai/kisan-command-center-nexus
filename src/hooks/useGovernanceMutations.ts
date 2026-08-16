@@ -137,3 +137,134 @@ export function useApprovalWorkflowDetail(workflowId: string | null) {
   });
 }
 
+
+/* ------------------------------------------------------------------
+ * Guarded write hooks — all writes go through governance_* RPCs.
+ * NEVER update decision_rules / rule_approval_workflow from the client.
+ * TODO(backend): these SECURITY DEFINER functions must exist with the same
+ * is_super_admin() gate + publish safety logic as
+ * governance.transition_approval_state:
+ *   governance_update_rule_fields(p_rule_id uuid, p_fields jsonb)
+ *   governance_resolve_finding(p_finding_id uuid, p_note text)
+ *   governance_submit_rule_for_review(p_rule_uuid uuid, p_note text)
+ *   governance_bulk_transition(p_workflow_ids uuid[], p_new_state text, p_note text)
+ * Until then these hooks surface the DB error verbatim.
+ * ------------------------------------------------------------------ */
+
+// Types are not generated for these RPCs yet.
+const rpc = (name: string, args: Record<string, unknown>) =>
+  (supabase as any).rpc(name, args);
+
+const dbMessage = (e: any) => e?.message || 'Unknown database error';
+
+/** Whitelisted, agronomist-editable gate fields. */
+export const EDITABLE_RULE_FIELDS = [
+  'active_ingredient',
+  'dosage_per_acre',
+  'water_volume_per_acre',
+  'phi_days',
+  'phi_status',
+  'application_method',
+  'bee_toxicity',
+  'regulatory_status',
+  'confidence_score',
+] as const;
+
+export type EditableRuleField = (typeof EDITABLE_RULE_FIELDS)[number];
+
+export function useUpdateRuleFields() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ruleUuid, fields }: { ruleUuid: string; fields: Record<string, unknown> }) => {
+      const { data, error } = await rpc('governance_update_rule_fields', {
+        p_rule_id: ruleUuid,
+        p_fields: fields,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_d, vars) => {
+      toast({ title: 'Rule fields updated' });
+      qc.invalidateQueries({ queryKey: ['decision-rule-detail', vars.ruleUuid] });
+      qc.invalidateQueries({ queryKey: ['decision-rules'] });
+    },
+    onError: (e: any) =>
+      toast({ title: 'Update refused', description: dbMessage(e), variant: 'destructive' }),
+  });
+}
+
+export function useResolveFinding() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ findingId, note }: { findingId: string; note?: string; ruleTextId?: string }) => {
+      const { data, error } = await rpc('governance_resolve_finding', {
+        p_finding_id: findingId,
+        p_note: note ?? null,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_d, vars) => {
+      toast({ title: 'Finding resolved' });
+      qc.invalidateQueries({ queryKey: ['rule-findings', vars.ruleTextId ?? null] });
+      qc.invalidateQueries({ queryKey: ['rule-findings'] });
+    },
+    onError: (e: any) =>
+      toast({ title: 'Could not resolve finding', description: dbMessage(e), variant: 'destructive' }),
+  });
+}
+
+export function useSubmitForReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ruleUuid, note }: { ruleUuid: string; note?: string }) => {
+      const { data, error } = await rpc('governance_submit_rule_for_review', {
+        p_rule_uuid: ruleUuid,
+        p_note: note ?? null,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_d, vars) => {
+      toast({ title: 'Submitted for review' });
+      qc.invalidateQueries({ queryKey: ['rule-approval', vars.ruleUuid] });
+      qc.invalidateQueries({ queryKey: ['approval-queue'] });
+    },
+    onError: (e: any) =>
+      toast({ title: 'Submit refused', description: dbMessage(e), variant: 'destructive' }),
+  });
+}
+
+export interface BulkTransitionResult {
+  rule_id: string;
+  result: string;
+}
+
+export function useBulkTransition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      ruleUuids,
+      newState,
+      note,
+    }: {
+      ruleUuids: string[];
+      newState: ApprovalState;
+      note?: string;
+    }) => {
+      const { data, error } = await rpc('governance_bulk_transition', {
+        p_workflow_ids: ruleUuids,
+        p_new_state: newState,
+        p_note: note ?? null,
+      });
+      if (error) throw error;
+      return (Array.isArray(data) ? data : []) as BulkTransitionResult[];
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['approval-queue'] });
+      qc.invalidateQueries({ queryKey: ['decision-rules'] });
+    },
+    onError: (e: any) =>
+      toast({ title: 'Bulk approval failed', description: dbMessage(e), variant: 'destructive' }),
+  });
+}
