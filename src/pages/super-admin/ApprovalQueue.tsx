@@ -109,7 +109,29 @@ export default function ApprovalQueue() {
             ))}
           </div>
         )}
+
+        {!isLoading && (
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              {total === 0 ? 'No items' : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, total)} of ${total}`}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>
+                Previous
+              </Button>
+              <span>Page {page + 1} / {totalPages}</span>
+              <Button
+                variant="outline" size="sm"
+                disabled={page + 1 >= totalPages}
+                onClick={() => setPage(p => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+
 
       <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
         <DialogContent>
