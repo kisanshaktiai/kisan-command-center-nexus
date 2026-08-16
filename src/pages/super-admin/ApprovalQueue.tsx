@@ -21,20 +21,27 @@ const COLUMNS: Array<{ key: ApprovalState; label: string; next?: ApprovalState[]
 ];
 
 export default function ApprovalQueue() {
-  const { data: rows, isLoading } = useApprovalQueue('all');
+  const [page, setPage] = useState(0);
+  const { data, isLoading } = useApprovalQueue('all', page);
   const transition = useTransitionApproval();
   const [active, setActive] = useState<{ id: string; nextState: ApprovalState } | null>(null);
   const [notes, setNotes] = useState('');
 
+  const rows = data?.rows ?? [];
+  const total = data?.count ?? 0;
+  const pageSize = data?.pageSize ?? 100;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
   const grouped = useMemo(() => {
     const g: Record<string, any[]> = {};
     COLUMNS.forEach(c => (g[c.key] = []));
-    (rows || []).forEach((r: any) => {
+    rows.forEach((r: any) => {
       if (!g[r.state]) g[r.state] = [];
       g[r.state].push(r);
     });
     return g;
   }, [rows]);
+
 
   const handleSubmit = () => {
     if (!active) return;
@@ -102,7 +109,29 @@ export default function ApprovalQueue() {
             ))}
           </div>
         )}
+
+        {!isLoading && (
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              {total === 0 ? 'No items' : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, total)} of ${total}`}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>
+                Previous
+              </Button>
+              <span>Page {page + 1} / {totalPages}</span>
+              <Button
+                variant="outline" size="sm"
+                disabled={page + 1 >= totalPages}
+                onClick={() => setPage(p => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+
 
       <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
         <DialogContent>

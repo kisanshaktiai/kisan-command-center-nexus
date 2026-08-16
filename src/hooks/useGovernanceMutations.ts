@@ -83,19 +83,57 @@ export function useRollbackToVersion() {
 }
 
 
-export function useApprovalQueue(stateFilter?: string) {
+const QUEUE_COLUMNS =
+  'id, rule_id, state, submitted_by, reviewer_id, agronomist_notes, updated_at, created_at';
+
+export const QUEUE_PAGE_SIZE = 100;
+
+export interface ApprovalQueueRow {
+  id: string;
+  rule_id: string;
+  state: string;
+  submitted_by: string | null;
+  reviewer_id: string | null;
+  agronomist_notes: string | null;
+  updated_at: string;
+  created_at: string;
+}
+
+export function useApprovalQueue(stateFilter?: string, page = 0) {
   return useQuery({
-    queryKey: ['approval-queue', stateFilter],
+    queryKey: ['approval-queue', stateFilter, page],
     queryFn: async () => {
       let q = supabase
         .from('rule_approval_workflow')
-        .select('*')
+        .select(QUEUE_COLUMNS, { count: 'exact' })
         .order('updated_at', { ascending: false })
-        .limit(500);
+        .range(page * QUEUE_PAGE_SIZE, page * QUEUE_PAGE_SIZE + QUEUE_PAGE_SIZE - 1);
       if (stateFilter && stateFilter !== 'all') q = q.eq('state', stateFilter);
-      const { data, error } = await q;
+      const { data, error, count } = await q;
       if (error) throw error;
-      return data || [];
+      return {
+        rows: (data || []) as ApprovalQueueRow[],
+        count: count || 0,
+        pageSize: QUEUE_PAGE_SIZE,
+      };
     },
   });
 }
+
+/** Loads the heavy proposed_payload only when a detail dialog is open. */
+export function useApprovalWorkflowDetail(workflowId: string | null) {
+  return useQuery({
+    queryKey: ['approval-workflow-detail', workflowId],
+    enabled: !!workflowId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('rule_approval_workflow')
+        .select('id, rule_id, state, proposed_payload, rejection_reason, metadata, rule_version_id, submitted_at, reviewed_at')
+        .eq('id', workflowId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
