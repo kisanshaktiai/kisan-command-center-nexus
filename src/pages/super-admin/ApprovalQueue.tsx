@@ -7,11 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { useApprovalQueue, useTransitionApproval } from '@/hooks/useGovernanceMutations';
+import { useApprovalQueue, useTransitionApproval, type ApprovalState } from '@/hooks/useGovernanceMutations';
 import { format } from 'date-fns';
 import { ClipboardCheck, ArrowRight } from 'lucide-react';
 
-const COLUMNS: Array<{ key: string; label: string; next?: string[] }> = [
+const COLUMNS: Array<{ key: ApprovalState; label: string; next?: ApprovalState[] }> = [
   { key: 'draft', label: 'Draft', next: ['review', 'rejected'] },
   { key: 'review', label: 'In Review', next: ['approved', 'rejected', 'draft'] },
   { key: 'approved', label: 'Approved', next: ['published', 'deprecated'] },
@@ -23,7 +23,7 @@ const COLUMNS: Array<{ key: string; label: string; next?: string[] }> = [
 export default function ApprovalQueue() {
   const { data: rows, isLoading } = useApprovalQueue('all');
   const transition = useTransitionApproval();
-  const [active, setActive] = useState<{ id: string; nextState: string } | null>(null);
+  const [active, setActive] = useState<{ id: string; nextState: ApprovalState } | null>(null);
   const [notes, setNotes] = useState('');
 
   const grouped = useMemo(() => {
