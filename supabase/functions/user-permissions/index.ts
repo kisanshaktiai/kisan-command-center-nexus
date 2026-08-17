@@ -1,5 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  requireSuperAdmin,
+  withCors as addCors,
+  auditAdminAction,
+  guardLastSuperAdmin,
+  jsonError,
+  type Caller,
+} from '../_shared/requireSuperAdmin.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,12 +62,22 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`[user-permissions] operation: ${operation}`);
 
+    // SECURITY: every privileged operation must prove the caller is an active
+    // super_admin (this function runs with verify_jwt=false + service-role key).
+    let caller: Caller | null = null;
+    try {
+      caller = await requireSuperAdmin(req);
+    } catch (e) {
+      if (e instanceof Response) return addCors(e, corsHeaders);
+      throw e;
+    }
+
     switch (operation) {
       case 'assign-role':
-        return await assignAdminRole(supabase, body, req);
+        return await assignAdminRole(supabase, body, req, caller);
       
       case 'manage-tenant':
-        return await manageUserTenant(supabase, body, req);
+        return await manageUserTenant(supabase, body, req, caller);
       
       case 'get-tenant-relationships':
         return await getTenantRelationships(supabase, url, req);
@@ -85,7 +103,7 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 // Assign admin role
-async function assignAdminRole(supabase: any, body: any, req: Request): Promise<Response> {
+async function assignAdminRole(supabase: any, body: any, req: Request, caller: Caller | null): Promise<Response> {
   const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
   
   if (!checkRateLimit(clientIP)) {
@@ -161,6 +179,10 @@ async function assignAdminRole(supabase: any, body: any, req: Request): Promise<
     });
   }
 
+  // Never let a role assignment strip the last active super_admin.
+  const lockout = await guardLastSuperAdmin(supabase, userId, { newRole: role });
+  if (lockout) return addCors(lockout, corsHeaders);
+
   const { error: insertError } = await supabase
     .from('admin_users')
     .insert({
@@ -214,6 +236,15 @@ async function assignAdminRole(supabase: any, body: any, req: Request): Promise<
     console.error('Failed to log security event:', logError);
   }
 
+  await auditAdminAction({
+    caller,
+    action: 'admin_role_assigned',
+    targetAdminId: userId,
+    details: { after: { role, is_active: true }, email, full_name: fullName },
+    ip: clientIP,
+    userAgent: req.headers.get('user-agent'),
+  });
+
   console.log('Admin role assigned successfully');
 
   return new Response(JSON.stringify({ 
@@ -229,7 +260,7 @@ async function assignAdminRole(supabase: any, body: any, req: Request): Promise<
 }
 
 // Manage user-tenant relationship
-async function manageUserTenant(supabase: any, body: any, req: Request): Promise<Response> {
+async function manageUserTenant(supabase: any, body: any, req: Request, caller: Caller | null): Promise<Response> {
   const authHeader = req.headers.get('authorization');
   if (!authHeader) {
     return new Response(JSON.stringify({ 
