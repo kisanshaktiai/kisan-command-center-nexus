@@ -26,21 +26,23 @@ const ResourceIndicator: React.FC<ResourceIndicatorProps> = ({ label, value, ico
 
   const actualColor = getColor(value);
 
+  const pct = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+
   return (
-    <div className="flex items-center justify-between py-2">
-      <div className="flex items-center gap-2">
-        <Icon className={cn("w-4 h-4", colorClasses[actualColor].split(' ')[0])} />
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
+    <div className="flex items-center gap-3 py-2 min-w-0">
+      <div className="flex items-center gap-2 min-w-0 shrink">
+        <Icon className={cn("w-4 h-4 shrink-0", colorClasses[actualColor].split(' ')[0])} />
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{label}</span>
       </div>
-      <div className="flex items-center gap-2">
-        <div className="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+        <div className="h-2 flex-1 min-w-[3rem] max-w-[8rem] bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
           <div 
             className={cn("h-full transition-all duration-500", colorClasses[actualColor].split(' ')[1])}
-            style={{ width: `${value}%` }}
+            style={{ width: `${pct}%` }}
           />
         </div>
-        <span className={cn("text-sm font-semibold min-w-[3rem] text-right", colorClasses[actualColor].split(' ')[0])}>
-          {value}%
+        <span className={cn("text-sm font-semibold w-11 text-right tabular-nums shrink-0", colorClasses[actualColor].split(' ')[0])}>
+          {pct}%
         </span>
       </div>
     </div>
