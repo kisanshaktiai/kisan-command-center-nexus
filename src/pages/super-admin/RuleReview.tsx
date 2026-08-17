@@ -625,34 +625,63 @@ const RuleReview: React.FC = () => {
                     />
                   </div>
 
+                  {submitNotice && (
+                    <Alert>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertDescription>{submitNotice}</AlertDescription>
+                    </Alert>
+                  )}
+
                   {refusal && (
                     <Alert variant="destructive">
                       <AlertDescription className="whitespace-pre-wrap">{refusal}</AlertDescription>
                     </Alert>
                   )}
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="space-y-2">
                     {!workflow ? (
-                      <Button
-                        className="w-full"
-                        disabled={submitForReview.isPending}
-                        onClick={() => runTransition('review')}
-                      >
-                        {submitForReview.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                        Submit for review
-                      </Button>
-                    ) : (
-                      (NEXT_STATES[workflowState || 'draft'] || []).map((s) => (
+                      <>
                         <Button
-                          key={s}
-                          size="sm"
-                          variant={s === 'rejected' ? 'destructive' : 'default'}
-                          disabled={transition.isPending}
-                          onClick={() => runTransition(s)}
+                          className="w-full"
+                          disabled={submitForReview.isPending}
+                          onClick={() => runTransition('review')}
                         >
-                          {s}
+                          {submitForReview.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                          Submit for review
                         </Button>
-                      ))
+                        <p className="text-xs text-muted-foreground">
+                          After you submit, a DIFFERENT reviewer must approve (maker-checker). For
+                          AI/system-drafted rules, Bulk Approve on the Rules Console can approve
+                          directly — those are system-submitted.
+                        </p>
+                      </>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {(NEXT_STATES[workflowState || 'draft'] || []).map((s) => {
+                          const blockedByMakerChecker = s === 'approved' && isOwnSubmission;
+                          return (
+                            <Button
+                              key={s}
+                              size="sm"
+                              variant={s === 'rejected' ? 'destructive' : 'default'}
+                              disabled={transition.isPending || blockedByMakerChecker}
+                              title={
+                                blockedByMakerChecker
+                                  ? 'You submitted this rule — a different reviewer must approve it.'
+                                  : undefined
+                              }
+                              onClick={() => runTransition(s)}
+                            >
+                              {s}
+                            </Button>
+                          );
+                        })}
+                        {isOwnSubmission && (
+                          <p className="text-xs text-muted-foreground w-full">
+                            You submitted this rule — a different reviewer must approve it.
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -661,8 +690,26 @@ const RuleReview: React.FC = () => {
           </div>
         </div>
       </div>
-    </AdminAuthWrapper>
-  );
-};
 
-export default RuleReview;
+      {/* LIVE-RULE SAVE CONFIRMATION */}
+      <Dialog open={confirmLiveSave} onOpenChange={setConfirmLiveSave}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>This rule is LIVE for farmers</DialogTitle>
+            <DialogDescription>
+              Saving will change what farmers receive immediately. The change is version-snapshotted,
+              but there is no re-review before it goes out. Continue?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmLiveSave(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => { setConfirmLiveSave(false); saveFields(); }}
+            >
+              Save to live rule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AdminAuthWrapper>
