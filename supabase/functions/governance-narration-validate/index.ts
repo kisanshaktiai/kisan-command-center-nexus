@@ -63,6 +63,7 @@ serve(async (req) => {
           model: r.model,
           tool_call_ok: !!parsed,
           verdict: parsed?.verdict ?? null,
+          failures: r.failures,
         };
       } catch (e) {
         out.probe = { ok: false, error: e instanceof Error ? e.message : "unknown" };

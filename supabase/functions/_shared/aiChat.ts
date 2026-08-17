@@ -21,6 +21,7 @@ export interface AIChatResult {
   data: any;
   provider: "openai" | "gemini";
   model: string;
+  failures: string[];
 }
 
 function summarize(text: string) {
@@ -50,6 +51,7 @@ export async function callAIWithFallback(req: AIChatRequest): Promise<AIChatResu
   if (typeof temperature === "number") base.temperature = temperature;
 
   const failures: string[] = [];
+  const fail = (msg: string) => { console.warn(`AI attempt failed: ${msg}`); failures.push(msg); };
   const openaiKey = Deno.env.get("OPENAI_API_KEY");
 
   if (!openaiKey) {
@@ -60,13 +62,13 @@ export async function callAIWithFallback(req: AIChatRequest): Promise<AIChatResu
         const { res, text } = await post(OPENAI_URL, openaiKey, { ...base, model });
         if (res.ok) {
           console.log(`AI ok provider=openai model=${model}`);
-          return { data: JSON.parse(text), provider: "openai", model };
+          return { data: JSON.parse(text), provider: "openai", model, failures };
         }
-        failures.push(`openai/${model}: ${res.status} ${summarize(text)}`);
+        fail(`openai/${model}: ${res.status} ${summarize(text)}`);
         if (isModelNotFound(res.status, text)) continue; // try next ladder model
         break; // key/quota/other problem — go to fallback
       } catch (e) {
-        failures.push(`openai/${model}: ${String(e)}`);
+        fail(`openai/${model}: ${String(e)}`);
         break;
       }
     }
@@ -80,11 +82,11 @@ export async function callAIWithFallback(req: AIChatRequest): Promise<AIChatResu
       const { res, text } = await post(GEMINI_URL, geminiKey, { ...base, model: GEMINI_MODEL });
       if (res.ok) {
         console.log(`AI ok provider=gemini model=${GEMINI_MODEL}`);
-        return { data: JSON.parse(text), provider: "gemini", model: GEMINI_MODEL };
+        return { data: JSON.parse(text), provider: "gemini", model: GEMINI_MODEL, failures };
       }
-      failures.push(`gemini/${GEMINI_MODEL}: ${res.status} ${summarize(text)}`);
+      fail(`gemini/${GEMINI_MODEL}: ${res.status} ${summarize(text)}`);
     } catch (e) {
-      failures.push(`gemini/${GEMINI_MODEL}: ${String(e)}`);
+      fail(`gemini/${GEMINI_MODEL}: ${String(e)}`);
     }
   }
 
