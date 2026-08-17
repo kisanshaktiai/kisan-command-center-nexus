@@ -56,9 +56,6 @@ serve(async (req) => {
   }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
-
     const authHeader = req.headers.get("Authorization") ?? "";
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callAIWithFallback } from "../_shared/aiChat.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,9 +37,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) return json({ error: "LOVABLE_API_KEY missing" }, 500);
-
     const authHeader = req.headers.get("Authorization") ?? "";
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -84,39 +82,30 @@ serve(async (req) => {
         },
       }];
 
-      let aiResp: Response;
+      let data: any;
+      let aiProvider = "none";
+      let aiModel = "none";
       try {
-        aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: tpl.model,
-            temperature: Number(tpl.temperature ?? 0.2),
-            messages: [
-              { role: "system", content: tpl.system_prompt },
-              { role: "user", content: userPrompt },
-            ],
-            tools,
-            tool_choice: { type: "function", function: { name: "emit_payload" } },
-          }),
+        const result = await callAIWithFallback({
+          messages: [
+            { role: "system", content: tpl.system_prompt },
+            { role: "user", content: userPrompt },
+          ],
+          tools,
+          tool_choice: { type: "function", function: { name: "emit_payload" } },
+          temperature: Number(tpl.temperature ?? 0.2),
         });
+        data = result.data;
+        aiProvider = result.provider;
+        aiModel = result.model;
       } catch (e) {
-        return json({ error: "ai_gateway_unreachable", details: String(e) }, 502);
-      }
-
-      if (aiResp.status === 429) return json({ error: "rate_limited" }, 429);
-      if (aiResp.status === 402) return json({ error: "credits_exhausted" }, 402);
-      if (!aiResp.ok) {
-        const t = await aiResp.text();
-        const isModel = /model|not.*found|unsupported/i.test(t);
         return json({
-          error: isModel ? "model_unavailable" : "ai_gateway_error",
-          details: t,
-          hint: isModel ? `Model "${tpl.model}" is not available on the gateway. Edit the template to use a supported model (e.g. google/gemini-3-flash-preview).` : undefined,
+          error: "ai_unavailable",
+          details: e instanceof Error ? e.message : String(e),
+          hint: 'All AI providers failed. Verify OPENAI_API_KEY / GEMINI_API_KEY, or use gpt-5.6-luna (OpenAI).',
         }, 502);
       }
 
-      const data = await aiResp.json();
       const call = data.choices?.[0]?.message?.tool_calls?.[0];
       let draft: any = null;
       try { draft = call ? JSON.parse(call.function.arguments) : null; } catch { /* ignore */ }
@@ -172,6 +161,13 @@ serve(async (req) => {
       const useDirect = mode === "direct" || (mode !== "queue" && tpl.auto_apply);
 
       if (useDirect) {
+        return json({
+          error: "direct_mode_disabled",
+          reason: "AI output must enter via rule_approval_workflow.",
+        }, 403);
+      }
+
+      if (false) {
         const { data: inserted, error: insErr } = await adminClient
           .from(tpl.target_table)
           .insert(finalPayload)
