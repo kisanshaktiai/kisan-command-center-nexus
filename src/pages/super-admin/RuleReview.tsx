@@ -588,6 +588,29 @@ const RuleReview: React.FC = () => {
               <Card>
                 <CardHeader><CardTitle className="text-base">Decision</CardTitle></CardHeader>
                 <CardContent className="space-y-3 text-sm">
+                  {hasQueue && (
+                    <div className="space-y-2 border-b pb-3">
+                      <div className="text-xs text-muted-foreground">
+                        Rule {queueIndex! + 1} of {queue!.length}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm" variant="outline" className="flex-1"
+                          disabled={!prevUuid}
+                          onClick={() => prevUuid && goTo(prevUuid, queueIndex! - 1)}
+                        >
+                          ← Prev
+                        </Button>
+                        <Button
+                          size="sm" variant="outline" className="flex-1"
+                          disabled={!nextUuid}
+                          onClick={() => nextUuid && goTo(nextUuid, queueIndex! + 1)}
+                        >
+                          Next →
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   <div
                     className={`rounded p-3 text-center font-semibold ${
                       servable
