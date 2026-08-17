@@ -121,9 +121,15 @@ verify_jwt = false
 [functions.user-invitations]
 verify_jwt = false
 
+# verify_jwt=false: has pre-auth paths (existence check / bootstrap). ALL
+# privileged operations are gated in-code via requireSuperAdmin(). Do not add
+# privileged ops without that guard.
 [functions.user-management]
 verify_jwt = false
 
+# verify_jwt=false: has pre-auth paths (existence check / bootstrap). ALL
+# privileged operations are gated in-code via requireSuperAdmin(). Do not add
+# privileged ops without that guard.
 [functions.user-permissions]
 verify_jwt = false
 
