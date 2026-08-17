@@ -236,6 +236,15 @@ async function assignAdminRole(supabase: any, body: any, req: Request, caller: C
     console.error('Failed to log security event:', logError);
   }
 
+  await auditAdminAction({
+    caller,
+    action: 'admin_role_assigned',
+    targetAdminId: userId,
+    details: { after: { role, is_active: true }, email, full_name: fullName },
+    ip: clientIP,
+    userAgent: req.headers.get('user-agent'),
+  });
+
   console.log('Admin role assigned successfully');
 
   return new Response(JSON.stringify({ 
