@@ -35,7 +35,32 @@ const TOOL = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Public, secret-free health/diagnostics endpoint: reports key presence only,
+  // and (with probe=1) verifies the live provider ladder with a 1-token call.
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.searchParams.get("health") === "1") {
+    const out: Record<string, unknown> = {
+      openai_key_present: !!Deno.env.get("OPENAI_API_KEY"),
+      gemini_key_present: !!Deno.env.get("GEMINI_API_KEY"),
+      lovable_gateway_used: false,
+    };
+    if (url.searchParams.get("probe") === "1") {
+      try {
+        const r = await callAIWithFallback({
+          messages: [{ role: "user", content: "Reply with the single word: ok" }],
+        });
+        out.probe = { ok: true, provider: r.provider, model: r.model };
+      } catch (e) {
+        out.probe = { ok: false, error: e instanceof Error ? e.message : "unknown" };
+      }
+    }
+    return new Response(JSON.stringify(out), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
