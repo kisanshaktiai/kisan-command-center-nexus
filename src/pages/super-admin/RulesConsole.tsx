@@ -100,6 +100,28 @@ const RulesConsole: React.FC = () => {
             />
             <Button onClick={applySearch} size="icon" variant="outline"><Search className="w-4 h-4" /></Button>
           </div>
+          <Select value={filters.cropCode || 'all'} onValueChange={(v) => { setFilters({ ...filters, cropCode: v === 'all' ? undefined : v }); setPage(0); }}>
+            <SelectTrigger><SelectValue placeholder="Crop" /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">Crop: All</SelectItem>
+              {(facets?.crops || []).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filters.category || 'all'} onValueChange={(v) => { setFilters({ ...filters, category: v === 'all' ? undefined : v }); setPage(0); }}>
+            <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">Category: All</SelectItem>
+              {(facets?.categories || []).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filters.actionType || 'all'} onValueChange={(v) => { setFilters({ ...filters, actionType: v === 'all' ? undefined : v }); setPage(0); }}>
+            <SelectTrigger><SelectValue placeholder="Action" /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">Action: All</SelectItem>
+              {(facets?.actions || []).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
           <Select value={filters.ipmLevel || 'all'} onValueChange={(v) => { setFilters({ ...filters, ipmLevel: v === 'all' ? undefined : v }); setPage(0); }}>
             <SelectTrigger><SelectValue placeholder="IPM Level" /></SelectTrigger>
             <SelectContent>
