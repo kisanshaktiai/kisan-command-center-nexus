@@ -407,6 +407,13 @@ const RuleReview: React.FC = () => {
                         <Badge variant="outline">{f.status}</Badge>
                       </div>
                       <div className="text-sm">{f.detail}</div>
+                      {(f.finding_type === 'CLAIM_OVERREACH' || f.finding_type === 'AGRONOMY_REVIEW') && (
+                        <p className="text-xs text-muted-foreground">
+                          Farmer-facing text (action_text / reason_text) is not editable on this page —
+                          text changes go through the workflow's proposed-payload flow. Resolve this
+                          finding only after the text has been corrected there.
+                        </p>
+                      )}
                       {(f.detected_value || f.expected_value) && (
                         <div className="text-xs font-mono text-muted-foreground">
                           {f.detected_value ?? '—'} → {f.expected_value ?? '—'}
