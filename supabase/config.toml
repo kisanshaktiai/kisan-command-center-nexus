@@ -158,3 +158,12 @@ verify_jwt = false
 
 [functions.governance-audit]
 verify_jwt = true
+
+[functions.governance-narration-validate]
+verify_jwt = true
+
+[functions.governance-rule-assistant]
+verify_jwt = true
+
+[functions.governance-ai-builder]
+verify_jwt = true
