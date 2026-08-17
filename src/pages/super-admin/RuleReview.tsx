@@ -651,6 +651,62 @@ const RuleReview: React.FC = () => {
           {[r.crop_code, r.category, r.action_type].filter(Boolean).join(' · ') || '—'}
         </p>
 
+        {/* SAFETY POSTURE STRIP */}
+        <div
+          ref={secSafetyStrip as any}
+          className="scroll-mt-20 rounded-lg border p-3 flex flex-wrap items-center gap-2"
+        >
+          <span className={`inline-flex items-center gap-1.5 text-xs rounded px-2 py-1 ${safety.className}`}>
+            {safety.shield && <ShieldAlert className="h-3.5 w-3.5" />}
+            {safety.text}
+          </span>
+          {r.expert_override_required && (
+            <span className="inline-flex items-center gap-1.5 text-xs rounded px-2 py-1 border border-destructive text-destructive">
+              <ShieldAlert className="h-3.5 w-3.5" /> Expert override required
+            </span>
+          )}
+          {(present(r.bee_toxicity) || present(r.aquatic_toxicity) || present(r.reentry_interval_hours)) && (
+            <span className="text-xs text-muted-foreground">
+              {present(r.bee_toxicity) && (
+                <span className={toxicWord(r.bee_toxicity) ? 'text-warning' : undefined}>
+                  Bees: {String(r.bee_toxicity)}
+                </span>
+              )}
+              {present(r.aquatic_toxicity) && (
+                <>
+                  {present(r.bee_toxicity) && ' · '}
+                  <span className={toxicWord(r.aquatic_toxicity) ? 'text-warning' : undefined}>
+                    Aquatic: {String(r.aquatic_toxicity)}
+                  </span>
+                </>
+              )}
+              {present(r.reentry_interval_hours) && (
+                <>
+                  {(present(r.bee_toxicity) || present(r.aquatic_toxicity)) && ' · '}
+                  Re-entry: {String(r.reentry_interval_hours)} h
+                </>
+              )}
+            </span>
+          )}
+          {contraindications.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="text-xs rounded px-2 py-1 bg-warning text-warning-foreground"
+                >
+                  {contraindications.length} contraindication(s)
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <ul className="list-disc pl-4 space-y-1 text-xs">
+                  {contraindications.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* MAIN */}
           <div className="lg:col-span-2 space-y-4">
@@ -666,7 +722,7 @@ const RuleReview: React.FC = () => {
                 {r.action_text ? (
                   <div className="rounded-2xl border bg-accent/40 p-4 space-y-3 max-w-[70ch]">
                     <div className="whitespace-pre-wrap text-base leading-relaxed">
-                      {highlightedAction}
+                      {highlight(r.action_text)}
                     </div>
                     {r.reason_text && (
                       <div className="rounded-xl bg-background/60 border p-3">
@@ -678,10 +734,28 @@ const RuleReview: React.FC = () => {
                         </div>
                       </div>
                     )}
+                    {present(r.organic_alternative) && (
+                      <div className="rounded-xl bg-background/60 border p-3">
+                        <h3 className="text-xs font-semibold text-muted-foreground mb-1">
+                          Organic alternative (also shown to farmer)
+                        </h3>
+                        <div className="whitespace-pre-wrap text-sm text-muted-foreground">
+                          {highlight(r.organic_alternative)}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-destructive bg-destructive/10 p-4 text-sm text-destructive max-w-[70ch]">
                     No farmer text — this rule cannot serve anyone.
+                  </div>
+                )}
+                {successIndicators.length > 0 && (
+                  <div className="max-w-[70ch]">
+                    <h3 className="text-xs font-semibold text-muted-foreground mb-1">Success looks like:</h3>
+                    <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-0.5">
+                      {successIndicators.map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
                   </div>
                 )}
                 {flaggedTokens.length > 0 && (
@@ -691,6 +765,40 @@ const RuleReview: React.FC = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* 1b · WHEN THIS RULE FIRES */}
+            {hasFireContext && (
+              <Card className="scroll-mt-20">
+                <CardHeader className="p-4 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs rounded bg-muted text-muted-foreground px-1.5 py-0.5">1b</span>
+                    <CardTitle className="text-sm font-semibold">When this rule fires</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 space-y-2">
+                  {present(r.cause) && <p className="text-sm">{String(r.cause)}</p>}
+                  {(present(r.condition_code) || stages.length || seasons.length || soils.length) ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {present(r.condition_code) && <Chip mono>{String(r.condition_code)}</Chip>}
+                      {stages.map((s) => <Chip key={`st-${s}`}>{s}</Chip>)}
+                      {seasons.map((s) => <Chip key={`se-${s}`}>{s}</Chip>)}
+                      {soils.map((s) => <Chip key={`so-${s}`}>{s}</Chip>)}
+                    </div>
+                  ) : null}
+                  {present(r.etl_threshold) && (
+                    <p className="text-sm">
+                      Treat at: {String(r.etl_threshold)}{present(r.etl_unit) ? ` ${String(r.etl_unit)}` : ''}
+                    </p>
+                  )}
+                  {rotationBits.length > 0 && (
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {rotationBits.map((v) => String(v)).join(' · ')}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
 
             {/* 2 · SAFETY FIELDS */}
             <Card ref={secFields as any} className="scroll-mt-20">
