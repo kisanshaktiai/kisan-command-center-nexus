@@ -1,3 +1,5 @@
+// governance-narration-validate
+// probe=1 spends AI tokens; gated by PROBE_SECRET or super_admin.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callAIWithFallback, AI_LADDER_VERSION } from "../_shared/aiChat.ts";
