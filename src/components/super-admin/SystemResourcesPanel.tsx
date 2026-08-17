@@ -72,12 +72,12 @@ export const SystemResourcesPanel: React.FC = () => {
       "hover:shadow-2xl transition-all duration-300"
     )}>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <Server className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-            System Resources
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2 min-w-0">
+            <Server className="w-5 h-5 shrink-0 text-slate-600 dark:text-slate-400" />
+            <span className="truncate">System Resources</span>
           </CardTitle>
-          <span className={cn("text-sm font-semibold", healthColor)}>
+          <span className={cn("text-sm font-semibold shrink-0", healthColor)}>
             {healthStatus}
           </span>
         </div>
