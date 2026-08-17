@@ -103,7 +103,7 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 // Assign admin role
-async function assignAdminRole(supabase: any, body: any, req: Request): Promise<Response> {
+async function assignAdminRole(supabase: any, body: any, req: Request, caller: Caller | null): Promise<Response> {
   const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
   
   if (!checkRateLimit(clientIP)) {
