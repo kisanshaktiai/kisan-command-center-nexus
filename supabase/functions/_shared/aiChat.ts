@@ -59,7 +59,11 @@ export async function callAIWithFallback(req: AIChatRequest): Promise<AIChatResu
   } else {
     for (const model of OPENAI_MODELS) {
       try {
-        const { res, text } = await post(OPENAI_URL, openaiKey, { ...base, model });
+        // GPT-5.6 models run with reasoning on by default and reject function
+        // tools on /v1/chat/completions unless reasoning_effort is "none".
+        const payload: Record<string, unknown> = { ...base, model };
+        if (/^gpt-5\.6/.test(model)) payload.reasoning_effort = "none";
+        const { res, text } = await post(OPENAI_URL, openaiKey, payload);
         if (res.ok) {
           console.log(`AI ok provider=openai model=${model}`);
           return { data: JSON.parse(text), provider: "openai", model, failures };
