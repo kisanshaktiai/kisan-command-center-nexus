@@ -179,6 +179,10 @@ async function assignAdminRole(supabase: any, body: any, req: Request, caller: C
     });
   }
 
+  // Never let a role assignment strip the last active super_admin.
+  const lockout = await guardLastSuperAdmin(supabase, userId, { newRole: role });
+  if (lockout) return addCors(lockout, corsHeaders);
+
   const { error: insertError } = await supabase
     .from('admin_users')
     .insert({
