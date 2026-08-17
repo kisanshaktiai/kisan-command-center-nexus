@@ -1,5 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  requireSuperAdmin,
+  withCors as addCors,
+  auditAdminAction,
+  guardLastSuperAdmin,
+  jsonError,
+  type Caller,
+} from '../_shared/requireSuperAdmin.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
