@@ -193,6 +193,8 @@ const RuleReview: React.FC = () => {
   const secFields = useRef<HTMLDivElement | null>(null);
   const secBlockers = useRef<HTMLDivElement | null>(null);
   const secEvidence = useRef<HTMLDivElement | null>(null);
+  const secSafetyStrip = useRef<HTMLDivElement | null>(null);
+
   const scrollTo = (ref: React.RefObject<HTMLDivElement>) =>
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
