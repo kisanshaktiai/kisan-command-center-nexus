@@ -38935,6 +38935,7 @@ export type Database = {
         Args: { p_land_id: string; p_target_stage: string }
         Returns: Json
       }
+      exec_governance_count: { Args: { sql_text: string }; Returns: number }
       expert_approve_rules: {
         Args: { p_approver: string; p_basis: string; p_rule_ids: string[] }
         Returns: {
@@ -39639,6 +39640,35 @@ export type Database = {
         }[]
       }
       gettransactionid: { Args: never; Returns: unknown }
+      governance_bulk_transition: {
+        Args: { p_new_state: string; p_note?: string; p_workflow_ids: string[] }
+        Returns: {
+          result: string
+          rule_id: string
+        }[]
+      }
+      governance_resolve_finding: {
+        Args: { p_finding_id: string; p_note?: string }
+        Returns: {
+          created_at: string
+          detail: string
+          detected_value: string | null
+          expected_value: string | null
+          finding_type: string
+          id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          rule_id: string
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "decision_rule_qa_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       governance_rollback_rule_to_version: {
         Args: { p_notes?: string; p_version_id: string }
         Returns: {
@@ -39668,6 +39698,31 @@ export type Database = {
         Args: { p_rule_id: string; p_sample_input: Json }
         Returns: Json
       }
+      governance_submit_rule_for_review: {
+        Args: { p_note?: string; p_rule_uuid: string }
+        Returns: {
+          agronomist_notes: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          proposed_payload: Json | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          rule_id: string
+          rule_version_id: string | null
+          state: string
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rule_approval_workflow"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       governance_transition_approval_state: {
         Args: { p_new_state: string; p_notes?: string; p_workflow_id: string }
         Returns: {
@@ -39692,6 +39747,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      governance_update_rule_fields: {
+        Args: { p_fields: Json; p_rule_id: string }
+        Returns: Json
       }
       has_role: {
         Args: {

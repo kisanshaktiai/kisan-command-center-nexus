@@ -50,7 +50,7 @@ Response format (return ONLY this, nothing else):
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5.6-luna',
         messages: [
           { 
             role: 'system', 
