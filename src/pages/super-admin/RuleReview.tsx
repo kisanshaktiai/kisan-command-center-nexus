@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { AdminAuthWrapper } from '@/components/auth/AdminAuthWrapper';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
 import {
@@ -67,6 +72,17 @@ const Empty: React.FC<{ msg: string }> = ({ msg }) => (
 const RuleReview: React.FC = () => {
   const { ruleUuid = '' } = useParams<{ ruleUuid: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const qc = useQueryClient();
+
+  const queue: string[] | undefined = (location.state as any)?.queue;
+  const queueIndex: number | undefined = (location.state as any)?.index;
+  const hasQueue = Array.isArray(queue) && queue.length > 0 && typeof queueIndex === 'number';
+  const nextUuid = hasQueue ? queue![queueIndex! + 1] : undefined;
+  const prevUuid = hasQueue ? queue![queueIndex! - 1] : undefined;
+
+  const goTo = (uuid: string, index: number) =>
+    navigate(`/super-admin/governance/review/${uuid}`, { state: { queue, index } });
 
   const { data: rule, isLoading } = useDecisionRuleDetail(ruleUuid || null);
   const ruleTextId = (rule as any)?.rule_id ?? null;
@@ -90,10 +106,19 @@ const RuleReview: React.FC = () => {
   const [verifiedAgainst, setVerifiedAgainst] = useState('');
   const [refusal, setRefusal] = useState<string | null>(null);
   const [resolveNote, setResolveNote] = useState<Record<string, string>>({});
+  const [confirmLiveSave, setConfirmLiveSave] = useState(false);
+  const [submitNotice, setSubmitNotice] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+  }, []);
 
   const r = rule as any;
   const workflow = (approvals || [])[0] as any | undefined;
   const workflowState: string | undefined = workflow?.state;
+  const isOwnSubmission =
+    !!workflow?.submitted_by && !!currentUserId && workflow.submitted_by === currentUserId;
 
   const openFindings = useMemo(
     () => (findings || []).filter((f) => isFindingOpen(f)),
@@ -110,6 +135,12 @@ const RuleReview: React.FC = () => {
 
   const dirty = Object.keys(edits).length > 0;
 
+  const advanceIfQueued = () => {
+    if (hasQueue && nextUuid) {
+      setTimeout(() => goTo(nextUuid, queueIndex! + 1), 800);
+    }
+  };
+
   const saveFields = () => {
     const payload: Record<string, unknown> = {};
     Object.entries(edits).forEach(([k, v]) => {
@@ -122,14 +153,21 @@ const RuleReview: React.FC = () => {
         onSuccess: () => {
           setEdits({});
           setEditing({});
+          qc.invalidateQueries({ queryKey: ['rule-findings', ruleTextId] });
         },
         onError: (e: any) => setRefusal(e?.message || 'Update refused'),
       }
     );
   };
 
+  const onSaveClick = () => {
+    if (r?.is_farmer_servable) setConfirmLiveSave(true);
+    else saveFields();
+  };
+
   const runTransition = (newState: ApprovalState) => {
     setRefusal(null);
+    setSubmitNotice(null);
     if (NOTE_REQUIRED.includes(newState) && !verifiedAgainst.trim()) {
       setRefusal('Enter the source you verified this rule against before approving or publishing.');
       return;
@@ -138,13 +176,24 @@ const RuleReview: React.FC = () => {
     if (!workflow) {
       submitForReview.mutate(
         { ruleUuid, note: notes },
-        { onError: (e: any) => setRefusal(e?.message || 'Submit refused') }
+        {
+          onSuccess: () => {
+            setSubmitNotice(
+              'Submitted for review. You cannot approve your own submission — another super-admin must open this page to approve.'
+            );
+            advanceIfQueued();
+          },
+          onError: (e: any) => setRefusal(e?.message || 'Submit refused'),
+        }
       );
       return;
     }
     transition.mutate(
       { workflowId: workflow.id, newState, notes },
-      { onError: (e: any) => setRefusal(e?.message || 'Transition refused') }
+      {
+        onSuccess: () => advanceIfQueued(),
+        onError: (e: any) => setRefusal(e?.message || 'Transition refused'),
+      }
     );
   };
 
@@ -244,7 +293,7 @@ const RuleReview: React.FC = () => {
                     <Button size="sm" variant="ghost" onClick={() => { setEdits({}); setEditing({}); }}>
                       Cancel
                     </Button>
-                    <Button size="sm" onClick={saveFields} disabled={updateFields.isPending}>
+                    <Button size="sm" onClick={onSaveClick} disabled={updateFields.isPending}>
                       {updateFields.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
                       Save
                     </Button>
@@ -539,6 +588,29 @@ const RuleReview: React.FC = () => {
               <Card>
                 <CardHeader><CardTitle className="text-base">Decision</CardTitle></CardHeader>
                 <CardContent className="space-y-3 text-sm">
+                  {hasQueue && (
+                    <div className="space-y-2 border-b pb-3">
+                      <div className="text-xs text-muted-foreground">
+                        Rule {queueIndex! + 1} of {queue!.length}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm" variant="outline" className="flex-1"
+                          disabled={!prevUuid}
+                          onClick={() => prevUuid && goTo(prevUuid, queueIndex! - 1)}
+                        >
+                          ← Prev
+                        </Button>
+                        <Button
+                          size="sm" variant="outline" className="flex-1"
+                          disabled={!nextUuid}
+                          onClick={() => nextUuid && goTo(nextUuid, queueIndex! + 1)}
+                        >
+                          Next →
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   <div
                     className={`rounded p-3 text-center font-semibold ${
                       servable
@@ -576,34 +648,63 @@ const RuleReview: React.FC = () => {
                     />
                   </div>
 
+                  {submitNotice && (
+                    <Alert>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertDescription>{submitNotice}</AlertDescription>
+                    </Alert>
+                  )}
+
                   {refusal && (
                     <Alert variant="destructive">
                       <AlertDescription className="whitespace-pre-wrap">{refusal}</AlertDescription>
                     </Alert>
                   )}
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="space-y-2">
                     {!workflow ? (
-                      <Button
-                        className="w-full"
-                        disabled={submitForReview.isPending}
-                        onClick={() => runTransition('review')}
-                      >
-                        {submitForReview.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                        Submit for review
-                      </Button>
-                    ) : (
-                      (NEXT_STATES[workflowState || 'draft'] || []).map((s) => (
+                      <>
                         <Button
-                          key={s}
-                          size="sm"
-                          variant={s === 'rejected' ? 'destructive' : 'default'}
-                          disabled={transition.isPending}
-                          onClick={() => runTransition(s)}
+                          className="w-full"
+                          disabled={submitForReview.isPending}
+                          onClick={() => runTransition('review')}
                         >
-                          {s}
+                          {submitForReview.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                          Submit for review
                         </Button>
-                      ))
+                        <p className="text-xs text-muted-foreground">
+                          After you submit, a DIFFERENT reviewer must approve (maker-checker). For
+                          AI/system-drafted rules, Bulk Approve on the Rules Console can approve
+                          directly — those are system-submitted.
+                        </p>
+                      </>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {(NEXT_STATES[workflowState || 'draft'] || []).map((s) => {
+                          const blockedByMakerChecker = s === 'approved' && isOwnSubmission;
+                          return (
+                            <Button
+                              key={s}
+                              size="sm"
+                              variant={s === 'rejected' ? 'destructive' : 'default'}
+                              disabled={transition.isPending || blockedByMakerChecker}
+                              title={
+                                blockedByMakerChecker
+                                  ? 'You submitted this rule — a different reviewer must approve it.'
+                                  : undefined
+                              }
+                              onClick={() => runTransition(s)}
+                            >
+                              {s}
+                            </Button>
+                          );
+                        })}
+                        {isOwnSubmission && (
+                          <p className="text-xs text-muted-foreground w-full">
+                            You submitted this rule — a different reviewer must approve it.
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -612,6 +713,28 @@ const RuleReview: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* LIVE-RULE SAVE CONFIRMATION */}
+      <Dialog open={confirmLiveSave} onOpenChange={setConfirmLiveSave}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>This rule is LIVE for farmers</DialogTitle>
+            <DialogDescription>
+              Saving will change what farmers receive immediately. The change is version-snapshotted,
+              but there is no re-review before it goes out. Continue?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmLiveSave(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => { setConfirmLiveSave(false); saveFields(); }}
+            >
+              Save to live rule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminAuthWrapper>
   );
 };
