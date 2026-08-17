@@ -403,14 +403,14 @@ const RuleReview: React.FC = () => {
         {isEditing ? (
           isSelect ? (
             <Select
-              value={edits[f] ?? ''}
-              onValueChange={(v) => setEdits((prev) => ({ ...prev, [f]: v }))}
+              value={edits[f] ? edits[f] : '__CLEAR__'}
+              onValueChange={(v) => setEdits((prev) => ({ ...prev, [f]: v === '__CLEAR__' ? '' : v }))}
             >
               <SelectTrigger className="mt-1 h-8">
                 <SelectValue placeholder="— clear —" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— clear —</SelectItem>
+                <SelectItem value="__CLEAR__">— clear —</SelectItem>
                 {options.map((o) => (
                   <SelectItem key={o} value={o}>{o}</SelectItem>
                 ))}
