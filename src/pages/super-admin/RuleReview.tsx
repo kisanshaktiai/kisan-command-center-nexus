@@ -955,12 +955,34 @@ const RuleReview: React.FC = () => {
                 <SectionTitle n={4} title="Evidence" />
               </CardHeader>
               <CardContent className="p-4 pt-0 space-y-2">
+                {present(r.scientific_source) && (
+                  <div className="rounded-lg border p-3 space-y-1">
+                    <h3 className="text-xs font-semibold text-muted-foreground">
+                      Declared basis (from rule record)
+                    </h3>
+                    <button
+                      type="button"
+                      className={`text-left text-sm text-muted-foreground w-full ${expandedClaims.__declared ? '' : 'line-clamp-3'}`}
+                      onClick={() =>
+                        setExpandedClaims((s) => ({ ...s, __declared: !s.__declared }))
+                      }
+                    >
+                      {String(r.scientific_source)}
+                    </button>
+                    {present(r.phi_source) && (
+                      <p className="text-xs text-muted-foreground">PHI source: {String(r.phi_source)}</p>
+                    )}
+                  </div>
+                )}
                 {evidenceLoading && <Skeleton className="h-16 w-full" />}
                 {!evidenceLoading && (evidence?.length ?? 0) === 0 && (
                   <div className="rounded-lg border border-warning bg-warning/10 p-3 text-sm">
-                    No evidence linked — verify against a source before approving.
+                    {present(r.scientific_source)
+                      ? 'No registry-linked evidence — declared basis above is unverified against the registry. Verify before approving.'
+                      : 'No evidence linked — verify against a source before approving.'}
                   </div>
                 )}
+
                 {(evidence || []).map((ev: EvidenceRow) => {
                   const src = ev.knowledge_sources;
                   const tier = src ? TIER[src.authority_tier] : undefined;
