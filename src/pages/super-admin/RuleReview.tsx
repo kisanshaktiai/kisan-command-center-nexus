@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -52,6 +53,17 @@ const NEXT_STATES: Record<string, ApprovalState[]> = {
 };
 
 const NUMERIC_FIELDS = new Set(['phi_days', 'confidence_score']);
+const SELECT_FIELDS = new Set(['bee_toxicity', 'regulatory_status', 'phi_status']);
+const BEE_TOXICITY_OPTIONS = ['high', 'moderate', 'low', 'safe'];
+const REGULATORY_OPTIONS = ['approved', 'restricted', 'unknown'];
+const PHI_STATUS_OPTIONS = [
+  'PHI_NOT_APPLICABLE',
+  'PHI_REQUIRED_VERIFIED',
+  'PHI_REQUIRED_UNVERIFIED',
+  'PHI_REQUIRED_MISSING',
+  'PHI_CONDITIONAL',
+  'PHI_SOURCE_CONFLICT',
+];
 const NOTE_REQUIRED: ApprovalState[] = ['approved', 'published'];
 
 const TIER: Record<number, { label: string; className: string }> = {
@@ -304,13 +316,21 @@ const RuleReview: React.FC = () => {
                 {EDITABLE_RULE_FIELDS.map((f) => {
                   const current = r[f];
                   const isEditing = !!editing[f];
+                  const isBannedField = f === 'regulatory_status' && String(current).toLowerCase() === 'banned';
+                  const isSelect = SELECT_FIELDS.has(f);
+                  const options =
+                    f === 'bee_toxicity'
+                      ? BEE_TOXICITY_OPTIONS
+                      : f === 'regulatory_status'
+                        ? REGULATORY_OPTIONS
+                        : PHI_STATUS_OPTIONS;
                   return (
                     <div key={f} className="border rounded p-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs uppercase tracking-wide text-muted-foreground">
                           {f.replace(/_/g, ' ')}
                         </span>
-                        {!isEditing && (
+                        {!isEditing && !isBannedField && (
                           <Button
                             size="icon" variant="ghost" className="h-6 w-6"
                             onClick={() => {
@@ -323,12 +343,31 @@ const RuleReview: React.FC = () => {
                         )}
                       </div>
                       {isEditing ? (
-                        <Input
-                          className="mt-1 h-8"
-                          type={NUMERIC_FIELDS.has(f) ? 'number' : 'text'}
-                          value={edits[f] ?? ''}
-                          onChange={(e) => setEdits((prev) => ({ ...prev, [f]: e.target.value }))}
-                        />
+                        isSelect ? (
+                          <Select
+                            value={edits[f] ?? ''}
+                            onValueChange={(v) => setEdits((prev) => ({ ...prev, [f]: v }))}
+                          >
+                            <SelectTrigger className="mt-1 h-8">
+                              <SelectValue placeholder="— clear —" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">— clear —</SelectItem>
+                              {options.map((o) => (
+                                <SelectItem key={o} value={o}>
+                                  {o}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            className="mt-1 h-8"
+                            type={NUMERIC_FIELDS.has(f) ? 'number' : 'text'}
+                            value={edits[f] ?? ''}
+                            onChange={(e) => setEdits((prev) => ({ ...prev, [f]: e.target.value }))}
+                          />
+                        )
                       ) : (
                         <div className="text-sm mt-1 break-words">
                           {current == null || current === '' ? <Muted /> : String(current)}
@@ -368,6 +407,13 @@ const RuleReview: React.FC = () => {
                         <Badge variant="outline">{f.status}</Badge>
                       </div>
                       <div className="text-sm">{f.detail}</div>
+                      {(f.finding_type === 'CLAIM_OVERREACH' || f.finding_type === 'AGRONOMY_REVIEW') && (
+                        <p className="text-xs text-muted-foreground">
+                          Farmer-facing text (action_text / reason_text) is not editable on this page —
+                          text changes go through the workflow's proposed-payload flow. Resolve this
+                          finding only after the text has been corrected there.
+                        </p>
+                      )}
                       {(f.detected_value || f.expected_value) && (
                         <div className="text-xs font-mono text-muted-foreground">
                           {f.detected_value ?? '—'} → {f.expected_value ?? '—'}
