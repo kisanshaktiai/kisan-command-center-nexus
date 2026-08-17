@@ -187,14 +187,14 @@ const RuleReview: React.FC = () => {
       .map((f) => `${f.detail || ''} ${f.detected_value || ''}`)
       .join(' ');
     const found = text.match(NUM_UNIT_RE) || [];
-    const action = r?.action_text ? String(r.action_text) : '';
+    const farmerText = `${r?.action_text ?? ''} ${r?.organic_alternative ?? ''}`;
     const uniq = Array.from(new Set(found.map((t) => t.trim())));
-    return uniq.filter((t) => t && action.includes(t));
-  }, [findings, r?.action_text]);
+    return uniq.filter((t) => t && farmerText.includes(t));
+  }, [findings, r?.action_text, r?.organic_alternative]);
 
-  const highlightedAction = useMemo(() => {
-    const text = r?.action_text ? String(r.action_text) : '';
-    if (!text || flaggedTokens.length === 0) return text as React.ReactNode;
+  const highlight = (raw: unknown): React.ReactNode => {
+    const text = raw == null ? '' : String(raw);
+    if (!text || flaggedTokens.length === 0) return text;
     const re = new RegExp(`(${flaggedTokens.map(escapeRe).join('|')})`, 'g');
     return text.split(re).map((part, i) =>
       flaggedTokens.includes(part) ? (
@@ -203,13 +203,14 @@ const RuleReview: React.FC = () => {
         <React.Fragment key={i}>{part}</React.Fragment>
       )
     );
-  }, [r?.action_text, flaggedTokens]);
+  };
 
   const findingIsHighlighted = (f: FindingRow) => {
     if (flaggedTokens.length === 0 || !isFindingBlocking(f)) return false;
     const t = `${f.detail || ''} ${f.detected_value || ''}`;
     return flaggedTokens.some((tok) => t.includes(tok));
   };
+
 
   const dirty = Object.keys(edits).length > 0;
 
