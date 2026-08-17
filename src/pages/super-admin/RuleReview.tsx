@@ -88,6 +88,46 @@ const TIER: Record<number, { label: string; className: string }> = {
   6: { label: 'T6 · Aggregator', className: 'border border-border text-foreground' },
 };
 
+const SAFETY_LEVEL: Record<
+  string,
+  { className: string; text: string; shield?: boolean; bad?: boolean; warn?: boolean }
+> = {
+  safe: { className: 'bg-success/15 text-success border border-success/30', text: 'Safety level: SAFE' },
+  caution: {
+    className: 'bg-warning text-warning-foreground',
+    text: 'Safety level: CAUTION — advise the farmer to follow protective measures',
+    warn: true,
+  },
+  expert_only: {
+    className: 'border border-destructive text-destructive bg-destructive/5',
+    text: 'Safety level: EXPERT ONLY — this advisory requires expert supervision',
+    shield: true,
+    warn: true,
+  },
+  prohibited: {
+    className: 'bg-destructive text-destructive-foreground',
+    text: 'Safety level: PROHIBITED — this advisory must not reach farmers',
+    shield: true,
+    bad: true,
+  },
+};
+
+const present = (v: unknown) =>
+  v != null && !(typeof v === 'string' && v.trim() === '') && !(Array.isArray(v) && v.length === 0);
+
+const asList = (v: unknown): string[] => {
+  if (Array.isArray(v)) return v.map((x) => String(x)).filter(Boolean);
+  if (typeof v === 'string' && v.trim()) return [v.trim()];
+  return [];
+};
+
+const Chip: React.FC<{ children: React.ReactNode; mono?: boolean }> = ({ children, mono }) => (
+  <span className={`text-xs rounded border border-border bg-muted/60 px-1.5 py-0.5 ${mono ? 'font-mono' : ''}`}>
+    {children}
+  </span>
+);
+
+
 const Muted = () => <span className="text-muted-foreground">— not set —</span>;
 
 const Empty: React.FC<{ msg: string }> = ({ msg }) => (
