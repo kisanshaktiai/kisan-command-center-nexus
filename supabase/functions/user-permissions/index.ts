@@ -260,7 +260,7 @@ async function assignAdminRole(supabase: any, body: any, req: Request, caller: C
 }
 
 // Manage user-tenant relationship
-async function manageUserTenant(supabase: any, body: any, req: Request): Promise<Response> {
+async function manageUserTenant(supabase: any, body: any, req: Request, caller: Caller | null): Promise<Response> {
   const authHeader = req.headers.get('authorization');
   if (!authHeader) {
     return new Response(JSON.stringify({ 
