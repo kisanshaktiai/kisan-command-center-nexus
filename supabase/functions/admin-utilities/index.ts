@@ -326,15 +326,14 @@ const handleAdminUserCreation = async (body: any, req: Request): Promise<Respons
 
         const currentUsage = Math.floor(10000 + Math.random() * 5000);
         const maxLimit = 20000;
-        const usagePercentage = (currentUsage / maxLimit) * 100;
-        
+
+        // NOTE: usage_percentage is a GENERATED ALWAYS column — never insert it.
         const resourceUtilization = [
           {
             tenant_id: tenantId,
             resource_type: 'api_calls',
             current_usage: currentUsage,
             max_limit: maxLimit,
-            usage_percentage: usagePercentage,
             period_start: new Date(now.getTime() - 3600000).toISOString(),
             period_end: now.toISOString(),
             metadata: { rate_limit_tier: 'standard' },
@@ -344,16 +343,20 @@ const handleAdminUserCreation = async (body: any, req: Request): Promise<Respons
 
         const apiLogs = [];
         const endpoints = ['/api/auth/login', '/api/users', '/api/farmers'];
-        for (let i = 0; i < 5; i++) {
-          apiLogs.push({
-            tenant_id: tenantId,
-            endpoint: endpoints[Math.floor(Math.random() * endpoints.length)],
-            method: 'GET',
-            status_code: Math.random() > 0.9 ? 500 : 200,
-            response_time_ms: Math.floor(50 + Math.random() * 200),
-            created_at: new Date(now.getTime() - Math.random() * 3600000).toISOString(),
-          });
+        // api_logs.tenant_id is NOT NULL — skip when no tenant exists.
+        if (tenantId) {
+          for (let i = 0; i < 5; i++) {
+            apiLogs.push({
+              tenant_id: tenantId,
+              endpoint: endpoints[Math.floor(Math.random() * endpoints.length)],
+              method: 'GET',
+              status_code: Math.random() > 0.9 ? 500 : 200,
+              response_time_ms: Math.floor(50 + Math.random() * 200),
+              created_at: new Date(now.getTime() - Math.random() * 3600000).toISOString(),
+            });
+          }
         }
+
 
         console.log('[admin-utilities] Inserting monitoring data...');
         console.log('[admin-utilities] System health metrics:', systemHealthMetrics.length);
