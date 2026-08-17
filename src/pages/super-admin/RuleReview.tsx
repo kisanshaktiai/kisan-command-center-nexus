@@ -72,6 +72,17 @@ const Empty: React.FC<{ msg: string }> = ({ msg }) => (
 const RuleReview: React.FC = () => {
   const { ruleUuid = '' } = useParams<{ ruleUuid: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const qc = useQueryClient();
+
+  const queue: string[] | undefined = (location.state as any)?.queue;
+  const queueIndex: number | undefined = (location.state as any)?.index;
+  const hasQueue = Array.isArray(queue) && queue.length > 0 && typeof queueIndex === 'number';
+  const nextUuid = hasQueue ? queue![queueIndex! + 1] : undefined;
+  const prevUuid = hasQueue ? queue![queueIndex! - 1] : undefined;
+
+  const goTo = (uuid: string, index: number) =>
+    navigate(`/super-admin/governance/review/${uuid}`, { state: { queue, index } });
 
   const { data: rule, isLoading } = useDecisionRuleDetail(ruleUuid || null);
   const ruleTextId = (rule as any)?.rule_id ?? null;
@@ -95,10 +106,19 @@ const RuleReview: React.FC = () => {
   const [verifiedAgainst, setVerifiedAgainst] = useState('');
   const [refusal, setRefusal] = useState<string | null>(null);
   const [resolveNote, setResolveNote] = useState<Record<string, string>>({});
+  const [confirmLiveSave, setConfirmLiveSave] = useState(false);
+  const [submitNotice, setSubmitNotice] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+  }, []);
 
   const r = rule as any;
   const workflow = (approvals || [])[0] as any | undefined;
   const workflowState: string | undefined = workflow?.state;
+  const isOwnSubmission =
+    !!workflow?.submitted_by && !!currentUserId && workflow.submitted_by === currentUserId;
 
   const openFindings = useMemo(
     () => (findings || []).filter((f) => isFindingOpen(f)),
@@ -115,6 +135,12 @@ const RuleReview: React.FC = () => {
 
   const dirty = Object.keys(edits).length > 0;
 
+  const advanceIfQueued = () => {
+    if (hasQueue && nextUuid) {
+      setTimeout(() => goTo(nextUuid, queueIndex! + 1), 800);
+    }
+  };
+
   const saveFields = () => {
     const payload: Record<string, unknown> = {};
     Object.entries(edits).forEach(([k, v]) => {
@@ -127,14 +153,21 @@ const RuleReview: React.FC = () => {
         onSuccess: () => {
           setEdits({});
           setEditing({});
+          qc.invalidateQueries({ queryKey: ['rule-findings', ruleTextId] });
         },
         onError: (e: any) => setRefusal(e?.message || 'Update refused'),
       }
     );
   };
 
+  const onSaveClick = () => {
+    if (r?.is_farmer_servable) setConfirmLiveSave(true);
+    else saveFields();
+  };
+
   const runTransition = (newState: ApprovalState) => {
     setRefusal(null);
+    setSubmitNotice(null);
     if (NOTE_REQUIRED.includes(newState) && !verifiedAgainst.trim()) {
       setRefusal('Enter the source you verified this rule against before approving or publishing.');
       return;
@@ -143,13 +176,24 @@ const RuleReview: React.FC = () => {
     if (!workflow) {
       submitForReview.mutate(
         { ruleUuid, note: notes },
-        { onError: (e: any) => setRefusal(e?.message || 'Submit refused') }
+        {
+          onSuccess: () => {
+            setSubmitNotice(
+              'Submitted for review. You cannot approve your own submission — another super-admin must open this page to approve.'
+            );
+            advanceIfQueued();
+          },
+          onError: (e: any) => setRefusal(e?.message || 'Submit refused'),
+        }
       );
       return;
     }
     transition.mutate(
       { workflowId: workflow.id, newState, notes },
-      { onError: (e: any) => setRefusal(e?.message || 'Transition refused') }
+      {
+        onSuccess: () => advanceIfQueued(),
+        onError: (e: any) => setRefusal(e?.message || 'Transition refused'),
+      }
     );
   };
 
