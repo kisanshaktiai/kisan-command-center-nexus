@@ -293,7 +293,7 @@ const RuleReview: React.FC = () => {
                     <Button size="sm" variant="ghost" onClick={() => { setEdits({}); setEditing({}); }}>
                       Cancel
                     </Button>
-                    <Button size="sm" onClick={saveFields} disabled={updateFields.isPending}>
+                    <Button size="sm" onClick={onSaveClick} disabled={updateFields.isPending}>
                       {updateFields.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
                       Save
                     </Button>
