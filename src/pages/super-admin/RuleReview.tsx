@@ -53,6 +53,17 @@ const NEXT_STATES: Record<string, ApprovalState[]> = {
 };
 
 const NUMERIC_FIELDS = new Set(['phi_days', 'confidence_score']);
+const SELECT_FIELDS = new Set(['bee_toxicity', 'regulatory_status', 'phi_status']);
+const BEE_TOXICITY_OPTIONS = ['high', 'moderate', 'low', 'safe'];
+const REGULATORY_OPTIONS = ['approved', 'restricted', 'unknown'];
+const PHI_STATUS_OPTIONS = [
+  'PHI_NOT_APPLICABLE',
+  'PHI_REQUIRED_VERIFIED',
+  'PHI_REQUIRED_UNVERIFIED',
+  'PHI_REQUIRED_MISSING',
+  'PHI_CONDITIONAL',
+  'PHI_SOURCE_CONFLICT',
+];
 const NOTE_REQUIRED: ApprovalState[] = ['approved', 'published'];
 
 const TIER: Record<number, { label: string; className: string }> = {
