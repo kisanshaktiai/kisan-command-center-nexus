@@ -371,6 +371,27 @@ const RuleReview: React.FC = () => {
     .sort((a, b) => a - b)[0];
   const phiUnverified = String(r.phi_status || '').includes('UNVERIFIED');
 
+  const safetyKey = String(r.farmer_safety_level ?? 'safe').toLowerCase();
+  const safety = SAFETY_LEVEL[safetyKey] ?? {
+    className: 'bg-muted text-muted-foreground',
+    text: `Safety level: ${safetyKey}`,
+  };
+  const contraindications = asList(r.contraindications);
+  const successIndicators = asList(r.success_indicators);
+  const stages = asList(r.stage_applicable);
+  const seasons = asList(r.season_applicable).filter((s) => s.toUpperCase() !== 'ALL');
+  const soils = asList(r.soil_type_applicable).filter((s) => s.toUpperCase() !== 'ALL');
+  const rotationBits = [r.chemical_class, r.resistance_group, r.mode_of_action].filter((v) => present(v));
+  const hasFireContext =
+    present(r.cause) ||
+    present(r.condition_code) ||
+    stages.length > 0 ||
+    seasons.length > 0 ||
+    soils.length > 0 ||
+    present(r.etl_threshold) ||
+    rotationBits.length > 0;
+  const toxicWord = (v: unknown) => ['high', 'moderate'].includes(String(v ?? '').toLowerCase());
+
   type Check = { ok: boolean; warn?: boolean; label: string; onClick: () => void };
   const checklist: Check[] = [
     {
@@ -402,7 +423,29 @@ const RuleReview: React.FC = () => {
       label: r.expert_approved ? 'Expert approved' : 'Expert approval pending',
       onClick: () => scrollTo(secFarmer),
     },
+    {
+      ok: safetyKey === 'safe',
+      warn: safetyKey === 'caution' || safetyKey === 'expert_only',
+      label: `Safety level: ${safetyKey}`,
+      onClick: () => scrollTo(secSafetyStrip),
+    },
+    ...(contraindications.length > 0
+      ? [
+          {
+            ok: false,
+            warn: true,
+            label: `Contraindications reviewed (${contraindications.length})`,
+            onClick: () => scrollTo(secSafetyStrip),
+          } as Check,
+        ]
+      : []),
+    {
+      ok: present(r.scientific_source),
+      label: present(r.scientific_source) ? 'Declared source present' : 'No declared source',
+      onClick: () => scrollTo(secEvidence),
+    },
   ];
+
 
   const renderField = (f: string) => {
     const current = r[f];
