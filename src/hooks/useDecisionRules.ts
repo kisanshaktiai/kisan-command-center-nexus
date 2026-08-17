@@ -21,11 +21,38 @@ export interface DecisionRuleRow {
 export interface RulesFilters {
   search?: string;
   cropCode?: string;
+  category?: string;
+  actionType?: string;
   ipmLevel?: string;
   beeToxicity?: string;
   expertApproved?: string;
   active?: string;
 }
+
+/** Distinct crop / category / action values for the console filter bar. */
+export function useRuleFacets() {
+  return useQuery({
+    queryKey: ['decision-rule-facets'],
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('decision_rules')
+        .select('crop_code, category, action_type')
+        .limit(5000);
+      if (error) throw error;
+      const uniq = (key: 'crop_code' | 'category' | 'action_type') =>
+        Array.from(
+          new Set((data || []).map((r: any) => r[key]).filter((v): v is string => !!v))
+        ).sort();
+      return {
+        crops: uniq('crop_code'),
+        categories: uniq('category'),
+        actions: uniq('action_type'),
+      };
+    },
+  });
+}
+
 
 const PAGE_SIZE = 50;
 
