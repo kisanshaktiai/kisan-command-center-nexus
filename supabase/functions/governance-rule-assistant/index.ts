@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callAIWithFallback } from "../_shared/aiChat.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,33 +90,14 @@ Observation: ${observation}
 Plant part: ${plant_part ?? "n/a"}
 Agronomist intent: ${intent ?? "draft a sensible default rule"}`;
 
-    const ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [TOOL],
-        tool_choice: { type: "function", function: { name: "draft_decision_rule" } },
-      }),
+    const { data } = await callAIWithFallback({
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      tools: [TOOL],
+      tool_choice: { type: "function", function: { name: "draft_decision_rule" } },
     });
-
-    if (ai.status === 429 || ai.status === 402) {
-      return new Response(JSON.stringify({ error: ai.status === 429 ? "rate_limited" : "credits_exhausted" }), {
-        status: ai.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!ai.ok) {
-      const t = await ai.text();
-      return new Response(JSON.stringify({ error: "ai_gateway_error", details: t }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const data = await ai.json();
     const call = data.choices?.[0]?.message?.tool_calls?.[0];
     let draft: any = null;
     try { draft = call ? JSON.parse(call.function.arguments) : null; } catch { /* ignore */ }
