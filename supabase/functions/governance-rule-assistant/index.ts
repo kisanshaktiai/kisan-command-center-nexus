@@ -49,6 +49,12 @@ const TOOL = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // ON HOLD: free-text AI rule drafting disabled pending evidence-citation redesign.
+  return new Response(JSON.stringify({
+    error: "disabled",
+    reason: "Rule drafting via free-text AI is disabled pending evidence-citation redesign. Use the evidence-first authoring pipeline.",
+  }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
   try {
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) throw new Error("LOVABLE_API_KEY missing");

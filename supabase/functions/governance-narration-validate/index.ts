@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callAIWithFallback } from "../_shared/aiChat.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,9 +36,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -66,40 +64,39 @@ serve(async (req) => {
 
     const userPrompt = `AI narration:\n${ai_content}\n\nRules applied (JSON):\n${JSON.stringify(rules_applied ?? [], null, 2)}`;
 
-    const ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+    let judge: any = null;
+    let provider = "none";
+    let model = "none";
+    try {
+      const result = await callAIWithFallback({
         messages: [
           { role: "system", content: JUDGE_SYSTEM },
           { role: "user", content: userPrompt },
         ],
         tools: [TOOL],
         tool_choice: { type: "function", function: { name: "judge_narration" } },
-      }),
-    });
-
-    if (ai.status === 429 || ai.status === 402) {
-      return new Response(JSON.stringify({ error: ai.status === 429 ? "rate_limited" : "credits_exhausted" }), {
-        status: ai.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-    if (!ai.ok) {
-      const t = await ai.text();
-      return new Response(JSON.stringify({ error: "ai_gateway_error", details: t }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const data = await ai.json();
-    const call = data.choices?.[0]?.message?.tool_calls?.[0];
-    let judge: any = null;
-    try { judge = call ? JSON.parse(call.function.arguments) : null; } catch { /* ignore */ }
-    if (!judge) {
-      return new Response(JSON.stringify({ error: "no_verdict" }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      provider = result.provider;
+      model = result.model;
+      const call = result.data.choices?.[0]?.message?.tool_calls?.[0];
+      try { judge = call ? JSON.parse(call.function.arguments) : null; } catch { /* ignore */ }
+      if (!judge) {
+        judge = {
+          verdict: "suspect",
+          hallucination_score: 0.5,
+          flagged_terms: [],
+          reasoning: "Judge returned no structured verdict; defaulting to suspect (fail-safe).",
+        };
+      }
+    } catch (e) {
+      // FAIL-SAFE: an unjudged narration is never "clean".
+      console.error("ai judge failed", e);
+      judge = {
+        verdict: "suspect",
+        hallucination_score: 0.5,
+        flagged_terms: [],
+        reasoning: `AI judging unavailable (fail-safe verdict): ${e instanceof Error ? e.message : String(e)}`,
+      };
     }
 
     let logId: string | null = null;
@@ -119,7 +116,7 @@ serve(async (req) => {
           flagged_terms: judge.flagged_terms ?? [],
           hallucination_score: judge.hallucination_score ?? 0,
           verdict: judge.verdict ?? "pending",
-          judge_model: "google/gemini-3-flash-preview",
+          judge_model: `${provider}/${model}`,
           judge_reasoning: judge.reasoning ?? null,
         })
         .select("id")
@@ -128,7 +125,7 @@ serve(async (req) => {
       else logId = row?.id ?? null;
     }
 
-    return new Response(JSON.stringify({ judge, log_id: logId }), {
+    return new Response(JSON.stringify({ judge, log_id: logId, provider, model }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
