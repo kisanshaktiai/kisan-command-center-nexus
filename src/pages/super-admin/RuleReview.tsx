@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,13 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
 import {
-  ArrowLeft, ExternalLink, Pencil, Undo2, ShieldAlert, CheckCircle2, Loader2,
+  ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Info, Pencil, Sprout, Undo2,
+  ShieldAlert, CheckCircle2, XCircle, AlertTriangle, Loader2,
 } from 'lucide-react';
 import {
   useDecisionRuleDetail,
@@ -66,11 +68,22 @@ const PHI_STATUS_OPTIONS = [
 ];
 const NOTE_REQUIRED: ApprovalState[] = ['approved', 'published'];
 
+const CRITICAL_FIELDS = [
+  'active_ingredient',
+  'dosage_per_acre',
+  'phi_days',
+  'phi_status',
+  'regulatory_status',
+].filter((f) => (EDITABLE_RULE_FIELDS as readonly string[]).includes(f));
+const SECONDARY_FIELDS = (EDITABLE_RULE_FIELDS as readonly string[]).filter(
+  (f) => !CRITICAL_FIELDS.includes(f)
+);
+
 const TIER: Record<number, { label: string; className: string }> = {
   1: { label: 'T1 · Regulatory', className: 'bg-destructive text-destructive-foreground' },
-  2: { label: 'T2 · ICAR/SAU', className: 'bg-emerald-600 text-white' },
-  3: { label: 'T3 · Peer-reviewed', className: 'bg-blue-600 text-white' },
-  4: { label: 'T4 · Registrant label', className: 'bg-violet-600 text-white' },
+  2: { label: 'T2 · ICAR/SAU', className: 'bg-success text-success-foreground' },
+  3: { label: 'T3 · Peer-reviewed', className: 'bg-primary text-primary-foreground' },
+  4: { label: 'T4 · Registrant label', className: 'bg-info text-info-foreground' },
   5: { label: 'T5 · Extension', className: 'bg-muted text-muted-foreground' },
   6: { label: 'T6 · Aggregator', className: 'border border-border text-foreground' },
 };
@@ -80,6 +93,18 @@ const Muted = () => <span className="text-muted-foreground">— not set —</spa
 const Empty: React.FC<{ msg: string }> = ({ msg }) => (
   <div className="text-sm text-muted-foreground py-6 text-center">{msg}</div>
 );
+
+const SectionTitle: React.FC<{ n: number; title: string; extra?: React.ReactNode }> = ({ n, title, extra }) => (
+  <div className="flex items-center gap-2">
+    <span className="font-mono text-xs rounded bg-muted text-muted-foreground px-1.5 py-0.5">{n}</span>
+    <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+    {extra}
+  </div>
+);
+
+const NUM_UNIT_RE = /\d+(?:\.\d+)?\s*(?:%|ml\/L|ml|g|kg|L|ppm|\/L|\/acre)/gi;
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const RuleReview: React.FC = () => {
   const { ruleUuid = '' } = useParams<{ ruleUuid: string }>();
@@ -121,6 +146,15 @@ const RuleReview: React.FC = () => {
   const [confirmLiveSave, setConfirmLiveSave] = useState(false);
   const [submitNotice, setSubmitNotice] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showSecondary, setShowSecondary] = useState(false);
+  const [expandedClaims, setExpandedClaims] = useState<Record<string, boolean>>({});
+
+  const secFarmer = useRef<HTMLDivElement | null>(null);
+  const secFields = useRef<HTMLDivElement | null>(null);
+  const secBlockers = useRef<HTMLDivElement | null>(null);
+  const secEvidence = useRef<HTMLDivElement | null>(null);
+  const scrollTo = (ref: React.RefObject<HTMLDivElement>) =>
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
@@ -144,6 +178,38 @@ const RuleReview: React.FC = () => {
     () => (findings || []).filter((f) => isFindingBlocking(f)).length,
     [findings]
   );
+  const advisoryCount = openFindings.length - blockingCount;
+
+  /* ---- flagged-term highlighting (pure client-side string work) ---- */
+  const flaggedTokens = useMemo(() => {
+    const text = (findings || [])
+      .filter((f) => isFindingBlocking(f))
+      .map((f) => `${f.detail || ''} ${f.detected_value || ''}`)
+      .join(' ');
+    const found = text.match(NUM_UNIT_RE) || [];
+    const action = r?.action_text ? String(r.action_text) : '';
+    const uniq = Array.from(new Set(found.map((t) => t.trim())));
+    return uniq.filter((t) => t && action.includes(t));
+  }, [findings, r?.action_text]);
+
+  const highlightedAction = useMemo(() => {
+    const text = r?.action_text ? String(r.action_text) : '';
+    if (!text || flaggedTokens.length === 0) return text as React.ReactNode;
+    const re = new RegExp(`(${flaggedTokens.map(escapeRe).join('|')})`, 'g');
+    return text.split(re).map((part, i) =>
+      flaggedTokens.includes(part) ? (
+        <mark key={i} className="rounded px-1 bg-warning/30 text-foreground">{part}</mark>
+      ) : (
+        <React.Fragment key={i}>{part}</React.Fragment>
+      )
+    );
+  }, [r?.action_text, flaggedTokens]);
+
+  const findingIsHighlighted = (f: FindingRow) => {
+    if (flaggedTokens.length === 0 || !isFindingBlocking(f)) return false;
+    const t = `${f.detail || ''} ${f.detected_value || ''}`;
+    return flaggedTokens.some((tok) => t.includes(tok));
+  };
 
   const dirty = Object.keys(edits).length > 0;
 
@@ -209,6 +275,24 @@ const RuleReview: React.FC = () => {
     );
   };
 
+  /* ---- keyboard queue navigation ---- */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if ((e.key === 'j' || e.key === 'ArrowRight') && nextUuid) goTo(nextUuid, queueIndex! + 1);
+      if ((e.key === 'k' || e.key === 'ArrowLeft') && prevUuid) goTo(prevUuid, queueIndex! - 1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   if (isLoading) {
     return (
       <AdminAuthWrapper requiredRole="super_admin">
@@ -237,71 +321,320 @@ const RuleReview: React.FC = () => {
   }
 
   const servable = !!r.is_farmer_servable;
+  const evidenceCount = evidence?.length ?? 0;
+  const topTier = (evidence || [])
+    .map((e) => e.knowledge_sources?.authority_tier)
+    .filter((t): t is number => typeof t === 'number')
+    .sort((a, b) => a - b)[0];
+  const phiUnverified = String(r.phi_status || '').includes('UNVERIFIED');
+
+  type Check = { ok: boolean; warn?: boolean; label: string; onClick: () => void };
+  const checklist: Check[] = [
+    {
+      ok: blockingCount === 0,
+      label: blockingCount === 0 ? 'No blocking findings' : `Blocking findings: ${blockingCount} open`,
+      onClick: () => scrollTo(secBlockers),
+    },
+    {
+      ok: r.dosage_per_acre != null && r.dosage_per_acre !== '',
+      label: r.dosage_per_acre ? `Dose set: ${r.dosage_per_acre}` : 'Dose missing',
+      onClick: () => scrollTo(secFields),
+    },
+    {
+      ok: r.phi_days != null,
+      warn: r.phi_days != null && phiUnverified,
+      label:
+        r.phi_days == null
+          ? 'PHI missing'
+          : `PHI: ${r.phi_days} days${phiUnverified ? ' (UNVERIFIED)' : ''}`,
+      onClick: () => scrollTo(secFields),
+    },
+    {
+      ok: evidenceCount > 0,
+      label: evidenceCount > 0 ? `Evidence: ${evidenceCount} source(s)${topTier ? ` (T${topTier})` : ''}` : 'No evidence linked',
+      onClick: () => scrollTo(secEvidence),
+    },
+    {
+      ok: !!r.expert_approved,
+      label: r.expert_approved ? 'Expert approved' : 'Expert approval pending',
+      onClick: () => scrollTo(secFarmer),
+    },
+  ];
+
+  const renderField = (f: string) => {
+    const current = r[f];
+    const isEditing = !!editing[f];
+    const isBannedField = f === 'regulatory_status' && String(current).toLowerCase() === 'banned';
+    const isSelect = SELECT_FIELDS.has(f);
+    const isMissing = current == null || current === '';
+    const critical = CRITICAL_FIELDS.includes(f);
+    const options =
+      f === 'bee_toxicity'
+        ? BEE_TOXICITY_OPTIONS
+        : f === 'regulatory_status'
+          ? REGULATORY_OPTIONS
+          : PHI_STATUS_OPTIONS;
+    return (
+      <div
+        key={f}
+        className={`rounded-lg border p-3 ${critical && isMissing ? 'border-warning bg-warning/5' : 'border-border'}`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">
+            {f.replace(/_/g, ' ')}
+          </span>
+          <div className="flex items-center gap-1">
+            {critical && isMissing && !isEditing && (
+              <Badge variant="warning" className="text-[10px] px-1.5 py-0">MISSING</Badge>
+            )}
+            {!isEditing && !isBannedField && (
+              <Button
+                size="icon" variant="ghost" className="h-6 w-6"
+                onClick={() => {
+                  setEditing((e) => ({ ...e, [f]: true }));
+                  setEdits((e) => ({ ...e, [f]: current == null ? '' : String(current) }));
+                }}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+        {isEditing ? (
+          isSelect ? (
+            <Select
+              value={edits[f] ?? ''}
+              onValueChange={(v) => setEdits((prev) => ({ ...prev, [f]: v }))}
+            >
+              <SelectTrigger className="mt-1 h-8">
+                <SelectValue placeholder="— clear —" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">— clear —</SelectItem>
+                {options.map((o) => (
+                  <SelectItem key={o} value={o}>{o}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              className="mt-1 h-8"
+              type={NUMERIC_FIELDS.has(f) ? 'number' : 'text'}
+              value={edits[f] ?? ''}
+              onChange={(e) => setEdits((prev) => ({ ...prev, [f]: e.target.value }))}
+            />
+          )
+        ) : (
+          <div className="text-sm mt-1 break-words">
+            {isMissing ? <Muted /> : String(current)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const decisionButtons = (
+    <div className="space-y-2">
+      {!workflow ? (
+        <>
+          <Button
+            className="w-full"
+            disabled={submitForReview.isPending}
+            onClick={() => runTransition('review')}
+          >
+            {submitForReview.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+            Submit for review
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            After you submit, a DIFFERENT reviewer must approve (maker-checker). For
+            AI/system-drafted rules, Bulk Approve on the Rules Console can approve
+            directly — those are system-submitted.
+          </p>
+        </>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {(NEXT_STATES[workflowState || 'draft'] || []).map((s) => {
+            const blockedByMakerChecker = s === 'approved' && isOwnSubmission;
+            return (
+              <Button
+                key={s}
+                size="sm"
+                variant={s === 'rejected' ? 'destructive' : 'default'}
+                disabled={transition.isPending || blockedByMakerChecker}
+                title={
+                  blockedByMakerChecker
+                    ? 'You submitted this rule — a different reviewer must approve it.'
+                    : undefined
+                }
+                onClick={() => runTransition(s)}
+              >
+                {s}
+              </Button>
+            );
+          })}
+          {isOwnSubmission && (
+            <p className="text-xs text-muted-foreground w-full">
+              You submitted this rule — a different reviewer must approve it.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <AdminAuthWrapper requiredRole="super_admin">
-      <div className="space-y-4">
-        {/* HEADER */}
-        <div className="space-y-2">
-          <Link
-            to="/super-admin/governance/rules"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Rules Console
-          </Link>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-mono text-xl md:text-2xl font-bold break-all">{r.rule_id}</h1>
-            <Badge variant={servable ? 'success' : 'destructive'}>
-              {servable ? 'VISIBLE to farmer' : 'NOT VISIBLE to farmer'}
+      <div className="space-y-4 pb-28 lg:pb-4">
+        {/* A · STICKY REVIEW HEADER */}
+        <div className="sticky top-0 z-40 -mx-4 px-4 py-2 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex items-center gap-2">
+            <Link
+              to="/super-admin/governance/rules"
+              className="text-muted-foreground hover:text-foreground shrink-0"
+              aria-label="Back to Rules Console"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <span className="font-mono text-sm font-semibold truncate max-w-[16rem] md:max-w-md" title={r.rule_id}>
+              {r.rule_id}
+            </span>
+            <Badge variant={servable ? 'success' : 'destructive'} className="shrink-0">
+              {servable ? 'VISIBLE to farmer' : 'NOT visible to farmer'}
             </Badge>
-            {r.expert_approved && <Badge className="bg-blue-600 text-white">expert-approved</Badge>}
-            <Badge variant={r.is_active ? 'success' : 'secondary'}>
-              {r.is_active ? 'active' : 'inactive'}
-            </Badge>
-            {r.regulatory_status && (
-              <Badge
-                variant={
-                  ['banned', 'restricted'].includes(String(r.regulatory_status).toLowerCase())
-                    ? 'destructive'
-                    : 'outline'
-                }
-              >
-                {r.regulatory_status}
-              </Badge>
-            )}
-            {workflowState && <Badge variant="outline">workflow: {workflowState}</Badge>}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" aria-label="More status">
+                  <Info className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={r.is_active ? 'success' : 'secondary'}>
+                    {r.is_active ? 'active' : 'inactive'}
+                  </Badge>
+                  {r.expert_approved && <Badge variant="default">expert-approved</Badge>}
+                  {r.regulatory_status && (
+                    <Badge
+                      variant={
+                        ['banned', 'restricted'].includes(String(r.regulatory_status).toLowerCase())
+                          ? 'destructive'
+                          : 'outline'
+                      }
+                    >
+                      {r.regulatory_status}
+                    </Badge>
+                  )}
+                  {workflowState && <Badge variant="outline">workflow: {workflowState}</Badge>}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <div className="ml-auto flex items-center gap-2 shrink-0">
+              {hasQueue && (
+                <>
+                  <div className="text-right">
+                    <div className="text-xs text-muted-foreground">
+                      {queueIndex! + 1} / {queue!.length}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground hidden md:block">
+                      ← → to move between rules
+                    </div>
+                  </div>
+                  <Button
+                    size="icon" variant="outline" className="h-7 w-7"
+                    disabled={!prevUuid}
+                    aria-label="Previous rule"
+                    onClick={() => prevUuid && goTo(prevUuid, queueIndex! - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon" variant="outline" className="h-7 w-7"
+                    disabled={!nextUuid}
+                    aria-label="Next rule"
+                    onClick={() => nextUuid && goTo(nextUuid, queueIndex! + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {[r.crop_code, r.category, r.action_type].filter(Boolean).join(' · ') || '—'}
-          </p>
         </div>
+        <p className="text-xs text-muted-foreground">
+          {[r.crop_code, r.category, r.action_type].filter(Boolean).join(' · ') || '—'}
+        </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* MAIN */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Farmer-facing */}
-            <Card>
-              <CardHeader><CardTitle className="text-base">What the farmer sees</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div className="whitespace-pre-wrap text-base leading-relaxed">
-                  {r.action_text || <Muted />}
+            {/* 1 · FARMER MESSAGE */}
+            <Card ref={secFarmer as any} className="scroll-mt-20">
+              <CardHeader className="p-4 pb-2">
+                <SectionTitle n={1} title="Farmer message" />
+              </CardHeader>
+              <CardContent className="p-4 pt-0 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Sprout className="h-3.5 w-3.5" /> Farmer receives:
                 </div>
-                <div>
-                  <h3 className="text-sm font-semibold mb-1">Why (farmer explanation)</h3>
-                  <div className="whitespace-pre-wrap text-sm text-muted-foreground">
-                    {r.reason_text || <Muted />}
+                {r.action_text ? (
+                  <div className="rounded-2xl border bg-accent/40 p-4 space-y-3 max-w-[70ch]">
+                    <div className="whitespace-pre-wrap text-base leading-relaxed">
+                      {highlightedAction}
+                    </div>
+                    {r.reason_text && (
+                      <div className="rounded-xl bg-background/60 border p-3">
+                        <h3 className="text-xs font-semibold text-muted-foreground mb-1">
+                          Why (explanation to farmer)
+                        </h3>
+                        <div className="whitespace-pre-wrap text-sm text-muted-foreground">
+                          {r.reason_text}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
+                ) : (
+                  <div className="rounded-2xl border border-destructive bg-destructive/10 p-4 text-sm text-destructive max-w-[70ch]">
+                    No farmer text — this rule cannot serve anyone.
+                  </div>
+                )}
+                {flaggedTokens.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Highlighted values are referenced by an open blocking finding below.
+                  </p>
+                )}
               </CardContent>
             </Card>
 
-            {/* Gate fields */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Gate fields</CardTitle>
+            {/* 2 · SAFETY FIELDS */}
+            <Card ref={secFields as any} className="scroll-mt-20">
+              <CardHeader className="p-4 pb-2">
+                <SectionTitle n={2} title="Safety fields" />
+              </CardHeader>
+              <CardContent className="p-4 pt-0 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {CRITICAL_FIELDS.map(renderField)}
+                </div>
+
+                <div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="px-0 text-xs text-muted-foreground"
+                    onClick={() => setShowSecondary((v) => !v)}
+                  >
+                    {showSecondary ? 'Hide' : 'More fields'} ({SECONDARY_FIELDS.length})
+                  </Button>
+                  {showSecondary && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                      {SECONDARY_FIELDS.map(renderField)}
+                    </div>
+                  )}
+                </div>
+
                 {dirty && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">unsaved changes</span>
+                  <div className="sticky bottom-2 z-30 flex items-center justify-end gap-2 rounded-lg border bg-background/90 backdrop-blur p-2">
+                    <span className="text-xs text-muted-foreground mr-auto">unsaved changes</span>
                     <Button size="sm" variant="ghost" onClick={() => { setEdits({}); setEditing({}); }}>
                       Cancel
                     </Button>
@@ -311,78 +644,18 @@ const RuleReview: React.FC = () => {
                     </Button>
                   </div>
                 )}
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {EDITABLE_RULE_FIELDS.map((f) => {
-                  const current = r[f];
-                  const isEditing = !!editing[f];
-                  const isBannedField = f === 'regulatory_status' && String(current).toLowerCase() === 'banned';
-                  const isSelect = SELECT_FIELDS.has(f);
-                  const options =
-                    f === 'bee_toxicity'
-                      ? BEE_TOXICITY_OPTIONS
-                      : f === 'regulatory_status'
-                        ? REGULATORY_OPTIONS
-                        : PHI_STATUS_OPTIONS;
-                  return (
-                    <div key={f} className="border rounded p-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                          {f.replace(/_/g, ' ')}
-                        </span>
-                        {!isEditing && !isBannedField && (
-                          <Button
-                            size="icon" variant="ghost" className="h-6 w-6"
-                            onClick={() => {
-                              setEditing((e) => ({ ...e, [f]: true }));
-                              setEdits((e) => ({ ...e, [f]: current == null ? '' : String(current) }));
-                            }}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                      {isEditing ? (
-                        isSelect ? (
-                          <Select
-                            value={edits[f] ?? ''}
-                            onValueChange={(v) => setEdits((prev) => ({ ...prev, [f]: v }))}
-                          >
-                            <SelectTrigger className="mt-1 h-8">
-                              <SelectValue placeholder="— clear —" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">— clear —</SelectItem>
-                              {options.map((o) => (
-                                <SelectItem key={o} value={o}>
-                                  {o}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Input
-                            className="mt-1 h-8"
-                            type={NUMERIC_FIELDS.has(f) ? 'number' : 'text'}
-                            value={edits[f] ?? ''}
-                            onChange={(e) => setEdits((prev) => ({ ...prev, [f]: e.target.value }))}
-                          />
-                        )
-                      ) : (
-                        <div className="text-sm mt-1 break-words">
-                          {current == null || current === '' ? <Muted /> : String(current)}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
               </CardContent>
             </Card>
 
-            {/* Blockers */}
-            <Card>
-              <CardHeader><CardTitle className="text-base">Blockers &amp; findings</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
+            {/* 3 · BLOCKERS */}
+            <Card ref={secBlockers as any} className="scroll-mt-20">
+              <CardHeader className="p-4 pb-2">
+                <SectionTitle
+                  n={3}
+                  title={`Blockers (${blockingCount} blocking · ${Math.max(advisoryCount, 0)} advisory)`}
+                />
+              </CardHeader>
+              <CardContent className="p-4 pt-0 space-y-3">
                 {findingsLoading && <Skeleton className="h-16 w-full" />}
                 {!findingsLoading && blockingCount > 0 && (
                   <Alert variant="destructive">
@@ -398,48 +671,62 @@ const RuleReview: React.FC = () => {
                 {openFindings.map((f: FindingRow) => {
                   const blocking = isFindingBlocking(f);
                   return (
-                    <div key={f.id} className="border rounded p-3 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={blocking ? 'destructive' : 'warning'}>
-                          {blocking ? 'BLOCKING' : 'ADVISORY'}
-                        </Badge>
-                        <span className="font-mono text-xs">{f.finding_type}</span>
-                        <Badge variant="outline">{f.status}</Badge>
-                      </div>
-                      <div className="text-sm">{f.detail}</div>
-                      {(f.finding_type === 'CLAIM_OVERREACH' || f.finding_type === 'AGRONOMY_REVIEW') && (
-                        <p className="text-xs text-muted-foreground">
-                          Farmer-facing text (action_text / reason_text) is not editable on this page —
-                          text changes go through the workflow's proposed-payload flow. Resolve this
-                          finding only after the text has been corrected there.
-                        </p>
-                      )}
-                      {(f.detected_value || f.expected_value) && (
-                        <div className="text-xs font-mono text-muted-foreground">
-                          {f.detected_value ?? '—'} → {f.expected_value ?? '—'}
+                    <div
+                      key={f.id}
+                      className={`flex gap-3 rounded-lg border p-3 ${blocking ? 'border-destructive/40' : 'border-warning/40'}`}
+                    >
+                      <div className={`w-1 rounded-full shrink-0 ${blocking ? 'bg-destructive' : 'bg-warning'}`} />
+                      <div className="flex-1 min-w-0 flex flex-col lg:flex-row lg:items-start gap-3">
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant={blocking ? 'destructive' : 'warning'}>
+                              {blocking ? 'BLOCKING' : 'ADVISORY'}
+                            </Badge>
+                            <span className="font-mono text-xs">{f.finding_type}</span>
+                            <Badge variant="outline">{f.status}</Badge>
+                            {findingIsHighlighted(f) && (
+                              <span className="text-xs rounded px-1.5 py-0.5 bg-warning/30 text-foreground">
+                                ↑ shown in farmer text
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm">{f.detail}</div>
+                          {(f.finding_type === 'CLAIM_OVERREACH' || f.finding_type === 'AGRONOMY_REVIEW') && (
+                            <p className="text-xs text-muted-foreground">
+                              Farmer-facing text (action_text / reason_text) is not editable on this page —
+                              text changes go through the workflow's proposed-payload flow. Resolve this
+                              finding only after the text has been corrected there.
+                            </p>
+                          )}
+                          {(f.detected_value || f.expected_value) && (
+                            <div className="text-xs font-mono text-muted-foreground">
+                              {f.detected_value ?? '—'} → {f.expected_value ?? '—'}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <Input
-                          className="h-8"
-                          placeholder="Resolution note…"
-                          value={resolveNote[f.id] ?? ''}
-                          onChange={(e) => setResolveNote((n) => ({ ...n, [f.id]: e.target.value }))}
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={resolveFinding.isPending}
-                          onClick={() =>
-                            resolveFinding.mutate({
-                              findingId: f.id,
-                              note: resolveNote[f.id],
-                              ruleTextId: ruleTextId ?? undefined,
-                            })
-                          }
-                        >
-                          Mark resolved
-                        </Button>
+                        <div className="flex flex-col sm:flex-row gap-2 lg:w-80 shrink-0">
+                          <Input
+                            className="h-8"
+                            placeholder="Resolution note…"
+                            value={resolveNote[f.id] ?? ''}
+                            onChange={(e) => setResolveNote((n) => ({ ...n, [f.id]: e.target.value }))}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0"
+                            disabled={resolveFinding.isPending}
+                            onClick={() =>
+                              resolveFinding.mutate({
+                                findingId: f.id,
+                                note: resolveNote[f.id],
+                                ruleTextId: ruleTextId ?? undefined,
+                              })
+                            }
+                          >
+                            Mark resolved
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -468,53 +755,70 @@ const RuleReview: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Evidence */}
-            <Card>
-              <CardHeader><CardTitle className="text-base">Evidence</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
+            {/* 4 · EVIDENCE */}
+            <Card ref={secEvidence as any} className="scroll-mt-20">
+              <CardHeader className="p-4 pb-2">
+                <SectionTitle n={4} title="Evidence" />
+              </CardHeader>
+              <CardContent className="p-4 pt-0 space-y-2">
                 {evidenceLoading && <Skeleton className="h-16 w-full" />}
                 {!evidenceLoading && (evidence?.length ?? 0) === 0 && (
-                  <Empty msg="No evidence linked — verify against a source before approving." />
+                  <div className="rounded-lg border border-warning bg-warning/10 p-3 text-sm">
+                    No evidence linked — verify against a source before approving.
+                  </div>
                 )}
                 {(evidence || []).map((ev: EvidenceRow) => {
                   const src = ev.knowledge_sources;
                   const tier = src ? TIER[src.authority_tier] : undefined;
+                  const expanded = !!expandedClaims[ev.id];
                   return (
-                    <div key={ev.id} className="border rounded p-3 space-y-1">
+                    <div key={ev.id} className="rounded-lg border p-3 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {tier && (
                           <span className={`text-xs px-2 py-0.5 rounded ${tier.className}`}>
                             {tier.label}
                           </span>
                         )}
-                        <Badge variant="outline">{ev.evidence_role}</Badge>
+                        <span className="text-sm font-medium truncate">{src?.title || 'Unknown source'}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {[src?.publisher, src?.publication_year].filter(Boolean).join(' · ')}
+                        </span>
+                        <Badge variant="outline" className="ml-auto">{ev.evidence_role}</Badge>
                         {src?.url && (
                           <a
                             href={src.url}
                             target="_blank"
                             rel="noreferrer"
                             className="text-muted-foreground hover:text-foreground"
+                            aria-label="Open source"
                           >
                             <ExternalLink className="h-4 w-4" />
                           </a>
                         )}
                       </div>
-                      <div className="text-sm font-medium">{src?.title || 'Unknown source'}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {[src?.publisher, src?.source_type, src?.publication_year]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </div>
-                      <div className="text-sm">{ev.claim_supported}</div>
+                      {ev.claim_supported && (
+                        <button
+                          type="button"
+                          className={`text-left text-xs text-muted-foreground w-full ${expanded ? '' : 'line-clamp-2'}`}
+                          onClick={() => setExpandedClaims((s) => ({ ...s, [ev.id]: !expanded }))}
+                        >
+                          {ev.claim_supported}
+                        </button>
+                      )}
                     </div>
                   );
                 })}
               </CardContent>
             </Card>
 
-            {/* Secondary tabs */}
+            {/* HISTORY & INTERNALS */}
             <Card>
-              <CardContent className="pt-4">
+              <CardHeader className="p-4 pb-2">
+                <CardTitle className="text-sm font-semibold text-muted-foreground">
+                  History &amp; internals
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-2">
                 <Tabs defaultValue="telemetry">
                   <TabsList className="flex-wrap h-auto">
                     <TabsTrigger value="telemetry">Telemetry</TabsTrigger>
@@ -629,57 +933,39 @@ const RuleReview: React.FC = () => {
           </div>
 
           {/* DECISION SIDEBAR */}
-          <div className="lg:col-span-1">
-            <div className="lg:sticky lg:top-4 space-y-4">
+          <div className="hidden lg:block lg:col-span-1">
+            <div className="lg:sticky lg:top-16 space-y-4">
               <Card>
-                <CardHeader><CardTitle className="text-base">Decision</CardTitle></CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  {hasQueue && (
-                    <div className="space-y-2 border-b pb-3">
-                      <div className="text-xs text-muted-foreground">
-                        Rule {queueIndex! + 1} of {queue!.length}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm" variant="outline" className="flex-1"
-                          disabled={!prevUuid}
-                          onClick={() => prevUuid && goTo(prevUuid, queueIndex! - 1)}
-                        >
-                          ← Prev
-                        </Button>
-                        <Button
-                          size="sm" variant="outline" className="flex-1"
-                          disabled={!nextUuid}
-                          onClick={() => nextUuid && goTo(nextUuid, queueIndex! + 1)}
-                        >
-                          Next →
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                <CardHeader className="p-4 pb-2">
+                  <CardTitle className="text-sm font-semibold">Decision</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 space-y-3 text-sm">
+                  <div className="space-y-1">
+                    {checklist.map((c, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={c.onClick}
+                        className="w-full flex items-center gap-2 text-left rounded px-1 py-1 hover:bg-muted"
+                      >
+                        {c.ok && !c.warn ? (
+                          <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+                        ) : c.warn ? (
+                          <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-destructive shrink-0" />
+                        )}
+                        <span className="text-xs">{c.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
                   <div
-                    className={`rounded p-3 text-center font-semibold ${
-                      servable
-                        ? 'bg-emerald-600/10 text-emerald-700 dark:text-emerald-400'
-                        : 'bg-destructive/10 text-destructive'
+                    className={`rounded p-3 text-center text-sm font-semibold ${
+                      servable ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
                     }`}
                   >
                     {servable ? 'Farmer sees this' : 'Farmer does NOT see this'}
-                  </div>
-
-                  <div className="space-y-1">
-                    {blockingCount > 0 ? (
-                      <div className="text-destructive flex items-center gap-1">
-                        <ShieldAlert className="h-4 w-4" /> {blockingCount} blocking findings open
-                      </div>
-                    ) : (
-                      <div className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                        <CheckCircle2 className="h-4 w-4" /> All clear
-                      </div>
-                    )}
-                    <div>Evidence sources: {evidence?.length ?? 0}</div>
-                    <div>PHI: {r.phi_days ?? <span className="text-destructive">MISSING</span>}</div>
-                    <div>Dose: {r.dosage_per_acre ?? <span className="text-destructive">MISSING</span>}</div>
                   </div>
 
                   <div className="space-y-2">
@@ -707,56 +993,46 @@ const RuleReview: React.FC = () => {
                     </Alert>
                   )}
 
-                  <div className="space-y-2">
-                    {!workflow ? (
-                      <>
-                        <Button
-                          className="w-full"
-                          disabled={submitForReview.isPending}
-                          onClick={() => runTransition('review')}
-                        >
-                          {submitForReview.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                          Submit for review
-                        </Button>
-                        <p className="text-xs text-muted-foreground">
-                          After you submit, a DIFFERENT reviewer must approve (maker-checker). For
-                          AI/system-drafted rules, Bulk Approve on the Rules Console can approve
-                          directly — those are system-submitted.
-                        </p>
-                      </>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {(NEXT_STATES[workflowState || 'draft'] || []).map((s) => {
-                          const blockedByMakerChecker = s === 'approved' && isOwnSubmission;
-                          return (
-                            <Button
-                              key={s}
-                              size="sm"
-                              variant={s === 'rejected' ? 'destructive' : 'default'}
-                              disabled={transition.isPending || blockedByMakerChecker}
-                              title={
-                                blockedByMakerChecker
-                                  ? 'You submitted this rule — a different reviewer must approve it.'
-                                  : undefined
-                              }
-                              onClick={() => runTransition(s)}
-                            >
-                              {s}
-                            </Button>
-                          );
-                        })}
-                        {isOwnSubmission && (
-                          <p className="text-xs text-muted-foreground w-full">
-                            You submitted this rule — a different reviewer must approve it.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  {decisionButtons}
                 </CardContent>
               </Card>
             </div>
           </div>
+        </div>
+
+        {/* MOBILE / TABLET STICKY DECISION BAR */}
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t bg-background/90 backdrop-blur p-3 space-y-2">
+          <div className="flex items-center gap-3 overflow-x-auto text-xs">
+            {checklist.map((c, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={c.onClick}
+                className="flex items-center gap-1 shrink-0 text-muted-foreground"
+              >
+                {c.ok && !c.warn ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                ) : c.warn ? (
+                  <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+                ) : (
+                  <XCircle className="h-3.5 w-3.5 text-destructive" />
+                )}
+                {c.label}
+              </button>
+            ))}
+          </div>
+          {(refusal || submitNotice) && (
+            <p className={`text-xs ${refusal ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {refusal || submitNotice}
+            </p>
+          )}
+          <Textarea
+            rows={1}
+            value={verifiedAgainst}
+            onChange={(e) => setVerifiedAgainst(e.target.value)}
+            placeholder="Verified against (source)…"
+          />
+          {decisionButtons}
         </div>
       </div>
 
