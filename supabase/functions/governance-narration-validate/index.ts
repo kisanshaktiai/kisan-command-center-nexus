@@ -47,9 +47,23 @@ serve(async (req) => {
     if (url.searchParams.get("probe") === "1") {
       try {
         const r = await callAIWithFallback({
-          messages: [{ role: "user", content: "Reply with the single word: ok" }],
+          messages: [
+            { role: "system", content: JUDGE_SYSTEM },
+            { role: "user", content: "AI narration:\nSpray imidacloprid 200 ml/acre today.\n\nRules applied (JSON):\n[]" },
+          ],
+          tools: [TOOL],
+          tool_choice: { type: "function", function: { name: "judge_narration" } },
         });
-        out.probe = { ok: true, provider: r.provider, model: r.model };
+        const args = r.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+        let parsed: any = null;
+        try { parsed = args ? JSON.parse(args) : null; } catch { /* ignore */ }
+        out.probe = {
+          ok: true,
+          provider: r.provider,
+          model: r.model,
+          tool_call_ok: !!parsed,
+          verdict: parsed?.verdict ?? null,
+        };
       } catch (e) {
         out.probe = { ok: false, error: e instanceof Error ? e.message : "unknown" };
       }
