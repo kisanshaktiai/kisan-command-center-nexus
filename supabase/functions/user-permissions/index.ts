@@ -62,12 +62,22 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`[user-permissions] operation: ${operation}`);
 
+    // SECURITY: every privileged operation must prove the caller is an active
+    // super_admin (this function runs with verify_jwt=false + service-role key).
+    let caller: Caller | null = null;
+    try {
+      caller = await requireSuperAdmin(req);
+    } catch (e) {
+      if (e instanceof Response) return addCors(e, corsHeaders);
+      throw e;
+    }
+
     switch (operation) {
       case 'assign-role':
-        return await assignAdminRole(supabase, body, req);
+        return await assignAdminRole(supabase, body, req, caller);
       
       case 'manage-tenant':
-        return await manageUserTenant(supabase, body, req);
+        return await manageUserTenant(supabase, body, req, caller);
       
       case 'get-tenant-relationships':
         return await getTenantRelationships(supabase, url, req);
