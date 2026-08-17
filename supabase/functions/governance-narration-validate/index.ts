@@ -37,40 +37,69 @@ const TOOL = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // Public, secret-free health/diagnostics endpoint: reports key presence only,
-  // and (with probe=1) verifies the live provider ladder with a 1-token call.
+  // health=1 is public but discloses nothing. probe=1 spends AI tokens and requires
+  // PROBE_SECRET header or a super_admin JWT.
   const url = new URL(req.url);
   if (req.method === "GET" && url.searchParams.get("health") === "1") {
+    const wantsProbe = url.searchParams.get("probe") === "1";
+    if (!wantsProbe) {
+      return new Response(JSON.stringify({ ok: true, ladder_version: AI_LADDER_VERSION }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- authorize the paid probe ---
+    const probeSecret = Deno.env.get("PROBE_SECRET");
+    let authorized = !!probeSecret && req.headers.get("x-probe-secret") === probeSecret;
+    if (!authorized) {
+      try {
+        const authed = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_ANON_KEY")!,
+          { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
+        );
+        const { data: { user } } = await authed.auth.getUser();
+        if (user) {
+          const { data: isAdmin } = await authed.rpc("is_super_admin");
+          authorized = !!isAdmin;
+        }
+      } catch { /* stays unauthorized */ }
+    }
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: "probe_forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const out: Record<string, unknown> = {
+      ok: true,
+      ladder_version: AI_LADDER_VERSION,
       openai_key_present: !!Deno.env.get("OPENAI_API_KEY"),
       gemini_key_present: !!Deno.env.get("GEMINI_API_KEY"),
       lovable_gateway_used: false,
-      ladder_version: AI_LADDER_VERSION,
     };
-    if (url.searchParams.get("probe") === "1") {
-      try {
-        const r = await callAIWithFallback({
-          messages: [
-            { role: "system", content: JUDGE_SYSTEM },
-            { role: "user", content: "AI narration:\nSpray imidacloprid 200 ml/acre today.\n\nRules applied (JSON):\n[]" },
-          ],
-          tools: [TOOL],
-          tool_choice: { type: "function", function: { name: "judge_narration" } },
-        });
-        const args = r.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-        let parsed: any = null;
-        try { parsed = args ? JSON.parse(args) : null; } catch { /* ignore */ }
-        out.probe = {
-          ok: true,
-          provider: r.provider,
-          model: r.model,
-          tool_call_ok: !!parsed,
-          verdict: parsed?.verdict ?? null,
-          failures: r.failures,
-        };
-      } catch (e) {
-        out.probe = { ok: false, error: e instanceof Error ? e.message : "unknown" };
-      }
+    try {
+      const r = await callAIWithFallback({
+        messages: [
+          { role: "system", content: JUDGE_SYSTEM },
+          { role: "user", content: "AI narration:\nSpray imidacloprid 200 ml/acre today.\n\nRules applied (JSON):\n[]" },
+        ],
+        tools: [TOOL],
+        tool_choice: { type: "function", function: { name: "judge_narration" } },
+      });
+      const args = r.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+      let parsed: any = null;
+      try { parsed = args ? JSON.parse(args) : null; } catch { /* ignore */ }
+      out.probe = {
+        ok: true,
+        provider: r.provider,
+        model: r.model,
+        tool_call_ok: !!parsed,
+        verdict: parsed?.verdict ?? null,
+        failures: r.failures,
+      };
+    } catch (e) {
+      out.probe = { ok: false, error: e instanceof Error ? e.message : "unknown" };
     }
     return new Response(JSON.stringify(out), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
