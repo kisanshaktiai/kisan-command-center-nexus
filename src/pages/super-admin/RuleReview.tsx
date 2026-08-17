@@ -713,3 +713,7 @@ const RuleReview: React.FC = () => {
         </DialogContent>
       </Dialog>
     </AdminAuthWrapper>
+  );
+};
+
+export default RuleReview;
