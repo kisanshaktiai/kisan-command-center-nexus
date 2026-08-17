@@ -34,6 +34,8 @@ const RulesConsole: React.FC = () => {
   const [bulkError, setBulkError] = useState<string | null>(null);
 
   const { data, isLoading } = useDecisionRules(filters, page);
+  const { data: facets } = useRuleFacets();
+
   const bulk = useBulkTransition();
   const totalPages = data ? Math.ceil(data.count / data.pageSize) : 0;
   const rows = data?.rows ?? [];
