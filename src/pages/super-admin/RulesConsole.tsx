@@ -16,7 +16,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { useDecisionRules, RulesFilters } from '@/hooks/useDecisionRules';
+import { useDecisionRules, useRuleFacets, RulesFilters } from '@/hooks/useDecisionRules';
 import { useBulkTransition, type BulkTransitionResult } from '@/hooks/useGovernanceMutations';
 import { RuleDetailDrawer } from '@/components/governance/RuleDetailDrawer';
 import { ChevronLeft, ChevronRight, Search, Eye, AlertTriangle } from 'lucide-react';
