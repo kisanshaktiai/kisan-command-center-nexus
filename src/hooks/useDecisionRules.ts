@@ -71,6 +71,9 @@ export function useDecisionRules(filters: RulesFilters, page = 0) {
 
       if (filters.search) q = q.or(`rule_id.ilike.%${filters.search}%,crop_code.ilike.%${filters.search}%`);
       if (filters.cropCode) q = q.eq('crop_code', filters.cropCode);
+      if (filters.category) q = q.eq('category', filters.category);
+      if (filters.actionType) q = q.eq('action_type', filters.actionType);
+
       if (filters.ipmLevel) q = q.eq('ipm_level', Number(filters.ipmLevel));
       if (filters.beeToxicity) q = q.eq('bee_toxicity', filters.beeToxicity);
       if (filters.expertApproved === 'true') q = q.eq('expert_approved', true);
