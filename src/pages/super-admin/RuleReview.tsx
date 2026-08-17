@@ -316,13 +316,21 @@ const RuleReview: React.FC = () => {
                 {EDITABLE_RULE_FIELDS.map((f) => {
                   const current = r[f];
                   const isEditing = !!editing[f];
+                  const isBannedField = f === 'regulatory_status' && String(current).toLowerCase() === 'banned';
+                  const isSelect = SELECT_FIELDS.has(f);
+                  const options =
+                    f === 'bee_toxicity'
+                      ? BEE_TOXICITY_OPTIONS
+                      : f === 'regulatory_status'
+                        ? REGULATORY_OPTIONS
+                        : PHI_STATUS_OPTIONS;
                   return (
                     <div key={f} className="border rounded p-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs uppercase tracking-wide text-muted-foreground">
                           {f.replace(/_/g, ' ')}
                         </span>
-                        {!isEditing && (
+                        {!isEditing && !isBannedField && (
                           <Button
                             size="icon" variant="ghost" className="h-6 w-6"
                             onClick={() => {
@@ -335,12 +343,31 @@ const RuleReview: React.FC = () => {
                         )}
                       </div>
                       {isEditing ? (
-                        <Input
-                          className="mt-1 h-8"
-                          type={NUMERIC_FIELDS.has(f) ? 'number' : 'text'}
-                          value={edits[f] ?? ''}
-                          onChange={(e) => setEdits((prev) => ({ ...prev, [f]: e.target.value }))}
-                        />
+                        isSelect ? (
+                          <Select
+                            value={edits[f] ?? ''}
+                            onValueChange={(v) => setEdits((prev) => ({ ...prev, [f]: v }))}
+                          >
+                            <SelectTrigger className="mt-1 h-8">
+                              <SelectValue placeholder="— clear —" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">— clear —</SelectItem>
+                              {options.map((o) => (
+                                <SelectItem key={o} value={o}>
+                                  {o}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            className="mt-1 h-8"
+                            type={NUMERIC_FIELDS.has(f) ? 'number' : 'text'}
+                            value={edits[f] ?? ''}
+                            onChange={(e) => setEdits((prev) => ({ ...prev, [f]: e.target.value }))}
+                          />
+                        )
                       ) : (
                         <div className="text-sm mt-1 break-words">
                           {current == null || current === '' ? <Muted /> : String(current)}
