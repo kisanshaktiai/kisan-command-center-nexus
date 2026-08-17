@@ -167,23 +167,6 @@ serve(async (req) => {
         }, 403);
       }
 
-      if (false) {
-        const { data: inserted, error: insErr } = await adminClient
-          .from(tpl.target_table)
-          .insert(finalPayload)
-          .select("id")
-          .single();
-        if (insErr) {
-          await adminClient.from("ai_prompt_runs").update({ status: "failed", error: insErr.message }).eq("id", run_id);
-          return json({ error: "insert_failed", details: insErr.message }, 400);
-        }
-        await adminClient.from("ai_prompt_runs").update({
-          status: "auto_applied",
-          target_record_id: inserted.id,
-          raw_output: finalPayload,
-        }).eq("id", run_id);
-        return json({ ok: true, mode: "direct", record_id: inserted.id });
-      }
 
       const { data: wf, error: wfErr } = await adminClient.from("rule_approval_workflow").insert({
         state: "draft",
