@@ -88,6 +88,46 @@ const TIER: Record<number, { label: string; className: string }> = {
   6: { label: 'T6 · Aggregator', className: 'border border-border text-foreground' },
 };
 
+const SAFETY_LEVEL: Record<
+  string,
+  { className: string; text: string; shield?: boolean; bad?: boolean; warn?: boolean }
+> = {
+  safe: { className: 'bg-success/15 text-success border border-success/30', text: 'Safety level: SAFE' },
+  caution: {
+    className: 'bg-warning text-warning-foreground',
+    text: 'Safety level: CAUTION — advise the farmer to follow protective measures',
+    warn: true,
+  },
+  expert_only: {
+    className: 'border border-destructive text-destructive bg-destructive/5',
+    text: 'Safety level: EXPERT ONLY — this advisory requires expert supervision',
+    shield: true,
+    warn: true,
+  },
+  prohibited: {
+    className: 'bg-destructive text-destructive-foreground',
+    text: 'Safety level: PROHIBITED — this advisory must not reach farmers',
+    shield: true,
+    bad: true,
+  },
+};
+
+const present = (v: unknown) =>
+  v != null && !(typeof v === 'string' && v.trim() === '') && !(Array.isArray(v) && v.length === 0);
+
+const asList = (v: unknown): string[] => {
+  if (Array.isArray(v)) return v.map((x) => String(x)).filter(Boolean);
+  if (typeof v === 'string' && v.trim()) return [v.trim()];
+  return [];
+};
+
+const Chip: React.FC<{ children: React.ReactNode; mono?: boolean }> = ({ children, mono }) => (
+  <span className={`text-xs rounded border border-border bg-muted/60 px-1.5 py-0.5 ${mono ? 'font-mono' : ''}`}>
+    {children}
+  </span>
+);
+
+
 const Muted = () => <span className="text-muted-foreground">— not set —</span>;
 
 const Empty: React.FC<{ msg: string }> = ({ msg }) => (
@@ -153,6 +193,8 @@ const RuleReview: React.FC = () => {
   const secFields = useRef<HTMLDivElement | null>(null);
   const secBlockers = useRef<HTMLDivElement | null>(null);
   const secEvidence = useRef<HTMLDivElement | null>(null);
+  const secSafetyStrip = useRef<HTMLDivElement | null>(null);
+
   const scrollTo = (ref: React.RefObject<HTMLDivElement>) =>
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -187,14 +229,14 @@ const RuleReview: React.FC = () => {
       .map((f) => `${f.detail || ''} ${f.detected_value || ''}`)
       .join(' ');
     const found = text.match(NUM_UNIT_RE) || [];
-    const action = r?.action_text ? String(r.action_text) : '';
+    const farmerText = `${r?.action_text ?? ''} ${r?.organic_alternative ?? ''}`;
     const uniq = Array.from(new Set(found.map((t) => t.trim())));
-    return uniq.filter((t) => t && action.includes(t));
-  }, [findings, r?.action_text]);
+    return uniq.filter((t) => t && farmerText.includes(t));
+  }, [findings, r?.action_text, r?.organic_alternative]);
 
-  const highlightedAction = useMemo(() => {
-    const text = r?.action_text ? String(r.action_text) : '';
-    if (!text || flaggedTokens.length === 0) return text as React.ReactNode;
+  const highlight = (raw: unknown): React.ReactNode => {
+    const text = raw == null ? '' : String(raw);
+    if (!text || flaggedTokens.length === 0) return text;
     const re = new RegExp(`(${flaggedTokens.map(escapeRe).join('|')})`, 'g');
     return text.split(re).map((part, i) =>
       flaggedTokens.includes(part) ? (
@@ -203,13 +245,14 @@ const RuleReview: React.FC = () => {
         <React.Fragment key={i}>{part}</React.Fragment>
       )
     );
-  }, [r?.action_text, flaggedTokens]);
+  };
 
   const findingIsHighlighted = (f: FindingRow) => {
     if (flaggedTokens.length === 0 || !isFindingBlocking(f)) return false;
     const t = `${f.detail || ''} ${f.detected_value || ''}`;
     return flaggedTokens.some((tok) => t.includes(tok));
   };
+
 
   const dirty = Object.keys(edits).length > 0;
 
@@ -328,6 +371,27 @@ const RuleReview: React.FC = () => {
     .sort((a, b) => a - b)[0];
   const phiUnverified = String(r.phi_status || '').includes('UNVERIFIED');
 
+  const safetyKey = String(r.farmer_safety_level ?? 'safe').toLowerCase();
+  const safety = SAFETY_LEVEL[safetyKey] ?? {
+    className: 'bg-muted text-muted-foreground',
+    text: `Safety level: ${safetyKey}`,
+  };
+  const contraindications = asList(r.contraindications);
+  const successIndicators = asList(r.success_indicators);
+  const stages = asList(r.stage_applicable);
+  const seasons = asList(r.season_applicable).filter((s) => s.toUpperCase() !== 'ALL');
+  const soils = asList(r.soil_type_applicable).filter((s) => s.toUpperCase() !== 'ALL');
+  const rotationBits = [r.chemical_class, r.resistance_group, r.mode_of_action].filter((v) => present(v));
+  const hasFireContext =
+    present(r.cause) ||
+    present(r.condition_code) ||
+    stages.length > 0 ||
+    seasons.length > 0 ||
+    soils.length > 0 ||
+    present(r.etl_threshold) ||
+    rotationBits.length > 0;
+  const toxicWord = (v: unknown) => ['high', 'moderate'].includes(String(v ?? '').toLowerCase());
+
   type Check = { ok: boolean; warn?: boolean; label: string; onClick: () => void };
   const checklist: Check[] = [
     {
@@ -359,7 +423,29 @@ const RuleReview: React.FC = () => {
       label: r.expert_approved ? 'Expert approved' : 'Expert approval pending',
       onClick: () => scrollTo(secFarmer),
     },
+    {
+      ok: safetyKey === 'safe',
+      warn: safetyKey === 'caution' || safetyKey === 'expert_only',
+      label: `Safety level: ${safetyKey}`,
+      onClick: () => scrollTo(secSafetyStrip),
+    },
+    ...(contraindications.length > 0
+      ? [
+          {
+            ok: false,
+            warn: true,
+            label: `Contraindications reviewed (${contraindications.length})`,
+            onClick: () => scrollTo(secSafetyStrip),
+          } as Check,
+        ]
+      : []),
+    {
+      ok: present(r.scientific_source),
+      label: present(r.scientific_source) ? 'Declared source present' : 'No declared source',
+      onClick: () => scrollTo(secEvidence),
+    },
   ];
+
 
   const renderField = (f: string) => {
     const current = r[f];
@@ -565,6 +651,62 @@ const RuleReview: React.FC = () => {
           {[r.crop_code, r.category, r.action_type].filter(Boolean).join(' · ') || '—'}
         </p>
 
+        {/* SAFETY POSTURE STRIP */}
+        <div
+          ref={secSafetyStrip as any}
+          className="scroll-mt-20 rounded-lg border p-3 flex flex-wrap items-center gap-2"
+        >
+          <span className={`inline-flex items-center gap-1.5 text-xs rounded px-2 py-1 ${safety.className}`}>
+            {safety.shield && <ShieldAlert className="h-3.5 w-3.5" />}
+            {safety.text}
+          </span>
+          {r.expert_override_required && (
+            <span className="inline-flex items-center gap-1.5 text-xs rounded px-2 py-1 border border-destructive text-destructive">
+              <ShieldAlert className="h-3.5 w-3.5" /> Expert override required
+            </span>
+          )}
+          {(present(r.bee_toxicity) || present(r.aquatic_toxicity) || present(r.reentry_interval_hours)) && (
+            <span className="text-xs text-muted-foreground">
+              {present(r.bee_toxicity) && (
+                <span className={toxicWord(r.bee_toxicity) ? 'text-warning' : undefined}>
+                  Bees: {String(r.bee_toxicity)}
+                </span>
+              )}
+              {present(r.aquatic_toxicity) && (
+                <>
+                  {present(r.bee_toxicity) && ' · '}
+                  <span className={toxicWord(r.aquatic_toxicity) ? 'text-warning' : undefined}>
+                    Aquatic: {String(r.aquatic_toxicity)}
+                  </span>
+                </>
+              )}
+              {present(r.reentry_interval_hours) && (
+                <>
+                  {(present(r.bee_toxicity) || present(r.aquatic_toxicity)) && ' · '}
+                  Re-entry: {String(r.reentry_interval_hours)} h
+                </>
+              )}
+            </span>
+          )}
+          {contraindications.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="text-xs rounded px-2 py-1 bg-warning text-warning-foreground"
+                >
+                  {contraindications.length} contraindication(s)
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <ul className="list-disc pl-4 space-y-1 text-xs">
+                  {contraindications.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* MAIN */}
           <div className="lg:col-span-2 space-y-4">
@@ -580,7 +722,7 @@ const RuleReview: React.FC = () => {
                 {r.action_text ? (
                   <div className="rounded-2xl border bg-accent/40 p-4 space-y-3 max-w-[70ch]">
                     <div className="whitespace-pre-wrap text-base leading-relaxed">
-                      {highlightedAction}
+                      {highlight(r.action_text)}
                     </div>
                     {r.reason_text && (
                       <div className="rounded-xl bg-background/60 border p-3">
@@ -592,10 +734,28 @@ const RuleReview: React.FC = () => {
                         </div>
                       </div>
                     )}
+                    {present(r.organic_alternative) && (
+                      <div className="rounded-xl bg-background/60 border p-3">
+                        <h3 className="text-xs font-semibold text-muted-foreground mb-1">
+                          Organic alternative (also shown to farmer)
+                        </h3>
+                        <div className="whitespace-pre-wrap text-sm text-muted-foreground">
+                          {highlight(r.organic_alternative)}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-destructive bg-destructive/10 p-4 text-sm text-destructive max-w-[70ch]">
                     No farmer text — this rule cannot serve anyone.
+                  </div>
+                )}
+                {successIndicators.length > 0 && (
+                  <div className="max-w-[70ch]">
+                    <h3 className="text-xs font-semibold text-muted-foreground mb-1">Success looks like:</h3>
+                    <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-0.5">
+                      {successIndicators.map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
                   </div>
                 )}
                 {flaggedTokens.length > 0 && (
@@ -605,6 +765,40 @@ const RuleReview: React.FC = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* 1b · WHEN THIS RULE FIRES */}
+            {hasFireContext && (
+              <Card className="scroll-mt-20">
+                <CardHeader className="p-4 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs rounded bg-muted text-muted-foreground px-1.5 py-0.5">1b</span>
+                    <CardTitle className="text-sm font-semibold">When this rule fires</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 space-y-2">
+                  {present(r.cause) && <p className="text-sm">{String(r.cause)}</p>}
+                  {(present(r.condition_code) || stages.length || seasons.length || soils.length) ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {present(r.condition_code) && <Chip mono>{String(r.condition_code)}</Chip>}
+                      {stages.map((s) => <Chip key={`st-${s}`}>{s}</Chip>)}
+                      {seasons.map((s) => <Chip key={`se-${s}`}>{s}</Chip>)}
+                      {soils.map((s) => <Chip key={`so-${s}`}>{s}</Chip>)}
+                    </div>
+                  ) : null}
+                  {present(r.etl_threshold) && (
+                    <p className="text-sm">
+                      Treat at: {String(r.etl_threshold)}{present(r.etl_unit) ? ` ${String(r.etl_unit)}` : ''}
+                    </p>
+                  )}
+                  {rotationBits.length > 0 && (
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {rotationBits.map((v) => String(v)).join(' · ')}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
 
             {/* 2 · SAFETY FIELDS */}
             <Card ref={secFields as any} className="scroll-mt-20">
@@ -761,12 +955,34 @@ const RuleReview: React.FC = () => {
                 <SectionTitle n={4} title="Evidence" />
               </CardHeader>
               <CardContent className="p-4 pt-0 space-y-2">
+                {present(r.scientific_source) && (
+                  <div className="rounded-lg border p-3 space-y-1">
+                    <h3 className="text-xs font-semibold text-muted-foreground">
+                      Declared basis (from rule record)
+                    </h3>
+                    <button
+                      type="button"
+                      className={`text-left text-sm text-muted-foreground w-full ${expandedClaims.__declared ? '' : 'line-clamp-3'}`}
+                      onClick={() =>
+                        setExpandedClaims((s) => ({ ...s, __declared: !s.__declared }))
+                      }
+                    >
+                      {String(r.scientific_source)}
+                    </button>
+                    {present(r.phi_source) && (
+                      <p className="text-xs text-muted-foreground">PHI source: {String(r.phi_source)}</p>
+                    )}
+                  </div>
+                )}
                 {evidenceLoading && <Skeleton className="h-16 w-full" />}
                 {!evidenceLoading && (evidence?.length ?? 0) === 0 && (
                   <div className="rounded-lg border border-warning bg-warning/10 p-3 text-sm">
-                    No evidence linked — verify against a source before approving.
+                    {present(r.scientific_source)
+                      ? 'No registry-linked evidence — declared basis above is unverified against the registry. Verify before approving.'
+                      : 'No evidence linked — verify against a source before approving.'}
                   </div>
                 )}
+
                 {(evidence || []).map((ev: EvidenceRow) => {
                   const src = ev.knowledge_sources;
                   const tier = src ? TIER[src.authority_tier] : undefined;
