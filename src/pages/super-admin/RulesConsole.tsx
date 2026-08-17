@@ -173,11 +173,15 @@ const RulesConsole: React.FC = () => {
                 {isLoading && (
                   <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
                 )}
-                {!isLoading && rows.map((r) => (
+                {!isLoading && rows.map((r, i) => (
                   <TableRow
                     key={r.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => navigate(`/super-admin/governance/review/${r.id}`)}
+                    onClick={() =>
+                      navigate(`/super-admin/governance/review/${r.id}`, {
+                        state: { queue: rows.map((x) => x.id), index: i },
+                      })
+                    }
                   >
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Checkbox
@@ -201,7 +205,11 @@ const RulesConsole: React.FC = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => navigate(`/super-admin/governance/review/${r.id}`)}
+                        onClick={() =>
+                          navigate(`/super-admin/governance/review/${r.id}`, {
+                            state: { queue: rows.map((x) => x.id), index: i },
+                          })
+                        }
                       >
                         <Eye className="w-3 h-3 mr-1" />Review
                       </Button>
