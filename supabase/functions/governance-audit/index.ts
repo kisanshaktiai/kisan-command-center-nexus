@@ -1,6 +1,7 @@
 // Governance Audit Edge Function — runs read-only forensic probes
 // and persists snapshots into governance_audit_reports.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { handleRagAdmin, isRagAction } from "../_shared/ragAdmin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,6 +148,21 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    // RAG admin actions are mounted here because the project is at its deployed
+    // edge-function ceiling and the dedicated `rag-admin` slug cannot be created.
+    // handleRagAdmin performs its own super-admin authorization.
+    let ragBody: Record<string, unknown> | null = null;
+    try {
+      const raw = await req.clone().text();
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && isRagAction(parsed.action)) ragBody = parsed;
+      }
+    } catch (_) {
+      ragBody = null;
+    }
+    if (ragBody) return await handleRagAdmin(req, ragBody);
+
     const authHeader = req.headers.get("Authorization") ?? "";
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
