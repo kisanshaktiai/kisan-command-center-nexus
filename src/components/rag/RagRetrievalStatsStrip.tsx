@@ -22,7 +22,11 @@ export function RagRetrievalStatsStrip({
 }: RagRetrievalStatsStripProps) {
   const { data, isLoading } = useRagRetrievalStats(days);
 
-  const gapPct = data ? Math.round(data.gap_rate * 100) : 0;
+  const total = Number(data?.total ?? 0);
+  const belowThreshold = Number(data?.below_threshold ?? 0);
+  const avgLatency = Number(data?.avg_latency_ms ?? 0);
+  const gapRate = Number(data?.gap_rate ?? 0);
+  const gapPct = data ? Math.round((Number.isFinite(gapRate) ? gapRate : 0) * 100) : 0;
   // Corpus-gap rate is the one number that should change colour: it is the
   // signal that farmers are asking things the knowledge base cannot answer.
   const gapTone =
