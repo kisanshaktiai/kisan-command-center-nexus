@@ -144,6 +144,7 @@ async function probeHallucination(sb: ReturnType<typeof createClient>): Promise<
   };
 }
 
+// deploy marker: rag-mount v2 (2026-08-26)
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
