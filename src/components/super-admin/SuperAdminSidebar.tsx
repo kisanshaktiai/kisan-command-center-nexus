@@ -34,7 +34,9 @@ import {
   ScanSearch,
   Wrench,
   FileCode2,
-  Library
+  Library,
+  UploadCloud,
+  FileStack
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -80,7 +82,6 @@ const navigationItems = [
       { title: 'AI Prompt Templates', tab: 'ai-prompt-templates', route: '/super-admin/governance/prompts', icon: FileCode2 },
       { title: 'Narration Validation', tab: 'narration-validation', route: '/super-admin/governance/narration', icon: ScanSearch },
       { title: 'Hardening & Cron', tab: 'hardening', route: '/super-admin/governance/hardening', icon: Wrench },
-      { title: 'Knowledge Sources', tab: 'knowledge-sources', route: '/super-admin/governance/knowledge', icon: Library },
     ]
   },
   {
@@ -124,12 +125,16 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
   const buildLabel = buildHash ? buildHash.slice(0, 7) : isLoading ? '…' : '—';
   const location = useLocation();
 
-  const activeGroup = navigationItems.find(g => g.items.some(i => i.route === location.pathname))?.title ?? 'Platform Management';
+  const activeGroup = navigationItems.find(g =>
+    g.items.some(i => i.route.split('?')[0] === location.pathname)
+  )?.title ?? 'Platform Management';
   const [openGroups, setOpenGroups] = useState<string[]>([activeGroup]);
 
   const toggleGroup = (groupTitle: string) => {
     setOpenGroups(prev =>
-      prev.includes(groupTitle) ? [] : [groupTitle]
+      prev.includes(groupTitle)
+        ? prev.filter(g => g !== groupTitle)
+        : [...prev, groupTitle]
     );
   };
 
@@ -149,7 +154,11 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
   };
 
   const NavItem = ({ item }: { item: any }) => {
-    const isActive = location.pathname === item.route;
+    const [itemPath, itemSearch] = item.route.split('?');
+    const isActive = itemSearch
+      ? location.pathname === itemPath &&
+        (location.search.replace(/^\?/, '') || 'tab=sources') === itemSearch
+      : location.pathname === item.route;
     
     const itemContent = (
       <Link
