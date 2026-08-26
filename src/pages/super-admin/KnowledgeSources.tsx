@@ -527,10 +527,10 @@ export default function KnowledgeSources() {
                         <TableCell>
                           <div className="space-y-1">
                             <p className="font-mono text-xs">
-                              {d.rag_source_registry.source_code}
+                              {d.rag_source_registry?.source_code ?? '—'}
                             </p>
                             <AuthorityTierBadge
-                              tier={d.rag_source_registry.authority_tier}
+                              tier={d.rag_source_registry?.authority_tier ?? 'other'}
                             />
                           </div>
                         </TableCell>
