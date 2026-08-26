@@ -38,7 +38,7 @@ export function useUpsertRagSource() {
     mutationFn: (source: RagSourceInput) =>
       ragAdminService.upsertSource(source),
     onSuccess: (d) => {
-      toast.success(`Source ${d.source.source_code} saved`);
+      toast.success(`Source ${d?.source?.source_code ?? ''} saved`);
       qc.invalidateQueries({ queryKey: ragQueryKeys.sources });
     },
     onError: (e: Error) => toast.error(e.message ?? 'Failed to save source'),
