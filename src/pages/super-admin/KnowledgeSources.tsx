@@ -479,9 +479,15 @@ export default function KnowledgeSources() {
               {docsQ.isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : documents.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No documents match. Upload one from the Upload tab.
-                </p>
+                <div className="flex flex-col items-center gap-3 py-10 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    No documents match these filters yet.
+                  </p>
+                  <Button onClick={() => setTab('upload')}>
+                    <UploadCloud className="mr-2 h-4 w-4" />
+                    Upload a document
+                  </Button>
+                </div>
               ) : (
                 <Table>
                   <TableHeader>
