@@ -190,55 +190,45 @@ async function extractError(error: unknown): Promise<string> {
 }
 
 /**
- * The dedicated `rag-admin` function slug cannot always be deployed (this
- * Supabase project sits at its edge-function ceiling), in which case the
- * gateway answers 404 and supabase-js reports "Failed to send a request to the
- * Edge Function". The same handler is mounted on the already-deployed
- * `governance-audit` function, so fall back to it once and remember the choice.
+ * The dedicated `rag-admin` slug cannot be deployed (this Supabase project sits
+ * at its edge-function ceiling), so the RAG admin handler is mounted inside the
+ * already-deployed `governance-audit` function and action-routed there.
  */
-const RAG_FN_PRIMARY = 'rag-admin';
-const RAG_FN_FALLBACK = 'governance-audit';
-let ragFunctionName: string = RAG_FN_PRIMARY;
-
-function looksMissing(error: unknown): boolean {
-  const status = (error as { context?: { status?: number } })?.context?.status;
-  if (status === 404) return true;
-  const msg = (error as Error)?.message || '';
-  return /not found|Failed to send a request/i.test(msg);
-}
+const RAG_FN = 'governance-audit';
 
 async function invoke<T>(
   action: string,
   payload: Record<string, unknown> = {}
 ): Promise<T> {
-  const body = { action, ...payload };
-  const { data, error } = await supabase.functions.invoke(ragFunctionName, {
-    body,
+  const { data, error } = await supabase.functions.invoke(RAG_FN, {
+    body: { action, ...payload },
   });
-  if (error) {
-    if (ragFunctionName === RAG_FN_PRIMARY && looksMissing(error)) {
-      ragFunctionName = RAG_FN_FALLBACK;
-      const retry = await supabase.functions.invoke(RAG_FN_FALLBACK, { body });
-      if (retry.error) throw new Error(await extractError(retry.error));
-      return retry.data as T;
-    }
-    throw new Error(await extractError(error));
-  }
+  if (error) throw new Error(await extractError(error));
   return data as T;
 }
 
-
-/** Standard call: a body-level `error` is a failure. */
+/**
+ * Standard call: a body-level `error` is a failure, and so is a 200 whose shape
+ * does not contain the expected key — that happens when the host function is
+ * running a build that predates the RAG mount and answers with its own payload.
+ */
 async function call<T>(
   action: string,
-  payload: Record<string, unknown> = {}
+  payload: Record<string, unknown> = {},
+  expectKey?: keyof T & string
 ): Promise<T> {
   const data = await invoke<T>(action, payload);
   if ((data as { error?: string })?.error) {
     throw new Error((data as { error: string }).error);
   }
+  if (expectKey && (data as Record<string, unknown>)?.[expectKey] === undefined) {
+    throw new Error(
+      `Unexpected response for '${action}' — the knowledge-base endpoint is not serving RAG actions yet. Please retry in a moment.`
+    );
+  }
   return data;
 }
+
 
 export const ragAdminService = {
   listSources: () => call<RagListSourcesResponse>('list_sources'),
