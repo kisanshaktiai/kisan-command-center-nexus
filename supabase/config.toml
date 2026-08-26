@@ -174,5 +174,3 @@ verify_jwt = true
 [functions.governance-ai-builder]
 verify_jwt = true
 
-[functions.rag-admin]
-verify_jwt = true
