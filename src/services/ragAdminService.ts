@@ -49,7 +49,15 @@ export interface RagTopic {
   sort_order: number;
   is_active: boolean;
 }
+/** Extensions the bucket + create_upload accept (storage level). */
 export const RAG_ALLOWED_EXTENSIONS = ['pdf', 'md', 'txt'] as const;
+/**
+ * Extensions rag-ingest can actually parse today. The `ingest` action rejects
+ * anything else AFTER the file has landed in the bucket, so the picker must be
+ * limited to this list to avoid orphan objects.
+ */
+export const RAG_INGESTABLE_EXTENSIONS = ['pdf'] as const;
+
 
 // ── Row shapes returned by the function ─────────────────────────────────────
 export interface RagSource {
