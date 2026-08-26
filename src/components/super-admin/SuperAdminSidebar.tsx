@@ -33,7 +33,8 @@ import {
   Wand2,
   ScanSearch,
   Wrench,
-  FileCode2
+  FileCode2,
+  Library
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -70,6 +71,7 @@ const navigationItems = [
       { title: 'AI Prompt Templates', tab: 'ai-prompt-templates', route: '/super-admin/governance/prompts', icon: FileCode2 },
       { title: 'Narration Validation', tab: 'narration-validation', route: '/super-admin/governance/narration', icon: ScanSearch },
       { title: 'Hardening & Cron', tab: 'hardening', route: '/super-admin/governance/hardening', icon: Wrench },
+      { title: 'Knowledge Sources', tab: 'knowledge-sources', route: '/super-admin/governance/knowledge', icon: Library },
     ]
   },
   {

@@ -33,6 +33,7 @@ import AIRuleBuilder from './super-admin/AIRuleBuilder';
 import AIPromptTemplates from './super-admin/AIPromptTemplates';
 import NarrationValidation from './super-admin/NarrationValidation';
 import HardeningConsole from './super-admin/HardeningConsole';
+import KnowledgeSources from './super-admin/KnowledgeSources';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -130,6 +131,7 @@ const SuperAdmin = () => {
             <Route path="/governance/prompts" element={<AIPromptTemplates />} />
             <Route path="/governance/narration" element={<NarrationValidation />} />
             <Route path="/governance/hardening" element={<HardeningConsole />} />
+            <Route path="/governance/knowledge" element={<KnowledgeSources />} />
           </Routes>
         </main>
       </div>
