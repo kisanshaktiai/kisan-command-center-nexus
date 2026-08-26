@@ -130,6 +130,13 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
   )?.title ?? 'Platform Management';
   const [openGroups, setOpenGroups] = useState<string[]>([activeGroup]);
 
+  // Keep the group containing the active route expanded on navigation.
+  React.useEffect(() => {
+    setOpenGroups(prev =>
+      prev.includes(activeGroup) ? prev : [...prev, activeGroup]
+    );
+  }, [activeGroup]);
+
   const toggleGroup = (groupTitle: string) => {
     setOpenGroups(prev =>
       prev.includes(groupTitle)

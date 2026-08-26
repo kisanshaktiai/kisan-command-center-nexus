@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   BookMarked,
   ExternalLink,
@@ -67,7 +68,18 @@ export default function KnowledgeSources() {
   const { isSuperAdmin } = useAuth();
 
   const [days, setDays] = useState(7);
-  const [tab, setTab] = useState('sources');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab =
+    tabParam === 'upload' || tabParam === 'documents' ? tabParam : 'sources';
+  const setTab = useCallback(
+    (next: string) => {
+      const params = new URLSearchParams(searchParams);
+      params.set('tab', next);
+      setSearchParams(params, { replace: false });
+    },
+    [searchParams, setSearchParams]
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<RagSource | null>(null);
   const [uploadSource, setUploadSource] = useState<string | undefined>();
@@ -132,12 +144,21 @@ export default function KnowledgeSources() {
   // Server enforces this regardless; the gate only avoids a confusing 403 toast.
   if (!isSuperAdmin) {
     return (
-      <Alert>
-        <Shield className="h-4 w-4" />
-        <AlertDescription>
-          Knowledge Sources is restricted to super admins.
-        </AlertDescription>
-      </Alert>
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold">Knowledge Sources</h1>
+          <p className="text-sm text-muted-foreground">
+            Shared RAG corpus behind the farmer AI advisor.
+          </p>
+        </div>
+        <Alert>
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            This console is restricted to super admins. Ask a super admin to
+            grant you access.
+          </AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
@@ -168,9 +189,13 @@ export default function KnowledgeSources() {
               }
             />
           </Button>
-          <Button onClick={openCreate}>
+          <Button variant="outline" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             New source
+          </Button>
+          <Button onClick={() => setTab('upload')}>
+            <UploadCloud className="mr-2 h-4 w-4" />
+            Upload document
           </Button>
         </div>
       </div>
@@ -367,10 +392,32 @@ export default function KnowledgeSources() {
 
         {/* ───────────────────────────── Upload */}
         <TabsContent value="upload">
-          <RagDocumentUploadCard
-            sources={sources}
-            initialSourceCode={uploadSource}
-          />
+          {sources.length === 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UploadCloud className="h-5 w-5" />
+                  Register a source first
+                </CardTitle>
+                <CardDescription>
+                  Every document belongs to a publisher (ICAR, a state
+                  department, a tenant handbook…). Register that source once,
+                  then upload its PDFs here.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={openCreate}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New source
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <RagDocumentUploadCard
+              sources={sources}
+              initialSourceCode={uploadSource}
+            />
+          )}
         </TabsContent>
 
         {/* ───────────────────────────── Documents */}
