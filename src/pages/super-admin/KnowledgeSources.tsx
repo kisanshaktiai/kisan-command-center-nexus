@@ -481,9 +481,32 @@ export default function KnowledgeSources() {
                             />
                           </div>
                         </TableCell>
+                        <TableCell className="max-w-[180px]">
+                          {(d.topic_codes?.length ?? 0) > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {d.topic_codes!.slice(0, 3).map((c) => (
+                                <TopicBadge
+                                  key={c}
+                                  code={c}
+                                  topics={topics.data}
+                                />
+                              ))}
+                              {d.topic_codes!.length > 3 && (
+                                <Badge variant="outline" className="text-[10px]">
+                                  +{d.topic_codes!.length - 3}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              uncategorised
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="font-mono text-xs">
                           {d.doc_version}
                         </TableCell>
+
                         <TableCell className="font-mono text-xs uppercase">
                           {d.language}
                         </TableCell>
