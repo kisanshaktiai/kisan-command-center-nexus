@@ -41,7 +41,7 @@ import {
   useRagUploadAndIngest,
 } from '@/hooks/useRagAdmin';
 import {
-  RAG_ALLOWED_EXTENSIONS,
+  RAG_INGESTABLE_EXTENSIONS,
   RAG_DOC_TYPES,
   previewStoragePath,
   suggestTopics,
@@ -63,7 +63,7 @@ const STAGES: { key: RagUploadStage; label: string; pct: number }[] = [
   { key: 'ingesting', label: 'Parsing, chunking & embedding', pct: 85 },
 ];
 
-const ACCEPT = RAG_ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(',');
+const ACCEPT = RAG_INGESTABLE_EXTENSIONS.map((e) => `.${e}`).join(',');
 
 export function RagDocumentUploadCard({
   sources,
@@ -126,7 +126,7 @@ export function RagDocumentUploadCard({
   }, [source]);
 
   const ext = file?.name.split('.').pop()?.toLowerCase() ?? '';
-  const extOk = (RAG_ALLOWED_EXTENSIONS as readonly string[]).includes(ext);
+  const extOk = (RAG_INGESTABLE_EXTENSIONS as readonly string[]).includes(ext);
   const canSubmit =
     !!source &&
     !!file &&
@@ -246,7 +246,7 @@ export function RagDocumentUploadCard({
                   <>
                     <p className="text-sm font-medium">Choose a file</p>
                     <p className="text-xs text-muted-foreground">
-                      {RAG_ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(' · ')} ·
+                      {RAG_INGESTABLE_EXTENSIONS.map((e) => `.${e}`).join(' · ')} ·
                       up to 50 MB
                     </p>
                   </>
@@ -263,7 +263,8 @@ export function RagDocumentUploadCard({
             />
             {file && !extOk && (
               <p className="text-xs text-[hsl(var(--small-text-destructive))]">
-                Only {RAG_ALLOWED_EXTENSIONS.join(', ')} files are accepted.
+                Only {RAG_INGESTABLE_EXTENSIONS.join(', ')} files can be ingested
+                today.
               </p>
             )}
           </div>

@@ -481,9 +481,32 @@ export default function KnowledgeSources() {
                             />
                           </div>
                         </TableCell>
+                        <TableCell className="max-w-[180px]">
+                          {(d.topic_codes?.length ?? 0) > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {d.topic_codes!.slice(0, 3).map((c) => (
+                                <TopicBadge
+                                  key={c}
+                                  code={c}
+                                  topics={topics.data}
+                                />
+                              ))}
+                              {d.topic_codes!.length > 3 && (
+                                <Badge variant="outline" className="text-[10px]">
+                                  +{d.topic_codes!.length - 3}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              uncategorised
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="font-mono text-xs">
                           {d.doc_version}
                         </TableCell>
+
                         <TableCell className="font-mono text-xs uppercase">
                           {d.language}
                         </TableCell>
@@ -501,8 +524,27 @@ export default function KnowledgeSources() {
                           {d.chunk_count ?? 0}
                         </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">
-                          {d.embedding_model ?? '—'}
+                          {d.embedding_model ? (
+                            d.embedding_model
+                          ) : d.processing_status === 'completed' ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help text-[hsl(var(--small-text-warning))]">
+                                  not embedded · fulltext only
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                Chunks were stored without vectors, so semantic
+                                (vector) retrieval cannot match this document —
+                                only keyword/fulltext search can. Configure the
+                                embedding provider on rag-ingest and re-ingest.
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            '—'
+                          )}
                         </TableCell>
+
                         <TableCell className="text-xs text-muted-foreground">
                           {d.created_at
                             ? new Date(d.created_at).toLocaleDateString()
