@@ -68,7 +68,7 @@ export function RagRetrievalStatsStrip({
           icon={Activity}
           label="Retrievals"
           loading={isLoading}
-          value={data?.total.toLocaleString() ?? '—'}
+          value={data ? total.toLocaleString() : '—'}
           hint="queries answered from the corpus"
         />
         <StatCard
