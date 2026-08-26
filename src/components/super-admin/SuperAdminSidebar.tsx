@@ -57,8 +57,17 @@ const navigationItems = [
     ]
   },
   {
+    title: 'AI Knowledge Base',
+    items: [
+      { title: 'Knowledge Sources', tab: 'knowledge-sources', route: '/super-admin/governance/knowledge?tab=sources', icon: Library },
+      { title: 'Upload Document', tab: 'knowledge-upload', route: '/super-admin/governance/knowledge?tab=upload', icon: UploadCloud },
+      { title: 'Ingested Documents', tab: 'knowledge-documents', route: '/super-admin/governance/knowledge?tab=documents', icon: FileStack },
+    ]
+  },
+  {
     title: 'Governance & Operations',
     items: [
+
       { title: 'Backups', tab: 'backups', route: '/super-admin/backups', icon: HardDrive },
       { title: 'Governance Reports', tab: 'governance-reports', route: '/super-admin/governance/reports', icon: Gavel },
       { title: 'Rules Console', tab: 'rules-console', route: '/super-admin/governance/rules', icon: BookOpen },
