@@ -231,10 +231,10 @@ async function call<T>(
 
 
 export const ragAdminService = {
-  listSources: () => call<RagListSourcesResponse>('list_sources'),
+  listSources: () => call<RagListSourcesResponse>('list_sources', {}, 'sources'),
 
   upsertSource: (source: RagSourceInput) =>
-    call<{ source: RagSource }>('upsert_source', { source }),
+    call<{ source: RagSource }>('upsert_source', { source }, 'source'),
 
   listDocuments: (
     filters: {
@@ -243,15 +243,16 @@ export const ragAdminService = {
       topicCode?: string;
       limit?: number;
     } = {}
-  ) => call<{ documents: RagDocument[] }>('list_documents', filters),
+  ) => call<{ documents: RagDocument[] }>('list_documents', filters, 'documents'),
 
-  listTopics: () => call<{ topics: RagTopic[] }>('list_topics'),
+  listTopics: () => call<{ topics: RagTopic[] }>('list_topics', {}, 'topics'),
 
   setDocumentActive: (documentId: string, isActive: boolean) =>
     call<{ ok: true }>('set_document_active', { documentId, isActive }),
 
   retrievalStats: (days = 7) =>
-    call<RagRetrievalStats>('retrieval_stats', { days }),
+    call<RagRetrievalStats>('retrieval_stats', { days }, 'days'),
+
 
   /**
    * Upload = signed URL from rag-admin → direct PUT to storage → ingest via
