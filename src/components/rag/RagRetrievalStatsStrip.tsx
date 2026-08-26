@@ -78,9 +78,7 @@ export function RagRetrievalStatsStrip({
           value={data ? `${gapPct}%` : '—'}
           valueClassName={gapTone}
           hint={
-            data
-              ? `${data.below_threshold.toLocaleString()} below threshold`
-              : ''
+            data ? `${belowThreshold.toLocaleString()} below threshold` : ''
           }
         />
         <StatCard
