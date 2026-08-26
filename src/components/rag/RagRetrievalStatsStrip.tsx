@@ -105,7 +105,7 @@ export function RagRetrievalStatsStrip({
           icon={Gauge}
           label="Avg latency"
           loading={isLoading}
-          value={data ? `${data.avg_latency_ms} ms` : '—'}
+          value={data ? `${Math.round(avgLatency)} ms` : '—'}
           hint="end-to-end retrieval"
         />
       </div>
