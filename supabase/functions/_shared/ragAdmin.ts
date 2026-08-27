@@ -24,6 +24,8 @@
  *                                    → server-side call to rag-ingest (service role)
  *  list_documents {sourceCode?, status?, topicCode?, limit?}
  *  set_document_active {documentId, isActive}
+ *  backfill_embeddings {documentId}   → server-side call to rag-ingest backfill_embeddings; embeds the
+ *                                      document's chunks that have no vector (no re-upload, no re-chunk)
  *  retrieval_stats {days?}           → counts from rag_retrieval_logs (below_threshold = corpus gaps)
  *
  * Every mutating action writes admin_audit_logs (admin_id, action, details).
@@ -116,7 +118,7 @@ async function audit(sb: SupabaseClient, adminId: string, action: string, detail
 
 export const RAG_ACTIONS = [
   'list_sources', 'upsert_source', 'list_topics', 'create_upload', 'ingest',
-  'list_documents', 'set_document_active', 'retrieval_stats',
+  'list_documents', 'set_document_active', 'backfill_embeddings', 'retrieval_stats',
 ] as const;
 
 export function isRagAction(action: unknown): boolean {
@@ -338,6 +340,32 @@ export async function handleRagAdmin(req: Request, preParsedBody?: Record<string
         if (cErr) return json(500, { error: cErr.message });
         await audit(sb, adminId, 'set_document_active', { document_id: documentId, is_active: isActive }, Date.now() - t0, req);
         return json(200, { ok: true });
+      }
+
+      // ───────────────────────────────────────────── backfill_embeddings
+      // A document ingested before the embedding provider was configured (or whose
+      // embed step failed) has chunks but no vectors, so semantic retrieval never
+      // sees it. rag-ingest already exposes `backfill_embeddings`; relay it here so
+      // the panel can fix it with one click instead of curl + service-role key.
+      case 'backfill_embeddings': {
+        const documentId = String(body.documentId || '');
+        if (!/^[0-9a-f-]{36}$/i.test(documentId)) return json(400, { error: 'documentId (uuid) required' });
+        const { data: doc } = await sb.from('rag_documents').select('id, processing_status').eq('id', documentId).maybeSingle();
+        if (!doc) return json(404, { error: 'Document not found' });
+        if (doc.processing_status !== 'completed') return json(400, { error: `Document is '${doc.processing_status}', not completed` });
+        const { count: pending } = await sb.from('rag_chunks').select('id', { count: 'exact', head: true })
+          .eq('document_id', documentId).eq('is_active', true).is('embedding', null);
+        if (!pending) return json(200, { embedded: 0, pending: 0, message: 'All chunks already embedded' });
+
+        const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/rag-ingest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+          body: JSON.stringify({ action: 'backfill_embeddings', documentId, maxChunks: 960 }),
+        });
+        const result = await res.json().catch(() => ({ error: 'rag-ingest returned non-JSON' }));
+        await audit(sb, adminId, 'backfill_embeddings', { document_id: documentId, pending, status: res.status, embedded: result?.embedded ?? null, model: result?.model ?? null, error: result?.error ?? null }, Date.now() - t0, req);
+        if (!res.ok) return json(res.status, { error: result?.error || result?.detail || `rag-ingest ${res.status}`, upstream_status: res.status });
+        return json(200, { ...result, pending, upstream_status: res.status });
       }
 
       // ───────────────────────────────────────────── retrieval_stats

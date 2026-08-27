@@ -8,6 +8,7 @@ import {
   Plus,
   RefreshCw,
   Shield,
+  Sparkles,
   UploadCloud,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,6 +54,7 @@ import { RagSourceDialog } from '@/components/rag/RagSourceDialog';
 import { RagDocumentUploadCard } from '@/components/rag/RagDocumentUploadCard';
 import { RagRetrievalStatsStrip } from '@/components/rag/RagRetrievalStatsStrip';
 import {
+  useBackfillRagEmbeddings,
   useRagDocuments,
   useRagSources,
   useRagTopicsLookup,
@@ -96,6 +98,7 @@ export default function KnowledgeSources() {
     topicCode: docTopic === ALL ? undefined : docTopic,
   });
   const setActive = useSetRagDocumentActive();
+  const backfill = useBackfillRagEmbeddings();
 
   const sources = useMemo(() => sourcesQ.data?.sources ?? [], [sourcesQ.data]);
   const enums = sourcesQ.data?.enums;
@@ -506,121 +509,165 @@ export default function KnowledgeSources() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {documents.map((d) => (
-                      <TableRow
-                        key={d.id}
-                        className={d.is_active === false ? 'opacity-60' : ''}
-                      >
-                        <TableCell className="max-w-[280px]">
-                          <p className="truncate font-medium">{d.title}</p>
-                          {d.processing_error && (
-                            <p className="truncate text-xs text-[hsl(var(--small-text-destructive))]">
-                              {d.processing_error}
-                            </p>
-                          )}
-                          {(d.crop_codes?.length ?? 0) > 0 && (
-                            <p className="truncate text-xs text-muted-foreground">
-                              {d.crop_codes!.join(', ')}
-                            </p>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <p className="font-mono text-xs">
-                              {d.rag_source_registry?.source_code ?? '—'}
-                            </p>
-                            <AuthorityTierBadge
-                              tier={d.rag_source_registry?.authority_tier ?? 'other'}
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-[180px]">
-                          {(d.topic_codes?.length ?? 0) > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {d.topic_codes!.slice(0, 3).map((c) => (
-                                <TopicBadge
-                                  key={c}
-                                  code={c}
-                                  topics={topics.data}
-                                />
-                              ))}
-                              {d.topic_codes!.length > 3 && (
-                                <Badge variant="outline" className="text-[10px]">
-                                  +{d.topic_codes!.length - 3}
-                                </Badge>
-                              )}
+                    {documents.map((d) => {
+                      const needsEmbedding =
+                        d.processing_status === 'completed' &&
+                        !d.embedding_model;
+                      const isEmbedding =
+                        backfill.isPending && backfill.variables === d.id;
+                      return (
+                        <TableRow
+                          key={d.id}
+                          className={d.is_active === false ? 'opacity-60' : ''}
+                        >
+                          <TableCell className="max-w-[280px]">
+                            <p className="truncate font-medium">{d.title}</p>
+                            {d.processing_error && (
+                              <p className="truncate text-xs text-[hsl(var(--small-text-destructive))]">
+                                {d.processing_error}
+                              </p>
+                            )}
+                            {(d.crop_codes?.length ?? 0) > 0 && (
+                              <p className="truncate text-xs text-muted-foreground">
+                                {d.crop_codes!.join(', ')}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="font-mono text-xs">
+                                {d.rag_source_registry?.source_code ?? '—'}
+                              </p>
+                              <AuthorityTierBadge
+                                tier={
+                                  d.rag_source_registry?.authority_tier ??
+                                  'other'
+                                }
+                              />
                             </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">
-                              uncategorised
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {d.doc_version}
-                        </TableCell>
-
-                        <TableCell className="font-mono text-xs uppercase">
-                          {d.language}
-                        </TableCell>
-                        <TableCell>
-                          {d.tenant_id ? (
-                            <Badge variant="secondary">tenant</Badge>
-                          ) : (
-                            <Badge variant="outline">global</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <ProcessingStatusBadge status={d.processing_status} />
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {d.chunk_count ?? 0}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {d.embedding_model ? (
-                            d.embedding_model
-                          ) : d.processing_status === 'completed' ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="cursor-help text-[hsl(var(--small-text-warning))]">
-                                  not embedded · fulltext only
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                Chunks were stored without vectors, so semantic
-                                (vector) retrieval cannot match this document —
-                                only keyword/fulltext search can. Configure the
-                                embedding provider on rag-ingest and re-ingest.
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            '—'
-                          )}
-                        </TableCell>
-
-                        <TableCell className="text-xs text-muted-foreground">
-                          {d.created_at
-                            ? new Date(d.created_at).toLocaleDateString()
-                            : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={d.is_active !== false}
-                            disabled={
-                              setActive.isPending ||
-                              d.processing_status !== 'completed'
-                            }
-                            onCheckedChange={(v) =>
-                              setActive.mutate({
-                                documentId: d.id,
-                                isActive: v,
-                              })
-                            }
-                            aria-label={`Toggle ${d.title}`}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell className="max-w-[180px]">
+                            {(d.topic_codes?.length ?? 0) > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {d.topic_codes!.slice(0, 3).map((c) => (
+                                  <TopicBadge
+                                    key={c}
+                                    code={c}
+                                    topics={topics.data}
+                                  />
+                                ))}
+                                {d.topic_codes!.length > 3 && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px]"
+                                  >
+                                    +{d.topic_codes!.length - 3}
+                                  </Badge>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                uncategorised
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {d.doc_version}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs uppercase">
+                            {d.language}
+                          </TableCell>
+                          <TableCell>
+                            {d.tenant_id ? (
+                              <Badge variant="secondary">tenant</Badge>
+                            ) : (
+                              <Badge variant="outline">global</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <ProcessingStatusBadge
+                              status={d.processing_status}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {d.chunk_count ?? 0}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {d.embedding_model ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge
+                                    variant="success"
+                                    className="cursor-help font-normal"
+                                  >
+                                    vectors
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs font-mono text-xs">
+                                  {d.embedding_model}
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : needsEmbedding ? (
+                              <div className="flex items-center gap-2">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge
+                                      variant="warning"
+                                      className="cursor-help font-normal"
+                                    >
+                                      fulltext only
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    Chunks have no vectors, so semantic search
+                                    cannot reach this document — only keyword
+                                    search can. Re-embed fills them in place; no
+                                    re-upload needed.
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7"
+                                  disabled={backfill.isPending}
+                                  onClick={() => backfill.mutate(d.id)}
+                                >
+                                  {isEmbedding ? (
+                                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Sparkles className="mr-1 h-3.5 w-3.5" />
+                                  )}
+                                  Re-embed
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {d.created_at
+                              ? new Date(d.created_at).toLocaleDateString()
+                              : '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Switch
+                              checked={d.is_active !== false}
+                              disabled={
+                                setActive.isPending ||
+                                d.processing_status !== 'completed'
+                              }
+                              onCheckedChange={(v) =>
+                                setActive.mutate({
+                                  documentId: d.id,
+                                  isActive: v,
+                                })
+                              }
+                              aria-label={`Toggle ${d.title}`}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}

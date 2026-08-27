@@ -73,6 +73,25 @@ export function useSetRagDocumentActive() {
   });
 }
 
+export function useBackfillRagEmbeddings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (documentId: string) =>
+      ragAdminService.backfillEmbeddings(documentId),
+    onSuccess: (r) => {
+      if (r.embedded > 0) {
+        toast.success(
+          `Embedded ${r.embedded} chunk${r.embedded === 1 ? '' : 's'}`
+        );
+      } else {
+        toast.info(r.message ?? 'Nothing to embed');
+      }
+      qc.invalidateQueries({ queryKey: ['rag-admin', 'documents'] });
+    },
+    onError: (e: Error) => toast.error(e.message ?? 'Re-embed failed'),
+  });
+}
+
 // ── Retrieval stats ─────────────────────────────────────────────────────────
 export function useRagRetrievalStats(days = 7) {
   return useQuery({

@@ -58,7 +58,6 @@ export const RAG_ALLOWED_EXTENSIONS = ['pdf', 'md', 'txt'] as const;
  */
 export const RAG_INGESTABLE_EXTENSIONS = ['pdf'] as const;
 
-
 // ── Row shapes returned by the function ─────────────────────────────────────
 export interface RagSource {
   id: string;
@@ -153,6 +152,16 @@ export interface RagIngestResult {
   error?: string;
 }
 
+export interface RagBackfillResult {
+  embedded: number;
+  pending?: number;
+  model?: string;
+  message?: string;
+  remainingHint?: boolean;
+  upstream_status?: number;
+  error?: string;
+}
+
 export interface RagRetrievalStats {
   days: number;
   total: number;
@@ -190,27 +199,45 @@ async function extractError(error: unknown): Promise<string> {
 }
 
 /**
- * The dedicated `rag-admin` slug cannot be deployed (this Supabase project sits
- * at its edge-function ceiling), so the RAG admin handler is mounted inside the
- * already-deployed `governance-audit` function and action-routed there.
+ * `rag-admin` is the dedicated slug (deployed 2026-08-27). The same handler is
+ * also action-routed inside `governance-audit`; fall back to it once if the
+ * dedicated slug is ever missing (404), and remember the choice.
  */
-const RAG_FN = 'governance-audit';
+const RAG_FN_PRIMARY = 'rag-admin';
+const RAG_FN_FALLBACK = 'governance-audit';
+let ragFunctionName: string = RAG_FN_PRIMARY;
+
+function looksMissing(error: unknown): boolean {
+  const status = (error as { context?: { status?: number } })?.context?.status;
+  if (status === 404) return true;
+  return /not found|Failed to send a request/i.test(
+    (error as Error)?.message || ''
+  );
+}
 
 async function invoke<T>(
   action: string,
   payload: Record<string, unknown> = {}
 ): Promise<T> {
-  const { data, error } = await supabase.functions.invoke(RAG_FN, {
-    body: { action, ...payload },
+  const body = { action, ...payload };
+  const { data, error } = await supabase.functions.invoke(ragFunctionName, {
+    body,
   });
-  if (error) throw new Error(await extractError(error));
+  if (error) {
+    if (ragFunctionName === RAG_FN_PRIMARY && looksMissing(error)) {
+      ragFunctionName = RAG_FN_FALLBACK;
+      const retry = await supabase.functions.invoke(RAG_FN_FALLBACK, { body });
+      if (retry.error) throw new Error(await extractError(retry.error));
+      return retry.data as T;
+    }
+    throw new Error(await extractError(error));
+  }
   return data as T;
 }
 
 /**
  * Standard call: a body-level `error` is a failure, and so is a 200 whose shape
- * does not contain the expected key — that happens when the host function is
- * running a build that predates the RAG mount and answers with its own payload.
+ * lacks the expected key (a host function running a build without this action).
  */
 async function call<T>(
   action: string,
@@ -221,17 +248,20 @@ async function call<T>(
   if ((data as { error?: string })?.error) {
     throw new Error((data as { error: string }).error);
   }
-  if (expectKey && (data as Record<string, unknown>)?.[expectKey] === undefined) {
+  if (
+    expectKey &&
+    (data as Record<string, unknown>)?.[expectKey] === undefined
+  ) {
     throw new Error(
-      `Unexpected response for '${action}' — the knowledge-base endpoint is not serving RAG actions yet. Please retry in a moment.`
+      `Unexpected response for '${action}' — the deployed edge function does not serve this action yet. Deploy rag-admin and retry.`
     );
   }
   return data;
 }
 
-
 export const ragAdminService = {
-  listSources: () => call<RagListSourcesResponse>('list_sources', {}, 'sources'),
+  listSources: () =>
+    call<RagListSourcesResponse>('list_sources', {}, 'sources'),
 
   upsertSource: (source: RagSourceInput) =>
     call<{ source: RagSource }>('upsert_source', { source }, 'source'),
@@ -243,16 +273,20 @@ export const ragAdminService = {
       topicCode?: string;
       limit?: number;
     } = {}
-  ) => call<{ documents: RagDocument[] }>('list_documents', filters, 'documents'),
+  ) =>
+    call<{ documents: RagDocument[] }>('list_documents', filters, 'documents'),
 
   listTopics: () => call<{ topics: RagTopic[] }>('list_topics', {}, 'topics'),
+
+  /** Embed a completed document's vector-less chunks in place (no re-upload). */
+  backfillEmbeddings: (documentId: string) =>
+    call<RagBackfillResult>('backfill_embeddings', { documentId }, 'embedded'),
 
   setDocumentActive: (documentId: string, isActive: boolean) =>
     call<{ ok: true }>('set_document_active', { documentId, isActive }),
 
   retrievalStats: (days = 7) =>
     call<RagRetrievalStats>('retrieval_stats', { days }, 'days'),
-
 
   /**
    * Upload = signed URL from rag-admin → direct PUT to storage → ingest via
