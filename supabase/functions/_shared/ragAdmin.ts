@@ -392,3 +392,5 @@ export async function handleRagAdmin(req: Request, preParsedBody?: Record<string
     return json(500, { error: 'Internal error', detail: (e as Error).message });
   }
 }
+
+// deploy 2026-08-27
