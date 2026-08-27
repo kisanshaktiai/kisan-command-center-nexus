@@ -44,7 +44,10 @@ interface UseAppVersionCheckResult {
   isLoading: boolean;
   error: string | null;
   checkForUpdates: () => Promise<void>;
+  /** Clears the session baseline and reloads so the fresh build becomes the baseline. */
+  applyUpdate: () => void;
 }
+
 
 /** Compare semver-ish strings. Returns <0, 0 or >0. Non-numeric parts ignored. */
 function compareVersions(a: string, b: string): number {
@@ -83,6 +86,15 @@ function writeBaseline(appKey: string, baseline: VersionBaseline) {
     // ignore storage failures (private mode, quota)
   }
 }
+
+function clearBaseline(appKey: string) {
+  try {
+    sessionStorage.removeItem(BASELINE_STORAGE_PREFIX + appKey);
+  } catch {
+    // ignore storage failures
+  }
+}
+
 
 export function useAppVersionCheck(appKey: string = DEFAULT_APP_KEY): UseAppVersionCheckResult {
   const [status, setStatus] = useState<UpdateStatus>('checking');
@@ -204,6 +216,14 @@ export function useAppVersionCheck(appKey: string = DEFAULT_APP_KEY): UseAppVers
     };
   }, [checkForUpdates]);
 
+  // Reload for an update: drop the stale baseline first so the freshly loaded
+  // build re-baselines itself instead of re-triggering the blocking dialog.
+  const applyUpdate = useCallback(() => {
+    clearBaseline(appKey);
+    baselineRef.current = null;
+    window.location.reload();
+  }, [appKey]);
+
   return {
     status,
     currentVersion,
@@ -214,6 +234,7 @@ export function useAppVersionCheck(appKey: string = DEFAULT_APP_KEY): UseAppVers
     isLoading,
     error,
     checkForUpdates,
+    applyUpdate,
   };
 }
 
