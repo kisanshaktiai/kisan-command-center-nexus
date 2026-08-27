@@ -144,14 +144,12 @@ async function probeHallucination(sb: ReturnType<typeof createClient>): Promise<
   };
 }
 
-// deploy marker: rag-mount v2 (2026-08-26)
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    // RAG admin actions are mounted here because the project is at its deployed
-    // edge-function ceiling and the dedicated `rag-admin` slug cannot be created.
-    // handleRagAdmin performs its own super-admin authorization.
+    // RAG admin actions are action-routed here as a fallback for the dedicated
+    // `rag-admin` slug. handleRagAdmin performs its own super-admin authorization.
     let ragBody: Record<string, unknown> | null = null;
     try {
       const raw = await req.clone().text();
