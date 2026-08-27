@@ -174,3 +174,8 @@ verify_jwt = true
 [functions.governance-ai-builder]
 verify_jwt = true
 
+# Dedicated RAG admin slug. The handler (_shared/ragAdmin.ts) also self-checks
+# the JWT + is_super_admin(), so verify_jwt=true is defence in depth.
+[functions.rag-admin]
+verify_jwt = true
+
