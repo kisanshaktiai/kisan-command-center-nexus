@@ -216,6 +216,14 @@ export function useAppVersionCheck(appKey: string = DEFAULT_APP_KEY): UseAppVers
     };
   }, [checkForUpdates]);
 
+  // Reload for an update: drop the stale baseline first so the freshly loaded
+  // build re-baselines itself instead of re-triggering the blocking dialog.
+  const applyUpdate = useCallback(() => {
+    clearBaseline(appKey);
+    baselineRef.current = null;
+    window.location.reload();
+  }, [appKey]);
+
   return {
     status,
     currentVersion,
@@ -226,6 +234,7 @@ export function useAppVersionCheck(appKey: string = DEFAULT_APP_KEY): UseAppVers
     isLoading,
     error,
     checkForUpdates,
+    applyUpdate,
   };
 }
 
