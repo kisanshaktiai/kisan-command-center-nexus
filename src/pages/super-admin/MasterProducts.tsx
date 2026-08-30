@@ -962,10 +962,46 @@ export default function MasterProducts() {
                         id="name"
                         placeholder="e.g., NPK 19:19:19 All Purpose Fertilizer"
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, name: e.target.value });
+                          setDuplicateAcknowledged(false);
+                        }}
                         required
                       />
+                      {isNewSeedVariety && isCheckingDuplicates && (
+                        <p className="text-xs text-muted-foreground">Checking for existing varieties...</p>
+                      )}
+                      {hasDuplicateWarning && (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Possible duplicate variety</AlertTitle>
+                          <AlertDescription className="space-y-3">
+                            <ul className="list-disc pl-4 text-sm">
+                              {duplicateMatches.map((match) => (
+                                <li key={match.id}>
+                                  <span className="font-medium">{match.name}</span>
+                                  {match.variety_code && ` (${match.variety_code})`}
+                                  {match.company_name && ` — ${match.company_name}`}
+                                  {match.status && ` · ${match.status}`}
+                                </li>
+                              ))}
+                            </ul>
+                            <p className="text-sm">
+                              If this is a different seller for an existing variety, add a seller
+                              offering on that variety instead of creating a new one.
+                            </p>
+                            <label className="flex items-center gap-2 text-sm">
+                              <Checkbox
+                                checked={duplicateAcknowledged}
+                                onCheckedChange={(checked) => setDuplicateAcknowledged(checked === true)}
+                              />
+                              This is genuinely a new variety — create it anyway
+                            </label>
+                          </AlertDescription>
+                        </Alert>
+                      )}
                     </div>
+
 
                     <div className="space-y-2">
                       <Label htmlFor="brand">Brand</Label>
