@@ -21,6 +21,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { VarietyOfferingsDialog } from '@/components/master-data/VarietyOfferingsDialog';
+import { useDuplicateVarietyCheck } from '@/hooks/useVarietyOfferings';
 
 interface MasterProduct {
   id: string;
