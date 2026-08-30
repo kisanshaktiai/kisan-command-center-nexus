@@ -90,6 +90,8 @@ export default function MasterProducts() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
   const [currentStep, setCurrentStep] = useState(1);
+  const [offeringsVariety, setOfferingsVariety] = useState<{ id: string; name: string } | null>(null);
+  const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
   
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
