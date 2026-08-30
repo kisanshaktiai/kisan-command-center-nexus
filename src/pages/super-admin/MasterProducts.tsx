@@ -422,6 +422,7 @@ export default function MasterProducts() {
       is_bestseller: false,
     });
     setCurrentStep(1);
+    setDuplicateAcknowledged(false);
   };
 
   const handleEdit = (product: MasterProduct) => {
