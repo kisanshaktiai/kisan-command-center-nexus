@@ -154,6 +154,14 @@ export default function MasterProducts() {
 
   const queryClient = useQueryClient();
 
+  // Duplicate-variety guardrail (new seed varieties only)
+  const isNewSeedVariety = !selectedProduct && formData.product_type === 'seed';
+  const { data: duplicateMatches = [], isFetching: isCheckingDuplicates } = useDuplicateVarietyCheck(
+    formData.name,
+    isNewSeedVariety && isAddModalOpen
+  );
+  const hasDuplicateWarning = isNewSeedVariety && duplicateMatches.length > 0;
+
   // Fetch companies for dropdown
   const { data: companies } = useQuery({
     queryKey: ['master-companies-list'],
