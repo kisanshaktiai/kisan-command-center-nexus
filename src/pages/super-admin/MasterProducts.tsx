@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { 
   Plus, Search, Filter, Package, Edit, Trash2, Star, Shield, Leaf, 
   ChevronRight, ChevronLeft, Check, FileText, Image as ImageIcon,
-  AlertCircle, Sparkles, TrendingUp, Clock, DollarSign, Video
+  AlertCircle, Sparkles, TrendingUp, Clock, DollarSign, Video, Store
 } from 'lucide-react';
 import { ProductImageUpload, ProductImage } from '@/components/products/ProductImageUpload';
 import { SocialMediaLinks, VideoUrls } from '@/components/products/SocialMediaLinks';
