@@ -797,6 +797,16 @@ export default function MasterProducts() {
         </CardContent>
       </Card>
 
+      {/* Sellers / Offerings for a seed variety */}
+      <VarietyOfferingsDialog
+        open={!!offeringsVariety}
+        onOpenChange={(open) => !open && setOfferingsVariety(null)}
+        varietyId={offeringsVariety?.id}
+        varietyName={offeringsVariety?.name}
+      />
+
+
+
       {/* Enhanced Add/Edit Modal with Step Wizard */}
       <Dialog open={isAddModalOpen || isEditModalOpen} onOpenChange={(open) => {
         if (!open) {
