@@ -476,9 +476,14 @@ export default function MasterProducts() {
     e.preventDefault();
     if (selectedProduct) {
       updateProductMutation.mutate({ id: selectedProduct.id, data: formData });
-    } else {
-      addProductMutation.mutate(formData);
+      return;
     }
+    if (hasDuplicateWarning && !duplicateAcknowledged) {
+      setCurrentStep(1);
+      toast.error('Possible duplicate variety — confirm the override before saving');
+      return;
+    }
+    addProductMutation.mutate(formData);
   };
 
   const handleNextStep = () => {
