@@ -742,6 +742,18 @@ export default function MasterProducts() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          {product.product_type === 'seed' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Sellers & offerings"
+                              aria-label="Manage sellers and offerings"
+                              onClick={() => setOfferingsVariety({ id: product.id, name: product.name })}
+                              className="hover:bg-primary/10 hover:text-primary"
+                            >
+                              <Store className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
