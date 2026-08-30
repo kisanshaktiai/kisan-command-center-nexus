@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { 
   Plus, Search, Filter, Package, Edit, Trash2, Star, Shield, Leaf, 
   ChevronRight, ChevronLeft, Check, FileText, Image as ImageIcon,
-  AlertCircle, Sparkles, TrendingUp, Clock, DollarSign, Video
+  AlertCircle, Sparkles, TrendingUp, Clock, DollarSign, Video, Store
 } from 'lucide-react';
 import { ProductImageUpload, ProductImage } from '@/components/products/ProductImageUpload';
 import { SocialMediaLinks, VideoUrls } from '@/components/products/SocialMediaLinks';
@@ -21,6 +21,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { VarietyOfferingsDialog } from '@/components/master-data/VarietyOfferingsDialog';
+import { useDuplicateVarietyCheck } from '@/hooks/useVarietyOfferings';
 
 interface MasterProduct {
   id: string;
@@ -87,6 +90,8 @@ export default function MasterProducts() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
   const [currentStep, setCurrentStep] = useState(1);
+  const [offeringsVariety, setOfferingsVariety] = useState<{ id: string; name: string } | null>(null);
+  const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
   
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
@@ -148,6 +153,14 @@ export default function MasterProducts() {
   });
 
   const queryClient = useQueryClient();
+
+  // Duplicate-variety guardrail (new seed varieties only)
+  const isNewSeedVariety = !selectedProduct && formData.product_type === 'seed';
+  const { data: duplicateMatches = [], isFetching: isCheckingDuplicates } = useDuplicateVarietyCheck(
+    formData.name,
+    isNewSeedVariety && isAddModalOpen
+  );
+  const hasDuplicateWarning = isNewSeedVariety && duplicateMatches.length > 0;
 
   // Fetch companies for dropdown
   const { data: companies } = useQuery({
@@ -409,6 +422,7 @@ export default function MasterProducts() {
       is_bestseller: false,
     });
     setCurrentStep(1);
+    setDuplicateAcknowledged(false);
   };
 
   const handleEdit = (product: MasterProduct) => {
@@ -463,9 +477,14 @@ export default function MasterProducts() {
     e.preventDefault();
     if (selectedProduct) {
       updateProductMutation.mutate({ id: selectedProduct.id, data: formData });
-    } else {
-      addProductMutation.mutate(formData);
+      return;
     }
+    if (hasDuplicateWarning && !duplicateAcknowledged) {
+      setCurrentStep(1);
+      toast.error('Possible duplicate variety — confirm the override before saving');
+      return;
+    }
+    addProductMutation.mutate(formData);
   };
 
   const handleNextStep = () => {
@@ -723,6 +742,18 @@ export default function MasterProducts() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          {product.product_type === 'seed' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Sellers & offerings"
+                              aria-label="Manage sellers and offerings"
+                              onClick={() => setOfferingsVariety({ id: product.id, name: product.name })}
+                              className="hover:bg-primary/10 hover:text-primary"
+                            >
+                              <Store className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -765,6 +796,16 @@ export default function MasterProducts() {
           )}
         </CardContent>
       </Card>
+
+      {/* Sellers / Offerings for a seed variety */}
+      <VarietyOfferingsDialog
+        open={!!offeringsVariety}
+        onOpenChange={(open) => !open && setOfferingsVariety(null)}
+        varietyId={offeringsVariety?.id}
+        varietyName={offeringsVariety?.name}
+      />
+
+
 
       {/* Enhanced Add/Edit Modal with Step Wizard */}
       <Dialog open={isAddModalOpen || isEditModalOpen} onOpenChange={(open) => {
@@ -921,10 +962,46 @@ export default function MasterProducts() {
                         id="name"
                         placeholder="e.g., NPK 19:19:19 All Purpose Fertilizer"
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, name: e.target.value });
+                          setDuplicateAcknowledged(false);
+                        }}
                         required
                       />
+                      {isNewSeedVariety && isCheckingDuplicates && (
+                        <p className="text-xs text-muted-foreground">Checking for existing varieties...</p>
+                      )}
+                      {hasDuplicateWarning && (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Possible duplicate variety</AlertTitle>
+                          <AlertDescription className="space-y-3">
+                            <ul className="list-disc pl-4 text-sm">
+                              {duplicateMatches.map((match) => (
+                                <li key={match.id}>
+                                  <span className="font-medium">{match.name}</span>
+                                  {match.variety_code && ` (${match.variety_code})`}
+                                  {match.company_name && ` — ${match.company_name}`}
+                                  {match.status && ` · ${match.status}`}
+                                </li>
+                              ))}
+                            </ul>
+                            <p className="text-sm">
+                              If this is a different seller for an existing variety, add a seller
+                              offering on that variety instead of creating a new one.
+                            </p>
+                            <label className="flex items-center gap-2 text-sm">
+                              <Checkbox
+                                checked={duplicateAcknowledged}
+                                onCheckedChange={(checked) => setDuplicateAcknowledged(checked === true)}
+                              />
+                              This is genuinely a new variety — create it anyway
+                            </label>
+                          </AlertDescription>
+                        </Alert>
+                      )}
                     </div>
+
 
                     <div className="space-y-2">
                       <Label htmlFor="brand">Brand</Label>
