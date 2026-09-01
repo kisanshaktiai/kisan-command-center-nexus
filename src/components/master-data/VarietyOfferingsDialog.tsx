@@ -79,9 +79,16 @@ export function VarietyOfferingsDialog({
     setShowForm(false);
   };
 
-  const startEdit = (offeringId: string) => {
+  const startEdit = async (offeringId: string) => {
     const offering = offerings.find((o) => o.offering_id === offeringId);
     if (!offering) return;
+
+    const { data, error } = await supabase
+      .from('variety_company_offerings')
+      .select('notes')
+      .eq('id', offeringId)
+      .single();
+
     setForm({
       company_id: offering.company_id,
       company_sku: offering.company_sku ?? '',
@@ -92,7 +99,7 @@ export function VarietyOfferingsDialog({
       pack_unit: offering.pack_unit ?? 'kg',
       availability_status: offering.availability_status ?? 'available',
       regions: offering.regions ?? [],
-      notes: '',
+      notes: error || !data ? '' : (data.notes ?? ''),
     });
     setRegionsText((offering.regions ?? []).join(', '));
     setEditingId(offeringId);
