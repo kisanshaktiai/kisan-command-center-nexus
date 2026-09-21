@@ -31,7 +31,7 @@
 CREATE TABLE IF NOT EXISTS public.rag_golden_questions (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   question_text         text NOT NULL CHECK (length(btrim(question_text)) >= 2),
-  language              character varying NOT NULL DEFAULT 'en',
+  language              character varying NOT NULL,
   origin                text NOT NULL DEFAULT 'farmer' CHECK (origin IN ('farmer', 'curated')),
   source_message_id     uuid,
   expected_document_ids uuid[] NOT NULL DEFAULT '{}',

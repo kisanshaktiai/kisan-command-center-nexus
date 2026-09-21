@@ -372,16 +372,21 @@ export async function handleRagAdmin(req: Request, preParsedBody?: Record<string
       case 'retrieval_stats': {
         const days = Math.min(Math.max(Number(body.days) || 7, 1), 90);
         const since = new Date(Date.now() - days * 86400_000).toISOString();
+        // Phase 0 (2026-09-21): nightly golden-set runs log with purpose GOLDEN_EVAL and
+        // failed retrievals log with retrieval_mode 'error'; neither is farmer traffic or
+        // a corpus gap, so both are kept out of the gap rate. (The 5,000-row fetch is
+        // replaced by SQL aggregates in Phase 1, design §4.1.)
         const { data, error } = await sb.from('rag_retrieval_logs')
           .select('retrieval_mode, retrieval_purpose, below_threshold, query_language, latency_ms')
-          .gte('created_at', since).limit(5000);
+          .gte('created_at', since).or('retrieval_purpose.is.null,retrieval_purpose.neq.GOLDEN_EVAL').limit(5000);
         if (error) return json(500, { error: error.message });
         const rows = data || [];
-        const gaps = rows.filter((r) => r.below_threshold).length;
+        const errors = rows.filter((r) => r.retrieval_mode === 'error').length;
+        const gaps = rows.filter((r) => r.below_threshold && r.retrieval_mode !== 'error').length;
         const byLang: Record<string, number> = {};
         for (const r of rows) byLang[r.query_language || 'unknown'] = (byLang[r.query_language || 'unknown'] || 0) + 1;
         const avgLatency = rows.length ? Math.round(rows.reduce((a, r) => a + (r.latency_ms || 0), 0) / rows.length) : 0;
-        return json(200, { days, total: rows.length, below_threshold: gaps, gap_rate: rows.length ? +(gaps / rows.length).toFixed(3) : 0, by_language: byLang, avg_latency_ms: avgLatency });
+        return json(200, { days, total: rows.length, below_threshold: gaps, gap_rate: rows.length ? +(gaps / rows.length).toFixed(3) : 0, errors, by_language: byLang, avg_latency_ms: avgLatency });
       }
 
       default:
@@ -394,3 +399,4 @@ export async function handleRagAdmin(req: Request, preParsedBody?: Record<string
 }
 
 // deploy 2026-08-27
+// 2026-09-21 — retrieval_stats excludes GOLDEN_EVAL runs and error retrievals from the gap rate (RAG Phase 0)
