@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Search, Info } from 'lucide-react';
 import { useNdviAnalytics } from '@/hooks/useNdviAnalytics';
+import { createNdviSignedImageUrl, useNdviObservationMedia } from '@/components/ndvi/NdviReadModel';
 import { format, differenceInDays } from 'date-fns';
 
 interface LandExplorerTabProps { tenantId: string | null; }
@@ -24,6 +25,20 @@ export const LandExplorerTab: React.FC<LandExplorerTabProps> = ({ tenantId }) =>
   const { data: rows = [], isLoading, isError } = useNdviAnalytics(120, tenantId);
   const [search, setSearch] = useState('');
   const [selectedLandId, setSelectedLandId] = useState<string | null>(null);
+  const { data: media = [] } = useNdviObservationMedia(selectedLandId, 120);
+  const [signedImages, setSignedImages] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(media.filter((m) => !!m.image_url).map(async (m) => {
+        try { return [m.scene_id, await createNdviSignedImageUrl(m.image_url)] as const; }
+        catch { return [m.scene_id, null] as const; }
+      }));
+      if (!cancelled) setSignedImages(Object.fromEntries(entries.filter((e): e is [string, string] => !!e[1])));
+    })();
+    return () => { cancelled = true; };
+  }, [media]);
 
   const byLand = useMemo(() => {
     const m = new Map<string, typeof rows>();
@@ -130,6 +145,26 @@ export const LandExplorerTab: React.FC<LandExplorerTabProps> = ({ tenantId }) =>
                     <Line type="monotone" dataKey="ndvi" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} connectNulls={false} />
                   </LineChart>
                 </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="text-base">Canonical NDVI imagery</CardTitle></CardHeader>
+              <CardContent>
+                {media.filter((m) => signedImages[m.scene_id]).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No pipeline imagery is available for the selected land in this period.</p>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {media.filter((m) => signedImages[m.scene_id]).slice(0, 6).map((m) => (
+                      <div key={m.scene_id} className="rounded-lg border overflow-hidden bg-muted/20">
+                        <img src={signedImages[m.scene_id]} alt={"NDVI observation " + m.acquisition_date} className="w-full aspect-square object-contain bg-slate-950/5" loading="lazy" />
+                        <div className="p-2 text-xs text-muted-foreground flex justify-between gap-2">
+                          <span>{m.acquisition_date}</span><span className="font-mono truncate">{m.scene_id}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
