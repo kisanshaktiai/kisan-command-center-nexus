@@ -47,6 +47,23 @@ export type DecisionGradeRow = {
   recency_rank: number | null;
 };
 
+export type NdviObservationMedia = {
+  land_id: string;
+  scene_id: string;
+  acquisition_date: string;
+  image_url: string | null;
+};
+
+export type SatelliteLayerConfig = {
+  layer_code: string;
+  value_min: number;
+  value_max: number;
+  evidence_min: number | null;
+  color_stops: Array<{ v: number; c: string }>;
+  source: string | null;
+  enabled: boolean;
+};
+
 export type WaterLayerRow = {
   tenant_id: string;
   land_id: string;
@@ -67,6 +84,7 @@ export type WaterLayerRow = {
   evidence_json: Record<string, unknown> | null;
   provenance_json: Record<string, unknown> | null;
   status: string | null;
+  uncertainty_json?: Record<string, unknown> | null;
 };
 
 export type NdviProcessingLog = {
@@ -176,4 +194,53 @@ export function useNdviTenants() {
       return (data ?? []) as Array<{ id: string; name: string }>;
     },
   });
+}
+
+
+/** Raw ndvi_data is consumed only for canonical observation imagery paths.
+ * Scientific metrics remain sourced from v_ndvi_decision_grade. */
+export function useNdviObservationMedia(landId: string | null, daysBack = 120) {
+  const since = new Date(Date.now() - daysBack * 86400_000).toISOString().slice(0, 10);
+  return useQuery({
+    queryKey: ['ndvi-observation-media', landId ?? 'none', daysBack],
+    enabled: !!landId,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<NdviObservationMedia[]> => {
+      if (!landId) return [];
+      const { data, error } = await supabase
+        .from('ndvi_data' as any)
+        .select('land_id,scene_id,acquisition_date,image_url')
+        .eq('land_id', landId)
+        .gte('acquisition_date', since)
+        .not('scene_id', 'is', null)
+        .order('acquisition_date', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return (data ?? []) as NdviObservationMedia[];
+    },
+  });
+}
+
+export function useSatelliteLayerConfig() {
+  return useQuery({
+    queryKey: ['ndvi-satellite-layer-config'],
+    staleTime: 10 * 60_000,
+    queryFn: async (): Promise<SatelliteLayerConfig[]> => {
+      const { data, error } = await supabase
+        .from('satellite_layer_config' as any)
+        .select('layer_code,value_min,value_max,evidence_min,color_stops,source,enabled')
+        .eq('enabled', true)
+        .order('layer_code');
+      if (error) throw error;
+      return (data ?? []) as SatelliteLayerConfig[];
+    },
+  });
+}
+
+export async function createNdviSignedImageUrl(pathOrUrl: string | null, expiresIn = 3600) {
+  if (!pathOrUrl) return null;
+  if (/^https?:\\/\\//i.test(pathOrUrl)) return pathOrUrl;
+  const { data, error } = await supabase.storage.from('ndvi-thumbnails').createSignedUrl(pathOrUrl, expiresIn);
+  if (error) throw error;
+  return data?.signedUrl ?? null;
 }
