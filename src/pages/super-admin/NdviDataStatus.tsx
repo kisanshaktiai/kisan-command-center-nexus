@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,7 @@ import {
   useNdviTenants,
   useNdviWaterLayers,
   useSatelliteLayerConfig,
+  createNdviSignedImageUrl,
 } from '@/components/ndvi/NdviReadModel';
 
 export default function NdviDataStatus() {
@@ -205,6 +206,19 @@ function WaterIntelligenceTab({ rows, config, loading }: { rows: WaterRow[]; con
   const surface = rows.filter((r) => r.layer_code === 'surface_water_trace').length;
   const canopy = rows.filter((r) => r.layer_code === 'canopy_moisture_signal').length;
   const artifacts = rows.filter((r) => !!r.image_path).length;
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(rows.filter((r) => !!r.image_path).slice(0, 100).map(async (r) => {
+        const key = r.tenant_id + ':' + r.land_id + ':' + r.scene_id + ':' + r.layer_code;
+        try { return [key, await createNdviSignedImageUrl(r.image_path)] as const; }
+        catch { return [key, null] as const; }
+      }));
+      if (!cancelled) setImageUrls(Object.fromEntries(entries.filter((e): e is [string, string] => !!e[1])));
+    })();
+    return () => { cancelled = true; };
+  }, [rows]);
 
   return (
     <div className="space-y-6">
@@ -258,7 +272,16 @@ function WaterIntelligenceTab({ rows, config, loading }: { rows: WaterRow[]; con
                     <TableCell className="text-right tabular-nums">{r.value_mean == null ? '—' : Number(r.value_mean).toFixed(3)}</TableCell>
                     <TableCell className="text-right tabular-nums">{r.valid_fraction == null ? '—' : Number(r.valid_fraction).toFixed(3)}</TableCell>
                     <TableCell><Badge variant={r.status === 'observed' ? 'success' : 'secondary'}>{r.status ?? '—'}</Badge></TableCell>
-                    <TableCell><Badge variant="outline">{r.image_path ? 'stored' : 'not stored'}</Badge></TableCell>
+                    <TableCell>
+                      {(() => {
+                        const key = r.tenant_id + ':' + r.land_id + ':' + r.scene_id + ':' + r.layer_code;
+                        return imageUrls[key] ? (
+                          <a href={imageUrls[key]} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                            <Badge variant="outline">view</Badge>
+                          </a>
+                        ) : <Badge variant="outline">{r.image_path ? 'stored' : 'not stored'}</Badge>;
+                      })()}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
