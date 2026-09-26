@@ -16,13 +16,7 @@ export interface NdviRow {
   cloud_cover: number | null;
   satellite_source: string | null;
   land_name: string | null;
-  village: string | null;
-  district: string | null;
-  state: string | null;
   area_acres: number | null;
-  farmer_id: string | null;
-  farmer_code: string | null;
-  farmer_name: string | null;
   quality_score: number | null;
   confidence_level: string | null;
   evidence_confidence: string | null;
@@ -39,14 +33,8 @@ export interface NdviRow {
 type LandMeta = {
   id: string;
   name: string | null;
-  village: string | null;
-  district: string | null;
-  state: string | null;
   area_acres: number | null;
   current_crop: string | null;
-  farmer_id: string | null;
-  farmer_code: string | null;
-  farmer_name: string | null;
 };
 
 const toNumber = (value: unknown): number | null => {
@@ -73,13 +61,13 @@ function mergeRows(grades: DecisionGradeRow[], lands: LandMeta[]): NdviRow[] {
       cloud_cover: toNumber(r.cloud_cover),
       satellite_source: r.observation_source,
       land_name: land?.name ?? null,
-      village: land?.village ?? null,
-      district: land?.district ?? null,
-      state: land?.state ?? null,
+      village: null,
+      district: null,
+      state: null,
       area_acres: toNumber(land?.area_acres),
-      farmer_id: land?.farmer_id ?? null,
-      farmer_code: land?.farmer_code ?? null,
-      farmer_name: land?.farmer_name ?? null,
+      farmer_id: null,
+      farmer_code: null,
+      farmer_name: null,
       quality_score: toNumber(r.quality_score),
       confidence_level: r.confidence_level,
       evidence_confidence: r.evidence_confidence,
@@ -110,7 +98,7 @@ export function useNdviAnalytics(daysBack = 120, tenantId: string | null = null)
     queryFn: async (): Promise<LandMeta[]> => {
       let q = supabase
         .from('lands')
-        .select('id,name,village,district,state,area_acres,current_crop,farmer_id,farmer_code,farmer_name')
+        .select('id,name,tenant_id,current_crop,area_acres')
         .eq('is_active', true)
         .is('deleted_at', null)
         .limit(5000);
@@ -202,7 +190,7 @@ export function useStaleLands(daysWithout = 14, tenantId: string | null = null) 
     queryFn: async (): Promise<LandMeta[]> => {
       let q = supabase
         .from('lands')
-        .select('id,name,village,district,state,area_acres,current_crop,farmer_id,farmer_code,farmer_name')
+        .select('id,name,tenant_id,current_crop,area_acres')
         .eq('is_active', true)
         .is('deleted_at', null)
         .limit(5000);
