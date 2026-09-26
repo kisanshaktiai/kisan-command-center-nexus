@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useNdviDecisionGrade, DecisionGradeRow } from '@/components/ndvi/NdviReadModel';
+import { useNdviDecisionGrade, DecisionGradeRow, RunSummary } from '@/components/ndvi/NdviReadModel';
 
 export interface NdviRow {
   land_id: string;
@@ -138,7 +138,7 @@ export function useNdviCoverage(tenantId: string | null = null) {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return (data ?? null) as unknown as RunSummary | null;
     },
   });
 

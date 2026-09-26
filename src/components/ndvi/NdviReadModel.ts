@@ -100,8 +100,10 @@ export type NdviProcessingLog = {
 };
 
 type QueryOptions = { tenantId?: string | null };
+const toOpts = (o: QueryOptions | string | null | undefined): QueryOptions => (typeof o === "object" && o !== null ? o : { tenantId: o ?? null });
 
-export function useNdviRunSummary(options: QueryOptions = {}) {
+export function useNdviRunSummary(rawOptions: QueryOptions | string | null = {}) {
+  const options = toOpts(rawOptions);
   return useQuery({
     queryKey: ['ndvi-run-summary', options.tenantId ?? 'all'],
     staleTime: 60_000,
@@ -114,12 +116,13 @@ export function useNdviRunSummary(options: QueryOptions = {}) {
       if (options.tenantId) q = q.eq('tenant_id', options.tenantId);
       const { data, error } = await q.maybeSingle();
       if (error) throw error;
-      return (data ?? null) as RunSummary | null;
+      return (data ?? null) as unknown as RunSummary | null;
     },
   });
 }
 
-export function useNdviDecisionGrade(daysBack = 120, options: QueryOptions = {}) {
+export function useNdviDecisionGrade(daysBack = 120, rawOptions: QueryOptions | string | null = {}) {
+  const options = toOpts(rawOptions);
   const since = new Date(Date.now() - daysBack * 86400_000).toISOString().slice(0, 10);
   return useQuery({
     queryKey: ['ndvi-decision-grade', daysBack, options.tenantId ?? 'all'],
@@ -134,12 +137,13 @@ export function useNdviDecisionGrade(daysBack = 120, options: QueryOptions = {})
       if (options.tenantId) q = q.eq('tenant_id', options.tenantId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as DecisionGradeRow[];
+      return (data ?? []) as unknown as DecisionGradeRow[];
     },
   });
 }
 
-export function useNdviProcessingLogs(daysBack = 7, options: QueryOptions = {}) {
+export function useNdviProcessingLogs(daysBack = 7, rawOptions: QueryOptions | string | null = {}) {
+  const options = toOpts(rawOptions);
   const since = new Date(Date.now() - daysBack * 86400_000).toISOString();
   return useQuery({
     queryKey: ['ndvi-processing-logs', daysBack, options.tenantId ?? 'all'],
@@ -154,12 +158,13 @@ export function useNdviProcessingLogs(daysBack = 7, options: QueryOptions = {}) 
       if (options.tenantId) q = q.eq('tenant_id', options.tenantId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as NdviProcessingLog[];
+      return (data ?? []) as unknown as NdviProcessingLog[];
     },
   });
 }
 
-export function useNdviWaterLayers(daysBack = 120, options: QueryOptions = {}) {
+export function useNdviWaterLayers(daysBack = 120, rawOptions: QueryOptions | string | null = {}) {
+  const options = toOpts(rawOptions);
   const since = new Date(Date.now() - daysBack * 86400_000).toISOString().slice(0, 10);
   return useQuery({
     queryKey: ['ndvi-water-layers', daysBack, options.tenantId ?? 'all'],
@@ -174,7 +179,7 @@ export function useNdviWaterLayers(daysBack = 120, options: QueryOptions = {}) {
       if (options.tenantId) q = q.eq('tenant_id', options.tenantId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as WaterLayerRow[];
+      return (data ?? []) as unknown as WaterLayerRow[];
     },
   });
 }
@@ -190,7 +195,7 @@ export function useNdviTenants() {
         .order('name')
         .limit(2000);
       if (error) throw error;
-      return (data ?? []) as Array<{ id: string; name: string }>;
+      return (data ?? []) as unknown as Array<{ id: string; name: string }>;
     },
   });
 }
@@ -215,7 +220,7 @@ export function useNdviObservationMedia(landId: string | null, daysBack = 120) {
         .order('acquisition_date', { ascending: false })
         .limit(500);
       if (error) throw error;
-      return (data ?? []) as NdviObservationMedia[];
+      return (data ?? []) as unknown as NdviObservationMedia[];
     },
   });
 }
@@ -231,7 +236,7 @@ export function useSatelliteLayerConfig() {
         .eq('enabled', true)
         .order('layer_code');
       if (error) throw error;
-      return (data ?? []) as SatelliteLayerConfig[];
+      return (data ?? []) as unknown as SatelliteLayerConfig[];
     },
   });
 }
