@@ -20,6 +20,7 @@ import {
   useNdviProcessingLogs,
   useNdviTenants,
   useNdviWaterLayers,
+  useSatelliteLayerConfig,
 } from '@/components/ndvi/NdviReadModel';
 
 export default function NdviDataStatus() {
@@ -29,6 +30,7 @@ export default function NdviDataStatus() {
   const { data: run, isLoading: runLoading, isError: runError } = useNdviRunSummary();
   const { data: logs = [], isLoading: logsLoading } = useNdviProcessingLogs(7, tenantId);
   const { data: waterLayers = [], isLoading: waterLoading } = useNdviWaterLayers(120, tenantId);
+  const { data: layerConfig = [] } = useSatelliteLayerConfig();
 
   const failedLogs = useMemo(
     () => logs.filter((l) => l.step_status === 'failed'),
@@ -151,7 +153,7 @@ export default function NdviDataStatus() {
         <TabsContent value="coverage"><CoverageTab tenantId={tenantId} /></TabsContent>
         <TabsContent value="analytics"><TenantAnalyticsTab tenantId={tenantId} /></TabsContent>
         <TabsContent value="lands"><LandExplorerTab tenantId={tenantId} /></TabsContent>
-        <TabsContent value="water"><WaterIntelligenceTab rows={waterLayers} loading={waterLoading} /></TabsContent>
+        <TabsContent value="water"><WaterIntelligenceTab rows={waterLayers} config={layerConfig} loading={waterLoading} /></TabsContent>
         <TabsContent value="logs"><ProcessingLogsTab logs={logs} loading={logsLoading} /></TabsContent>
       </Tabs>
     </div>
@@ -199,7 +201,7 @@ type WaterRow = {
   status: string | null;
 };
 
-function WaterIntelligenceTab({ rows, loading }: { rows: WaterRow[]; loading: boolean }) {
+function WaterIntelligenceTab({ rows, config, loading }: { rows: WaterRow[]; config: Array<{ layer_code: string; value_min: number; value_max: number; evidence_min: number | null; source: string | null }>; loading: boolean }) {
   const surface = rows.filter((r) => r.layer_code === 'surface_water_trace').length;
   const canopy = rows.filter((r) => r.layer_code === 'canopy_moisture_signal').length;
   const artifacts = rows.filter((r) => !!r.image_path).length;
@@ -219,6 +221,19 @@ function WaterIntelligenceTab({ rows, loading }: { rows: WaterRow[]; loading: bo
         <MetricCard icon={<Activity className="h-4 w-4" />} title="Canopy moisture rows" value={loading ? '…' : canopy} sub="NDMI evidence" />
         <MetricCard icon={<Satellite className="h-4 w-4" />} title="Stored image artifacts" value={loading ? '…' : artifacts} sub="Path recorded by pipeline" />
       </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Pipeline presentation configuration</CardTitle></CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          {config.map((cfg) => (
+            <div key={cfg.layer_code} className="rounded-lg border p-3 text-sm">
+              <div className="font-medium">{cfg.layer_code}</div>
+              <div className="mt-1 text-xs text-muted-foreground">Range {cfg.value_min} to {cfg.value_max}{cfg.evidence_min == null ? '' : ' · evidence cutoff ' + cfg.evidence_min}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{cfg.source ?? 'Pipeline configuration'}</div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Recent water-layer observations</CardTitle></CardHeader>
