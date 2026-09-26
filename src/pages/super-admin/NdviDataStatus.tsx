@@ -50,7 +50,7 @@ export default function NdviDataStatus() {
   }, [waterLayers]);
 
   const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['ndvi-'] });
+    await queryClient.invalidateQueries({ predicate: ({ queryKey }) => String(queryKey[0] ?? '').startsWith('ndvi-') });
   };
 
   return (
