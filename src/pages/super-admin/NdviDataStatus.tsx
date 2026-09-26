@@ -202,7 +202,7 @@ type WaterRow = {
   status: string | null;
 };
 
-function WaterIntelligenceTab({ rows, config, loading }: { rows: WaterRow[]; config: Array<{ layer_code: string; value_min: number; value_max: number; evidence_min: number | null; source: string | null }>; loading: boolean }) {
+function WaterIntelligenceTab({ rows, config, loading }: { rows: WaterRow[]; config: Array<{ layer_code: string; value_min: number; value_max: number; source: string | null }>; loading: boolean }) {
   const surface = rows.filter((r) => r.layer_code === 'surface_water_trace').length;
   const canopy = rows.filter((r) => r.layer_code === 'canopy_moisture_signal').length;
   const artifacts = rows.filter((r) => !!r.image_path).length;
@@ -242,7 +242,7 @@ function WaterIntelligenceTab({ rows, config, loading }: { rows: WaterRow[]; con
           {config.map((cfg) => (
             <div key={cfg.layer_code} className="rounded-lg border p-3 text-sm">
               <div className="font-medium">{cfg.layer_code}</div>
-              <div className="mt-1 text-xs text-muted-foreground">Range {cfg.value_min} to {cfg.value_max}{cfg.evidence_min == null ? '' : ' · evidence cutoff ' + cfg.evidence_min}</div>
+              <div className="mt-1 text-xs text-muted-foreground">Range {cfg.value_min} to {cfg.value_max}</div>
               <div className="mt-1 text-xs text-muted-foreground">{cfg.source ?? 'Pipeline configuration'}</div>
             </div>
           ))}
