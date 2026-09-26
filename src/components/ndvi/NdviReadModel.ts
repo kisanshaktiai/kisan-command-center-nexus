@@ -238,7 +238,7 @@ export function useSatelliteLayerConfig() {
 
 export async function createNdviSignedImageUrl(pathOrUrl: string | null, expiresIn = 3600) {
   if (!pathOrUrl) return null;
-  if (/^https?:\\/\\//i.test(pathOrUrl)) return pathOrUrl;
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
   const { data, error } = await supabase.storage.from('ndvi-thumbnails').createSignedUrl(pathOrUrl, expiresIn);
   if (error) throw error;
   return data?.signedUrl ?? null;
