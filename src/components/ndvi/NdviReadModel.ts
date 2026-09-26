@@ -100,7 +100,7 @@ export type NdviProcessingLog = {
 };
 
 type QueryOptions = { tenantId?: string | null };
-const toOpts = (o: QueryOptions | string | null | undefined): QueryOptions => (typeof o === "object" && o !== null ? o : { tenantId: o ?? null });
+const toOpts = (o: QueryOptions | string | null | undefined): QueryOptions => (typeof o === "object" && o !== null ? o : { tenantId: (o as string | null | undefined) ?? null });
 
 export function useNdviRunSummary(rawOptions: QueryOptions | string | null = {}) {
   const options = toOpts(rawOptions);
