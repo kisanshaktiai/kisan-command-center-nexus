@@ -58,7 +58,6 @@ export type SatelliteLayerConfig = {
   layer_code: string;
   value_min: number;
   value_max: number;
-  evidence_min: number | null;
   color_stops: Array<{ v: number; c: string }>;
   source: string | null;
   enabled: boolean;
@@ -228,7 +227,7 @@ export function useSatelliteLayerConfig() {
     queryFn: async (): Promise<SatelliteLayerConfig[]> => {
       const { data, error } = await supabase
         .from('satellite_layer_config' as any)
-        .select('layer_code,value_min,value_max,evidence_min,color_stops,source,enabled')
+        .select('layer_code,value_min,value_max,color_stops,source,enabled')
         .eq('enabled', true)
         .order('layer_code');
       if (error) throw error;
