@@ -132,7 +132,9 @@ export function useNdviDecisionGrade(daysBack = 120, rawOptions: QueryOptions | 
         .from('v_ndvi_decision_grade' as any)
         .select('land_id,tenant_id,acquisition_date,acquisition_time,scene_id,ndvi_value,savi_value,ndre_value,ndmi_value,mcari_value,ndvi_spatial_std,uniformity_cv,quality_score,confidence_level,cloud_cover,observation_source,effective_pixel_count,coverage_weighted_purity,boundary_contamination_fraction,ndvi_spatial_se, evidence_confidence,measurement_status,spatial_stat_method,age_days,is_fresh,recency_rank')
         .gte('acquisition_date', since)
-        .order('acquisition_date', { ascending: true })
+        // Newest-first so the 10k row cap keeps the most recent readings;
+        // consumers (coverage, latest-per-land, charts) all re-sort themselves.
+        .order('acquisition_date', { ascending: false })
         .limit(10000);
       if (options.tenantId) q = q.eq('tenant_id', options.tenantId);
       const { data, error } = await q;
