@@ -382,11 +382,15 @@ export async function handleRagAdmin(req: Request, preParsedBody?: Record<string
         if (error) return json(500, { error: error.message });
         const rows = data || [];
         const errors = rows.filter((r) => r.retrieval_mode === 'error').length;
-        const gaps = rows.filter((r) => r.below_threshold && r.retrieval_mode !== 'error').length;
+        // Error rows are excluded from BOTH numerator and denominator of the gap
+        // rate (and from language/latency averages) — they are failures, not farmer
+        // traffic, so counting them in the total would understate the gap rate.
+        const valid = rows.filter((r) => r.retrieval_mode !== 'error');
+        const gaps = valid.filter((r) => r.below_threshold).length;
         const byLang: Record<string, number> = {};
-        for (const r of rows) byLang[r.query_language || 'unknown'] = (byLang[r.query_language || 'unknown'] || 0) + 1;
-        const avgLatency = rows.length ? Math.round(rows.reduce((a, r) => a + (r.latency_ms || 0), 0) / rows.length) : 0;
-        return json(200, { days, total: rows.length, below_threshold: gaps, gap_rate: rows.length ? +(gaps / rows.length).toFixed(3) : 0, errors, by_language: byLang, avg_latency_ms: avgLatency });
+        for (const r of valid) byLang[r.query_language || 'unknown'] = (byLang[r.query_language || 'unknown'] || 0) + 1;
+        const avgLatency = valid.length ? Math.round(valid.reduce((a, r) => a + (r.latency_ms || 0), 0) / valid.length) : 0;
+        return json(200, { days, total: valid.length, below_threshold: gaps, gap_rate: valid.length ? +(gaps / valid.length).toFixed(3) : 0, errors, by_language: byLang, avg_latency_ms: avgLatency });
       }
 
       default:
