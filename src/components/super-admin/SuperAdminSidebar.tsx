@@ -36,7 +36,10 @@ import {
   FileCode2,
   Library,
   UploadCloud,
-  FileStack
+  FileStack,
+  Route,
+  Cpu,
+  History
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -55,7 +58,17 @@ const navigationItems = [
       { title: 'Tenant Onboarding', tab: 'tenant-onboarding', route: '/super-admin/tenant-onboarding', icon: UserPlus },
       { title: 'Admin Users', tab: 'admin-user-management', route: '/super-admin/admin-user-management', icon: Shield },
       { title: 'Platform Monitoring', tab: 'platform-monitoring', route: '/super-admin/platform-monitoring', icon: Activity },
-      { title: 'AI Costs', tab: 'ai-costs', route: '/super-admin/ai-costs', icon: Brain },
+    ]
+  },
+  {
+    // 2026-10-01 — AI control plane Phase 1: the AI model registry (what the farmer app's AI
+    // features run on). "AI Costs" moved here from Platform Management; its route is unchanged.
+    title: 'AI Control',
+    items: [
+      { title: 'AI Feature Routing', tab: 'ai-feature-routing', route: '/super-admin/ai-control/routing', icon: Route },
+      { title: 'AI Models', tab: 'ai-models', route: '/super-admin/ai-control/models', icon: Cpu },
+      { title: 'AI Usage & Costs', tab: 'ai-costs', route: '/super-admin/ai-costs', icon: Brain },
+      { title: 'AI Change History', tab: 'ai-change-history', route: '/super-admin/ai-control/history', icon: History },
     ]
   },
   {

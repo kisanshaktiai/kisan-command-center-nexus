@@ -1714,6 +1714,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_feature: {
+        Row: {
+          change_reason: string
+          created_at: string
+          description: string
+          feature_key: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          change_reason: string
+          created_at?: string
+          description: string
+          feature_key: string
+          is_active?: boolean
+          name: string
+          sort_order: number
+          updated_at?: string
+        }
+        Update: {
+          change_reason?: string
+          created_at?: string
+          description?: string
+          feature_key?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_insights: {
         Row: {
           created_at: string
@@ -2300,6 +2333,7 @@ export type Database = {
           change_reason: string
           created_at: string
           description: string
+          feature_key: string
           is_active: boolean
           params: Json
           required_modalities: string[]
@@ -2310,6 +2344,7 @@ export type Database = {
           change_reason: string
           created_at?: string
           description: string
+          feature_key: string
           is_active?: boolean
           params?: Json
           required_modalities?: string[]
@@ -2320,13 +2355,22 @@ export type Database = {
           change_reason?: string
           created_at?: string
           description?: string
+          feature_key?: string
           is_active?: boolean
           params?: Json
           required_modalities?: string[]
           task_key?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_task_route_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "ai_feature"
+            referencedColumns: ["feature_key"]
+          },
+        ]
       }
       ai_task_route_step: {
         Row: {
@@ -40585,6 +40629,28 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_usage_daily: {
+        Row: {
+          avg_latency_ms: number | null
+          cached_input_tokens: number | null
+          calls: number | null
+          cost_usd: number | null
+          day: string | null
+          failed_calls: number | null
+          fallback_calls: number | null
+          feature_key: string | null
+          function_name: string | null
+          input_tokens: number | null
+          model_name: string | null
+          model_requested: string | null
+          ok_calls: number | null
+          output_tokens: number | null
+          task_key: string | null
+          tenant_id: string | null
+          uncosted_calls: number | null
+        }
+        Relationships: []
       }
       farmer_upcoming_needs: {
         Row: {

@@ -1,3 +1,7 @@
+// CHANGE LOG
+// 2026-10-01 — AI control plane Phase 1: spend now comes from the ledger's stored cost (see
+//   AiCostService). Added a calls card (failed / fallback / uncosted counts) and a spend-by-feature
+//   table; the tenant × model table and the CSV export are unchanged.
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,13 +65,32 @@ export default function AiCostDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">{t('aiCosts.totalSpend')}</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? <Skeleton className="h-8 w-32" /> : <div className="text-3xl font-bold">{formatUsd(data?.total || 0)}</div>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">{t('aiCosts.calls')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-8 w-32" />
+            ) : (
+              <>
+                <div className="text-3xl font-bold tabular-nums">{(data?.calls || 0).toLocaleString()}</div>
+                <div className="mt-1 text-xs text-muted-foreground space-x-2">
+                  <span>{t('aiCosts.failed')}: {(data?.failedCalls || 0).toLocaleString()}</span>
+                  <span>{t('aiCosts.fallbacks')}: {(data?.fallbackCalls || 0).toLocaleString()}</span>
+                  <span>{t('aiCosts.uncosted')}: {(data?.uncostedCalls || 0).toLocaleString()}</span>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -119,6 +142,51 @@ export default function AiCostDashboard() {
                 <Line type="monotone" dataKey="cost" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('aiCosts.byFeature')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-32 w-full" />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('aiCosts.feature')}</TableHead>
+                    <TableHead className="text-right">{t('aiCosts.queries')}</TableHead>
+                    <TableHead className="text-right">{t('aiCosts.failed')}</TableHead>
+                    <TableHead className="text-right">{t('aiCosts.fallbacks')}</TableHead>
+                    <TableHead className="text-right">{t('aiCosts.cost')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(data?.byFeature || []).map((f) => (
+                    <TableRow key={f.feature_key}>
+                      <TableCell className="font-medium">
+                        {f.feature_name} <span className="font-mono text-xs text-muted-foreground">{f.feature_key}</span>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{f.queries.toLocaleString()}</TableCell>
+                      <TableCell className="text-right tabular-nums">{f.failed.toLocaleString()}</TableCell>
+                      <TableCell className="text-right tabular-nums">{f.fallbacks.toLocaleString()}</TableCell>
+                      <TableCell className="text-right tabular-nums font-semibold">{formatUsd(f.cost)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {(data?.byFeature.length || 0) === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
+                        {t('aiCosts.noData')}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -17,5 +17,8 @@
   "aiCosts": { "title": "AI लागत डैशबोर्ड" },
   "killSwitch": { "title": "फ़ीचर किल-स्विच" },
   "impersonation": { "button": "इम्पर्सनेट" },
-  "backups": { "title": "बैकअप स्थिति" }
+  "backups": { "title": "बैकअप स्थिति" },
+  "aiRouting": {"title": "AI फ़ीचर रूटिंग"},
+  "aiModels": {"title": "AI मॉडल"},
+  "aiHistory": {"title": "AI परिवर्तन इतिहास"}
 }

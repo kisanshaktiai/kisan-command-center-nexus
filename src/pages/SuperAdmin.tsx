@@ -20,6 +20,9 @@ import MasterProducts from './super-admin/MasterProducts';
 import ProductCategories from './super-admin/ProductCategories';
 import NdviDataStatus from './super-admin/NdviDataStatus';
 import AiCostDashboard from './super-admin/AiCostDashboard';
+import AiFeatureRouting from './super-admin/AiFeatureRouting';
+import AiModels from './super-admin/AiModels';
+import AiChangeHistory from './super-admin/AiChangeHistory';
 import BackupStatus from './super-admin/BackupStatus';
 import GovernanceReports from './super-admin/GovernanceReports';
 import RulesConsole from './super-admin/RulesConsole';
@@ -118,6 +121,9 @@ const SuperAdmin = () => {
             <Route path="/product-categories" element={<ProductCategories />} />
             <Route path="/ndvi-data-status" element={<NdviDataStatus />} />
             <Route path="/ai-costs" element={<AiCostDashboard />} />
+            <Route path="/ai-control/routing" element={<AiFeatureRouting />} />
+            <Route path="/ai-control/models" element={<AiModels />} />
+            <Route path="/ai-control/history" element={<AiChangeHistory />} />
             <Route path="/backups" element={<BackupStatus />} />
             <Route path="/governance/reports" element={<GovernanceReports />} />
             <Route path="/governance/rules" element={<RulesConsole />} />
