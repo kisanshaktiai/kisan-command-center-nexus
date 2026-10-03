@@ -179,3 +179,8 @@ verify_jwt = true
 [functions.rag-admin]
 verify_jwt = true
 
+
+# AI control plane Phase 2a (2026-10-03): key-slot status / provider probe for the
+# "AI Control -> API Keys" screen. The handler also self-checks JWT + is_super_admin().
+[functions.ai-registry-admin]
+verify_jwt = true

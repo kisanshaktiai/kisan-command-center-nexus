@@ -1747,6 +1747,84 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_key_slot: {
+        Row: {
+          change_reason: string
+          created_at: string
+          daily_pool: Json
+          env_var: string
+          is_enabled: boolean
+          label: string
+          notes: string | null
+          provider: string
+          reserve_tokens: number
+          slot_no: number
+          updated_at: string
+        }
+        Insert: {
+          change_reason: string
+          created_at?: string
+          daily_pool?: Json
+          env_var: string
+          is_enabled?: boolean
+          label: string
+          notes?: string | null
+          provider: string
+          reserve_tokens?: number
+          slot_no: number
+          updated_at?: string
+        }
+        Update: {
+          change_reason?: string
+          created_at?: string
+          daily_pool?: Json
+          env_var?: string
+          is_enabled?: boolean
+          label?: string
+          notes?: string | null
+          provider?: string
+          reserve_tokens?: number
+          slot_no?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_model_group: {
+        Row: {
+          api_model_ids: string[]
+          change_reason: string
+          created_at: string
+          description: string
+          group_key: string
+          is_active: boolean
+          name: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          api_model_ids?: string[]
+          change_reason: string
+          created_at?: string
+          description: string
+          group_key: string
+          is_active?: boolean
+          name: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          api_model_ids?: string[]
+          change_reason?: string
+          created_at?: string
+          description?: string
+          group_key?: string
+          is_active?: boolean
+          name?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_insights: {
         Row: {
           created_at: string
@@ -40630,6 +40708,26 @@ export type Database = {
           },
         ]
       }
+      ai_key_usage_daily: {
+        Row: {
+          calls: number | null
+          cost_usd: number | null
+          day: string | null
+          failed_calls: number | null
+          group_key: string | null
+          input_tokens: number | null
+          key_slot: number | null
+          last_call_at: string | null
+          last_error_at: string | null
+          limited_calls: number | null
+          ok_calls: number | null
+          output_tokens: number | null
+          pool: string | null
+          provider: string | null
+          tokens: number | null
+        }
+        Relationships: []
+      }
       ai_usage_daily: {
         Row: {
           avg_latency_ms: number | null
@@ -44263,6 +44361,20 @@ export type Database = {
         Returns: Json
       }
       aggregate_weather_data: { Args: never; Returns: undefined }
+      ai_key_pool_usage_today: {
+        Args: never
+        Returns: {
+          calls: number
+          group_key: string
+          key_slot: number
+          provider: string
+          tokens: number
+        }[]
+      }
+      ai_model_group_key: {
+        Args: { p_api_model_id: string; p_provider: string }
+        Returns: string
+      }
       ai_route_model_problem: {
         Args: {
           p_model: Database["public"]["Tables"]["ai_model_catalog"]["Row"]

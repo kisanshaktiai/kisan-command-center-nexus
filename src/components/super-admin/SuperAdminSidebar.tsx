@@ -39,7 +39,8 @@ import {
   FileStack,
   Route,
   Cpu,
-  History
+  History,
+  KeyRound
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -67,6 +68,7 @@ const navigationItems = [
     items: [
       { title: 'AI Feature Routing', tab: 'ai-feature-routing', route: '/super-admin/ai-control/routing', icon: Route },
       { title: 'AI Models', tab: 'ai-models', route: '/super-admin/ai-control/models', icon: Cpu },
+      { title: 'AI API Keys', tab: 'ai-api-keys', route: '/super-admin/ai-control/keys', icon: KeyRound },
       { title: 'AI Usage & Costs', tab: 'ai-costs', route: '/super-admin/ai-costs', icon: Brain },
       { title: 'AI Change History', tab: 'ai-change-history', route: '/super-admin/ai-control/history', icon: History },
     ]

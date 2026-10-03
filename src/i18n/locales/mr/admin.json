@@ -17,5 +17,6 @@
   "backups": { "title": "बॅकअप स्थिती" },
   "aiRouting": {"title": "AI फिचर रूटिंग"},
   "aiModels": {"title": "AI मॉडेल"},
+  "aiKeys": {"title": "AI API की", "subtitle": "शेतकरी ॲपचा AI राउटर ज्या प्रदाता API की क्रमाने वापरतो, त्यांचा दैनिक मोफत टोकन पूल आणि आजचा वापर"},
   "aiHistory": {"title": "AI बदल इतिहास"}
 }
