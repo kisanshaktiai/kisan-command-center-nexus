@@ -2414,6 +2414,7 @@ export type Database = {
           feature_key: string
           is_active: boolean
           params: Json
+          prefer_free_pool: boolean
           required_modalities: string[]
           task_key: string
           updated_at: string
@@ -2425,6 +2426,7 @@ export type Database = {
           feature_key: string
           is_active?: boolean
           params?: Json
+          prefer_free_pool?: boolean
           required_modalities?: string[]
           task_key: string
           updated_at?: string
@@ -2436,6 +2438,7 @@ export type Database = {
           feature_key?: string
           is_active?: boolean
           params?: Json
+          prefer_free_pool?: boolean
           required_modalities?: string[]
           task_key?: string
           updated_at?: string
@@ -45028,6 +45031,14 @@ export type Database = {
         }
         Returns: string
       }
+      ai_route_set_steps: {
+        Args: {
+          p_change_reason: string
+          p_model_keys: string[]
+          p_task_key: string
+        }
+        Returns: undefined
+      }
       apply_stage_transitions: { Args: { p_land_id: string }; Returns: Json }
       archive_tenant_data: {
         Args: {
@@ -46603,6 +46614,14 @@ export type Database = {
       record_germination: {
         Args: {
           p_confirmed: boolean
+          p_land_id: string
+          p_observed_date?: string
+        }
+        Returns: Json
+      }
+      record_irrigation: {
+        Args: {
+          p_alert_id?: string
           p_land_id: string
           p_observed_date?: string
         }
