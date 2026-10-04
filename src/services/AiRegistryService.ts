@@ -1,13 +1,29 @@
-// REPO: kisanshaktiai/kisan-command-center-nexus (admin panel)  BRANCH: SaaS-dashboard-3007  (NEW FILE)
+// REPO: kisanshaktiai/kisan-command-center-nexus (admin panel)  BRANCH: SaaS-dashboard-3007
 // PATH: src/services/AiRegistryService.ts
 //
 // CHANGE LOG
+// 2026-10-04 — AI control plane Phase 2b (admin writes): the super admin can now add a model, change
+//   a model's lifecycle status and settings, set a price, create a job, change a job's settings and
+//   replace a job's model chain. Writes go straight to the registry tables under their own row-level
+//   security (super admin only) and every one is audited by the registry's trigger, which is why
+//   change_reason is mandatory on each call rather than optional.
+//   NOTHING IS EVER DELETED. The registry's ai_registry_prevent_delete trigger blocks DELETE on
+//   ai_model_catalog and ai_task_route, the DELETE grant is revoked for authenticated, and
+//   ai_model_metrics.model_name is a foreign key to ai_model_catalog(model_key) ON DELETE RESTRICT —
+//   so a model that has answered even one call can never be removed without destroying its usage and
+//   cost history. "Removing" a model is status = 'retired'; "removing" a job is is_active = false.
+//   Model identity (model_key, provider, api_model_id) is immutable after insert — the catalog's
+//   BEFORE UPDATE guard rejects a change, so a renamed model is a NEW row and the old one is retired.
+//   replaceRouteSteps calls the database function ai_route_set_steps, so a chain is swapped inside one
+//   transaction: a delete-then-insert from the browser could leave an active job with no model if the
+//   second call failed, and the farmer would silently fall back to template text.
 // 2026-10-01 — AI control plane Phase 1 (read-only): reads the AI model registry the super admin
 //   owns — features (ai_feature), jobs (ai_task_route) with their ordered model chains
 //   (ai_task_route_step), the model catalog (ai_model_catalog), active prices (ai_model_pricing)
 //   and the change history (ai_registry_audit_log). Reads use the admin's own login; the registry's
-//   row-level security already limits them to super admins. No writes here (Phase 2).
+//   row-level security already limits them to super admins.
 import { supabase } from '@/integrations/supabase/client';
+import { aiModelKey } from '@/lib/aiRegistryValidation';
 
 export interface AiFeatureRow {
   feature_key: string;
@@ -32,6 +48,8 @@ export interface AiRouteRow {
   required_modalities: string[];
   params: Record<string, unknown>;
   is_active: boolean;
+  /** Free tier first (migration 20261004150000). Missing on an older schema ⇒ treated as true. */
+  prefer_free_pool: boolean;
   change_reason: string;
   updated_at: string;
   steps: AiRouteStepRow[];
@@ -91,6 +109,69 @@ export interface AiAuditRow {
   created_at: string;
 }
 
+// ── write payloads ───────────────────────────────────────────────────────────
+
+export interface AiModelCreate {
+  provider: string;
+  api_model_id: string;
+  status: AiModelRow['status'];
+  input_modalities: string[];
+  api_contract: AiModelContract;
+  shutdown_date?: string | null;
+  replacement_model_key?: string | null;
+  source_url?: string | null;
+  notes?: string | null;
+  change_reason: string;
+}
+
+/** Identity (model_key / provider / api_model_id) is deliberately absent — the catalog guard rejects it. */
+export interface AiModelUpdate {
+  status?: AiModelRow['status'];
+  input_modalities?: string[];
+  api_contract?: AiModelContract;
+  shutdown_date?: string | null;
+  replacement_model_key?: string | null;
+  source_url?: string | null;
+  notes?: string | null;
+  change_reason: string;
+}
+
+export interface AiPriceCreate {
+  model_name: string;
+  input_cost_per_1k: number;
+  cached_input_cost_per_1k: number | null;
+  output_cost_per_1k: number;
+  effective_from: string;
+  source_url?: string | null;
+  notes?: string | null;
+}
+
+export interface AiRouteCreate {
+  task_key: string;
+  feature_key: string;
+  description: string;
+  required_modalities: string[];
+  params: Record<string, unknown>;
+  is_active: boolean;
+  prefer_free_pool: boolean;
+  change_reason: string;
+}
+
+/** task_key is absent — the route guard rejects renaming a job (create a new one instead). */
+export interface AiRouteUpdate {
+  description?: string;
+  required_modalities?: string[];
+  params?: Record<string, unknown>;
+  is_active?: boolean;
+  prefer_free_pool?: boolean;
+  change_reason: string;
+}
+
+const requireReason = (reason: string | undefined) => {
+  if (!reason || !reason.trim()) throw new Error('A change reason is required — it is written to the audit log.');
+  return reason.trim();
+};
+
 export class AiRegistryService {
   /** Features in admin order, each with its jobs and their ordered model chains. */
   static async getFeaturesWithRoutes(): Promise<AiFeatureWithRoutes[]> {
@@ -119,6 +200,8 @@ export class AiRegistryService {
         required_modalities: r.required_modalities || [],
         params: (r.params as Record<string, unknown>) || {},
         is_active: r.is_active,
+        // Older schema has no column; the router's own default is "prefer the free pool".
+        prefer_free_pool: r.prefer_free_pool !== false,
         change_reason: r.change_reason,
         updated_at: r.updated_at,
         steps: stepsByTask.get(r.task_key) || [],
@@ -189,5 +272,117 @@ export class AiRegistryService {
       ...(row as Omit<AiAuditRow, 'changed_by_email'>),
       changed_by_email: row.changed_by ? emailById.get(row.changed_by) || null : null,
     }));
+  }
+
+  /** The distinct providers the catalog already holds — the picker's options, never a hardcoded list. */
+  static async getProviders(): Promise<string[]> {
+    const { data, error } = await supabase.from('ai_model_catalog').select('provider').order('provider');
+    if (error) throw error;
+    return Array.from(new Set((data || []).map((r: any) => String(r.provider))));
+  }
+
+  // ── writes ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Adds a model to the catalog. model_key is derived as provider:api_model_id to satisfy the
+   * `ai_model_catalog_key_format` constraint — the admin never types it.
+   * A brand-new model is normally added as `candidate` and promoted to `active` once it has been
+   * tried, because the route guard refuses to put a candidate in a chain.
+   */
+  static async createModel(input: AiModelCreate): Promise<string> {
+    const reason = requireReason(input.change_reason);
+    const model_key = aiModelKey(input.provider, input.api_model_id);
+    const row = {
+      model_key,
+      provider: input.provider.trim(),
+      api_model_id: input.api_model_id.trim(),
+      status: input.status,
+      input_modalities: input.input_modalities,
+      api_contract: input.api_contract,
+      shutdown_date: input.shutdown_date ?? null,
+      replacement_model_key: input.replacement_model_key || null,
+      source_url: input.source_url?.trim() || null,
+      notes: input.notes?.trim() || null,
+      change_reason: reason,
+    };
+    const { error } = await supabase.from('ai_model_catalog').insert(row as never);
+    if (error) throw error;
+    return model_key;
+  }
+
+  /** Changes a model's settings or lifecycle status. Identity columns cannot be changed. */
+  static async updateModel(modelKey: string, patch: AiModelUpdate): Promise<void> {
+    const reason = requireReason(patch.change_reason);
+    const { error } = await supabase
+      .from('ai_model_catalog')
+      .update({ ...patch, change_reason: reason } as never)
+      .eq('model_key', modelKey);
+    if (error) throw error;
+  }
+
+  /**
+   * Adds a price for a model, effective from a date. Prices are never edited in place — a new
+   * effective_from row is the provider's new price list, and the old row stays for the cost history
+   * already computed from it. Re-saving the same date replaces that date's row.
+   */
+  static async upsertPricing(input: AiPriceCreate): Promise<void> {
+    const row = {
+      model_name: input.model_name,
+      input_cost_per_1k: input.input_cost_per_1k,
+      cached_input_cost_per_1k: input.cached_input_cost_per_1k,
+      output_cost_per_1k: input.output_cost_per_1k,
+      currency: 'USD',
+      effective_from: input.effective_from,
+      is_active: true,
+      source_url: input.source_url?.trim() || null,
+      notes: input.notes?.trim() || null,
+    };
+    const { error } = await supabase
+      .from('ai_model_pricing')
+      .upsert(row as never, { onConflict: 'model_name,effective_from' });
+    if (error) throw error;
+  }
+
+  /** Creates a job. Its chain is set separately with replaceRouteSteps. */
+  static async createRoute(input: AiRouteCreate): Promise<void> {
+    const reason = requireReason(input.change_reason);
+    const row = {
+      task_key: input.task_key.trim(),
+      feature_key: input.feature_key,
+      description: input.description.trim(),
+      required_modalities: input.required_modalities,
+      params: input.params,
+      is_active: input.is_active,
+      prefer_free_pool: input.prefer_free_pool,
+      change_reason: reason,
+    };
+    const { error } = await supabase.from('ai_task_route').insert(row as never);
+    if (error) throw error;
+  }
+
+  /** Changes a job's settings. task_key cannot be changed — create a new job instead. */
+  static async updateRoute(taskKey: string, patch: AiRouteUpdate): Promise<void> {
+    const reason = requireReason(patch.change_reason);
+    const { error } = await supabase
+      .from('ai_task_route')
+      .update({ ...patch, change_reason: reason } as never)
+      .eq('task_key', taskKey);
+    if (error) throw error;
+  }
+
+  /**
+   * Replaces a job's whole model chain in one transaction, through the database function
+   * ai_route_set_steps(p_task_key, p_model_keys, p_change_reason). step_no comes from the position in
+   * `modelKeys`, so the first entry is the primary model and the rest are its fallbacks in order.
+   * Passing an empty list clears the chain, which the function refuses while the job is active.
+   */
+  static async replaceRouteSteps(taskKey: string, modelKeys: string[], changeReason: string): Promise<void> {
+    const reason = requireReason(changeReason);
+    const { error } = await supabase.rpc('ai_route_set_steps' as never, {
+      p_task_key: taskKey,
+      p_model_keys: modelKeys,
+      p_change_reason: reason,
+    } as never);
+    if (error) throw error;
   }
 }
