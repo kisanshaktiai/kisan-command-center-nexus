@@ -39,7 +39,7 @@ export const useLegalDocuments = (tenantId?: string) => {
   const uploadDocumentMutation = useMutation({
     mutationFn: async ({ tenantId, file, documentType, documentName }: UploadDocumentParams) => {
       // Validate file
-      if (!file.type.includes('pdf')) {
+      if (file.type !== 'application/pdf') {
         throw new Error('Only PDF files are allowed');
       }
 
@@ -49,7 +49,8 @@ export const useLegalDocuments = (tenantId?: string) => {
 
       // Generate unique filename
       const fileExt = file.name.split('.').pop();
-      const fileName = `${tenantId}/${documentType}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const safeExt = fileExt?.toLowerCase() === 'pdf' ? 'pdf' : 'pdf';
+      const fileName = `${tenantId}/${documentType}/${crypto.randomUUID()}.${safeExt}`;
 
       // Upload to storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -61,10 +62,8 @@ export const useLegalDocuments = (tenantId?: string) => {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('tenant-legal-docs')
-        .getPublicUrl(fileName);
+      // Private bucket: persist the object path, not a public URL.
+      // Downloads are authorized through Storage RLS using the caller's JWT.
 
       // Save document record
       const { data: documentData, error: documentError } = await supabase
@@ -74,7 +73,7 @@ export const useLegalDocuments = (tenantId?: string) => {
           document_type: documentType,
           document_name: documentName || file.name,
           original_filename: file.name,
-          file_url: publicUrl,
+          file_url: fileName,
           file_size: file.size,
           mime_type: file.type,
           verification_status: 'pending'
@@ -115,8 +114,9 @@ export const useLegalDocuments = (tenantId?: string) => {
       if (fetchError) throw fetchError;
 
       // Extract file path from URL
-      const urlParts = docData.file_url.split('/');
-      const filePath = urlParts.slice(-3).join('/'); // Get tenant_id/document_type/filename
+      const filePath = docData.file_url.startsWith('http')
+        ? new URL(docData.file_url).pathname.split('/tenant-legal-docs/')[1]
+        : docData.file_url;
 
       // Delete from storage
       const { error: storageError } = await supabase.storage
@@ -155,8 +155,9 @@ export const useLegalDocuments = (tenantId?: string) => {
   const downloadDocument = useCallback(async (legalDocument: LegalDocument) => {
     try {
       // Extract file path from URL
-      const urlParts = legalDocument.file_url.split('/');
-      const filePath = urlParts.slice(-3).join('/');
+      const filePath = legalDocument.file_url.startsWith('http')
+        ? new URL(legalDocument.file_url).pathname.split('/tenant-legal-docs/')[1]
+        : legalDocument.file_url;
 
       const { data, error } = await supabase.storage
         .from('tenant-legal-docs')
