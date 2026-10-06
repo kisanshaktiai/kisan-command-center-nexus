@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { handleError } from '../_shared/errorHandler.ts';
+import { requireSuperAdmin, withCors } from '../_shared/requireSuperAdmin.ts';
 
 interface MonitoringRequest {
   action: 'collect-metrics' | 'get-realtime-metrics' | 'get-analytics' | 'get-activity-feed';
@@ -17,6 +18,11 @@ const handler = async (req: Request): Promise<Response> => {
   if (corsResponse) return corsResponse;
 
   const corsHeaders = getCorsHeaders(req);
+
+  try { await requireSuperAdmin(req); } catch (e) {
+    if (e instanceof Response) return withCors(e, corsHeaders);
+    throw e;
+  }
 
   try {
     const supabaseClient = createClient(

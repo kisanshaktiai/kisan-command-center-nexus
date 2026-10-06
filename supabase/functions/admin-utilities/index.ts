@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { requireSuperAdmin, withCors } from '../_shared/requireSuperAdmin.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -158,6 +159,15 @@ const handleAdminUserCreation = async (body: any, req: Request): Promise<Respons
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // create-super-admin is the one-time bootstrap (guarded by system_config.bootstrap_completed);
+    // every other operation requires a verified super_admin caller.
+    if (operation !== 'create-super-admin') {
+      try { await requireSuperAdmin(req); } catch (e) {
+        if (e instanceof Response) return withCors(e, corsHeaders);
+        throw e;
+      }
+    }
 
     // Handle operations
     switch (operation) {

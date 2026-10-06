@@ -72,10 +72,21 @@ serve(async (req) => {
       throw new Error('Invalid authentication')
     }
 
+    // Role MUST come from the server-side admin_users table, never from
+    // user-editable user_metadata. Only active platform admins may use this endpoint.
+    const { data: adminRow } = await supabase
+      .from('admin_users')
+      .select('role, is_active')
+      .eq('id', userData.user.id)
+      .maybeSingle()
+    if (!adminRow || !adminRow.is_active) {
+      throw new Error('Forbidden: admin privilege required')
+    }
+
     const securityContext: SecurityContext = {
       user_id: userData.user.id,
       tenant_id: options?.tenant_id,
-      role: userData.user.user_metadata?.role || 'user'
+      role: adminRow.role
     }
 
     // Security validations
