@@ -45287,6 +45287,14 @@ export type Database = {
         Args: { p_as_of?: string; p_land_id: string }
         Returns: Json
       }
+      confirm_test_payment: {
+        Args: {
+          p_intent_id: string
+          p_payment_method: string
+          p_safe_payment_data?: Json
+        }
+        Returns: Json
+      }
       convert_lead_to_tenant: {
         Args: {
           p_admin_email?: string
@@ -47498,6 +47506,49 @@ export type Database = {
             }
             Returns: Json
           }
+      tenant_create_api_key: {
+        Args: {
+          p_expires_at?: string
+          p_key_name: string
+          p_permissions?: string[]
+          p_rate_limit_per_hour?: number
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
+      tenant_create_farmer: {
+        Args: {
+          p_farmer_code?: string
+          p_farmer_name: string
+          p_farming_experience_years?: number
+          p_has_irrigation?: boolean
+          p_has_storage?: boolean
+          p_has_tractor?: boolean
+          p_irrigation_type?: string
+          p_language_preference?: string
+          p_metadata?: Json
+          p_mobile_number: string
+          p_notes?: string
+          p_pin?: string
+          p_primary_crops?: string[]
+          p_tenant_id: string
+          p_total_land_acres?: number
+        }
+        Returns: Json
+      }
+      tenant_regenerate_api_key: {
+        Args: {
+          p_api_key_id: string
+          p_expires_at?: string
+          p_rate_limit_per_hour?: number
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
+      tenant_revoke_api_key: {
+        Args: { p_api_key_id: string; p_tenant_id: string }
+        Returns: boolean
+      }
       tenant_validate_farmer_login: {
         Args: { p_mobile_number: string; p_pin: string; p_tenant_id: string }
         Returns: Json
@@ -47530,6 +47581,18 @@ export type Database = {
       }
       unlockrows: { Args: { "": string }; Returns: number }
       update_community_trending_score: { Args: never; Returns: undefined }
+      update_tenant_basics: {
+        Args: {
+          p_business_address?: Json
+          p_business_registration?: string
+          p_name: string
+          p_owner_email?: string
+          p_owner_name?: string
+          p_owner_phone?: string
+          p_tenant_id: string
+        }
+        Returns: boolean
+      }
       update_tenant_verification: {
         Args: { p_tenant_id: string; p_verification_data: Json }
         Returns: boolean
