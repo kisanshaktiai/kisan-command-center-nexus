@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 import { corsHeaders } from '../_shared/cors.ts'
+import { requireSuperAdmin, withCors } from '../_shared/requireSuperAdmin.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -59,34 +60,24 @@ serve(async (req) => {
     
     console.log(`[GenericOps] ${operation.toUpperCase()} on ${table}`, { id, hasData: !!data })
 
-    // Get user context from JWT
-    const authHeader = req.headers.get('authorization')
-    if (!authHeader) {
-      throw new Error('Authentication required')
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: userData, error: userError } = await supabase.auth.getUser(token)
-    
-    if (userError || !userData.user) {
-      throw new Error('Invalid authentication')
-    }
-
-    // Role MUST come from the server-side admin_users table, never from
-    // user-editable user_metadata. Only active platform admins may use this endpoint.
-    const { data: adminRow } = await supabase
-      .from('admin_users')
-      .select('role, is_active')
-      .eq('id', userData.user.id)
-      .maybeSingle()
-    if (!adminRow || !adminRow.is_active) {
-      throw new Error('Forbidden: admin privilege required')
+    // Server-side authorization contract shared by all protected admin
+    // functions: only an active super_admin (or trusted service-role caller)
+    // may proceed. The helper verifies the caller's JWT and checks
+    // admin_users server-side; it throws a Response on failure.
+    let caller
+    try {
+      caller = await requireSuperAdmin(req)
+    } catch (authResponse) {
+      if (authResponse instanceof Response) {
+        return withCors(authResponse, corsHeaders)
+      }
+      throw authResponse
     }
 
     const securityContext: SecurityContext = {
-      user_id: userData.user.id,
+      user_id: caller.userId,
       tenant_id: options?.tenant_id,
-      role: adminRow.role
+      role: 'super_admin'
     }
 
     // Security validations
