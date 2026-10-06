@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { requireSuperAdmin, withCors } from "../_shared/requireSuperAdmin.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -277,10 +278,27 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Route to appropriate handler
     switch (action) {
-      case 'send':
-        return invitationType === 'admin' 
-          ? await sendAdminInvite(supabase, body) 
-          : await sendUserInvite(supabase, body);
+      case 'send': {
+        // Never trust inviter identity from the request body: bind it to the verified JWT.
+        if (invitationType === 'admin') {
+          let caller;
+          try { caller = await requireSuperAdmin(req); } catch (e) {
+            if (e instanceof Response) return withCors(e, corsHeaders);
+            throw e;
+          }
+          if (!caller.isServiceRole) body.invitedBy = caller.userId;
+          return await sendAdminInvite(supabase, body);
+        }
+        const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+        const { data: authUser } = token ? await supabase.auth.getUser(token) : { data: { user: null } };
+        if (!authUser?.user) {
+          return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
+            status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          });
+        }
+        body.userId = authUser.user.id;
+        return await sendUserInvite(supabase, body);
+      }
       
       case 'verify':
         return await verifyInvite(supabase, url, invitationType);
