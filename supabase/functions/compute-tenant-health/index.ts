@@ -3,6 +3,7 @@
 // Verifies caller is super_admin when invoked manually; cron call uses service role.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireSuperAdmin, withCors } from "../_shared/requireSuperAdmin.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,6 +31,12 @@ function computeScore(b: Breakdown): number {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+
+  // Server-side authorization: only active super_admins (or trusted service-role callers).
+  try { await requireSuperAdmin(req); } catch (e) {
+    if (e instanceof Response) return withCors(e, corsHeaders);
+    throw e;
   }
 
   const supabase = createClient(
