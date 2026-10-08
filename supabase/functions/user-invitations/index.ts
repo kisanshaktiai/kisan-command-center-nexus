@@ -545,7 +545,7 @@ async function sendAdminInvite(supabase: any, body: any): Promise<Response> {
     throw new Error(`Failed to create invite: ${inviteError.message}`);
   }
 
-  const siteUrl = Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com') || 'https://app.kisanshaktiai.in';
+  const siteUrl = adminSiteUrl();
   const inviteUrl = `${siteUrl}/register?invite=${inviteToken}`;
 
   // Call send-auth-email function instead of using Resend directly
