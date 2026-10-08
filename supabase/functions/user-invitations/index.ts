@@ -859,6 +859,29 @@ async function acceptInvite(supabase: any, body: any, invitationType: string): P
     });
   }
 
+  if (String(password).length < 8 || String(fullName).trim().length < 2) {
+    return json({ error: 'Password must be at least 8 characters and full name is required' }, 400);
+  }
+  if (invitationType === 'admin' && !ADMIN_ROLES.includes(invite.role)) {
+    return json({ error: 'Invite carries an invalid role' }, 400);
+  }
+
+  // Atomically claim the token (single use, race-safe) before creating anything.
+  const { data: claimed } = await supabase
+    .from(table)
+    .update({ status: 'accepted', accepted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq(tokenField, token)
+    .eq('status', invite.status)
+    .select('id')
+    .maybeSingle();
+  if (!claimed) return json({ error: 'Invite has already been used' }, 410);
+
+  const releaseClaim = () => supabase.from(table)
+    .update({ status: invite.status, accepted_at: null, updated_at: new Date().toISOString() })
+    .eq(tokenField, token);
+
+  // Clicking the emailed link proves ownership of the address → account is
+  // created email-verified and active immediately.
   const { data: userData, error: userError } = await supabase.auth.admin.createUser({
     email: invite.email,
     password,
@@ -871,7 +894,9 @@ async function acceptInvite(supabase: any, body: any, invitationType: string): P
   });
 
   if (userError) {
-    throw new Error(`Failed to create user: ${userError.message}`);
+    await releaseClaim();
+    const exists = /already|registered|exists/i.test(userError.message);
+    return json({ error: exists ? 'An account with this email already exists. Please sign in or reset your password.' : `Failed to create user: ${userError.message}` }, exists ? 409 : 500);
   }
 
   if (invitationType === 'admin') {
@@ -887,18 +912,16 @@ async function acceptInvite(supabase: any, body: any, invitationType: string): P
 
     if (adminError) {
       await supabase.auth.admin.deleteUser(userData.user.id);
+      await releaseClaim();
       throw new Error(`Failed to create admin user: ${adminError.message}`);
     }
+    await auditAdminAction({
+      caller: { userId: userData.user.id, email: invite.email },
+      action: 'admin_invite_accepted',
+      targetAdminId: userData.user.id,
+      details: { role: invite.role, invite_id: invite.id, invited_by: invite.invited_by },
+    });
   }
-
-  await supabase
-    .from(table)
-    .update({
-      status: 'accepted',
-      accepted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq(tokenField, token);
 
   return new Response(JSON.stringify({
     success: true,
