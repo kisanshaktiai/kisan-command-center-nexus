@@ -301,14 +301,35 @@ const handler = async (req: Request): Promise<Response> => {
       }
       
       case 'verify':
+        // Token may arrive in the query string or the POST body.
+        if (body?.token && !url.searchParams.get('token')) url.searchParams.set('token', String(body.token));
         return await verifyInvite(supabase, url, invitationType);
       
       case 'accept':
         return await acceptInvite(supabase, body, invitationType);
       
-      case 'validate':
-        // New action: direct validation endpoint
+      case 'validate': {
+        // Validation reveals account/role existence: super_admin only.
+        try { await requireSuperAdmin(req); } catch (e) {
+          if (e instanceof Response) return withCors(e, corsHeaders);
+          throw e;
+        }
         return await handleValidate(supabase, body);
+      }
+
+      // ---- Super-admin directory & lifecycle (server-authorized) ----
+      case 'admin_list':
+      case 'admin_cancel':
+      case 'admin_resend':
+      case 'admin_set_role':
+      case 'admin_set_active': {
+        let caller;
+        try { caller = await requireSuperAdmin(req); } catch (e) {
+          if (e instanceof Response) return withCors(e, corsHeaders);
+          throw e;
+        }
+        return await handleAdminDirectory(supabase, action, body, caller, req);
+      }
       
       default:
         return new Response(JSON.stringify({ 
