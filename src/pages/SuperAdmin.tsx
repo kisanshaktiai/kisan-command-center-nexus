@@ -54,10 +54,12 @@ const SuperAdmin = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
+      // Revoked (inactive) admins must not reach the portal.
       const { data: adminData, error } = await supabase
         .from('admin_users')
         .select('*')
-        .eq('email', user.email)
+        .eq('id', user.id)
+        .eq('is_active', true)
         .single();
 
       if (error) throw error;
