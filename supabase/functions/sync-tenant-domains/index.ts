@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireSuperAdmin, withCors } from "../_shared/requireSuperAdmin.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,6 +10,12 @@ Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Server-side authorization: only active super_admins (or trusted service-role callers).
+  try { await requireSuperAdmin(req); } catch (e) {
+    if (e instanceof Response) return withCors(e, corsHeaders);
+    throw e;
   }
 
   try {
@@ -137,11 +144,12 @@ Deno.serve(async (req) => {
     )
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('❌ Unexpected error:', error)
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'Unknown error' 
+        error: errorMessage || 'Unknown error' 
       }), 
       { 
         status: 500,

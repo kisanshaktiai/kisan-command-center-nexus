@@ -1,114 +1,188 @@
 /**
  * useAppVersionCheck - Hook for checking app version updates
- * 
+ *
  * Behavior:
- * - Fetches /api/app-version from edge function
- * - Compares with current app version from build
- * - Returns update status and actions
- * 
+ * - Fetches the active version for a given `app_key` from `app_versions`
+ * - The version the user is actually running is the one recorded when this
+ *   browser session first loaded the app (baseline, persisted in sessionStorage).
+ *   App version always comes from the `app_versions` table, never env vars.
+ * - Polls periodically; if the active row moves ahead of the baseline, the user
+ *   is running a stale build and we surface an update.
+ *
  * Does NOT block initial render - runs in background.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-// Version info injected at build time
-const CURRENT_VERSION = import.meta.env.VITE_APP_VERSION || '0.0.0';
-const BUILD_HASH = import.meta.env.VITE_BUILD_HASH || 'dev';
-const APP_KEY = import.meta.env.VITE_APP_KEY || 'USER_APP';
+const DEFAULT_APP_KEY = 'admin_portal';
+const POLL_INTERVAL_MS = 5 * 60 * 1000;
+const BASELINE_STORAGE_PREFIX = 'app_version_baseline:';
 
-// Types for version response
-interface AppVersionInfo {
-  app_key: string;
+type UpdatePolicy = 'OPTIONAL' | 'RECOMMENDED' | 'FORCED';
+
+type UpdateStatus =
+  | 'checking' // Initial state, fetching version
+  | 'up-to-date' // Running build matches active version
+  | 'update-available' // New version published, current build is stale
+  | 'update-required' // Forced policy, or running build below min_supported_version
+  | 'error' // Failed to check
+  | 'offline'; // Network unavailable
+
+interface VersionBaseline {
   version: string;
   build_hash: string;
-  deployed_at: string;
-  update_policy: 'OPTIONAL' | 'RECOMMENDED' | 'FORCED';
-  min_supported_version: string | null;
-  release_notes?: string | null;
 }
-
-type UpdateStatus = 
-  | 'checking'      // Initial state, fetching version
-  | 'up-to-date'    // Current version matches latest
-  | 'update-available' // New version exists but not required
-  | 'update-required'  // Version below min_supported_version
-  | 'error'         // Failed to check
-  | 'offline';      // Network unavailable
 
 interface UseAppVersionCheckResult {
   status: UpdateStatus;
   currentVersion: string;
   latestVersion: string | null;
   buildHash: string;
-  updatePolicy: 'OPTIONAL' | 'RECOMMENDED' | 'FORCED' | null;
+  updatePolicy: UpdatePolicy | null;
   releaseNotes: string | null;
   isLoading: boolean;
   error: string | null;
   checkForUpdates: () => Promise<void>;
+  /** Clears the session baseline and reloads so the fresh build becomes the baseline. */
+  applyUpdate: () => void;
 }
 
-/**
- * Compare semantic versions (semver)
- * Returns: -1 if a < b, 0 if equal, 1 if a > b
- */
-function compareVersions(a: string, b: string): number {
-  const normalize = (v: string) => v.replace(/^v/, '').split('.').map(Number);
-  const [aMajor = 0, aMinor = 0, aPatch = 0] = normalize(a);
-  const [bMajor = 0, bMinor = 0, bPatch = 0] = normalize(b);
 
-  if (aMajor !== bMajor) return aMajor < bMajor ? -1 : 1;
-  if (aMinor !== bMinor) return aMinor < bMinor ? -1 : 1;
-  if (aPatch !== bPatch) return aPatch < bPatch ? -1 : 1;
+/** Compare semver-ish strings. Returns <0, 0 or >0. Non-numeric parts ignored. */
+function compareVersions(a: string, b: string): number {
+  const parse = (v: string) =>
+    v
+      .replace(/^v/i, '')
+      .split(/[.\-+]/)
+      .map((p) => parseInt(p, 10))
+      .filter((n) => !Number.isNaN(n));
+  const pa = parse(a);
+  const pb = parse(b);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const da = pa[i] ?? 0;
+    const db = pb[i] ?? 0;
+    if (da !== db) return da < db ? -1 : 1;
+  }
   return 0;
 }
 
-export function useAppVersionCheck(): UseAppVersionCheckResult {
+function readBaseline(appKey: string): VersionBaseline | null {
+  try {
+    const raw = sessionStorage.getItem(BASELINE_STORAGE_PREFIX + appKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as VersionBaseline;
+    return parsed?.version ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeBaseline(appKey: string, baseline: VersionBaseline) {
+  try {
+    sessionStorage.setItem(BASELINE_STORAGE_PREFIX + appKey, JSON.stringify(baseline));
+  } catch {
+    // ignore storage failures (private mode, quota)
+  }
+}
+
+function clearBaseline(appKey: string) {
+  try {
+    sessionStorage.removeItem(BASELINE_STORAGE_PREFIX + appKey);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+
+export function useAppVersionCheck(appKey: string = DEFAULT_APP_KEY): UseAppVersionCheckResult {
   const [status, setStatus] = useState<UpdateStatus>('checking');
+  const [currentVersion, setCurrentVersion] = useState<string>('');
+  const [buildHash, setBuildHash] = useState<string>('');
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
-  const [updatePolicy, setUpdatePolicy] = useState<'OPTIONAL' | 'RECOMMENDED' | 'FORCED' | null>(null);
+  const [updatePolicy, setUpdatePolicy] = useState<UpdatePolicy | null>(null);
   const [releaseNotes, setReleaseNotes] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const baselineRef = useRef<VersionBaseline | null>(null);
 
   const checkForUpdates = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Check if offline
       if (!navigator.onLine) {
         setStatus('offline');
         setIsLoading(false);
         return;
       }
 
-      // Direct fetch to edge function with query params
-      // (supabase.functions.invoke doesn't support GET with query params well)
-      const response = await fetch(
-        `https://qfklkkzxemsbeniyugiz.supabase.co/functions/v1/app-version?app_key=${encodeURIComponent(APP_KEY)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const { data, error: dbError } = await supabase
+        .from('app_versions')
+        .select('app_key, version, build_hash, deployed_at, update_policy, min_supported_version, release_notes')
+        .eq('app_key', appKey)
+        .eq('is_current', true)
+        .maybeSingle();
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          // No version registered yet - treat as up-to-date
-          console.log('[useAppVersionCheck] No remote version found, assuming up-to-date');
-          setStatus('up-to-date');
-          setIsLoading(false);
-          return;
-        }
-        throw new Error(`HTTP ${response.status}`);
+      if (dbError) {
+        console.error('[useAppVersionCheck] Database error:', dbError);
+        throw new Error(dbError.message);
       }
 
-      const versionData: AppVersionInfo = await response.json();
-      processVersionData(versionData);
+      if (!data) {
+        console.log('[useAppVersionCheck] No version found for app_key:', appKey);
+        setLatestVersion(null);
+        setUpdatePolicy(null);
+        setReleaseNotes(null);
+        setStatus('up-to-date');
+        setIsLoading(false);
+        return;
+      }
 
+      const policy = ((data.update_policy as UpdatePolicy) || 'OPTIONAL') as UpdatePolicy;
+      setLatestVersion(data.version);
+      setUpdatePolicy(policy);
+      setReleaseNotes(data.release_notes || null);
+
+      // Establish the running build's baseline once per browser session.
+      let baseline = baselineRef.current ?? readBaseline(appKey);
+      if (!baseline) {
+        baseline = { version: data.version, build_hash: data.build_hash ?? '' };
+        writeBaseline(appKey, baseline);
+      }
+      baselineRef.current = baseline;
+
+      setCurrentVersion(baseline.version);
+      setBuildHash(baseline.build_hash);
+
+      const isStale =
+        compareVersions(baseline.version, data.version) < 0 ||
+        (compareVersions(baseline.version, data.version) === 0 &&
+          !!data.build_hash &&
+          !!baseline.build_hash &&
+          baseline.build_hash !== data.build_hash);
+
+      const belowMinimum =
+        !!data.min_supported_version &&
+        compareVersions(baseline.version, data.min_supported_version) < 0;
+
+      if (belowMinimum || (isStale && policy === 'FORCED')) {
+        setStatus('update-required');
+      } else if (isStale) {
+        setStatus('update-available');
+      } else {
+        setStatus('up-to-date');
+      }
+
+      console.log('[useAppVersionCheck] Version check:', {
+        app_key: appKey,
+        running: baseline.version,
+        latest: data.version,
+        policy,
+        isStale,
+        belowMinimum,
+      });
     } catch (err) {
       console.warn('[useAppVersionCheck] Failed to check version:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -116,74 +190,54 @@ export function useAppVersionCheck(): UseAppVersionCheckResult {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [appKey]);
 
-  const processVersionData = (versionData: AppVersionInfo) => {
-    setLatestVersion(versionData.version);
-    setUpdatePolicy(versionData.update_policy);
-    setReleaseNotes(versionData.release_notes || null);
-
-    // Check if current version is below minimum supported
-    if (versionData.min_supported_version) {
-      const comparison = compareVersions(CURRENT_VERSION, versionData.min_supported_version);
-      if (comparison < 0) {
-        console.warn('[useAppVersionCheck] App version below minimum supported:', {
-          current: CURRENT_VERSION,
-          minSupported: versionData.min_supported_version,
-        });
-        setStatus('update-required');
-        return;
-      }
-    }
-
-    // Compare current version with latest
-    const versionComparison = compareVersions(CURRENT_VERSION, versionData.version);
-    
-    if (versionComparison < 0) {
-      // Current is older than latest
-      console.log('[useAppVersionCheck] Update available:', {
-        current: CURRENT_VERSION,
-        latest: versionData.version,
-        policy: versionData.update_policy,
-      });
-      setStatus('update-available');
-    } else {
-      // Up to date or ahead (development)
-      console.log('[useAppVersionCheck] App is up-to-date:', CURRENT_VERSION);
-      setStatus('up-to-date');
-    }
-  };
-
-  // Check on mount (non-blocking)
+  // Initial (non-blocking) check + periodic polling + refresh on focus/online.
   useEffect(() => {
-    // Delay initial check to not block render
     const timer = setTimeout(() => {
       checkForUpdates();
-    }, 1000);
+    }, 500);
 
-    return () => clearTimeout(timer);
+    const interval = setInterval(() => {
+      checkForUpdates();
+    }, POLL_INTERVAL_MS);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkForUpdates();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', checkForUpdates);
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', checkForUpdates);
+    };
   }, [checkForUpdates]);
 
-  // Log version in development
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.log(`App Version: ${CURRENT_VERSION} (build ${BUILD_HASH})`);
-    }
-  }, []);
+  // Reload for an update: drop the stale baseline first so the freshly loaded
+  // build re-baselines itself instead of re-triggering the blocking dialog.
+  const applyUpdate = useCallback(() => {
+    clearBaseline(appKey);
+    baselineRef.current = null;
+    window.location.reload();
+  }, [appKey]);
 
   return {
     status,
-    currentVersion: CURRENT_VERSION,
+    currentVersion,
     latestVersion,
-    buildHash: BUILD_HASH,
+    buildHash,
     updatePolicy,
     releaseNotes,
     isLoading,
     error,
     checkForUpdates,
+    applyUpdate,
   };
 }
 
-// Export version constants for external use
-export const APP_VERSION = CURRENT_VERSION;
-export const APP_BUILD_HASH = BUILD_HASH;
+// Legacy exports kept for backwards compatibility. Prefer the hook state instead.
+export const APP_VERSION = '';
+export const APP_BUILD_HASH = '';

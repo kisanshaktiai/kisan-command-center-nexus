@@ -103,23 +103,15 @@ export class SecurityHeadersService {
 
 /**
  * Initialize security headers for the application
+ *
+ * NOTE: Security headers such as Referrer-Policy and X-Content-Type-Options are
+ * RESPONSE headers. Injecting them into outgoing fetch requests turned every
+ * cross-origin call (Supabase REST + Edge Functions) into a preflighted request
+ * with non-allowed headers, which failed CORS and surfaced as
+ * "Failed to send a request to the Edge Function".
+ * We therefore no longer patch window.fetch.
  */
 export const initializeSecurityHeaders = () => {
-  const securityService = SecurityHeadersService.getInstance();
-  
-  // Apply minimal security headers to outgoing requests to avoid CORS issues
-  const originalFetch = window.fetch;
-  window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-    const headers = new Headers(init?.headers);
-    
-    // Only apply request-appropriate headers to avoid CORS preflight issues
-    const secureHeaders = securityService.applyToFetchRequest(headers);
-    
-    return originalFetch(input, {
-      ...init,
-      headers: secureHeaders
-    });
-  };
-
-  return securityService;
+  return SecurityHeadersService.getInstance();
 };
+

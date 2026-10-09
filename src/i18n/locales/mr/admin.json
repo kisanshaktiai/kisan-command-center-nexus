@@ -1,0 +1,22 @@
+{
+  "nav": {
+    "overview": "विहंगावलोकन",
+    "tenants": "टेनंट्स",
+    "billing": "बिलिंग",
+    "monitoring": "प्लॅटफॉर्म मॉनिटरिंग",
+    "ndvi": "NDVI डेटा",
+    "aiCosts": "AI खर्च",
+    "backups": "बॅकअप",
+    "featureFlags": "फिचर फ्लॅग्स",
+    "leads": "लीड्स"
+  },
+  "health": { "title": "टेनंट आरोग्य", "score": "आरोग्य स्कोर" },
+  "aiCosts": { "title": "AI खर्च डॅशबोर्ड" },
+  "killSwitch": { "title": "फिचर किल-स्विच" },
+  "impersonation": { "button": "इम्पर्सोनेट" },
+  "backups": { "title": "बॅकअप स्थिती" },
+  "aiRouting": {"title": "AI फिचर रूटिंग"},
+  "aiModels": {"title": "AI मॉडेल"},
+  "aiKeys": {"title": "AI API की", "subtitle": "शेतकरी ॲपचा AI राउटर ज्या प्रदाता API की क्रमाने वापरतो, त्यांचा दैनिक मोफत टोकन पूल आणि आजचा वापर"},
+  "aiHistory": {"title": "AI बदल इतिहास"}
+}

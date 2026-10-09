@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -47,6 +47,36 @@ export type Database = {
           locked_until?: string | null
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      accuracy_fix_log: {
+        Row: {
+          field_name: string | null
+          fix_id: number
+          fix_type: string | null
+          fixed_at: string | null
+          new_value: string | null
+          old_value: string | null
+          rule_id: string | null
+        }
+        Insert: {
+          field_name?: string | null
+          fix_id?: number
+          fix_type?: string | null
+          fixed_at?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          rule_id?: string | null
+        }
+        Update: {
+          field_name?: string | null
+          fix_id?: number
+          fix_type?: string | null
+          fixed_at?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          rule_id?: string | null
         }
         Relationships: []
       }
@@ -606,6 +636,7 @@ export type Database = {
           ai_adjustments: Json | null
           causes: string[]
           confidence: number
+          created_at: string
           engine_version: string
           execution_time_ms: number | null
           farmer_id: string | null
@@ -629,6 +660,7 @@ export type Database = {
           ai_adjustments?: Json | null
           causes: string[]
           confidence: number
+          created_at?: string
           engine_version: string
           execution_time_ms?: number | null
           farmer_id?: string | null
@@ -652,6 +684,7 @@ export type Database = {
           ai_adjustments?: Json | null
           causes?: string[]
           confidence?: number
+          created_at?: string
           engine_version?: string
           execution_time_ms?: number | null
           farmer_id?: string | null
@@ -718,6 +751,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lands"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "advisory_audit_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "advisory_audit_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "advisory_audit_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "advisory_audit_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
           },
           {
             foreignKeyName: "advisory_audit_log_tenant_id_fkey"
@@ -984,36 +1045,144 @@ export type Database = {
         }
         Relationships: []
       }
-      agro_climatic_zones: {
+      agricultural_decisions: {
         Row: {
-          country_id: string | null
-          created_at: string | null
-          cropping_pattern: string | null
-          description: string | null
+          action_type: string | null
+          confidence: number | null
+          created_at: string
+          decision_id: string
+          decision_output: Json | null
+          diagnostic_state: Json | null
+          farmer_id: string | null
+          fused_intelligence: Json | null
           id: string
-          is_active: boolean | null
-          name: string
-          updated_at: string | null
+          land_id: string | null
+          nlu_output: Json | null
+          safety_verification: Json | null
+          session_id: string | null
+          status: string | null
+          tenant_id: string | null
         }
         Insert: {
-          country_id?: string | null
-          created_at?: string | null
-          cropping_pattern?: string | null
-          description?: string | null
+          action_type?: string | null
+          confidence?: number | null
+          created_at?: string
+          decision_id: string
+          decision_output?: Json | null
+          diagnostic_state?: Json | null
+          farmer_id?: string | null
+          fused_intelligence?: Json | null
           id?: string
-          is_active?: boolean | null
-          name: string
-          updated_at?: string | null
+          land_id?: string | null
+          nlu_output?: Json | null
+          safety_verification?: Json | null
+          session_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
         }
         Update: {
+          action_type?: string | null
+          confidence?: number | null
+          created_at?: string
+          decision_id?: string
+          decision_output?: Json | null
+          diagnostic_state?: Json | null
+          farmer_id?: string | null
+          fused_intelligence?: Json | null
+          id?: string
+          land_id?: string | null
+          nlu_output?: Json | null
+          safety_verification?: Json | null
+          session_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      agro_climatic_zones: {
+        Row: {
+          avg_rainfall_mm: number | null
+          climate_type: string | null
+          country_id: string | null
+          created_at: string | null
+          critical_period_end: string | null
+          critical_period_start: string | null
+          cropping_pattern: string | null
+          description: string | null
+          humidity_avg: number | null
+          id: string
+          is_active: boolean | null
+          major_crops: string | null
+          name: string
+          notes: string | null
+          rainfall_pattern: string | null
+          soil_types: string | null
+          spray_humidity_min: number | null
+          spray_temp_max: number | null
+          spray_wind_threshold_kmph: number | null
+          states_covered: string | null
+          temp_max_summer: number | null
+          temp_max_winter: number | null
+          temp_min_summer: number | null
+          temp_min_winter: number | null
+          updated_at: string | null
+          zone_code: string | null
+        }
+        Insert: {
+          avg_rainfall_mm?: number | null
+          climate_type?: string | null
           country_id?: string | null
           created_at?: string | null
+          critical_period_end?: string | null
+          critical_period_start?: string | null
           cropping_pattern?: string | null
           description?: string | null
+          humidity_avg?: number | null
           id?: string
           is_active?: boolean | null
-          name?: string
+          major_crops?: string | null
+          name: string
+          notes?: string | null
+          rainfall_pattern?: string | null
+          soil_types?: string | null
+          spray_humidity_min?: number | null
+          spray_temp_max?: number | null
+          spray_wind_threshold_kmph?: number | null
+          states_covered?: string | null
+          temp_max_summer?: number | null
+          temp_max_winter?: number | null
+          temp_min_summer?: number | null
+          temp_min_winter?: number | null
           updated_at?: string | null
+          zone_code?: string | null
+        }
+        Update: {
+          avg_rainfall_mm?: number | null
+          climate_type?: string | null
+          country_id?: string | null
+          created_at?: string | null
+          critical_period_end?: string | null
+          critical_period_start?: string | null
+          cropping_pattern?: string | null
+          description?: string | null
+          humidity_avg?: number | null
+          id?: string
+          is_active?: boolean | null
+          major_crops?: string | null
+          name?: string
+          notes?: string | null
+          rainfall_pattern?: string | null
+          soil_types?: string | null
+          spray_humidity_min?: number | null
+          spray_temp_max?: number | null
+          spray_wind_threshold_kmph?: number | null
+          states_covered?: string | null
+          temp_max_summer?: number | null
+          temp_max_winter?: number | null
+          temp_min_summer?: number | null
+          temp_min_winter?: number | null
+          updated_at?: string | null
+          zone_code?: string | null
         }
         Relationships: []
       }
@@ -1053,6 +1222,120 @@ export type Database = {
           topics?: Json | null
           total_messages?: number | null
           total_sessions?: number | null
+        }
+        Relationships: []
+      }
+      ai_chat_audit_logs: {
+        Row: {
+          actions_filtered_out: Json | null
+          actions_returned: Json | null
+          agents_used: string[] | null
+          allowed_scopes: string[] | null
+          created_at: string | null
+          crop_code: string | null
+          detected_language: string | null
+          execution_id: string | null
+          farmer_id: string
+          farmer_message: string | null
+          forbidden_actions: string[] | null
+          gate_decisions: Json
+          graph_version: string | null
+          growth_stage: string | null
+          id: string
+          intent_label: string | null
+          land_id: string | null
+          llm_model_used: string | null
+          locked_intent: string | null
+          nlu_confidence: number | null
+          observation_mapping: Json | null
+          observations: Json | null
+          pipeline_version: string | null
+          processing_time_ms: number | null
+          response_language_match: boolean | null
+          response_source: string | null
+          rules_fired: string[] | null
+          runtime_version: string | null
+          session_id: string
+          symbolic_decision_id: string | null
+          tenant_id: string
+          trace_id: string | null
+          turn_id: string
+          validation_errors: string[] | null
+          validation_passed: boolean | null
+        }
+        Insert: {
+          actions_filtered_out?: Json | null
+          actions_returned?: Json | null
+          agents_used?: string[] | null
+          allowed_scopes?: string[] | null
+          created_at?: string | null
+          crop_code?: string | null
+          detected_language?: string | null
+          execution_id?: string | null
+          farmer_id: string
+          farmer_message?: string | null
+          forbidden_actions?: string[] | null
+          gate_decisions?: Json
+          graph_version?: string | null
+          growth_stage?: string | null
+          id?: string
+          intent_label?: string | null
+          land_id?: string | null
+          llm_model_used?: string | null
+          locked_intent?: string | null
+          nlu_confidence?: number | null
+          observation_mapping?: Json | null
+          observations?: Json | null
+          pipeline_version?: string | null
+          processing_time_ms?: number | null
+          response_language_match?: boolean | null
+          response_source?: string | null
+          rules_fired?: string[] | null
+          runtime_version?: string | null
+          session_id: string
+          symbolic_decision_id?: string | null
+          tenant_id: string
+          trace_id?: string | null
+          turn_id: string
+          validation_errors?: string[] | null
+          validation_passed?: boolean | null
+        }
+        Update: {
+          actions_filtered_out?: Json | null
+          actions_returned?: Json | null
+          agents_used?: string[] | null
+          allowed_scopes?: string[] | null
+          created_at?: string | null
+          crop_code?: string | null
+          detected_language?: string | null
+          execution_id?: string | null
+          farmer_id?: string
+          farmer_message?: string | null
+          forbidden_actions?: string[] | null
+          gate_decisions?: Json
+          graph_version?: string | null
+          growth_stage?: string | null
+          id?: string
+          intent_label?: string | null
+          land_id?: string | null
+          llm_model_used?: string | null
+          locked_intent?: string | null
+          nlu_confidence?: number | null
+          observation_mapping?: Json | null
+          observations?: Json | null
+          pipeline_version?: string | null
+          processing_time_ms?: number | null
+          response_language_match?: boolean | null
+          response_source?: string | null
+          rules_fired?: string[] | null
+          runtime_version?: string | null
+          session_id?: string
+          symbolic_decision_id?: string | null
+          tenant_id?: string
+          trace_id?: string | null
+          turn_id?: string
+          validation_errors?: string[] | null
+          validation_passed?: boolean | null
         }
         Relationships: []
       }
@@ -1099,6 +1382,7 @@ export type Database = {
           partition_key: number | null
           preprocessed_content: string | null
           rainfall_zone: string | null
+          response_source: string | null
           response_time_ms: number | null
           role: string
           session_id: string
@@ -1154,6 +1438,7 @@ export type Database = {
           partition_key?: number | null
           preprocessed_content?: string | null
           rainfall_zone?: string | null
+          response_source?: string | null
           response_time_ms?: number | null
           role: string
           session_id: string
@@ -1209,6 +1494,7 @@ export type Database = {
           partition_key?: number | null
           preprocessed_content?: string | null
           rainfall_zone?: string | null
+          response_source?: string | null
           response_time_ms?: number | null
           role?: string
           session_id?: string
@@ -1241,6 +1527,7 @@ export type Database = {
       }
       ai_chat_sessions: {
         Row: {
+          conversation_state: Json
           created_at: string
           farmer_id: string
           id: string
@@ -1253,6 +1540,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          conversation_state?: Json
           created_at?: string
           farmer_id: string
           id?: string
@@ -1265,6 +1553,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          conversation_state?: Json
           created_at?: string
           farmer_id?: string
           id?: string
@@ -1280,70 +1569,181 @@ export type Database = {
       }
       ai_decision_log: {
         Row: {
+          clarification_snapshot: Json | null
           confidence_score: number | null
+          context_snapshot: Json | null
           created_at: string | null
+          created_runtime_ms: number | null
+          decision_snapshot: Json | null
           decision_type: string
           error_message: string | null
+          evaluation_trace: Json | null
+          execution_id: string | null
+          execution_mode: string | null
           execution_time_ms: number | null
           farmer_id: string | null
           feedback_comment: string | null
           feedback_score: number | null
+          graph_snapshot: Json | null
+          graph_version: string | null
+          hypothesis_decision_path: string | null
+          hypothesis_id: string | null
+          hypothesis_score: number | null
+          hypothesis_snapshot: Json | null
           id: string
           input_data: Json
+          knowledge_versions: Json | null
           land_id: string | null
+          missing_data_fields: string[] | null
           model_version: string | null
           ndvi_data: Json | null
+          observation_snapshot: Json | null
           output_data: Json
-          reasoning: string
+          pipeline_metrics: Json | null
+          pipeline_version: string | null
+          prompt_version: string | null
+          reasoning: string | null
+          rule_snapshot: Json | null
+          runtime_trace: Json | null
+          runtime_version: string | null
           schedule_id: string | null
           soil_data: Json | null
           success: boolean | null
           tenant_id: string
+          top_5_rejected_rules: Json | null
+          trace_id: string | null
+          trace_level: string | null
+          variety_resistance_applied: Json | null
           weather_data: Json | null
         }
         Insert: {
+          clarification_snapshot?: Json | null
           confidence_score?: number | null
+          context_snapshot?: Json | null
           created_at?: string | null
+          created_runtime_ms?: number | null
+          decision_snapshot?: Json | null
           decision_type: string
           error_message?: string | null
+          evaluation_trace?: Json | null
+          execution_id?: string | null
+          execution_mode?: string | null
           execution_time_ms?: number | null
           farmer_id?: string | null
           feedback_comment?: string | null
           feedback_score?: number | null
+          graph_snapshot?: Json | null
+          graph_version?: string | null
+          hypothesis_decision_path?: string | null
+          hypothesis_id?: string | null
+          hypothesis_score?: number | null
+          hypothesis_snapshot?: Json | null
           id?: string
           input_data: Json
+          knowledge_versions?: Json | null
           land_id?: string | null
+          missing_data_fields?: string[] | null
           model_version?: string | null
           ndvi_data?: Json | null
+          observation_snapshot?: Json | null
           output_data: Json
-          reasoning: string
+          pipeline_metrics?: Json | null
+          pipeline_version?: string | null
+          prompt_version?: string | null
+          reasoning?: string | null
+          rule_snapshot?: Json | null
+          runtime_trace?: Json | null
+          runtime_version?: string | null
           schedule_id?: string | null
           soil_data?: Json | null
           success?: boolean | null
           tenant_id: string
+          top_5_rejected_rules?: Json | null
+          trace_id?: string | null
+          trace_level?: string | null
+          variety_resistance_applied?: Json | null
           weather_data?: Json | null
         }
         Update: {
+          clarification_snapshot?: Json | null
           confidence_score?: number | null
+          context_snapshot?: Json | null
           created_at?: string | null
+          created_runtime_ms?: number | null
+          decision_snapshot?: Json | null
           decision_type?: string
           error_message?: string | null
+          evaluation_trace?: Json | null
+          execution_id?: string | null
+          execution_mode?: string | null
           execution_time_ms?: number | null
           farmer_id?: string | null
           feedback_comment?: string | null
           feedback_score?: number | null
+          graph_snapshot?: Json | null
+          graph_version?: string | null
+          hypothesis_decision_path?: string | null
+          hypothesis_id?: string | null
+          hypothesis_score?: number | null
+          hypothesis_snapshot?: Json | null
           id?: string
           input_data?: Json
+          knowledge_versions?: Json | null
           land_id?: string | null
+          missing_data_fields?: string[] | null
           model_version?: string | null
           ndvi_data?: Json | null
+          observation_snapshot?: Json | null
           output_data?: Json
-          reasoning?: string
+          pipeline_metrics?: Json | null
+          pipeline_version?: string | null
+          prompt_version?: string | null
+          reasoning?: string | null
+          rule_snapshot?: Json | null
+          runtime_trace?: Json | null
+          runtime_version?: string | null
           schedule_id?: string | null
           soil_data?: Json | null
           success?: boolean | null
           tenant_id?: string
+          top_5_rejected_rules?: Json | null
+          trace_id?: string | null
+          trace_level?: string | null
+          variety_resistance_applied?: Json | null
           weather_data?: Json | null
+        }
+        Relationships: []
+      }
+      ai_feature: {
+        Row: {
+          change_reason: string
+          created_at: string
+          description: string
+          feature_key: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          change_reason: string
+          created_at?: string
+          description: string
+          feature_key: string
+          is_active?: boolean
+          name: string
+          sort_order: number
+          updated_at?: string
+        }
+        Update: {
+          change_reason?: string
+          created_at?: string
+          description?: string
+          feature_key?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1406,50 +1806,253 @@ export type Database = {
           },
         ]
       }
+      ai_key_slot: {
+        Row: {
+          change_reason: string
+          created_at: string
+          daily_pool: Json
+          env_var: string
+          is_enabled: boolean
+          label: string
+          notes: string | null
+          provider: string
+          reserve_tokens: number
+          slot_no: number
+          updated_at: string
+        }
+        Insert: {
+          change_reason: string
+          created_at?: string
+          daily_pool?: Json
+          env_var: string
+          is_enabled?: boolean
+          label: string
+          notes?: string | null
+          provider: string
+          reserve_tokens?: number
+          slot_no: number
+          updated_at?: string
+        }
+        Update: {
+          change_reason?: string
+          created_at?: string
+          daily_pool?: Json
+          env_var?: string
+          is_enabled?: boolean
+          label?: string
+          notes?: string | null
+          provider?: string
+          reserve_tokens?: number
+          slot_no?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_model_catalog: {
+        Row: {
+          api_contract: Json
+          api_model_id: string
+          change_reason: string
+          created_at: string
+          input_modalities: string[]
+          model_key: string
+          notes: string | null
+          provider: string
+          replacement_model_key: string | null
+          shutdown_date: string | null
+          source_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          api_contract: Json
+          api_model_id: string
+          change_reason: string
+          created_at?: string
+          input_modalities?: string[]
+          model_key: string
+          notes?: string | null
+          provider: string
+          replacement_model_key?: string | null
+          shutdown_date?: string | null
+          source_url?: string | null
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          api_contract?: Json
+          api_model_id?: string
+          change_reason?: string
+          created_at?: string
+          input_modalities?: string[]
+          model_key?: string
+          notes?: string | null
+          provider?: string
+          replacement_model_key?: string | null
+          shutdown_date?: string | null
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_model_catalog_replacement_model_key_fkey"
+            columns: ["replacement_model_key"]
+            isOneToOne: false
+            referencedRelation: "ai_model_catalog"
+            referencedColumns: ["model_key"]
+          },
+        ]
+      }
+      ai_model_group: {
+        Row: {
+          api_model_ids: string[]
+          change_reason: string
+          created_at: string
+          description: string
+          group_key: string
+          is_active: boolean
+          name: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          api_model_ids?: string[]
+          change_reason: string
+          created_at?: string
+          description: string
+          group_key: string
+          is_active?: boolean
+          name: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          api_model_ids?: string[]
+          change_reason?: string
+          created_at?: string
+          description?: string
+          group_key?: string
+          is_active?: boolean
+          name?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_model_metrics: {
         Row: {
           accuracy_score: number | null
           avg_response_time_ms: number | null
+          cost_usd: number | null
           created_at: string | null
+          error_class: string | null
           error_rate: number | null
+          fallback_used: boolean
+          farmer_id: string | null
+          function_name: string | null
+          http_status: number | null
           id: string
           metadata: Json | null
           model_name: string
+          model_requested: string | null
           model_version: string | null
+          price_id: string | null
           query_count: number | null
           resource_usage: Json | null
+          task_key: string | null
           tenant_id: string | null
           timestamp: string
         }
         Insert: {
           accuracy_score?: number | null
           avg_response_time_ms?: number | null
+          cost_usd?: number | null
           created_at?: string | null
+          error_class?: string | null
           error_rate?: number | null
+          fallback_used?: boolean
+          farmer_id?: string | null
+          function_name?: string | null
+          http_status?: number | null
           id?: string
           metadata?: Json | null
           model_name: string
+          model_requested?: string | null
           model_version?: string | null
+          price_id?: string | null
           query_count?: number | null
           resource_usage?: Json | null
+          task_key?: string | null
           tenant_id?: string | null
           timestamp?: string
         }
         Update: {
           accuracy_score?: number | null
           avg_response_time_ms?: number | null
+          cost_usd?: number | null
           created_at?: string | null
+          error_class?: string | null
           error_rate?: number | null
+          fallback_used?: boolean
+          farmer_id?: string | null
+          function_name?: string | null
+          http_status?: number | null
           id?: string
           metadata?: Json | null
           model_name?: string
+          model_requested?: string | null
           model_version?: string | null
+          price_id?: string | null
           query_count?: number | null
           resource_usage?: Json | null
+          task_key?: string | null
           tenant_id?: string | null
           timestamp?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_model_metrics_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_model_metrics_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "ai_model_metrics_model_key_fkey"
+            columns: ["model_name"]
+            isOneToOne: false
+            referencedRelation: "ai_model_catalog"
+            referencedColumns: ["model_key"]
+          },
+          {
+            foreignKeyName: "ai_model_metrics_model_requested_fkey"
+            columns: ["model_requested"]
+            isOneToOne: false
+            referencedRelation: "ai_model_catalog"
+            referencedColumns: ["model_key"]
+          },
+          {
+            foreignKeyName: "ai_model_metrics_price_id_fkey"
+            columns: ["price_id"]
+            isOneToOne: false
+            referencedRelation: "ai_model_pricing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_model_metrics_task_key_fkey"
+            columns: ["task_key"]
+            isOneToOne: false
+            referencedRelation: "ai_task_route"
+            referencedColumns: ["task_key"]
+          },
           {
             foreignKeyName: "ai_model_metrics_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1458,6 +2061,268 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_model_pricing: {
+        Row: {
+          cached_input_cost_per_1k: number | null
+          created_at: string
+          currency: string
+          effective_from: string
+          id: string
+          input_cost_per_1k: number
+          is_active: boolean
+          model_name: string
+          notes: string | null
+          output_cost_per_1k: number
+          source_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          cached_input_cost_per_1k?: number | null
+          created_at?: string
+          currency?: string
+          effective_from?: string
+          id?: string
+          input_cost_per_1k?: number
+          is_active?: boolean
+          model_name: string
+          notes?: string | null
+          output_cost_per_1k?: number
+          source_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cached_input_cost_per_1k?: number | null
+          created_at?: string
+          currency?: string
+          effective_from?: string
+          id?: string
+          input_cost_per_1k?: number
+          is_active?: boolean
+          model_name?: string
+          notes?: string | null
+          output_cost_per_1k?: number
+          source_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_model_pricing_model_key_fkey"
+            columns: ["model_name"]
+            isOneToOne: false
+            referencedRelation: "ai_model_catalog"
+            referencedColumns: ["model_key"]
+          },
+        ]
+      }
+      ai_prompt_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          duplicates: Json
+          error: string | null
+          id: string
+          input_variables: Json
+          raw_output: Json | null
+          status: string
+          target_record_id: string | null
+          target_table: string | null
+          template_id: string
+          warnings: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          duplicates?: Json
+          error?: string | null
+          id?: string
+          input_variables?: Json
+          raw_output?: Json | null
+          status?: string
+          target_record_id?: string | null
+          target_table?: string | null
+          template_id: string
+          warnings?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          duplicates?: Json
+          error?: string | null
+          id?: string
+          input_variables?: Json
+          raw_output?: Json | null
+          status?: string
+          target_record_id?: string | null
+          target_table?: string | null
+          template_id?: string
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompt_runs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompt_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_prompt_templates: {
+        Row: {
+          auto_apply: boolean
+          created_at: string
+          created_by: string | null
+          dedupe_keys: Json
+          description: string | null
+          id: string
+          is_active: boolean
+          key: string
+          model: string
+          name: string
+          output_schema: Json
+          system_prompt: string
+          target_table: string
+          temperature: number
+          updated_at: string
+          updated_by: string | null
+          user_prompt_template: string
+          variables_schema: Json
+        }
+        Insert: {
+          auto_apply?: boolean
+          created_at?: string
+          created_by?: string | null
+          dedupe_keys?: Json
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          key: string
+          model?: string
+          name: string
+          output_schema?: Json
+          system_prompt: string
+          target_table: string
+          temperature?: number
+          updated_at?: string
+          updated_by?: string | null
+          user_prompt_template: string
+          variables_schema?: Json
+        }
+        Update: {
+          auto_apply?: boolean
+          created_at?: string
+          created_by?: string | null
+          dedupe_keys?: Json
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          key?: string
+          model?: string
+          name?: string
+          output_schema?: Json
+          system_prompt?: string
+          target_table?: string
+          temperature?: number
+          updated_at?: string
+          updated_by?: string | null
+          user_prompt_template?: string
+          variables_schema?: Json
+        }
+        Relationships: []
+      }
+      ai_registry_audit_log: {
+        Row: {
+          action: string
+          change_reason: string | null
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          row_key: string
+          table_name: string
+        }
+        Insert: {
+          action: string
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          row_key: string
+          table_name: string
+        }
+        Update: {
+          action?: string
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          row_key?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
+      ai_safety_violations: {
+        Row: {
+          candidate_rule_ids: string[]
+          created_at: string
+          crop_code: string | null
+          details: Json
+          emitted_rule_id: string | null
+          farmer_id: string | null
+          fired_rule_ids: string[]
+          id: string
+          intent: string | null
+          language: string | null
+          observations: Json
+          occurred_at: string
+          reason: string
+          session_id: string | null
+          tenant_id: string | null
+          trace_id: string
+        }
+        Insert: {
+          candidate_rule_ids?: string[]
+          created_at?: string
+          crop_code?: string | null
+          details?: Json
+          emitted_rule_id?: string | null
+          farmer_id?: string | null
+          fired_rule_ids?: string[]
+          id?: string
+          intent?: string | null
+          language?: string | null
+          observations?: Json
+          occurred_at?: string
+          reason: string
+          session_id?: string | null
+          tenant_id?: string | null
+          trace_id: string
+        }
+        Update: {
+          candidate_rule_ids?: string[]
+          created_at?: string
+          crop_code?: string | null
+          details?: Json
+          emitted_rule_id?: string | null
+          farmer_id?: string | null
+          fired_rule_ids?: string[]
+          id?: string
+          intent?: string | null
+          language?: string | null
+          observations?: Json
+          occurred_at?: string
+          reason?: string
+          session_id?: string | null
+          tenant_id?: string | null
+          trace_id?: string
+        }
+        Relationships: []
       }
       ai_schedule_refinements: {
         Row: {
@@ -1477,6 +2342,7 @@ export type Database = {
           task_id: string | null
           tenant_id: string
           trigger_data: Json
+          variety_id: string | null
         }
         Insert: {
           ai_reasoning: string
@@ -1495,6 +2361,7 @@ export type Database = {
           task_id?: string | null
           tenant_id: string
           trigger_data: Json
+          variety_id?: string | null
         }
         Update: {
           ai_reasoning?: string
@@ -1513,8 +2380,114 @@ export type Database = {
           task_id?: string | null
           tenant_id?: string
           trigger_data?: Json
+          variety_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_schedule_refinements_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_schedule_refinements_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "ai_schedule_refinements_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      ai_task_route: {
+        Row: {
+          change_reason: string
+          created_at: string
+          description: string
+          feature_key: string
+          is_active: boolean
+          params: Json
+          prefer_free_pool: boolean
+          required_modalities: string[]
+          task_key: string
+          updated_at: string
+        }
+        Insert: {
+          change_reason: string
+          created_at?: string
+          description: string
+          feature_key: string
+          is_active?: boolean
+          params?: Json
+          prefer_free_pool?: boolean
+          required_modalities?: string[]
+          task_key: string
+          updated_at?: string
+        }
+        Update: {
+          change_reason?: string
+          created_at?: string
+          description?: string
+          feature_key?: string
+          is_active?: boolean
+          params?: Json
+          prefer_free_pool?: boolean
+          required_modalities?: string[]
+          task_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_task_route_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "ai_feature"
+            referencedColumns: ["feature_key"]
+          },
+        ]
+      }
+      ai_task_route_step: {
+        Row: {
+          created_at: string
+          model_key: string
+          step_no: number
+          task_key: string
+        }
+        Insert: {
+          created_at?: string
+          model_key: string
+          step_no: number
+          task_key: string
+        }
+        Update: {
+          created_at?: string
+          model_key?: string
+          step_no?: number
+          task_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_task_route_step_model_key_fkey"
+            columns: ["model_key"]
+            isOneToOne: false
+            referencedRelation: "ai_model_catalog"
+            referencedColumns: ["model_key"]
+          },
+          {
+            foreignKeyName: "ai_task_route_step_task_key_fkey"
+            columns: ["task_key"]
+            isOneToOne: false
+            referencedRelation: "ai_task_route"
+            referencedColumns: ["task_key"]
+          },
+        ]
       }
       ai_training_context: {
         Row: {
@@ -1663,7 +2636,128 @@ export type Database = {
             referencedRelation: "lands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "alert_notifications_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "alert_notifications_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "alert_notifications_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "alert_notifications_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
         ]
+      }
+      alert_suppression_matrix: {
+        Row: {
+          is_active: boolean
+          rationale: string | null
+          suppressed_category: string
+          suppression_hours: number
+          suppressor_rule_code: string
+        }
+        Insert: {
+          is_active?: boolean
+          rationale?: string | null
+          suppressed_category: string
+          suppression_hours?: number
+          suppressor_rule_code: string
+        }
+        Update: {
+          is_active?: boolean
+          rationale?: string | null
+          suppressed_category?: string
+          suppression_hours?: number
+          suppressor_rule_code?: string
+        }
+        Relationships: []
+      }
+      analytics_forecasts: {
+        Row: {
+          ai_reasoning: string | null
+          area_acres: number | null
+          breakdown: Json
+          confidence: number | null
+          created_at: string
+          crop: string | null
+          expected_yield_quintals: number | null
+          farmer_id: string
+          forecast_month: string
+          generated_for_month: string
+          id: string
+          land_id: string | null
+          market_price_used: number | null
+          model_version: string | null
+          projected_expense: number
+          projected_profit: number
+          projected_revenue: number
+          scope: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_reasoning?: string | null
+          area_acres?: number | null
+          breakdown?: Json
+          confidence?: number | null
+          created_at?: string
+          crop?: string | null
+          expected_yield_quintals?: number | null
+          farmer_id: string
+          forecast_month: string
+          generated_for_month: string
+          id?: string
+          land_id?: string | null
+          market_price_used?: number | null
+          model_version?: string | null
+          projected_expense?: number
+          projected_profit?: number
+          projected_revenue?: number
+          scope?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_reasoning?: string | null
+          area_acres?: number | null
+          breakdown?: Json
+          confidence?: number | null
+          created_at?: string
+          crop?: string | null
+          expected_yield_quintals?: number | null
+          farmer_id?: string
+          forecast_month?: string
+          generated_for_month?: string
+          id?: string
+          land_id?: string | null
+          market_price_used?: number | null
+          model_version?: string | null
+          projected_expense?: number
+          projected_profit?: number
+          projected_revenue?: number
+          scope?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       analytics_reports: {
         Row: {
@@ -2154,6 +3248,60 @@ export type Database = {
           },
         ]
       }
+      beneficial_organism_master: {
+        Row: {
+          authority: string
+          common_name: string | null
+          confidence: number | null
+          created_at: string | null
+          crop_associations: string[]
+          field_recognition: string | null
+          is_active: boolean
+          organism_code: string
+          organism_type: string
+          protect_note: string | null
+          release_rate: string | null
+          review_status: string
+          scientific_name: string
+          source: string
+          target_pests: string[]
+        }
+        Insert: {
+          authority: string
+          common_name?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          crop_associations: string[]
+          field_recognition?: string | null
+          is_active?: boolean
+          organism_code: string
+          organism_type: string
+          protect_note?: string | null
+          release_rate?: string | null
+          review_status?: string
+          scientific_name: string
+          source: string
+          target_pests: string[]
+        }
+        Update: {
+          authority?: string
+          common_name?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          crop_associations?: string[]
+          field_recognition?: string | null
+          is_active?: boolean
+          organism_code?: string
+          organism_type?: string
+          protect_note?: string | null
+          release_rate?: string | null
+          review_status?: string
+          scientific_name?: string
+          source?: string
+          target_pests?: string[]
+        }
+        Relationships: []
+      }
       billing_analytics: {
         Row: {
           active_subscriptions: number | null
@@ -2372,6 +3520,1197 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      brain_fix_2026_09_18_iom_backup: {
+        Row: {
+          assertion_strength: string | null
+          confidence_rank: number | null
+          created_at: string | null
+          crop_code: string | null
+          cultivation_method: string | null
+          das_max: number | null
+          das_min: number | null
+          growth_stage: string | null
+          id: string | null
+          intent_code: string | null
+          is_active: boolean | null
+          observation_code: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assertion_strength?: string | null
+          confidence_rank?: number | null
+          created_at?: string | null
+          crop_code?: string | null
+          cultivation_method?: string | null
+          das_max?: number | null
+          das_min?: number | null
+          growth_stage?: string | null
+          id?: string | null
+          intent_code?: string | null
+          is_active?: boolean | null
+          observation_code?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assertion_strength?: string | null
+          confidence_rank?: number | null
+          created_at?: string | null
+          crop_code?: string | null
+          cultivation_method?: string | null
+          das_max?: number | null
+          das_min?: number | null
+          growth_stage?: string | null
+          id?: string | null
+          intent_code?: string | null
+          is_active?: boolean | null
+          observation_code?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      brain_typea_2026_09_18_rules_backup: {
+        Row: {
+          action_text: string | null
+          action_type: string | null
+          active_ingredient: string | null
+          affected_crops: string[] | null
+          alternatives: Json | null
+          applicability_scope: string | null
+          application_method: string | null
+          approval_date: string | null
+          approved_by: string | null
+          aquatic_toxicity: string | null
+          bee_toxicity: string | null
+          biological_group: string | null
+          blocked_ingredient_ref: string | null
+          blocks_rule_ids: string[] | null
+          botanical_name: string | null
+          canonical_group: string | null
+          canonical_status: string | null
+          category: string | null
+          cause: string | null
+          chemical_class: string | null
+          climate_zone_applicable: string[] | null
+          compile_notes: string | null
+          compile_status: string | null
+          condition_code: string | null
+          conditions_compiled: Json | null
+          conditions_json: Json | null
+          confidence_score: number | null
+          contraindications: string[] | null
+          created_at: string | null
+          crop_age_days_max: number | null
+          crop_age_days_min: number | null
+          crop_category: string | null
+          crop_code: string | null
+          crop_cycle: string | null
+          crop_family: string | null
+          crop_group: string | null
+          crop_tags: string[] | null
+          cultivation_method_applicable: string[] | null
+          cycle_number_max: number | null
+          cycle_number_min: number | null
+          data_authority_rank: number | null
+          days_to_harvest_max: number | null
+          days_to_harvest_min: number | null
+          decision_trace_template: string | null
+          deprecated_at: string | null
+          deprecation_reason: string | null
+          derived_from: string | null
+          diagnostic_confidence_threshold: number | null
+          differentiating_questions: Json | null
+          dosage_per_acre: string | null
+          enables_rule_ids: string[] | null
+          engine_layer: number | null
+          equipment_cost_per_acre: number | null
+          equipment_required: string[] | null
+          etl_applicable: boolean | null
+          etl_threshold: string | null
+          etl_unit: string | null
+          etl_unit_type: string | null
+          etl_value_max: number | null
+          etl_value_min: number | null
+          expert_approved: boolean | null
+          expert_override_required: boolean | null
+          failure_indicators: string[] | null
+          farmer_safety_level: string | null
+          field_validated: boolean | null
+          forecast_horizon_days: number | null
+          gdd_max: number | null
+          gdd_min: number | null
+          growth_stage: string | null
+          humidity_max_pct: number | null
+          humidity_min_pct: number | null
+          i18n_key: string | null
+          icar_package: string | null
+          icar_package_ref: string | null
+          id: string | null
+          input_class: string | null
+          input_cost_per_acre_max: number | null
+          input_cost_per_acre_min: number | null
+          interaction_type: string | null
+          ipm_level: number | null
+          irrigation_method_applicable: string[] | null
+          is_active: boolean | null
+          is_farmer_servable: boolean | null
+          is_proactive_rule: boolean | null
+          is_safety_block: boolean | null
+          is_system_derived: boolean | null
+          knowledge_text: string | null
+          labor_cost_per_acre_max: number | null
+          labor_cost_per_acre_min: number | null
+          labor_hours_per_acre: number | null
+          last_backup_at: string | null
+          match_explanation_template: string | null
+          material_cost_per_acre_max: number | null
+          material_cost_per_acre_min: number | null
+          maturity_group: string | null
+          max_temperature: number | null
+          max_wind_speed: number | null
+          measurement_method: string | null
+          min_data_completeness: number | null
+          min_temperature: number | null
+          mode_of_action: string | null
+          mutually_exclusive_with: string[] | null
+          ndvi_change_rate: string | null
+          ndvi_max: number | null
+          ndvi_min: number | null
+          observable_characteristics: Json | null
+          observation_confidence_weight: number | null
+          organic_alternative: string | null
+          owner_tenant_id: string | null
+          pest_code: string | null
+          phi_days: number | null
+          phi_source: string | null
+          phi_status: string | null
+          phi_verified_at: string | null
+          phi_verified_by: string | null
+          prediction_type: string | null
+          prerequisite_rule_ids: string[] | null
+          priority: number | null
+          probability_threshold: number | null
+          rain_delay_hours: number | null
+          rainfall_probability_min_pct: number | null
+          reason_text: string | null
+          reentry_interval_hours: number | null
+          region_code: string | null
+          regulatory_status: string | null
+          required_observation_category: string[] | null
+          required_plant_part: string[] | null
+          requires_field_action: boolean | null
+          research_paper_ref: string | null
+          resistance_group: string | null
+          response_severity: string | null
+          risk_level: string | null
+          roi_confidence: number | null
+          roi_cost_saved_max: number | null
+          roi_cost_saved_min: number | null
+          roi_net_score: number | null
+          roi_yield_gain_pct: number | null
+          roi_yield_risk_pct: number | null
+          rule_id: string | null
+          rule_id_lc: string | null
+          rule_id_v2: string | null
+          rule_intent: string | null
+          rule_version: string | null
+          scientific_basis: string | null
+          scientific_source: string | null
+          scope: string | null
+          season_applicable: string[] | null
+          sequence_after: string[] | null
+          soil_k_kg_ha_max: number | null
+          soil_k_kg_ha_min: number | null
+          soil_moisture_pct_max: number | null
+          soil_moisture_pct_min: number | null
+          soil_n_kg_ha_max: number | null
+          soil_n_kg_ha_min: number | null
+          soil_p_kg_ha_max: number | null
+          soil_p_kg_ha_min: number | null
+          soil_ph_max: number | null
+          soil_ph_min: number | null
+          soil_type_applicable: string[] | null
+          stage_applicable: string[] | null
+          success_indicators: string[] | null
+          supersedes_rule_id: string | null
+          target_pest_stage: string | null
+          temp_max_celsius: number | null
+          temp_min_celsius: number | null
+          total_cost_estimated: number | null
+          treatment_type: string | null
+          trigger_class: string | null
+          triggers_rule_ids: string[] | null
+          uncertainty_handling_mode: string | null
+          university_source: string | null
+          updated_at: string | null
+          validation_trials: number | null
+          variety_applicable: string[] | null
+          verification_status: string | null
+          version: string | null
+          version_hash: string | null
+          visual_markers: Json | null
+          water_volume_per_acre: string | null
+          weather_dependency: Json | null
+          wind_speed_max_kmph: number | null
+        }
+        Insert: {
+          action_text?: string | null
+          action_type?: string | null
+          active_ingredient?: string | null
+          affected_crops?: string[] | null
+          alternatives?: Json | null
+          applicability_scope?: string | null
+          application_method?: string | null
+          approval_date?: string | null
+          approved_by?: string | null
+          aquatic_toxicity?: string | null
+          bee_toxicity?: string | null
+          biological_group?: string | null
+          blocked_ingredient_ref?: string | null
+          blocks_rule_ids?: string[] | null
+          botanical_name?: string | null
+          canonical_group?: string | null
+          canonical_status?: string | null
+          category?: string | null
+          cause?: string | null
+          chemical_class?: string | null
+          climate_zone_applicable?: string[] | null
+          compile_notes?: string | null
+          compile_status?: string | null
+          condition_code?: string | null
+          conditions_compiled?: Json | null
+          conditions_json?: Json | null
+          confidence_score?: number | null
+          contraindications?: string[] | null
+          created_at?: string | null
+          crop_age_days_max?: number | null
+          crop_age_days_min?: number | null
+          crop_category?: string | null
+          crop_code?: string | null
+          crop_cycle?: string | null
+          crop_family?: string | null
+          crop_group?: string | null
+          crop_tags?: string[] | null
+          cultivation_method_applicable?: string[] | null
+          cycle_number_max?: number | null
+          cycle_number_min?: number | null
+          data_authority_rank?: number | null
+          days_to_harvest_max?: number | null
+          days_to_harvest_min?: number | null
+          decision_trace_template?: string | null
+          deprecated_at?: string | null
+          deprecation_reason?: string | null
+          derived_from?: string | null
+          diagnostic_confidence_threshold?: number | null
+          differentiating_questions?: Json | null
+          dosage_per_acre?: string | null
+          enables_rule_ids?: string[] | null
+          engine_layer?: number | null
+          equipment_cost_per_acre?: number | null
+          equipment_required?: string[] | null
+          etl_applicable?: boolean | null
+          etl_threshold?: string | null
+          etl_unit?: string | null
+          etl_unit_type?: string | null
+          etl_value_max?: number | null
+          etl_value_min?: number | null
+          expert_approved?: boolean | null
+          expert_override_required?: boolean | null
+          failure_indicators?: string[] | null
+          farmer_safety_level?: string | null
+          field_validated?: boolean | null
+          forecast_horizon_days?: number | null
+          gdd_max?: number | null
+          gdd_min?: number | null
+          growth_stage?: string | null
+          humidity_max_pct?: number | null
+          humidity_min_pct?: number | null
+          i18n_key?: string | null
+          icar_package?: string | null
+          icar_package_ref?: string | null
+          id?: string | null
+          input_class?: string | null
+          input_cost_per_acre_max?: number | null
+          input_cost_per_acre_min?: number | null
+          interaction_type?: string | null
+          ipm_level?: number | null
+          irrigation_method_applicable?: string[] | null
+          is_active?: boolean | null
+          is_farmer_servable?: boolean | null
+          is_proactive_rule?: boolean | null
+          is_safety_block?: boolean | null
+          is_system_derived?: boolean | null
+          knowledge_text?: string | null
+          labor_cost_per_acre_max?: number | null
+          labor_cost_per_acre_min?: number | null
+          labor_hours_per_acre?: number | null
+          last_backup_at?: string | null
+          match_explanation_template?: string | null
+          material_cost_per_acre_max?: number | null
+          material_cost_per_acre_min?: number | null
+          maturity_group?: string | null
+          max_temperature?: number | null
+          max_wind_speed?: number | null
+          measurement_method?: string | null
+          min_data_completeness?: number | null
+          min_temperature?: number | null
+          mode_of_action?: string | null
+          mutually_exclusive_with?: string[] | null
+          ndvi_change_rate?: string | null
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          observable_characteristics?: Json | null
+          observation_confidence_weight?: number | null
+          organic_alternative?: string | null
+          owner_tenant_id?: string | null
+          pest_code?: string | null
+          phi_days?: number | null
+          phi_source?: string | null
+          phi_status?: string | null
+          phi_verified_at?: string | null
+          phi_verified_by?: string | null
+          prediction_type?: string | null
+          prerequisite_rule_ids?: string[] | null
+          priority?: number | null
+          probability_threshold?: number | null
+          rain_delay_hours?: number | null
+          rainfall_probability_min_pct?: number | null
+          reason_text?: string | null
+          reentry_interval_hours?: number | null
+          region_code?: string | null
+          regulatory_status?: string | null
+          required_observation_category?: string[] | null
+          required_plant_part?: string[] | null
+          requires_field_action?: boolean | null
+          research_paper_ref?: string | null
+          resistance_group?: string | null
+          response_severity?: string | null
+          risk_level?: string | null
+          roi_confidence?: number | null
+          roi_cost_saved_max?: number | null
+          roi_cost_saved_min?: number | null
+          roi_net_score?: number | null
+          roi_yield_gain_pct?: number | null
+          roi_yield_risk_pct?: number | null
+          rule_id?: string | null
+          rule_id_lc?: string | null
+          rule_id_v2?: string | null
+          rule_intent?: string | null
+          rule_version?: string | null
+          scientific_basis?: string | null
+          scientific_source?: string | null
+          scope?: string | null
+          season_applicable?: string[] | null
+          sequence_after?: string[] | null
+          soil_k_kg_ha_max?: number | null
+          soil_k_kg_ha_min?: number | null
+          soil_moisture_pct_max?: number | null
+          soil_moisture_pct_min?: number | null
+          soil_n_kg_ha_max?: number | null
+          soil_n_kg_ha_min?: number | null
+          soil_p_kg_ha_max?: number | null
+          soil_p_kg_ha_min?: number | null
+          soil_ph_max?: number | null
+          soil_ph_min?: number | null
+          soil_type_applicable?: string[] | null
+          stage_applicable?: string[] | null
+          success_indicators?: string[] | null
+          supersedes_rule_id?: string | null
+          target_pest_stage?: string | null
+          temp_max_celsius?: number | null
+          temp_min_celsius?: number | null
+          total_cost_estimated?: number | null
+          treatment_type?: string | null
+          trigger_class?: string | null
+          triggers_rule_ids?: string[] | null
+          uncertainty_handling_mode?: string | null
+          university_source?: string | null
+          updated_at?: string | null
+          validation_trials?: number | null
+          variety_applicable?: string[] | null
+          verification_status?: string | null
+          version?: string | null
+          version_hash?: string | null
+          visual_markers?: Json | null
+          water_volume_per_acre?: string | null
+          weather_dependency?: Json | null
+          wind_speed_max_kmph?: number | null
+        }
+        Update: {
+          action_text?: string | null
+          action_type?: string | null
+          active_ingredient?: string | null
+          affected_crops?: string[] | null
+          alternatives?: Json | null
+          applicability_scope?: string | null
+          application_method?: string | null
+          approval_date?: string | null
+          approved_by?: string | null
+          aquatic_toxicity?: string | null
+          bee_toxicity?: string | null
+          biological_group?: string | null
+          blocked_ingredient_ref?: string | null
+          blocks_rule_ids?: string[] | null
+          botanical_name?: string | null
+          canonical_group?: string | null
+          canonical_status?: string | null
+          category?: string | null
+          cause?: string | null
+          chemical_class?: string | null
+          climate_zone_applicable?: string[] | null
+          compile_notes?: string | null
+          compile_status?: string | null
+          condition_code?: string | null
+          conditions_compiled?: Json | null
+          conditions_json?: Json | null
+          confidence_score?: number | null
+          contraindications?: string[] | null
+          created_at?: string | null
+          crop_age_days_max?: number | null
+          crop_age_days_min?: number | null
+          crop_category?: string | null
+          crop_code?: string | null
+          crop_cycle?: string | null
+          crop_family?: string | null
+          crop_group?: string | null
+          crop_tags?: string[] | null
+          cultivation_method_applicable?: string[] | null
+          cycle_number_max?: number | null
+          cycle_number_min?: number | null
+          data_authority_rank?: number | null
+          days_to_harvest_max?: number | null
+          days_to_harvest_min?: number | null
+          decision_trace_template?: string | null
+          deprecated_at?: string | null
+          deprecation_reason?: string | null
+          derived_from?: string | null
+          diagnostic_confidence_threshold?: number | null
+          differentiating_questions?: Json | null
+          dosage_per_acre?: string | null
+          enables_rule_ids?: string[] | null
+          engine_layer?: number | null
+          equipment_cost_per_acre?: number | null
+          equipment_required?: string[] | null
+          etl_applicable?: boolean | null
+          etl_threshold?: string | null
+          etl_unit?: string | null
+          etl_unit_type?: string | null
+          etl_value_max?: number | null
+          etl_value_min?: number | null
+          expert_approved?: boolean | null
+          expert_override_required?: boolean | null
+          failure_indicators?: string[] | null
+          farmer_safety_level?: string | null
+          field_validated?: boolean | null
+          forecast_horizon_days?: number | null
+          gdd_max?: number | null
+          gdd_min?: number | null
+          growth_stage?: string | null
+          humidity_max_pct?: number | null
+          humidity_min_pct?: number | null
+          i18n_key?: string | null
+          icar_package?: string | null
+          icar_package_ref?: string | null
+          id?: string | null
+          input_class?: string | null
+          input_cost_per_acre_max?: number | null
+          input_cost_per_acre_min?: number | null
+          interaction_type?: string | null
+          ipm_level?: number | null
+          irrigation_method_applicable?: string[] | null
+          is_active?: boolean | null
+          is_farmer_servable?: boolean | null
+          is_proactive_rule?: boolean | null
+          is_safety_block?: boolean | null
+          is_system_derived?: boolean | null
+          knowledge_text?: string | null
+          labor_cost_per_acre_max?: number | null
+          labor_cost_per_acre_min?: number | null
+          labor_hours_per_acre?: number | null
+          last_backup_at?: string | null
+          match_explanation_template?: string | null
+          material_cost_per_acre_max?: number | null
+          material_cost_per_acre_min?: number | null
+          maturity_group?: string | null
+          max_temperature?: number | null
+          max_wind_speed?: number | null
+          measurement_method?: string | null
+          min_data_completeness?: number | null
+          min_temperature?: number | null
+          mode_of_action?: string | null
+          mutually_exclusive_with?: string[] | null
+          ndvi_change_rate?: string | null
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          observable_characteristics?: Json | null
+          observation_confidence_weight?: number | null
+          organic_alternative?: string | null
+          owner_tenant_id?: string | null
+          pest_code?: string | null
+          phi_days?: number | null
+          phi_source?: string | null
+          phi_status?: string | null
+          phi_verified_at?: string | null
+          phi_verified_by?: string | null
+          prediction_type?: string | null
+          prerequisite_rule_ids?: string[] | null
+          priority?: number | null
+          probability_threshold?: number | null
+          rain_delay_hours?: number | null
+          rainfall_probability_min_pct?: number | null
+          reason_text?: string | null
+          reentry_interval_hours?: number | null
+          region_code?: string | null
+          regulatory_status?: string | null
+          required_observation_category?: string[] | null
+          required_plant_part?: string[] | null
+          requires_field_action?: boolean | null
+          research_paper_ref?: string | null
+          resistance_group?: string | null
+          response_severity?: string | null
+          risk_level?: string | null
+          roi_confidence?: number | null
+          roi_cost_saved_max?: number | null
+          roi_cost_saved_min?: number | null
+          roi_net_score?: number | null
+          roi_yield_gain_pct?: number | null
+          roi_yield_risk_pct?: number | null
+          rule_id?: string | null
+          rule_id_lc?: string | null
+          rule_id_v2?: string | null
+          rule_intent?: string | null
+          rule_version?: string | null
+          scientific_basis?: string | null
+          scientific_source?: string | null
+          scope?: string | null
+          season_applicable?: string[] | null
+          sequence_after?: string[] | null
+          soil_k_kg_ha_max?: number | null
+          soil_k_kg_ha_min?: number | null
+          soil_moisture_pct_max?: number | null
+          soil_moisture_pct_min?: number | null
+          soil_n_kg_ha_max?: number | null
+          soil_n_kg_ha_min?: number | null
+          soil_p_kg_ha_max?: number | null
+          soil_p_kg_ha_min?: number | null
+          soil_ph_max?: number | null
+          soil_ph_min?: number | null
+          soil_type_applicable?: string[] | null
+          stage_applicable?: string[] | null
+          success_indicators?: string[] | null
+          supersedes_rule_id?: string | null
+          target_pest_stage?: string | null
+          temp_max_celsius?: number | null
+          temp_min_celsius?: number | null
+          total_cost_estimated?: number | null
+          treatment_type?: string | null
+          trigger_class?: string | null
+          triggers_rule_ids?: string[] | null
+          uncertainty_handling_mode?: string | null
+          university_source?: string | null
+          updated_at?: string | null
+          validation_trials?: number | null
+          variety_applicable?: string[] | null
+          verification_status?: string | null
+          version?: string | null
+          version_hash?: string | null
+          visual_markers?: Json | null
+          water_volume_per_acre?: string | null
+          weather_dependency?: Json | null
+          wind_speed_max_kmph?: number | null
+        }
+        Relationships: []
+      }
+      brain_typec_2026_09_22_backup: {
+        Row: {
+          backed_up_at: string | null
+          observation_code: string
+          old_category: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          observation_code: string
+          old_category?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          observation_code?: string
+          old_category?: string | null
+        }
+        Relationships: []
+      }
+      brain_valuefix_2026_09_18_rules_backup: {
+        Row: {
+          action_text: string | null
+          action_type: string | null
+          active_ingredient: string | null
+          affected_crops: string[] | null
+          alternatives: Json | null
+          applicability_scope: string | null
+          application_method: string | null
+          approval_date: string | null
+          approved_by: string | null
+          aquatic_toxicity: string | null
+          bee_toxicity: string | null
+          biological_group: string | null
+          blocked_ingredient_ref: string | null
+          blocks_rule_ids: string[] | null
+          botanical_name: string | null
+          canonical_group: string | null
+          canonical_status: string | null
+          category: string | null
+          cause: string | null
+          chemical_class: string | null
+          climate_zone_applicable: string[] | null
+          compile_notes: string | null
+          compile_status: string | null
+          condition_code: string | null
+          conditions_compiled: Json | null
+          conditions_json: Json | null
+          confidence_score: number | null
+          contraindications: string[] | null
+          created_at: string | null
+          crop_age_days_max: number | null
+          crop_age_days_min: number | null
+          crop_category: string | null
+          crop_code: string | null
+          crop_cycle: string | null
+          crop_family: string | null
+          crop_group: string | null
+          crop_tags: string[] | null
+          cultivation_method_applicable: string[] | null
+          cycle_number_max: number | null
+          cycle_number_min: number | null
+          data_authority_rank: number | null
+          days_to_harvest_max: number | null
+          days_to_harvest_min: number | null
+          decision_trace_template: string | null
+          deprecated_at: string | null
+          deprecation_reason: string | null
+          derived_from: string | null
+          diagnostic_confidence_threshold: number | null
+          differentiating_questions: Json | null
+          dosage_per_acre: string | null
+          enables_rule_ids: string[] | null
+          engine_layer: number | null
+          equipment_cost_per_acre: number | null
+          equipment_required: string[] | null
+          etl_applicable: boolean | null
+          etl_threshold: string | null
+          etl_unit: string | null
+          etl_unit_type: string | null
+          etl_value_max: number | null
+          etl_value_min: number | null
+          expert_approved: boolean | null
+          expert_override_required: boolean | null
+          failure_indicators: string[] | null
+          farmer_safety_level: string | null
+          field_validated: boolean | null
+          forecast_horizon_days: number | null
+          gdd_max: number | null
+          gdd_min: number | null
+          growth_stage: string | null
+          humidity_max_pct: number | null
+          humidity_min_pct: number | null
+          i18n_key: string | null
+          icar_package: string | null
+          icar_package_ref: string | null
+          id: string | null
+          input_class: string | null
+          input_cost_per_acre_max: number | null
+          input_cost_per_acre_min: number | null
+          interaction_type: string | null
+          ipm_level: number | null
+          irrigation_method_applicable: string[] | null
+          is_active: boolean | null
+          is_farmer_servable: boolean | null
+          is_proactive_rule: boolean | null
+          is_safety_block: boolean | null
+          is_system_derived: boolean | null
+          knowledge_text: string | null
+          labor_cost_per_acre_max: number | null
+          labor_cost_per_acre_min: number | null
+          labor_hours_per_acre: number | null
+          last_backup_at: string | null
+          match_explanation_template: string | null
+          material_cost_per_acre_max: number | null
+          material_cost_per_acre_min: number | null
+          maturity_group: string | null
+          max_temperature: number | null
+          max_wind_speed: number | null
+          measurement_method: string | null
+          min_data_completeness: number | null
+          min_temperature: number | null
+          mode_of_action: string | null
+          mutually_exclusive_with: string[] | null
+          ndvi_change_rate: string | null
+          ndvi_max: number | null
+          ndvi_min: number | null
+          observable_characteristics: Json | null
+          observation_confidence_weight: number | null
+          organic_alternative: string | null
+          owner_tenant_id: string | null
+          pest_code: string | null
+          phi_days: number | null
+          phi_source: string | null
+          phi_status: string | null
+          phi_verified_at: string | null
+          phi_verified_by: string | null
+          prediction_type: string | null
+          prerequisite_rule_ids: string[] | null
+          priority: number | null
+          probability_threshold: number | null
+          rain_delay_hours: number | null
+          rainfall_probability_min_pct: number | null
+          reason_text: string | null
+          reentry_interval_hours: number | null
+          region_code: string | null
+          regulatory_status: string | null
+          required_observation_category: string[] | null
+          required_plant_part: string[] | null
+          requires_field_action: boolean | null
+          research_paper_ref: string | null
+          resistance_group: string | null
+          response_severity: string | null
+          risk_level: string | null
+          roi_confidence: number | null
+          roi_cost_saved_max: number | null
+          roi_cost_saved_min: number | null
+          roi_net_score: number | null
+          roi_yield_gain_pct: number | null
+          roi_yield_risk_pct: number | null
+          rule_id: string | null
+          rule_id_lc: string | null
+          rule_id_v2: string | null
+          rule_intent: string | null
+          rule_version: string | null
+          scientific_basis: string | null
+          scientific_source: string | null
+          scope: string | null
+          season_applicable: string[] | null
+          sequence_after: string[] | null
+          soil_k_kg_ha_max: number | null
+          soil_k_kg_ha_min: number | null
+          soil_moisture_pct_max: number | null
+          soil_moisture_pct_min: number | null
+          soil_n_kg_ha_max: number | null
+          soil_n_kg_ha_min: number | null
+          soil_p_kg_ha_max: number | null
+          soil_p_kg_ha_min: number | null
+          soil_ph_max: number | null
+          soil_ph_min: number | null
+          soil_type_applicable: string[] | null
+          stage_applicable: string[] | null
+          success_indicators: string[] | null
+          supersedes_rule_id: string | null
+          target_pest_stage: string | null
+          temp_max_celsius: number | null
+          temp_min_celsius: number | null
+          total_cost_estimated: number | null
+          treatment_type: string | null
+          trigger_class: string | null
+          triggers_rule_ids: string[] | null
+          uncertainty_handling_mode: string | null
+          university_source: string | null
+          updated_at: string | null
+          validation_trials: number | null
+          variety_applicable: string[] | null
+          verification_status: string | null
+          version: string | null
+          version_hash: string | null
+          visual_markers: Json | null
+          water_volume_per_acre: string | null
+          weather_dependency: Json | null
+          wind_speed_max_kmph: number | null
+        }
+        Insert: {
+          action_text?: string | null
+          action_type?: string | null
+          active_ingredient?: string | null
+          affected_crops?: string[] | null
+          alternatives?: Json | null
+          applicability_scope?: string | null
+          application_method?: string | null
+          approval_date?: string | null
+          approved_by?: string | null
+          aquatic_toxicity?: string | null
+          bee_toxicity?: string | null
+          biological_group?: string | null
+          blocked_ingredient_ref?: string | null
+          blocks_rule_ids?: string[] | null
+          botanical_name?: string | null
+          canonical_group?: string | null
+          canonical_status?: string | null
+          category?: string | null
+          cause?: string | null
+          chemical_class?: string | null
+          climate_zone_applicable?: string[] | null
+          compile_notes?: string | null
+          compile_status?: string | null
+          condition_code?: string | null
+          conditions_compiled?: Json | null
+          conditions_json?: Json | null
+          confidence_score?: number | null
+          contraindications?: string[] | null
+          created_at?: string | null
+          crop_age_days_max?: number | null
+          crop_age_days_min?: number | null
+          crop_category?: string | null
+          crop_code?: string | null
+          crop_cycle?: string | null
+          crop_family?: string | null
+          crop_group?: string | null
+          crop_tags?: string[] | null
+          cultivation_method_applicable?: string[] | null
+          cycle_number_max?: number | null
+          cycle_number_min?: number | null
+          data_authority_rank?: number | null
+          days_to_harvest_max?: number | null
+          days_to_harvest_min?: number | null
+          decision_trace_template?: string | null
+          deprecated_at?: string | null
+          deprecation_reason?: string | null
+          derived_from?: string | null
+          diagnostic_confidence_threshold?: number | null
+          differentiating_questions?: Json | null
+          dosage_per_acre?: string | null
+          enables_rule_ids?: string[] | null
+          engine_layer?: number | null
+          equipment_cost_per_acre?: number | null
+          equipment_required?: string[] | null
+          etl_applicable?: boolean | null
+          etl_threshold?: string | null
+          etl_unit?: string | null
+          etl_unit_type?: string | null
+          etl_value_max?: number | null
+          etl_value_min?: number | null
+          expert_approved?: boolean | null
+          expert_override_required?: boolean | null
+          failure_indicators?: string[] | null
+          farmer_safety_level?: string | null
+          field_validated?: boolean | null
+          forecast_horizon_days?: number | null
+          gdd_max?: number | null
+          gdd_min?: number | null
+          growth_stage?: string | null
+          humidity_max_pct?: number | null
+          humidity_min_pct?: number | null
+          i18n_key?: string | null
+          icar_package?: string | null
+          icar_package_ref?: string | null
+          id?: string | null
+          input_class?: string | null
+          input_cost_per_acre_max?: number | null
+          input_cost_per_acre_min?: number | null
+          interaction_type?: string | null
+          ipm_level?: number | null
+          irrigation_method_applicable?: string[] | null
+          is_active?: boolean | null
+          is_farmer_servable?: boolean | null
+          is_proactive_rule?: boolean | null
+          is_safety_block?: boolean | null
+          is_system_derived?: boolean | null
+          knowledge_text?: string | null
+          labor_cost_per_acre_max?: number | null
+          labor_cost_per_acre_min?: number | null
+          labor_hours_per_acre?: number | null
+          last_backup_at?: string | null
+          match_explanation_template?: string | null
+          material_cost_per_acre_max?: number | null
+          material_cost_per_acre_min?: number | null
+          maturity_group?: string | null
+          max_temperature?: number | null
+          max_wind_speed?: number | null
+          measurement_method?: string | null
+          min_data_completeness?: number | null
+          min_temperature?: number | null
+          mode_of_action?: string | null
+          mutually_exclusive_with?: string[] | null
+          ndvi_change_rate?: string | null
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          observable_characteristics?: Json | null
+          observation_confidence_weight?: number | null
+          organic_alternative?: string | null
+          owner_tenant_id?: string | null
+          pest_code?: string | null
+          phi_days?: number | null
+          phi_source?: string | null
+          phi_status?: string | null
+          phi_verified_at?: string | null
+          phi_verified_by?: string | null
+          prediction_type?: string | null
+          prerequisite_rule_ids?: string[] | null
+          priority?: number | null
+          probability_threshold?: number | null
+          rain_delay_hours?: number | null
+          rainfall_probability_min_pct?: number | null
+          reason_text?: string | null
+          reentry_interval_hours?: number | null
+          region_code?: string | null
+          regulatory_status?: string | null
+          required_observation_category?: string[] | null
+          required_plant_part?: string[] | null
+          requires_field_action?: boolean | null
+          research_paper_ref?: string | null
+          resistance_group?: string | null
+          response_severity?: string | null
+          risk_level?: string | null
+          roi_confidence?: number | null
+          roi_cost_saved_max?: number | null
+          roi_cost_saved_min?: number | null
+          roi_net_score?: number | null
+          roi_yield_gain_pct?: number | null
+          roi_yield_risk_pct?: number | null
+          rule_id?: string | null
+          rule_id_lc?: string | null
+          rule_id_v2?: string | null
+          rule_intent?: string | null
+          rule_version?: string | null
+          scientific_basis?: string | null
+          scientific_source?: string | null
+          scope?: string | null
+          season_applicable?: string[] | null
+          sequence_after?: string[] | null
+          soil_k_kg_ha_max?: number | null
+          soil_k_kg_ha_min?: number | null
+          soil_moisture_pct_max?: number | null
+          soil_moisture_pct_min?: number | null
+          soil_n_kg_ha_max?: number | null
+          soil_n_kg_ha_min?: number | null
+          soil_p_kg_ha_max?: number | null
+          soil_p_kg_ha_min?: number | null
+          soil_ph_max?: number | null
+          soil_ph_min?: number | null
+          soil_type_applicable?: string[] | null
+          stage_applicable?: string[] | null
+          success_indicators?: string[] | null
+          supersedes_rule_id?: string | null
+          target_pest_stage?: string | null
+          temp_max_celsius?: number | null
+          temp_min_celsius?: number | null
+          total_cost_estimated?: number | null
+          treatment_type?: string | null
+          trigger_class?: string | null
+          triggers_rule_ids?: string[] | null
+          uncertainty_handling_mode?: string | null
+          university_source?: string | null
+          updated_at?: string | null
+          validation_trials?: number | null
+          variety_applicable?: string[] | null
+          verification_status?: string | null
+          version?: string | null
+          version_hash?: string | null
+          visual_markers?: Json | null
+          water_volume_per_acre?: string | null
+          weather_dependency?: Json | null
+          wind_speed_max_kmph?: number | null
+        }
+        Update: {
+          action_text?: string | null
+          action_type?: string | null
+          active_ingredient?: string | null
+          affected_crops?: string[] | null
+          alternatives?: Json | null
+          applicability_scope?: string | null
+          application_method?: string | null
+          approval_date?: string | null
+          approved_by?: string | null
+          aquatic_toxicity?: string | null
+          bee_toxicity?: string | null
+          biological_group?: string | null
+          blocked_ingredient_ref?: string | null
+          blocks_rule_ids?: string[] | null
+          botanical_name?: string | null
+          canonical_group?: string | null
+          canonical_status?: string | null
+          category?: string | null
+          cause?: string | null
+          chemical_class?: string | null
+          climate_zone_applicable?: string[] | null
+          compile_notes?: string | null
+          compile_status?: string | null
+          condition_code?: string | null
+          conditions_compiled?: Json | null
+          conditions_json?: Json | null
+          confidence_score?: number | null
+          contraindications?: string[] | null
+          created_at?: string | null
+          crop_age_days_max?: number | null
+          crop_age_days_min?: number | null
+          crop_category?: string | null
+          crop_code?: string | null
+          crop_cycle?: string | null
+          crop_family?: string | null
+          crop_group?: string | null
+          crop_tags?: string[] | null
+          cultivation_method_applicable?: string[] | null
+          cycle_number_max?: number | null
+          cycle_number_min?: number | null
+          data_authority_rank?: number | null
+          days_to_harvest_max?: number | null
+          days_to_harvest_min?: number | null
+          decision_trace_template?: string | null
+          deprecated_at?: string | null
+          deprecation_reason?: string | null
+          derived_from?: string | null
+          diagnostic_confidence_threshold?: number | null
+          differentiating_questions?: Json | null
+          dosage_per_acre?: string | null
+          enables_rule_ids?: string[] | null
+          engine_layer?: number | null
+          equipment_cost_per_acre?: number | null
+          equipment_required?: string[] | null
+          etl_applicable?: boolean | null
+          etl_threshold?: string | null
+          etl_unit?: string | null
+          etl_unit_type?: string | null
+          etl_value_max?: number | null
+          etl_value_min?: number | null
+          expert_approved?: boolean | null
+          expert_override_required?: boolean | null
+          failure_indicators?: string[] | null
+          farmer_safety_level?: string | null
+          field_validated?: boolean | null
+          forecast_horizon_days?: number | null
+          gdd_max?: number | null
+          gdd_min?: number | null
+          growth_stage?: string | null
+          humidity_max_pct?: number | null
+          humidity_min_pct?: number | null
+          i18n_key?: string | null
+          icar_package?: string | null
+          icar_package_ref?: string | null
+          id?: string | null
+          input_class?: string | null
+          input_cost_per_acre_max?: number | null
+          input_cost_per_acre_min?: number | null
+          interaction_type?: string | null
+          ipm_level?: number | null
+          irrigation_method_applicable?: string[] | null
+          is_active?: boolean | null
+          is_farmer_servable?: boolean | null
+          is_proactive_rule?: boolean | null
+          is_safety_block?: boolean | null
+          is_system_derived?: boolean | null
+          knowledge_text?: string | null
+          labor_cost_per_acre_max?: number | null
+          labor_cost_per_acre_min?: number | null
+          labor_hours_per_acre?: number | null
+          last_backup_at?: string | null
+          match_explanation_template?: string | null
+          material_cost_per_acre_max?: number | null
+          material_cost_per_acre_min?: number | null
+          maturity_group?: string | null
+          max_temperature?: number | null
+          max_wind_speed?: number | null
+          measurement_method?: string | null
+          min_data_completeness?: number | null
+          min_temperature?: number | null
+          mode_of_action?: string | null
+          mutually_exclusive_with?: string[] | null
+          ndvi_change_rate?: string | null
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          observable_characteristics?: Json | null
+          observation_confidence_weight?: number | null
+          organic_alternative?: string | null
+          owner_tenant_id?: string | null
+          pest_code?: string | null
+          phi_days?: number | null
+          phi_source?: string | null
+          phi_status?: string | null
+          phi_verified_at?: string | null
+          phi_verified_by?: string | null
+          prediction_type?: string | null
+          prerequisite_rule_ids?: string[] | null
+          priority?: number | null
+          probability_threshold?: number | null
+          rain_delay_hours?: number | null
+          rainfall_probability_min_pct?: number | null
+          reason_text?: string | null
+          reentry_interval_hours?: number | null
+          region_code?: string | null
+          regulatory_status?: string | null
+          required_observation_category?: string[] | null
+          required_plant_part?: string[] | null
+          requires_field_action?: boolean | null
+          research_paper_ref?: string | null
+          resistance_group?: string | null
+          response_severity?: string | null
+          risk_level?: string | null
+          roi_confidence?: number | null
+          roi_cost_saved_max?: number | null
+          roi_cost_saved_min?: number | null
+          roi_net_score?: number | null
+          roi_yield_gain_pct?: number | null
+          roi_yield_risk_pct?: number | null
+          rule_id?: string | null
+          rule_id_lc?: string | null
+          rule_id_v2?: string | null
+          rule_intent?: string | null
+          rule_version?: string | null
+          scientific_basis?: string | null
+          scientific_source?: string | null
+          scope?: string | null
+          season_applicable?: string[] | null
+          sequence_after?: string[] | null
+          soil_k_kg_ha_max?: number | null
+          soil_k_kg_ha_min?: number | null
+          soil_moisture_pct_max?: number | null
+          soil_moisture_pct_min?: number | null
+          soil_n_kg_ha_max?: number | null
+          soil_n_kg_ha_min?: number | null
+          soil_p_kg_ha_max?: number | null
+          soil_p_kg_ha_min?: number | null
+          soil_ph_max?: number | null
+          soil_ph_min?: number | null
+          soil_type_applicable?: string[] | null
+          stage_applicable?: string[] | null
+          success_indicators?: string[] | null
+          supersedes_rule_id?: string | null
+          target_pest_stage?: string | null
+          temp_max_celsius?: number | null
+          temp_min_celsius?: number | null
+          total_cost_estimated?: number | null
+          treatment_type?: string | null
+          trigger_class?: string | null
+          triggers_rule_ids?: string[] | null
+          uncertainty_handling_mode?: string | null
+          university_source?: string | null
+          updated_at?: string | null
+          validation_trials?: number | null
+          variety_applicable?: string[] | null
+          verification_status?: string | null
+          version?: string | null
+          version_hash?: string | null
+          visual_markers?: Json | null
+          water_volume_per_acre?: string | null
+          weather_dependency?: Json | null
+          wind_speed_max_kmph?: number | null
+        }
+        Relationships: []
+      }
+      brain_visibility_2026_09_22_backup: {
+        Row: {
+          backed_up_at: string | null
+          can_generate_question: boolean | null
+          is_farmer_observable: boolean | null
+          observation_code: string
+        }
+        Insert: {
+          backed_up_at?: string | null
+          can_generate_question?: boolean | null
+          is_farmer_observable?: boolean | null
+          observation_code: string
+        }
+        Update: {
+          backed_up_at?: string | null
+          can_generate_question?: boolean | null
+          is_farmer_observable?: boolean | null
+          observation_code?: string
+        }
+        Relationships: []
       }
       bulk_operations: {
         Row: {
@@ -2847,6 +5186,94 @@ export type Database = {
         }
         Relationships: []
       }
+      canonical_group_mapping: {
+        Row: {
+          biological_group: string
+          confidence: number | null
+          created_at: string | null
+          description: string | null
+          engine_group: string
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          biological_group: string
+          confidence?: number | null
+          created_at?: string | null
+          description?: string | null
+          engine_group: string
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          biological_group?: string
+          confidence?: number | null
+          created_at?: string | null
+          description?: string | null
+          engine_group?: string
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      canonical_hint_mapping: {
+        Row: {
+          canonical_hint: string
+          created_at: string | null
+          crop_code: string
+          id: string
+          is_active: boolean | null
+          observation_code: string
+          updated_at: string | null
+          version: string | null
+          weight_modifier: number | null
+        }
+        Insert: {
+          canonical_hint: string
+          created_at?: string | null
+          crop_code: string
+          id?: string
+          is_active?: boolean | null
+          observation_code: string
+          updated_at?: string | null
+          version?: string | null
+          weight_modifier?: number | null
+        }
+        Update: {
+          canonical_hint?: string
+          created_at?: string | null
+          crop_code?: string
+          id?: string
+          is_active?: boolean | null
+          observation_code?: string
+          updated_at?: string | null
+          version?: string | null
+          weight_modifier?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canonical_hint_mapping_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "canonical_hint_mapping_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "canonical_hint_mapping_observation_code_fkey"
+            columns: ["observation_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+        ]
+      }
       cart_items: {
         Row: {
           added_at: string
@@ -2919,6 +5346,221 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      category_harmonization_map: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          phase: number
+          rationale: string
+          source_category: string
+          status: string
+          target_category: string
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          phase: number
+          rationale: string
+          source_category: string
+          status?: string
+          target_category: string
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          phase?: number
+          rationale?: string
+          source_category?: string
+          status?: string
+          target_category?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_harmonization_map_source_category_fkey"
+            columns: ["source_category"]
+            isOneToOne: true
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "category_harmonization_map_source_category_fkey"
+            columns: ["source_category"]
+            isOneToOne: true
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "category_harmonization_map_target_category_fkey"
+            columns: ["target_category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "category_harmonization_map_target_category_fkey"
+            columns: ["target_category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+        ]
+      }
+      cause_fix_mapping: {
+        Row: {
+          fixed_at: string | null
+          id: string
+          new_cause: string | null
+          old_cause: string | null
+          rule_id: string | null
+        }
+        Insert: {
+          fixed_at?: string | null
+          id: string
+          new_cause?: string | null
+          old_cause?: string | null
+          rule_id?: string | null
+        }
+        Update: {
+          fixed_at?: string | null
+          id?: string
+          new_cause?: string | null
+          old_cause?: string | null
+          rule_id?: string | null
+        }
+        Relationships: []
+      }
+      chemical_regulatory_status: {
+        Row: {
+          alternatives: Json | null
+          ban_date: string | null
+          chemical_class: string | null
+          chemical_name: string
+          created_at: string | null
+          effective_from: string | null
+          id: string
+          npop_conditions: string | null
+          npop_status: string | null
+          reason: string | null
+          regulatory_body: string | null
+          source_ref: string | null
+          status: string
+          who_toxicity_class: string | null
+        }
+        Insert: {
+          alternatives?: Json | null
+          ban_date?: string | null
+          chemical_class?: string | null
+          chemical_name: string
+          created_at?: string | null
+          effective_from?: string | null
+          id?: string
+          npop_conditions?: string | null
+          npop_status?: string | null
+          reason?: string | null
+          regulatory_body?: string | null
+          source_ref?: string | null
+          status: string
+          who_toxicity_class?: string | null
+        }
+        Update: {
+          alternatives?: Json | null
+          ban_date?: string | null
+          chemical_class?: string | null
+          chemical_name?: string
+          created_at?: string | null
+          effective_from?: string | null
+          id?: string
+          npop_conditions?: string | null
+          npop_status?: string | null
+          reason?: string | null
+          regulatory_body?: string | null
+          source_ref?: string | null
+          status?: string
+          who_toxicity_class?: string | null
+        }
+        Relationships: []
+      }
+      chemical_rotation_group: {
+        Row: {
+          chemical_name: string
+          created_at: string
+          id: string
+          moa_code: string | null
+          moa_system: string
+          rotation_family: string
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          chemical_name: string
+          created_at?: string
+          id?: string
+          moa_code?: string | null
+          moa_system: string
+          rotation_family: string
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          chemical_name?: string
+          created_at?: string
+          id?: string
+          moa_code?: string | null
+          moa_system?: string
+          rotation_family?: string
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      chemical_variety_requirement: {
+        Row: {
+          active_ingredient_pattern: string
+          consequence_if_absent: string
+          crop_code: string
+          id: string
+          is_active: boolean
+          required_trait: string
+          severity: string
+          source: string | null
+        }
+        Insert: {
+          active_ingredient_pattern: string
+          consequence_if_absent: string
+          crop_code: string
+          id?: string
+          is_active?: boolean
+          required_trait: string
+          severity?: string
+          source?: string | null
+        }
+        Update: {
+          active_ingredient_pattern?: string
+          consequence_if_absent?: string
+          crop_code?: string
+          id?: string
+          is_active?: boolean
+          required_trait?: string
+          severity?: string
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chemical_variety_requirement_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "chemical_variety_requirement_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -3127,6 +5769,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "crops"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communities_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["crop_id"]
           },
           {
             foreignKeyName: "communities_tenant_id_fkey"
@@ -3575,6 +6224,42 @@ export type Database = {
           },
         ]
       }
+      confidence_adjustments: {
+        Row: {
+          actual_accuracy: number | null
+          adjustment_direction: string | null
+          calibration_factor: number | null
+          created_at: string
+          effective_from: string
+          id: string
+          original_avg_confidence: number | null
+          pest_disease_code: string
+          sample_size: number | null
+        }
+        Insert: {
+          actual_accuracy?: number | null
+          adjustment_direction?: string | null
+          calibration_factor?: number | null
+          created_at?: string
+          effective_from?: string
+          id?: string
+          original_avg_confidence?: number | null
+          pest_disease_code: string
+          sample_size?: number | null
+        }
+        Update: {
+          actual_accuracy?: number | null
+          adjustment_direction?: string | null
+          calibration_factor?: number | null
+          created_at?: string
+          effective_from?: string
+          id?: string
+          original_avg_confidence?: number | null
+          pest_disease_code?: string
+          sample_size?: number | null
+        }
+        Relationships: []
+      }
       content_moderation: {
         Row: {
           content_id: string
@@ -3799,10 +6484,153 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "copernicus_api_calls_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "copernicus_api_calls_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "copernicus_api_calls_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "copernicus_api_calls_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
             foreignKeyName: "copernicus_api_calls_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_component_standard: {
+        Row: {
+          amount_per_acre: number
+          component_code: string
+          cost_basis: string
+          created_at: string
+          crop_code: string
+          cultivation_method: string | null
+          currency_code: string
+          district_id: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          knowledge_source_id: string | null
+          origin: string
+          reference_season: string | null
+          scope_level: string
+          source_note: string | null
+          state_id: string | null
+          taluka_id: string | null
+          updated_at: string
+          village_id: string | null
+        }
+        Insert: {
+          amount_per_acre: number
+          component_code: string
+          cost_basis: string
+          created_at?: string
+          crop_code: string
+          cultivation_method?: string | null
+          currency_code: string
+          district_id?: string | null
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          knowledge_source_id?: string | null
+          origin: string
+          reference_season?: string | null
+          scope_level: string
+          source_note?: string | null
+          state_id?: string | null
+          taluka_id?: string | null
+          updated_at?: string
+          village_id?: string | null
+        }
+        Update: {
+          amount_per_acre?: number
+          component_code?: string
+          cost_basis?: string
+          created_at?: string
+          crop_code?: string
+          cultivation_method?: string | null
+          currency_code?: string
+          district_id?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          knowledge_source_id?: string | null
+          origin?: string
+          reference_season?: string | null
+          scope_level?: string
+          source_note?: string | null
+          state_id?: string | null
+          taluka_id?: string | null
+          updated_at?: string
+          village_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_component_standard_component_code_fkey"
+            columns: ["component_code"]
+            isOneToOne: false
+            referencedRelation: "expense_component_master"
+            referencedColumns: ["component_code"]
+          },
+          {
+            foreignKeyName: "cost_component_standard_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "districts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_component_standard_knowledge_source_id_fkey"
+            columns: ["knowledge_source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_component_standard_state_id_fkey"
+            columns: ["state_id"]
+            isOneToOne: false
+            referencedRelation: "states"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_component_standard_taluka_id_fkey"
+            columns: ["taluka_id"]
+            isOneToOne: false
+            referencedRelation: "talukas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_component_standard_village_id_fkey"
+            columns: ["village_id"]
+            isOneToOne: false
+            referencedRelation: "villages"
             referencedColumns: ["id"]
           },
         ]
@@ -3842,6 +6670,7 @@ export type Database = {
           id: string
           invoice_id: string | null
           metadata: Json | null
+          payment_intent_id: string | null
           redeemed_at: string
           subscription_id: string | null
           tenant_id: string | null
@@ -3853,6 +6682,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           metadata?: Json | null
+          payment_intent_id?: string | null
           redeemed_at?: string
           subscription_id?: string | null
           tenant_id?: string | null
@@ -3864,6 +6694,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           metadata?: Json | null
+          payment_intent_id?: string | null
           redeemed_at?: string
           subscription_id?: string | null
           tenant_id?: string | null
@@ -4033,6 +6864,267 @@ export type Database = {
         }
         Relationships: []
       }
+      crop_baseline_guidelines_v2: {
+        Row: {
+          created_at: string | null
+          critical_moisture_percent: number | null
+          crop_code: string
+          das_authoritative: boolean
+          das_end: number | null
+          das_start: number | null
+          growth_stage: string
+          id: string
+          iron_optimal: number | null
+          irrigation_interval_days: number | null
+          is_active: boolean | null
+          ndvi_thresholds: Json | null
+          nitrogen_max: number | null
+          nitrogen_min: number | null
+          nitrogen_optimal: number | null
+          notes: string | null
+          phosphorus_max: number | null
+          phosphorus_min: number | null
+          phosphorus_optimal: number | null
+          potassium_max: number | null
+          potassium_min: number | null
+          potassium_optimal: number | null
+          soil_ec_max: number | null
+          soil_ph_max: number | null
+          soil_ph_min: number | null
+          source_reference: string | null
+          stage_master_id: string | null
+          sulphur_optimal: number | null
+          updated_at: string | null
+          variety_id: string | null
+          water_requirement_mm: number | null
+          zinc_optimal: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          critical_moisture_percent?: number | null
+          crop_code: string
+          das_authoritative?: boolean
+          das_end?: number | null
+          das_start?: number | null
+          growth_stage: string
+          id?: string
+          iron_optimal?: number | null
+          irrigation_interval_days?: number | null
+          is_active?: boolean | null
+          ndvi_thresholds?: Json | null
+          nitrogen_max?: number | null
+          nitrogen_min?: number | null
+          nitrogen_optimal?: number | null
+          notes?: string | null
+          phosphorus_max?: number | null
+          phosphorus_min?: number | null
+          phosphorus_optimal?: number | null
+          potassium_max?: number | null
+          potassium_min?: number | null
+          potassium_optimal?: number | null
+          soil_ec_max?: number | null
+          soil_ph_max?: number | null
+          soil_ph_min?: number | null
+          source_reference?: string | null
+          stage_master_id?: string | null
+          sulphur_optimal?: number | null
+          updated_at?: string | null
+          variety_id?: string | null
+          water_requirement_mm?: number | null
+          zinc_optimal?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          critical_moisture_percent?: number | null
+          crop_code?: string
+          das_authoritative?: boolean
+          das_end?: number | null
+          das_start?: number | null
+          growth_stage?: string
+          id?: string
+          iron_optimal?: number | null
+          irrigation_interval_days?: number | null
+          is_active?: boolean | null
+          ndvi_thresholds?: Json | null
+          nitrogen_max?: number | null
+          nitrogen_min?: number | null
+          nitrogen_optimal?: number | null
+          notes?: string | null
+          phosphorus_max?: number | null
+          phosphorus_min?: number | null
+          phosphorus_optimal?: number | null
+          potassium_max?: number | null
+          potassium_min?: number | null
+          potassium_optimal?: number | null
+          soil_ec_max?: number | null
+          soil_ph_max?: number | null
+          soil_ph_min?: number | null
+          source_reference?: string | null
+          stage_master_id?: string | null
+          sulphur_optimal?: number | null
+          updated_at?: string | null
+          variety_id?: string | null
+          water_requirement_mm?: number | null
+          zinc_optimal?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_baseline_guidelines_v2_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_baseline_guidelines_v2_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_baseline_guidelines_v2_stage_master_id_fkey"
+            columns: ["stage_master_id"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_baseline_guidelines_v2_stage_master_id_fkey"
+            columns: ["stage_master_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_baseline_guidelines_v2_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_baseline_guidelines_v2_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "crop_baseline_guidelines_v2_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      crop_code_registry: {
+        Row: {
+          code: string
+          created_at: string | null
+          is_active: boolean
+          kind: string
+          source: string
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          is_active?: boolean
+          kind: string
+          source: string
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          is_active?: boolean
+          kind?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      crop_commodity_link: {
+        Row: {
+          commodity_global_code: string
+          created_at: string | null
+          crop_code: string
+          match_basis: string
+        }
+        Insert: {
+          commodity_global_code: string
+          created_at?: string | null
+          crop_code: string
+          match_basis?: string
+        }
+        Update: {
+          commodity_global_code?: string
+          created_at?: string | null
+          crop_code?: string
+          match_basis?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_commodity_link_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_commodity_link_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      crop_cultivation_methods: {
+        Row: {
+          crop_code: string
+          has_stage_calendar: boolean
+          is_primary: boolean
+          method_code: string
+          notes: string | null
+        }
+        Insert: {
+          crop_code: string
+          has_stage_calendar?: boolean
+          is_primary?: boolean
+          method_code: string
+          notes?: string | null
+        }
+        Update: {
+          crop_code?: string
+          has_stage_calendar?: boolean
+          is_primary?: boolean
+          method_code?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_cultivation_methods_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_cultivation_methods_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_cultivation_methods_method_code_fkey"
+            columns: ["method_code"]
+            isOneToOne: false
+            referencedRelation: "cultivation_method_master"
+            referencedColumns: ["method_code"]
+          },
+        ]
+      }
       crop_groups: {
         Row: {
           created_at: string
@@ -4041,8 +7133,19 @@ export type Database = {
           group_icon: string
           group_key: string
           group_name: string
+          group_name_as: string | null
+          group_name_bn: string | null
+          group_name_gu: string | null
           group_name_hi: string | null
+          group_name_kn: string | null
+          group_name_ml: string | null
           group_name_mr: string | null
+          group_name_or: string | null
+          group_name_pa: string | null
+          group_name_sa: string | null
+          group_name_ta: string | null
+          group_name_te: string | null
+          group_name_ur: string | null
           id: string
           is_active: boolean
           updated_at: string
@@ -4054,8 +7157,19 @@ export type Database = {
           group_icon?: string
           group_key: string
           group_name: string
+          group_name_as?: string | null
+          group_name_bn?: string | null
+          group_name_gu?: string | null
           group_name_hi?: string | null
+          group_name_kn?: string | null
+          group_name_ml?: string | null
           group_name_mr?: string | null
+          group_name_or?: string | null
+          group_name_pa?: string | null
+          group_name_sa?: string | null
+          group_name_ta?: string | null
+          group_name_te?: string | null
+          group_name_ur?: string | null
           id?: string
           is_active?: boolean
           updated_at?: string
@@ -4067,8 +7181,19 @@ export type Database = {
           group_icon?: string
           group_key?: string
           group_name?: string
+          group_name_as?: string | null
+          group_name_bn?: string | null
+          group_name_gu?: string | null
           group_name_hi?: string | null
+          group_name_kn?: string | null
+          group_name_ml?: string | null
           group_name_mr?: string | null
+          group_name_or?: string | null
+          group_name_pa?: string | null
+          group_name_sa?: string | null
+          group_name_ta?: string | null
+          group_name_te?: string | null
+          group_name_ur?: string | null
           id?: string
           is_active?: boolean
           updated_at?: string
@@ -4181,6 +7306,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lands"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_growth_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
           },
           {
             foreignKeyName: "crop_growth_alerts_tenant_id_fkey"
@@ -4325,6 +7478,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "crop_growth_analysis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_analysis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_analysis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_analysis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
             foreignKeyName: "crop_growth_analysis_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4417,6 +7598,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "crop_growth_history_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_history_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_history_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_history_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
             foreignKeyName: "crop_growth_history_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4427,75 +7636,186 @@ export type Database = {
       }
       crop_growth_uploads: {
         Row: {
+          bytes: number | null
           capture_location: Json | null
+          capture_purpose: string | null
+          captured_at: string | null
+          client_capture_id: string | null
+          client_quality: Json | null
+          consent_log_id: string | null
+          content_sha256: string | null
+          context_snapshot: Json | null
+          contract_version: string
           created_at: string
+          created_offline: boolean
+          crop_id: string | null
+          crop_value: string | null
+          cultivation_method: string | null
+          das: number | null
+          dat: number | null
+          device: Json | null
           distance_from_land_meters: number | null
           farmer_id: string
           file_type: string
-          file_url: string
+          file_url: string | null
+          gdd: number | null
+          height_px: number | null
           id: string
           is_processed: boolean | null
           land_id: string
+          location_level: string
           location_validated: boolean | null
+          mime_type: string
           ndvi_at_capture: number | null
           notes: string | null
+          object_confirmed: boolean
+          original_height_px: number | null
+          original_width_px: number | null
+          processing: Json | null
           processing_error: string | null
           schedule_id: string | null
+          stage_code: string | null
+          stage_uuid: string | null
+          storage_bucket: string
+          storage_path: string | null
           task_id: string | null
           tenant_id: string
           thumbnail_url: string | null
+          training_consent: boolean
           updated_at: string
           upload_timestamp: string
           upload_type: string | null
           weather_at_capture: Json | null
+          width_px: number | null
         }
         Insert: {
+          bytes?: number | null
           capture_location?: Json | null
+          capture_purpose?: string | null
+          captured_at?: string | null
+          client_capture_id?: string | null
+          client_quality?: Json | null
+          consent_log_id?: string | null
+          content_sha256?: string | null
+          context_snapshot?: Json | null
+          contract_version?: string
           created_at?: string
+          created_offline?: boolean
+          crop_id?: string | null
+          crop_value?: string | null
+          cultivation_method?: string | null
+          das?: number | null
+          dat?: number | null
+          device?: Json | null
           distance_from_land_meters?: number | null
           farmer_id: string
-          file_type: string
-          file_url: string
+          file_type?: string
+          file_url?: string | null
+          gdd?: number | null
+          height_px?: number | null
           id?: string
           is_processed?: boolean | null
           land_id: string
+          location_level?: string
           location_validated?: boolean | null
+          mime_type?: string
           ndvi_at_capture?: number | null
           notes?: string | null
+          object_confirmed?: boolean
+          original_height_px?: number | null
+          original_width_px?: number | null
+          processing?: Json | null
           processing_error?: string | null
           schedule_id?: string | null
+          stage_code?: string | null
+          stage_uuid?: string | null
+          storage_bucket?: string
+          storage_path?: string | null
           task_id?: string | null
           tenant_id: string
           thumbnail_url?: string | null
+          training_consent?: boolean
           updated_at?: string
           upload_timestamp?: string
           upload_type?: string | null
           weather_at_capture?: Json | null
+          width_px?: number | null
         }
         Update: {
+          bytes?: number | null
           capture_location?: Json | null
+          capture_purpose?: string | null
+          captured_at?: string | null
+          client_capture_id?: string | null
+          client_quality?: Json | null
+          consent_log_id?: string | null
+          content_sha256?: string | null
+          context_snapshot?: Json | null
+          contract_version?: string
           created_at?: string
+          created_offline?: boolean
+          crop_id?: string | null
+          crop_value?: string | null
+          cultivation_method?: string | null
+          das?: number | null
+          dat?: number | null
+          device?: Json | null
           distance_from_land_meters?: number | null
           farmer_id?: string
           file_type?: string
-          file_url?: string
+          file_url?: string | null
+          gdd?: number | null
+          height_px?: number | null
           id?: string
           is_processed?: boolean | null
           land_id?: string
+          location_level?: string
           location_validated?: boolean | null
+          mime_type?: string
           ndvi_at_capture?: number | null
           notes?: string | null
+          object_confirmed?: boolean
+          original_height_px?: number | null
+          original_width_px?: number | null
+          processing?: Json | null
           processing_error?: string | null
           schedule_id?: string | null
+          stage_code?: string | null
+          stage_uuid?: string | null
+          storage_bucket?: string
+          storage_path?: string | null
           task_id?: string | null
           tenant_id?: string
           thumbnail_url?: string | null
+          training_consent?: boolean
           updated_at?: string
           upload_timestamp?: string
           upload_type?: string | null
           weather_at_capture?: Json | null
+          width_px?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "crop_growth_uploads_consent_log_id_fkey"
+            columns: ["consent_log_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_consent_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_growth_uploads_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "crops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_growth_uploads_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["crop_id"]
+          },
           {
             foreignKeyName: "crop_growth_uploads_land_id_fkey"
             columns: ["land_id"]
@@ -4530,6 +7850,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lands"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_growth_uploads_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_uploads_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_uploads_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_growth_uploads_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
           },
           {
             foreignKeyName: "crop_growth_uploads_schedule_id_fkey"
@@ -4659,6 +8007,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "crop_health_assessments_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_health_assessments_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_health_assessments_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_health_assessments_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
             foreignKeyName: "fk_crop_health_assessments_tenant"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4682,6 +8058,7 @@ export type Database = {
           tenant_id: string
           updated_at: string
           variety: string | null
+          variety_id: string | null
           yield_kg_per_acre: number | null
         }
         Insert: {
@@ -4698,6 +8075,7 @@ export type Database = {
           tenant_id: string
           updated_at?: string
           variety?: string | null
+          variety_id?: string | null
           yield_kg_per_acre?: number | null
         }
         Update: {
@@ -4714,6 +8092,7 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           variety?: string | null
+          variety_id?: string | null
           yield_kg_per_acre?: number | null
         }
         Relationships: [
@@ -4753,10 +8132,594 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "crop_history_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_history_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_history_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_history_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_history_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_history_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "crop_history_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "crop_history_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_history_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "crop_history_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+          {
             foreignKeyName: "fk_crop_history_tenant"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crop_lifecycle_events: {
+        Row: {
+          actor: string | null
+          created_at: string
+          event_type: string
+          farmer_id: string
+          from_status: string | null
+          id: string
+          land_id: string
+          payload: Json
+          schedule_id: string | null
+          tenant_id: string
+          to_status: string | null
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          event_type: string
+          farmer_id: string
+          from_status?: string | null
+          id?: string
+          land_id: string
+          payload?: Json
+          schedule_id?: string | null
+          tenant_id: string
+          to_status?: string | null
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          event_type?: string
+          farmer_id?: string
+          from_status?: string | null
+          id?: string
+          land_id?: string
+          payload?: Json
+          schedule_id?: string | null
+          tenant_id?: string
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_lifecycle_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_lifecycle_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "crop_lifecycle_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "crop_lifecycle_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_lifecycle_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_lifecycle_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_lifecycle_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_lifecycle_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_lifecycle_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_lifecycle_events_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "crop_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crop_photo_annotation: {
+        Row: {
+          annotation_type: string
+          assertion: string
+          confidence: number | null
+          created_at: string
+          diagnosis_id: string | null
+          farmer_id: string
+          id: string
+          labeller_ref: string
+          labeller_type: string
+          land_id: string
+          model_name: string | null
+          model_version: string | null
+          prompt_version: string | null
+          region: Json | null
+          source_tier: string
+          supersedes_id: string | null
+          tenant_id: string
+          upload_id: string
+          value_code: string | null
+          value_numeric: number | null
+          value_text: string | null
+        }
+        Insert: {
+          annotation_type: string
+          assertion?: string
+          confidence?: number | null
+          created_at?: string
+          diagnosis_id?: string | null
+          farmer_id: string
+          id?: string
+          labeller_ref: string
+          labeller_type: string
+          land_id: string
+          model_name?: string | null
+          model_version?: string | null
+          prompt_version?: string | null
+          region?: Json | null
+          source_tier: string
+          supersedes_id?: string | null
+          tenant_id: string
+          upload_id: string
+          value_code?: string | null
+          value_numeric?: number | null
+          value_text?: string | null
+        }
+        Update: {
+          annotation_type?: string
+          assertion?: string
+          confidence?: number | null
+          created_at?: string
+          diagnosis_id?: string | null
+          farmer_id?: string
+          id?: string
+          labeller_ref?: string
+          labeller_type?: string
+          land_id?: string
+          model_name?: string | null
+          model_version?: string | null
+          prompt_version?: string | null
+          region?: Json | null
+          source_tier?: string
+          supersedes_id?: string | null
+          tenant_id?: string
+          upload_id?: string
+          value_code?: string | null
+          value_numeric?: number | null
+          value_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_photo_annotation_diagnosis_id_fkey"
+            columns: ["diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "crop_photo_diagnosis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_photo_annotation_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "crop_photo_annotation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_photo_annotation_upload_id_fkey"
+            columns: ["upload_id"]
+            isOneToOne: false
+            referencedRelation: "crop_growth_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crop_photo_diagnosis: {
+        Row: {
+          cached_input_tokens: number | null
+          chat_session_id: string | null
+          completed_at: string | null
+          cost_usd: number | null
+          created_at: string
+          decision_log_id: string | null
+          decision_summary: Json | null
+          decision_trace_id: string | null
+          engine_version: string
+          error_code: string | null
+          error_detail: string | null
+          fallback_used: boolean
+          farmer_id: string
+          farmer_text: string | null
+          follow_up: Json | null
+          id: string
+          input_tokens: number | null
+          land_id: string
+          language: string
+          latency_ms: number | null
+          model_requested: string | null
+          model_used: string | null
+          output_tokens: number | null
+          perception: Json | null
+          price_snapshot: Json | null
+          prompt_version: string | null
+          purpose: string
+          schedule_id: string | null
+          status: string
+          task_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          cached_input_tokens?: number | null
+          chat_session_id?: string | null
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          decision_log_id?: string | null
+          decision_summary?: Json | null
+          decision_trace_id?: string | null
+          engine_version: string
+          error_code?: string | null
+          error_detail?: string | null
+          fallback_used?: boolean
+          farmer_id: string
+          farmer_text?: string | null
+          follow_up?: Json | null
+          id?: string
+          input_tokens?: number | null
+          land_id: string
+          language?: string
+          latency_ms?: number | null
+          model_requested?: string | null
+          model_used?: string | null
+          output_tokens?: number | null
+          perception?: Json | null
+          price_snapshot?: Json | null
+          prompt_version?: string | null
+          purpose: string
+          schedule_id?: string | null
+          status?: string
+          task_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          cached_input_tokens?: number | null
+          chat_session_id?: string | null
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          decision_log_id?: string | null
+          decision_summary?: Json | null
+          decision_trace_id?: string | null
+          engine_version?: string
+          error_code?: string | null
+          error_detail?: string | null
+          fallback_used?: boolean
+          farmer_id?: string
+          farmer_text?: string | null
+          follow_up?: Json | null
+          id?: string
+          input_tokens?: number | null
+          land_id?: string
+          language?: string
+          latency_ms?: number | null
+          model_requested?: string | null
+          model_used?: string | null
+          output_tokens?: number | null
+          perception?: Json | null
+          price_snapshot?: Json | null
+          prompt_version?: string | null
+          purpose?: string
+          schedule_id?: string | null
+          status?: string
+          task_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_photo_diagnosis_decision_log_id_fkey"
+            columns: ["decision_log_id"]
+            isOneToOne: false
+            referencedRelation: "ai_decision_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "crop_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_upcoming_needs"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crop_photo_diagnosis_photo: {
+        Row: {
+          created_at: string
+          diagnosis_id: string
+          photo_index: number
+          shot_role: string
+          upload_id: string
+        }
+        Insert: {
+          created_at?: string
+          diagnosis_id: string
+          photo_index: number
+          shot_role?: string
+          upload_id: string
+        }
+        Update: {
+          created_at?: string
+          diagnosis_id?: string
+          photo_index?: number
+          shot_role?: string
+          upload_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_photo_diagnosis_photo_diagnosis_id_fkey"
+            columns: ["diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "crop_photo_diagnosis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_photo_diagnosis_photo_upload_id_fkey"
+            columns: ["upload_id"]
+            isOneToOne: false
+            referencedRelation: "crop_growth_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crop_photo_link: {
+        Row: {
+          created_at: string
+          decision_trace_id: string | null
+          farmer_id: string
+          from_upload_id: string
+          id: string
+          labeller_ref: string
+          land_id: string
+          relation: string
+          source_tier: string
+          tenant_id: string
+          to_upload_id: string | null
+          treatment_task_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          decision_trace_id?: string | null
+          farmer_id: string
+          from_upload_id: string
+          id?: string
+          labeller_ref: string
+          land_id: string
+          relation: string
+          source_tier: string
+          tenant_id: string
+          to_upload_id?: string | null
+          treatment_task_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          decision_trace_id?: string | null
+          farmer_id?: string
+          from_upload_id?: string
+          id?: string
+          labeller_ref?: string
+          land_id?: string
+          relation?: string
+          source_tier?: string
+          tenant_id?: string
+          to_upload_id?: string | null
+          treatment_task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_photo_link_from_upload_id_fkey"
+            columns: ["from_upload_id"]
+            isOneToOne: false
+            referencedRelation: "crop_growth_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_photo_link_to_upload_id_fkey"
+            columns: ["to_upload_id"]
+            isOneToOne: false
+            referencedRelation: "crop_growth_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_photo_link_treatment_task_id_fkey"
+            columns: ["treatment_task_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_upcoming_needs"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "crop_photo_link_treatment_task_id_fkey"
+            columns: ["treatment_task_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -4769,6 +8732,8 @@ export type Database = {
           actual_yield_quintals: number | null
           agro_climatic_zone: string | null
           ai_model: string | null
+          backdated_consent: boolean | null
+          backdated_consent_at: string | null
           bio_fertilizer_units: number | null
           bio_pesticide_ml: number | null
           calculated_for_area_acres: number | null
@@ -4777,8 +8742,10 @@ export type Database = {
           cost_by_stage: Json | null
           country: string | null
           created_at: string | null
+          crop_cycle: string
           crop_name: string
           crop_variety: string | null
+          cultivation_method: string | null
           data_quality_score: number | null
           district_name: string | null
           expected_gross_revenue: number | null
@@ -4800,12 +8767,28 @@ export type Database = {
           generation_language: string | null
           generation_params: Json | null
           growth_regulators: Json | null
+          harvest_confirmed_at: string | null
+          harvest_confirmed_by: string | null
+          harvest_response: Json
+          harvest_status: Database["public"]["Enums"]["harvest_status"]
           herbicide_ml: number | null
           id: string
           input_land_coordinates: Json | null
           input_soil_data: Json | null
           input_weather_data: Json | null
           insecticide_ml: number | null
+          intercrop_2_area_percent: number | null
+          intercrop_2_name: string | null
+          intercrop_2_sowing_date: string | null
+          intercrop_2_variety: string | null
+          intercrop_3_area_percent: number | null
+          intercrop_3_name: string | null
+          intercrop_3_sowing_date: string | null
+          intercrop_3_variety: string | null
+          intercrop_area_percent: number | null
+          intercrop_name: string | null
+          intercrop_sowing_date: string | null
+          intercrop_variety: string | null
           irrigation_count_total: number | null
           is_active: boolean | null
           is_training_candidate: boolean | null
@@ -4813,14 +8796,18 @@ export type Database = {
           land_id: string
           last_weather_check: string | null
           last_weather_update: string | null
+          lifecycle_status: Database["public"]["Enums"]["crop_schedule_lifecycle_status"]
           metadata: Json | null
+          nutrient_policy: string | null
           organic_fertilizer_kg: number | null
           organic_input_details: Json | null
           organic_manure_kg: number | null
           outcome_recorded_at: string | null
           pesticide_requirements: Json | null
           pgr_hormone_ml: number | null
+          policy_needs_confirmation: boolean
           products_recommended_count: number | null
+          protection_policy: string | null
           recommendation_order: string | null
           recommended_products: Json | null
           regional_dialect_zone: string | null
@@ -4846,7 +8833,9 @@ export type Database = {
           training_batch_id: string | null
           training_excluded_reason: string | null
           training_processed: boolean | null
+          transplant_date: string | null
           updated_at: string | null
+          variety_id: string | null
           vermicompost_kg: number | null
           water_per_irrigation_liters: number | null
           water_requirement_liters_total: number | null
@@ -4862,6 +8851,8 @@ export type Database = {
           actual_yield_quintals?: number | null
           agro_climatic_zone?: string | null
           ai_model?: string | null
+          backdated_consent?: boolean | null
+          backdated_consent_at?: string | null
           bio_fertilizer_units?: number | null
           bio_pesticide_ml?: number | null
           calculated_for_area_acres?: number | null
@@ -4870,8 +8861,10 @@ export type Database = {
           cost_by_stage?: Json | null
           country?: string | null
           created_at?: string | null
+          crop_cycle?: string
           crop_name: string
           crop_variety?: string | null
+          cultivation_method?: string | null
           data_quality_score?: number | null
           district_name?: string | null
           expected_gross_revenue?: number | null
@@ -4893,12 +8886,28 @@ export type Database = {
           generation_language?: string | null
           generation_params?: Json | null
           growth_regulators?: Json | null
+          harvest_confirmed_at?: string | null
+          harvest_confirmed_by?: string | null
+          harvest_response?: Json
+          harvest_status?: Database["public"]["Enums"]["harvest_status"]
           herbicide_ml?: number | null
           id?: string
           input_land_coordinates?: Json | null
           input_soil_data?: Json | null
           input_weather_data?: Json | null
           insecticide_ml?: number | null
+          intercrop_2_area_percent?: number | null
+          intercrop_2_name?: string | null
+          intercrop_2_sowing_date?: string | null
+          intercrop_2_variety?: string | null
+          intercrop_3_area_percent?: number | null
+          intercrop_3_name?: string | null
+          intercrop_3_sowing_date?: string | null
+          intercrop_3_variety?: string | null
+          intercrop_area_percent?: number | null
+          intercrop_name?: string | null
+          intercrop_sowing_date?: string | null
+          intercrop_variety?: string | null
           irrigation_count_total?: number | null
           is_active?: boolean | null
           is_training_candidate?: boolean | null
@@ -4906,14 +8915,18 @@ export type Database = {
           land_id: string
           last_weather_check?: string | null
           last_weather_update?: string | null
+          lifecycle_status?: Database["public"]["Enums"]["crop_schedule_lifecycle_status"]
           metadata?: Json | null
+          nutrient_policy?: string | null
           organic_fertilizer_kg?: number | null
           organic_input_details?: Json | null
           organic_manure_kg?: number | null
           outcome_recorded_at?: string | null
           pesticide_requirements?: Json | null
           pgr_hormone_ml?: number | null
+          policy_needs_confirmation?: boolean
           products_recommended_count?: number | null
+          protection_policy?: string | null
           recommendation_order?: string | null
           recommended_products?: Json | null
           regional_dialect_zone?: string | null
@@ -4939,7 +8952,9 @@ export type Database = {
           training_batch_id?: string | null
           training_excluded_reason?: string | null
           training_processed?: boolean | null
+          transplant_date?: string | null
           updated_at?: string | null
+          variety_id?: string | null
           vermicompost_kg?: number | null
           water_per_irrigation_liters?: number | null
           water_requirement_liters_total?: number | null
@@ -4955,6 +8970,8 @@ export type Database = {
           actual_yield_quintals?: number | null
           agro_climatic_zone?: string | null
           ai_model?: string | null
+          backdated_consent?: boolean | null
+          backdated_consent_at?: string | null
           bio_fertilizer_units?: number | null
           bio_pesticide_ml?: number | null
           calculated_for_area_acres?: number | null
@@ -4963,8 +8980,10 @@ export type Database = {
           cost_by_stage?: Json | null
           country?: string | null
           created_at?: string | null
+          crop_cycle?: string
           crop_name?: string
           crop_variety?: string | null
+          cultivation_method?: string | null
           data_quality_score?: number | null
           district_name?: string | null
           expected_gross_revenue?: number | null
@@ -4986,12 +9005,28 @@ export type Database = {
           generation_language?: string | null
           generation_params?: Json | null
           growth_regulators?: Json | null
+          harvest_confirmed_at?: string | null
+          harvest_confirmed_by?: string | null
+          harvest_response?: Json
+          harvest_status?: Database["public"]["Enums"]["harvest_status"]
           herbicide_ml?: number | null
           id?: string
           input_land_coordinates?: Json | null
           input_soil_data?: Json | null
           input_weather_data?: Json | null
           insecticide_ml?: number | null
+          intercrop_2_area_percent?: number | null
+          intercrop_2_name?: string | null
+          intercrop_2_sowing_date?: string | null
+          intercrop_2_variety?: string | null
+          intercrop_3_area_percent?: number | null
+          intercrop_3_name?: string | null
+          intercrop_3_sowing_date?: string | null
+          intercrop_3_variety?: string | null
+          intercrop_area_percent?: number | null
+          intercrop_name?: string | null
+          intercrop_sowing_date?: string | null
+          intercrop_variety?: string | null
           irrigation_count_total?: number | null
           is_active?: boolean | null
           is_training_candidate?: boolean | null
@@ -4999,14 +9034,18 @@ export type Database = {
           land_id?: string
           last_weather_check?: string | null
           last_weather_update?: string | null
+          lifecycle_status?: Database["public"]["Enums"]["crop_schedule_lifecycle_status"]
           metadata?: Json | null
+          nutrient_policy?: string | null
           organic_fertilizer_kg?: number | null
           organic_input_details?: Json | null
           organic_manure_kg?: number | null
           outcome_recorded_at?: string | null
           pesticide_requirements?: Json | null
           pgr_hormone_ml?: number | null
+          policy_needs_confirmation?: boolean
           products_recommended_count?: number | null
+          protection_policy?: string | null
           recommendation_order?: string | null
           recommended_products?: Json | null
           regional_dialect_zone?: string | null
@@ -5032,7 +9071,9 @@ export type Database = {
           training_batch_id?: string | null
           training_excluded_reason?: string | null
           training_processed?: boolean | null
+          transplant_date?: string | null
           updated_at?: string | null
+          variety_id?: string | null
           vermicompost_kg?: number | null
           water_per_irrigation_liters?: number | null
           water_requirement_liters_total?: number | null
@@ -5076,6 +9117,599 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lands"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_schedules_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_schedules_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_schedules_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_schedules_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "crop_schedules_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_schedules_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "crop_schedules_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "crop_schedules_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_schedules_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "crop_schedules_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      crop_scope_master: {
+        Row: {
+          description: string | null
+          is_active: boolean
+          scope_code: string
+          scope_type: string
+        }
+        Insert: {
+          description?: string | null
+          is_active?: boolean
+          scope_code: string
+          scope_type: string
+        }
+        Update: {
+          description?: string | null
+          is_active?: boolean
+          scope_code?: string
+          scope_type?: string
+        }
+        Relationships: []
+      }
+      crop_stage_aliases: {
+        Row: {
+          alias_text: string
+          canonical_id: string
+          confidence: number | null
+          created_at: string | null
+          crop_code: string
+          id: string
+          language_code: string
+          origin_system: string | null
+          source_type: string
+        }
+        Insert: {
+          alias_text: string
+          canonical_id: string
+          confidence?: number | null
+          created_at?: string | null
+          crop_code: string
+          id?: string
+          language_code?: string
+          origin_system?: string | null
+          source_type?: string
+        }
+        Update: {
+          alias_text?: string
+          canonical_id?: string
+          confidence?: number | null
+          created_at?: string | null
+          crop_code?: string
+          id?: string
+          language_code?: string
+          origin_system?: string | null
+          source_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_stage_aliases_canonical_id_fkey"
+            columns: ["canonical_id"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_aliases_canonical_id_fkey"
+            columns: ["canonical_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_aliases_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_stage_aliases_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      crop_stage_graph: {
+        Row: {
+          confidence: number | null
+          created_at: string | null
+          crop_code: string
+          crop_cycle: string | null
+          cultivation_method: string | null
+          edge_type: string
+          from_stage_id: string
+          id: string
+          max_duration_days: number | null
+          min_duration_days: number | null
+          notes: string | null
+          to_stage_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string | null
+          crop_code: string
+          crop_cycle?: string | null
+          cultivation_method?: string | null
+          edge_type: string
+          from_stage_id: string
+          id?: string
+          max_duration_days?: number | null
+          min_duration_days?: number | null
+          notes?: string | null
+          to_stage_id: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string | null
+          crop_code?: string
+          crop_cycle?: string | null
+          cultivation_method?: string | null
+          edge_type?: string
+          from_stage_id?: string
+          id?: string
+          max_duration_days?: number | null
+          min_duration_days?: number | null
+          notes?: string | null
+          to_stage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_stage_graph_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_stage_graph_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_stage_graph_from_stage_id_fkey"
+            columns: ["from_stage_id"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_graph_from_stage_id_fkey"
+            columns: ["from_stage_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_graph_to_stage_id_fkey"
+            columns: ["to_stage_id"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_graph_to_stage_id_fkey"
+            columns: ["to_stage_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crop_stage_knowledge: {
+        Row: {
+          aliases: string[]
+          avoid_actions: string[]
+          created_at: string
+          critical_actions: string[]
+          crop_code: string
+          disease_watch: string[]
+          fertilizer: string
+          growth_stage: string
+          id: string
+          ndvi_max: number | null
+          ndvi_min: number | null
+          pest_watch: string[]
+          reviewed_at: string | null
+          reviewed_by_agronomist: boolean
+          source: string
+          updated_at: string
+          water: string
+          yield_impact_if_stressed: string | null
+        }
+        Insert: {
+          aliases?: string[]
+          avoid_actions?: string[]
+          created_at?: string
+          critical_actions?: string[]
+          crop_code: string
+          disease_watch?: string[]
+          fertilizer: string
+          growth_stage: string
+          id?: string
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          pest_watch?: string[]
+          reviewed_at?: string | null
+          reviewed_by_agronomist?: boolean
+          source?: string
+          updated_at?: string
+          water: string
+          yield_impact_if_stressed?: string | null
+        }
+        Update: {
+          aliases?: string[]
+          avoid_actions?: string[]
+          created_at?: string
+          critical_actions?: string[]
+          crop_code?: string
+          disease_watch?: string[]
+          fertilizer?: string
+          growth_stage?: string
+          id?: string
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          pest_watch?: string[]
+          reviewed_at?: string | null
+          reviewed_by_agronomist?: boolean
+          source?: string
+          updated_at?: string
+          water?: string
+          yield_impact_if_stressed?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_stage_knowledge_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_stage_knowledge_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      crop_stage_master: {
+        Row: {
+          base_temperature_c: number | null
+          boundary_grace_days: number | null
+          canonical_stage_id: string | null
+          clock_reference: string
+          created_at: string | null
+          crop_code: string
+          crop_cycle: string
+          cultivation_method: string
+          das_max: number
+          das_min: number
+          das_reference: string
+          expected_height_cm_max: number | null
+          expected_height_cm_min: number | null
+          expected_leaf_count_max: number | null
+          expected_leaf_count_min: number | null
+          expected_ndvi_max: number | null
+          expected_ndvi_min: number | null
+          gdd_max: number | null
+          gdd_min: number | null
+          growth_stage: string
+          heat_damage_threshold_c: number | null
+          id: string
+          is_active: boolean
+          is_concurrent_window: boolean
+          is_heat_critical: boolean | null
+          is_moisture_critical: boolean | null
+          is_photoperiod_sensitive: boolean
+          is_pre_emergence_gate_target: boolean | null
+          kc_coefficient: number | null
+          next_stage_id: string | null
+          ontology_id: string | null
+          parent_stage_id: string | null
+          phenology_index: number | null
+          phenology_model: string | null
+          prev_stage_id: string | null
+          reference_system: string
+          stage_code: string | null
+          stage_description: string | null
+          stage_node_type: string
+          updated_at: string
+          yield_response_ky: number | null
+          yield_sensitivity_source_id: string | null
+        }
+        Insert: {
+          base_temperature_c?: number | null
+          boundary_grace_days?: number | null
+          canonical_stage_id?: string | null
+          clock_reference?: string
+          created_at?: string | null
+          crop_code: string
+          crop_cycle?: string
+          cultivation_method?: string
+          das_max: number
+          das_min: number
+          das_reference: string
+          expected_height_cm_max?: number | null
+          expected_height_cm_min?: number | null
+          expected_leaf_count_max?: number | null
+          expected_leaf_count_min?: number | null
+          expected_ndvi_max?: number | null
+          expected_ndvi_min?: number | null
+          gdd_max?: number | null
+          gdd_min?: number | null
+          growth_stage: string
+          heat_damage_threshold_c?: number | null
+          id?: string
+          is_active?: boolean
+          is_concurrent_window?: boolean
+          is_heat_critical?: boolean | null
+          is_moisture_critical?: boolean | null
+          is_photoperiod_sensitive?: boolean
+          is_pre_emergence_gate_target?: boolean | null
+          kc_coefficient?: number | null
+          next_stage_id?: string | null
+          ontology_id?: string | null
+          parent_stage_id?: string | null
+          phenology_index?: number | null
+          phenology_model?: string | null
+          prev_stage_id?: string | null
+          reference_system?: string
+          stage_code?: string | null
+          stage_description?: string | null
+          stage_node_type?: string
+          updated_at?: string
+          yield_response_ky?: number | null
+          yield_sensitivity_source_id?: string | null
+        }
+        Update: {
+          base_temperature_c?: number | null
+          boundary_grace_days?: number | null
+          canonical_stage_id?: string | null
+          clock_reference?: string
+          created_at?: string | null
+          crop_code?: string
+          crop_cycle?: string
+          cultivation_method?: string
+          das_max?: number
+          das_min?: number
+          das_reference?: string
+          expected_height_cm_max?: number | null
+          expected_height_cm_min?: number | null
+          expected_leaf_count_max?: number | null
+          expected_leaf_count_min?: number | null
+          expected_ndvi_max?: number | null
+          expected_ndvi_min?: number | null
+          gdd_max?: number | null
+          gdd_min?: number | null
+          growth_stage?: string
+          heat_damage_threshold_c?: number | null
+          id?: string
+          is_active?: boolean
+          is_concurrent_window?: boolean
+          is_heat_critical?: boolean | null
+          is_moisture_critical?: boolean | null
+          is_photoperiod_sensitive?: boolean
+          is_pre_emergence_gate_target?: boolean | null
+          kc_coefficient?: number | null
+          next_stage_id?: string | null
+          ontology_id?: string | null
+          parent_stage_id?: string | null
+          phenology_index?: number | null
+          phenology_model?: string | null
+          prev_stage_id?: string | null
+          reference_system?: string
+          stage_code?: string | null
+          stage_description?: string | null
+          stage_node_type?: string
+          updated_at?: string
+          yield_response_ky?: number | null
+          yield_sensitivity_source_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_stage_master_canonical_stage_id_fkey"
+            columns: ["canonical_stage_id"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_canonical_stage_id_fkey"
+            columns: ["canonical_stage_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_cultivation_method_fk"
+            columns: ["cultivation_method"]
+            isOneToOne: false
+            referencedRelation: "cultivation_method_master"
+            referencedColumns: ["method_code"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_next_stage_id_fkey"
+            columns: ["next_stage_id"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_next_stage_id_fkey"
+            columns: ["next_stage_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_parent_stage_id_fkey"
+            columns: ["parent_stage_id"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_parent_stage_id_fkey"
+            columns: ["parent_stage_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_prev_stage_id_fkey"
+            columns: ["prev_stage_id"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_prev_stage_id_fkey"
+            columns: ["prev_stage_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_yield_sensitivity_source_id_fkey"
+            columns: ["yield_sensitivity_source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crop_synonyms: {
+        Row: {
+          canonical_crop: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          language_code: string
+          region: string | null
+          updated_at: string
+          variant_name: string
+          variant_type: string
+        }
+        Insert: {
+          canonical_crop: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          language_code?: string
+          region?: string | null
+          updated_at?: string
+          variant_name: string
+          variant_type?: string
+        }
+        Update: {
+          canonical_crop?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          language_code?: string
+          region?: string | null
+          updated_at?: string
+          variant_name?: string
+          variant_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_synonyms_canonical_crop_registry_fk"
+            columns: ["canonical_crop"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_synonyms_canonical_crop_registry_fk"
+            columns: ["canonical_crop"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -5130,6 +9764,315 @@ export type Database = {
         }
         Relationships: []
       }
+      crop_thermal_anchor_policy: {
+        Row: {
+          anchor_event: string
+          crop_code: string
+          cultivation_method: string
+          source_id: string
+          verification_status: string
+        }
+        Insert: {
+          anchor_event: string
+          crop_code: string
+          cultivation_method?: string
+          source_id: string
+          verification_status?: string
+        }
+        Update: {
+          anchor_event?: string
+          crop_code?: string
+          cultivation_method?: string
+          source_id?: string
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_thermal_anchor_policy_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_thermal_anchor_policy_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      crop_trait_master: {
+        Row: {
+          crop_group: string
+          gates_what: string
+          is_active: boolean
+          measurement_method: string | null
+          relevant_when: string
+          score_scale: string
+          trait_code: string
+          trait_definition: string
+          trait_name_en: string
+        }
+        Insert: {
+          crop_group?: string
+          gates_what: string
+          is_active?: boolean
+          measurement_method?: string | null
+          relevant_when: string
+          score_scale?: string
+          trait_code: string
+          trait_definition: string
+          trait_name_en: string
+        }
+        Update: {
+          crop_group?: string
+          gates_what?: string
+          is_active?: boolean
+          measurement_method?: string | null
+          relevant_when?: string
+          score_scale?: string
+          trait_code?: string
+          trait_definition?: string
+          trait_name_en?: string
+        }
+        Relationships: []
+      }
+      crop_vocabulary: {
+        Row: {
+          created_at: string | null
+          crop_code: string
+          id: string
+          is_active: boolean | null
+          language_hint: string | null
+          phrase_pattern: string
+          recommended_intent_bias: string | null
+          recommended_observation_bias: string | null
+          semantic_hint: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string | null
+          crop_code: string
+          id?: string
+          is_active?: boolean | null
+          language_hint?: string | null
+          phrase_pattern: string
+          recommended_intent_bias?: string | null
+          recommended_observation_bias?: string | null
+          semantic_hint: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string | null
+          crop_code?: string
+          id?: string
+          is_active?: boolean | null
+          language_hint?: string | null
+          phrase_pattern?: string
+          recommended_intent_bias?: string | null
+          recommended_observation_bias?: string | null
+          semantic_hint?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_vocabulary_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_vocabulary_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      crop_water_requirement: {
+        Row: {
+          applicability: string | null
+          authority: string
+          climate_basis: string
+          confidence: number | null
+          created_at: string | null
+          crop_code: string
+          crop_cycle: string
+          id: string
+          kc_end: number | null
+          kc_end_range: string | null
+          kc_ini: number | null
+          kc_mid: number | null
+          kc_mid_range: string | null
+          l_dev_days: number | null
+          l_ini_days: number | null
+          l_late_days: number | null
+          l_mid_days: number | null
+          max_height_m: string | null
+          notes: string | null
+          publication_year: number | null
+          review_status: string
+          source: string
+          stage_length_context: string | null
+        }
+        Insert: {
+          applicability?: string | null
+          authority: string
+          climate_basis?: string
+          confidence?: number | null
+          created_at?: string | null
+          crop_code: string
+          crop_cycle?: string
+          id?: string
+          kc_end?: number | null
+          kc_end_range?: string | null
+          kc_ini?: number | null
+          kc_mid?: number | null
+          kc_mid_range?: string | null
+          l_dev_days?: number | null
+          l_ini_days?: number | null
+          l_late_days?: number | null
+          l_mid_days?: number | null
+          max_height_m?: string | null
+          notes?: string | null
+          publication_year?: number | null
+          review_status?: string
+          source: string
+          stage_length_context?: string | null
+        }
+        Update: {
+          applicability?: string | null
+          authority?: string
+          climate_basis?: string
+          confidence?: number | null
+          created_at?: string | null
+          crop_code?: string
+          crop_cycle?: string
+          id?: string
+          kc_end?: number | null
+          kc_end_range?: string | null
+          kc_ini?: number | null
+          kc_mid?: number | null
+          kc_mid_range?: string | null
+          l_dev_days?: number | null
+          l_ini_days?: number | null
+          l_late_days?: number | null
+          l_mid_days?: number | null
+          max_height_m?: string | null
+          notes?: string | null
+          publication_year?: number | null
+          review_status?: string
+          source?: string
+          stage_length_context?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_water_requirement_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_water_requirement_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      crop_yield_potential: {
+        Row: {
+          created_at: string
+          crop_code: string
+          cultivation_method: string | null
+          district_id: string | null
+          effective_from: string
+          id: string
+          is_active: boolean
+          knowledge_source_id: string | null
+          origin: string
+          scope_level: string
+          state_id: string | null
+          water_regime: string
+          yield_basis: string
+          yield_qtl_per_acre: number
+        }
+        Insert: {
+          created_at?: string
+          crop_code: string
+          cultivation_method?: string | null
+          district_id?: string | null
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          knowledge_source_id?: string | null
+          origin: string
+          scope_level: string
+          state_id?: string | null
+          water_regime: string
+          yield_basis: string
+          yield_qtl_per_acre: number
+        }
+        Update: {
+          created_at?: string
+          crop_code?: string
+          cultivation_method?: string | null
+          district_id?: string | null
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          knowledge_source_id?: string | null
+          origin?: string
+          scope_level?: string
+          state_id?: string | null
+          water_regime?: string
+          yield_basis?: string
+          yield_qtl_per_acre?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_yield_potential_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_yield_potential_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_yield_potential_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "districts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_yield_potential_knowledge_source_id_fkey"
+            columns: ["knowledge_source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_yield_potential_state_id_fkey"
+            columns: ["state_id"]
+            isOneToOne: false
+            referencedRelation: "states"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crops: {
         Row: {
           created_at: string | null
@@ -5142,9 +10085,20 @@ export type Database = {
           is_active: boolean | null
           is_popular: boolean | null
           label: string
+          label_as: string | null
+          label_bn: string | null
+          label_gu: string | null
           label_hi: string | null
+          label_kn: string | null
           label_local: string | null
+          label_ml: string | null
           label_mr: string | null
+          label_or: string | null
+          label_pa: string | null
+          label_sa: string | null
+          label_ta: string | null
+          label_te: string | null
+          label_ur: string | null
           local_name: string | null
           metadata: Json | null
           season: string | null
@@ -5162,9 +10116,20 @@ export type Database = {
           is_active?: boolean | null
           is_popular?: boolean | null
           label: string
+          label_as?: string | null
+          label_bn?: string | null
+          label_gu?: string | null
           label_hi?: string | null
+          label_kn?: string | null
           label_local?: string | null
+          label_ml?: string | null
           label_mr?: string | null
+          label_or?: string | null
+          label_pa?: string | null
+          label_sa?: string | null
+          label_ta?: string | null
+          label_te?: string | null
+          label_ur?: string | null
           local_name?: string | null
           metadata?: Json | null
           season?: string | null
@@ -5182,9 +10147,20 @@ export type Database = {
           is_active?: boolean | null
           is_popular?: boolean | null
           label?: string
+          label_as?: string | null
+          label_bn?: string | null
+          label_gu?: string | null
           label_hi?: string | null
+          label_kn?: string | null
           label_local?: string | null
+          label_ml?: string | null
           label_mr?: string | null
+          label_or?: string | null
+          label_pa?: string | null
+          label_sa?: string | null
+          label_ta?: string | null
+          label_te?: string | null
+          label_ur?: string | null
           local_name?: string | null
           metadata?: Json | null
           season?: string | null
@@ -5198,6 +10174,168 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "crop_groups"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      cultivation_method_master: {
+        Row: {
+          created_at: string
+          description: string | null
+          field_clock_reference: string
+          is_active: boolean
+          is_wildcard: boolean
+          method_class: string
+          method_code: string
+          method_name_en: string
+          method_name_hi: string | null
+          method_name_mr: string | null
+          nursery_clock_reference: string | null
+          parent_method_code: string | null
+          propagation_material: string
+          requires_nursery: boolean
+          seed_placement: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          field_clock_reference: string
+          is_active?: boolean
+          is_wildcard?: boolean
+          method_class?: string
+          method_code: string
+          method_name_en: string
+          method_name_hi?: string | null
+          method_name_mr?: string | null
+          nursery_clock_reference?: string | null
+          parent_method_code?: string | null
+          propagation_material: string
+          requires_nursery?: boolean
+          seed_placement?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          field_clock_reference?: string
+          is_active?: boolean
+          is_wildcard?: boolean
+          method_class?: string
+          method_code?: string
+          method_name_en?: string
+          method_name_hi?: string | null
+          method_name_mr?: string | null
+          nursery_clock_reference?: string | null
+          parent_method_code?: string | null
+          propagation_material?: string
+          requires_nursery?: boolean
+          seed_placement?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cultivation_method_master_parent_method_code_fkey"
+            columns: ["parent_method_code"]
+            isOneToOne: false
+            referencedRelation: "cultivation_method_master"
+            referencedColumns: ["method_code"]
+          },
+        ]
+      }
+      cultivation_operation_norm: {
+        Row: {
+          created_at: string
+          crop_code: string
+          cultivation_method: string | null
+          id: string
+          is_active: boolean
+          knowledge_source_id: string | null
+          machine_hours_per_acre: number | null
+          origin: string
+          person_days_per_acre: number | null
+          task_type: string
+        }
+        Insert: {
+          created_at?: string
+          crop_code: string
+          cultivation_method?: string | null
+          id?: string
+          is_active?: boolean
+          knowledge_source_id?: string | null
+          machine_hours_per_acre?: number | null
+          origin: string
+          person_days_per_acre?: number | null
+          task_type: string
+        }
+        Update: {
+          created_at?: string
+          crop_code?: string
+          cultivation_method?: string | null
+          id?: string
+          is_active?: boolean
+          knowledge_source_id?: string | null
+          machine_hours_per_acre?: number | null
+          origin?: string
+          person_days_per_acre?: number | null
+          task_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cultivation_operation_norm_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "cultivation_operation_norm_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "cultivation_operation_norm_knowledge_source_id_fkey"
+            columns: ["knowledge_source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cultural_strategies: {
+        Row: {
+          created_at: string
+          crop_code: string
+          id: string
+          priority: number
+          strategy: string
+        }
+        Insert: {
+          created_at?: string
+          crop_code: string
+          id?: string
+          priority?: number
+          strategy: string
+        }
+        Update: {
+          created_at?: string
+          crop_code?: string
+          id?: string
+          priority?: number
+          strategy?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cultural_strategies_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "cultural_strategies_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -6014,57 +11152,1495 @@ export type Database = {
         }
         Relationships: []
       }
-      decision_rules: {
+      decision_rule_qa_findings: {
         Row: {
-          category: string
-          cause: string
-          conditions_json: Json
-          created_at: string | null
-          crop_code: string | null
-          crop_group: string
-          icar_package: string | null
+          created_at: string
+          detail: string
+          detected_value: string | null
+          expected_value: string | null
+          finding_type: string
           id: string
-          is_active: boolean | null
-          priority: number
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
           rule_id: string
-          scientific_source: string | null
-          stage_applicable: string[]
-          updated_at: string | null
-          version: string | null
+          status: string
         }
         Insert: {
-          category: string
-          cause: string
-          conditions_json: Json
-          created_at?: string | null
-          crop_code?: string | null
-          crop_group: string
-          icar_package?: string | null
+          created_at?: string
+          detail: string
+          detected_value?: string | null
+          expected_value?: string | null
+          finding_type: string
           id?: string
-          is_active?: boolean | null
-          priority: number
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           rule_id: string
-          scientific_source?: string | null
-          stage_applicable: string[]
-          updated_at?: string | null
-          version?: string | null
+          status?: string
         }
         Update: {
+          created_at?: string
+          detail?: string
+          detected_value?: string | null
+          expected_value?: string | null
+          finding_type?: string
+          id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          rule_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "decision_rules"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "rule_authority_weights"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_approval_portal_queue"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_block_safety_flag_mismatch"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_blocking_rule_semantic_conflict"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_approval_backlog"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_serving_gate"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_variety_safety_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_context_block_contract_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_rules_admin"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rice_rule_certification"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rice_rule_certification_v2"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_banned_substance_audit"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_dose_label_audit"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_id_grammar_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_stage_method_mismatch"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rules_missing_evidence"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rules_ungoverned_servable"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_safety_block_review_queue"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_stage_vocab_drift"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "decision_rule_qa_findings_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_visibility_blockers"
+            referencedColumns: ["rule_id"]
+          },
+        ]
+      }
+      decision_rules: {
+        Row: {
+          action_text: string | null
+          action_type: string
+          active_ingredient: string | null
+          affected_crops: string[] | null
+          alternatives: Json | null
+          applicability_scope: string | null
+          application_method: string | null
+          approval_date: string | null
+          approved_by: string | null
+          aquatic_toxicity: string | null
+          bee_toxicity: string | null
+          biological_group: string | null
+          blocked_ingredient_ref: string | null
+          blocks_rule_ids: string[] | null
+          botanical_name: string | null
+          canonical_group: string | null
+          canonical_status: string | null
+          category: string
+          cause: string
+          chemical_class: string | null
+          climate_zone_applicable: string[] | null
+          compile_notes: string | null
+          compile_status: string | null
+          condition_code: string
+          conditions_compiled: Json | null
+          conditions_json: Json
+          confidence_score: number | null
+          contraindications: string[] | null
+          created_at: string | null
+          crop_age_days_max: number | null
+          crop_age_days_min: number | null
+          crop_category: string | null
+          crop_code: string | null
+          crop_cycle: string | null
+          crop_family: string | null
+          crop_group: string
+          crop_tags: string[] | null
+          cultivation_method_applicable: string[]
+          cycle_number_max: number | null
+          cycle_number_min: number | null
+          data_authority_rank: number | null
+          days_to_harvest_max: number | null
+          days_to_harvest_min: number | null
+          decision_trace_template: string | null
+          deprecated_at: string | null
+          deprecation_reason: string | null
+          derived_from: string | null
+          diagnostic_confidence_threshold: number | null
+          differentiating_questions: Json | null
+          dosage_per_acre: string | null
+          enables_rule_ids: string[] | null
+          engine_layer: number | null
+          equipment_cost_per_acre: number | null
+          equipment_required: string[] | null
+          etl_applicable: boolean | null
+          etl_threshold: string | null
+          etl_unit: string | null
+          etl_unit_type: string | null
+          etl_value_max: number | null
+          etl_value_min: number | null
+          expert_approved: boolean | null
+          expert_override_required: boolean | null
+          failure_indicators: string[] | null
+          farmer_safety_level: string | null
+          field_validated: boolean | null
+          forecast_horizon_days: number | null
+          gdd_max: number | null
+          gdd_min: number | null
+          growth_stage: string | null
+          humidity_max_pct: number | null
+          humidity_min_pct: number | null
+          i18n_key: string | null
+          icar_package: string | null
+          icar_package_ref: string | null
+          id: string
+          input_class: string | null
+          input_cost_per_acre_max: number | null
+          input_cost_per_acre_min: number | null
+          interaction_type: string | null
+          ipm_level: number | null
+          irrigation_method_applicable: string[] | null
+          is_active: boolean | null
+          is_farmer_servable: boolean | null
+          is_proactive_rule: boolean | null
+          is_safety_block: boolean
+          is_system_derived: boolean | null
+          knowledge_text: string | null
+          labor_cost_per_acre_max: number | null
+          labor_cost_per_acre_min: number | null
+          labor_hours_per_acre: number | null
+          last_backup_at: string | null
+          match_explanation_template: string | null
+          material_cost_per_acre_max: number | null
+          material_cost_per_acre_min: number | null
+          maturity_group: string | null
+          max_temperature: number | null
+          max_wind_speed: number | null
+          measurement_method: string | null
+          min_data_completeness: number
+          min_temperature: number | null
+          mode_of_action: string | null
+          mutually_exclusive_with: string[] | null
+          ndvi_change_rate: string | null
+          ndvi_max: number | null
+          ndvi_min: number | null
+          observable_characteristics: Json | null
+          observation_confidence_weight: number | null
+          organic_alternative: string | null
+          owner_tenant_id: string | null
+          pest_code: string | null
+          phi_days: number | null
+          phi_source: string | null
+          phi_status: string | null
+          phi_verified_at: string | null
+          phi_verified_by: string | null
+          prediction_type: string | null
+          prerequisite_rule_ids: string[] | null
+          priority: number
+          probability_threshold: number | null
+          rain_delay_hours: number | null
+          rainfall_probability_min_pct: number | null
+          reason_text: string | null
+          reentry_interval_hours: number | null
+          region_code: string | null
+          regulatory_status: string | null
+          required_observation_category: string[] | null
+          required_plant_part: string[] | null
+          requires_field_action: boolean | null
+          research_paper_ref: string | null
+          resistance_group: string | null
+          response_severity: string | null
+          risk_level: string | null
+          roi_confidence: number | null
+          roi_cost_saved_max: number | null
+          roi_cost_saved_min: number | null
+          roi_net_score: number | null
+          roi_yield_gain_pct: number | null
+          roi_yield_risk_pct: number | null
+          rule_id: string
+          rule_id_lc: string | null
+          rule_id_v2: string | null
+          rule_intent: string | null
+          rule_version: string | null
+          scientific_basis: string | null
+          scientific_source: string | null
+          scope: string
+          season_applicable: string[] | null
+          sequence_after: string[] | null
+          soil_k_kg_ha_max: number | null
+          soil_k_kg_ha_min: number | null
+          soil_moisture_pct_max: number | null
+          soil_moisture_pct_min: number | null
+          soil_n_kg_ha_max: number | null
+          soil_n_kg_ha_min: number | null
+          soil_p_kg_ha_max: number | null
+          soil_p_kg_ha_min: number | null
+          soil_ph_max: number | null
+          soil_ph_min: number | null
+          soil_type_applicable: string[] | null
+          stage_applicable: string[]
+          success_indicators: string[] | null
+          supersedes_rule_id: string | null
+          target_pest_stage: string | null
+          temp_max_celsius: number | null
+          temp_min_celsius: number | null
+          total_cost_estimated: number | null
+          treatment_type: string | null
+          trigger_class: string
+          triggers_rule_ids: string[] | null
+          uncertainty_handling_mode: string | null
+          university_source: string | null
+          updated_at: string | null
+          validation_trials: number | null
+          variety_applicable: string[] | null
+          verification_status: string | null
+          version: string | null
+          version_hash: string | null
+          visual_markers: Json | null
+          water_volume_per_acre: string | null
+          weather_dependency: Json | null
+          wind_speed_max_kmph: number | null
+        }
+        Insert: {
+          action_text?: string | null
+          action_type: string
+          active_ingredient?: string | null
+          affected_crops?: string[] | null
+          alternatives?: Json | null
+          applicability_scope?: string | null
+          application_method?: string | null
+          approval_date?: string | null
+          approved_by?: string | null
+          aquatic_toxicity?: string | null
+          bee_toxicity?: string | null
+          biological_group?: string | null
+          blocked_ingredient_ref?: string | null
+          blocks_rule_ids?: string[] | null
+          botanical_name?: string | null
+          canonical_group?: string | null
+          canonical_status?: string | null
+          category: string
+          cause: string
+          chemical_class?: string | null
+          climate_zone_applicable?: string[] | null
+          compile_notes?: string | null
+          compile_status?: string | null
+          condition_code: string
+          conditions_compiled?: Json | null
+          conditions_json: Json
+          confidence_score?: number | null
+          contraindications?: string[] | null
+          created_at?: string | null
+          crop_age_days_max?: number | null
+          crop_age_days_min?: number | null
+          crop_category?: string | null
+          crop_code?: string | null
+          crop_cycle?: string | null
+          crop_family?: string | null
+          crop_group: string
+          crop_tags?: string[] | null
+          cultivation_method_applicable?: string[]
+          cycle_number_max?: number | null
+          cycle_number_min?: number | null
+          data_authority_rank?: number | null
+          days_to_harvest_max?: number | null
+          days_to_harvest_min?: number | null
+          decision_trace_template?: string | null
+          deprecated_at?: string | null
+          deprecation_reason?: string | null
+          derived_from?: string | null
+          diagnostic_confidence_threshold?: number | null
+          differentiating_questions?: Json | null
+          dosage_per_acre?: string | null
+          enables_rule_ids?: string[] | null
+          engine_layer?: number | null
+          equipment_cost_per_acre?: number | null
+          equipment_required?: string[] | null
+          etl_applicable?: boolean | null
+          etl_threshold?: string | null
+          etl_unit?: string | null
+          etl_unit_type?: string | null
+          etl_value_max?: number | null
+          etl_value_min?: number | null
+          expert_approved?: boolean | null
+          expert_override_required?: boolean | null
+          failure_indicators?: string[] | null
+          farmer_safety_level?: string | null
+          field_validated?: boolean | null
+          forecast_horizon_days?: number | null
+          gdd_max?: number | null
+          gdd_min?: number | null
+          growth_stage?: string | null
+          humidity_max_pct?: number | null
+          humidity_min_pct?: number | null
+          i18n_key?: string | null
+          icar_package?: string | null
+          icar_package_ref?: string | null
+          id?: string
+          input_class?: string | null
+          input_cost_per_acre_max?: number | null
+          input_cost_per_acre_min?: number | null
+          interaction_type?: string | null
+          ipm_level?: number | null
+          irrigation_method_applicable?: string[] | null
+          is_active?: boolean | null
+          is_farmer_servable?: boolean | null
+          is_proactive_rule?: boolean | null
+          is_safety_block?: boolean
+          is_system_derived?: boolean | null
+          knowledge_text?: string | null
+          labor_cost_per_acre_max?: number | null
+          labor_cost_per_acre_min?: number | null
+          labor_hours_per_acre?: number | null
+          last_backup_at?: string | null
+          match_explanation_template?: string | null
+          material_cost_per_acre_max?: number | null
+          material_cost_per_acre_min?: number | null
+          maturity_group?: string | null
+          max_temperature?: number | null
+          max_wind_speed?: number | null
+          measurement_method?: string | null
+          min_data_completeness?: number
+          min_temperature?: number | null
+          mode_of_action?: string | null
+          mutually_exclusive_with?: string[] | null
+          ndvi_change_rate?: string | null
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          observable_characteristics?: Json | null
+          observation_confidence_weight?: number | null
+          organic_alternative?: string | null
+          owner_tenant_id?: string | null
+          pest_code?: string | null
+          phi_days?: number | null
+          phi_source?: string | null
+          phi_status?: string | null
+          phi_verified_at?: string | null
+          phi_verified_by?: string | null
+          prediction_type?: string | null
+          prerequisite_rule_ids?: string[] | null
+          priority: number
+          probability_threshold?: number | null
+          rain_delay_hours?: number | null
+          rainfall_probability_min_pct?: number | null
+          reason_text?: string | null
+          reentry_interval_hours?: number | null
+          region_code?: string | null
+          regulatory_status?: string | null
+          required_observation_category?: string[] | null
+          required_plant_part?: string[] | null
+          requires_field_action?: boolean | null
+          research_paper_ref?: string | null
+          resistance_group?: string | null
+          response_severity?: string | null
+          risk_level?: string | null
+          roi_confidence?: number | null
+          roi_cost_saved_max?: number | null
+          roi_cost_saved_min?: number | null
+          roi_net_score?: number | null
+          roi_yield_gain_pct?: number | null
+          roi_yield_risk_pct?: number | null
+          rule_id: string
+          rule_id_lc?: string | null
+          rule_id_v2?: string | null
+          rule_intent?: string | null
+          rule_version?: string | null
+          scientific_basis?: string | null
+          scientific_source?: string | null
+          scope?: string
+          season_applicable?: string[] | null
+          sequence_after?: string[] | null
+          soil_k_kg_ha_max?: number | null
+          soil_k_kg_ha_min?: number | null
+          soil_moisture_pct_max?: number | null
+          soil_moisture_pct_min?: number | null
+          soil_n_kg_ha_max?: number | null
+          soil_n_kg_ha_min?: number | null
+          soil_p_kg_ha_max?: number | null
+          soil_p_kg_ha_min?: number | null
+          soil_ph_max?: number | null
+          soil_ph_min?: number | null
+          soil_type_applicable?: string[] | null
+          stage_applicable: string[]
+          success_indicators?: string[] | null
+          supersedes_rule_id?: string | null
+          target_pest_stage?: string | null
+          temp_max_celsius?: number | null
+          temp_min_celsius?: number | null
+          total_cost_estimated?: number | null
+          treatment_type?: string | null
+          trigger_class?: string
+          triggers_rule_ids?: string[] | null
+          uncertainty_handling_mode?: string | null
+          university_source?: string | null
+          updated_at?: string | null
+          validation_trials?: number | null
+          variety_applicable?: string[] | null
+          verification_status?: string | null
+          version?: string | null
+          version_hash?: string | null
+          visual_markers?: Json | null
+          water_volume_per_acre?: string | null
+          weather_dependency?: Json | null
+          wind_speed_max_kmph?: number | null
+        }
+        Update: {
+          action_text?: string | null
+          action_type?: string
+          active_ingredient?: string | null
+          affected_crops?: string[] | null
+          alternatives?: Json | null
+          applicability_scope?: string | null
+          application_method?: string | null
+          approval_date?: string | null
+          approved_by?: string | null
+          aquatic_toxicity?: string | null
+          bee_toxicity?: string | null
+          biological_group?: string | null
+          blocked_ingredient_ref?: string | null
+          blocks_rule_ids?: string[] | null
+          botanical_name?: string | null
+          canonical_group?: string | null
+          canonical_status?: string | null
           category?: string
           cause?: string
+          chemical_class?: string | null
+          climate_zone_applicable?: string[] | null
+          compile_notes?: string | null
+          compile_status?: string | null
+          condition_code?: string
+          conditions_compiled?: Json | null
           conditions_json?: Json
+          confidence_score?: number | null
+          contraindications?: string[] | null
+          created_at?: string | null
+          crop_age_days_max?: number | null
+          crop_age_days_min?: number | null
+          crop_category?: string | null
+          crop_code?: string | null
+          crop_cycle?: string | null
+          crop_family?: string | null
+          crop_group?: string
+          crop_tags?: string[] | null
+          cultivation_method_applicable?: string[]
+          cycle_number_max?: number | null
+          cycle_number_min?: number | null
+          data_authority_rank?: number | null
+          days_to_harvest_max?: number | null
+          days_to_harvest_min?: number | null
+          decision_trace_template?: string | null
+          deprecated_at?: string | null
+          deprecation_reason?: string | null
+          derived_from?: string | null
+          diagnostic_confidence_threshold?: number | null
+          differentiating_questions?: Json | null
+          dosage_per_acre?: string | null
+          enables_rule_ids?: string[] | null
+          engine_layer?: number | null
+          equipment_cost_per_acre?: number | null
+          equipment_required?: string[] | null
+          etl_applicable?: boolean | null
+          etl_threshold?: string | null
+          etl_unit?: string | null
+          etl_unit_type?: string | null
+          etl_value_max?: number | null
+          etl_value_min?: number | null
+          expert_approved?: boolean | null
+          expert_override_required?: boolean | null
+          failure_indicators?: string[] | null
+          farmer_safety_level?: string | null
+          field_validated?: boolean | null
+          forecast_horizon_days?: number | null
+          gdd_max?: number | null
+          gdd_min?: number | null
+          growth_stage?: string | null
+          humidity_max_pct?: number | null
+          humidity_min_pct?: number | null
+          i18n_key?: string | null
+          icar_package?: string | null
+          icar_package_ref?: string | null
+          id?: string
+          input_class?: string | null
+          input_cost_per_acre_max?: number | null
+          input_cost_per_acre_min?: number | null
+          interaction_type?: string | null
+          ipm_level?: number | null
+          irrigation_method_applicable?: string[] | null
+          is_active?: boolean | null
+          is_farmer_servable?: boolean | null
+          is_proactive_rule?: boolean | null
+          is_safety_block?: boolean
+          is_system_derived?: boolean | null
+          knowledge_text?: string | null
+          labor_cost_per_acre_max?: number | null
+          labor_cost_per_acre_min?: number | null
+          labor_hours_per_acre?: number | null
+          last_backup_at?: string | null
+          match_explanation_template?: string | null
+          material_cost_per_acre_max?: number | null
+          material_cost_per_acre_min?: number | null
+          maturity_group?: string | null
+          max_temperature?: number | null
+          max_wind_speed?: number | null
+          measurement_method?: string | null
+          min_data_completeness?: number
+          min_temperature?: number | null
+          mode_of_action?: string | null
+          mutually_exclusive_with?: string[] | null
+          ndvi_change_rate?: string | null
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          observable_characteristics?: Json | null
+          observation_confidence_weight?: number | null
+          organic_alternative?: string | null
+          owner_tenant_id?: string | null
+          pest_code?: string | null
+          phi_days?: number | null
+          phi_source?: string | null
+          phi_status?: string | null
+          phi_verified_at?: string | null
+          phi_verified_by?: string | null
+          prediction_type?: string | null
+          prerequisite_rule_ids?: string[] | null
+          priority?: number
+          probability_threshold?: number | null
+          rain_delay_hours?: number | null
+          rainfall_probability_min_pct?: number | null
+          reason_text?: string | null
+          reentry_interval_hours?: number | null
+          region_code?: string | null
+          regulatory_status?: string | null
+          required_observation_category?: string[] | null
+          required_plant_part?: string[] | null
+          requires_field_action?: boolean | null
+          research_paper_ref?: string | null
+          resistance_group?: string | null
+          response_severity?: string | null
+          risk_level?: string | null
+          roi_confidence?: number | null
+          roi_cost_saved_max?: number | null
+          roi_cost_saved_min?: number | null
+          roi_net_score?: number | null
+          roi_yield_gain_pct?: number | null
+          roi_yield_risk_pct?: number | null
+          rule_id?: string
+          rule_id_lc?: string | null
+          rule_id_v2?: string | null
+          rule_intent?: string | null
+          rule_version?: string | null
+          scientific_basis?: string | null
+          scientific_source?: string | null
+          scope?: string
+          season_applicable?: string[] | null
+          sequence_after?: string[] | null
+          soil_k_kg_ha_max?: number | null
+          soil_k_kg_ha_min?: number | null
+          soil_moisture_pct_max?: number | null
+          soil_moisture_pct_min?: number | null
+          soil_n_kg_ha_max?: number | null
+          soil_n_kg_ha_min?: number | null
+          soil_p_kg_ha_max?: number | null
+          soil_p_kg_ha_min?: number | null
+          soil_ph_max?: number | null
+          soil_ph_min?: number | null
+          soil_type_applicable?: string[] | null
+          stage_applicable?: string[]
+          success_indicators?: string[] | null
+          supersedes_rule_id?: string | null
+          target_pest_stage?: string | null
+          temp_max_celsius?: number | null
+          temp_min_celsius?: number | null
+          total_cost_estimated?: number | null
+          treatment_type?: string | null
+          trigger_class?: string
+          triggers_rule_ids?: string[] | null
+          uncertainty_handling_mode?: string | null
+          university_source?: string | null
+          updated_at?: string | null
+          validation_trials?: number | null
+          variety_applicable?: string[] | null
+          verification_status?: string | null
+          version?: string | null
+          version_hash?: string | null
+          visual_markers?: Json | null
+          water_volume_per_acre?: string | null
+          weather_dependency?: Json | null
+          wind_speed_max_kmph?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_pest_code_fk"
+            columns: ["pest_code"]
+            isOneToOne: false
+            referencedRelation: "pest_master"
+            referencedColumns: ["pest_code"]
+          },
+          {
+            foreignKeyName: "fk_decision_rules_condition_code"
+            columns: ["condition_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+        ]
+      }
+      decision_rules_ai_audit: {
+        Row: {
+          audit_run_id: string
+          category: string | null
+          claude_review: string | null
+          condition_status: string | null
+          created_at: string | null
+          crop_code: string | null
+          dual_ai_agreement: boolean | null
+          duplicate_group: boolean | null
+          final_verification_status: string
+          graph_status: string | null
+          id: number
+          is_chemical: boolean | null
+          is_proactive: boolean | null
+          openai_review: string | null
+          reason: string | null
+          regulatory_status: string | null
+          rule_id: string | null
+          rule_pk: string
+          safety_status: string | null
+          source_status: string | null
+          stage_status: string | null
+        }
+        Insert: {
+          audit_run_id: string
+          category?: string | null
+          claude_review?: string | null
+          condition_status?: string | null
           created_at?: string | null
           crop_code?: string | null
-          crop_group?: string
-          icar_package?: string | null
+          dual_ai_agreement?: boolean | null
+          duplicate_group?: boolean | null
+          final_verification_status: string
+          graph_status?: string | null
+          id?: never
+          is_chemical?: boolean | null
+          is_proactive?: boolean | null
+          openai_review?: string | null
+          reason?: string | null
+          regulatory_status?: string | null
+          rule_id?: string | null
+          rule_pk: string
+          safety_status?: string | null
+          source_status?: string | null
+          stage_status?: string | null
+        }
+        Update: {
+          audit_run_id?: string
+          category?: string | null
+          claude_review?: string | null
+          condition_status?: string | null
+          created_at?: string | null
+          crop_code?: string | null
+          dual_ai_agreement?: boolean | null
+          duplicate_group?: boolean | null
+          final_verification_status?: string
+          graph_status?: string | null
+          id?: never
+          is_chemical?: boolean | null
+          is_proactive?: boolean | null
+          openai_review?: string | null
+          reason?: string | null
+          regulatory_status?: string | null
+          rule_id?: string | null
+          rule_pk?: string
+          safety_status?: string | null
+          source_status?: string | null
+          stage_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_ai_audit_rule_pk_fkey"
+            columns: ["rule_pk"]
+            isOneToOne: false
+            referencedRelation: "decision_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_rules_ai_audit_rule_pk_fkey"
+            columns: ["rule_pk"]
+            isOneToOne: false
+            referencedRelation: "qa_rule_crop_content_mismatch"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_rules_ai_audit_rule_pk_fkey"
+            columns: ["rule_pk"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_serving_gate"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_rules_ai_audit_rule_pk_fkey"
+            columns: ["rule_pk"]
+            isOneToOne: false
+            referencedRelation: "v_decision_rules_admin"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_rules_history: {
+        Row: {
+          change_reason: string | null
+          change_type: string | null
+          changed_at: string | null
+          changed_by: string | null
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          rule_id: string
+        }
+        Insert: {
+          change_reason?: string | null
+          change_type?: string | null
+          changed_at?: string | null
+          changed_by?: string | null
           id?: string
-          is_active?: boolean | null
-          priority?: number
+          new_values?: Json | null
+          old_values?: Json | null
+          rule_id: string
+        }
+        Update: {
+          change_reason?: string | null
+          change_type?: string | null
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
           rule_id?: string
+        }
+        Relationships: []
+      }
+      decision_rules_rice_audit_backup: {
+        Row: {
+          action_text: string | null
+          action_type: string | null
+          active_ingredient: string | null
+          affected_crops: string[] | null
+          alternatives: Json | null
+          applicability_scope: string | null
+          application_method: string | null
+          approval_date: string | null
+          approved_by: string | null
+          aquatic_toxicity: string | null
+          backed_up_at: string | null
+          bee_toxicity: string | null
+          biological_group: string | null
+          blocked_ingredient_ref: string | null
+          blocks_rule_ids: string[] | null
+          botanical_name: string | null
+          canonical_group: string | null
+          canonical_status: string | null
+          category: string | null
+          cause: string | null
+          chemical_class: string | null
+          climate_zone_applicable: string[] | null
+          compile_notes: string | null
+          compile_status: string | null
+          condition_code: string | null
+          conditions_compiled: Json | null
+          conditions_json: Json | null
+          confidence_score: number | null
+          contraindications: string[] | null
+          created_at: string | null
+          crop_age_days_max: number | null
+          crop_age_days_min: number | null
+          crop_category: string | null
+          crop_code: string | null
+          crop_cycle: string | null
+          crop_family: string | null
+          crop_group: string | null
+          crop_tags: string[] | null
+          cultivation_method_applicable: string[] | null
+          cycle_number_max: number | null
+          cycle_number_min: number | null
+          data_authority_rank: number | null
+          days_to_harvest_max: number | null
+          days_to_harvest_min: number | null
+          decision_trace_template: string | null
+          deprecated_at: string | null
+          deprecation_reason: string | null
+          derived_from: string | null
+          diagnostic_confidence_threshold: number | null
+          differentiating_questions: Json | null
+          dosage_per_acre: string | null
+          enables_rule_ids: string[] | null
+          engine_layer: number | null
+          equipment_cost_per_acre: number | null
+          equipment_required: string[] | null
+          etl_applicable: boolean | null
+          etl_threshold: string | null
+          etl_unit: string | null
+          etl_unit_type: string | null
+          etl_value_max: number | null
+          etl_value_min: number | null
+          expert_approved: boolean | null
+          expert_override_required: boolean | null
+          failure_indicators: string[] | null
+          farmer_safety_level: string | null
+          field_validated: boolean | null
+          forecast_horizon_days: number | null
+          gdd_max: number | null
+          gdd_min: number | null
+          growth_stage: string | null
+          humidity_max_pct: number | null
+          humidity_min_pct: number | null
+          i18n_key: string | null
+          icar_package: string | null
+          icar_package_ref: string | null
+          id: string | null
+          input_class: string | null
+          input_cost_per_acre_max: number | null
+          input_cost_per_acre_min: number | null
+          interaction_type: string | null
+          ipm_level: number | null
+          irrigation_method_applicable: string[] | null
+          is_active: boolean | null
+          is_farmer_servable: boolean | null
+          is_proactive_rule: boolean | null
+          is_safety_block: boolean | null
+          is_system_derived: boolean | null
+          knowledge_text: string | null
+          labor_cost_per_acre_max: number | null
+          labor_cost_per_acre_min: number | null
+          labor_hours_per_acre: number | null
+          last_backup_at: string | null
+          match_explanation_template: string | null
+          material_cost_per_acre_max: number | null
+          material_cost_per_acre_min: number | null
+          maturity_group: string | null
+          max_temperature: number | null
+          max_wind_speed: number | null
+          measurement_method: string | null
+          min_data_completeness: number | null
+          min_temperature: number | null
+          mode_of_action: string | null
+          mutually_exclusive_with: string[] | null
+          ndvi_change_rate: string | null
+          ndvi_max: number | null
+          ndvi_min: number | null
+          observable_characteristics: Json | null
+          observation_confidence_weight: number | null
+          organic_alternative: string | null
+          owner_tenant_id: string | null
+          pest_code: string | null
+          phi_days: number | null
+          phi_source: string | null
+          phi_status: string | null
+          phi_verified_at: string | null
+          phi_verified_by: string | null
+          prediction_type: string | null
+          prerequisite_rule_ids: string[] | null
+          priority: number | null
+          probability_threshold: number | null
+          rain_delay_hours: number | null
+          rainfall_probability_min_pct: number | null
+          reason_text: string | null
+          reentry_interval_hours: number | null
+          region_code: string | null
+          regulatory_status: string | null
+          required_observation_category: string[] | null
+          required_plant_part: string[] | null
+          requires_field_action: boolean | null
+          research_paper_ref: string | null
+          resistance_group: string | null
+          response_severity: string | null
+          risk_level: string | null
+          roi_confidence: number | null
+          roi_cost_saved_max: number | null
+          roi_cost_saved_min: number | null
+          roi_net_score: number | null
+          roi_yield_gain_pct: number | null
+          roi_yield_risk_pct: number | null
+          rule_id: string | null
+          rule_id_lc: string | null
+          rule_id_v2: string | null
+          rule_intent: string | null
+          rule_version: string | null
+          scientific_basis: string | null
+          scientific_source: string | null
+          scope: string | null
+          season_applicable: string[] | null
+          sequence_after: string[] | null
+          soil_k_kg_ha_max: number | null
+          soil_k_kg_ha_min: number | null
+          soil_moisture_pct_max: number | null
+          soil_moisture_pct_min: number | null
+          soil_n_kg_ha_max: number | null
+          soil_n_kg_ha_min: number | null
+          soil_p_kg_ha_max: number | null
+          soil_p_kg_ha_min: number | null
+          soil_ph_max: number | null
+          soil_ph_min: number | null
+          soil_type_applicable: string[] | null
+          stage_applicable: string[] | null
+          success_indicators: string[] | null
+          supersedes_rule_id: string | null
+          target_pest_stage: string | null
+          temp_max_celsius: number | null
+          temp_min_celsius: number | null
+          total_cost_estimated: number | null
+          treatment_type: string | null
+          trigger_class: string | null
+          triggers_rule_ids: string[] | null
+          uncertainty_handling_mode: string | null
+          university_source: string | null
+          updated_at: string | null
+          validation_trials: number | null
+          variety_applicable: string[] | null
+          verification_status: string | null
+          version: string | null
+          version_hash: string | null
+          visual_markers: Json | null
+          water_volume_per_acre: string | null
+          weather_dependency: Json | null
+          wind_speed_max_kmph: number | null
+        }
+        Insert: {
+          action_text?: string | null
+          action_type?: string | null
+          active_ingredient?: string | null
+          affected_crops?: string[] | null
+          alternatives?: Json | null
+          applicability_scope?: string | null
+          application_method?: string | null
+          approval_date?: string | null
+          approved_by?: string | null
+          aquatic_toxicity?: string | null
+          backed_up_at?: string | null
+          bee_toxicity?: string | null
+          biological_group?: string | null
+          blocked_ingredient_ref?: string | null
+          blocks_rule_ids?: string[] | null
+          botanical_name?: string | null
+          canonical_group?: string | null
+          canonical_status?: string | null
+          category?: string | null
+          cause?: string | null
+          chemical_class?: string | null
+          climate_zone_applicable?: string[] | null
+          compile_notes?: string | null
+          compile_status?: string | null
+          condition_code?: string | null
+          conditions_compiled?: Json | null
+          conditions_json?: Json | null
+          confidence_score?: number | null
+          contraindications?: string[] | null
+          created_at?: string | null
+          crop_age_days_max?: number | null
+          crop_age_days_min?: number | null
+          crop_category?: string | null
+          crop_code?: string | null
+          crop_cycle?: string | null
+          crop_family?: string | null
+          crop_group?: string | null
+          crop_tags?: string[] | null
+          cultivation_method_applicable?: string[] | null
+          cycle_number_max?: number | null
+          cycle_number_min?: number | null
+          data_authority_rank?: number | null
+          days_to_harvest_max?: number | null
+          days_to_harvest_min?: number | null
+          decision_trace_template?: string | null
+          deprecated_at?: string | null
+          deprecation_reason?: string | null
+          derived_from?: string | null
+          diagnostic_confidence_threshold?: number | null
+          differentiating_questions?: Json | null
+          dosage_per_acre?: string | null
+          enables_rule_ids?: string[] | null
+          engine_layer?: number | null
+          equipment_cost_per_acre?: number | null
+          equipment_required?: string[] | null
+          etl_applicable?: boolean | null
+          etl_threshold?: string | null
+          etl_unit?: string | null
+          etl_unit_type?: string | null
+          etl_value_max?: number | null
+          etl_value_min?: number | null
+          expert_approved?: boolean | null
+          expert_override_required?: boolean | null
+          failure_indicators?: string[] | null
+          farmer_safety_level?: string | null
+          field_validated?: boolean | null
+          forecast_horizon_days?: number | null
+          gdd_max?: number | null
+          gdd_min?: number | null
+          growth_stage?: string | null
+          humidity_max_pct?: number | null
+          humidity_min_pct?: number | null
+          i18n_key?: string | null
+          icar_package?: string | null
+          icar_package_ref?: string | null
+          id?: string | null
+          input_class?: string | null
+          input_cost_per_acre_max?: number | null
+          input_cost_per_acre_min?: number | null
+          interaction_type?: string | null
+          ipm_level?: number | null
+          irrigation_method_applicable?: string[] | null
+          is_active?: boolean | null
+          is_farmer_servable?: boolean | null
+          is_proactive_rule?: boolean | null
+          is_safety_block?: boolean | null
+          is_system_derived?: boolean | null
+          knowledge_text?: string | null
+          labor_cost_per_acre_max?: number | null
+          labor_cost_per_acre_min?: number | null
+          labor_hours_per_acre?: number | null
+          last_backup_at?: string | null
+          match_explanation_template?: string | null
+          material_cost_per_acre_max?: number | null
+          material_cost_per_acre_min?: number | null
+          maturity_group?: string | null
+          max_temperature?: number | null
+          max_wind_speed?: number | null
+          measurement_method?: string | null
+          min_data_completeness?: number | null
+          min_temperature?: number | null
+          mode_of_action?: string | null
+          mutually_exclusive_with?: string[] | null
+          ndvi_change_rate?: string | null
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          observable_characteristics?: Json | null
+          observation_confidence_weight?: number | null
+          organic_alternative?: string | null
+          owner_tenant_id?: string | null
+          pest_code?: string | null
+          phi_days?: number | null
+          phi_source?: string | null
+          phi_status?: string | null
+          phi_verified_at?: string | null
+          phi_verified_by?: string | null
+          prediction_type?: string | null
+          prerequisite_rule_ids?: string[] | null
+          priority?: number | null
+          probability_threshold?: number | null
+          rain_delay_hours?: number | null
+          rainfall_probability_min_pct?: number | null
+          reason_text?: string | null
+          reentry_interval_hours?: number | null
+          region_code?: string | null
+          regulatory_status?: string | null
+          required_observation_category?: string[] | null
+          required_plant_part?: string[] | null
+          requires_field_action?: boolean | null
+          research_paper_ref?: string | null
+          resistance_group?: string | null
+          response_severity?: string | null
+          risk_level?: string | null
+          roi_confidence?: number | null
+          roi_cost_saved_max?: number | null
+          roi_cost_saved_min?: number | null
+          roi_net_score?: number | null
+          roi_yield_gain_pct?: number | null
+          roi_yield_risk_pct?: number | null
+          rule_id?: string | null
+          rule_id_lc?: string | null
+          rule_id_v2?: string | null
+          rule_intent?: string | null
+          rule_version?: string | null
+          scientific_basis?: string | null
           scientific_source?: string | null
-          stage_applicable?: string[]
+          scope?: string | null
+          season_applicable?: string[] | null
+          sequence_after?: string[] | null
+          soil_k_kg_ha_max?: number | null
+          soil_k_kg_ha_min?: number | null
+          soil_moisture_pct_max?: number | null
+          soil_moisture_pct_min?: number | null
+          soil_n_kg_ha_max?: number | null
+          soil_n_kg_ha_min?: number | null
+          soil_p_kg_ha_max?: number | null
+          soil_p_kg_ha_min?: number | null
+          soil_ph_max?: number | null
+          soil_ph_min?: number | null
+          soil_type_applicable?: string[] | null
+          stage_applicable?: string[] | null
+          success_indicators?: string[] | null
+          supersedes_rule_id?: string | null
+          target_pest_stage?: string | null
+          temp_max_celsius?: number | null
+          temp_min_celsius?: number | null
+          total_cost_estimated?: number | null
+          treatment_type?: string | null
+          trigger_class?: string | null
+          triggers_rule_ids?: string[] | null
+          uncertainty_handling_mode?: string | null
+          university_source?: string | null
           updated_at?: string | null
+          validation_trials?: number | null
+          variety_applicable?: string[] | null
+          verification_status?: string | null
           version?: string | null
+          version_hash?: string | null
+          visual_markers?: Json | null
+          water_volume_per_acre?: string | null
+          weather_dependency?: Json | null
+          wind_speed_max_kmph?: number | null
+        }
+        Update: {
+          action_text?: string | null
+          action_type?: string | null
+          active_ingredient?: string | null
+          affected_crops?: string[] | null
+          alternatives?: Json | null
+          applicability_scope?: string | null
+          application_method?: string | null
+          approval_date?: string | null
+          approved_by?: string | null
+          aquatic_toxicity?: string | null
+          backed_up_at?: string | null
+          bee_toxicity?: string | null
+          biological_group?: string | null
+          blocked_ingredient_ref?: string | null
+          blocks_rule_ids?: string[] | null
+          botanical_name?: string | null
+          canonical_group?: string | null
+          canonical_status?: string | null
+          category?: string | null
+          cause?: string | null
+          chemical_class?: string | null
+          climate_zone_applicable?: string[] | null
+          compile_notes?: string | null
+          compile_status?: string | null
+          condition_code?: string | null
+          conditions_compiled?: Json | null
+          conditions_json?: Json | null
+          confidence_score?: number | null
+          contraindications?: string[] | null
+          created_at?: string | null
+          crop_age_days_max?: number | null
+          crop_age_days_min?: number | null
+          crop_category?: string | null
+          crop_code?: string | null
+          crop_cycle?: string | null
+          crop_family?: string | null
+          crop_group?: string | null
+          crop_tags?: string[] | null
+          cultivation_method_applicable?: string[] | null
+          cycle_number_max?: number | null
+          cycle_number_min?: number | null
+          data_authority_rank?: number | null
+          days_to_harvest_max?: number | null
+          days_to_harvest_min?: number | null
+          decision_trace_template?: string | null
+          deprecated_at?: string | null
+          deprecation_reason?: string | null
+          derived_from?: string | null
+          diagnostic_confidence_threshold?: number | null
+          differentiating_questions?: Json | null
+          dosage_per_acre?: string | null
+          enables_rule_ids?: string[] | null
+          engine_layer?: number | null
+          equipment_cost_per_acre?: number | null
+          equipment_required?: string[] | null
+          etl_applicable?: boolean | null
+          etl_threshold?: string | null
+          etl_unit?: string | null
+          etl_unit_type?: string | null
+          etl_value_max?: number | null
+          etl_value_min?: number | null
+          expert_approved?: boolean | null
+          expert_override_required?: boolean | null
+          failure_indicators?: string[] | null
+          farmer_safety_level?: string | null
+          field_validated?: boolean | null
+          forecast_horizon_days?: number | null
+          gdd_max?: number | null
+          gdd_min?: number | null
+          growth_stage?: string | null
+          humidity_max_pct?: number | null
+          humidity_min_pct?: number | null
+          i18n_key?: string | null
+          icar_package?: string | null
+          icar_package_ref?: string | null
+          id?: string | null
+          input_class?: string | null
+          input_cost_per_acre_max?: number | null
+          input_cost_per_acre_min?: number | null
+          interaction_type?: string | null
+          ipm_level?: number | null
+          irrigation_method_applicable?: string[] | null
+          is_active?: boolean | null
+          is_farmer_servable?: boolean | null
+          is_proactive_rule?: boolean | null
+          is_safety_block?: boolean | null
+          is_system_derived?: boolean | null
+          knowledge_text?: string | null
+          labor_cost_per_acre_max?: number | null
+          labor_cost_per_acre_min?: number | null
+          labor_hours_per_acre?: number | null
+          last_backup_at?: string | null
+          match_explanation_template?: string | null
+          material_cost_per_acre_max?: number | null
+          material_cost_per_acre_min?: number | null
+          maturity_group?: string | null
+          max_temperature?: number | null
+          max_wind_speed?: number | null
+          measurement_method?: string | null
+          min_data_completeness?: number | null
+          min_temperature?: number | null
+          mode_of_action?: string | null
+          mutually_exclusive_with?: string[] | null
+          ndvi_change_rate?: string | null
+          ndvi_max?: number | null
+          ndvi_min?: number | null
+          observable_characteristics?: Json | null
+          observation_confidence_weight?: number | null
+          organic_alternative?: string | null
+          owner_tenant_id?: string | null
+          pest_code?: string | null
+          phi_days?: number | null
+          phi_source?: string | null
+          phi_status?: string | null
+          phi_verified_at?: string | null
+          phi_verified_by?: string | null
+          prediction_type?: string | null
+          prerequisite_rule_ids?: string[] | null
+          priority?: number | null
+          probability_threshold?: number | null
+          rain_delay_hours?: number | null
+          rainfall_probability_min_pct?: number | null
+          reason_text?: string | null
+          reentry_interval_hours?: number | null
+          region_code?: string | null
+          regulatory_status?: string | null
+          required_observation_category?: string[] | null
+          required_plant_part?: string[] | null
+          requires_field_action?: boolean | null
+          research_paper_ref?: string | null
+          resistance_group?: string | null
+          response_severity?: string | null
+          risk_level?: string | null
+          roi_confidence?: number | null
+          roi_cost_saved_max?: number | null
+          roi_cost_saved_min?: number | null
+          roi_net_score?: number | null
+          roi_yield_gain_pct?: number | null
+          roi_yield_risk_pct?: number | null
+          rule_id?: string | null
+          rule_id_lc?: string | null
+          rule_id_v2?: string | null
+          rule_intent?: string | null
+          rule_version?: string | null
+          scientific_basis?: string | null
+          scientific_source?: string | null
+          scope?: string | null
+          season_applicable?: string[] | null
+          sequence_after?: string[] | null
+          soil_k_kg_ha_max?: number | null
+          soil_k_kg_ha_min?: number | null
+          soil_moisture_pct_max?: number | null
+          soil_moisture_pct_min?: number | null
+          soil_n_kg_ha_max?: number | null
+          soil_n_kg_ha_min?: number | null
+          soil_p_kg_ha_max?: number | null
+          soil_p_kg_ha_min?: number | null
+          soil_ph_max?: number | null
+          soil_ph_min?: number | null
+          soil_type_applicable?: string[] | null
+          stage_applicable?: string[] | null
+          success_indicators?: string[] | null
+          supersedes_rule_id?: string | null
+          target_pest_stage?: string | null
+          temp_max_celsius?: number | null
+          temp_min_celsius?: number | null
+          total_cost_estimated?: number | null
+          treatment_type?: string | null
+          trigger_class?: string | null
+          triggers_rule_ids?: string[] | null
+          uncertainty_handling_mode?: string | null
+          university_source?: string | null
+          updated_at?: string | null
+          validation_trials?: number | null
+          variety_applicable?: string[] | null
+          verification_status?: string | null
+          version?: string | null
+          version_hash?: string | null
+          visual_markers?: Json | null
+          water_volume_per_acre?: string | null
+          weather_dependency?: Json | null
+          wind_speed_max_kmph?: number | null
+        }
+        Relationships: []
+      }
+      direct_advisory_routes: {
+        Row: {
+          created_at: string
+          notes: string | null
+          route_code: string
+        }
+        Insert: {
+          created_at?: string
+          notes?: string | null
+          route_code: string
+        }
+        Update: {
+          created_at?: string
+          notes?: string | null
+          route_code?: string
         }
         Relationships: []
       }
@@ -6136,60 +12712,193 @@ export type Database = {
           },
         ]
       }
-      district_zone_mapping: {
+      disease_risk_model: {
         Row: {
+          alert_action_en: string | null
+          alert_action_hi: string | null
+          alert_action_mr: string | null
+          alert_message_en: string | null
+          alert_message_hi: string | null
+          alert_message_mr: string | null
+          alert_title_en: string | null
+          alert_title_hi: string | null
+          alert_title_mr: string | null
           created_at: string | null
-          district_id: string
+          crop_code: string
+          disease_code: string
+          disease_name_en: string
+          disease_name_hi: string | null
+          disease_name_mr: string | null
+          humidity_max: number | null
+          humidity_min: number | null
           id: string
           is_active: boolean | null
-          zone_id: string
+          leaf_wetness_hours_min: number | null
+          rain_mm_max: number | null
+          rain_mm_min: number | null
+          risk_weight: number | null
+          scientific_source: string | null
+          season_applicable: string[] | null
+          stage_applicable: string[] | null
+          temp_max: number | null
+          temp_min: number | null
+          updated_at: string | null
+          wind_speed_max: number | null
         }
         Insert: {
+          alert_action_en?: string | null
+          alert_action_hi?: string | null
+          alert_action_mr?: string | null
+          alert_message_en?: string | null
+          alert_message_hi?: string | null
+          alert_message_mr?: string | null
+          alert_title_en?: string | null
+          alert_title_hi?: string | null
+          alert_title_mr?: string | null
           created_at?: string | null
-          district_id: string
+          crop_code: string
+          disease_code: string
+          disease_name_en: string
+          disease_name_hi?: string | null
+          disease_name_mr?: string | null
+          humidity_max?: number | null
+          humidity_min?: number | null
           id?: string
           is_active?: boolean | null
-          zone_id: string
+          leaf_wetness_hours_min?: number | null
+          rain_mm_max?: number | null
+          rain_mm_min?: number | null
+          risk_weight?: number | null
+          scientific_source?: string | null
+          season_applicable?: string[] | null
+          stage_applicable?: string[] | null
+          temp_max?: number | null
+          temp_min?: number | null
+          updated_at?: string | null
+          wind_speed_max?: number | null
         }
         Update: {
+          alert_action_en?: string | null
+          alert_action_hi?: string | null
+          alert_action_mr?: string | null
+          alert_message_en?: string | null
+          alert_message_hi?: string | null
+          alert_message_mr?: string | null
+          alert_title_en?: string | null
+          alert_title_hi?: string | null
+          alert_title_mr?: string | null
           created_at?: string | null
-          district_id?: string
+          crop_code?: string
+          disease_code?: string
+          disease_name_en?: string
+          disease_name_hi?: string | null
+          disease_name_mr?: string | null
+          humidity_max?: number | null
+          humidity_min?: number | null
           id?: string
           is_active?: boolean | null
-          zone_id?: string
+          leaf_wetness_hours_min?: number | null
+          rain_mm_max?: number | null
+          rain_mm_min?: number | null
+          risk_weight?: number | null
+          scientific_source?: string | null
+          season_applicable?: string[] | null
+          stage_applicable?: string[] | null
+          temp_max?: number | null
+          temp_min?: number | null
+          updated_at?: string | null
+          wind_speed_max?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "district_zone_mapping_zone_id_fkey"
-            columns: ["zone_id"]
+            foreignKeyName: "disease_risk_model_crop_code_registry_fk"
+            columns: ["crop_code"]
             isOneToOne: false
-            referencedRelation: "agro_climatic_zones"
-            referencedColumns: ["id"]
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "disease_risk_model_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
           },
         ]
       }
       districts: {
         Row: {
+          census2011_district_code: string | null
           created_at: string | null
           id: string
+          imd_district_obj_id: string | null
+          imd_mapped_at: string | null
           is_active: boolean | null
+          lgd_district_code: number | null
           name: string
+          name_as: string | null
+          name_bn: string | null
+          name_gu: string | null
+          name_hi: string | null
+          name_kn: string | null
+          name_ml: string | null
+          name_mr: string | null
+          name_or: string | null
+          name_pa: string | null
+          name_sa: string | null
+          name_ta: string | null
+          name_te: string | null
+          name_ur: string | null
           state_id: string
           updated_at: string | null
         }
         Insert: {
+          census2011_district_code?: string | null
           created_at?: string | null
           id?: string
+          imd_district_obj_id?: string | null
+          imd_mapped_at?: string | null
           is_active?: boolean | null
+          lgd_district_code?: number | null
           name: string
+          name_as?: string | null
+          name_bn?: string | null
+          name_gu?: string | null
+          name_hi?: string | null
+          name_kn?: string | null
+          name_ml?: string | null
+          name_mr?: string | null
+          name_or?: string | null
+          name_pa?: string | null
+          name_sa?: string | null
+          name_ta?: string | null
+          name_te?: string | null
+          name_ur?: string | null
           state_id: string
           updated_at?: string | null
         }
         Update: {
+          census2011_district_code?: string | null
           created_at?: string | null
           id?: string
+          imd_district_obj_id?: string | null
+          imd_mapped_at?: string | null
           is_active?: boolean | null
+          lgd_district_code?: number | null
           name?: string
+          name_as?: string | null
+          name_bn?: string | null
+          name_gu?: string | null
+          name_hi?: string | null
+          name_kn?: string | null
+          name_ml?: string | null
+          name_mr?: string | null
+          name_or?: string | null
+          name_pa?: string | null
+          name_sa?: string | null
+          name_ta?: string | null
+          name_te?: string | null
+          name_ur?: string | null
           state_id?: string
           updated_at?: string | null
         }
@@ -6271,6 +12980,60 @@ export type Database = {
           invoked_at?: string | null
           payload?: Json | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      efficacy_updates: {
+        Row: {
+          applied: boolean
+          confidence: string | null
+          created_at: string
+          crop_code: string | null
+          crop_stage: string | null
+          derivation_note: string | null
+          expert_reviewed_at: string | null
+          expert_reviewed_by: string | null
+          id: string
+          new_efficacy: number | null
+          pest_disease_code: string
+          previous_efficacy: number | null
+          sample_size: number | null
+          treatment_code: string
+          updated_at: string
+        }
+        Insert: {
+          applied?: boolean
+          confidence?: string | null
+          created_at?: string
+          crop_code?: string | null
+          crop_stage?: string | null
+          derivation_note?: string | null
+          expert_reviewed_at?: string | null
+          expert_reviewed_by?: string | null
+          id?: string
+          new_efficacy?: number | null
+          pest_disease_code: string
+          previous_efficacy?: number | null
+          sample_size?: number | null
+          treatment_code: string
+          updated_at?: string
+        }
+        Update: {
+          applied?: boolean
+          confidence?: string | null
+          created_at?: string
+          crop_code?: string | null
+          crop_stage?: string | null
+          derivation_note?: string | null
+          expert_reviewed_at?: string | null
+          expert_reviewed_by?: string | null
+          id?: string
+          new_efficacy?: number | null
+          pest_disease_code?: string
+          previous_efficacy?: number | null
+          sample_size?: number | null
+          treatment_code?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -6567,6 +13330,1003 @@ export type Database = {
           },
         ]
       }
+      emergency_observation_codes: {
+        Row: {
+          created_at: string
+          notes: string | null
+          observation_code: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          notes?: string | null
+          observation_code: string
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          notes?: string | null
+          observation_code?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      env_derivation_run: {
+        Row: {
+          cell_key: string | null
+          engine_source_id: string | null
+          executed_at: string | null
+          land_id: string | null
+          method_id: string
+          method_version: string
+          params_hash: string | null
+          run_id: string
+          status: string | null
+        }
+        Insert: {
+          cell_key?: string | null
+          engine_source_id?: string | null
+          executed_at?: string | null
+          land_id?: string | null
+          method_id: string
+          method_version: string
+          params_hash?: string | null
+          run_id?: string
+          status?: string | null
+        }
+        Update: {
+          cell_key?: string | null
+          engine_source_id?: string | null
+          executed_at?: string | null
+          land_id?: string | null
+          method_id?: string
+          method_version?: string
+          params_hash?: string | null
+          run_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "env_derivation_run_engine_source_id_fkey"
+            columns: ["engine_source_id"]
+            isOneToOne: false
+            referencedRelation: "env_source_registry"
+            referencedColumns: ["source_id"]
+          },
+          {
+            foreignKeyName: "env_derivation_run_method_id_method_version_fkey"
+            columns: ["method_id", "method_version"]
+            isOneToOne: false
+            referencedRelation: "sci_method_registry"
+            referencedColumns: ["method_id", "version"]
+          },
+        ]
+      }
+      env_obs_lineage: {
+        Row: {
+          derived_obs_id: number
+          input_obs_id: number
+          run_id: string | null
+          sensitivity: number | null
+        }
+        Insert: {
+          derived_obs_id: number
+          input_obs_id: number
+          run_id?: string | null
+          sensitivity?: number | null
+        }
+        Update: {
+          derived_obs_id?: number
+          input_obs_id?: number
+          run_id?: string | null
+          sensitivity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "env_obs_lineage_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "env_derivation_run"
+            referencedColumns: ["run_id"]
+          },
+        ]
+      }
+      env_observations: {
+        Row: {
+          cell_key: string | null
+          confidence: number | null
+          created_at: string | null
+          dist_kind: string | null
+          entity_key: string | null
+          horizon_hours: number | null
+          issue_time: string
+          land_id: string | null
+          obs_id: number
+          obs_version: number | null
+          prior_version: number | null
+          property_code: string
+          qc_flags: string[] | null
+          qc_level: number | null
+          raw_unit: string | null
+          raw_value: number | null
+          revision_reason: string | null
+          source_id: string
+          superseded_by: number | null
+          u_std: number | null
+          valid_time: string
+          value: number
+        }
+        Insert: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time: string
+          value: number
+        }
+        Update: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time?: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code?: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id?: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "env_observations_property_code_fkey"
+            columns: ["property_code"]
+            isOneToOne: false
+            referencedRelation: "env_property_master"
+            referencedColumns: ["property_code"]
+          },
+          {
+            foreignKeyName: "env_observations_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "env_source_registry"
+            referencedColumns: ["source_id"]
+          },
+        ]
+      }
+      env_observations_202608: {
+        Row: {
+          cell_key: string | null
+          confidence: number | null
+          created_at: string | null
+          dist_kind: string | null
+          entity_key: string | null
+          horizon_hours: number | null
+          issue_time: string
+          land_id: string | null
+          obs_id: number
+          obs_version: number | null
+          prior_version: number | null
+          property_code: string
+          qc_flags: string[] | null
+          qc_level: number | null
+          raw_unit: string | null
+          raw_value: number | null
+          revision_reason: string | null
+          source_id: string
+          superseded_by: number | null
+          u_std: number | null
+          valid_time: string
+          value: number
+        }
+        Insert: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time: string
+          value: number
+        }
+        Update: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time?: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code?: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id?: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      env_observations_202609: {
+        Row: {
+          cell_key: string | null
+          confidence: number | null
+          created_at: string | null
+          dist_kind: string | null
+          entity_key: string | null
+          horizon_hours: number | null
+          issue_time: string
+          land_id: string | null
+          obs_id: number
+          obs_version: number | null
+          prior_version: number | null
+          property_code: string
+          qc_flags: string[] | null
+          qc_level: number | null
+          raw_unit: string | null
+          raw_value: number | null
+          revision_reason: string | null
+          source_id: string
+          superseded_by: number | null
+          u_std: number | null
+          valid_time: string
+          value: number
+        }
+        Insert: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time: string
+          value: number
+        }
+        Update: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time?: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code?: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id?: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      env_observations_202610: {
+        Row: {
+          cell_key: string | null
+          confidence: number | null
+          created_at: string | null
+          dist_kind: string | null
+          entity_key: string | null
+          horizon_hours: number | null
+          issue_time: string
+          land_id: string | null
+          obs_id: number
+          obs_version: number | null
+          prior_version: number | null
+          property_code: string
+          qc_flags: string[] | null
+          qc_level: number | null
+          raw_unit: string | null
+          raw_value: number | null
+          revision_reason: string | null
+          source_id: string
+          superseded_by: number | null
+          u_std: number | null
+          valid_time: string
+          value: number
+        }
+        Insert: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time: string
+          value: number
+        }
+        Update: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time?: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code?: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id?: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      env_observations_202611: {
+        Row: {
+          cell_key: string | null
+          confidence: number | null
+          created_at: string | null
+          dist_kind: string | null
+          entity_key: string | null
+          horizon_hours: number | null
+          issue_time: string
+          land_id: string | null
+          obs_id: number
+          obs_version: number | null
+          prior_version: number | null
+          property_code: string
+          qc_flags: string[] | null
+          qc_level: number | null
+          raw_unit: string | null
+          raw_value: number | null
+          revision_reason: string | null
+          source_id: string
+          superseded_by: number | null
+          u_std: number | null
+          valid_time: string
+          value: number
+        }
+        Insert: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time: string
+          value: number
+        }
+        Update: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time?: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code?: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id?: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      env_observations_202612: {
+        Row: {
+          cell_key: string | null
+          confidence: number | null
+          created_at: string | null
+          dist_kind: string | null
+          entity_key: string | null
+          horizon_hours: number | null
+          issue_time: string
+          land_id: string | null
+          obs_id: number
+          obs_version: number | null
+          prior_version: number | null
+          property_code: string
+          qc_flags: string[] | null
+          qc_level: number | null
+          raw_unit: string | null
+          raw_value: number | null
+          revision_reason: string | null
+          source_id: string
+          superseded_by: number | null
+          u_std: number | null
+          valid_time: string
+          value: number
+        }
+        Insert: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time: string
+          value: number
+        }
+        Update: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time?: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code?: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id?: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      env_observations_202701: {
+        Row: {
+          cell_key: string | null
+          confidence: number | null
+          created_at: string | null
+          dist_kind: string | null
+          entity_key: string | null
+          horizon_hours: number | null
+          issue_time: string
+          land_id: string | null
+          obs_id: number
+          obs_version: number | null
+          prior_version: number | null
+          property_code: string
+          qc_flags: string[] | null
+          qc_level: number | null
+          raw_unit: string | null
+          raw_value: number | null
+          revision_reason: string | null
+          source_id: string
+          superseded_by: number | null
+          u_std: number | null
+          valid_time: string
+          value: number
+        }
+        Insert: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time: string
+          value: number
+        }
+        Update: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time?: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code?: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id?: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      env_observations_hist: {
+        Row: {
+          cell_key: string | null
+          confidence: number | null
+          created_at: string | null
+          dist_kind: string | null
+          entity_key: string | null
+          horizon_hours: number | null
+          issue_time: string
+          land_id: string | null
+          obs_id: number
+          obs_version: number | null
+          prior_version: number | null
+          property_code: string
+          qc_flags: string[] | null
+          qc_level: number | null
+          raw_unit: string | null
+          raw_value: number | null
+          revision_reason: string | null
+          source_id: string
+          superseded_by: number | null
+          u_std: number | null
+          valid_time: string
+          value: number
+        }
+        Insert: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time: string
+          value: number
+        }
+        Update: {
+          cell_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          dist_kind?: string | null
+          entity_key?: string | null
+          horizon_hours?: number | null
+          issue_time?: string
+          land_id?: string | null
+          obs_id?: never
+          obs_version?: number | null
+          prior_version?: number | null
+          property_code?: string
+          qc_flags?: string[] | null
+          qc_level?: number | null
+          raw_unit?: string | null
+          raw_value?: number | null
+          revision_reason?: string | null
+          source_id?: string
+          superseded_by?: number | null
+          u_std?: number | null
+          valid_time?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      env_property_master: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          farmer_visible: boolean | null
+          method_ref: string | null
+          plausible_max: number | null
+          plausible_min: number | null
+          property_code: string
+          unit: string
+          value_kind: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_name?: string | null
+          farmer_visible?: boolean | null
+          method_ref?: string | null
+          plausible_max?: number | null
+          plausible_min?: number | null
+          property_code: string
+          unit: string
+          value_kind?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string | null
+          farmer_visible?: boolean | null
+          method_ref?: string | null
+          plausible_max?: number | null
+          plausible_min?: number | null
+          property_code?: string
+          unit?: string
+          value_kind?: string | null
+        }
+        Relationships: []
+      }
+      env_source_registry: {
+        Row: {
+          calibration_ref: string | null
+          created_at: string | null
+          elevation_m: number | null
+          geom: unknown
+          is_active: boolean | null
+          land_id: string | null
+          sensor_spec: Json | null
+          siting_class: number | null
+          source_code: string
+          source_id: string
+          source_kind: string | null
+          tenant_id: string | null
+          trust_prior: number | null
+        }
+        Insert: {
+          calibration_ref?: string | null
+          created_at?: string | null
+          elevation_m?: number | null
+          geom?: unknown
+          is_active?: boolean | null
+          land_id?: string | null
+          sensor_spec?: Json | null
+          siting_class?: number | null
+          source_code: string
+          source_id?: string
+          source_kind?: string | null
+          tenant_id?: string | null
+          trust_prior?: number | null
+        }
+        Update: {
+          calibration_ref?: string | null
+          created_at?: string | null
+          elevation_m?: number | null
+          geom?: unknown
+          is_active?: boolean | null
+          land_id?: string | null
+          sensor_spec?: Json | null
+          siting_class?: number | null
+          source_code?: string
+          source_id?: string
+          source_kind?: string | null
+          tenant_id?: string | null
+          trust_prior?: number | null
+        }
+        Relationships: []
+      }
+      epidemiology_threshold_evidence: {
+        Row: {
+          confidence: string
+          created_at: string
+          crop_code: string
+          evidence_ref: string
+          favourable_range: string
+          hypothesis_id: string
+          id: string
+          parameter: string
+          rationale: string
+          threshold_used: string
+        }
+        Insert: {
+          confidence?: string
+          created_at?: string
+          crop_code: string
+          evidence_ref: string
+          favourable_range: string
+          hypothesis_id: string
+          id?: string
+          parameter: string
+          rationale: string
+          threshold_used: string
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          crop_code?: string
+          evidence_ref?: string
+          favourable_range?: string
+          hypothesis_id?: string
+          id?: string
+          parameter?: string
+          rationale?: string
+          threshold_used?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "epidemiology_threshold_evidence_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "epidemiology_threshold_evidence_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "epidemiology_threshold_evidence_hypothesis_id_master_fk"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "epidemiology_threshold_evidence_hypothesis_id_master_fk"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "epidemiology_threshold_evidence_hypothesis_id_master_fk"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "epidemiology_threshold_evidence_hypothesis_id_master_fk"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+        ]
+      }
+      establishment_implement: {
+        Row: {
+          applies_to_method: string
+          disadvantages: string | null
+          field_emergence_factor: number
+          implement_code: string
+          implement_name_en: string
+          is_active: boolean
+          row_spacing_cm: number | null
+          seed_rate_factor: number
+          when_to_use: string
+        }
+        Insert: {
+          applies_to_method: string
+          disadvantages?: string | null
+          field_emergence_factor: number
+          implement_code: string
+          implement_name_en: string
+          is_active?: boolean
+          row_spacing_cm?: number | null
+          seed_rate_factor: number
+          when_to_use: string
+        }
+        Update: {
+          applies_to_method?: string
+          disadvantages?: string | null
+          field_emergence_factor?: number
+          implement_code?: string
+          implement_name_en?: string
+          is_active?: boolean
+          row_spacing_cm?: number | null
+          seed_rate_factor?: number
+          when_to_use?: string
+        }
+        Relationships: []
+      }
+      etl_standards: {
+        Row: {
+          action_threshold: number | null
+          created_at: string | null
+          crop_code: string
+          etl_unit: string
+          etl_value: number
+          growth_stage: string[] | null
+          icar_source: string | null
+          id: string
+          is_active: boolean | null
+          pest_code: string
+          pest_name_en: string
+          pest_name_hi: string | null
+          pest_name_mr: string | null
+          sampling_method: string | null
+          sampling_unit: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          action_threshold?: number | null
+          created_at?: string | null
+          crop_code: string
+          etl_unit: string
+          etl_value: number
+          growth_stage?: string[] | null
+          icar_source?: string | null
+          id?: string
+          is_active?: boolean | null
+          pest_code: string
+          pest_name_en: string
+          pest_name_hi?: string | null
+          pest_name_mr?: string | null
+          sampling_method?: string | null
+          sampling_unit?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          action_threshold?: number | null
+          created_at?: string | null
+          crop_code?: string
+          etl_unit?: string
+          etl_value?: number
+          growth_stage?: string[] | null
+          icar_source?: string | null
+          id?: string
+          is_active?: boolean | null
+          pest_code?: string
+          pest_name_en?: string
+          pest_name_hi?: string | null
+          pest_name_mr?: string | null
+          sampling_method?: string | null
+          sampling_unit?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etl_standards_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "etl_standards_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "etl_standards_pest_code_fk"
+            columns: ["pest_code"]
+            isOneToOne: false
+            referencedRelation: "pest_master"
+            referencedColumns: ["pest_code"]
+          },
+        ]
+      }
       executive_dashboard_metrics: {
         Row: {
           created_at: string
@@ -6614,6 +14374,317 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_component_master: {
+        Row: {
+          component_code: string
+          created_at: string
+          display_order: number
+          is_active: boolean
+        }
+        Insert: {
+          component_code: string
+          created_at?: string
+          display_order: number
+          is_active?: boolean
+        }
+        Update: {
+          component_code?: string
+          created_at?: string
+          display_order?: number
+          is_active?: boolean
+        }
+        Relationships: []
+      }
+      expense_component_product_category_map: {
+        Row: {
+          component_code: string
+          master_product_category_id: string
+        }
+        Insert: {
+          component_code: string
+          master_product_category_id: string
+        }
+        Update: {
+          component_code?: string
+          master_product_category_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_component_product_categ_master_product_category_id_fkey"
+            columns: ["master_product_category_id"]
+            isOneToOne: true
+            referencedRelation: "master_product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_component_product_category_map_component_code_fkey"
+            columns: ["component_code"]
+            isOneToOne: false
+            referencedRelation: "expense_component_master"
+            referencedColumns: ["component_code"]
+          },
+        ]
+      }
+      expense_component_task_map: {
+        Row: {
+          is_active: boolean
+          labor_component: string
+          material_component: string | null
+          task_type: string
+        }
+        Insert: {
+          is_active?: boolean
+          labor_component: string
+          material_component?: string | null
+          task_type: string
+        }
+        Update: {
+          is_active?: boolean
+          labor_component?: string
+          material_component?: string | null
+          task_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_component_task_map_labor_component_fkey"
+            columns: ["labor_component"]
+            isOneToOne: false
+            referencedRelation: "expense_component_master"
+            referencedColumns: ["component_code"]
+          },
+          {
+            foreignKeyName: "expense_component_task_map_material_component_fkey"
+            columns: ["material_component"]
+            isOneToOne: false
+            referencedRelation: "expense_component_master"
+            referencedColumns: ["component_code"]
+          },
+        ]
+      }
+      expert_escalations: {
+        Row: {
+          context_data: Json | null
+          created_at: string | null
+          decision_id: string | null
+          escalation_level: string | null
+          escalation_reasons: string[] | null
+          expert_assigned: string | null
+          expert_response: string | null
+          expert_type: string | null
+          farmer_id: string | null
+          farmer_notified: boolean | null
+          id: string
+          resolved_at: string | null
+          response_time_minutes: number | null
+          session_id: string | null
+          status: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          urgency: string | null
+        }
+        Insert: {
+          context_data?: Json | null
+          created_at?: string | null
+          decision_id?: string | null
+          escalation_level?: string | null
+          escalation_reasons?: string[] | null
+          expert_assigned?: string | null
+          expert_response?: string | null
+          expert_type?: string | null
+          farmer_id?: string | null
+          farmer_notified?: boolean | null
+          id?: string
+          resolved_at?: string | null
+          response_time_minutes?: number | null
+          session_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          context_data?: Json | null
+          created_at?: string | null
+          decision_id?: string | null
+          escalation_level?: string | null
+          escalation_reasons?: string[] | null
+          expert_assigned?: string | null
+          expert_response?: string | null
+          expert_type?: string | null
+          farmer_id?: string | null
+          farmer_notified?: boolean | null
+          id?: string
+          resolved_at?: string | null
+          response_time_minutes?: number | null
+          session_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_escalations_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_escalations_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "expert_escalations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      farm_decision: {
+        Row: {
+          acted_at: string | null
+          action_code: string
+          action_text_en: string | null
+          alert_id: string | null
+          category: string
+          created_at: string
+          decision_date: string
+          decision_key: string
+          evidence: Json
+          farmer_id: string | null
+          id: string
+          land_id: string
+          priority: string
+          rule_id: string | null
+          schedule_id: string | null
+          source: string
+          status: string
+          task_id: string | null
+          tenant_id: string | null
+          title_en: string
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          acted_at?: string | null
+          action_code: string
+          action_text_en?: string | null
+          alert_id?: string | null
+          category: string
+          created_at?: string
+          decision_date: string
+          decision_key: string
+          evidence?: Json
+          farmer_id?: string | null
+          id?: string
+          land_id: string
+          priority: string
+          rule_id?: string | null
+          schedule_id?: string | null
+          source: string
+          status: string
+          task_id?: string | null
+          tenant_id?: string | null
+          title_en: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          acted_at?: string | null
+          action_code?: string
+          action_text_en?: string | null
+          alert_id?: string | null
+          category?: string
+          created_at?: string
+          decision_date?: string
+          decision_key?: string
+          evidence?: Json
+          farmer_id?: string | null
+          id?: string
+          land_id?: string
+          priority?: string
+          rule_id?: string | null
+          schedule_id?: string | null
+          source?: string
+          status?: string
+          task_id?: string | null
+          tenant_id?: string | null
+          title_en?: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farm_decision_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "farm_decision_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "farm_decision_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "farm_decision_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "farm_decision_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farm_decision_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "farm_decision_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "farm_decision_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "farm_decision_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
           },
         ]
       }
@@ -6983,6 +15054,44 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      farmer_feature_usage: {
+        Row: {
+          count: number
+          farmer_id: string
+          feature_code: string
+          period: string
+          tenant_id: string
+          tokens: number
+          updated_at: string
+        }
+        Insert: {
+          count?: number
+          farmer_id: string
+          feature_code: string
+          period?: string
+          tenant_id: string
+          tokens?: number
+          updated_at?: string
+        }
+        Update: {
+          count?: number
+          farmer_id?: string
+          feature_code?: string
+          period?: string
+          tenant_id?: string
+          tokens?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_feature_usage_feature_code_fkey"
+            columns: ["feature_code"]
+            isOneToOne: false
+            referencedRelation: "features"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -7357,6 +15466,57 @@ export type Database = {
           },
         ]
       }
+      farmer_subscription_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          event_type: string
+          farmer_id: string
+          from_interval: string | null
+          from_plan_id: string | null
+          from_status: string | null
+          id: string
+          metadata: Json
+          subscription_id: string | null
+          tenant_id: string
+          to_interval: string | null
+          to_plan_id: string | null
+          to_status: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type: string
+          farmer_id: string
+          from_interval?: string | null
+          from_plan_id?: string | null
+          from_status?: string | null
+          id?: string
+          metadata?: Json
+          subscription_id?: string | null
+          tenant_id: string
+          to_interval?: string | null
+          to_plan_id?: string | null
+          to_status?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type?: string
+          farmer_id?: string
+          from_interval?: string | null
+          from_plan_id?: string | null
+          from_status?: string | null
+          id?: string
+          metadata?: Json
+          subscription_id?: string | null
+          tenant_id?: string
+          to_interval?: string | null
+          to_plan_id?: string | null
+          to_status?: string | null
+        }
+        Relationships: []
+      }
       farmer_subscriptions: {
         Row: {
           auto_renew: boolean
@@ -7375,6 +15535,8 @@ export type Database = {
           paying_tenant_id: string | null
           payment_method: Json | null
           payment_method_id: string | null
+          payment_order_id: string | null
+          payment_provider: string | null
           plan_id: string
           start_date: string
           status: string
@@ -7403,6 +15565,8 @@ export type Database = {
           paying_tenant_id?: string | null
           payment_method?: Json | null
           payment_method_id?: string | null
+          payment_order_id?: string | null
+          payment_provider?: string | null
           plan_id: string
           start_date?: string
           status?: string
@@ -7431,6 +15595,8 @@ export type Database = {
           paying_tenant_id?: string | null
           payment_method?: Json | null
           payment_method_id?: string | null
+          payment_order_id?: string | null
+          payment_provider?: string | null
           plan_id?: string
           start_date?: string
           status?: string
@@ -7548,11 +15714,14 @@ export type Database = {
           associated_tenants: string[] | null
           created_at: string | null
           current_subscription_id: string | null
+          default_nutrient_policy: string | null
+          default_protection_policy: string | null
           failed_login_attempts: number | null
           farm_type: string | null
           farmer_code: string | null
           farmer_name: string | null
           farming_experience_years: number | null
+          farming_preference: string
           has_irrigation: boolean | null
           has_loan: boolean | null
           has_storage: boolean | null
@@ -7571,7 +15740,7 @@ export type Database = {
           metadata: Json | null
           mobile_number: string | null
           notes: string | null
-          pin: string | null
+          organic_standard: string | null
           pin_hash: string | null
           pin_updated_at: string | null
           preferred_contact_method: string | null
@@ -7586,6 +15755,7 @@ export type Database = {
           subscription_expires_at: string | null
           subscription_status: string | null
           tenant_id: string | null
+          timezone: string
           total_app_opens: number | null
           total_land_acres: number | null
           total_queries: number | null
@@ -7604,11 +15774,14 @@ export type Database = {
           associated_tenants?: string[] | null
           created_at?: string | null
           current_subscription_id?: string | null
+          default_nutrient_policy?: string | null
+          default_protection_policy?: string | null
           failed_login_attempts?: number | null
           farm_type?: string | null
           farmer_code?: string | null
           farmer_name?: string | null
           farming_experience_years?: number | null
+          farming_preference?: string
           has_irrigation?: boolean | null
           has_loan?: boolean | null
           has_storage?: boolean | null
@@ -7627,7 +15800,7 @@ export type Database = {
           metadata?: Json | null
           mobile_number?: string | null
           notes?: string | null
-          pin?: string | null
+          organic_standard?: string | null
           pin_hash?: string | null
           pin_updated_at?: string | null
           preferred_contact_method?: string | null
@@ -7642,6 +15815,7 @@ export type Database = {
           subscription_expires_at?: string | null
           subscription_status?: string | null
           tenant_id?: string | null
+          timezone?: string
           total_app_opens?: number | null
           total_land_acres?: number | null
           total_queries?: number | null
@@ -7660,11 +15834,14 @@ export type Database = {
           associated_tenants?: string[] | null
           created_at?: string | null
           current_subscription_id?: string | null
+          default_nutrient_policy?: string | null
+          default_protection_policy?: string | null
           failed_login_attempts?: number | null
           farm_type?: string | null
           farmer_code?: string | null
           farmer_name?: string | null
           farming_experience_years?: number | null
+          farming_preference?: string
           has_irrigation?: boolean | null
           has_loan?: boolean | null
           has_storage?: boolean | null
@@ -7683,7 +15860,7 @@ export type Database = {
           metadata?: Json | null
           mobile_number?: string | null
           notes?: string | null
-          pin?: string | null
+          organic_standard?: string | null
           pin_hash?: string | null
           pin_updated_at?: string | null
           preferred_contact_method?: string | null
@@ -7698,6 +15875,7 @@ export type Database = {
           subscription_expires_at?: string | null
           subscription_status?: string | null
           tenant_id?: string | null
+          timezone?: string
           total_app_opens?: number | null
           total_land_acres?: number | null
           total_queries?: number | null
@@ -8063,6 +16241,128 @@ export type Database = {
           },
         ]
       }
+      features: {
+        Row: {
+          category: string
+          code: string
+          created_at: string
+          default_pricing: string
+          description: string | null
+          is_active: boolean
+          name: string
+          parent_code: string | null
+          quota_unit: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          code: string
+          created_at?: string
+          default_pricing?: string
+          description?: string | null
+          is_active?: boolean
+          name: string
+          parent_code?: string | null
+          quota_unit?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          code?: string
+          created_at?: string
+          default_pricing?: string
+          description?: string | null
+          is_active?: boolean
+          name?: string
+          parent_code?: string | null
+          quota_unit?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "features_parent_code_fkey"
+            columns: ["parent_code"]
+            isOneToOne: false
+            referencedRelation: "features"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      fertilizer_recommendation_master: {
+        Row: {
+          authority: string | null
+          confidence: number | null
+          created_at: string | null
+          crop_code: string
+          cultivation_context: string | null
+          derivation: string
+          id: string
+          k2o_kg_ha: number | null
+          n_kg_ha: number | null
+          p2o5_kg_ha: number | null
+          publication_year: number | null
+          region_code: string
+          review_status: string
+          soil_fertility_class: string
+          source: string
+          split_schedule: string | null
+        }
+        Insert: {
+          authority?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          crop_code: string
+          cultivation_context?: string | null
+          derivation: string
+          id?: string
+          k2o_kg_ha?: number | null
+          n_kg_ha?: number | null
+          p2o5_kg_ha?: number | null
+          publication_year?: number | null
+          region_code: string
+          review_status?: string
+          soil_fertility_class?: string
+          source: string
+          split_schedule?: string | null
+        }
+        Update: {
+          authority?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          crop_code?: string
+          cultivation_context?: string | null
+          derivation?: string
+          id?: string
+          k2o_kg_ha?: number | null
+          n_kg_ha?: number | null
+          p2o5_kg_ha?: number | null
+          publication_year?: number | null
+          region_code?: string
+          review_status?: string
+          soil_fertility_class?: string
+          source?: string
+          split_schedule?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fertilizer_recommendation_master_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "fertilizer_recommendation_master_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       financial_analytics: {
         Row: {
           amount: number
@@ -8167,16 +16467,20 @@ export type Database = {
         Row: {
           amount: number
           category: string
+          component_code: string | null
           created_at: string
           crop_name: string | null
           currency: string
           description: string | null
+          entry_source: string | null
+          estimate_id: string | null
           farmer_id: string
           id: string
           land_id: string | null
           metadata: Json | null
           payment_method: string | null
           receipt_url: string | null
+          schedule_id: string | null
           season: string | null
           tenant_id: string
           transaction_date: string
@@ -8186,16 +16490,20 @@ export type Database = {
         Insert: {
           amount: number
           category: string
+          component_code?: string | null
           created_at?: string
           crop_name?: string | null
           currency?: string
           description?: string | null
+          entry_source?: string | null
+          estimate_id?: string | null
           farmer_id: string
           id?: string
           land_id?: string | null
           metadata?: Json | null
           payment_method?: string | null
           receipt_url?: string | null
+          schedule_id?: string | null
           season?: string | null
           tenant_id: string
           transaction_date: string
@@ -8205,23 +16513,49 @@ export type Database = {
         Update: {
           amount?: number
           category?: string
+          component_code?: string | null
           created_at?: string
           crop_name?: string | null
           currency?: string
           description?: string | null
+          entry_source?: string | null
+          estimate_id?: string | null
           farmer_id?: string
           id?: string
           land_id?: string | null
           metadata?: Json | null
           payment_method?: string | null
           receipt_url?: string | null
+          schedule_id?: string | null
           season?: string | null
           tenant_id?: string
           transaction_date?: string
           transaction_type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "financial_transactions_component_code_fkey"
+            columns: ["component_code"]
+            isOneToOne: false
+            referencedRelation: "expense_component_master"
+            referencedColumns: ["component_code"]
+          },
+          {
+            foreignKeyName: "financial_transactions_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "land_expense_estimate"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "crop_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       followers: {
         Row: {
@@ -8272,6 +16606,210 @@ export type Database = {
             referencedColumns: ["farmer_id"]
           },
         ]
+      }
+      germination_gate_params: {
+        Row: {
+          allow_irrigation_signal: boolean
+          created_at: string | null
+          crop_code: string
+          id: string
+          is_enabled: boolean | null
+          max_swsi_for_germination: number | null
+          min_cum_effective_rain_mm: number | null
+          min_soil_moisture_pct: number | null
+          question_prompt_max_day: number | null
+          question_prompt_min_day: number | null
+          soil_texture: string
+          source_id: string | null
+          source_version: string | null
+          swsi_metric_contract: string | null
+          verification_status: string
+        }
+        Insert: {
+          allow_irrigation_signal?: boolean
+          created_at?: string | null
+          crop_code: string
+          id?: string
+          is_enabled?: boolean | null
+          max_swsi_for_germination?: number | null
+          min_cum_effective_rain_mm?: number | null
+          min_soil_moisture_pct?: number | null
+          question_prompt_max_day?: number | null
+          question_prompt_min_day?: number | null
+          soil_texture?: string
+          source_id?: string | null
+          source_version?: string | null
+          swsi_metric_contract?: string | null
+          verification_status?: string
+        }
+        Update: {
+          allow_irrigation_signal?: boolean
+          created_at?: string | null
+          crop_code?: string
+          id?: string
+          is_enabled?: boolean | null
+          max_swsi_for_germination?: number | null
+          min_cum_effective_rain_mm?: number | null
+          min_soil_moisture_pct?: number | null
+          question_prompt_max_day?: number | null
+          question_prompt_min_day?: number | null
+          soil_texture?: string
+          source_id?: string | null
+          source_version?: string | null
+          swsi_metric_contract?: string | null
+          verification_status?: string
+        }
+        Relationships: []
+      }
+      governance_audit_reports: {
+        Row: {
+          created_at: string
+          findings: Json
+          generated_at: string
+          generated_by: string | null
+          id: string
+          metrics: Json
+          report_type: string
+          severity: string
+          summary: string | null
+          title: string
+          total_issues: number
+        }
+        Insert: {
+          created_at?: string
+          findings?: Json
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          metrics?: Json
+          report_type: string
+          severity?: string
+          summary?: string | null
+          title: string
+          total_issues?: number
+        }
+        Update: {
+          created_at?: string
+          findings?: Json
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          metrics?: Json
+          report_type?: string
+          severity?: string
+          summary?: string | null
+          title?: string
+          total_issues?: number
+        }
+        Relationships: []
+      }
+      governance_cron_jobs: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          job_name: string
+          last_error: string | null
+          last_run_at: string | null
+          last_status: string | null
+          schedule: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          job_name: string
+          last_error?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          schedule: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          job_name?: string
+          last_error?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          schedule?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      governance_migration_drafts: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          metadata: Json
+          rationale: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          reviewer_notes: string | null
+          severity: string
+          sql_draft: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          rationale?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          severity?: string
+          sql_draft: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          rationale?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          severity?: string
+          sql_draft?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      grain_type_tgw_band: {
+        Row: {
+          grain_type: string
+          notes: string | null
+          tgw_max_g: number
+          tgw_min_g: number
+        }
+        Insert: {
+          grain_type: string
+          notes?: string | null
+          tgw_max_g: number
+          tgw_min_g: number
+        }
+        Update: {
+          grain_type?: string
+          notes?: string | null
+          tgw_max_g?: number
+          tgw_min_g?: number
+        }
+        Relationships: []
       }
       group_chat_members: {
         Row: {
@@ -8479,6 +17017,884 @@ export type Database = {
           },
         ]
       }
+      hallucination_detection_logs: {
+        Row: {
+          ai_content: string
+          created_at: string
+          farmer_id: string | null
+          flagged_terms: Json
+          hallucination_score: number
+          id: string
+          judge_model: string | null
+          judge_reasoning: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          reviewer_notes: string | null
+          rules_applied: Json
+          source_id: string | null
+          source_type: string
+          tenant_id: string | null
+          updated_at: string
+          verdict: string
+        }
+        Insert: {
+          ai_content: string
+          created_at?: string
+          farmer_id?: string | null
+          flagged_terms?: Json
+          hallucination_score?: number
+          id?: string
+          judge_model?: string | null
+          judge_reasoning?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          rules_applied?: Json
+          source_id?: string | null
+          source_type: string
+          tenant_id?: string | null
+          updated_at?: string
+          verdict?: string
+        }
+        Update: {
+          ai_content?: string
+          created_at?: string
+          farmer_id?: string | null
+          flagged_terms?: Json
+          hallucination_score?: number
+          id?: string
+          judge_model?: string | null
+          judge_reasoning?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          rules_applied?: Json
+          source_id?: string | null
+          source_type?: string
+          tenant_id?: string | null
+          updated_at?: string
+          verdict?: string
+        }
+        Relationships: []
+      }
+      harvest_confirmation_requests: {
+        Row: {
+          channel: Json
+          created_at: string
+          due_at: string | null
+          farmer_id: string
+          id: string
+          land_id: string
+          last_reminded_at: string | null
+          reminder_count: number
+          responded_at: string | null
+          response: Database["public"]["Enums"]["harvest_status"] | null
+          response_payload: Json
+          schedule_id: string
+          status: Database["public"]["Enums"]["harvest_confirmation_request_status"]
+          tenant_id: string
+          triggered_at: string
+          updated_at: string
+        }
+        Insert: {
+          channel?: Json
+          created_at?: string
+          due_at?: string | null
+          farmer_id: string
+          id?: string
+          land_id: string
+          last_reminded_at?: string | null
+          reminder_count?: number
+          responded_at?: string | null
+          response?: Database["public"]["Enums"]["harvest_status"] | null
+          response_payload?: Json
+          schedule_id: string
+          status?: Database["public"]["Enums"]["harvest_confirmation_request_status"]
+          tenant_id: string
+          triggered_at?: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: Json
+          created_at?: string
+          due_at?: string | null
+          farmer_id?: string
+          id?: string
+          land_id?: string
+          last_reminded_at?: string | null
+          reminder_count?: number
+          responded_at?: string | null
+          response?: Database["public"]["Enums"]["harvest_status"] | null
+          response_payload?: Json
+          schedule_id?: string
+          status?: Database["public"]["Enums"]["harvest_confirmation_request_status"]
+          tenant_id?: string
+          triggered_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "harvest_confirmation_requests_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "harvest_confirmation_requests_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "harvest_confirmation_requests_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "harvest_confirmation_requests_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "harvest_confirmation_requests_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "harvest_confirmation_requests_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "harvest_confirmation_requests_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "harvest_confirmation_requests_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "harvest_confirmation_requests_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "harvest_confirmation_requests_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "crop_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hypothesis_conditions: {
+        Row: {
+          condition_key: string
+          condition_type: string
+          created_at: string | null
+          hypothesis_id: string
+          id: string
+          is_discriminator: boolean | null
+          is_quarantined: boolean
+          is_required: boolean | null
+          operator: string
+          quarantine_reason: string | null
+          value_json: Json
+          weight: number | null
+        }
+        Insert: {
+          condition_key: string
+          condition_type: string
+          created_at?: string | null
+          hypothesis_id: string
+          id?: string
+          is_discriminator?: boolean | null
+          is_quarantined?: boolean
+          is_required?: boolean | null
+          operator: string
+          quarantine_reason?: string | null
+          value_json: Json
+          weight?: number | null
+        }
+        Update: {
+          condition_key?: string
+          condition_type?: string
+          created_at?: string | null
+          hypothesis_id?: string
+          id?: string
+          is_discriminator?: boolean | null
+          is_quarantined?: boolean
+          is_required?: boolean | null
+          operator?: string
+          quarantine_reason?: string | null
+          value_json?: Json
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+        ]
+      }
+      hypothesis_conditions_archive: {
+        Row: {
+          archive_id: number
+          archived_at: string
+          change_reason: string | null
+          condition_key: string | null
+          condition_type: string | null
+          hypothesis_id: string | null
+          id: string | null
+          is_discriminator: boolean | null
+          is_required: boolean | null
+          migration_tag: string
+          operator: string | null
+          value_json: Json | null
+          weight: number | null
+        }
+        Insert: {
+          archive_id?: number
+          archived_at?: string
+          change_reason?: string | null
+          condition_key?: string | null
+          condition_type?: string | null
+          hypothesis_id?: string | null
+          id?: string | null
+          is_discriminator?: boolean | null
+          is_required?: boolean | null
+          migration_tag: string
+          operator?: string | null
+          value_json?: Json | null
+          weight?: number | null
+        }
+        Update: {
+          archive_id?: number
+          archived_at?: string
+          change_reason?: string | null
+          condition_key?: string | null
+          condition_type?: string | null
+          hypothesis_id?: string | null
+          id?: string | null
+          is_discriminator?: boolean | null
+          is_required?: boolean | null
+          migration_tag?: string
+          operator?: string | null
+          value_json?: Json | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      hypothesis_contradictions: {
+        Row: {
+          contradiction_key: string
+          contradiction_type: string
+          contradiction_value: string
+          created_at: string | null
+          explanation: string | null
+          hypothesis_id: string
+          id: string
+        }
+        Insert: {
+          contradiction_key: string
+          contradiction_type: string
+          contradiction_value: string
+          created_at?: string | null
+          explanation?: string | null
+          hypothesis_id: string
+          id?: string
+        }
+        Update: {
+          contradiction_key?: string
+          contradiction_type?: string
+          contradiction_value?: string
+          created_at?: string | null
+          explanation?: string | null
+          hypothesis_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_contradictions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_contradictions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_contradictions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_contradictions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+        ]
+      }
+      hypothesis_integrity_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string | null
+          description: string
+          hypothesis_id: string
+          id: string
+          resolution_notes: string | null
+          resolution_status: string | null
+          resolved_at: string | null
+          severity: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string | null
+          description: string
+          hypothesis_id: string
+          id?: string
+          resolution_notes?: string | null
+          resolution_status?: string | null
+          resolved_at?: string | null
+          severity: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string | null
+          description?: string
+          hypothesis_id?: string
+          id?: string
+          resolution_notes?: string | null
+          resolution_status?: string | null
+          resolved_at?: string | null
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_integrity_alerts_hypothesis_id_master_fk"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_integrity_alerts_hypothesis_id_master_fk"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_integrity_alerts_hypothesis_id_master_fk"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_integrity_alerts_hypothesis_id_master_fk"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+        ]
+      }
+      hypothesis_master: {
+        Row: {
+          applicability: Json | null
+          applicability_evidence_ref: string | null
+          applicability_reviewed_at: string | null
+          applicability_reviewed_by: string | null
+          applicability_source: string | null
+          biological_basis: string | null
+          canonical_group: string
+          cause_name_en: string
+          cause_name_hi: string | null
+          cause_name_mr: string | null
+          created_at: string | null
+          crop_code: string
+          crop_group: string
+          engine_min_version: string | null
+          hypothesis_id: string
+          hypothesis_id_lc: string | null
+          hypothesis_type: string
+          is_active: boolean | null
+          severity_model: string | null
+          updated_at: string | null
+          version: string | null
+          version_hash: string | null
+        }
+        Insert: {
+          applicability?: Json | null
+          applicability_evidence_ref?: string | null
+          applicability_reviewed_at?: string | null
+          applicability_reviewed_by?: string | null
+          applicability_source?: string | null
+          biological_basis?: string | null
+          canonical_group: string
+          cause_name_en: string
+          cause_name_hi?: string | null
+          cause_name_mr?: string | null
+          created_at?: string | null
+          crop_code: string
+          crop_group: string
+          engine_min_version?: string | null
+          hypothesis_id: string
+          hypothesis_id_lc?: string | null
+          hypothesis_type: string
+          is_active?: boolean | null
+          severity_model?: string | null
+          updated_at?: string | null
+          version?: string | null
+          version_hash?: string | null
+        }
+        Update: {
+          applicability?: Json | null
+          applicability_evidence_ref?: string | null
+          applicability_reviewed_at?: string | null
+          applicability_reviewed_by?: string | null
+          applicability_source?: string | null
+          biological_basis?: string | null
+          canonical_group?: string
+          cause_name_en?: string
+          cause_name_hi?: string | null
+          cause_name_mr?: string | null
+          created_at?: string | null
+          crop_code?: string
+          crop_group?: string
+          engine_min_version?: string | null
+          hypothesis_id?: string
+          hypothesis_id_lc?: string | null
+          hypothesis_type?: string
+          is_active?: boolean | null
+          severity_model?: string | null
+          updated_at?: string | null
+          version?: string | null
+          version_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_master_crop_code_scope_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
+      hypothesis_metrics: {
+        Row: {
+          avg_confidence: number | null
+          created_at: string
+          hypothesis_id: string
+          last_triggered: string | null
+          times_confirmed: number | null
+          times_contradicted: number | null
+          times_eliminated_missing_data: number | null
+          times_triggered: number | null
+          updated_at: string
+        }
+        Insert: {
+          avg_confidence?: number | null
+          created_at?: string
+          hypothesis_id: string
+          last_triggered?: string | null
+          times_confirmed?: number | null
+          times_contradicted?: number | null
+          times_eliminated_missing_data?: number | null
+          times_triggered?: number | null
+          updated_at?: string
+        }
+        Update: {
+          avg_confidence?: number | null
+          created_at?: string
+          hypothesis_id?: string
+          last_triggered?: string | null
+          times_confirmed?: number | null
+          times_contradicted?: number | null
+          times_eliminated_missing_data?: number | null
+          times_triggered?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_metrics_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: true
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_metrics_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: true
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_metrics_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: true
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_metrics_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: true
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+        ]
+      }
+      hypothesis_rule_mapping: {
+        Row: {
+          context_notes: string | null
+          created_at: string
+          hypothesis_id: string
+          priority: number | null
+          rule_id: string
+          updated_at: string
+        }
+        Insert: {
+          context_notes?: string | null
+          created_at?: string
+          hypothesis_id: string
+          priority?: number | null
+          rule_id: string
+          updated_at?: string
+        }
+        Update: {
+          context_notes?: string | null
+          created_at?: string
+          hypothesis_id?: string
+          priority?: number | null
+          rule_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "decision_rules"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "rule_authority_weights"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_approval_portal_queue"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_block_safety_flag_mismatch"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_blocking_rule_semantic_conflict"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_approval_backlog"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_serving_gate"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_variety_safety_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_context_block_contract_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_rules_admin"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rice_rule_certification"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rice_rule_certification_v2"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_banned_substance_audit"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_dose_label_audit"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_id_grammar_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_stage_method_mismatch"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rules_missing_evidence"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rules_ungoverned_servable"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_safety_block_review_queue"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_stage_vocab_drift"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "fk_hrm_rule_id"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_visibility_blockers"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_rule_mapping_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_rule_mapping_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_rule_mapping_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_rule_mapping_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+        ]
+      }
+      hypothesis_versions: {
+        Row: {
+          change_reason: string | null
+          change_type: string
+          changed_by: string | null
+          created_at: string
+          hypothesis_id: string
+          id: string
+          snapshot: Json
+          version_number: number
+        }
+        Insert: {
+          change_reason?: string | null
+          change_type: string
+          changed_by?: string | null
+          created_at?: string
+          hypothesis_id: string
+          id?: string
+          snapshot: Json
+          version_number: number
+        }
+        Update: {
+          change_reason?: string | null
+          change_type?: string
+          changed_by?: string | null
+          created_at?: string
+          hypothesis_id?: string
+          id?: string
+          snapshot?: Json
+          version_number?: number
+        }
+        Relationships: []
+      }
+      impersonation_sessions: {
+        Row: {
+          ended_at: string | null
+          expires_at: string
+          id: string
+          ip: unknown
+          metadata: Json
+          reason: string
+          scope: string
+          started_at: string
+          super_admin_id: string
+          target_tenant_id: string | null
+          target_user_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          ip?: unknown
+          metadata?: Json
+          reason: string
+          scope?: string
+          started_at?: string
+          super_admin_id: string
+          target_tenant_id?: string | null
+          target_user_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          ip?: unknown
+          metadata?: Json
+          reason?: string
+          scope?: string
+          started_at?: string
+          super_admin_id?: string
+          target_tenant_id?: string | null
+          target_user_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "impersonation_sessions_target_tenant_id_fkey"
+            columns: ["target_tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingest_runs: {
         Row: {
           created_at: string | null
@@ -8505,6 +17921,102 @@ export type Database = {
           upserted_count?: number | null
         }
         Relationships: []
+      }
+      input_prices: {
+        Row: {
+          created_at: string
+          effective_date: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          knowledge_source_id: string | null
+          master_product_id: string | null
+          origin: string | null
+          pack_size: number | null
+          price: number
+          product_code: string
+          product_name: string
+          source: string
+          state: string | null
+          state_id: string | null
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          effective_date: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          knowledge_source_id?: string | null
+          master_product_id?: string | null
+          origin?: string | null
+          pack_size?: number | null
+          price: number
+          product_code: string
+          product_name: string
+          source: string
+          state?: string | null
+          state_id?: string | null
+          unit: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          effective_date?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          knowledge_source_id?: string | null
+          master_product_id?: string | null
+          origin?: string | null
+          pack_size?: number | null
+          price?: number
+          product_code?: string
+          product_name?: string
+          source?: string
+          state?: string | null
+          state_id?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "input_prices_knowledge_source_id_fkey"
+            columns: ["knowledge_source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "input_prices_master_product_id_fkey"
+            columns: ["master_product_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "input_prices_master_product_id_fkey"
+            columns: ["master_product_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "input_prices_master_product_id_fkey"
+            columns: ["master_product_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "input_prices_state_id_fkey"
+            columns: ["state_id"]
+            isOneToOne: false
+            referencedRelation: "states"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       integration_sync_logs: {
         Row: {
@@ -8606,6 +18118,319 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      intent_assertion_pattern: {
+        Row: {
+          assertion_strength: string
+          created_at: string
+          crop_compatibility: string[] | null
+          das_max: number | null
+          das_min: number | null
+          id: string
+          intent_code: string
+          is_active: boolean
+          notes: string | null
+          obs_code_regex: string
+          stage_compatibility: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          assertion_strength: string
+          created_at?: string
+          crop_compatibility?: string[] | null
+          das_max?: number | null
+          das_min?: number | null
+          id?: string
+          intent_code: string
+          is_active?: boolean
+          notes?: string | null
+          obs_code_regex: string
+          stage_compatibility?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          assertion_strength?: string
+          created_at?: string
+          crop_compatibility?: string[] | null
+          das_max?: number | null
+          das_min?: number | null
+          id?: string
+          intent_code?: string
+          is_active?: boolean
+          notes?: string | null
+          obs_code_regex?: string
+          stage_compatibility?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intent_assertion_pattern_intent_fk"
+            columns: ["intent_code"]
+            isOneToOne: false
+            referencedRelation: "observation_intent_master"
+            referencedColumns: ["intent_code"]
+          },
+          {
+            foreignKeyName: "intent_assertion_pattern_intent_fk"
+            columns: ["intent_code"]
+            isOneToOne: false
+            referencedRelation: "v_intent_missing_vernacular"
+            referencedColumns: ["intent_code"]
+          },
+        ]
+      }
+      intent_category_master: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          is_active: boolean
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          is_active?: boolean
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          is_active?: boolean
+        }
+        Relationships: []
+      }
+      intent_observation_mapping: {
+        Row: {
+          assertion_strength: string
+          confidence_rank: number | null
+          created_at: string | null
+          crop_code: string
+          cultivation_method: string | null
+          das_max: number
+          das_min: number
+          growth_stage: string
+          id: string
+          intent_code: string
+          is_active: boolean | null
+          observation_code: string
+          updated_at: string
+        }
+        Insert: {
+          assertion_strength?: string
+          confidence_rank?: number | null
+          created_at?: string | null
+          crop_code: string
+          cultivation_method?: string | null
+          das_max: number
+          das_min: number
+          growth_stage: string
+          id?: string
+          intent_code: string
+          is_active?: boolean | null
+          observation_code: string
+          updated_at?: string
+        }
+        Update: {
+          assertion_strength?: string
+          confidence_rank?: number | null
+          created_at?: string | null
+          crop_code?: string
+          cultivation_method?: string | null
+          das_max?: number
+          das_min?: number
+          growth_stage?: string
+          id?: string
+          intent_code?: string
+          is_active?: boolean | null
+          observation_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_iom_cultivation_method"
+            columns: ["cultivation_method"]
+            isOneToOne: false
+            referencedRelation: "cultivation_method_master"
+            referencedColumns: ["method_code"]
+          },
+          {
+            foreignKeyName: "intent_observation_mapping_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "intent_observation_mapping_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "intent_observation_mapping_intent_code_fkey"
+            columns: ["intent_code"]
+            isOneToOne: false
+            referencedRelation: "observation_intent_master"
+            referencedColumns: ["intent_code"]
+          },
+          {
+            foreignKeyName: "intent_observation_mapping_intent_code_fkey"
+            columns: ["intent_code"]
+            isOneToOne: false
+            referencedRelation: "v_intent_missing_vernacular"
+            referencedColumns: ["intent_code"]
+          },
+          {
+            foreignKeyName: "intent_observation_mapping_observation_code_fkey"
+            columns: ["observation_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+        ]
+      }
+      intent_observation_mapping_audit: {
+        Row: {
+          action: string
+          after_payload: Json | null
+          before_payload: Json | null
+          created_at: string
+          id: string
+          iom_id: string | null
+          performed_by: string | null
+          reason: string
+          sql_batch_id: string | null
+        }
+        Insert: {
+          action: string
+          after_payload?: Json | null
+          before_payload?: Json | null
+          created_at?: string
+          id?: string
+          iom_id?: string | null
+          performed_by?: string | null
+          reason: string
+          sql_batch_id?: string | null
+        }
+        Update: {
+          action?: string
+          after_payload?: Json | null
+          before_payload?: Json | null
+          created_at?: string
+          id?: string
+          iom_id?: string | null
+          performed_by?: string | null
+          reason?: string
+          sql_batch_id?: string | null
+        }
+        Relationships: []
+      }
+      intent_semantic_class_allowlist: {
+        Row: {
+          allowed_classes: string[]
+          created_at: string
+          intent_code: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          allowed_classes: string[]
+          created_at?: string
+          intent_code: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          allowed_classes?: string[]
+          created_at?: string
+          intent_code?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intent_allowlist_intent_fk"
+            columns: ["intent_code"]
+            isOneToOne: true
+            referencedRelation: "observation_intent_master"
+            referencedColumns: ["intent_code"]
+          },
+          {
+            foreignKeyName: "intent_allowlist_intent_fk"
+            columns: ["intent_code"]
+            isOneToOne: true
+            referencedRelation: "v_intent_missing_vernacular"
+            referencedColumns: ["intent_code"]
+          },
+        ]
+      }
+      intent_translation_review_queue: {
+        Row: {
+          created_at: string
+          intent_code: string
+          language_code: string
+          source_text_en: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          intent_code: string
+          language_code: string
+          source_text_en?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          intent_code?: string
+          language_code?: string
+          source_text_en?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      intent_translations: {
+        Row: {
+          created_at: string | null
+          display_text: string
+          id: string
+          intent_code: string
+          language_code: string
+          question_text: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_text: string
+          id?: string
+          intent_code: string
+          language_code: string
+          question_text?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_text?: string
+          id?: string
+          intent_code?: string
+          language_code?: string
+          question_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intent_translations_intent_code_fkey"
+            columns: ["intent_code"]
+            isOneToOne: false
+            referencedRelation: "observation_intent_master"
+            referencedColumns: ["intent_code"]
+          },
+          {
+            foreignKeyName: "intent_translations_intent_code_fkey"
+            columns: ["intent_code"]
+            isOneToOne: false
+            referencedRelation: "v_intent_missing_vernacular"
+            referencedColumns: ["intent_code"]
+          },
+        ]
       }
       inventory_movements: {
         Row: {
@@ -8853,63 +18678,71 @@ export type Database = {
       invoices: {
         Row: {
           amount: number
+          billing_period_end: string | null
+          billing_period_start: string | null
           created_at: string
           currency: string
           due_date: string
+          farmer_id: string | null
           id: string
           invoice_number: string
           line_items: Json
           metadata: Json | null
           paid_date: string | null
+          payment_intent_id: string | null
           paypal_invoice_id: string | null
           status: string
           stripe_invoice_id: string | null
           subscription_id: string | null
+          subscription_type: string
           tenant_id: string
           updated_at: string
         }
         Insert: {
           amount: number
+          billing_period_end?: string | null
+          billing_period_start?: string | null
           created_at?: string
           currency?: string
           due_date: string
+          farmer_id?: string | null
           id?: string
           invoice_number: string
           line_items?: Json
           metadata?: Json | null
           paid_date?: string | null
+          payment_intent_id?: string | null
           paypal_invoice_id?: string | null
           status?: string
           stripe_invoice_id?: string | null
           subscription_id?: string | null
+          subscription_type?: string
           tenant_id: string
           updated_at?: string
         }
         Update: {
           amount?: number
+          billing_period_end?: string | null
+          billing_period_start?: string | null
           created_at?: string
           currency?: string
           due_date?: string
+          farmer_id?: string | null
           id?: string
           invoice_number?: string
           line_items?: Json
           metadata?: Json | null
           paid_date?: string | null
+          payment_intent_id?: string | null
           paypal_invoice_id?: string | null
           status?: string
           stripe_invoice_id?: string | null
           subscription_id?: string | null
+          subscription_type?: string
           tenant_id?: string
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "invoices_subscription_id_fkey"
-            columns: ["subscription_id"]
-            isOneToOne: false
-            referencedRelation: "tenant_subscriptions"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "invoices_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -8926,6 +18759,19 @@ export type Database = {
           id: string
           is_active: boolean | null
           label: string
+          label_as: string | null
+          label_bn: string | null
+          label_gu: string | null
+          label_hi: string | null
+          label_kn: string | null
+          label_ml: string | null
+          label_mr: string | null
+          label_or: string | null
+          label_pa: string | null
+          label_sa: string | null
+          label_ta: string | null
+          label_te: string | null
+          label_ur: string | null
           value: string
         }
         Insert: {
@@ -8934,6 +18780,19 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           label: string
+          label_as?: string | null
+          label_bn?: string | null
+          label_gu?: string | null
+          label_hi?: string | null
+          label_kn?: string | null
+          label_ml?: string | null
+          label_mr?: string | null
+          label_or?: string | null
+          label_pa?: string | null
+          label_sa?: string | null
+          label_ta?: string | null
+          label_te?: string | null
+          label_ur?: string | null
           value: string
         }
         Update: {
@@ -8942,9 +18801,181 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           label?: string
+          label_as?: string | null
+          label_bn?: string | null
+          label_gu?: string | null
+          label_hi?: string | null
+          label_kn?: string | null
+          label_ml?: string | null
+          label_mr?: string | null
+          label_or?: string | null
+          label_pa?: string | null
+          label_sa?: string | null
+          label_ta?: string | null
+          label_te?: string | null
+          label_ur?: string | null
           value?: string
         }
         Relationships: []
+      }
+      knowledge_sources: {
+        Row: {
+          accessed_on: string | null
+          authority_tier: number
+          created_at: string
+          currency_checked_on: string | null
+          document_ref: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          publication_year: number | null
+          publisher: string
+          source_code: string
+          source_type: string
+          title: string
+          url: string | null
+        }
+        Insert: {
+          accessed_on?: string | null
+          authority_tier: number
+          created_at?: string
+          currency_checked_on?: string | null
+          document_ref?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          publication_year?: number | null
+          publisher: string
+          source_code: string
+          source_type: string
+          title: string
+          url?: string | null
+        }
+        Update: {
+          accessed_on?: string | null
+          authority_tier?: number
+          created_at?: string
+          currency_checked_on?: string | null
+          document_ref?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          publication_year?: number | null
+          publisher?: string
+          source_code?: string
+          source_type?: string
+          title?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      labor_rates: {
+        Row: {
+          created_at: string
+          currency: string
+          daily_wage: number
+          district_id: string | null
+          effective_date: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          knowledge_source_id: string | null
+          observation_count: number | null
+          operation_type: string | null
+          origin: string | null
+          scope_level: string | null
+          season: string | null
+          skill_tier: string | null
+          source: string
+          state: string
+          state_id: string | null
+          taluka_id: string | null
+          updated_at: string
+          village_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          daily_wage: number
+          district_id?: string | null
+          effective_date: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          knowledge_source_id?: string | null
+          observation_count?: number | null
+          operation_type?: string | null
+          origin?: string | null
+          scope_level?: string | null
+          season?: string | null
+          skill_tier?: string | null
+          source: string
+          state: string
+          state_id?: string | null
+          taluka_id?: string | null
+          updated_at?: string
+          village_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          daily_wage?: number
+          district_id?: string | null
+          effective_date?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          knowledge_source_id?: string | null
+          observation_count?: number | null
+          operation_type?: string | null
+          origin?: string | null
+          scope_level?: string | null
+          season?: string | null
+          skill_tier?: string | null
+          source?: string
+          state?: string
+          state_id?: string | null
+          taluka_id?: string | null
+          updated_at?: string
+          village_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labor_rates_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "districts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "labor_rates_knowledge_source_id_fkey"
+            columns: ["knowledge_source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "labor_rates_state_id_fkey"
+            columns: ["state_id"]
+            isOneToOne: false
+            referencedRelation: "states"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "labor_rates_taluka_id_fkey"
+            columns: ["taluka_id"]
+            isOneToOne: false
+            referencedRelation: "talukas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "labor_rates_village_id_fkey"
+            columns: ["village_id"]
+            isOneToOne: false
+            referencedRelation: "villages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       land_activities: {
         Row: {
@@ -9029,6 +19060,34 @@ export type Database = {
             referencedRelation: "lands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "land_activities_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_activities_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_activities_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_activities_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
         ]
       }
       land_clusters: {
@@ -9074,6 +19133,834 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      land_crops: {
+        Row: {
+          actual_harvest_date: string | null
+          area_acres: number | null
+          area_percentage: number | null
+          created_at: string | null
+          crop_id: string | null
+          crop_name: string
+          crop_name_local: string | null
+          crop_type: string
+          crop_variety: string | null
+          expected_harvest_date: string | null
+          farmer_id: string
+          farming_type: string | null
+          id: string
+          is_active: boolean | null
+          land_id: string
+          metadata: Json | null
+          notes: string | null
+          nutrient_policy: string | null
+          protection_policy: string | null
+          schedule_id: string | null
+          sowing_date: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+          variety_id: string | null
+        }
+        Insert: {
+          actual_harvest_date?: string | null
+          area_acres?: number | null
+          area_percentage?: number | null
+          created_at?: string | null
+          crop_id?: string | null
+          crop_name: string
+          crop_name_local?: string | null
+          crop_type?: string
+          crop_variety?: string | null
+          expected_harvest_date?: string | null
+          farmer_id: string
+          farming_type?: string | null
+          id?: string
+          is_active?: boolean | null
+          land_id: string
+          metadata?: Json | null
+          notes?: string | null
+          nutrient_policy?: string | null
+          protection_policy?: string | null
+          schedule_id?: string | null
+          sowing_date?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          variety_id?: string | null
+        }
+        Update: {
+          actual_harvest_date?: string | null
+          area_acres?: number | null
+          area_percentage?: number | null
+          created_at?: string | null
+          crop_id?: string | null
+          crop_name?: string
+          crop_name_local?: string | null
+          crop_type?: string
+          crop_variety?: string | null
+          expected_harvest_date?: string | null
+          farmer_id?: string
+          farming_type?: string | null
+          id?: string
+          is_active?: boolean | null
+          land_id?: string
+          metadata?: Json | null
+          notes?: string | null
+          nutrient_policy?: string | null
+          protection_policy?: string | null
+          schedule_id?: string | null
+          sowing_date?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          variety_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "land_crops_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "crops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_crops_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["crop_id"]
+          },
+          {
+            foreignKeyName: "land_crops_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_crops_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "land_crops_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "land_crops_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_crops_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_crops_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_crops_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_crops_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_crops_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_crops_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "crop_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_crops_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_crops_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "land_crops_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "land_crops_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_crops_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "land_crops_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      land_expense_estimate: {
+        Row: {
+          amount: number
+          basis: Json
+          component_code: string
+          computed_at: string
+          currency_code: string
+          engine_version: string
+          expected_on: string
+          farmer_id: string
+          financial_transaction_id: string | null
+          id: string
+          land_id: string
+          resolved_at: string | null
+          schedule_id: string
+          schedule_task_id: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          basis: Json
+          component_code: string
+          computed_at?: string
+          currency_code: string
+          engine_version: string
+          expected_on: string
+          farmer_id: string
+          financial_transaction_id?: string | null
+          id?: string
+          land_id: string
+          resolved_at?: string | null
+          schedule_id: string
+          schedule_task_id?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          basis?: Json
+          component_code?: string
+          computed_at?: string
+          currency_code?: string
+          engine_version?: string
+          expected_on?: string
+          farmer_id?: string
+          financial_transaction_id?: string | null
+          id?: string
+          land_id?: string
+          resolved_at?: string | null
+          schedule_id?: string
+          schedule_task_id?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "land_expense_estimate_component_code_fkey"
+            columns: ["component_code"]
+            isOneToOne: false
+            referencedRelation: "expense_component_master"
+            referencedColumns: ["component_code"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_financial_transaction_id_fkey"
+            columns: ["financial_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "financial_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "crop_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_schedule_task_id_fkey"
+            columns: ["schedule_task_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_upcoming_needs"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "land_expense_estimate_schedule_task_id_fkey"
+            columns: ["schedule_task_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      land_farm_state: {
+        Row: {
+          alerts_pending: number
+          canopy: Json | null
+          computed_at: string
+          crop_code: string | null
+          das: number | null
+          dat: number | null
+          farmer_id: string | null
+          gaps: string[]
+          growth_stage: string | null
+          id: string
+          land_id: string
+          observations: Json | null
+          stage_code: string | null
+          stage_confidence: number | null
+          stage_drift_days: number | null
+          stage_source: string | null
+          stage_uuid: string | null
+          stage_window: Json | null
+          state: Json
+          state_date: string
+          state_version: Json | null
+          tenant_id: string | null
+          thermal: Json | null
+          water: Json | null
+        }
+        Insert: {
+          alerts_pending?: number
+          canopy?: Json | null
+          computed_at?: string
+          crop_code?: string | null
+          das?: number | null
+          dat?: number | null
+          farmer_id?: string | null
+          gaps?: string[]
+          growth_stage?: string | null
+          id?: string
+          land_id: string
+          observations?: Json | null
+          stage_code?: string | null
+          stage_confidence?: number | null
+          stage_drift_days?: number | null
+          stage_source?: string | null
+          stage_uuid?: string | null
+          stage_window?: Json | null
+          state: Json
+          state_date: string
+          state_version?: Json | null
+          tenant_id?: string | null
+          thermal?: Json | null
+          water?: Json | null
+        }
+        Update: {
+          alerts_pending?: number
+          canopy?: Json | null
+          computed_at?: string
+          crop_code?: string | null
+          das?: number | null
+          dat?: number | null
+          farmer_id?: string | null
+          gaps?: string[]
+          growth_stage?: string | null
+          id?: string
+          land_id?: string
+          observations?: Json | null
+          stage_code?: string | null
+          stage_confidence?: number | null
+          stage_drift_days?: number | null
+          stage_source?: string | null
+          stage_uuid?: string | null
+          stage_window?: Json | null
+          state?: Json
+          state_date?: string
+          state_version?: Json | null
+          tenant_id?: string | null
+          thermal?: Json | null
+          water?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+        ]
+      }
+      land_gdd_daily: {
+        Row: {
+          anchor_date: string
+          anchor_type: string
+          base_temp_c: number
+          created_at: string
+          cumulative_gdd: number
+          daily_gdd: number
+          days_from_anchor: number
+          land_id: string
+          method: string
+          obs_date: string
+          source: string
+          tmax_c: number | null
+          tmin_c: number | null
+          upper_cap_c: number
+        }
+        Insert: {
+          anchor_date: string
+          anchor_type: string
+          base_temp_c: number
+          created_at?: string
+          cumulative_gdd?: number
+          daily_gdd?: number
+          days_from_anchor: number
+          land_id: string
+          method?: string
+          obs_date: string
+          source?: string
+          tmax_c?: number | null
+          tmin_c?: number | null
+          upper_cap_c?: number
+        }
+        Update: {
+          anchor_date?: string
+          anchor_type?: string
+          base_temp_c?: number
+          created_at?: string
+          cumulative_gdd?: number
+          daily_gdd?: number
+          days_from_anchor?: number
+          land_id?: string
+          method?: string
+          obs_date?: string
+          source?: string
+          tmax_c?: number | null
+          tmin_c?: number | null
+          upper_cap_c?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "land_gdd_daily_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_gdd_daily_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "land_gdd_daily_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "land_gdd_daily_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_gdd_daily_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_gdd_daily_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_gdd_daily_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_gdd_daily_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_gdd_daily_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+        ]
+      }
+      land_gdd_daily_history: {
+        Row: {
+          anchor_date: string
+          anchor_type: string
+          base_temp_c: number
+          created_at: string
+          cumulative_gdd: number
+          daily_gdd: number
+          days_from_anchor: number
+          land_id: string
+          method: string
+          obs_date: string
+          source: string
+          superseded_at: string
+          superseded_by: string | null
+          tmax_c: number | null
+          tmin_c: number | null
+          upper_cap_c: number
+        }
+        Insert: {
+          anchor_date: string
+          anchor_type: string
+          base_temp_c: number
+          created_at?: string
+          cumulative_gdd?: number
+          daily_gdd?: number
+          days_from_anchor: number
+          land_id: string
+          method?: string
+          obs_date: string
+          source?: string
+          superseded_at?: string
+          superseded_by?: string | null
+          tmax_c?: number | null
+          tmin_c?: number | null
+          upper_cap_c?: number
+        }
+        Update: {
+          anchor_date?: string
+          anchor_type?: string
+          base_temp_c?: number
+          created_at?: string
+          cumulative_gdd?: number
+          daily_gdd?: number
+          days_from_anchor?: number
+          land_id?: string
+          method?: string
+          obs_date?: string
+          source?: string
+          superseded_at?: string
+          superseded_by?: string | null
+          tmax_c?: number | null
+          tmin_c?: number | null
+          upper_cap_c?: number
+        }
+        Relationships: []
+      }
+      land_observation: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          farmer_id: string | null
+          id: string
+          land_id: string
+          measurement_type: string
+          media_url: string | null
+          notes: string | null
+          observation_category: string | null
+          observation_code: string | null
+          observed_at: string
+          photo_diagnosis_id: string | null
+          photo_upload_id: string | null
+          source: string
+          stage_uuid: string | null
+          tenant_id: string | null
+          unit: string | null
+          value: number | null
+          value_text: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          land_id: string
+          measurement_type: string
+          media_url?: string | null
+          notes?: string | null
+          observation_category?: string | null
+          observation_code?: string | null
+          observed_at?: string
+          photo_diagnosis_id?: string | null
+          photo_upload_id?: string | null
+          source?: string
+          stage_uuid?: string | null
+          tenant_id?: string | null
+          unit?: string | null
+          value?: number | null
+          value_text?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          land_id?: string
+          measurement_type?: string
+          media_url?: string | null
+          notes?: string | null
+          observation_category?: string | null
+          observation_code?: string | null
+          observed_at?: string
+          photo_diagnosis_id?: string | null
+          photo_upload_id?: string | null
+          source?: string
+          stage_uuid?: string | null
+          tenant_id?: string | null
+          unit?: string | null
+          value?: number | null
+          value_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "land_observation_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_observation_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "land_observation_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "land_observation_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_observation_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_observation_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_observation_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_observation_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_observation_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_observation_photo_diagnosis_id_fkey"
+            columns: ["photo_diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "crop_photo_diagnosis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_observation_photo_upload_id_fkey"
+            columns: ["photo_upload_id"]
+            isOneToOne: false
+            referencedRelation: "crop_growth_uploads"
             referencedColumns: ["id"]
           },
         ]
@@ -9208,6 +20095,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "land_tile_mapping_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: true
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_tile_mapping_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: true
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_tile_mapping_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: true
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_tile_mapping_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: true
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
             foreignKeyName: "land_tile_mapping_mgrs_tile_id_fkey"
             columns: ["mgrs_tile_id"]
             isOneToOne: false
@@ -9223,8 +20138,250 @@ export type Database = {
           },
         ]
       }
+      land_weather_state: {
+        Row: {
+          cell_key: string | null
+          cold_stress_dh: number | null
+          computed_at: string
+          confidence: number | null
+          created_at: string
+          crop_stress_level: string | null
+          disease_risk_level: string | null
+          disease_risk_score: number | null
+          effective_rainfall_mm: number | null
+          et0_method: string | null
+          et0_mm: number | null
+          et0_pm: number | null
+          etc_mm: number | null
+          finalized_at: string | null
+          frost_risk_score: number | null
+          gdd_daily: number | null
+          harvest_window_score: number | null
+          heat_stress_dh: number | null
+          humidity_percent: number | null
+          id: string
+          infiltration_cap_mm: number | null
+          irrigation_events_used: number | null
+          irrigation_mm_applied: number | null
+          irrigation_needed: boolean | null
+          irrigation_urgency: string | null
+          is_finalized: boolean
+          kc_ndvi_adj: number | null
+          kc_static: number | null
+          land_id: string
+          lwd_est_hours: number | null
+          metric_date: string
+          n_sd_ratio: number | null
+          ndvi_age_days: number | null
+          ndvi_source: string | null
+          ndvi_used: number | null
+          rain_24h_mm: number | null
+          raw_mm: number | null
+          root_depletion_mm: number | null
+          runoff_loss_mm: number | null
+          soil_type_used: string | null
+          source: string | null
+          spray_score: number | null
+          spray_window: Json | null
+          swsi: number | null
+          swsi_class: string | null
+          taw_method: string | null
+          taw_mm: number | null
+          temperature_c: number | null
+          tenant_id: string | null
+          total_rainfall_mm: number | null
+          u_std_et0: number | null
+          u_std_taw: number | null
+          vpd_kpa: number | null
+          water_balance_status: string | null
+          water_deficit_mm: number | null
+          wind_speed_kmh: number | null
+        }
+        Insert: {
+          cell_key?: string | null
+          cold_stress_dh?: number | null
+          computed_at?: string
+          confidence?: number | null
+          created_at?: string
+          crop_stress_level?: string | null
+          disease_risk_level?: string | null
+          disease_risk_score?: number | null
+          effective_rainfall_mm?: number | null
+          et0_method?: string | null
+          et0_mm?: number | null
+          et0_pm?: number | null
+          etc_mm?: number | null
+          finalized_at?: string | null
+          frost_risk_score?: number | null
+          gdd_daily?: number | null
+          harvest_window_score?: number | null
+          heat_stress_dh?: number | null
+          humidity_percent?: number | null
+          id?: string
+          infiltration_cap_mm?: number | null
+          irrigation_events_used?: number | null
+          irrigation_mm_applied?: number | null
+          irrigation_needed?: boolean | null
+          irrigation_urgency?: string | null
+          is_finalized?: boolean
+          kc_ndvi_adj?: number | null
+          kc_static?: number | null
+          land_id: string
+          lwd_est_hours?: number | null
+          metric_date: string
+          n_sd_ratio?: number | null
+          ndvi_age_days?: number | null
+          ndvi_source?: string | null
+          ndvi_used?: number | null
+          rain_24h_mm?: number | null
+          raw_mm?: number | null
+          root_depletion_mm?: number | null
+          runoff_loss_mm?: number | null
+          soil_type_used?: string | null
+          source?: string | null
+          spray_score?: number | null
+          spray_window?: Json | null
+          swsi?: number | null
+          swsi_class?: string | null
+          taw_method?: string | null
+          taw_mm?: number | null
+          temperature_c?: number | null
+          tenant_id?: string | null
+          total_rainfall_mm?: number | null
+          u_std_et0?: number | null
+          u_std_taw?: number | null
+          vpd_kpa?: number | null
+          water_balance_status?: string | null
+          water_deficit_mm?: number | null
+          wind_speed_kmh?: number | null
+        }
+        Update: {
+          cell_key?: string | null
+          cold_stress_dh?: number | null
+          computed_at?: string
+          confidence?: number | null
+          created_at?: string
+          crop_stress_level?: string | null
+          disease_risk_level?: string | null
+          disease_risk_score?: number | null
+          effective_rainfall_mm?: number | null
+          et0_method?: string | null
+          et0_mm?: number | null
+          et0_pm?: number | null
+          etc_mm?: number | null
+          finalized_at?: string | null
+          frost_risk_score?: number | null
+          gdd_daily?: number | null
+          harvest_window_score?: number | null
+          heat_stress_dh?: number | null
+          humidity_percent?: number | null
+          id?: string
+          infiltration_cap_mm?: number | null
+          irrigation_events_used?: number | null
+          irrigation_mm_applied?: number | null
+          irrigation_needed?: boolean | null
+          irrigation_urgency?: string | null
+          is_finalized?: boolean
+          kc_ndvi_adj?: number | null
+          kc_static?: number | null
+          land_id?: string
+          lwd_est_hours?: number | null
+          metric_date?: string
+          n_sd_ratio?: number | null
+          ndvi_age_days?: number | null
+          ndvi_source?: string | null
+          ndvi_used?: number | null
+          rain_24h_mm?: number | null
+          raw_mm?: number | null
+          root_depletion_mm?: number | null
+          runoff_loss_mm?: number | null
+          soil_type_used?: string | null
+          source?: string | null
+          spray_score?: number | null
+          spray_window?: Json | null
+          swsi?: number | null
+          swsi_class?: string | null
+          taw_method?: string | null
+          taw_mm?: number | null
+          temperature_c?: number | null
+          tenant_id?: string | null
+          total_rainfall_mm?: number | null
+          u_std_et0?: number | null
+          u_std_taw?: number | null
+          vpd_kpa?: number | null
+          water_balance_status?: string | null
+          water_deficit_mm?: number | null
+          wind_speed_kmh?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "land_weather_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_weather_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "land_weather_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "land_weather_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_weather_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_weather_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_weather_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_weather_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_weather_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+        ]
+      }
       lands: {
         Row: {
+          active_schedule_id: string | null
           area_acres: number
           area_guntas: number | null
           area_sqft: number | null
@@ -9232,20 +20389,31 @@ export type Database = {
           boundary_geom: unknown
           boundary_method: string | null
           boundary_polygon_old: Json | null
+          cell_key: string | null
           center_lat: number | null
           center_lon: number | null
           center_point_old: Json | null
+          country: string
+          country_code: string
           created_at: string
+          crop_cycle: string | null
           crop_stage: string | null
           cultivation_date: string | null
           current_crop: string | null
           current_crop_id: string | null
+          current_crop_variety_id: string | null
+          current_gdd: number | null
+          current_moisture_status: string | null
+          das: number | null
           deleted_at: string | null
           district: string | null
           district_id: string | null
           elevation_meters: number | null
           expected_harvest_date: string | null
           farmer_id: string
+          gdd_anchor_date: string | null
+          gdd_anchor_type: string | null
+          gdd_last_computed_at: string | null
           gps_accuracy_meters: number | null
           gps_recorded_at: string | null
           harvest_date: string | null
@@ -9257,32 +20425,45 @@ export type Database = {
           land_type: string | null
           last_crop: string | null
           last_harvest_date: string | null
+          last_moisture_update: string | null
           last_ndvi_calculation: string | null
+          last_ndvi_quality: number | null
+          last_ndvi_source: string | null
           last_ndvi_value: number | null
           last_processed_at: string | null
           last_soil_test_date: string | null
           last_sowing_date: string | null
+          lifecycle_changed_at: string
+          lifecycle_status: Database["public"]["Enums"]["land_lifecycle_status"]
           location_context: Json | null
           location_coords: Json | null
           marketplace_enabled: boolean | null
           mgrs_tile_id: string | null
           name: string
+          ndvi_geotiff_url: string | null
           ndvi_status: string | null
+          ndvi_status_note: string | null
           ndvi_tested: boolean | null
           ndvi_thumbnail_url: string | null
           nitrogen_kg_per_ha: number | null
           notes: string | null
           organic_carbon_percent: number | null
           ownership_type: string | null
+          phenology_index: number | null
           phosphorus_kg_per_ha: number | null
           planting_date: string | null
           potassium_kg_per_ha: number | null
           previous_crop: string | null
           previous_crop_id: string | null
           slope_percentage: number | null
+          soil_confidence_level: string | null
+          soil_data_source: string | null
           soil_ph: number | null
           soil_tested: boolean | null
           soil_type: string | null
+          stage_resolved_at: string | null
+          stage_source: string | null
+          stage_uuid: string | null
           state: string | null
           state_id: string | null
           survey_number: string | null
@@ -9291,12 +20472,14 @@ export type Database = {
           tenant_id: string
           tile_id: string | null
           tile_ids: string[] | null
+          transplant_date: string | null
           updated_at: string
           village: string | null
           village_id: string | null
           water_source: string | null
         }
         Insert: {
+          active_schedule_id?: string | null
           area_acres: number
           area_guntas?: number | null
           area_sqft?: number | null
@@ -9304,20 +20487,31 @@ export type Database = {
           boundary_geom?: unknown
           boundary_method?: string | null
           boundary_polygon_old?: Json | null
+          cell_key?: string | null
           center_lat?: number | null
           center_lon?: number | null
           center_point_old?: Json | null
+          country?: string
+          country_code?: string
           created_at?: string
+          crop_cycle?: string | null
           crop_stage?: string | null
           cultivation_date?: string | null
           current_crop?: string | null
           current_crop_id?: string | null
+          current_crop_variety_id?: string | null
+          current_gdd?: number | null
+          current_moisture_status?: string | null
+          das?: number | null
           deleted_at?: string | null
           district?: string | null
           district_id?: string | null
           elevation_meters?: number | null
           expected_harvest_date?: string | null
           farmer_id: string
+          gdd_anchor_date?: string | null
+          gdd_anchor_type?: string | null
+          gdd_last_computed_at?: string | null
           gps_accuracy_meters?: number | null
           gps_recorded_at?: string | null
           harvest_date?: string | null
@@ -9329,32 +20523,45 @@ export type Database = {
           land_type?: string | null
           last_crop?: string | null
           last_harvest_date?: string | null
+          last_moisture_update?: string | null
           last_ndvi_calculation?: string | null
+          last_ndvi_quality?: number | null
+          last_ndvi_source?: string | null
           last_ndvi_value?: number | null
           last_processed_at?: string | null
           last_soil_test_date?: string | null
           last_sowing_date?: string | null
+          lifecycle_changed_at?: string
+          lifecycle_status?: Database["public"]["Enums"]["land_lifecycle_status"]
           location_context?: Json | null
           location_coords?: Json | null
           marketplace_enabled?: boolean | null
           mgrs_tile_id?: string | null
           name: string
+          ndvi_geotiff_url?: string | null
           ndvi_status?: string | null
+          ndvi_status_note?: string | null
           ndvi_tested?: boolean | null
           ndvi_thumbnail_url?: string | null
           nitrogen_kg_per_ha?: number | null
           notes?: string | null
           organic_carbon_percent?: number | null
           ownership_type?: string | null
+          phenology_index?: number | null
           phosphorus_kg_per_ha?: number | null
           planting_date?: string | null
           potassium_kg_per_ha?: number | null
           previous_crop?: string | null
           previous_crop_id?: string | null
           slope_percentage?: number | null
+          soil_confidence_level?: string | null
+          soil_data_source?: string | null
           soil_ph?: number | null
           soil_tested?: boolean | null
           soil_type?: string | null
+          stage_resolved_at?: string | null
+          stage_source?: string | null
+          stage_uuid?: string | null
           state?: string | null
           state_id?: string | null
           survey_number?: string | null
@@ -9363,12 +20570,14 @@ export type Database = {
           tenant_id: string
           tile_id?: string | null
           tile_ids?: string[] | null
+          transplant_date?: string | null
           updated_at?: string
           village?: string | null
           village_id?: string | null
           water_source?: string | null
         }
         Update: {
+          active_schedule_id?: string | null
           area_acres?: number
           area_guntas?: number | null
           area_sqft?: number | null
@@ -9376,20 +20585,31 @@ export type Database = {
           boundary_geom?: unknown
           boundary_method?: string | null
           boundary_polygon_old?: Json | null
+          cell_key?: string | null
           center_lat?: number | null
           center_lon?: number | null
           center_point_old?: Json | null
+          country?: string
+          country_code?: string
           created_at?: string
+          crop_cycle?: string | null
           crop_stage?: string | null
           cultivation_date?: string | null
           current_crop?: string | null
           current_crop_id?: string | null
+          current_crop_variety_id?: string | null
+          current_gdd?: number | null
+          current_moisture_status?: string | null
+          das?: number | null
           deleted_at?: string | null
           district?: string | null
           district_id?: string | null
           elevation_meters?: number | null
           expected_harvest_date?: string | null
           farmer_id?: string
+          gdd_anchor_date?: string | null
+          gdd_anchor_type?: string | null
+          gdd_last_computed_at?: string | null
           gps_accuracy_meters?: number | null
           gps_recorded_at?: string | null
           harvest_date?: string | null
@@ -9401,32 +20621,45 @@ export type Database = {
           land_type?: string | null
           last_crop?: string | null
           last_harvest_date?: string | null
+          last_moisture_update?: string | null
           last_ndvi_calculation?: string | null
+          last_ndvi_quality?: number | null
+          last_ndvi_source?: string | null
           last_ndvi_value?: number | null
           last_processed_at?: string | null
           last_soil_test_date?: string | null
           last_sowing_date?: string | null
+          lifecycle_changed_at?: string
+          lifecycle_status?: Database["public"]["Enums"]["land_lifecycle_status"]
           location_context?: Json | null
           location_coords?: Json | null
           marketplace_enabled?: boolean | null
           mgrs_tile_id?: string | null
           name?: string
+          ndvi_geotiff_url?: string | null
           ndvi_status?: string | null
+          ndvi_status_note?: string | null
           ndvi_tested?: boolean | null
           ndvi_thumbnail_url?: string | null
           nitrogen_kg_per_ha?: number | null
           notes?: string | null
           organic_carbon_percent?: number | null
           ownership_type?: string | null
+          phenology_index?: number | null
           phosphorus_kg_per_ha?: number | null
           planting_date?: string | null
           potassium_kg_per_ha?: number | null
           previous_crop?: string | null
           previous_crop_id?: string | null
           slope_percentage?: number | null
+          soil_confidence_level?: string | null
+          soil_data_source?: string | null
           soil_ph?: number | null
           soil_tested?: boolean | null
           soil_type?: string | null
+          stage_resolved_at?: string | null
+          stage_source?: string | null
+          stage_uuid?: string | null
           state?: string | null
           state_id?: string | null
           survey_number?: string | null
@@ -9435,6 +20668,7 @@ export type Database = {
           tenant_id?: string
           tile_id?: string | null
           tile_ids?: string[] | null
+          transplant_date?: string | null
           updated_at?: string
           village?: string | null
           village_id?: string | null
@@ -9470,11 +20704,67 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lands_active_schedule_fk"
+            columns: ["active_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "crop_schedules"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lands_current_crop_id_fkey"
             columns: ["current_crop_id"]
             isOneToOne: false
             referencedRelation: "crops"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lands_current_crop_id_fkey"
+            columns: ["current_crop_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["crop_id"]
+          },
+          {
+            foreignKeyName: "lands_current_crop_variety_fk"
+            columns: ["current_crop_variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lands_current_crop_variety_fk"
+            columns: ["current_crop_variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "lands_current_crop_variety_fk"
+            columns: ["current_crop_variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "lands_current_crop_variety_id_fkey"
+            columns: ["current_crop_variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lands_current_crop_variety_id_fkey"
+            columns: ["current_crop_variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "lands_current_crop_variety_id_fkey"
+            columns: ["current_crop_variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
           },
           {
             foreignKeyName: "lands_farmer_id_fkey"
@@ -9504,7 +20794,70 @@ export type Database = {
             referencedRelation: "crops"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lands_previous_crop_id_fkey"
+            columns: ["previous_crop_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["crop_id"]
+          },
+          {
+            foreignKeyName: "lands_stage_uuid_fkey"
+            columns: ["stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lands_stage_uuid_fkey"
+            columns: ["stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      lands_crop_identity_backup_20261003: {
+        Row: {
+          backed_up_at: string | null
+          crop_stage: string | null
+          current_crop: string | null
+          current_crop_id: string | null
+          das: number | null
+          land_id: string | null
+          phenology_index: number | null
+          previous_crop: string | null
+          previous_crop_id: string | null
+          stage_source: string | null
+          stage_uuid: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          crop_stage?: string | null
+          current_crop?: string | null
+          current_crop_id?: string | null
+          das?: number | null
+          land_id?: string | null
+          phenology_index?: number | null
+          previous_crop?: string | null
+          previous_crop_id?: string | null
+          stage_source?: string | null
+          stage_uuid?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          crop_stage?: string | null
+          current_crop?: string | null
+          current_crop_id?: string | null
+          das?: number | null
+          land_id?: string | null
+          phenology_index?: number | null
+          previous_crop?: string | null
+          previous_crop_id?: string | null
+          stage_source?: string | null
+          stage_uuid?: string | null
+        }
+        Relationships: []
       }
       lead_activities: {
         Row: {
@@ -10112,6 +21465,95 @@ export type Database = {
           },
         ]
       }
+      learning_policy: {
+        Row: {
+          policy_key: string
+          policy_value: string
+          rationale: string
+          review_status: string
+          updated_at: string | null
+        }
+        Insert: {
+          policy_key: string
+          policy_value: string
+          rationale: string
+          review_status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          policy_key?: string
+          policy_value?: string
+          rationale?: string
+          review_status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      learning_suggestions: {
+        Row: {
+          category: string | null
+          confidence_score: number | null
+          created_at: string | null
+          description: string
+          evidence_count: number | null
+          id: string
+          implementation_notes: string | null
+          priority: string | null
+          recommendation: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+          suggestion_type: string | null
+          supporting_data: Json | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          description: string
+          evidence_count?: number | null
+          id?: string
+          implementation_notes?: string | null
+          priority?: string | null
+          recommendation?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          suggestion_type?: string | null
+          supporting_data?: Json | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          description?: string
+          evidence_count?: number | null
+          id?: string
+          implementation_notes?: string | null
+          priority?: string | null
+          recommendation?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          suggestion_type?: string | null
+          supporting_data?: Json | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_suggestions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       localization_settings: {
         Row: {
           created_at: string | null
@@ -10165,6 +21607,81 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      market_location_map: {
+        Row: {
+          created_at: string
+          district_id: string | null
+          market_location: string
+          state_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          district_id?: string | null
+          market_location: string
+          state_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          district_id?: string | null
+          market_location?: string
+          state_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_location_map_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "districts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_location_map_state_id_fkey"
+            columns: ["state_id"]
+            isOneToOne: false
+            referencedRelation: "states"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      market_name_map: {
+        Row: {
+          created_at: string | null
+          crop_code: string
+          language: string
+          market_name: string
+          match_basis: string
+        }
+        Insert: {
+          created_at?: string | null
+          crop_code: string
+          language?: string
+          market_name: string
+          match_basis: string
+        }
+        Update: {
+          created_at?: string | null
+          crop_code?: string
+          language?: string
+          market_name?: string
+          match_basis?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_name_map_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "market_name_map_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -10234,6 +21751,7 @@ export type Database = {
           unit: string
           updated_at: string | null
           variety: string | null
+          variety_id: string | null
         }
         Insert: {
           arrival?: number | null
@@ -10267,6 +21785,7 @@ export type Database = {
           unit?: string
           updated_at?: string | null
           variety?: string | null
+          variety_id?: string | null
         }
         Update: {
           arrival?: number | null
@@ -10300,6 +21819,7 @@ export type Database = {
           unit?: string
           updated_at?: string | null
           variety?: string | null
+          variety_id?: string | null
         }
         Relationships: [
           {
@@ -10322,6 +21842,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "states"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_prices_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_prices_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "market_prices_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
           },
         ]
       }
@@ -10678,6 +22219,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lands"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_products_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "marketplace_products_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "marketplace_products_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "marketplace_products_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
           },
           {
             foreignKeyName: "marketplace_products_seller_id_fkey"
@@ -11079,66 +22648,160 @@ export type Database = {
           },
         ]
       }
+      master_product_variety_crops: {
+        Row: {
+          created_at: string
+          crop_id: string
+          id: string
+          is_primary: boolean
+          notes: string | null
+          product_id: string
+        }
+        Insert: {
+          created_at?: string
+          crop_id: string
+          id?: string
+          is_primary?: boolean
+          notes?: string | null
+          product_id: string
+        }
+        Update: {
+          created_at?: string
+          crop_id?: string
+          id?: string
+          is_primary?: boolean
+          notes?: string | null
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_product_variety_crops_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "crops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_product_variety_crops_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["crop_id"]
+          },
+          {
+            foreignKeyName: "master_product_variety_crops_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_product_variety_crops_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "master_product_variety_crops_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
       master_products: {
         Row: {
           active_ingredients: Json | null
+          agro_climatic_zones: string[] | null
+          agro_ecological_suitability: Json | null
           ai_metadata: Json | null
           ai_recommendable: boolean | null
+          anaerobic_germination_score: number | null
           application_method: string | null
           application_timing: Json | null
           approval_authority: string | null
           approval_date: string | null
           approved_at: string | null
           approved_by: string | null
+          availability_status: string | null
           available_pack_sizes: Json | null
           barcode: string | null
           batch_number: string | null
           brand: string | null
+          breeder_institute_id: string | null
           cas_number: string | null
+          catalog_url: string | null
           category_id: string
+          climate_suitability: Json | null
           company_id: string
           compatibility_info: Json | null
           composition: string | null
           country_of_origin: string | null
           created_at: string | null
           created_by: string | null
+          crop_id: string | null
           crop_stages: Json | null
           currency: string | null
+          data_completeness_score: number | null
+          data_confidence_score: number | null
           description: string | null
           discount_applicable: boolean | null
           discount_details: Json | null
+          disease_resistance: Json | null
           disease_targets: Json | null
           disposal_instructions: string | null
           distributor_id: string | null
           documents: Json | null
           dosage_instructions: string | null
+          dose_unit: string | null
+          dsr_trait_source: string | null
+          early_vigour_score: number | null
           effectiveness_rating: number | null
           environmental_impact: Json | null
           expiry_date: string | null
           first_aid_measures: string | null
           germination_rate: number | null
+          grain_type: string | null
           handling_precautions: string | null
+          herbicide_tolerance_source: string | null
+          herbicide_tolerance_trait: string | null
           hsn_code: string | null
           id: string
           images: Json | null
           import_license_required: boolean | null
+          irrigation_sensitivity: Json | null
           is_bestseller: boolean | null
           is_featured: boolean | null
+          is_photoperiod_sensitive: boolean | null
           lab_test_reports: Json | null
+          label_hi: string | null
+          label_mr: string | null
+          lodging_resistance_score: number | null
           manufacturer_id: string | null
           manufacturing_date: string | null
           market_availability: string | null
+          maturity_days_max: number | null
+          maturity_days_min: number | null
+          max_dose_per_ha_g: number | null
           maximum_order_quantity: number | null
           metadata: Json | null
           minimum_order_quantity: number | null
           mixing_instructions: string | null
           name: string
+          notification_date: string | null
+          notification_number: string | null
           nutrient_analysis: Json | null
           organic_certified: boolean | null
           origin_country: string | null
           packaging_options: Json | null
+          parentage: string | null
           pest_targets: Json | null
+          pest_tolerance: Json | null
           ph_range: Json | null
+          photoperiod_note: string | null
+          plant_height_class: string | null
           popularity_score: number | null
           pre_harvest_interval_days: number | null
           price_per_unit: number | null
@@ -11147,93 +22810,150 @@ export type Database = {
           purity_percentage: number | null
           quality_certifications: Json | null
           re_entry_interval_hours: number | null
+          recommendation_priority: number | null
+          recommended_regions: Json | null
           recommended_season: Json | null
           registration_number: string | null
+          release_year: number | null
+          released_by: string | null
           safety_data_sheet_url: string | null
           safety_level: string | null
           sales_count: number | null
+          season: string | null
+          seed_rate_kg_per_acre: number | null
           seed_variety_details: Json | null
           shelf_life_months: number | null
           sku: string
+          soil_suitability: Json | null
+          spacing: Json | null
           spray_volume_per_acre: Json | null
+          state_suitability: string[] | null
+          state_suitability_ids: string[] | null
           status: string | null
           storage_instructions: string | null
           storage_temperature_range: Json | null
           suitable_crops: Json | null
+          suitable_district_ids: string[] | null
           suitable_soil_types: Json | null
+          suitable_zone_ids: string[] | null
           tax_rate: number | null
           technical_data_sheet_url: string | null
+          tenant_scope_id: string | null
+          thousand_grain_weight_g: number | null
+          thousand_grain_weight_source: string | null
+          tillering_class: string | null
           translations: Json | null
           unit_of_measure: string | null
           updated_at: string | null
           usage_restrictions: string | null
           user_reviews_summary: Json | null
+          variety_class: string | null
+          variety_code: string | null
+          variety_completeness_score: number | null
           video_urls: Json | null
           view_count: number | null
+          visibility: string | null
           warnings: string | null
+          water_demand_category: string | null
+          water_demand_mm_per_season: number | null
           water_solubility: string | null
           weather_conditions: Json | null
+          weed_competitiveness_score: number | null
           weed_targets: Json | null
+          yield_irrigated_qtl_per_acre: number | null
+          yield_potential_qtl_per_acre: number | null
+          yield_rainfed_qtl_per_acre: number | null
         }
         Insert: {
           active_ingredients?: Json | null
+          agro_climatic_zones?: string[] | null
+          agro_ecological_suitability?: Json | null
           ai_metadata?: Json | null
           ai_recommendable?: boolean | null
+          anaerobic_germination_score?: number | null
           application_method?: string | null
           application_timing?: Json | null
           approval_authority?: string | null
           approval_date?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          availability_status?: string | null
           available_pack_sizes?: Json | null
           barcode?: string | null
           batch_number?: string | null
           brand?: string | null
+          breeder_institute_id?: string | null
           cas_number?: string | null
+          catalog_url?: string | null
           category_id: string
+          climate_suitability?: Json | null
           company_id: string
           compatibility_info?: Json | null
           composition?: string | null
           country_of_origin?: string | null
           created_at?: string | null
           created_by?: string | null
+          crop_id?: string | null
           crop_stages?: Json | null
           currency?: string | null
+          data_completeness_score?: number | null
+          data_confidence_score?: number | null
           description?: string | null
           discount_applicable?: boolean | null
           discount_details?: Json | null
+          disease_resistance?: Json | null
           disease_targets?: Json | null
           disposal_instructions?: string | null
           distributor_id?: string | null
           documents?: Json | null
           dosage_instructions?: string | null
+          dose_unit?: string | null
+          dsr_trait_source?: string | null
+          early_vigour_score?: number | null
           effectiveness_rating?: number | null
           environmental_impact?: Json | null
           expiry_date?: string | null
           first_aid_measures?: string | null
           germination_rate?: number | null
+          grain_type?: string | null
           handling_precautions?: string | null
+          herbicide_tolerance_source?: string | null
+          herbicide_tolerance_trait?: string | null
           hsn_code?: string | null
           id?: string
           images?: Json | null
           import_license_required?: boolean | null
+          irrigation_sensitivity?: Json | null
           is_bestseller?: boolean | null
           is_featured?: boolean | null
+          is_photoperiod_sensitive?: boolean | null
           lab_test_reports?: Json | null
+          label_hi?: string | null
+          label_mr?: string | null
+          lodging_resistance_score?: number | null
           manufacturer_id?: string | null
           manufacturing_date?: string | null
           market_availability?: string | null
+          maturity_days_max?: number | null
+          maturity_days_min?: number | null
+          max_dose_per_ha_g?: number | null
           maximum_order_quantity?: number | null
           metadata?: Json | null
           minimum_order_quantity?: number | null
           mixing_instructions?: string | null
           name: string
+          notification_date?: string | null
+          notification_number?: string | null
           nutrient_analysis?: Json | null
           organic_certified?: boolean | null
           origin_country?: string | null
           packaging_options?: Json | null
+          parentage?: string | null
           pest_targets?: Json | null
+          pest_tolerance?: Json | null
           ph_range?: Json | null
+          photoperiod_note?: string | null
+          plant_height_class?: string | null
           popularity_score?: number | null
           pre_harvest_interval_days?: number | null
           price_per_unit?: number | null
@@ -11242,93 +22962,150 @@ export type Database = {
           purity_percentage?: number | null
           quality_certifications?: Json | null
           re_entry_interval_hours?: number | null
+          recommendation_priority?: number | null
+          recommended_regions?: Json | null
           recommended_season?: Json | null
           registration_number?: string | null
+          release_year?: number | null
+          released_by?: string | null
           safety_data_sheet_url?: string | null
           safety_level?: string | null
           sales_count?: number | null
+          season?: string | null
+          seed_rate_kg_per_acre?: number | null
           seed_variety_details?: Json | null
           shelf_life_months?: number | null
           sku: string
+          soil_suitability?: Json | null
+          spacing?: Json | null
           spray_volume_per_acre?: Json | null
+          state_suitability?: string[] | null
+          state_suitability_ids?: string[] | null
           status?: string | null
           storage_instructions?: string | null
           storage_temperature_range?: Json | null
           suitable_crops?: Json | null
+          suitable_district_ids?: string[] | null
           suitable_soil_types?: Json | null
+          suitable_zone_ids?: string[] | null
           tax_rate?: number | null
           technical_data_sheet_url?: string | null
+          tenant_scope_id?: string | null
+          thousand_grain_weight_g?: number | null
+          thousand_grain_weight_source?: string | null
+          tillering_class?: string | null
           translations?: Json | null
           unit_of_measure?: string | null
           updated_at?: string | null
           usage_restrictions?: string | null
           user_reviews_summary?: Json | null
+          variety_class?: string | null
+          variety_code?: string | null
+          variety_completeness_score?: number | null
           video_urls?: Json | null
           view_count?: number | null
+          visibility?: string | null
           warnings?: string | null
+          water_demand_category?: string | null
+          water_demand_mm_per_season?: number | null
           water_solubility?: string | null
           weather_conditions?: Json | null
+          weed_competitiveness_score?: number | null
           weed_targets?: Json | null
+          yield_irrigated_qtl_per_acre?: number | null
+          yield_potential_qtl_per_acre?: number | null
+          yield_rainfed_qtl_per_acre?: number | null
         }
         Update: {
           active_ingredients?: Json | null
+          agro_climatic_zones?: string[] | null
+          agro_ecological_suitability?: Json | null
           ai_metadata?: Json | null
           ai_recommendable?: boolean | null
+          anaerobic_germination_score?: number | null
           application_method?: string | null
           application_timing?: Json | null
           approval_authority?: string | null
           approval_date?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          availability_status?: string | null
           available_pack_sizes?: Json | null
           barcode?: string | null
           batch_number?: string | null
           brand?: string | null
+          breeder_institute_id?: string | null
           cas_number?: string | null
+          catalog_url?: string | null
           category_id?: string
+          climate_suitability?: Json | null
           company_id?: string
           compatibility_info?: Json | null
           composition?: string | null
           country_of_origin?: string | null
           created_at?: string | null
           created_by?: string | null
+          crop_id?: string | null
           crop_stages?: Json | null
           currency?: string | null
+          data_completeness_score?: number | null
+          data_confidence_score?: number | null
           description?: string | null
           discount_applicable?: boolean | null
           discount_details?: Json | null
+          disease_resistance?: Json | null
           disease_targets?: Json | null
           disposal_instructions?: string | null
           distributor_id?: string | null
           documents?: Json | null
           dosage_instructions?: string | null
+          dose_unit?: string | null
+          dsr_trait_source?: string | null
+          early_vigour_score?: number | null
           effectiveness_rating?: number | null
           environmental_impact?: Json | null
           expiry_date?: string | null
           first_aid_measures?: string | null
           germination_rate?: number | null
+          grain_type?: string | null
           handling_precautions?: string | null
+          herbicide_tolerance_source?: string | null
+          herbicide_tolerance_trait?: string | null
           hsn_code?: string | null
           id?: string
           images?: Json | null
           import_license_required?: boolean | null
+          irrigation_sensitivity?: Json | null
           is_bestseller?: boolean | null
           is_featured?: boolean | null
+          is_photoperiod_sensitive?: boolean | null
           lab_test_reports?: Json | null
+          label_hi?: string | null
+          label_mr?: string | null
+          lodging_resistance_score?: number | null
           manufacturer_id?: string | null
           manufacturing_date?: string | null
           market_availability?: string | null
+          maturity_days_max?: number | null
+          maturity_days_min?: number | null
+          max_dose_per_ha_g?: number | null
           maximum_order_quantity?: number | null
           metadata?: Json | null
           minimum_order_quantity?: number | null
           mixing_instructions?: string | null
           name?: string
+          notification_date?: string | null
+          notification_number?: string | null
           nutrient_analysis?: Json | null
           organic_certified?: boolean | null
           origin_country?: string | null
           packaging_options?: Json | null
+          parentage?: string | null
           pest_targets?: Json | null
+          pest_tolerance?: Json | null
           ph_range?: Json | null
+          photoperiod_note?: string | null
+          plant_height_class?: string | null
           popularity_score?: number | null
           pre_harvest_interval_days?: number | null
           price_per_unit?: number | null
@@ -11337,35 +23114,75 @@ export type Database = {
           purity_percentage?: number | null
           quality_certifications?: Json | null
           re_entry_interval_hours?: number | null
+          recommendation_priority?: number | null
+          recommended_regions?: Json | null
           recommended_season?: Json | null
           registration_number?: string | null
+          release_year?: number | null
+          released_by?: string | null
           safety_data_sheet_url?: string | null
           safety_level?: string | null
           sales_count?: number | null
+          season?: string | null
+          seed_rate_kg_per_acre?: number | null
           seed_variety_details?: Json | null
           shelf_life_months?: number | null
           sku?: string
+          soil_suitability?: Json | null
+          spacing?: Json | null
           spray_volume_per_acre?: Json | null
+          state_suitability?: string[] | null
+          state_suitability_ids?: string[] | null
           status?: string | null
           storage_instructions?: string | null
           storage_temperature_range?: Json | null
           suitable_crops?: Json | null
+          suitable_district_ids?: string[] | null
           suitable_soil_types?: Json | null
+          suitable_zone_ids?: string[] | null
           tax_rate?: number | null
           technical_data_sheet_url?: string | null
+          tenant_scope_id?: string | null
+          thousand_grain_weight_g?: number | null
+          thousand_grain_weight_source?: string | null
+          tillering_class?: string | null
           translations?: Json | null
           unit_of_measure?: string | null
           updated_at?: string | null
           usage_restrictions?: string | null
           user_reviews_summary?: Json | null
+          variety_class?: string | null
+          variety_code?: string | null
+          variety_completeness_score?: number | null
           video_urls?: Json | null
           view_count?: number | null
+          visibility?: string | null
           warnings?: string | null
+          water_demand_category?: string | null
+          water_demand_mm_per_season?: number | null
           water_solubility?: string | null
           weather_conditions?: Json | null
+          weed_competitiveness_score?: number | null
           weed_targets?: Json | null
+          yield_irrigated_qtl_per_acre?: number | null
+          yield_potential_qtl_per_acre?: number | null
+          yield_rainfed_qtl_per_acre?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "master_products_breeder_institute_id_fkey"
+            columns: ["breeder_institute_id"]
+            isOneToOne: false
+            referencedRelation: "master_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_products_breeder_institute_id_fkey"
+            columns: ["breeder_institute_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["company_id"]
+          },
           {
             foreignKeyName: "master_products_category_id_fkey"
             columns: ["category_id"]
@@ -11381,8 +23198,43 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "master_products_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "master_products_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "crops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_products_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["crop_id"]
+          },
+          {
             foreignKeyName: "master_products_distributor_fkey"
             columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "master_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_products_distributor_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "master_products_manufacturer_fkey"
+            columns: ["manufacturer_id"]
             isOneToOne: false
             referencedRelation: "master_companies"
             referencedColumns: ["id"]
@@ -11391,8 +23243,8 @@ export type Database = {
             foreignKeyName: "master_products_manufacturer_fkey"
             columns: ["manufacturer_id"]
             isOneToOne: false
-            referencedRelation: "master_companies"
-            referencedColumns: ["id"]
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -11621,180 +23473,243 @@ export type Database = {
           },
         ]
       }
-      mgrs_tiles_backup: {
-        Row: {
-          agri_area_km2: number | null
-          country_id: string | null
-          created_at: string | null
-          district: string | null
-          district_id: string | null
-          geometry: unknown
-          id: string | null
-          is_agri: boolean | null
-          last_checked: string | null
-          last_land_check: string | null
-          state: string | null
-          state_id: string | null
-          taluka_id: string | null
-          tile_id: string | null
-          total_area_km2: number | null
-          total_lands_count: number | null
-          updated_at: string | null
-          village_id: string | null
-        }
-        Insert: {
-          agri_area_km2?: number | null
-          country_id?: string | null
-          created_at?: string | null
-          district?: string | null
-          district_id?: string | null
-          geometry?: unknown
-          id?: string | null
-          is_agri?: boolean | null
-          last_checked?: string | null
-          last_land_check?: string | null
-          state?: string | null
-          state_id?: string | null
-          taluka_id?: string | null
-          tile_id?: string | null
-          total_area_km2?: number | null
-          total_lands_count?: number | null
-          updated_at?: string | null
-          village_id?: string | null
-        }
-        Update: {
-          agri_area_km2?: number | null
-          country_id?: string | null
-          created_at?: string | null
-          district?: string | null
-          district_id?: string | null
-          geometry?: unknown
-          id?: string | null
-          is_agri?: boolean | null
-          last_checked?: string | null
-          last_land_check?: string | null
-          state?: string | null
-          state_id?: string | null
-          taluka_id?: string | null
-          tile_id?: string | null
-          total_area_km2?: number | null
-          total_lands_count?: number | null
-          updated_at?: string | null
-          village_id?: string | null
-        }
-        Relationships: []
-      }
       ndvi_data: {
         Row: {
+          acquisition_date: string | null
+          acquisition_time: string | null
+          boundary_contamination_fraction: number | null
+          buffer_applied: boolean | null
           cloud_cover: number | null
           cloud_coverage: number | null
           collection_id: string | null
           computed_at: string | null
           confidence_level: string | null
+          confidence_score: number | null
           coverage: number | null
           coverage_percentage: number | null
+          coverage_weighted_purity: number | null
           created_at: string
+          cross_ratio_db: number | null
           date: string
+          effective_pixel_count: number | null
           evi_value: number | null
+          evidence_confidence: string | null
+          field_area_m2: number | null
+          geometry_confidence: string | null
           id: string
           image_url: string | null
+          is_interpolated: boolean
           land_id: string
           max_ndvi: number | null
+          mcari_value: number | null
           mean_ndvi: number | null
+          measurement_status: string | null
           median_ndvi: number | null
           metadata: Json | null
           min_ndvi: number | null
+          mndwi_water: number | null
+          ndmi_value: number | null
+          ndre_value: number | null
+          ndvi_histogram: Json | null
           ndvi_max: number | null
           ndvi_min: number | null
+          ndvi_p10: number | null
+          ndvi_p90: number | null
+          ndvi_spatial_max: number | null
+          ndvi_spatial_median: number | null
+          ndvi_spatial_min: number | null
+          ndvi_spatial_se: number | null
+          ndvi_spatial_std: number | null
           ndvi_std: number | null
           ndvi_value: number | null
           ndwi_value: number | null
+          observation_source: string
+          observation_type: Database["public"]["Enums"]["ndvi_observation_type"]
+          platform: string | null
+          processing_baseline: string | null
+          processing_duration_ms: number | null
           processing_level: string | null
           quality_score: number | null
+          relative_orbit: number | null
+          rvi_std: number | null
+          rvi_value: number | null
           satellite_source: string | null
+          saturated_fraction: number | null
           savi_value: number | null
+          scene_cloud_cover: number | null
           scene_id: string | null
+          shadow_fraction: number | null
+          snow_fraction: number | null
           soil_moisture: number | null
+          source_scene_count: number
           spatial_resolution: number | null
+          spatial_stat_method: string | null
           tenant_id: string
           tile_id: string | null
           total_pixels: number | null
+          uniformity_cv: number | null
           updated_at: string | null
+          valid_fraction: number | null
           valid_pixels: number | null
+          water_fraction: number | null
         }
         Insert: {
+          acquisition_date?: string | null
+          acquisition_time?: string | null
+          boundary_contamination_fraction?: number | null
+          buffer_applied?: boolean | null
           cloud_cover?: number | null
           cloud_coverage?: number | null
           collection_id?: string | null
           computed_at?: string | null
           confidence_level?: string | null
+          confidence_score?: number | null
           coverage?: number | null
           coverage_percentage?: number | null
+          coverage_weighted_purity?: number | null
           created_at?: string
+          cross_ratio_db?: number | null
           date: string
+          effective_pixel_count?: number | null
           evi_value?: number | null
+          evidence_confidence?: string | null
+          field_area_m2?: number | null
+          geometry_confidence?: string | null
           id?: string
           image_url?: string | null
+          is_interpolated?: boolean
           land_id: string
           max_ndvi?: number | null
+          mcari_value?: number | null
           mean_ndvi?: number | null
+          measurement_status?: string | null
           median_ndvi?: number | null
           metadata?: Json | null
           min_ndvi?: number | null
+          mndwi_water?: number | null
+          ndmi_value?: number | null
+          ndre_value?: number | null
+          ndvi_histogram?: Json | null
           ndvi_max?: number | null
           ndvi_min?: number | null
+          ndvi_p10?: number | null
+          ndvi_p90?: number | null
+          ndvi_spatial_max?: number | null
+          ndvi_spatial_median?: number | null
+          ndvi_spatial_min?: number | null
+          ndvi_spatial_se?: number | null
+          ndvi_spatial_std?: number | null
           ndvi_std?: number | null
           ndvi_value?: number | null
           ndwi_value?: number | null
+          observation_source?: string
+          observation_type?: Database["public"]["Enums"]["ndvi_observation_type"]
+          platform?: string | null
+          processing_baseline?: string | null
+          processing_duration_ms?: number | null
           processing_level?: string | null
           quality_score?: number | null
+          relative_orbit?: number | null
+          rvi_std?: number | null
+          rvi_value?: number | null
           satellite_source?: string | null
+          saturated_fraction?: number | null
           savi_value?: number | null
+          scene_cloud_cover?: number | null
           scene_id?: string | null
+          shadow_fraction?: number | null
+          snow_fraction?: number | null
           soil_moisture?: number | null
+          source_scene_count?: number
           spatial_resolution?: number | null
+          spatial_stat_method?: string | null
           tenant_id: string
           tile_id?: string | null
           total_pixels?: number | null
+          uniformity_cv?: number | null
           updated_at?: string | null
+          valid_fraction?: number | null
           valid_pixels?: number | null
+          water_fraction?: number | null
         }
         Update: {
+          acquisition_date?: string | null
+          acquisition_time?: string | null
+          boundary_contamination_fraction?: number | null
+          buffer_applied?: boolean | null
           cloud_cover?: number | null
           cloud_coverage?: number | null
           collection_id?: string | null
           computed_at?: string | null
           confidence_level?: string | null
+          confidence_score?: number | null
           coverage?: number | null
           coverage_percentage?: number | null
+          coverage_weighted_purity?: number | null
           created_at?: string
+          cross_ratio_db?: number | null
           date?: string
+          effective_pixel_count?: number | null
           evi_value?: number | null
+          evidence_confidence?: string | null
+          field_area_m2?: number | null
+          geometry_confidence?: string | null
           id?: string
           image_url?: string | null
+          is_interpolated?: boolean
           land_id?: string
           max_ndvi?: number | null
+          mcari_value?: number | null
           mean_ndvi?: number | null
+          measurement_status?: string | null
           median_ndvi?: number | null
           metadata?: Json | null
           min_ndvi?: number | null
+          mndwi_water?: number | null
+          ndmi_value?: number | null
+          ndre_value?: number | null
+          ndvi_histogram?: Json | null
           ndvi_max?: number | null
           ndvi_min?: number | null
+          ndvi_p10?: number | null
+          ndvi_p90?: number | null
+          ndvi_spatial_max?: number | null
+          ndvi_spatial_median?: number | null
+          ndvi_spatial_min?: number | null
+          ndvi_spatial_se?: number | null
+          ndvi_spatial_std?: number | null
           ndvi_std?: number | null
           ndvi_value?: number | null
           ndwi_value?: number | null
+          observation_source?: string
+          observation_type?: Database["public"]["Enums"]["ndvi_observation_type"]
+          platform?: string | null
+          processing_baseline?: string | null
+          processing_duration_ms?: number | null
           processing_level?: string | null
           quality_score?: number | null
+          relative_orbit?: number | null
+          rvi_std?: number | null
+          rvi_value?: number | null
           satellite_source?: string | null
+          saturated_fraction?: number | null
           savi_value?: number | null
+          scene_cloud_cover?: number | null
           scene_id?: string | null
+          shadow_fraction?: number | null
+          snow_fraction?: number | null
           soil_moisture?: number | null
+          source_scene_count?: number
           spatial_resolution?: number | null
+          spatial_stat_method?: string | null
           tenant_id?: string
           tile_id?: string | null
           total_pixels?: number | null
+          uniformity_cv?: number | null
           updated_at?: string | null
+          valid_fraction?: number | null
           valid_pixels?: number | null
+          water_fraction?: number | null
         }
         Relationships: [
           {
@@ -11838,6 +23753,218 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lands"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+        ]
+      }
+      ndvi_intelligence: {
+        Row: {
+          acquisition_date: string
+          acquisition_time: string | null
+          context_cloud_fraction: number | null
+          context_effective_pixel_count: number | null
+          context_ndvi_mad: number | null
+          context_ndvi_mean: number | null
+          context_ndvi_median: number | null
+          context_ndvi_p10: number | null
+          context_ndvi_p90: number | null
+          context_ndvi_std: number | null
+          context_observed_fraction: number | null
+          context_purity: number | null
+          context_shadow_fraction: number | null
+          context_water_fraction: number | null
+          created_at: string
+          estimated_ndvi: number | null
+          estimated_ndvi_high: number | null
+          estimated_ndvi_low: number | null
+          estimation_method: string | null
+          evidence_json: Json
+          feature_version: string | null
+          id: string
+          intelligence_status: string
+          land_id: string
+          model_version: string | null
+          observed_ndvi: number | null
+          observed_or_predicted: string | null
+          parcel_context_delta: number | null
+          parcel_context_robust_z: number | null
+          provenance_json: Json
+          scene_id: string
+          spatial_anomaly_json: Json | null
+          tenant_id: string
+          uncertainty_json: Json | null
+          updated_at: string
+          validation_dataset_version: string | null
+          validation_status: string | null
+        }
+        Insert: {
+          acquisition_date: string
+          acquisition_time?: string | null
+          context_cloud_fraction?: number | null
+          context_effective_pixel_count?: number | null
+          context_ndvi_mad?: number | null
+          context_ndvi_mean?: number | null
+          context_ndvi_median?: number | null
+          context_ndvi_p10?: number | null
+          context_ndvi_p90?: number | null
+          context_ndvi_std?: number | null
+          context_observed_fraction?: number | null
+          context_purity?: number | null
+          context_shadow_fraction?: number | null
+          context_water_fraction?: number | null
+          created_at?: string
+          estimated_ndvi?: number | null
+          estimated_ndvi_high?: number | null
+          estimated_ndvi_low?: number | null
+          estimation_method?: string | null
+          evidence_json?: Json
+          feature_version?: string | null
+          id?: string
+          intelligence_status?: string
+          land_id: string
+          model_version?: string | null
+          observed_ndvi?: number | null
+          observed_or_predicted?: string | null
+          parcel_context_delta?: number | null
+          parcel_context_robust_z?: number | null
+          provenance_json?: Json
+          scene_id: string
+          spatial_anomaly_json?: Json | null
+          tenant_id: string
+          uncertainty_json?: Json | null
+          updated_at?: string
+          validation_dataset_version?: string | null
+          validation_status?: string | null
+        }
+        Update: {
+          acquisition_date?: string
+          acquisition_time?: string | null
+          context_cloud_fraction?: number | null
+          context_effective_pixel_count?: number | null
+          context_ndvi_mad?: number | null
+          context_ndvi_mean?: number | null
+          context_ndvi_median?: number | null
+          context_ndvi_p10?: number | null
+          context_ndvi_p90?: number | null
+          context_ndvi_std?: number | null
+          context_observed_fraction?: number | null
+          context_purity?: number | null
+          context_shadow_fraction?: number | null
+          context_water_fraction?: number | null
+          created_at?: string
+          estimated_ndvi?: number | null
+          estimated_ndvi_high?: number | null
+          estimated_ndvi_low?: number | null
+          estimation_method?: string | null
+          evidence_json?: Json
+          feature_version?: string | null
+          id?: string
+          intelligence_status?: string
+          land_id?: string
+          model_version?: string | null
+          observed_ndvi?: number | null
+          observed_or_predicted?: string | null
+          parcel_context_delta?: number | null
+          parcel_context_robust_z?: number | null
+          provenance_json?: Json
+          scene_id?: string
+          spatial_anomaly_json?: Json | null
+          tenant_id?: string
+          uncertainty_json?: Json | null
+          updated_at?: string
+          validation_dataset_version?: string | null
+          validation_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ndvi_intelligence_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_intelligence_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "ndvi_intelligence_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "ndvi_intelligence_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_intelligence_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndvi_intelligence_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_intelligence_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_intelligence_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_intelligence_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
           },
         ]
       }
@@ -11959,6 +24086,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ndvi_micro_tiles_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_micro_tiles_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_micro_tiles_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_micro_tiles_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
             foreignKeyName: "ndvi_micro_tiles_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -12048,6 +24203,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lands"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndvi_processing_logs_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_processing_logs_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_processing_logs_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_processing_logs_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
           },
           {
             foreignKeyName: "ndvi_processing_logs_satellite_tile_id_fkey"
@@ -12145,6 +24328,163 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      ndvi_run_summary: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          lands_completed: number | null
+          lands_eligible: number | null
+          lands_failed: number | null
+          lands_processed: number | null
+          lands_skipped: number | null
+          lands_via_optical: number | null
+          lands_via_radar: number | null
+          lookback_days: number | null
+          notes: Json | null
+          observations_written: number
+          run_started_at: string
+          skip_rate_pct: number | null
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          lands_completed?: number | null
+          lands_eligible?: number | null
+          lands_failed?: number | null
+          lands_processed?: number | null
+          lands_skipped?: number | null
+          lands_via_optical?: number | null
+          lands_via_radar?: number | null
+          lookback_days?: number | null
+          notes?: Json | null
+          observations_written?: number
+          run_started_at: string
+          skip_rate_pct?: number | null
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          lands_completed?: number | null
+          lands_eligible?: number | null
+          lands_failed?: number | null
+          lands_processed?: number | null
+          lands_skipped?: number | null
+          lands_via_optical?: number | null
+          lands_via_radar?: number | null
+          lookback_days?: number | null
+          notes?: Json | null
+          observations_written?: number
+          run_started_at?: string
+          skip_rate_pct?: number | null
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      ndvi_scene_evaluations: {
+        Row: {
+          acquisition_date: string | null
+          evaluated_at: string
+          geometry_fingerprint: string
+          land_id: string
+          outcome: string
+          pipeline_version: string
+          reason: string | null
+          scene_id: string
+          tenant_id: string
+        }
+        Insert: {
+          acquisition_date?: string | null
+          evaluated_at?: string
+          geometry_fingerprint: string
+          land_id: string
+          outcome: string
+          pipeline_version: string
+          reason?: string | null
+          scene_id: string
+          tenant_id: string
+        }
+        Update: {
+          acquisition_date?: string | null
+          evaluated_at?: string
+          geometry_fingerprint?: string
+          land_id?: string
+          outcome?: string
+          pipeline_version?: string
+          reason?: string | null
+          scene_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ndvi_scene_evaluations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_scene_evaluations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "ndvi_scene_evaluations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "ndvi_scene_evaluations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_scene_evaluations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndvi_scene_evaluations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_scene_evaluations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_scene_evaluations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_scene_evaluations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
           },
         ]
       }
@@ -12250,6 +24590,604 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      observation_aliases: {
+        Row: {
+          active: boolean
+          alias_code: string
+          alias_normalized: string | null
+          alias_text: string | null
+          canonical_code: string
+          confidence: number
+          created_at: string | null
+          language: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          alias_code: string
+          alias_normalized?: string | null
+          alias_text?: string | null
+          canonical_code: string
+          confidence?: number
+          created_at?: string | null
+          language?: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          alias_code?: string
+          alias_normalized?: string | null
+          alias_text?: string | null
+          canonical_code?: string
+          confidence?: number
+          created_at?: string | null
+          language?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observation_aliases_canonical_code_fkey"
+            columns: ["canonical_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+        ]
+      }
+      observation_aliases_archive: {
+        Row: {
+          active: boolean | null
+          alias_code: string | null
+          alias_normalized: string | null
+          alias_text: string | null
+          archive_id: number
+          archived_at: string
+          canonical_code: string | null
+          change_reason: string | null
+          confidence: number | null
+          language: string | null
+          migration_tag: string
+          source: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          alias_code?: string | null
+          alias_normalized?: string | null
+          alias_text?: string | null
+          archive_id?: number
+          archived_at?: string
+          canonical_code?: string | null
+          change_reason?: string | null
+          confidence?: number | null
+          language?: string | null
+          migration_tag: string
+          source?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          alias_code?: string | null
+          alias_normalized?: string | null
+          alias_text?: string | null
+          archive_id?: number
+          archived_at?: string
+          canonical_code?: string | null
+          change_reason?: string | null
+          confidence?: number | null
+          language?: string | null
+          migration_tag?: string
+          source?: string | null
+        }
+        Relationships: []
+      }
+      observation_intent_master: {
+        Row: {
+          allowed_observation_groups: string[] | null
+          clarification_mode: string | null
+          created_at: string | null
+          cultivation_method_applicable: string[]
+          intent_category: string
+          intent_code: string
+          intent_description: string
+          is_active: boolean | null
+          is_biological: boolean | null
+          max_clarification_rounds: number | null
+          requires_crop_context: boolean | null
+          requires_stage_context: boolean | null
+          routing_target: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          allowed_observation_groups?: string[] | null
+          clarification_mode?: string | null
+          created_at?: string | null
+          cultivation_method_applicable?: string[]
+          intent_category: string
+          intent_code: string
+          intent_description: string
+          is_active?: boolean | null
+          is_biological?: boolean | null
+          max_clarification_rounds?: number | null
+          requires_crop_context?: boolean | null
+          requires_stage_context?: boolean | null
+          routing_target?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          allowed_observation_groups?: string[] | null
+          clarification_mode?: string | null
+          created_at?: string | null
+          cultivation_method_applicable?: string[]
+          intent_category?: string
+          intent_code?: string
+          intent_description?: string
+          is_active?: boolean | null
+          is_biological?: boolean | null
+          max_clarification_rounds?: number | null
+          requires_crop_context?: boolean | null
+          requires_stage_context?: boolean | null
+          routing_target?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observation_intent_master_category_fk"
+            columns: ["intent_category"]
+            isOneToOne: false
+            referencedRelation: "intent_category_master"
+            referencedColumns: ["category"]
+          },
+        ]
+      }
+      observation_master: {
+        Row: {
+          affected_plant_part: string | null
+          applicable_crop_groups: string[] | null
+          applies_to_stages: string[]
+          can_generate_question: boolean
+          canonical_group: string
+          clarity_score: number | null
+          created_at: string | null
+          crop_group: string | null
+          description: string
+          discriminator_score: number | null
+          frequency_score: number | null
+          is_active: boolean
+          is_diagnostic: boolean | null
+          is_farmer_observable: boolean | null
+          observation_category: string | null
+          observation_code: string
+          observation_type: string | null
+          polarity: string
+          semantic_class: string | null
+          severity_level: string | null
+          symptom_category: string | null
+          symptom_pattern: string | null
+          symptom_type: string | null
+          updated_at: string | null
+          version_hash: string | null
+        }
+        Insert: {
+          affected_plant_part?: string | null
+          applicable_crop_groups?: string[] | null
+          applies_to_stages?: string[]
+          can_generate_question?: boolean
+          canonical_group: string
+          clarity_score?: number | null
+          created_at?: string | null
+          crop_group?: string | null
+          description: string
+          discriminator_score?: number | null
+          frequency_score?: number | null
+          is_active?: boolean
+          is_diagnostic?: boolean | null
+          is_farmer_observable?: boolean | null
+          observation_category?: string | null
+          observation_code: string
+          observation_type?: string | null
+          polarity?: string
+          semantic_class?: string | null
+          severity_level?: string | null
+          symptom_category?: string | null
+          symptom_pattern?: string | null
+          symptom_type?: string | null
+          updated_at?: string | null
+          version_hash?: string | null
+        }
+        Update: {
+          affected_plant_part?: string | null
+          applicable_crop_groups?: string[] | null
+          applies_to_stages?: string[]
+          can_generate_question?: boolean
+          canonical_group?: string
+          clarity_score?: number | null
+          created_at?: string | null
+          crop_group?: string | null
+          description?: string
+          discriminator_score?: number | null
+          frequency_score?: number | null
+          is_active?: boolean
+          is_diagnostic?: boolean | null
+          is_farmer_observable?: boolean | null
+          observation_category?: string | null
+          observation_code?: string
+          observation_type?: string | null
+          polarity?: string
+          semantic_class?: string | null
+          severity_level?: string | null
+          symptom_category?: string | null
+          symptom_pattern?: string | null
+          symptom_type?: string | null
+          updated_at?: string | null
+          version_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observation_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
+      observation_master_archive: {
+        Row: {
+          archive_id: number
+          archived_at: string
+          can_generate_question: boolean | null
+          change_reason: string | null
+          is_active: boolean | null
+          is_farmer_observable: boolean | null
+          migration_tag: string
+          observation_code: string | null
+        }
+        Insert: {
+          archive_id?: number
+          archived_at?: string
+          can_generate_question?: boolean | null
+          change_reason?: string | null
+          is_active?: boolean | null
+          is_farmer_observable?: boolean | null
+          migration_tag: string
+          observation_code?: string | null
+        }
+        Update: {
+          archive_id?: number
+          archived_at?: string
+          can_generate_question?: boolean | null
+          change_reason?: string | null
+          is_active?: boolean | null
+          is_farmer_observable?: boolean | null
+          migration_tag?: string
+          observation_code?: string | null
+        }
+        Relationships: []
+      }
+      observation_master_reclass_backup_2026_09_16: {
+        Row: {
+          backed_up_at: string | null
+          observation_category: string | null
+          observation_code: string | null
+          semantic_class: string | null
+          symptom_category: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          observation_category?: string | null
+          observation_code?: string | null
+          semantic_class?: string | null
+          symptom_category?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          observation_category?: string | null
+          observation_code?: string | null
+          semantic_class?: string | null
+          symptom_category?: string | null
+        }
+        Relationships: []
+      }
+      observation_protocol: {
+        Row: {
+          created_at: string
+          crop_code: string | null
+          how_text_en: string | null
+          id: string
+          integer_only: boolean
+          is_active: boolean
+          measurement_type: string
+          observation_category: string
+          sample_count: number | null
+          sampling_method: string | null
+          source: string | null
+          unit: string | null
+          value_max: number | null
+          value_min: number | null
+        }
+        Insert: {
+          created_at?: string
+          crop_code?: string | null
+          how_text_en?: string | null
+          id?: string
+          integer_only?: boolean
+          is_active?: boolean
+          measurement_type: string
+          observation_category: string
+          sample_count?: number | null
+          sampling_method?: string | null
+          source?: string | null
+          unit?: string | null
+          value_max?: number | null
+          value_min?: number | null
+        }
+        Update: {
+          created_at?: string
+          crop_code?: string | null
+          how_text_en?: string | null
+          id?: string
+          integer_only?: boolean
+          is_active?: boolean
+          measurement_type?: string
+          observation_category?: string
+          sample_count?: number | null
+          sampling_method?: string | null
+          source?: string | null
+          unit?: string | null
+          value_max?: number | null
+          value_min?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observation_protocol_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "observation_protocol_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      observation_translation_review_queue: {
+        Row: {
+          created_at: string | null
+          current_crop_code: string | null
+          language_code: string
+          observation_code: string
+          prefix_derived_crop: string | null
+          reason: string
+          registry_crop_group: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_crop_code?: string | null
+          language_code: string
+          observation_code: string
+          prefix_derived_crop?: string | null
+          reason: string
+          registry_crop_group?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          current_crop_code?: string | null
+          language_code?: string
+          observation_code?: string
+          prefix_derived_crop?: string | null
+          reason?: string
+          registry_crop_group?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      observation_translations: {
+        Row: {
+          created_at: string | null
+          crop_code: string
+          description_text: string | null
+          display_text: string
+          id: string
+          language_code: string
+          observation_code: string
+        }
+        Insert: {
+          created_at?: string | null
+          crop_code?: string
+          description_text?: string | null
+          display_text: string
+          id?: string
+          language_code: string
+          observation_code: string
+        }
+        Update: {
+          created_at?: string | null
+          crop_code?: string
+          description_text?: string | null
+          display_text?: string
+          id?: string
+          language_code?: string
+          observation_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observation_translations_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "observation_translations_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "observation_translations_observation_code_fkey"
+            columns: ["observation_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+        ]
+      }
+      observation_translations_archive: {
+        Row: {
+          archive_id: number
+          archived_at: string
+          change_reason: string | null
+          created_at: string | null
+          crop_code: string | null
+          description_text: string | null
+          display_text: string | null
+          id: string | null
+          language_code: string | null
+          migration_tag: string
+          observation_code: string | null
+        }
+        Insert: {
+          archive_id?: number
+          archived_at?: string
+          change_reason?: string | null
+          created_at?: string | null
+          crop_code?: string | null
+          description_text?: string | null
+          display_text?: string | null
+          id?: string | null
+          language_code?: string | null
+          migration_tag: string
+          observation_code?: string | null
+        }
+        Update: {
+          archive_id?: number
+          archived_at?: string
+          change_reason?: string | null
+          created_at?: string | null
+          crop_code?: string | null
+          description_text?: string | null
+          display_text?: string | null
+          id?: string | null
+          language_code?: string | null
+          migration_tag?: string
+          observation_code?: string | null
+        }
+        Relationships: []
+      }
+      observation_versions: {
+        Row: {
+          change_reason: string | null
+          change_type: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          observation_id: string
+          snapshot: Json
+          version_number: number
+        }
+        Insert: {
+          change_reason?: string | null
+          change_type: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          observation_id: string
+          snapshot: Json
+          version_number: number
+        }
+        Update: {
+          change_reason?: string | null
+          change_type?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          observation_id?: string
+          snapshot?: Json
+          version_number?: number
+        }
+        Relationships: []
+      }
+      observation_vocabulary_gaps: {
+        Row: {
+          first_seen_at: string
+          id: string
+          language: string
+          last_seen_at: string
+          metadata: Json
+          occurrences: number
+          resolved: boolean
+          resolved_at: string | null
+          resolved_canonical_code: string | null
+          source: string
+          token_normalized: string
+          token_raw: string
+        }
+        Insert: {
+          first_seen_at?: string
+          id?: string
+          language?: string
+          last_seen_at?: string
+          metadata?: Json
+          occurrences?: number
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_canonical_code?: string | null
+          source?: string
+          token_normalized: string
+          token_raw: string
+        }
+        Update: {
+          first_seen_at?: string
+          id?: string
+          language?: string
+          last_seen_at?: string
+          metadata?: Json
+          occurrences?: number
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_canonical_code?: string | null
+          source?: string
+          token_normalized?: string
+          token_raw?: string
+        }
+        Relationships: []
+      }
+      observation_wiring_queue: {
+        Row: {
+          created_at: string | null
+          observation_category: string | null
+          observation_code: string
+          reachability: string
+          recommended_action: string | null
+          review_status: string
+        }
+        Insert: {
+          created_at?: string | null
+          observation_category?: string | null
+          observation_code: string
+          reachability: string
+          recommended_action?: string | null
+          review_status?: string
+        }
+        Update: {
+          created_at?: string | null
+          observation_category?: string | null
+          observation_code?: string
+          reachability?: string
+          recommended_action?: string | null
+          review_status?: string
+        }
+        Relationships: []
       }
       offline_sync_queue: {
         Row: {
@@ -12428,6 +25366,65 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "onboarding_workflows_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orchestrator_metrics: {
+        Row: {
+          agent_performance: Json | null
+          created_at: string | null
+          error_message: string | null
+          error_type: string | null
+          escalation_triggered: boolean | null
+          final_confidence: number | null
+          id: string
+          phase_timings: Json | null
+          rules_applied_count: number | null
+          safety_status: string | null
+          session_id: string | null
+          success: boolean | null
+          tenant_id: string | null
+          total_processing_time_ms: number | null
+        }
+        Insert: {
+          agent_performance?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          error_type?: string | null
+          escalation_triggered?: boolean | null
+          final_confidence?: number | null
+          id?: string
+          phase_timings?: Json | null
+          rules_applied_count?: number | null
+          safety_status?: string | null
+          session_id?: string | null
+          success?: boolean | null
+          tenant_id?: string | null
+          total_processing_time_ms?: number | null
+        }
+        Update: {
+          agent_performance?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          error_type?: string | null
+          escalation_triggered?: boolean | null
+          final_confidence?: number | null
+          id?: string
+          phase_timings?: Json | null
+          rules_applied_count?: number | null
+          safety_status?: string | null
+          session_id?: string | null
+          success?: boolean | null
+          tenant_id?: string | null
+          total_processing_time_ms?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orchestrator_metrics_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -12818,54 +25815,6 @@ export type Database = {
           },
         ]
       }
-      organization_weather_alerts: {
-        Row: {
-          acknowledged_by: Json | null
-          affected_areas: Json
-          alert_type: string
-          created_at: string | null
-          description: string
-          expires_at: string | null
-          id: string
-          is_active: boolean | null
-          organization_id: string
-          recommendations: Json | null
-          severity: string
-          title: string
-          updated_at: string | null
-        }
-        Insert: {
-          acknowledged_by?: Json | null
-          affected_areas: Json
-          alert_type: string
-          created_at?: string | null
-          description: string
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          organization_id: string
-          recommendations?: Json | null
-          severity: string
-          title: string
-          updated_at?: string | null
-        }
-        Update: {
-          acknowledged_by?: Json | null
-          affected_areas?: Json
-          alert_type?: string
-          created_at?: string | null
-          description?: string
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          organization_id?: string
-          recommendations?: Json | null
-          severity?: string
-          title?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       otp_sessions: {
         Row: {
           created_at: string | null
@@ -12956,56 +25905,95 @@ export type Database = {
       payment_intents: {
         Row: {
           amount: number
+          applied_coupon_id: string | null
+          billing_interval: string
+          client_ip: unknown
+          collected_by: string | null
+          collection_method: string | null
           created_at: string | null
           currency: string | null
+          discount_amount: number
           dummy_payment_data: Json | null
           error_message: string | null
           expires_at: string | null
           farmer_id: string | null
           id: string
+          idempotency_key: string | null
+          notes: string | null
+          original_amount: number | null
           payment_method: string | null
           plan_id: string
+          proof_url: string | null
+          reference_number: string | null
+          source: string
           status: string | null
           subscription_type: string
           tenant_id: string | null
           transaction_id: string | null
           updated_at: string | null
+          user_agent: string | null
           user_id: string | null
         }
         Insert: {
           amount: number
+          applied_coupon_id?: string | null
+          billing_interval?: string
+          client_ip?: unknown
+          collected_by?: string | null
+          collection_method?: string | null
           created_at?: string | null
           currency?: string | null
+          discount_amount?: number
           dummy_payment_data?: Json | null
           error_message?: string | null
           expires_at?: string | null
           farmer_id?: string | null
           id?: string
+          idempotency_key?: string | null
+          notes?: string | null
+          original_amount?: number | null
           payment_method?: string | null
           plan_id: string
+          proof_url?: string | null
+          reference_number?: string | null
+          source?: string
           status?: string | null
           subscription_type: string
           tenant_id?: string | null
           transaction_id?: string | null
           updated_at?: string | null
+          user_agent?: string | null
           user_id?: string | null
         }
         Update: {
           amount?: number
+          applied_coupon_id?: string | null
+          billing_interval?: string
+          client_ip?: unknown
+          collected_by?: string | null
+          collection_method?: string | null
           created_at?: string | null
           currency?: string | null
+          discount_amount?: number
           dummy_payment_data?: Json | null
           error_message?: string | null
           expires_at?: string | null
           farmer_id?: string | null
           id?: string
+          idempotency_key?: string | null
+          notes?: string | null
+          original_amount?: number | null
           payment_method?: string | null
           plan_id?: string
+          proof_url?: string | null
+          reference_number?: string | null
+          source?: string
           status?: string | null
           subscription_type?: string
           tenant_id?: string | null
           transaction_id?: string | null
           updated_at?: string | null
+          user_agent?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -13225,6 +26213,7 @@ export type Database = {
           id: string
           invoice_id: string | null
           metadata: Json | null
+          payment_intent_id: string | null
           payment_method_id: string | null
           processed_at: string | null
           status: string
@@ -13245,6 +26234,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           metadata?: Json | null
+          payment_intent_id?: string | null
           payment_method_id?: string | null
           processed_at?: string | null
           status: string
@@ -13265,6 +26255,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           metadata?: Json | null
+          payment_intent_id?: string | null
           payment_method_id?: string | null
           processed_at?: string | null
           status?: string
@@ -13487,6 +26478,216 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      pest_insecticide_resistance: {
+        Row: {
+          active_ingredient_pattern: string
+          crop_code: string
+          evidence_ref: string | null
+          hotspot_locations: string | null
+          id: string
+          is_active: boolean
+          monitoring_year: string | null
+          pest_code: string
+          resistance_level: string
+          resistance_ratio_range: string | null
+        }
+        Insert: {
+          active_ingredient_pattern: string
+          crop_code: string
+          evidence_ref?: string | null
+          hotspot_locations?: string | null
+          id?: string
+          is_active?: boolean
+          monitoring_year?: string | null
+          pest_code: string
+          resistance_level: string
+          resistance_ratio_range?: string | null
+        }
+        Update: {
+          active_ingredient_pattern?: string
+          crop_code?: string
+          evidence_ref?: string | null
+          hotspot_locations?: string | null
+          id?: string
+          is_active?: boolean
+          monitoring_year?: string | null
+          pest_code?: string
+          resistance_level?: string
+          resistance_ratio_range?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pest_insecticide_resistance_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "pest_insecticide_resistance_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      pest_master: {
+        Row: {
+          is_active: boolean
+          pest_code: string
+          pest_name_en: string | null
+          pest_name_hi: string | null
+          pest_name_mr: string | null
+        }
+        Insert: {
+          is_active?: boolean
+          pest_code: string
+          pest_name_en?: string | null
+          pest_name_hi?: string | null
+          pest_name_mr?: string | null
+        }
+        Update: {
+          is_active?: boolean
+          pest_code?: string
+          pest_name_en?: string | null
+          pest_name_hi?: string | null
+          pest_name_mr?: string | null
+        }
+        Relationships: []
+      }
+      pest_resurgence_risk: {
+        Row: {
+          active_ingredient_pattern: string
+          chemical_group: string | null
+          crop_code: string
+          evidence_ref: string | null
+          id: string
+          induces_resurgence_of: string
+          is_active: boolean
+          mechanism: string
+          resurgence_ratio: number | null
+          risk_level: string
+        }
+        Insert: {
+          active_ingredient_pattern: string
+          chemical_group?: string | null
+          crop_code: string
+          evidence_ref?: string | null
+          id?: string
+          induces_resurgence_of: string
+          is_active?: boolean
+          mechanism: string
+          resurgence_ratio?: number | null
+          risk_level: string
+        }
+        Update: {
+          active_ingredient_pattern?: string
+          chemical_group?: string | null
+          crop_code?: string
+          evidence_ref?: string | null
+          id?: string
+          induces_resurgence_of?: string
+          is_active?: boolean
+          mechanism?: string
+          resurgence_ratio?: number | null
+          risk_level?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pest_resurgence_risk_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "pest_resurgence_risk_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      pin_reset_codes: {
+        Row: {
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          farmer_id: string
+          id: string
+          mobile_number: string
+          tenant_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          farmer_id: string
+          id?: string
+          mobile_number: string
+          tenant_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          farmer_id?: string
+          id?: string
+          mobile_number?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      plan_features: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          feature_code: string
+          plan_id: string
+          quota: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          feature_code: string
+          plan_id: string
+          quota?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          feature_code?: string
+          plan_id?: string
+          quota?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_features_feature_code_fkey"
+            columns: ["feature_code"]
+            isOneToOne: false
+            referencedRelation: "features"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "plan_features_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       plans: {
         Row: {
@@ -13725,6 +26926,7 @@ export type Database = {
           likes_count: number | null
           parent_comment_id: string | null
           post_id: string
+          tenant_id: string | null
           translations: Json | null
           updated_at: string | null
         }
@@ -13738,6 +26940,7 @@ export type Database = {
           likes_count?: number | null
           parent_comment_id?: string | null
           post_id: string
+          tenant_id?: string | null
           translations?: Json | null
           updated_at?: string | null
         }
@@ -13751,6 +26954,7 @@ export type Database = {
           likes_count?: number | null
           parent_comment_id?: string | null
           post_id?: string
+          tenant_id?: string | null
           translations?: Json | null
           updated_at?: string | null
         }
@@ -13947,6 +27151,39 @@ export type Database = {
           },
         ]
       }
+      post_reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          farmer_id: string
+          id: string
+          post_id: string
+          reason: string
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          farmer_id: string
+          id?: string
+          post_id: string
+          reason: string
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          farmer_id?: string
+          id?: string
+          post_id?: string
+          reason?: string
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       post_saves: {
         Row: {
           farmer_id: string
@@ -14051,6 +27288,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      post_translations: {
+        Row: {
+          content: string
+          generated_at: string
+          id: string
+          language_code: string
+          post_id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          content: string
+          generated_at?: string
+          id?: string
+          language_code: string
+          post_id: string
+          tenant_id?: string | null
+        }
+        Update: {
+          content?: string
+          generated_at?: string
+          id?: string
+          language_code?: string
+          post_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
       }
       posts: {
         Row: {
@@ -14279,6 +27543,34 @@ export type Database = {
             referencedRelation: "lands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "prescription_maps_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "prescription_maps_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "prescription_maps_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "prescription_maps_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
         ]
       }
       pricing_models: {
@@ -14337,6 +27629,521 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      proactive_alerts: {
+        Row: {
+          acted_at: string | null
+          action_text_en: string | null
+          action_text_hi: string | null
+          action_text_mr: string | null
+          alert_category: string
+          confidence: number | null
+          created_at: string | null
+          decision_reasoning: string | null
+          dedup_key: string | null
+          delivered_at: string | null
+          event_id: string | null
+          expires_at: string | null
+          farmer_id: string | null
+          id: string
+          land_id: string | null
+          message_en: string
+          message_hi: string | null
+          message_mr: string | null
+          priority: string
+          push_sent: boolean | null
+          risk_score: number | null
+          rule_id: string | null
+          seen_at: string | null
+          sms_sent: boolean | null
+          status: string
+          tenant_id: string
+          title_en: string
+          title_hi: string | null
+          title_mr: string | null
+          trigger_data: Json | null
+          updated_at: string | null
+          variety_id: string | null
+        }
+        Insert: {
+          acted_at?: string | null
+          action_text_en?: string | null
+          action_text_hi?: string | null
+          action_text_mr?: string | null
+          alert_category: string
+          confidence?: number | null
+          created_at?: string | null
+          decision_reasoning?: string | null
+          dedup_key?: string | null
+          delivered_at?: string | null
+          event_id?: string | null
+          expires_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          land_id?: string | null
+          message_en: string
+          message_hi?: string | null
+          message_mr?: string | null
+          priority?: string
+          push_sent?: boolean | null
+          risk_score?: number | null
+          rule_id?: string | null
+          seen_at?: string | null
+          sms_sent?: boolean | null
+          status?: string
+          tenant_id: string
+          title_en: string
+          title_hi?: string | null
+          title_mr?: string | null
+          trigger_data?: Json | null
+          updated_at?: string | null
+          variety_id?: string | null
+        }
+        Update: {
+          acted_at?: string | null
+          action_text_en?: string | null
+          action_text_hi?: string | null
+          action_text_mr?: string | null
+          alert_category?: string
+          confidence?: number | null
+          created_at?: string | null
+          decision_reasoning?: string | null
+          dedup_key?: string | null
+          delivered_at?: string | null
+          event_id?: string | null
+          expires_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          land_id?: string | null
+          message_en?: string
+          message_hi?: string | null
+          message_mr?: string | null
+          priority?: string
+          push_sent?: boolean | null
+          risk_score?: number | null
+          rule_id?: string | null
+          seen_at?: string | null
+          sms_sent?: boolean | null
+          status?: string
+          tenant_id?: string
+          title_en?: string
+          title_hi?: string | null
+          title_mr?: string | null
+          trigger_data?: Json | null
+          updated_at?: string | null
+          variety_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proactive_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "proactive_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "proactive_alerts_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      proactive_evaluation_log: {
+        Row: {
+          alerts_generated: number | null
+          created_at: string | null
+          error_message: string | null
+          evaluation_type: string
+          execution_time_ms: number | null
+          id: string
+          lands_evaluated: number | null
+          metadata: Json | null
+          rules_evaluated: number | null
+          rules_fired: number | null
+          tenant_id: string
+          variety_id: string | null
+        }
+        Insert: {
+          alerts_generated?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          evaluation_type: string
+          execution_time_ms?: number | null
+          id?: string
+          lands_evaluated?: number | null
+          metadata?: Json | null
+          rules_evaluated?: number | null
+          rules_fired?: number | null
+          tenant_id: string
+          variety_id?: string | null
+        }
+        Update: {
+          alerts_generated?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          evaluation_type?: string
+          execution_time_ms?: number | null
+          id?: string
+          lands_evaluated?: number | null
+          metadata?: Json | null
+          rules_evaluated?: number | null
+          rules_fired?: number | null
+          tenant_id?: string
+          variety_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proactive_eval_log_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proactive_eval_log_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "proactive_eval_log_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      proactive_evaluator_config: {
+        Row: {
+          config_key: string
+          config_value: Json
+          description: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          config_key: string
+          config_value: Json
+          description?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Update: {
+          config_key?: string
+          config_value?: Json
+          description?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      proactive_events: {
+        Row: {
+          alerts_generated: number | null
+          created_at: string | null
+          detected_at: string
+          event_data: Json
+          event_type: string
+          farmer_id: string | null
+          id: string
+          land_id: string | null
+          processed: boolean | null
+          tenant_id: string
+        }
+        Insert: {
+          alerts_generated?: number | null
+          created_at?: string | null
+          detected_at?: string
+          event_data?: Json
+          event_type: string
+          farmer_id?: string | null
+          id?: string
+          land_id?: string | null
+          processed?: boolean | null
+          tenant_id: string
+        }
+        Update: {
+          alerts_generated?: number | null
+          created_at?: string | null
+          detected_at?: string
+          event_data?: Json
+          event_type?: string
+          farmer_id?: string | null
+          id?: string
+          land_id?: string | null
+          processed?: boolean | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proactive_events_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proactive_events_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "proactive_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "proactive_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "proactive_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "proactive_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "proactive_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proactive_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "proactive_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "proactive_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "proactive_events_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+        ]
+      }
+      proactive_rules: {
+        Row: {
+          action_template_en: string | null
+          action_template_hi: string | null
+          action_template_mr: string | null
+          alert_category: string
+          condition_type: string
+          conditions: Json
+          cooldown_hours: number | null
+          created_at: string | null
+          crop_code: string
+          forecast_horizon_days: number | null
+          id: string
+          is_active: boolean | null
+          message_template_en: string
+          message_template_hi: string | null
+          message_template_mr: string | null
+          priority: string
+          probability_threshold: number | null
+          rule_code: string
+          scientific_source: string | null
+          stage_applicable: string[] | null
+          title_en: string
+          title_hi: string | null
+          title_mr: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          action_template_en?: string | null
+          action_template_hi?: string | null
+          action_template_mr?: string | null
+          alert_category: string
+          condition_type: string
+          conditions?: Json
+          cooldown_hours?: number | null
+          created_at?: string | null
+          crop_code: string
+          forecast_horizon_days?: number | null
+          id?: string
+          is_active?: boolean | null
+          message_template_en: string
+          message_template_hi?: string | null
+          message_template_mr?: string | null
+          priority?: string
+          probability_threshold?: number | null
+          rule_code: string
+          scientific_source?: string | null
+          stage_applicable?: string[] | null
+          title_en: string
+          title_hi?: string | null
+          title_mr?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          action_template_en?: string | null
+          action_template_hi?: string | null
+          action_template_mr?: string | null
+          alert_category?: string
+          condition_type?: string
+          conditions?: Json
+          cooldown_hours?: number | null
+          created_at?: string | null
+          crop_code?: string
+          forecast_horizon_days?: number | null
+          id?: string
+          is_active?: boolean | null
+          message_template_en?: string
+          message_template_hi?: string | null
+          message_template_mr?: string | null
+          priority?: string
+          probability_threshold?: number | null
+          rule_code?: string
+          scientific_source?: string | null
+          stage_applicable?: string[] | null
+          title_en?: string
+          title_hi?: string | null
+          title_mr?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proactive_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "proactive_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -14917,11 +28724,32 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "products_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "products_master_product_id_fkey"
             columns: ["master_product_id"]
             isOneToOne: false
             referencedRelation: "master_products"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_master_product_id_fkey"
+            columns: ["master_product_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "products_master_product_id_fkey"
+            columns: ["master_product_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
           },
         ]
       }
@@ -14988,6 +28816,736 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           user_agent?: string | null
+        }
+        Relationships: []
+      }
+      rag_chunks: {
+        Row: {
+          chemical_names: string[] | null
+          chunk_index: number
+          chunk_text: string
+          created_at: string | null
+          crop_codes: string[] | null
+          document_id: string
+          embedding: string | null
+          entity_meta: Json | null
+          id: string
+          is_active: boolean | null
+          is_table: boolean | null
+          language: string
+          page_number: number | null
+          scheme_names: string[] | null
+          section_path: string | null
+          tenant_id: string | null
+          token_count: number | null
+          topic_codes: string[] | null
+        }
+        Insert: {
+          chemical_names?: string[] | null
+          chunk_index: number
+          chunk_text: string
+          created_at?: string | null
+          crop_codes?: string[] | null
+          document_id: string
+          embedding?: string | null
+          entity_meta?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_table?: boolean | null
+          language?: string
+          page_number?: number | null
+          scheme_names?: string[] | null
+          section_path?: string | null
+          tenant_id?: string | null
+          token_count?: number | null
+          topic_codes?: string[] | null
+        }
+        Update: {
+          chemical_names?: string[] | null
+          chunk_index?: number
+          chunk_text?: string
+          created_at?: string | null
+          crop_codes?: string[] | null
+          document_id?: string
+          embedding?: string | null
+          entity_meta?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_table?: boolean | null
+          language?: string
+          page_number?: number | null
+          scheme_names?: string[] | null
+          section_path?: string | null
+          tenant_id?: string | null
+          token_count?: number | null
+          topic_codes?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "rag_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_chunks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_documents: {
+        Row: {
+          chunk_count: number | null
+          content_hash: string
+          created_at: string | null
+          crop_codes: string[] | null
+          doc_type: string
+          doc_version: string
+          embedding_model: string | null
+          file_url: string | null
+          id: string
+          is_active: boolean | null
+          language: string
+          processing_error: string | null
+          processing_status: string
+          publication_date: string | null
+          source_id: string
+          state_codes: string[] | null
+          superseded_by: string | null
+          tenant_id: string | null
+          title: string
+          topic_codes: string[] | null
+          updated_at: string | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          chunk_count?: number | null
+          content_hash: string
+          created_at?: string | null
+          crop_codes?: string[] | null
+          doc_type: string
+          doc_version?: string
+          embedding_model?: string | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean | null
+          language?: string
+          processing_error?: string | null
+          processing_status?: string
+          publication_date?: string | null
+          source_id: string
+          state_codes?: string[] | null
+          superseded_by?: string | null
+          tenant_id?: string | null
+          title: string
+          topic_codes?: string[] | null
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          chunk_count?: number | null
+          content_hash?: string
+          created_at?: string | null
+          crop_codes?: string[] | null
+          doc_type?: string
+          doc_version?: string
+          embedding_model?: string | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean | null
+          language?: string
+          processing_error?: string | null
+          processing_status?: string
+          publication_date?: string | null
+          source_id?: string
+          state_codes?: string[] | null
+          superseded_by?: string | null
+          tenant_id?: string | null
+          title?: string
+          topic_codes?: string[] | null
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_documents_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "rag_source_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_documents_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "rag_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_retrieval_logs: {
+        Row: {
+          below_threshold: boolean | null
+          chunk_ids: string[] | null
+          chunks_returned: Json | null
+          created_at: string
+          document_ids: string[] | null
+          embedding_model: string | null
+          farmer_id: string | null
+          filters_applied: Json | null
+          id: string
+          latency_ms: number | null
+          query_language: string | null
+          query_text: string
+          retrieval_mode: string | null
+          retrieval_purpose: string | null
+          session_id: string | null
+          tenant_id: string | null
+          top_score: number | null
+          trace_id: string | null
+          turn_id: string | null
+        }
+        Insert: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Update: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text?: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Relationships: []
+      }
+      rag_retrieval_logs_202608: {
+        Row: {
+          below_threshold: boolean | null
+          chunk_ids: string[] | null
+          chunks_returned: Json | null
+          created_at: string
+          document_ids: string[] | null
+          embedding_model: string | null
+          farmer_id: string | null
+          filters_applied: Json | null
+          id: string
+          latency_ms: number | null
+          query_language: string | null
+          query_text: string
+          retrieval_mode: string | null
+          retrieval_purpose: string | null
+          session_id: string | null
+          tenant_id: string | null
+          top_score: number | null
+          trace_id: string | null
+          turn_id: string | null
+        }
+        Insert: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Update: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text?: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Relationships: []
+      }
+      rag_retrieval_logs_202609: {
+        Row: {
+          below_threshold: boolean | null
+          chunk_ids: string[] | null
+          chunks_returned: Json | null
+          created_at: string
+          document_ids: string[] | null
+          embedding_model: string | null
+          farmer_id: string | null
+          filters_applied: Json | null
+          id: string
+          latency_ms: number | null
+          query_language: string | null
+          query_text: string
+          retrieval_mode: string | null
+          retrieval_purpose: string | null
+          session_id: string | null
+          tenant_id: string | null
+          top_score: number | null
+          trace_id: string | null
+          turn_id: string | null
+        }
+        Insert: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Update: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text?: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Relationships: []
+      }
+      rag_retrieval_logs_202610: {
+        Row: {
+          below_threshold: boolean | null
+          chunk_ids: string[] | null
+          chunks_returned: Json | null
+          created_at: string
+          document_ids: string[] | null
+          embedding_model: string | null
+          farmer_id: string | null
+          filters_applied: Json | null
+          id: string
+          latency_ms: number | null
+          query_language: string | null
+          query_text: string
+          retrieval_mode: string | null
+          retrieval_purpose: string | null
+          session_id: string | null
+          tenant_id: string | null
+          top_score: number | null
+          trace_id: string | null
+          turn_id: string | null
+        }
+        Insert: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Update: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text?: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Relationships: []
+      }
+      rag_retrieval_logs_202611: {
+        Row: {
+          below_threshold: boolean | null
+          chunk_ids: string[] | null
+          chunks_returned: Json | null
+          created_at: string
+          document_ids: string[] | null
+          embedding_model: string | null
+          farmer_id: string | null
+          filters_applied: Json | null
+          id: string
+          latency_ms: number | null
+          query_language: string | null
+          query_text: string
+          retrieval_mode: string | null
+          retrieval_purpose: string | null
+          session_id: string | null
+          tenant_id: string | null
+          top_score: number | null
+          trace_id: string | null
+          turn_id: string | null
+        }
+        Insert: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Update: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text?: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Relationships: []
+      }
+      rag_retrieval_logs_202612: {
+        Row: {
+          below_threshold: boolean | null
+          chunk_ids: string[] | null
+          chunks_returned: Json | null
+          created_at: string
+          document_ids: string[] | null
+          embedding_model: string | null
+          farmer_id: string | null
+          filters_applied: Json | null
+          id: string
+          latency_ms: number | null
+          query_language: string | null
+          query_text: string
+          retrieval_mode: string | null
+          retrieval_purpose: string | null
+          session_id: string | null
+          tenant_id: string | null
+          top_score: number | null
+          trace_id: string | null
+          turn_id: string | null
+        }
+        Insert: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Update: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text?: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Relationships: []
+      }
+      rag_retrieval_logs_202701: {
+        Row: {
+          below_threshold: boolean | null
+          chunk_ids: string[] | null
+          chunks_returned: Json | null
+          created_at: string
+          document_ids: string[] | null
+          embedding_model: string | null
+          farmer_id: string | null
+          filters_applied: Json | null
+          id: string
+          latency_ms: number | null
+          query_language: string | null
+          query_text: string
+          retrieval_mode: string | null
+          retrieval_purpose: string | null
+          session_id: string | null
+          tenant_id: string | null
+          top_score: number | null
+          trace_id: string | null
+          turn_id: string | null
+        }
+        Insert: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Update: {
+          below_threshold?: boolean | null
+          chunk_ids?: string[] | null
+          chunks_returned?: Json | null
+          created_at?: string
+          document_ids?: string[] | null
+          embedding_model?: string | null
+          farmer_id?: string | null
+          filters_applied?: Json | null
+          id?: string
+          latency_ms?: number | null
+          query_language?: string | null
+          query_text?: string
+          retrieval_mode?: string | null
+          retrieval_purpose?: string | null
+          session_id?: string | null
+          tenant_id?: string | null
+          top_score?: number | null
+          trace_id?: string | null
+          turn_id?: string | null
+        }
+        Relationships: []
+      }
+      rag_source_registry: {
+        Row: {
+          authority_tier: string
+          created_at: string | null
+          default_language: string
+          doc_type: string
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          publisher: string
+          source_code: string
+          source_url: string | null
+          state_codes: string[] | null
+          trust_prior: number | null
+          updated_at: string | null
+          usage_rights: string | null
+        }
+        Insert: {
+          authority_tier: string
+          created_at?: string | null
+          default_language?: string
+          doc_type: string
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          publisher: string
+          source_code: string
+          source_url?: string | null
+          state_codes?: string[] | null
+          trust_prior?: number | null
+          updated_at?: string | null
+          usage_rights?: string | null
+        }
+        Update: {
+          authority_tier?: string
+          created_at?: string | null
+          default_language?: string
+          doc_type?: string
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          publisher?: string
+          source_code?: string
+          source_url?: string | null
+          state_codes?: string[] | null
+          trust_prior?: number | null
+          updated_at?: string | null
+          usage_rights?: string | null
+        }
+        Relationships: []
+      }
+      rag_topics: {
+        Row: {
+          aliases: string[]
+          code: string
+          created_at: string
+          description: string | null
+          is_active: boolean
+          label: string
+          sort_order: number
+          storage_dir: string
+          topic_group: string
+          updated_at: string
+        }
+        Insert: {
+          aliases?: string[]
+          code: string
+          created_at?: string
+          description?: string | null
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          storage_dir: string
+          topic_group: string
+          updated_at?: string
+        }
+        Update: {
+          aliases?: string[]
+          code?: string
+          created_at?: string
+          description?: string | null
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          storage_dir?: string
+          topic_group?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -15090,6 +29648,523 @@ export type Database = {
           last_request?: string
           request_count?: number
           window_start?: string
+        }
+        Relationships: []
+      }
+      reels_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          description_i18n: Json | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          name_i18n: Json
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description_i18n?: Json | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name_i18n?: Json
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description_i18n?: Json | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name_i18n?: Json
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reels_comments: {
+        Row: {
+          body: string
+          created_at: string
+          farmer_id: string
+          id: string
+          is_hidden: boolean
+          language_code: string | null
+          parent_id: string | null
+          reel_id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          farmer_id: string
+          id?: string
+          is_hidden?: boolean
+          language_code?: string | null
+          parent_id?: string | null
+          reel_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          farmer_id?: string
+          id?: string
+          is_hidden?: boolean
+          language_code?: string | null
+          parent_id?: string | null
+          reel_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_comments_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_comments_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "reels_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_comments_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_likes: {
+        Row: {
+          created_at: string
+          farmer_id: string
+          id: string
+          reel_id: string
+        }
+        Insert: {
+          created_at?: string
+          farmer_id: string
+          id?: string
+          reel_id: string
+        }
+        Update: {
+          created_at?: string
+          farmer_id?: string
+          id?: string
+          reel_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_likes_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_likes_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_likes_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          farmer_id: string
+          id: string
+          reason: Database["public"]["Enums"]["reel_report_reason"]
+          reel_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          farmer_id: string
+          id?: string
+          reason: Database["public"]["Enums"]["reel_report_reason"]
+          reel_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          farmer_id?: string
+          id?: string
+          reason?: Database["public"]["Enums"]["reel_report_reason"]
+          reel_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_reports_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_reports_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_reports_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_saves: {
+        Row: {
+          created_at: string
+          farmer_id: string
+          id: string
+          reel_id: string
+        }
+        Insert: {
+          created_at?: string
+          farmer_id: string
+          id?: string
+          reel_id: string
+        }
+        Update: {
+          created_at?: string
+          farmer_id?: string
+          id?: string
+          reel_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_saves_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_saves_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_saves_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_shares: {
+        Row: {
+          channel: string | null
+          created_at: string
+          farmer_id: string
+          id: string
+          reel_id: string
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string
+          farmer_id: string
+          id?: string
+          reel_id: string
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string
+          farmer_id?: string
+          id?: string
+          reel_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_shares_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_shares_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_shares_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_videos: {
+        Row: {
+          ai_tags: Json | null
+          ai_transcript: Json | null
+          aspect_ratio: string | null
+          avg_watch_time: number | null
+          category_id: string | null
+          completion_rate: number | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_seconds: number | null
+          engagement_score: number
+          height: number | null
+          hls_url: string | null
+          id: string
+          is_featured: boolean
+          language_code: string
+          moderation_notes: string | null
+          moderation_status: Database["public"]["Enums"]["reel_moderation_status"]
+          preview_webp_url: string | null
+          publish_status: Database["public"]["Enums"]["reel_publish_status"]
+          published_at: string | null
+          source: Database["public"]["Enums"]["reel_video_source"]
+          tags: string[] | null
+          tenant_id: string | null
+          thumbnail_url: string | null
+          title: string
+          total_comments: number
+          total_likes: number
+          total_saves: number
+          total_shares: number
+          total_views: number
+          transcoding_status: Database["public"]["Enums"]["reel_transcoding_status"]
+          trending_score: number
+          updated_at: string
+          uploader_role: Database["public"]["Enums"]["reel_uploader_role"]
+          video_url: string
+          visibility_scope: Database["public"]["Enums"]["reel_visibility"]
+          width: number | null
+        }
+        Insert: {
+          ai_tags?: Json | null
+          ai_transcript?: Json | null
+          aspect_ratio?: string | null
+          avg_watch_time?: number | null
+          category_id?: string | null
+          completion_rate?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          engagement_score?: number
+          height?: number | null
+          hls_url?: string | null
+          id?: string
+          is_featured?: boolean
+          language_code?: string
+          moderation_notes?: string | null
+          moderation_status?: Database["public"]["Enums"]["reel_moderation_status"]
+          preview_webp_url?: string | null
+          publish_status?: Database["public"]["Enums"]["reel_publish_status"]
+          published_at?: string | null
+          source?: Database["public"]["Enums"]["reel_video_source"]
+          tags?: string[] | null
+          tenant_id?: string | null
+          thumbnail_url?: string | null
+          title: string
+          total_comments?: number
+          total_likes?: number
+          total_saves?: number
+          total_shares?: number
+          total_views?: number
+          transcoding_status?: Database["public"]["Enums"]["reel_transcoding_status"]
+          trending_score?: number
+          updated_at?: string
+          uploader_role: Database["public"]["Enums"]["reel_uploader_role"]
+          video_url: string
+          visibility_scope?: Database["public"]["Enums"]["reel_visibility"]
+          width?: number | null
+        }
+        Update: {
+          ai_tags?: Json | null
+          ai_transcript?: Json | null
+          aspect_ratio?: string | null
+          avg_watch_time?: number | null
+          category_id?: string | null
+          completion_rate?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          engagement_score?: number
+          height?: number | null
+          hls_url?: string | null
+          id?: string
+          is_featured?: boolean
+          language_code?: string
+          moderation_notes?: string | null
+          moderation_status?: Database["public"]["Enums"]["reel_moderation_status"]
+          preview_webp_url?: string | null
+          publish_status?: Database["public"]["Enums"]["reel_publish_status"]
+          published_at?: string | null
+          source?: Database["public"]["Enums"]["reel_video_source"]
+          tags?: string[] | null
+          tenant_id?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          total_comments?: number
+          total_likes?: number
+          total_saves?: number
+          total_shares?: number
+          total_views?: number
+          transcoding_status?: Database["public"]["Enums"]["reel_transcoding_status"]
+          trending_score?: number
+          updated_at?: string
+          uploader_role?: Database["public"]["Enums"]["reel_uploader_role"]
+          video_url?: string
+          visibility_scope?: Database["public"]["Enums"]["reel_visibility"]
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_videos_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "reels_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_videos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reels_views: {
+        Row: {
+          completed: boolean | null
+          created_at: string
+          farmer_id: string | null
+          id: string
+          reel_id: string
+          watched_seconds: number | null
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          reel_id: string
+          watched_seconds?: number | null
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          reel_id?: string
+          watched_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_views_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reels_views_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "reels_views_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      region_recommendation_scope: {
+        Row: {
+          confidence: number | null
+          created_at: string | null
+          derivation: string
+          evidence_excerpt: string | null
+          id: string
+          is_enforced: boolean
+          matched_pattern: string | null
+          region_code: string | null
+          review_status: string
+          rule_id: string
+          scope_level: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string | null
+          derivation: string
+          evidence_excerpt?: string | null
+          id?: string
+          is_enforced?: boolean
+          matched_pattern?: string | null
+          region_code?: string | null
+          review_status?: string
+          rule_id: string
+          scope_level: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string | null
+          derivation?: string
+          evidence_excerpt?: string | null
+          id?: string
+          is_enforced?: boolean
+          matched_pattern?: string | null
+          region_code?: string | null
+          review_status?: string
+          rule_id?: string
+          scope_level?: string
         }
         Relationships: []
       }
@@ -15267,6 +30342,967 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "resource_utilization_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rice_agronomy_research_queue: {
+        Row: {
+          blocked_reason: string | null
+          created_at: string
+          domain: string
+          id: number
+          preferred_source: string
+          status: string
+          target_key: string | null
+          target_table: string
+          what_is_needed: string
+        }
+        Insert: {
+          blocked_reason?: string | null
+          created_at?: string
+          domain: string
+          id?: number
+          preferred_source: string
+          status?: string
+          target_key?: string | null
+          target_table: string
+          what_is_needed: string
+        }
+        Update: {
+          blocked_reason?: string | null
+          created_at?: string
+          domain?: string
+          id?: number
+          preferred_source?: string
+          status?: string
+          target_key?: string | null
+          target_table?: string
+          what_is_needed?: string
+        }
+        Relationships: []
+      }
+      rice_weed_sourcing_queue: {
+        Row: {
+          blocks_what: string | null
+          created_at: string | null
+          id: string
+          item: string
+          reason: string
+          required_source: string
+          status: string
+        }
+        Insert: {
+          blocks_what?: string | null
+          created_at?: string | null
+          id?: string
+          item: string
+          reason: string
+          required_source: string
+          status?: string
+        }
+        Update: {
+          blocks_what?: string | null
+          created_at?: string | null
+          id?: string
+          item?: string
+          reason?: string
+          required_source?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      risk_episodes: {
+        Row: {
+          confidence: number | null
+          current_value: number | null
+          ended_at: string | null
+          episode_id: string
+          evidence_obs_ids: number[] | null
+          land_id: string
+          peak_value: number | null
+          phase: string
+          phase_updated_at: string | null
+          risk_code: string
+          started_at: string
+          tenant_id: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          current_value?: number | null
+          ended_at?: string | null
+          episode_id?: string
+          evidence_obs_ids?: number[] | null
+          land_id: string
+          peak_value?: number | null
+          phase: string
+          phase_updated_at?: string | null
+          risk_code: string
+          started_at: string
+          tenant_id?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          current_value?: number | null
+          ended_at?: string | null
+          episode_id?: string
+          evidence_obs_ids?: number[] | null
+          land_id?: string
+          peak_value?: number | null
+          phase?: string
+          phase_updated_at?: string | null
+          risk_code?: string
+          started_at?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      rule_approval_workflow: {
+        Row: {
+          agronomist_notes: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          proposed_payload: Json | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          rule_id: string
+          rule_version_id: string | null
+          state: string
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          agronomist_notes?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          proposed_payload?: Json | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          rule_id: string
+          rule_version_id?: string | null
+          state?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agronomist_notes?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          proposed_payload?: Json | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          rule_id?: string
+          rule_version_id?: string | null
+          state?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_approval_workflow_rule_version_id_fkey"
+            columns: ["rule_version_id"]
+            isOneToOne: false
+            referencedRelation: "rule_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rule_category_master: {
+        Row: {
+          can_block: boolean
+          category: string
+          description: string | null
+          is_active: boolean
+          is_gate: boolean
+          semantic_class: string
+        }
+        Insert: {
+          can_block?: boolean
+          category: string
+          description?: string | null
+          is_active?: boolean
+          is_gate?: boolean
+          semantic_class: string
+        }
+        Update: {
+          can_block?: boolean
+          category?: string
+          description?: string | null
+          is_active?: boolean
+          is_gate?: boolean
+          semantic_class?: string
+        }
+        Relationships: []
+      }
+      rule_conflict_matrix: {
+        Row: {
+          conflict_details: Json
+          conflict_type: string
+          created_at: string
+          detected_at: string
+          id: string
+          resolution_notes: string | null
+          resolved: boolean
+          resolved_at: string | null
+          resolved_by: string | null
+          rule_a_id: string
+          rule_b_id: string
+          severity: string
+          updated_at: string
+        }
+        Insert: {
+          conflict_details?: Json
+          conflict_type: string
+          created_at?: string
+          detected_at?: string
+          id?: string
+          resolution_notes?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          rule_a_id: string
+          rule_b_id: string
+          severity?: string
+          updated_at?: string
+        }
+        Update: {
+          conflict_details?: Json
+          conflict_type?: string
+          created_at?: string
+          detected_at?: string
+          id?: string
+          resolution_notes?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          rule_a_id?: string
+          rule_b_id?: string
+          severity?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rule_explainability: {
+        Row: {
+          confidence_breakdown: Json | null
+          created_at: string
+          evidence_path: Json
+          execution_id: string | null
+          fired: boolean
+          id: string
+          input_context: Json | null
+          rule_id: string
+          why_fired: Json | null
+          why_not_fired: Json | null
+        }
+        Insert: {
+          confidence_breakdown?: Json | null
+          created_at?: string
+          evidence_path?: Json
+          execution_id?: string | null
+          fired: boolean
+          id?: string
+          input_context?: Json | null
+          rule_id: string
+          why_fired?: Json | null
+          why_not_fired?: Json | null
+        }
+        Update: {
+          confidence_breakdown?: Json | null
+          created_at?: string
+          evidence_path?: Json
+          execution_id?: string | null
+          fired?: boolean
+          id?: string
+          input_context?: Json | null
+          rule_id?: string
+          why_fired?: Json | null
+          why_not_fired?: Json | null
+        }
+        Relationships: []
+      }
+      rule_lineage: {
+        Row: {
+          child_rule_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          parent_rule_id: string
+          relation_type: string
+        }
+        Insert: {
+          child_rule_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          parent_rule_id: string
+          relation_type?: string
+        }
+        Update: {
+          child_rule_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          parent_rule_id?: string
+          relation_type?: string
+        }
+        Relationships: []
+      }
+      rule_performance: {
+        Row: {
+          avg_economic_accuracy: number | null
+          avg_farmer_satisfaction: number | null
+          created_at: string | null
+          failed_outcomes: number | null
+          id: string
+          last_fired_at: string | null
+          partial_outcomes: number | null
+          rule_file: string | null
+          rule_id: string
+          success_rate: number | null
+          success_rate_trend: string | null
+          successful_outcomes: number | null
+          tenant_id: string | null
+          times_blocked: number | null
+          times_fired: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          avg_economic_accuracy?: number | null
+          avg_farmer_satisfaction?: number | null
+          created_at?: string | null
+          failed_outcomes?: number | null
+          id?: string
+          last_fired_at?: string | null
+          partial_outcomes?: number | null
+          rule_file?: string | null
+          rule_id: string
+          success_rate?: number | null
+          success_rate_trend?: string | null
+          successful_outcomes?: number | null
+          tenant_id?: string | null
+          times_blocked?: number | null
+          times_fired?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          avg_economic_accuracy?: number | null
+          avg_farmer_satisfaction?: number | null
+          created_at?: string | null
+          failed_outcomes?: number | null
+          id?: string
+          last_fired_at?: string | null
+          partial_outcomes?: number | null
+          rule_file?: string | null
+          rule_id?: string
+          success_rate?: number | null
+          success_rate_trend?: string | null
+          successful_outcomes?: number | null
+          tenant_id?: string | null
+          times_blocked?: number | null
+          times_fired?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_performance_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rule_product_mapping: {
+        Row: {
+          context_notes: string | null
+          created_at: string | null
+          id: string
+          is_primary: boolean | null
+          priority: number | null
+          product_id: string
+          rule_id: string
+        }
+        Insert: {
+          context_notes?: string | null
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          priority?: number | null
+          product_id: string
+          rule_id: string
+        }
+        Update: {
+          context_notes?: string | null
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          priority?: number | null
+          product_id?: string
+          rule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_product_mapping_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "decision_rules"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "rule_authority_weights"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_approval_portal_queue"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_block_safety_flag_mismatch"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_blocking_rule_semantic_conflict"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_approval_backlog"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_serving_gate"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_variety_safety_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_context_block_contract_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_rules_admin"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rice_rule_certification"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rice_rule_certification_v2"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_banned_substance_audit"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_dose_label_audit"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_id_grammar_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_stage_method_mismatch"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rules_missing_evidence"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rules_ungoverned_servable"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_safety_block_review_queue"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_stage_vocab_drift"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_product_mapping_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_visibility_blockers"
+            referencedColumns: ["rule_id"]
+          },
+        ]
+      }
+      rule_quality_metrics: {
+        Row: {
+          audit_notes: string | null
+          audit_status: string | null
+          confidence_score_justified: boolean | null
+          has_icar_reference: boolean | null
+          has_research_paper: boolean | null
+          has_scientific_source: boolean | null
+          id: string
+          is_expert_approved: boolean | null
+          is_field_validated: boolean | null
+          last_audit_date: string | null
+          rule_id: string
+          validation_trial_count: number | null
+        }
+        Insert: {
+          audit_notes?: string | null
+          audit_status?: string | null
+          confidence_score_justified?: boolean | null
+          has_icar_reference?: boolean | null
+          has_research_paper?: boolean | null
+          has_scientific_source?: boolean | null
+          id?: string
+          is_expert_approved?: boolean | null
+          is_field_validated?: boolean | null
+          last_audit_date?: string | null
+          rule_id: string
+          validation_trial_count?: number | null
+        }
+        Update: {
+          audit_notes?: string | null
+          audit_status?: string | null
+          confidence_score_justified?: boolean | null
+          has_icar_reference?: boolean | null
+          has_research_paper?: boolean | null
+          has_scientific_source?: boolean | null
+          id?: string
+          is_expert_approved?: boolean | null
+          is_field_validated?: boolean | null
+          last_audit_date?: string | null
+          rule_id?: string
+          validation_trial_count?: number | null
+        }
+        Relationships: []
+      }
+      rule_source_evidence: {
+        Row: {
+          added_at: string
+          added_by: string
+          claim_supported: string
+          evidence_role: string
+          id: string
+          rule_id: string
+          source_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by: string
+          claim_supported: string
+          evidence_role?: string
+          id?: string
+          rule_id: string
+          source_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string
+          claim_supported?: string
+          evidence_role?: string
+          id?: string
+          rule_id?: string
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "decision_rules"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "rule_authority_weights"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_approval_portal_queue"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_block_safety_flag_mismatch"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_blocking_rule_semantic_conflict"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_approval_backlog"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_serving_gate"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_variety_safety_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_context_block_contract_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_rules_admin"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rice_rule_certification"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rice_rule_certification_v2"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_banned_substance_audit"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_dose_label_audit"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_id_grammar_violation"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rule_stage_method_mismatch"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rules_missing_evidence"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_rules_ungoverned_servable"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_safety_block_review_queue"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_stage_vocab_drift"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "v_visibility_blockers"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_source_evidence_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rule_trait_requirement: {
+        Row: {
+          consequence_if_absent: string
+          fail_mode: string
+          id: string
+          min_score: number
+          required_trait_code: string
+          rule_id: string
+        }
+        Insert: {
+          consequence_if_absent: string
+          fail_mode?: string
+          id?: string
+          min_score?: number
+          required_trait_code: string
+          rule_id: string
+        }
+        Update: {
+          consequence_if_absent?: string
+          fail_mode?: string
+          id?: string
+          min_score?: number
+          required_trait_code?: string
+          rule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_trait_requirement_required_trait_code_fkey"
+            columns: ["required_trait_code"]
+            isOneToOne: false
+            referencedRelation: "crop_trait_master"
+            referencedColumns: ["trait_code"]
+          },
+        ]
+      }
+      rule_versions: {
+        Row: {
+          change_reason: string | null
+          change_type: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          rule_id: string
+          snapshot: Json
+          version_number: number
+        }
+        Insert: {
+          change_reason?: string | null
+          change_type: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          rule_id: string
+          snapshot: Json
+          version_number: number
+        }
+        Update: {
+          change_reason?: string | null
+          change_type?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          rule_id?: string
+          snapshot?: Json
+          version_number?: number
+        }
+        Relationships: []
+      }
+      safety_verifications: {
+        Row: {
+          banned_substance_violations: Json | null
+          created_at: string | null
+          decision_id: string | null
+          environmental_concerns: Json | null
+          escalation_reason: string | null
+          escalation_triggered: boolean | null
+          escalation_type: string | null
+          expert_assigned: string | null
+          expert_response_sla_hours: number | null
+          farmer_id: string | null
+          food_safety_violations: Json | null
+          human_safety_issues: Json | null
+          id: string
+          overall_status: string | null
+          regulatory_issues: Json | null
+          session_id: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          banned_substance_violations?: Json | null
+          created_at?: string | null
+          decision_id?: string | null
+          environmental_concerns?: Json | null
+          escalation_reason?: string | null
+          escalation_triggered?: boolean | null
+          escalation_type?: string | null
+          expert_assigned?: string | null
+          expert_response_sla_hours?: number | null
+          farmer_id?: string | null
+          food_safety_violations?: Json | null
+          human_safety_issues?: Json | null
+          id?: string
+          overall_status?: string | null
+          regulatory_issues?: Json | null
+          session_id?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          banned_substance_violations?: Json | null
+          created_at?: string | null
+          decision_id?: string | null
+          environmental_concerns?: Json | null
+          escalation_reason?: string | null
+          escalation_triggered?: boolean | null
+          escalation_type?: string | null
+          expert_assigned?: string | null
+          expert_response_sla_hours?: number | null
+          farmer_id?: string | null
+          food_safety_violations?: Json | null
+          human_safety_issues?: Json | null
+          id?: string
+          overall_status?: string | null
+          regulatory_issues?: Json | null
+          session_id?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_verifications_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "safety_verifications_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "safety_verifications_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -15835,6 +31871,34 @@ export type Database = {
             referencedRelation: "lands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "satellite_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "satellite_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "satellite_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "satellite_alerts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
         ]
       }
       satellite_api_usage: {
@@ -15985,7 +32049,95 @@ export type Database = {
             referencedRelation: "lands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "satellite_imagery_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "satellite_imagery_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "satellite_imagery_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "satellite_imagery_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
         ]
+      }
+      satellite_intelligence_config: {
+        Row: {
+          config_key: string
+          config_value: Json
+          description: string | null
+          is_active: boolean
+          source_reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          config_key: string
+          config_value: Json
+          description?: string | null
+          is_active?: boolean
+          source_reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          config_key?: string
+          config_value?: Json
+          description?: string | null
+          is_active?: boolean
+          source_reference?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      satellite_layer_config: {
+        Row: {
+          color_stops: Json
+          enabled: boolean
+          evidence_min: number | null
+          layer_code: string
+          source: string | null
+          updated_at: string
+          value_max: number
+          value_min: number
+        }
+        Insert: {
+          color_stops: Json
+          enabled?: boolean
+          evidence_min?: number | null
+          layer_code: string
+          source?: string | null
+          updated_at?: string
+          value_max: number
+          value_min: number
+        }
+        Update: {
+          color_stops?: Json
+          enabled?: boolean
+          evidence_min?: number | null
+          layer_code?: string
+          source?: string | null
+          updated_at?: string
+          value_max?: number
+          value_min?: number
+        }
+        Relationships: []
       }
       satellite_storage_audit: {
         Row: {
@@ -16172,59 +32324,243 @@ export type Database = {
           },
         ]
       }
-      schedule_climate_monitoring: {
+      satellite_validation_reference: {
         Row: {
-          adjustment_reason: string | null
-          adjustment_triggered: boolean | null
-          created_at: string | null
+          collector: string | null
+          created_at: string
+          dataset_version: string
           id: string
-          monitoring_date: string
-          ndvi_value: number | null
-          rainfall_24h: number | null
-          schedule_id: string
-          tasks_rescheduled: number | null
-          temperature_avg: number | null
+          is_independent: boolean
+          land_id: string
+          observation_date: string
+          reference_payload: Json
+          reference_type: string
+          reference_value: number | null
+          tenant_id: string
         }
         Insert: {
-          adjustment_reason?: string | null
-          adjustment_triggered?: boolean | null
-          created_at?: string | null
+          collector?: string | null
+          created_at?: string
+          dataset_version: string
           id?: string
-          monitoring_date: string
-          ndvi_value?: number | null
-          rainfall_24h?: number | null
-          schedule_id: string
-          tasks_rescheduled?: number | null
-          temperature_avg?: number | null
+          is_independent?: boolean
+          land_id: string
+          observation_date: string
+          reference_payload?: Json
+          reference_type: string
+          reference_value?: number | null
+          tenant_id: string
         }
         Update: {
-          adjustment_reason?: string | null
-          adjustment_triggered?: boolean | null
-          created_at?: string | null
+          collector?: string | null
+          created_at?: string
+          dataset_version?: string
           id?: string
-          monitoring_date?: string
-          ndvi_value?: number | null
-          rainfall_24h?: number | null
-          schedule_id?: string
-          tasks_rescheduled?: number | null
-          temperature_avg?: number | null
+          is_independent?: boolean
+          land_id?: string
+          observation_date?: string
+          reference_payload?: Json
+          reference_type?: string
+          reference_value?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      satellite_water_layers: {
+        Row: {
+          acquisition_date: string
+          acquisition_time: string | null
+          created_at: string
+          effective_pixel_count: number | null
+          evidence_json: Json
+          id: string
+          image_metadata: Json
+          image_path: string | null
+          land_id: string
+          layer_code: string
+          provenance_json: Json
+          scene_id: string
+          status: string
+          tenant_id: string
+          uncertainty_json: Json
+          updated_at: string
+          valid_fraction: number | null
+          value_max: number | null
+          value_mean: number | null
+          value_median: number | null
+          value_min: number | null
+          value_p10: number | null
+          value_p90: number | null
+        }
+        Insert: {
+          acquisition_date: string
+          acquisition_time?: string | null
+          created_at?: string
+          effective_pixel_count?: number | null
+          evidence_json?: Json
+          id?: string
+          image_metadata?: Json
+          image_path?: string | null
+          land_id: string
+          layer_code: string
+          provenance_json?: Json
+          scene_id: string
+          status?: string
+          tenant_id: string
+          uncertainty_json?: Json
+          updated_at?: string
+          valid_fraction?: number | null
+          value_max?: number | null
+          value_mean?: number | null
+          value_median?: number | null
+          value_min?: number | null
+          value_p10?: number | null
+          value_p90?: number | null
+        }
+        Update: {
+          acquisition_date?: string
+          acquisition_time?: string | null
+          created_at?: string
+          effective_pixel_count?: number | null
+          evidence_json?: Json
+          id?: string
+          image_metadata?: Json
+          image_path?: string | null
+          land_id?: string
+          layer_code?: string
+          provenance_json?: Json
+          scene_id?: string
+          status?: string
+          tenant_id?: string
+          uncertainty_json?: Json
+          updated_at?: string
+          valid_fraction?: number | null
+          value_max?: number | null
+          value_mean?: number | null
+          value_median?: number | null
+          value_min?: number | null
+          value_p10?: number | null
+          value_p90?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "schedule_climate_monitoring_schedule_id_fkey"
-            columns: ["schedule_id"]
+            foreignKeyName: "satellite_water_layers_land_id_fkey"
+            columns: ["land_id"]
             isOneToOne: false
-            referencedRelation: "crop_schedules"
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "satellite_water_layers_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "satellite_water_layers_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "satellite_water_layers_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "satellite_water_layers_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "satellite_water_layers_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "satellite_water_layers_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "satellite_water_layers_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "satellite_water_layers_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
         ]
+      }
+      schedule_adjustments: {
+        Row: {
+          change_type: string
+          created_at: string
+          engine_version: string | null
+          evidence: Json | null
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          reason: string | null
+          run_at: string
+          schedule_id: string
+          task_id: string | null
+        }
+        Insert: {
+          change_type: string
+          created_at?: string
+          engine_version?: string | null
+          evidence?: Json | null
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          reason?: string | null
+          run_at?: string
+          schedule_id: string
+          task_id?: string | null
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          engine_version?: string | null
+          evidence?: Json | null
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          reason?: string | null
+          run_at?: string
+          schedule_id?: string
+          task_id?: string | null
+        }
+        Relationships: []
       }
       schedule_monitoring: {
         Row: {
           alerts_generated: number | null
+          changes: Json
           check_date: string
           created_at: string | null
+          decision: Json | null
+          decisions_evaluated: Json
           disease_detected: boolean | null
+          engine: string | null
+          engine_versions: Json | null
           farmer_id: string
           health_score: number | null
           id: string
@@ -16233,17 +32569,27 @@ export type Database = {
           npk_levels: Json | null
           pest_detected: boolean | null
           refinements_applied: number | null
+          run_mode: string | null
           schedule_id: string
+          skipped_reason: string | null
           soil_moisture: number | null
           soil_ph: number | null
+          stage_code: string | null
+          stage_source: string | null
+          state_snapshot: Json | null
           tenant_id: string
           weather_conditions: Json | null
         }
         Insert: {
           alerts_generated?: number | null
+          changes?: Json
           check_date: string
           created_at?: string | null
+          decision?: Json | null
+          decisions_evaluated?: Json
           disease_detected?: boolean | null
+          engine?: string | null
+          engine_versions?: Json | null
           farmer_id: string
           health_score?: number | null
           id?: string
@@ -16252,17 +32598,27 @@ export type Database = {
           npk_levels?: Json | null
           pest_detected?: boolean | null
           refinements_applied?: number | null
+          run_mode?: string | null
           schedule_id: string
+          skipped_reason?: string | null
           soil_moisture?: number | null
           soil_ph?: number | null
+          stage_code?: string | null
+          stage_source?: string | null
+          state_snapshot?: Json | null
           tenant_id: string
           weather_conditions?: Json | null
         }
         Update: {
           alerts_generated?: number | null
+          changes?: Json
           check_date?: string
           created_at?: string | null
+          decision?: Json | null
+          decisions_evaluated?: Json
           disease_detected?: boolean | null
+          engine?: string | null
+          engine_versions?: Json | null
           farmer_id?: string
           health_score?: number | null
           id?: string
@@ -16271,9 +32627,14 @@ export type Database = {
           npk_levels?: Json | null
           pest_detected?: boolean | null
           refinements_applied?: number | null
+          run_mode?: string | null
           schedule_id?: string
+          skipped_reason?: string | null
           soil_moisture?: number | null
           soil_ph?: number | null
+          stage_code?: string | null
+          stage_source?: string | null
+          state_snapshot?: Json | null
           tenant_id?: string
           weather_conditions?: Json | null
         }
@@ -16281,22 +32642,32 @@ export type Database = {
       }
       schedule_tasks: {
         Row: {
+          adjustment_reason: string | null
+          anchor_stage: string | null
+          anchor_type: string | null
           auto_rescheduled: boolean | null
           climate_adjusted: boolean | null
           climate_adjustment_reason: string | null
           completed_at: string | null
           completed_by: string | null
           completion_notes: string | null
+          confidence: number | null
           created_at: string | null
           currency: string | null
           days_from_sowing: number | null
+          decision_evaluated_at: string | null
+          decision_id: string | null
+          decision_state: string | null
           detailed_steps: Json | null
           duration_hours: number | null
           estimated_cost: number | null
           farmer_id: string | null
+          gdd_target: number | null
           id: string
           ideal_weather: Json | null
           instructions: string[] | null
+          is_pinned: boolean
+          land_crop_id: string | null
           language: string | null
           original_date: string | null
           original_date_before_climate_adjust: string | null
@@ -16304,23 +32675,29 @@ export type Database = {
           priority: string | null
           product_recommendations: Json | null
           product_type: string | null
+          projected_date: string | null
           regional_terms: Json | null
           reschedule_reason: string | null
           resources: Json | null
+          rule_ids: string[] | null
           schedule_id: string
           sequence_order: number | null
           skip_penalty: string | null
           skip_penalty_details: Json | null
+          source_refs: Json | null
           stage_key: string | null
           stage_name: string | null
           stage_order: number | null
+          stage_uuid: string | null
           status: string | null
           task_date: string
           task_description: string | null
           task_name: string
           task_type: string
           tenant_id: string
+          trigger_rule_id: string | null
           updated_at: string | null
+          variety_id: string | null
           water_required_liters: number | null
           weather_dependent: boolean | null
           weather_risk_level: string | null
@@ -16329,22 +32706,32 @@ export type Database = {
           yield_impact_details: Json | null
         }
         Insert: {
+          adjustment_reason?: string | null
+          anchor_stage?: string | null
+          anchor_type?: string | null
           auto_rescheduled?: boolean | null
           climate_adjusted?: boolean | null
           climate_adjustment_reason?: string | null
           completed_at?: string | null
           completed_by?: string | null
           completion_notes?: string | null
+          confidence?: number | null
           created_at?: string | null
           currency?: string | null
           days_from_sowing?: number | null
+          decision_evaluated_at?: string | null
+          decision_id?: string | null
+          decision_state?: string | null
           detailed_steps?: Json | null
           duration_hours?: number | null
           estimated_cost?: number | null
           farmer_id?: string | null
+          gdd_target?: number | null
           id?: string
           ideal_weather?: Json | null
           instructions?: string[] | null
+          is_pinned?: boolean
+          land_crop_id?: string | null
           language?: string | null
           original_date?: string | null
           original_date_before_climate_adjust?: string | null
@@ -16352,23 +32739,29 @@ export type Database = {
           priority?: string | null
           product_recommendations?: Json | null
           product_type?: string | null
+          projected_date?: string | null
           regional_terms?: Json | null
           reschedule_reason?: string | null
           resources?: Json | null
+          rule_ids?: string[] | null
           schedule_id: string
           sequence_order?: number | null
           skip_penalty?: string | null
           skip_penalty_details?: Json | null
+          source_refs?: Json | null
           stage_key?: string | null
           stage_name?: string | null
           stage_order?: number | null
+          stage_uuid?: string | null
           status?: string | null
           task_date: string
           task_description?: string | null
           task_name: string
           task_type: string
           tenant_id?: string
+          trigger_rule_id?: string | null
           updated_at?: string | null
+          variety_id?: string | null
           water_required_liters?: number | null
           weather_dependent?: boolean | null
           weather_risk_level?: string | null
@@ -16377,22 +32770,32 @@ export type Database = {
           yield_impact_details?: Json | null
         }
         Update: {
+          adjustment_reason?: string | null
+          anchor_stage?: string | null
+          anchor_type?: string | null
           auto_rescheduled?: boolean | null
           climate_adjusted?: boolean | null
           climate_adjustment_reason?: string | null
           completed_at?: string | null
           completed_by?: string | null
           completion_notes?: string | null
+          confidence?: number | null
           created_at?: string | null
           currency?: string | null
           days_from_sowing?: number | null
+          decision_evaluated_at?: string | null
+          decision_id?: string | null
+          decision_state?: string | null
           detailed_steps?: Json | null
           duration_hours?: number | null
           estimated_cost?: number | null
           farmer_id?: string | null
+          gdd_target?: number | null
           id?: string
           ideal_weather?: Json | null
           instructions?: string[] | null
+          is_pinned?: boolean
+          land_crop_id?: string | null
           language?: string | null
           original_date?: string | null
           original_date_before_climate_adjust?: string | null
@@ -16400,23 +32803,29 @@ export type Database = {
           priority?: string | null
           product_recommendations?: Json | null
           product_type?: string | null
+          projected_date?: string | null
           regional_terms?: Json | null
           reschedule_reason?: string | null
           resources?: Json | null
+          rule_ids?: string[] | null
           schedule_id?: string
           sequence_order?: number | null
           skip_penalty?: string | null
           skip_penalty_details?: Json | null
+          source_refs?: Json | null
           stage_key?: string | null
           stage_name?: string | null
           stage_order?: number | null
+          stage_uuid?: string | null
           status?: string | null
           task_date?: string
           task_description?: string | null
           task_name?: string
           task_type?: string
           tenant_id?: string
+          trigger_rule_id?: string | null
           updated_at?: string | null
+          variety_id?: string | null
           water_required_liters?: number | null
           weather_dependent?: boolean | null
           weather_risk_level?: string | null
@@ -16426,13 +32835,104 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "schedule_tasks_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "farm_decision"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_tasks_land_crop_id_fkey"
+            columns: ["land_crop_id"]
+            isOneToOne: false
+            referencedRelation: "land_crops"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "schedule_tasks_schedule_id_fkey"
             columns: ["schedule_id"]
             isOneToOne: false
             referencedRelation: "crop_schedules"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "schedule_tasks_stage_uuid_fkey"
+            columns: ["stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_tasks_stage_uuid_fkey"
+            columns: ["stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_tasks_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_tasks_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "schedule_tasks_variety_fk"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
         ]
+      }
+      scheduled_followups: {
+        Row: {
+          created_at: string
+          day: number
+          decision_id: string | null
+          delivered_at: string | null
+          farmer_id: string | null
+          id: string
+          response_payload: Json | null
+          scheduled_for: string
+          session_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day: number
+          decision_id?: string | null
+          delivered_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          response_payload?: Json | null
+          scheduled_for: string
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day?: number
+          decision_id?: string | null
+          delivered_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          response_payload?: Json | null
+          scheduled_for?: string
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       scheduled_reports: {
         Row: {
@@ -16476,6 +32976,96 @@ export type Database = {
           report_name?: string
           schedule_cron?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sci_method_registry: {
+        Row: {
+          applicable_crops: string[] | null
+          authoritative_source: string
+          created_at: string | null
+          equation_ref: string | null
+          geographic_scope: string[] | null
+          inputs: Json | null
+          method_id: string
+          method_kind: string | null
+          outputs: Json | null
+          params: Json | null
+          review_notes: string | null
+          review_status: string | null
+          reviewed_by: string | null
+          sensitivity: Json | null
+          valid_from: string | null
+          valid_to: string | null
+          version: string
+        }
+        Insert: {
+          applicable_crops?: string[] | null
+          authoritative_source: string
+          created_at?: string | null
+          equation_ref?: string | null
+          geographic_scope?: string[] | null
+          inputs?: Json | null
+          method_id: string
+          method_kind?: string | null
+          outputs?: Json | null
+          params?: Json | null
+          review_notes?: string | null
+          review_status?: string | null
+          reviewed_by?: string | null
+          sensitivity?: Json | null
+          valid_from?: string | null
+          valid_to?: string | null
+          version: string
+        }
+        Update: {
+          applicable_crops?: string[] | null
+          authoritative_source?: string
+          created_at?: string | null
+          equation_ref?: string | null
+          geographic_scope?: string[] | null
+          inputs?: Json | null
+          method_id?: string
+          method_kind?: string | null
+          outputs?: Json | null
+          params?: Json | null
+          review_notes?: string | null
+          review_status?: string | null
+          reviewed_by?: string | null
+          sensitivity?: Json | null
+          valid_from?: string | null
+          valid_to?: string | null
+          version?: string
+        }
+        Relationships: []
+      }
+      scope_vocabulary: {
+        Row: {
+          code: string
+          created_at: string | null
+          domain: string
+          equivalent_of: string | null
+          evidence_note: string | null
+          label: string | null
+          review_status: string
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          domain: string
+          equivalent_of?: string | null
+          evidence_note?: string | null
+          label?: string | null
+          review_status?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          domain?: string
+          equivalent_of?: string | null
+          evidence_note?: string | null
+          label?: string | null
+          review_status?: string
         }
         Relationships: []
       }
@@ -16783,6 +33373,90 @@ export type Database = {
           },
         ]
       }
+      semantic_bridge_metrics: {
+        Row: {
+          canonical_hints: string[] | null
+          confidence: number | null
+          fallback_used: boolean | null
+          farmer_id: string | null
+          id: string
+          intent: string | null
+          latency_ms: number | null
+          mapping_success: boolean | null
+          prompt_version: string | null
+          symbolic_invoked: boolean | null
+          tenant_id: string | null
+          timestamp: string | null
+          trace_id: string | null
+        }
+        Insert: {
+          canonical_hints?: string[] | null
+          confidence?: number | null
+          fallback_used?: boolean | null
+          farmer_id?: string | null
+          id?: string
+          intent?: string | null
+          latency_ms?: number | null
+          mapping_success?: boolean | null
+          prompt_version?: string | null
+          symbolic_invoked?: boolean | null
+          tenant_id?: string | null
+          timestamp?: string | null
+          trace_id?: string | null
+        }
+        Update: {
+          canonical_hints?: string[] | null
+          confidence?: number | null
+          fallback_used?: boolean | null
+          farmer_id?: string | null
+          id?: string
+          intent?: string | null
+          latency_ms?: number | null
+          mapping_success?: boolean | null
+          prompt_version?: string | null
+          symbolic_invoked?: boolean | null
+          tenant_id?: string | null
+          timestamp?: string | null
+          trace_id?: string | null
+        }
+        Relationships: []
+      }
+      sensitive_audit_log: {
+        Row: {
+          actor: string | null
+          created_at: string
+          id: number
+          new_data: Json | null
+          old_data: Json | null
+          operation: string
+          row_pk: string | null
+          table_name: string
+          tenant_id: string | null
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          id?: number
+          new_data?: Json | null
+          old_data?: Json | null
+          operation: string
+          row_pk?: string | null
+          table_name: string
+          tenant_id?: string | null
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          id?: number
+          new_data?: Json | null
+          old_data?: Json | null
+          operation?: string
+          row_pk?: string | null
+          table_name?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       shopping_carts: {
         Row: {
           cart_status: string
@@ -16991,19 +33665,26 @@ export type Database = {
       }
       soil_health: {
         Row: {
+          agro_climatic_zone: string | null
           bulk_density: number | null
           cec: number | null
           clay_percent: number | null
+          clay_std: number | null
           confidence_level: string | null
           created_at: string
           data_completeness: number | null
           data_quality_flags: Json | null
           data_quality_warnings: Json | null
+          evapotranspiration_mm: number | null
           farmer_id: string | null
           fertility_class: string | null
           field_area_ha: number | null
+          humidity_avg_percent: number | null
           id: string
           land_id: string
+          moisture_measurement_date: number | null
+          moisture_status: string | null
+          nitrogen_confidence: string | null
           nitrogen_est: number | null
           nitrogen_kg_per_ha: number | null
           nitrogen_level: string | null
@@ -17011,43 +33692,70 @@ export type Database = {
           nitrogen_total_kg: number | null
           note: string | null
           organic_carbon: number | null
+          organic_carbon_max: number | null
+          organic_carbon_min: number | null
+          organic_carbon_std: number | null
           organic_carbon_text: string | null
           ph_level: number | null
+          ph_max: number | null
+          ph_min: number | null
+          ph_std: number | null
           ph_text: string | null
+          phosphorus_confidence: string | null
           phosphorus_est: number | null
           phosphorus_kg_per_ha: number | null
           phosphorus_level: string | null
           phosphorus_text: string | null
           phosphorus_total_kg: number | null
+          potassium_confidence: string | null
           potassium_est: number | null
           potassium_kg_per_ha: number | null
           potassium_level: string | null
           potassium_text: string | null
           potassium_total_kg: number | null
+          precipitation_30d_mm: number | null
+          sample_count: number | null
           sand_percent: number | null
+          sand_std: number | null
           silt_percent: number | null
+          silt_std: number | null
+          soil_moisture_profile_percent: number | null
+          soil_moisture_rootzone_percent: number | null
+          soil_moisture_surface_percent: number | null
+          soil_temperature_c: number | null
           soil_type: string | null
           source: string
+          temperature_avg_c: number | null
+          temperature_max_c: number | null
+          temperature_min_c: number | null
           tenant_id: string
           test_date: string | null
           test_report_url: string | null
           texture: string | null
           updated_at: string
+          water_balance_mm: number | null
         }
         Insert: {
+          agro_climatic_zone?: string | null
           bulk_density?: number | null
           cec?: number | null
           clay_percent?: number | null
+          clay_std?: number | null
           confidence_level?: string | null
           created_at?: string
           data_completeness?: number | null
           data_quality_flags?: Json | null
           data_quality_warnings?: Json | null
+          evapotranspiration_mm?: number | null
           farmer_id?: string | null
           fertility_class?: string | null
           field_area_ha?: number | null
+          humidity_avg_percent?: number | null
           id?: string
           land_id: string
+          moisture_measurement_date?: number | null
+          moisture_status?: string | null
+          nitrogen_confidence?: string | null
           nitrogen_est?: number | null
           nitrogen_kg_per_ha?: number | null
           nitrogen_level?: string | null
@@ -17055,43 +33763,70 @@ export type Database = {
           nitrogen_total_kg?: number | null
           note?: string | null
           organic_carbon?: number | null
+          organic_carbon_max?: number | null
+          organic_carbon_min?: number | null
+          organic_carbon_std?: number | null
           organic_carbon_text?: string | null
           ph_level?: number | null
+          ph_max?: number | null
+          ph_min?: number | null
+          ph_std?: number | null
           ph_text?: string | null
+          phosphorus_confidence?: string | null
           phosphorus_est?: number | null
           phosphorus_kg_per_ha?: number | null
           phosphorus_level?: string | null
           phosphorus_text?: string | null
           phosphorus_total_kg?: number | null
+          potassium_confidence?: string | null
           potassium_est?: number | null
           potassium_kg_per_ha?: number | null
           potassium_level?: string | null
           potassium_text?: string | null
           potassium_total_kg?: number | null
+          precipitation_30d_mm?: number | null
+          sample_count?: number | null
           sand_percent?: number | null
+          sand_std?: number | null
           silt_percent?: number | null
+          silt_std?: number | null
+          soil_moisture_profile_percent?: number | null
+          soil_moisture_rootzone_percent?: number | null
+          soil_moisture_surface_percent?: number | null
+          soil_temperature_c?: number | null
           soil_type?: string | null
           source?: string
+          temperature_avg_c?: number | null
+          temperature_max_c?: number | null
+          temperature_min_c?: number | null
           tenant_id: string
           test_date?: string | null
           test_report_url?: string | null
           texture?: string | null
           updated_at?: string
+          water_balance_mm?: number | null
         }
         Update: {
+          agro_climatic_zone?: string | null
           bulk_density?: number | null
           cec?: number | null
           clay_percent?: number | null
+          clay_std?: number | null
           confidence_level?: string | null
           created_at?: string
           data_completeness?: number | null
           data_quality_flags?: Json | null
           data_quality_warnings?: Json | null
+          evapotranspiration_mm?: number | null
           farmer_id?: string | null
           fertility_class?: string | null
           field_area_ha?: number | null
+          humidity_avg_percent?: number | null
           id?: string
           land_id?: string
+          moisture_measurement_date?: number | null
+          moisture_status?: string | null
+          nitrogen_confidence?: string | null
           nitrogen_est?: number | null
           nitrogen_kg_per_ha?: number | null
           nitrogen_level?: string | null
@@ -17099,28 +33834,48 @@ export type Database = {
           nitrogen_total_kg?: number | null
           note?: string | null
           organic_carbon?: number | null
+          organic_carbon_max?: number | null
+          organic_carbon_min?: number | null
+          organic_carbon_std?: number | null
           organic_carbon_text?: string | null
           ph_level?: number | null
+          ph_max?: number | null
+          ph_min?: number | null
+          ph_std?: number | null
           ph_text?: string | null
+          phosphorus_confidence?: string | null
           phosphorus_est?: number | null
           phosphorus_kg_per_ha?: number | null
           phosphorus_level?: string | null
           phosphorus_text?: string | null
           phosphorus_total_kg?: number | null
+          potassium_confidence?: string | null
           potassium_est?: number | null
           potassium_kg_per_ha?: number | null
           potassium_level?: string | null
           potassium_text?: string | null
           potassium_total_kg?: number | null
+          precipitation_30d_mm?: number | null
+          sample_count?: number | null
           sand_percent?: number | null
+          sand_std?: number | null
           silt_percent?: number | null
+          silt_std?: number | null
+          soil_moisture_profile_percent?: number | null
+          soil_moisture_rootzone_percent?: number | null
+          soil_moisture_surface_percent?: number | null
+          soil_temperature_c?: number | null
           soil_type?: string | null
           source?: string
+          temperature_avg_c?: number | null
+          temperature_max_c?: number | null
+          temperature_min_c?: number | null
           tenant_id?: string
           test_date?: string | null
           test_report_url?: string | null
           texture?: string | null
           updated_at?: string
+          water_balance_mm?: number | null
         }
         Relationships: [
           {
@@ -17173,6 +33928,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "soil_health_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "soil_health_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "soil_health_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "soil_health_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
             foreignKeyName: "soil_health_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -17181,6 +33964,69 @@ export type Database = {
           },
         ]
       }
+      soil_test_interpretation: {
+        Row: {
+          authority: string | null
+          confidence: number | null
+          conflict_note: string | null
+          created_at: string | null
+          crop_scope: string
+          expression: string
+          extraction_method: string
+          high_above: number | null
+          id: string
+          low_below: number | null
+          medium_high: number | null
+          medium_low: number | null
+          parameter: string
+          publication_year: number | null
+          region_scope: string
+          review_status: string
+          source: string
+          unit: string
+        }
+        Insert: {
+          authority?: string | null
+          confidence?: number | null
+          conflict_note?: string | null
+          created_at?: string | null
+          crop_scope?: string
+          expression: string
+          extraction_method: string
+          high_above?: number | null
+          id?: string
+          low_below?: number | null
+          medium_high?: number | null
+          medium_low?: number | null
+          parameter: string
+          publication_year?: number | null
+          region_scope?: string
+          review_status?: string
+          source: string
+          unit: string
+        }
+        Update: {
+          authority?: string | null
+          confidence?: number | null
+          conflict_note?: string | null
+          created_at?: string | null
+          crop_scope?: string
+          expression?: string
+          extraction_method?: string
+          high_above?: number | null
+          id?: string
+          low_below?: number | null
+          medium_high?: number | null
+          medium_low?: number | null
+          parameter?: string
+          publication_year?: number | null
+          region_scope?: string
+          review_status?: string
+          source?: string
+          unit?: string
+        }
+        Relationships: []
+      }
       soil_types: {
         Row: {
           created_at: string | null
@@ -17188,6 +34034,19 @@ export type Database = {
           id: string
           is_active: boolean | null
           label: string
+          label_as: string | null
+          label_bn: string | null
+          label_gu: string | null
+          label_hi: string | null
+          label_kn: string | null
+          label_ml: string | null
+          label_mr: string | null
+          label_or: string | null
+          label_pa: string | null
+          label_sa: string | null
+          label_ta: string | null
+          label_te: string | null
+          label_ur: string | null
           value: string
         }
         Insert: {
@@ -17196,6 +34055,19 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           label: string
+          label_as?: string | null
+          label_bn?: string | null
+          label_gu?: string | null
+          label_hi?: string | null
+          label_kn?: string | null
+          label_ml?: string | null
+          label_mr?: string | null
+          label_or?: string | null
+          label_pa?: string | null
+          label_sa?: string | null
+          label_ta?: string | null
+          label_te?: string | null
+          label_ur?: string | null
           value: string
         }
         Update: {
@@ -17204,6 +34076,19 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           label?: string
+          label_as?: string | null
+          label_bn?: string | null
+          label_gu?: string | null
+          label_hi?: string | null
+          label_kn?: string | null
+          label_ml?: string | null
+          label_mr?: string | null
+          label_or?: string | null
+          label_pa?: string | null
+          label_sa?: string | null
+          label_ta?: string | null
+          label_te?: string | null
+          label_ur?: string | null
           value?: string
         }
         Relationships: []
@@ -17231,6 +34116,370 @@ export type Database = {
           srtext?: string | null
         }
         Relationships: []
+      }
+      stage_gate_state: {
+        Row: {
+          evidence: Json | null
+          gate: string
+          held_stage_uuid: string | null
+          land_id: string
+          reason: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          evidence?: Json | null
+          gate: string
+          held_stage_uuid?: string | null
+          land_id: string
+          reason?: string | null
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          evidence?: Json | null
+          gate?: string
+          held_stage_uuid?: string | null
+          land_id?: string
+          reason?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      stage_review_queue: {
+        Row: {
+          created_at: string
+          crop_code: string
+          detail: string
+          id: string
+          issue_type: string
+          proposed_resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          crop_code: string
+          detail: string
+          id?: string
+          issue_type: string
+          proposed_resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          crop_code?: string
+          detail?: string
+          id?: string
+          issue_type?: string
+          proposed_resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      stage_transition_conditions: {
+        Row: {
+          combinator: string
+          confidence: number
+          created_at: string
+          crop_code: string
+          crop_cycle: string | null
+          from_stage_uuid: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          priority: number
+          source: string | null
+          to_stage_uuid: string
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          combinator?: string
+          confidence?: number
+          created_at?: string
+          crop_code: string
+          crop_cycle?: string | null
+          from_stage_uuid: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          priority?: number
+          source?: string | null
+          to_stage_uuid: string
+          trigger_config?: Json
+          trigger_type: string
+          updated_at?: string
+        }
+        Update: {
+          combinator?: string
+          confidence?: number
+          created_at?: string
+          crop_code?: string
+          crop_cycle?: string | null
+          from_stage_uuid?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          priority?: number
+          source?: string | null
+          to_stage_uuid?: string
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stage_transition_conditions_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "stage_transition_conditions_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "stage_transition_conditions_from_stage_uuid_fkey"
+            columns: ["from_stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_transition_conditions_from_stage_uuid_fkey"
+            columns: ["from_stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_transition_conditions_to_stage_uuid_fkey"
+            columns: ["to_stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_transition_conditions_to_stage_uuid_fkey"
+            columns: ["to_stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stage_transition_log: {
+        Row: {
+          confidence: number | null
+          evaluated_at: string
+          evidence: Json | null
+          from_stage_uuid: string | null
+          id: string
+          land_id: string
+          rule_id: string | null
+          to_stage_uuid: string | null
+          trigger_type: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          evaluated_at?: string
+          evidence?: Json | null
+          from_stage_uuid?: string | null
+          id?: string
+          land_id: string
+          rule_id?: string | null
+          to_stage_uuid?: string | null
+          trigger_type?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          evaluated_at?: string
+          evidence?: Json | null
+          from_stage_uuid?: string | null
+          id?: string
+          land_id?: string
+          rule_id?: string | null
+          to_stage_uuid?: string | null
+          trigger_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stage_transition_log_from_stage_uuid_fkey"
+            columns: ["from_stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_from_stage_uuid_fkey"
+            columns: ["from_stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "stage_transition_conditions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_to_stage_uuid_fkey"
+            columns: ["to_stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_transition_log_to_stage_uuid_fkey"
+            columns: ["to_stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stage_validation_rules: {
+        Row: {
+          active: boolean
+          confidence: number
+          created_at: string
+          crop_code: string
+          description: string | null
+          id: string
+          rule_code: string
+          rule_config: Json
+          rule_type: string
+          severity: string
+          source: string | null
+          stage_code: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          confidence?: number
+          created_at?: string
+          crop_code: string
+          description?: string | null
+          id?: string
+          rule_code: string
+          rule_config?: Json
+          rule_type: string
+          severity?: string
+          source?: string | null
+          stage_code: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          confidence?: number
+          created_at?: string
+          crop_code?: string
+          description?: string | null
+          id?: string
+          rule_code?: string
+          rule_config?: Json
+          rule_type?: string
+          severity?: string
+          source?: string | null
+          stage_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stage_validation_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "stage_validation_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       staging_mgrs_tiles: {
         Row: {
@@ -17303,32 +34552,38 @@ export type Database = {
       }
       states: {
         Row: {
+          census2011_state_code: string | null
           code: string | null
           country_id: string
           created_at: string | null
           geometry: unknown
           id: string
           is_active: boolean | null
+          lgd_state_code: number | null
           name: string
           updated_at: string | null
         }
         Insert: {
+          census2011_state_code?: string | null
           code?: string | null
           country_id: string
           created_at?: string | null
           geometry?: unknown
           id?: string
           is_active?: boolean | null
+          lgd_state_code?: number | null
           name: string
           updated_at?: string | null
         }
         Update: {
+          census2011_state_code?: string | null
           code?: string | null
           country_id?: string
           created_at?: string | null
           geometry?: unknown
           id?: string
           is_active?: boolean | null
+          lgd_state_code?: number | null
           name?: string
           updated_at?: string | null
         }
@@ -17551,10 +34806,12 @@ export type Database = {
       }
       subscription_coupons: {
         Row: {
+          applicable_billing_intervals: string[] | null
           applicable_plan_ids: string[] | null
           code: string
           coupon_type: string
           created_at: string
+          created_by: string | null
           currency: string | null
           description: string | null
           discount_amount: number | null
@@ -17564,11 +34821,13 @@ export type Database = {
           id: string
           is_active: boolean | null
           max_redemptions: number | null
+          max_redemptions_per_farmer: number | null
           metadata: Json | null
           minimum_amount: number | null
           name: string
           plan_category: string | null
           stripe_coupon_id: string | null
+          tenant_id: string | null
           times_redeemed: number | null
           trial_days_extension: number | null
           updated_at: string
@@ -17576,10 +34835,12 @@ export type Database = {
           valid_until: string | null
         }
         Insert: {
+          applicable_billing_intervals?: string[] | null
           applicable_plan_ids?: string[] | null
           code: string
           coupon_type: string
           created_at?: string
+          created_by?: string | null
           currency?: string | null
           description?: string | null
           discount_amount?: number | null
@@ -17589,11 +34850,13 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           max_redemptions?: number | null
+          max_redemptions_per_farmer?: number | null
           metadata?: Json | null
           minimum_amount?: number | null
           name: string
           plan_category?: string | null
           stripe_coupon_id?: string | null
+          tenant_id?: string | null
           times_redeemed?: number | null
           trial_days_extension?: number | null
           updated_at?: string
@@ -17601,10 +34864,12 @@ export type Database = {
           valid_until?: string | null
         }
         Update: {
+          applicable_billing_intervals?: string[] | null
           applicable_plan_ids?: string[] | null
           code?: string
           coupon_type?: string
           created_at?: string
+          created_by?: string | null
           currency?: string | null
           description?: string | null
           discount_amount?: number | null
@@ -17614,11 +34879,13 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           max_redemptions?: number | null
+          max_redemptions_per_farmer?: number | null
           metadata?: Json | null
           minimum_amount?: number | null
           name?: string
           plan_category?: string | null
           stripe_coupon_id?: string | null
+          tenant_id?: string | null
           times_redeemed?: number | null
           trial_days_extension?: number | null
           updated_at?: string
@@ -17645,6 +34912,7 @@ export type Database = {
           plan_category: string | null
           plan_type: Database["public"]["Enums"]["subscription_plan_type"]
           price_annually: number | null
+          price_half_yearly: number | null
           price_monthly: number | null
           price_quarterly: number | null
           sort_order: number | null
@@ -17672,6 +34940,7 @@ export type Database = {
           plan_category?: string | null
           plan_type: Database["public"]["Enums"]["subscription_plan_type"]
           price_annually?: number | null
+          price_half_yearly?: number | null
           price_monthly?: number | null
           price_quarterly?: number | null
           sort_order?: number | null
@@ -17699,6 +34968,7 @@ export type Database = {
           plan_category?: string | null
           plan_type?: Database["public"]["Enums"]["subscription_plan_type"]
           price_annually?: number | null
+          price_half_yearly?: number | null
           price_monthly?: number | null
           price_quarterly?: number | null
           sort_order?: number | null
@@ -17732,6 +35002,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      subscription_reminder_log: {
+        Row: {
+          bulk_operation_id: string | null
+          channel: string
+          created_at: string
+          created_by: string | null
+          error: string | null
+          farmer_id: string
+          id: string
+          metadata: Json
+          sent_at: string
+          status: string
+          subscription_id: string | null
+          template_id: string | null
+          template_name: string | null
+          tenant_id: string
+        }
+        Insert: {
+          bulk_operation_id?: string | null
+          channel: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          farmer_id: string
+          id?: string
+          metadata?: Json
+          sent_at?: string
+          status?: string
+          subscription_id?: string | null
+          template_id?: string | null
+          template_name?: string | null
+          tenant_id: string
+        }
+        Update: {
+          bulk_operation_id?: string | null
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          farmer_id?: string
+          id?: string
+          metadata?: Json
+          sent_at?: string
+          status?: string
+          subscription_id?: string | null
+          template_id?: string | null
+          template_name?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
       }
       subscription_renewals: {
         Row: {
@@ -17857,6 +35178,7 @@ export type Database = {
           billing_period_end: string
           billing_period_start: string
           created_at: string
+          farmer_id: string | null
           id: string
           metadata: Json | null
           metric_name: string
@@ -17870,6 +35192,7 @@ export type Database = {
           billing_period_end: string
           billing_period_start: string
           created_at?: string
+          farmer_id?: string | null
           id?: string
           metadata?: Json | null
           metric_name: string
@@ -17883,6 +35206,7 @@ export type Database = {
           billing_period_end?: string
           billing_period_start?: string
           created_at?: string
+          farmer_id?: string | null
           id?: string
           metadata?: Json | null
           metric_name?: string
@@ -17893,6 +35217,20 @@ export type Database = {
           usage_date?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "subscription_usage_logs_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_usage_logs_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
           {
             foreignKeyName: "subscription_usage_logs_subscription_id_fkey"
             columns: ["subscription_id"]
@@ -18071,6 +35409,48 @@ export type Database = {
           description?: string | null
           id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      system_health_events: {
+        Row: {
+          context: Json | null
+          created_at: string
+          event_type: string
+          farmer_id: string | null
+          id: number
+          message: string
+          severity: string
+          source: string
+          tenant_id: string | null
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          event_type: string
+          farmer_id?: string | null
+          id?: number
+          message: string
+          severity?: string
+          source: string
+          tenant_id?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          event_type?: string
+          farmer_id?: string | null
+          id?: number
+          message?: string
+          severity?: string
+          source?: string
+          tenant_id?: string | null
+          url?: string | null
+          user_agent?: string | null
         }
         Relationships: []
       }
@@ -18318,26 +35698,41 @@ export type Database = {
       }
       talukas: {
         Row: {
+          boundary: unknown
+          census2011_subdistrict_code: string | null
+          center_lat: number | null
+          center_lon: number | null
           created_at: string | null
           district_id: string
           id: string
           is_active: boolean | null
+          lgd_subdistrict_code: number | null
           name: string
           updated_at: string | null
         }
         Insert: {
+          boundary?: unknown
+          census2011_subdistrict_code?: string | null
+          center_lat?: number | null
+          center_lon?: number | null
           created_at?: string | null
           district_id: string
           id?: string
           is_active?: boolean | null
+          lgd_subdistrict_code?: number | null
           name: string
           updated_at?: string | null
         }
         Update: {
+          boundary?: unknown
+          census2011_subdistrict_code?: string | null
+          center_lat?: number | null
+          center_lon?: number | null
           created_at?: string | null
           district_id?: string
           id?: string
           is_active?: boolean | null
+          lgd_subdistrict_code?: number | null
           name?: string
           updated_at?: string | null
         }
@@ -18512,6 +35907,21 @@ export type Database = {
           },
         ]
       }
+      task_type_map: {
+        Row: {
+          canonical: string
+          raw_value: string
+        }
+        Insert: {
+          canonical: string
+          raw_value: string
+        }
+        Update: {
+          canonical?: string
+          raw_value?: string
+        }
+        Relationships: []
+      }
       tax_configurations: {
         Row: {
           country_code: string
@@ -18663,6 +36073,68 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      tenant_alert_actions: {
+        Row: {
+          action_type: string
+          alert_id: string
+          channel: string | null
+          created_at: string
+          delivery_status: string | null
+          farmer_id: string
+          id: string
+          land_id: string | null
+          message: string | null
+          metadata: Json | null
+          performed_by: string
+          response_received: boolean | null
+          response_text: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          alert_id: string
+          channel?: string | null
+          created_at?: string
+          delivery_status?: string | null
+          farmer_id: string
+          id?: string
+          land_id?: string | null
+          message?: string | null
+          metadata?: Json | null
+          performed_by: string
+          response_received?: boolean | null
+          response_text?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          alert_id?: string
+          channel?: string | null
+          created_at?: string
+          delivery_status?: string | null
+          farmer_id?: string
+          id?: string
+          land_id?: string | null
+          message?: string | null
+          metadata?: Json | null
+          performed_by?: string
+          response_received?: boolean | null
+          response_text?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_alert_actions_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "proactive_alerts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_archive_jobs: {
         Row: {
@@ -18922,6 +36394,54 @@ export type Database = {
           },
         ]
       }
+      tenant_farmer_plan_features: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          feature_code: string
+          plan_id: string
+          quota: number | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          feature_code: string
+          plan_id: string
+          quota?: number | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          feature_code?: string
+          plan_id?: string
+          quota?: number | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_farmer_plan_features_feature_code_fkey"
+            columns: ["feature_code"]
+            isOneToOne: false
+            referencedRelation: "features"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "tenant_farmer_plan_features_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_farmer_pricing: {
         Row: {
           base_plan_id: string
@@ -18976,6 +36496,50 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_feature_grants: {
+        Row: {
+          created_at: string
+          enabled: boolean | null
+          expires_at: string | null
+          feature_code: string
+          pricing_type: string | null
+          quota: number | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean | null
+          expires_at?: string | null
+          feature_code: string
+          pricing_type?: string | null
+          quota?: number | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean | null
+          expires_at?: string | null
+          feature_code?: string
+          pricing_type?: string | null
+          quota?: number | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_feature_grants_feature_code_fkey"
+            columns: ["feature_code"]
+            isOneToOne: false
+            referencedRelation: "features"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -19132,6 +36696,41 @@ export type Database = {
             foreignKeyName: "tenant_features_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_health_snapshots: {
+        Row: {
+          breakdown: Json
+          computed_at: string
+          created_at: string
+          id: string
+          score: number
+          tenant_id: string
+        }
+        Insert: {
+          breakdown?: Json
+          computed_at?: string
+          created_at?: string
+          id?: string
+          score: number
+          tenant_id: string
+        }
+        Update: {
+          breakdown?: Json
+          computed_at?: string
+          created_at?: string
+          id?: string
+          score?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_health_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -19787,6 +37386,229 @@ export type Database = {
           },
         ]
       }
+      treatment_outcomes: {
+        Row: {
+          application_date: string | null
+          attribution_quality: string | null
+          benefit_actual_inr: number | null
+          benefit_predicted_inr: number | null
+          confounders: Json | null
+          cost_actual_inr: number | null
+          cost_predicted_inr: number | null
+          created_at: string | null
+          crop_code: string | null
+          crop_stage: string | null
+          day_14_check: Json | null
+          day_3_check: Json | null
+          day_7_check: Json | null
+          days_since_sowing: number | null
+          decision_id: string | null
+          deviations: string[] | null
+          efficacy_predicted_percent: number | null
+          expert_diagnosis_correct: boolean | null
+          expert_notes: string | null
+          expert_review_date: string | null
+          expert_reviewed: boolean | null
+          expert_treatment_appropriate: boolean | null
+          farmer_id: string | null
+          farmer_implemented: boolean | null
+          farmer_satisfaction: number | null
+          farmer_would_recommend: boolean | null
+          final_outcome: string | null
+          followed_instructions: boolean | null
+          id: string
+          land_id: string | null
+          outcome_notes: string | null
+          predicted_pest_disease: string | null
+          prediction_confidence: number | null
+          rain_mm_7d_post: number | null
+          rule_id: string | null
+          session_id: string | null
+          temp_mean_7d_post: number | null
+          tenant_id: string | null
+          treatment_applied: string | null
+          treatment_recommended: string | null
+          untreated_comparison: boolean | null
+          updated_at: string | null
+          weather_source: string | null
+        }
+        Insert: {
+          application_date?: string | null
+          attribution_quality?: string | null
+          benefit_actual_inr?: number | null
+          benefit_predicted_inr?: number | null
+          confounders?: Json | null
+          cost_actual_inr?: number | null
+          cost_predicted_inr?: number | null
+          created_at?: string | null
+          crop_code?: string | null
+          crop_stage?: string | null
+          day_14_check?: Json | null
+          day_3_check?: Json | null
+          day_7_check?: Json | null
+          days_since_sowing?: number | null
+          decision_id?: string | null
+          deviations?: string[] | null
+          efficacy_predicted_percent?: number | null
+          expert_diagnosis_correct?: boolean | null
+          expert_notes?: string | null
+          expert_review_date?: string | null
+          expert_reviewed?: boolean | null
+          expert_treatment_appropriate?: boolean | null
+          farmer_id?: string | null
+          farmer_implemented?: boolean | null
+          farmer_satisfaction?: number | null
+          farmer_would_recommend?: boolean | null
+          final_outcome?: string | null
+          followed_instructions?: boolean | null
+          id?: string
+          land_id?: string | null
+          outcome_notes?: string | null
+          predicted_pest_disease?: string | null
+          prediction_confidence?: number | null
+          rain_mm_7d_post?: number | null
+          rule_id?: string | null
+          session_id?: string | null
+          temp_mean_7d_post?: number | null
+          tenant_id?: string | null
+          treatment_applied?: string | null
+          treatment_recommended?: string | null
+          untreated_comparison?: boolean | null
+          updated_at?: string | null
+          weather_source?: string | null
+        }
+        Update: {
+          application_date?: string | null
+          attribution_quality?: string | null
+          benefit_actual_inr?: number | null
+          benefit_predicted_inr?: number | null
+          confounders?: Json | null
+          cost_actual_inr?: number | null
+          cost_predicted_inr?: number | null
+          created_at?: string | null
+          crop_code?: string | null
+          crop_stage?: string | null
+          day_14_check?: Json | null
+          day_3_check?: Json | null
+          day_7_check?: Json | null
+          days_since_sowing?: number | null
+          decision_id?: string | null
+          deviations?: string[] | null
+          efficacy_predicted_percent?: number | null
+          expert_diagnosis_correct?: boolean | null
+          expert_notes?: string | null
+          expert_review_date?: string | null
+          expert_reviewed?: boolean | null
+          expert_treatment_appropriate?: boolean | null
+          farmer_id?: string | null
+          farmer_implemented?: boolean | null
+          farmer_satisfaction?: number | null
+          farmer_would_recommend?: boolean | null
+          final_outcome?: string | null
+          followed_instructions?: boolean | null
+          id?: string
+          land_id?: string | null
+          outcome_notes?: string | null
+          predicted_pest_disease?: string | null
+          prediction_confidence?: number | null
+          rain_mm_7d_post?: number | null
+          rule_id?: string | null
+          session_id?: string | null
+          temp_mean_7d_post?: number | null
+          tenant_id?: string | null
+          treatment_applied?: string | null
+          treatment_recommended?: string | null
+          untreated_comparison?: boolean | null
+          updated_at?: string | null
+          weather_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treatment_outcomes_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treatment_outcomes_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+          {
+            foreignKeyName: "treatment_outcomes_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "treatment_outcomes_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "treatment_outcomes_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "treatment_outcomes_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "treatment_outcomes_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treatment_outcomes_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "treatment_outcomes_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "treatment_outcomes_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "treatment_outcomes_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "treatment_outcomes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trending_topics: {
         Row: {
           crop_id: string | null
@@ -19830,6 +37652,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "trending_topics_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["crop_id"]
+          },
+          {
             foreignKeyName: "trending_topics_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -19837,6 +37666,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ui_translations: {
+        Row: {
+          created_at: string | null
+          display_text: string
+          language_code: string
+          ui_key: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_text: string
+          language_code: string
+          ui_key: string
+        }
+        Update: {
+          created_at?: string | null
+          display_text?: string
+          language_code?: string
+          ui_key?: string
+        }
+        Relationships: []
       }
       usage_analytics: {
         Row: {
@@ -19846,7 +37696,7 @@ export type Database = {
           id: string
           metadata: Json | null
           response_time_ms: number | null
-          session_duration: unknown
+          session_duration: string | null
           status_code: number | null
           tenant_id: string | null
           timestamp: string
@@ -19860,7 +37710,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           response_time_ms?: number | null
-          session_duration?: unknown
+          session_duration?: string | null
           status_code?: number | null
           tenant_id?: string | null
           timestamp?: string
@@ -19874,7 +37724,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           response_time_ms?: number | null
-          session_duration?: unknown
+          session_duration?: string | null
           status_code?: number | null
           tenant_id?: string | null
           timestamp?: string
@@ -20270,6 +38120,30 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_sessions: {
         Row: {
           access_token_hash: string | null
@@ -20384,6 +38258,824 @@ export type Database = {
           },
         ]
       }
+      variety_company_offerings: {
+        Row: {
+          availability_status: string
+          brand_name: string | null
+          company_id: string
+          company_sku: string | null
+          created_at: string
+          currency: string
+          id: string
+          is_active: boolean
+          metadata: Json
+          notes: string | null
+          pack_size: number | null
+          pack_unit: string | null
+          price: number | null
+          regions: string[]
+          updated_at: string
+          variety_id: string
+        }
+        Insert: {
+          availability_status?: string
+          brand_name?: string | null
+          company_id: string
+          company_sku?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          notes?: string | null
+          pack_size?: number | null
+          pack_unit?: string | null
+          price?: number | null
+          regions?: string[]
+          updated_at?: string
+          variety_id: string
+        }
+        Update: {
+          availability_status?: string
+          brand_name?: string | null
+          company_id?: string
+          company_sku?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          notes?: string | null
+          pack_size?: number | null
+          pack_unit?: string | null
+          price?: number | null
+          regions?: string[]
+          updated_at?: string
+          variety_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variety_company_offerings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "master_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_company_offerings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "variety_company_offerings_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_company_offerings_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "variety_company_offerings_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      variety_cultivation_agronomy: {
+        Row: {
+          created_at: string
+          crop_code: string
+          cultivation_method: string
+          duration_days_max: number | null
+          duration_days_min: number | null
+          duration_reference: string | null
+          evidence_tier: string
+          id: string
+          is_active: boolean
+          is_suitable: boolean
+          limiting_factor: string | null
+          nursery_area_guntha_per_acre: number | null
+          seed_quality_correction_note: string | null
+          seed_rate_basis: string | null
+          seed_rate_basis_code: string | null
+          seed_rate_broadcast_kg_per_acre_max: number | null
+          seed_rate_broadcast_kg_per_acre_min: number | null
+          seed_rate_kg_per_acre_max: number | null
+          seed_rate_kg_per_acre_min: number | null
+          seed_rate_kg_per_ha_max: number | null
+          seed_rate_kg_per_ha_min: number | null
+          seed_rate_rationale: string | null
+          seed_rate_variety_type: string | null
+          seedling_age_days_max: number | null
+          seedling_age_days_min: number | null
+          source: string | null
+          spacing_plant_cm: number | null
+          spacing_row_cm: number | null
+          suitability_grade: string | null
+          suitability_note: string | null
+          target_plants_per_m2: number | null
+          updated_at: string
+          variety_id: string
+        }
+        Insert: {
+          created_at?: string
+          crop_code: string
+          cultivation_method: string
+          duration_days_max?: number | null
+          duration_days_min?: number | null
+          duration_reference?: string | null
+          evidence_tier?: string
+          id?: string
+          is_active?: boolean
+          is_suitable?: boolean
+          limiting_factor?: string | null
+          nursery_area_guntha_per_acre?: number | null
+          seed_quality_correction_note?: string | null
+          seed_rate_basis?: string | null
+          seed_rate_basis_code?: string | null
+          seed_rate_broadcast_kg_per_acre_max?: number | null
+          seed_rate_broadcast_kg_per_acre_min?: number | null
+          seed_rate_kg_per_acre_max?: number | null
+          seed_rate_kg_per_acre_min?: number | null
+          seed_rate_kg_per_ha_max?: number | null
+          seed_rate_kg_per_ha_min?: number | null
+          seed_rate_rationale?: string | null
+          seed_rate_variety_type?: string | null
+          seedling_age_days_max?: number | null
+          seedling_age_days_min?: number | null
+          source?: string | null
+          spacing_plant_cm?: number | null
+          spacing_row_cm?: number | null
+          suitability_grade?: string | null
+          suitability_note?: string | null
+          target_plants_per_m2?: number | null
+          updated_at?: string
+          variety_id: string
+        }
+        Update: {
+          created_at?: string
+          crop_code?: string
+          cultivation_method?: string
+          duration_days_max?: number | null
+          duration_days_min?: number | null
+          duration_reference?: string | null
+          evidence_tier?: string
+          id?: string
+          is_active?: boolean
+          is_suitable?: boolean
+          limiting_factor?: string | null
+          nursery_area_guntha_per_acre?: number | null
+          seed_quality_correction_note?: string | null
+          seed_rate_basis?: string | null
+          seed_rate_basis_code?: string | null
+          seed_rate_broadcast_kg_per_acre_max?: number | null
+          seed_rate_broadcast_kg_per_acre_min?: number | null
+          seed_rate_kg_per_acre_max?: number | null
+          seed_rate_kg_per_acre_min?: number | null
+          seed_rate_kg_per_ha_max?: number | null
+          seed_rate_kg_per_ha_min?: number | null
+          seed_rate_rationale?: string | null
+          seed_rate_variety_type?: string | null
+          seedling_age_days_max?: number | null
+          seedling_age_days_min?: number | null
+          source?: string | null
+          spacing_plant_cm?: number | null
+          spacing_row_cm?: number | null
+          suitability_grade?: string | null
+          suitability_note?: string | null
+          target_plants_per_m2?: number | null
+          updated_at?: string
+          variety_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variety_cultivation_agronomy_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "variety_cultivation_agronomy_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "variety_cultivation_agronomy_method_fk"
+            columns: ["cultivation_method"]
+            isOneToOne: false
+            referencedRelation: "cultivation_method_master"
+            referencedColumns: ["method_code"]
+          },
+          {
+            foreignKeyName: "variety_cultivation_agronomy_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_cultivation_agronomy_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "variety_cultivation_agronomy_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      variety_phenology_profile: {
+        Row: {
+          base_temperature_c_override: number | null
+          calendar_reliability: string | null
+          created_at: string
+          crop_code: string
+          crop_cycle: string | null
+          cultivation_method: string | null
+          das_max_override: number | null
+          das_min_override: number | null
+          das_reference: string | null
+          derivation_model: string | null
+          expected_height_cm_max: number | null
+          expected_height_cm_min: number | null
+          expected_leaf_count_max: number | null
+          expected_leaf_count_min: number | null
+          expected_ndvi_max: number | null
+          expected_ndvi_min: number | null
+          gdd_target: number | null
+          id: string
+          is_active: boolean
+          maturity_class: string | null
+          notes: string | null
+          phenology_model_override: string | null
+          source: string | null
+          stage_code: string | null
+          stage_uuid: string | null
+          updated_at: string
+          variety_id: string | null
+          variety_name: string | null
+        }
+        Insert: {
+          base_temperature_c_override?: number | null
+          calendar_reliability?: string | null
+          created_at?: string
+          crop_code: string
+          crop_cycle?: string | null
+          cultivation_method?: string | null
+          das_max_override?: number | null
+          das_min_override?: number | null
+          das_reference?: string | null
+          derivation_model?: string | null
+          expected_height_cm_max?: number | null
+          expected_height_cm_min?: number | null
+          expected_leaf_count_max?: number | null
+          expected_leaf_count_min?: number | null
+          expected_ndvi_max?: number | null
+          expected_ndvi_min?: number | null
+          gdd_target?: number | null
+          id?: string
+          is_active?: boolean
+          maturity_class?: string | null
+          notes?: string | null
+          phenology_model_override?: string | null
+          source?: string | null
+          stage_code?: string | null
+          stage_uuid?: string | null
+          updated_at?: string
+          variety_id?: string | null
+          variety_name?: string | null
+        }
+        Update: {
+          base_temperature_c_override?: number | null
+          calendar_reliability?: string | null
+          created_at?: string
+          crop_code?: string
+          crop_cycle?: string | null
+          cultivation_method?: string | null
+          das_max_override?: number | null
+          das_min_override?: number | null
+          das_reference?: string | null
+          derivation_model?: string | null
+          expected_height_cm_max?: number | null
+          expected_height_cm_min?: number | null
+          expected_leaf_count_max?: number | null
+          expected_leaf_count_min?: number | null
+          expected_ndvi_max?: number | null
+          expected_ndvi_min?: number | null
+          gdd_target?: number | null
+          id?: string
+          is_active?: boolean
+          maturity_class?: string | null
+          notes?: string | null
+          phenology_model_override?: string | null
+          source?: string | null
+          stage_code?: string | null
+          stage_uuid?: string | null
+          updated_at?: string
+          variety_id?: string | null
+          variety_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variety_phenology_profile_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "variety_phenology_profile_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "variety_phenology_profile_stage_uuid_fkey"
+            columns: ["stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "crop_stage_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_phenology_profile_stage_uuid_fkey"
+            columns: ["stage_uuid"]
+            isOneToOne: false
+            referencedRelation: "v_crop_stage_master_null_method"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_phenology_profile_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_phenology_profile_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "variety_phenology_profile_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      variety_qtl_profile: {
+        Row: {
+          donor_source: string | null
+          effect_summary: string | null
+          evidence_ref: string | null
+          id: string
+          is_confirmed: boolean
+          linked_markers: string | null
+          qtl_or_gene: string
+          trait_code: string | null
+          variety_id: string
+        }
+        Insert: {
+          donor_source?: string | null
+          effect_summary?: string | null
+          evidence_ref?: string | null
+          id?: string
+          is_confirmed?: boolean
+          linked_markers?: string | null
+          qtl_or_gene: string
+          trait_code?: string | null
+          variety_id: string
+        }
+        Update: {
+          donor_source?: string | null
+          effect_summary?: string | null
+          evidence_ref?: string | null
+          id?: string
+          is_confirmed?: boolean
+          linked_markers?: string | null
+          qtl_or_gene?: string
+          trait_code?: string | null
+          variety_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variety_qtl_profile_trait_code_fkey"
+            columns: ["trait_code"]
+            isOneToOne: false
+            referencedRelation: "crop_trait_master"
+            referencedColumns: ["trait_code"]
+          },
+          {
+            foreignKeyName: "variety_qtl_profile_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_qtl_profile_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "variety_qtl_profile_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      variety_resistance: {
+        Row: {
+          canonical_observation_code: string | null
+          created_at: string
+          hypothesis_id: string | null
+          id: string
+          notes: string | null
+          observation_code: string | null
+          resistance_level: string
+          score_modifier: number | null
+          source: string | null
+          threat_name: string
+          threat_type: string
+          trial_score: number | null
+          updated_at: string
+          variety_id: string
+        }
+        Insert: {
+          canonical_observation_code?: string | null
+          created_at?: string
+          hypothesis_id?: string | null
+          id?: string
+          notes?: string | null
+          observation_code?: string | null
+          resistance_level: string
+          score_modifier?: number | null
+          source?: string | null
+          threat_name: string
+          threat_type: string
+          trial_score?: number | null
+          updated_at?: string
+          variety_id: string
+        }
+        Update: {
+          canonical_observation_code?: string | null
+          created_at?: string
+          hypothesis_id?: string | null
+          id?: string
+          notes?: string | null
+          observation_code?: string | null
+          resistance_level?: string
+          score_modifier?: number | null
+          source?: string | null
+          threat_name?: string
+          threat_type?: string
+          trial_score?: number | null
+          updated_at?: string
+          variety_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variety_resistance_canonical_obs_fk"
+            columns: ["canonical_observation_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+          {
+            foreignKeyName: "variety_resistance_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_resistance_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "variety_resistance_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      variety_review_queue: {
+        Row: {
+          created_at: string
+          current_value: string | null
+          field_name: string
+          id: string
+          notes: string | null
+          priority: string
+          reason: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          suggested_sources: string[] | null
+          updated_at: string
+          variety_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: string | null
+          field_name: string
+          id?: string
+          notes?: string | null
+          priority?: string
+          reason: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          suggested_sources?: string[] | null
+          updated_at?: string
+          variety_id: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: string | null
+          field_name?: string
+          id?: string
+          notes?: string | null
+          priority?: string
+          reason?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          suggested_sources?: string[] | null
+          updated_at?: string
+          variety_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variety_review_queue_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_review_queue_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "variety_review_queue_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      variety_source_references: {
+        Row: {
+          authority: string | null
+          created_at: string
+          id: string
+          publication_year: number | null
+          ref_type: string
+          title: string
+          updated_at: string
+          url: string | null
+          variety_id: string
+        }
+        Insert: {
+          authority?: string | null
+          created_at?: string
+          id?: string
+          publication_year?: number | null
+          ref_type: string
+          title: string
+          updated_at?: string
+          url?: string | null
+          variety_id: string
+        }
+        Update: {
+          authority?: string | null
+          created_at?: string
+          id?: string
+          publication_year?: number | null
+          ref_type?: string
+          title?: string
+          updated_at?: string
+          url?: string | null
+          variety_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variety_source_references_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_source_references_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "variety_source_references_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      variety_submissions: {
+        Row: {
+          approved_variety_id: string | null
+          created_at: string
+          crop_id: string | null
+          id: string
+          local_name: string | null
+          maturity_days_max: number | null
+          maturity_days_min: number | null
+          notes: string | null
+          proposed_name: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          season: string | null
+          status: string
+          submitted_by: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved_variety_id?: string | null
+          created_at?: string
+          crop_id?: string | null
+          id?: string
+          local_name?: string | null
+          maturity_days_max?: number | null
+          maturity_days_min?: number | null
+          notes?: string | null
+          proposed_name: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          season?: string | null
+          status?: string
+          submitted_by: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved_variety_id?: string | null
+          created_at?: string
+          crop_id?: string | null
+          id?: string
+          local_name?: string | null
+          maturity_days_max?: number | null
+          maturity_days_min?: number | null
+          notes?: string | null
+          proposed_name?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          season?: string | null
+          status?: string
+          submitted_by?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variety_submissions_approved_variety_id_fkey"
+            columns: ["approved_variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_submissions_approved_variety_id_fkey"
+            columns: ["approved_variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "variety_submissions_approved_variety_id_fkey"
+            columns: ["approved_variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "variety_submissions_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "crops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_submissions_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["crop_id"]
+          },
+          {
+            foreignKeyName: "variety_submissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      variety_translations: {
+        Row: {
+          created_at: string
+          detailed_description: string | null
+          display_name: string
+          id: string
+          language_code: string
+          local_synonyms: string[] | null
+          short_description: string | null
+          updated_at: string
+          variety_id: string
+        }
+        Insert: {
+          created_at?: string
+          detailed_description?: string | null
+          display_name: string
+          id?: string
+          language_code: string
+          local_synonyms?: string[] | null
+          short_description?: string | null
+          updated_at?: string
+          variety_id: string
+        }
+        Update: {
+          created_at?: string
+          detailed_description?: string | null
+          display_name?: string
+          id?: string
+          language_code?: string
+          local_synonyms?: string[] | null
+          short_description?: string | null
+          updated_at?: string
+          variety_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variety_translations_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_translations_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "variety_translations_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
       video_tutorials: {
         Row: {
           category: string
@@ -20440,26 +39132,44 @@ export type Database = {
       }
       villages: {
         Row: {
+          boundary: unknown
+          census2011_village_code: string | null
+          center_lat: number | null
+          center_lon: number | null
           created_at: string | null
           id: string
           is_active: boolean | null
+          lgd_village_code: number | null
           name: string
+          pincode: string | null
           taluka_id: string
           updated_at: string | null
         }
         Insert: {
+          boundary?: unknown
+          census2011_village_code?: string | null
+          center_lat?: number | null
+          center_lon?: number | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          lgd_village_code?: number | null
           name: string
+          pincode?: string | null
           taluka_id: string
           updated_at?: string | null
         }
         Update: {
+          boundary?: unknown
+          census2011_village_code?: string | null
+          center_lat?: number | null
+          center_lon?: number | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          lgd_village_code?: number | null
           name?: string
+          pincode?: string | null
           taluka_id?: string
           updated_at?: string | null
         }
@@ -20844,6 +39554,19 @@ export type Database = {
           id: string
           is_active: boolean | null
           label: string
+          label_as: string | null
+          label_bn: string | null
+          label_gu: string | null
+          label_hi: string | null
+          label_kn: string | null
+          label_ml: string | null
+          label_mr: string | null
+          label_or: string | null
+          label_pa: string | null
+          label_sa: string | null
+          label_ta: string | null
+          label_te: string | null
+          label_ur: string | null
           value: string
         }
         Insert: {
@@ -20852,6 +39575,19 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           label: string
+          label_as?: string | null
+          label_bn?: string | null
+          label_gu?: string | null
+          label_hi?: string | null
+          label_kn?: string | null
+          label_ml?: string | null
+          label_mr?: string | null
+          label_or?: string | null
+          label_pa?: string | null
+          label_sa?: string | null
+          label_ta?: string | null
+          label_te?: string | null
+          label_ur?: string | null
           value: string
         }
         Update: {
@@ -20860,115 +39596,22 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           label?: string
+          label_as?: string | null
+          label_bn?: string | null
+          label_gu?: string | null
+          label_hi?: string | null
+          label_kn?: string | null
+          label_ml?: string | null
+          label_mr?: string | null
+          label_or?: string | null
+          label_pa?: string | null
+          label_sa?: string | null
+          label_ta?: string | null
+          label_te?: string | null
+          label_ur?: string | null
           value?: string
         }
         Relationships: []
-      }
-      weather_activity_recommendations: {
-        Row: {
-          activity_type: string
-          created_at: string
-          description: string | null
-          farmer_id: string
-          id: string
-          is_critical: boolean | null
-          land_id: string | null
-          optimal_conditions: string[] | null
-          precautions: string[] | null
-          recommended_date: string
-          recommended_time_end: string | null
-          recommended_time_start: string | null
-          status: string | null
-          suitability_score: number
-          tenant_id: string
-          title: string
-          updated_at: string
-          weather_conditions: Json | null
-        }
-        Insert: {
-          activity_type: string
-          created_at?: string
-          description?: string | null
-          farmer_id: string
-          id?: string
-          is_critical?: boolean | null
-          land_id?: string | null
-          optimal_conditions?: string[] | null
-          precautions?: string[] | null
-          recommended_date: string
-          recommended_time_end?: string | null
-          recommended_time_start?: string | null
-          status?: string | null
-          suitability_score: number
-          tenant_id: string
-          title: string
-          updated_at?: string
-          weather_conditions?: Json | null
-        }
-        Update: {
-          activity_type?: string
-          created_at?: string
-          description?: string | null
-          farmer_id?: string
-          id?: string
-          is_critical?: boolean | null
-          land_id?: string | null
-          optimal_conditions?: string[] | null
-          precautions?: string[] | null
-          recommended_date?: string
-          recommended_time_end?: string | null
-          recommended_time_start?: string | null
-          status?: string | null
-          suitability_score?: number
-          tenant_id?: string
-          title?: string
-          updated_at?: string
-          weather_conditions?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_weather_activity_recommendations_tenant"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "weather_activity_recommendations_land_id_fkey"
-            columns: ["land_id"]
-            isOneToOne: false
-            referencedRelation: "land_agent_context"
-            referencedColumns: ["land_id"]
-          },
-          {
-            foreignKeyName: "weather_activity_recommendations_land_id_fkey"
-            columns: ["land_id"]
-            isOneToOne: false
-            referencedRelation: "land_boundary_overlaps"
-            referencedColumns: ["land_a_id"]
-          },
-          {
-            foreignKeyName: "weather_activity_recommendations_land_id_fkey"
-            columns: ["land_id"]
-            isOneToOne: false
-            referencedRelation: "land_boundary_overlaps"
-            referencedColumns: ["land_b_id"]
-          },
-          {
-            foreignKeyName: "weather_activity_recommendations_land_id_fkey"
-            columns: ["land_id"]
-            isOneToOne: false
-            referencedRelation: "land_tile_coverage"
-            referencedColumns: ["land_id"]
-          },
-          {
-            foreignKeyName: "weather_activity_recommendations_land_id_fkey"
-            columns: ["land_id"]
-            isOneToOne: false
-            referencedRelation: "lands"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       weather_aggregates: {
         Row: {
@@ -20976,12 +39619,16 @@ export type Database = {
           agricultural_alerts: Json | null
           created_at: string
           disease_risk_level: string | null
+          evapotranspiration_mm: number | null
           farmer_id: string | null
           frost_risk: boolean | null
+          gdd_accumulated: number | null
           heat_stress_risk: boolean | null
           humidity_avg_percent: number | null
           id: string
           land_id: string | null
+          location_key: string | null
+          observation_count: number | null
           rain_mm_afternoon: number | null
           rain_mm_evening: number | null
           rain_mm_morning: number | null
@@ -20991,6 +39638,7 @@ export type Database = {
           temp_avg_celsius: number | null
           temp_max_celsius: number | null
           temp_min_celsius: number | null
+          temp_source: string | null
           tenant_id: string
           updated_at: string
           wind_speed_avg_kmh: number | null
@@ -21001,12 +39649,16 @@ export type Database = {
           agricultural_alerts?: Json | null
           created_at?: string
           disease_risk_level?: string | null
+          evapotranspiration_mm?: number | null
           farmer_id?: string | null
           frost_risk?: boolean | null
+          gdd_accumulated?: number | null
           heat_stress_risk?: boolean | null
           humidity_avg_percent?: number | null
           id?: string
           land_id?: string | null
+          location_key?: string | null
+          observation_count?: number | null
           rain_mm_afternoon?: number | null
           rain_mm_evening?: number | null
           rain_mm_morning?: number | null
@@ -21016,6 +39668,7 @@ export type Database = {
           temp_avg_celsius?: number | null
           temp_max_celsius?: number | null
           temp_min_celsius?: number | null
+          temp_source?: string | null
           tenant_id: string
           updated_at?: string
           wind_speed_avg_kmh?: number | null
@@ -21026,12 +39679,16 @@ export type Database = {
           agricultural_alerts?: Json | null
           created_at?: string
           disease_risk_level?: string | null
+          evapotranspiration_mm?: number | null
           farmer_id?: string | null
           frost_risk?: boolean | null
+          gdd_accumulated?: number | null
           heat_stress_risk?: boolean | null
           humidity_avg_percent?: number | null
           id?: string
           land_id?: string | null
+          location_key?: string | null
+          observation_count?: number | null
           rain_mm_afternoon?: number | null
           rain_mm_evening?: number | null
           rain_mm_morning?: number | null
@@ -21041,6 +39698,7 @@ export type Database = {
           temp_avg_celsius?: number | null
           temp_max_celsius?: number | null
           temp_min_celsius?: number | null
+          temp_source?: string | null
           tenant_id?: string
           updated_at?: string
           wind_speed_avg_kmh?: number | null
@@ -21096,12 +39754,41 @@ export type Database = {
             referencedRelation: "lands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "weather_aggregates_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_aggregates_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_aggregates_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_aggregates_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
         ]
       }
       weather_alerts: {
         Row: {
           affected_activities: string[] | null
           alert_id: string
+          alert_kind: string | null
           area_name: string
           cache_data: Json | null
           certainty: string
@@ -21112,6 +39799,9 @@ export type Database = {
           end_time: string | null
           event_type: string
           id: string
+          imd_color_code: number | null
+          imd_district_obj_id: string | null
+          imd_warning_codes: string[] | null
           instruction: string | null
           is_active: boolean
           last_fetched: string | null
@@ -21130,6 +39820,7 @@ export type Database = {
         Insert: {
           affected_activities?: string[] | null
           alert_id: string
+          alert_kind?: string | null
           area_name: string
           cache_data?: Json | null
           certainty: string
@@ -21140,6 +39831,9 @@ export type Database = {
           end_time?: string | null
           event_type: string
           id?: string
+          imd_color_code?: number | null
+          imd_district_obj_id?: string | null
+          imd_warning_codes?: string[] | null
           instruction?: string | null
           is_active?: boolean
           last_fetched?: string | null
@@ -21158,6 +39852,7 @@ export type Database = {
         Update: {
           affected_activities?: string[] | null
           alert_id?: string
+          alert_kind?: string | null
           area_name?: string
           cache_data?: Json | null
           certainty?: string
@@ -21168,6 +39863,9 @@ export type Database = {
           end_time?: string | null
           event_type?: string
           id?: string
+          imd_color_code?: number | null
+          imd_district_obj_id?: string | null
+          imd_warning_codes?: string[] | null
           instruction?: string | null
           is_active?: boolean
           last_fetched?: string | null
@@ -21185,32 +39883,91 @@ export type Database = {
         }
         Relationships: []
       }
+      weather_cell_bias: {
+        Row: {
+          cell_key: string
+          property_code: string
+          rolling_bias: number | null
+          rolling_mae: number | null
+          sample_n: number | null
+          source_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          cell_key: string
+          property_code: string
+          rolling_bias?: number | null
+          rolling_mae?: number | null
+          sample_n?: number | null
+          source_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          cell_key?: string
+          property_code?: string
+          rolling_bias?: number | null
+          rolling_mae?: number | null
+          sample_n?: number | null
+          source_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weather_cell_bias_property_code_fkey"
+            columns: ["property_code"]
+            isOneToOne: false
+            referencedRelation: "env_property_master"
+            referencedColumns: ["property_code"]
+          },
+          {
+            foreignKeyName: "weather_cell_bias_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "env_source_registry"
+            referencedColumns: ["source_id"]
+          },
+        ]
+      }
       weather_current: {
         Row: {
           cloud_cover_percent: number | null
+          confidence: number | null
           created_at: string
           data_source: string
+          dew_point_celsius: number | null
           evapotranspiration_mm: number | null
           expires_at: string | null
           feels_like_celsius: number | null
           growing_degree_days: number | null
           humidity_percent: number | null
           id: string
+          imd_distance_km: number | null
+          imd_station_code: string | null
+          imd_station_name: string | null
+          land_id: string | null
           latitude: number
           location_key: string | null
           longitude: number
+          method: string | null
           moon_phase: number | null
           observation_time: string
           pressure_hpa: number | null
           rain_1h_mm: number | null
           rain_24h_mm: number | null
+          rain_3h_mm: number | null
           snow_1h_mm: number | null
           soil_moisture_percent: number | null
           soil_temperature_celsius: number | null
+          station_distance_km: number | null
           station_id: string | null
+          station_name: string | null
+          station_ref: string | null
           sunrise: string | null
           sunset: string | null
+          temp_max_celsius: number | null
+          temp_min_celsius: number | null
           temperature_celsius: number | null
+          tenant_id: string | null
           uv_index: number | null
           visibility_km: number | null
           weather_description: string | null
@@ -21222,29 +39979,43 @@ export type Database = {
         }
         Insert: {
           cloud_cover_percent?: number | null
+          confidence?: number | null
           created_at?: string
           data_source: string
+          dew_point_celsius?: number | null
           evapotranspiration_mm?: number | null
           expires_at?: string | null
           feels_like_celsius?: number | null
           growing_degree_days?: number | null
           humidity_percent?: number | null
           id?: string
+          imd_distance_km?: number | null
+          imd_station_code?: string | null
+          imd_station_name?: string | null
+          land_id?: string | null
           latitude: number
           location_key?: string | null
           longitude: number
+          method?: string | null
           moon_phase?: number | null
           observation_time: string
           pressure_hpa?: number | null
           rain_1h_mm?: number | null
           rain_24h_mm?: number | null
+          rain_3h_mm?: number | null
           snow_1h_mm?: number | null
           soil_moisture_percent?: number | null
           soil_temperature_celsius?: number | null
+          station_distance_km?: number | null
           station_id?: string | null
+          station_name?: string | null
+          station_ref?: string | null
           sunrise?: string | null
           sunset?: string | null
+          temp_max_celsius?: number | null
+          temp_min_celsius?: number | null
           temperature_celsius?: number | null
+          tenant_id?: string | null
           uv_index?: number | null
           visibility_km?: number | null
           weather_description?: string | null
@@ -21256,29 +40027,43 @@ export type Database = {
         }
         Update: {
           cloud_cover_percent?: number | null
+          confidence?: number | null
           created_at?: string
           data_source?: string
+          dew_point_celsius?: number | null
           evapotranspiration_mm?: number | null
           expires_at?: string | null
           feels_like_celsius?: number | null
           growing_degree_days?: number | null
           humidity_percent?: number | null
           id?: string
+          imd_distance_km?: number | null
+          imd_station_code?: string | null
+          imd_station_name?: string | null
+          land_id?: string | null
           latitude?: number
           location_key?: string | null
           longitude?: number
+          method?: string | null
           moon_phase?: number | null
           observation_time?: string
           pressure_hpa?: number | null
           rain_1h_mm?: number | null
           rain_24h_mm?: number | null
+          rain_3h_mm?: number | null
           snow_1h_mm?: number | null
           soil_moisture_percent?: number | null
           soil_temperature_celsius?: number | null
+          station_distance_km?: number | null
           station_id?: string | null
+          station_name?: string | null
+          station_ref?: string | null
           sunrise?: string | null
           sunset?: string | null
+          temp_max_celsius?: number | null
+          temp_min_celsius?: number | null
           temperature_celsius?: number | null
+          tenant_id?: string | null
           uv_index?: number | null
           visibility_km?: number | null
           weather_description?: string | null
@@ -21290,13 +40075,100 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "weather_current_station_id_fkey"
-            columns: ["station_id"]
+            foreignKeyName: "weather_current_land_id_fkey"
+            columns: ["land_id"]
             isOneToOne: false
-            referencedRelation: "weather_stations"
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_current_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "weather_current_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "weather_current_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_current_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weather_current_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_current_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_current_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_current_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_current_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
+      }
+      weather_field_master: {
+        Row: {
+          description: string
+          field_code: string
+          is_active: boolean
+          supplied_by: string
+          unit: string
+        }
+        Insert: {
+          description: string
+          field_code: string
+          is_active?: boolean
+          supplied_by: string
+          unit: string
+        }
+        Update: {
+          description?: string
+          field_code?: string
+          is_active?: boolean
+          supplied_by?: string
+          unit?: string
+        }
+        Relationships: []
       }
       weather_forecasts: {
         Row: {
@@ -21310,18 +40182,27 @@ export type Database = {
           growing_degree_days: number | null
           humidity_percent: number | null
           id: string
+          imd_distance_km: number | null
+          imd_station_code: string | null
+          issued_at: string | null
+          land_id: string | null
           latitude: number
           location_key: string | null
           longitude: number
           pressure_hpa: number | null
           rain_amount_mm: number | null
+          rain_prob_source: string | null
           rain_probability_percent: number | null
           snow_amount_mm: number | null
           soil_temperature_celsius: number | null
+          station_distance_km: number | null
           station_id: string | null
+          station_ref: string | null
+          superseded_by: string | null
           temperature_celsius: number | null
           temperature_max_celsius: number | null
           temperature_min_celsius: number | null
+          tenant_id: string | null
           uv_index: number | null
           weather_description: string | null
           weather_icon: string | null
@@ -21341,18 +40222,27 @@ export type Database = {
           growing_degree_days?: number | null
           humidity_percent?: number | null
           id?: string
+          imd_distance_km?: number | null
+          imd_station_code?: string | null
+          issued_at?: string | null
+          land_id?: string | null
           latitude: number
           location_key?: string | null
           longitude: number
           pressure_hpa?: number | null
           rain_amount_mm?: number | null
+          rain_prob_source?: string | null
           rain_probability_percent?: number | null
           snow_amount_mm?: number | null
           soil_temperature_celsius?: number | null
+          station_distance_km?: number | null
           station_id?: string | null
+          station_ref?: string | null
+          superseded_by?: string | null
           temperature_celsius?: number | null
           temperature_max_celsius?: number | null
           temperature_min_celsius?: number | null
+          tenant_id?: string | null
           uv_index?: number | null
           weather_description?: string | null
           weather_icon?: string | null
@@ -21372,18 +40262,27 @@ export type Database = {
           growing_degree_days?: number | null
           humidity_percent?: number | null
           id?: string
+          imd_distance_km?: number | null
+          imd_station_code?: string | null
+          issued_at?: string | null
+          land_id?: string | null
           latitude?: number
           location_key?: string | null
           longitude?: number
           pressure_hpa?: number | null
           rain_amount_mm?: number | null
+          rain_prob_source?: string | null
           rain_probability_percent?: number | null
           snow_amount_mm?: number | null
           soil_temperature_celsius?: number | null
+          station_distance_km?: number | null
           station_id?: string | null
+          station_ref?: string | null
+          superseded_by?: string | null
           temperature_celsius?: number | null
           temperature_max_celsius?: number | null
           temperature_min_celsius?: number | null
+          tenant_id?: string | null
           uv_index?: number | null
           weather_description?: string | null
           weather_icon?: string | null
@@ -21394,10 +40293,73 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "weather_forecasts_station_id_fkey"
-            columns: ["station_id"]
+            foreignKeyName: "weather_forecasts_land_id_fkey"
+            columns: ["land_id"]
             isOneToOne: false
-            referencedRelation: "weather_stations"
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_forecasts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "weather_forecasts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "weather_forecasts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_forecasts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weather_forecasts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_forecasts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_forecasts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_forecasts_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_forecasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -21456,6 +40418,8 @@ export type Database = {
       weather_observations: {
         Row: {
           cloud_coverage_percent: number | null
+          completeness_pct: number | null
+          confidence: number | null
           created_at: string
           dew_point_celsius: number | null
           farmer_id: string | null
@@ -21463,11 +40427,16 @@ export type Database = {
           humidity_percent: number | null
           id: string
           land_id: string | null
+          location_key: string | null
           metadata: Json | null
+          method: string | null
           observation_date: string
           observation_time: string
           pressure_hpa: number | null
           rainfall_mm: number
+          snow_1h_mm: number | null
+          station_distance_km: number | null
+          station_ref: string | null
           temperature_celsius: number | null
           tenant_id: string
           updated_at: string
@@ -21479,6 +40448,8 @@ export type Database = {
         }
         Insert: {
           cloud_coverage_percent?: number | null
+          completeness_pct?: number | null
+          confidence?: number | null
           created_at?: string
           dew_point_celsius?: number | null
           farmer_id?: string | null
@@ -21486,11 +40457,16 @@ export type Database = {
           humidity_percent?: number | null
           id?: string
           land_id?: string | null
+          location_key?: string | null
           metadata?: Json | null
+          method?: string | null
           observation_date: string
           observation_time?: string
           pressure_hpa?: number | null
           rainfall_mm?: number
+          snow_1h_mm?: number | null
+          station_distance_km?: number | null
+          station_ref?: string | null
           temperature_celsius?: number | null
           tenant_id: string
           updated_at?: string
@@ -21502,6 +40478,8 @@ export type Database = {
         }
         Update: {
           cloud_coverage_percent?: number | null
+          completeness_pct?: number | null
+          confidence?: number | null
           created_at?: string
           dew_point_celsius?: number | null
           farmer_id?: string | null
@@ -21509,11 +40487,16 @@ export type Database = {
           humidity_percent?: number | null
           id?: string
           land_id?: string | null
+          location_key?: string | null
           metadata?: Json | null
+          method?: string | null
           observation_date?: string
           observation_time?: string
           pressure_hpa?: number | null
           rainfall_mm?: number
+          snow_1h_mm?: number | null
+          station_distance_km?: number | null
+          station_ref?: string | null
           temperature_celsius?: number | null
           tenant_id?: string
           updated_at?: string
@@ -21558,6 +40541,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lands"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_weather_land"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "fk_weather_land"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "fk_weather_land"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "fk_weather_land"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
           },
           {
             foreignKeyName: "weather_observations_farmer_id_fkey"
@@ -21608,143 +40619,105 @@ export type Database = {
             referencedRelation: "lands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "weather_observations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_observations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_observations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "weather_observations_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
         ]
       }
-      weather_preferences: {
+      weather_provider_call: {
         Row: {
-          alert_language: string | null
-          created_at: string
-          enable_activity_recommendations: boolean | null
-          enable_push_notifications: boolean | null
-          enable_sms_alerts: boolean | null
-          enable_voice_alerts: boolean | null
-          farmer_id: string
-          humidity_high_alert_percent: number | null
-          humidity_low_alert_percent: number | null
-          id: string
-          latitude: number
-          longitude: number
-          max_rain_probability_spray_percent: number | null
-          max_temperature_spray_celsius: number | null
-          max_wind_speed_spray_kmh: number | null
-          min_temperature_spray_celsius: number | null
-          preferred_station_id: string | null
-          preferred_work_end_time: string | null
-          preferred_work_start_time: string | null
-          rain_probability_alert_percent: number | null
-          temperature_max_alert: number | null
-          temperature_min_alert: number | null
-          tenant_id: string
+          called_at: string
+          endpoint: string
+          error_message: string | null
+          id: number
+          latency_ms: number | null
+          ok: boolean
+          provider: string
+          quota_day: string
+          run_id: string | null
+        }
+        Insert: {
+          called_at?: string
+          endpoint: string
+          error_message?: string | null
+          id?: number
+          latency_ms?: number | null
+          ok?: boolean
+          provider: string
+          quota_day?: string
+          run_id?: string | null
+        }
+        Update: {
+          called_at?: string
+          endpoint?: string
+          error_message?: string | null
+          id?: number
+          latency_ms?: number | null
+          ok?: boolean
+          provider?: string
+          quota_day?: string
+          run_id?: string | null
+        }
+        Relationships: []
+      }
+      weather_provider_token: {
+        Row: {
+          expires_at: string
+          last_error: string | null
+          last_error_at: string | null
+          obtained_at: string
+          provider: string
+          refresh_count: number
+          token: string
+          token_type: string
           updated_at: string
-          wind_speed_alert_kmh: number | null
         }
         Insert: {
-          alert_language?: string | null
-          created_at?: string
-          enable_activity_recommendations?: boolean | null
-          enable_push_notifications?: boolean | null
-          enable_sms_alerts?: boolean | null
-          enable_voice_alerts?: boolean | null
-          farmer_id: string
-          humidity_high_alert_percent?: number | null
-          humidity_low_alert_percent?: number | null
-          id?: string
-          latitude: number
-          longitude: number
-          max_rain_probability_spray_percent?: number | null
-          max_temperature_spray_celsius?: number | null
-          max_wind_speed_spray_kmh?: number | null
-          min_temperature_spray_celsius?: number | null
-          preferred_station_id?: string | null
-          preferred_work_end_time?: string | null
-          preferred_work_start_time?: string | null
-          rain_probability_alert_percent?: number | null
-          temperature_max_alert?: number | null
-          temperature_min_alert?: number | null
-          tenant_id: string
+          expires_at: string
+          last_error?: string | null
+          last_error_at?: string | null
+          obtained_at?: string
+          provider: string
+          refresh_count?: number
+          token: string
+          token_type?: string
           updated_at?: string
-          wind_speed_alert_kmh?: number | null
         }
         Update: {
-          alert_language?: string | null
-          created_at?: string
-          enable_activity_recommendations?: boolean | null
-          enable_push_notifications?: boolean | null
-          enable_sms_alerts?: boolean | null
-          enable_voice_alerts?: boolean | null
-          farmer_id?: string
-          humidity_high_alert_percent?: number | null
-          humidity_low_alert_percent?: number | null
-          id?: string
-          latitude?: number
-          longitude?: number
-          max_rain_probability_spray_percent?: number | null
-          max_temperature_spray_celsius?: number | null
-          max_wind_speed_spray_kmh?: number | null
-          min_temperature_spray_celsius?: number | null
-          preferred_station_id?: string | null
-          preferred_work_end_time?: string | null
-          preferred_work_start_time?: string | null
-          rain_probability_alert_percent?: number | null
-          temperature_max_alert?: number | null
-          temperature_min_alert?: number | null
-          tenant_id?: string
+          expires_at?: string
+          last_error?: string | null
+          last_error_at?: string | null
+          obtained_at?: string
+          provider?: string
+          refresh_count?: number
+          token?: string
+          token_type?: string
           updated_at?: string
-          wind_speed_alert_kmh?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_weather_preferences_tenant"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "weather_preferences_preferred_station_id_fkey"
-            columns: ["preferred_station_id"]
-            isOneToOne: false
-            referencedRelation: "weather_stations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      weather_stations: {
-        Row: {
-          created_at: string
-          data_source: string
-          elevation_meters: number | null
-          id: string
-          is_active: boolean
-          last_updated: string | null
-          latitude: number
-          longitude: number
-          name: string
-          station_code: string
-        }
-        Insert: {
-          created_at?: string
-          data_source: string
-          elevation_meters?: number | null
-          id?: string
-          is_active?: boolean
-          last_updated?: string | null
-          latitude: number
-          longitude: number
-          name: string
-          station_code: string
-        }
-        Update: {
-          created_at?: string
-          data_source?: string
-          elevation_meters?: number | null
-          id?: string
-          is_active?: boolean
-          last_updated?: string | null
-          latitude?: number
-          longitude?: number
-          name?: string
-          station_code?: string
         }
         Relationships: []
       }
@@ -21855,6 +40828,60 @@ export type Database = {
         }
         Relationships: []
       }
+      weed_master: {
+        Row: {
+          authority: string
+          common_names: string[] | null
+          confidence: number | null
+          created_at: string | null
+          crop_associations: string[]
+          is_active: boolean
+          lifecycle: string | null
+          management_note: string | null
+          resistance_notes: string | null
+          review_status: string
+          scientific_name: string
+          season: string | null
+          source: string
+          weed_code: string
+          weed_type: string
+        }
+        Insert: {
+          authority: string
+          common_names?: string[] | null
+          confidence?: number | null
+          created_at?: string | null
+          crop_associations: string[]
+          is_active?: boolean
+          lifecycle?: string | null
+          management_note?: string | null
+          resistance_notes?: string | null
+          review_status?: string
+          scientific_name: string
+          season?: string | null
+          source: string
+          weed_code: string
+          weed_type: string
+        }
+        Update: {
+          authority?: string
+          common_names?: string[] | null
+          confidence?: number | null
+          created_at?: string | null
+          crop_associations?: string[]
+          is_active?: boolean
+          lifecycle?: string | null
+          management_note?: string | null
+          resistance_notes?: string | null
+          review_status?: string
+          scientific_name?: string
+          season?: string | null
+          source?: string
+          weed_code?: string
+          weed_type?: string
+        }
+        Relationships: []
+      }
       white_label_audit_log: {
         Row: {
           change_type: string
@@ -21922,6 +40949,7 @@ export type Database = {
           splash_screens: Json | null
           tenant_id: string | null
           theme_colors: Json | null
+          theme_history: Json
           updated_at: string | null
           updated_by: string | null
           validation_errors: Json | null
@@ -21951,6 +40979,7 @@ export type Database = {
           splash_screens?: Json | null
           tenant_id?: string | null
           theme_colors?: Json | null
+          theme_history?: Json
           updated_at?: string | null
           updated_by?: string | null
           validation_errors?: Json | null
@@ -21980,6 +41009,7 @@ export type Database = {
           splash_screens?: Json | null
           tenant_id?: string | null
           theme_colors?: Json | null
+          theme_history?: Json
           updated_at?: string | null
           updated_by?: string | null
           validation_errors?: Json | null
@@ -22026,57 +41056,99 @@ export type Database = {
       yield_predictions: {
         Row: {
           actual_yield_per_acre: number | null
+          area_acres: number | null
+          computed_at: string | null
           confidence_score: number | null
           created_at: string
+          crop_code: string | null
           crop_name: string
+          cultivation_method: string | null
+          evidence: Json | null
+          explanation: Json | null
+          factors: Json | null
           factors_considered: Json | null
           farmer_id: string
+          gaps: string[] | null
           harvest_date_estimate: string | null
           id: string
           land_id: string
           model_version: string | null
+          potential_source: Json | null
+          potential_yield_per_acre: number | null
+          predicted_yield_high_per_acre: number | null
+          predicted_yield_low_per_acre: number | null
           predicted_yield_per_acre: number
           prediction_accuracy: number | null
           prediction_date: string
+          schedule_id: string | null
           tenant_id: string
           updated_at: string
           variety: string | null
+          week_start: string | null
         }
         Insert: {
           actual_yield_per_acre?: number | null
+          area_acres?: number | null
+          computed_at?: string | null
           confidence_score?: number | null
           created_at?: string
+          crop_code?: string | null
           crop_name: string
+          cultivation_method?: string | null
+          evidence?: Json | null
+          explanation?: Json | null
+          factors?: Json | null
           factors_considered?: Json | null
           farmer_id: string
+          gaps?: string[] | null
           harvest_date_estimate?: string | null
           id?: string
           land_id: string
           model_version?: string | null
+          potential_source?: Json | null
+          potential_yield_per_acre?: number | null
+          predicted_yield_high_per_acre?: number | null
+          predicted_yield_low_per_acre?: number | null
           predicted_yield_per_acre: number
           prediction_accuracy?: number | null
           prediction_date: string
+          schedule_id?: string | null
           tenant_id: string
           updated_at?: string
           variety?: string | null
+          week_start?: string | null
         }
         Update: {
           actual_yield_per_acre?: number | null
+          area_acres?: number | null
+          computed_at?: string | null
           confidence_score?: number | null
           created_at?: string
+          crop_code?: string | null
           crop_name?: string
+          cultivation_method?: string | null
+          evidence?: Json | null
+          explanation?: Json | null
+          factors?: Json | null
           factors_considered?: Json | null
           farmer_id?: string
+          gaps?: string[] | null
           harvest_date_estimate?: string | null
           id?: string
           land_id?: string
           model_version?: string | null
+          potential_source?: Json | null
+          potential_yield_per_acre?: number | null
+          predicted_yield_high_per_acre?: number | null
+          predicted_yield_low_per_acre?: number | null
           predicted_yield_per_acre?: number
           prediction_accuracy?: number | null
           prediction_date?: string
+          schedule_id?: string | null
           tenant_id?: string
           updated_at?: string
           variety?: string | null
+          week_start?: string | null
         }
         Relationships: [
           {
@@ -22086,7 +41158,50 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "yield_predictions_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "crop_schedules"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      youtube_reel_engagement: {
+        Row: {
+          action: string
+          channel: string | null
+          created_at: string
+          farmer_id: string
+          id: string
+          metadata: Json
+          tenant_id: string
+          video_id: string
+          watched_seconds: number | null
+        }
+        Insert: {
+          action: string
+          channel?: string | null
+          created_at?: string
+          farmer_id: string
+          id?: string
+          metadata?: Json
+          tenant_id: string
+          video_id: string
+          watched_seconds?: number | null
+        }
+        Update: {
+          action?: string
+          channel?: string | null
+          created_at?: string
+          farmer_id?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string
+          video_id?: string
+          watched_seconds?: number | null
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -22146,6 +41261,77 @@ export type Database = {
           },
           {
             foreignKeyName: "subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_key_usage_daily: {
+        Row: {
+          calls: number | null
+          cost_usd: number | null
+          day: string | null
+          failed_calls: number | null
+          group_key: string | null
+          input_tokens: number | null
+          key_slot: number | null
+          last_call_at: string | null
+          last_error_at: string | null
+          limited_calls: number | null
+          ok_calls: number | null
+          output_tokens: number | null
+          pool: string | null
+          provider: string | null
+          tokens: number | null
+        }
+        Relationships: []
+      }
+      ai_usage_daily: {
+        Row: {
+          avg_latency_ms: number | null
+          cached_input_tokens: number | null
+          calls: number | null
+          cost_usd: number | null
+          day: string | null
+          failed_calls: number | null
+          fallback_calls: number | null
+          feature_key: string | null
+          function_name: string | null
+          input_tokens: number | null
+          model_name: string | null
+          model_requested: string | null
+          ok_calls: number | null
+          output_tokens: number | null
+          task_key: string | null
+          tenant_id: string | null
+          uncosted_calls: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_model_metrics_model_key_fkey"
+            columns: ["model_name"]
+            isOneToOne: false
+            referencedRelation: "ai_model_catalog"
+            referencedColumns: ["model_key"]
+          },
+          {
+            foreignKeyName: "ai_model_metrics_model_requested_fkey"
+            columns: ["model_requested"]
+            isOneToOne: false
+            referencedRelation: "ai_model_catalog"
+            referencedColumns: ["model_key"]
+          },
+          {
+            foreignKeyName: "ai_model_metrics_task_key_fkey"
+            columns: ["task_key"]
+            isOneToOne: false
+            referencedRelation: "ai_task_route"
+            referencedColumns: ["task_key"]
+          },
+          {
+            foreignKeyName: "ai_model_metrics_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -22214,6 +41400,68 @@ export type Database = {
           type?: string | null
         }
         Relationships: []
+      }
+      hypotheses: {
+        Row: {
+          biological_basis: string | null
+          canonical_group: string | null
+          cause_name_en: string | null
+          cause_name_hi: string | null
+          cause_name_mr: string | null
+          created_at: string | null
+          crop_group: string | null
+          engine_min_version: string | null
+          hypothesis_id: string | null
+          hypothesis_type: string | null
+          id: string | null
+          is_active: boolean | null
+          severity_model: string | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          biological_basis?: string | null
+          canonical_group?: string | null
+          cause_name_en?: string | null
+          cause_name_hi?: string | null
+          cause_name_mr?: string | null
+          created_at?: string | null
+          crop_group?: string | null
+          engine_min_version?: string | null
+          hypothesis_id?: string | null
+          hypothesis_type?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          severity_model?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          biological_basis?: string | null
+          canonical_group?: string | null
+          cause_name_en?: string | null
+          cause_name_hi?: string | null
+          cause_name_mr?: string | null
+          created_at?: string | null
+          crop_group?: string | null
+          engine_min_version?: string | null
+          hypothesis_id?: string | null
+          hypothesis_type?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          severity_model?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
       }
       land_agent_context: {
         Row: {
@@ -22379,7 +41627,44 @@ export type Database = {
             referencedRelation: "lands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
         ]
+      }
+      observation_label_integrity: {
+        Row: {
+          display_text: string | null
+          issue: string | null
+          language_code: string | null
+          observation_codes: string[] | null
+        }
+        Relationships: []
       }
       pending_payouts: {
         Row: {
@@ -22423,6 +41708,80 @@ export type Database = {
           },
         ]
       }
+      qa_proactive_rule_health: {
+        Row: {
+          condition_type: string | null
+          crop_code: string | null
+          health_issue: string | null
+          rule_code: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proactive_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "proactive_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      qa_rule_crop_content_mismatch: {
+        Row: {
+          condition_code: string | null
+          crop_code: string | null
+          defect_class: string | null
+          id: string | null
+          is_active: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "fk_decision_rules_condition_code"
+            columns: ["condition_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+        ]
+      }
+      rule_authority_weights: {
+        Row: {
+          authority_weight: number | null
+          canonical_group: string | null
+          rule_id: string | null
+        }
+        Insert: {
+          authority_weight?: never
+          canonical_group?: string | null
+          rule_id?: string | null
+        }
+        Update: {
+          authority_weight?: never
+          canonical_group?: string | null
+          rule_id?: string | null
+        }
+        Relationships: []
+      }
       security_audit_summary: {
         Row: {
           audit_category: string | null
@@ -22443,6 +41802,1619 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ai_clarification_attribution_90d: {
+        Row: {
+          avg_top_confidence: number | null
+          clarification_origin: string | null
+          clarification_site: string | null
+          crop_context: string | null
+          disposition: string | null
+          first_seen: string | null
+          last_seen: string | null
+          reached_decision_brain: number | null
+          response_type: string | null
+          rules_matched_turns: number | null
+          turns: number | null
+        }
+        Relationships: []
+      }
+      v_ai_drop_attribution_90d: {
+        Row: {
+          clarification_origin: string | null
+          crop_context: string | null
+          drop_stage: string | null
+          primary_decision_turns: number | null
+          response_source: string | null
+          response_type: string | null
+          rules_lost_at_drop_stage: number | null
+          rules_matched_turns: number | null
+          turns: number | null
+        }
+        Relationships: []
+      }
+      v_approval_portal_queue: {
+        Row: {
+          action_text: string | null
+          active_ingredient: string | null
+          category: string | null
+          crop_code: string | null
+          dosage_per_acre: string | null
+          evidence: Json | null
+          needs_dosage: boolean | null
+          needs_phi: boolean | null
+          needs_signature: boolean | null
+          open_findings: Json | null
+          phi_days: number | null
+          phi_source: string | null
+          phi_status: string | null
+          reason_text: string | null
+          regulatory_status: string | null
+          review_batch: string | null
+          rule_id: string | null
+          scientific_source: string | null
+          stage_applicable: string[] | null
+          verification_status: string | null
+          water_volume_per_acre: string | null
+        }
+        Insert: {
+          action_text?: string | null
+          active_ingredient?: string | null
+          category?: string | null
+          crop_code?: string | null
+          dosage_per_acre?: string | null
+          evidence?: never
+          needs_dosage?: never
+          needs_phi?: never
+          needs_signature?: never
+          open_findings?: never
+          phi_days?: number | null
+          phi_source?: string | null
+          phi_status?: string | null
+          reason_text?: string | null
+          regulatory_status?: string | null
+          review_batch?: never
+          rule_id?: string | null
+          scientific_source?: string | null
+          stage_applicable?: string[] | null
+          verification_status?: string | null
+          water_volume_per_acre?: string | null
+        }
+        Update: {
+          action_text?: string | null
+          active_ingredient?: string | null
+          category?: string | null
+          crop_code?: string | null
+          dosage_per_acre?: string | null
+          evidence?: never
+          needs_dosage?: never
+          needs_phi?: never
+          needs_signature?: never
+          open_findings?: never
+          phi_days?: number | null
+          phi_source?: string | null
+          phi_status?: string | null
+          reason_text?: string | null
+          regulatory_status?: string | null
+          review_batch?: never
+          rule_id?: string | null
+          scientific_source?: string | null
+          stage_applicable?: string[] | null
+          verification_status?: string | null
+          water_volume_per_acre?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_block_safety_flag_mismatch: {
+        Row: {
+          action_text: string | null
+          action_type: string | null
+          blocked_ingredient_ref: string | null
+          category: string | null
+          crop_code: string | null
+          input_class: string | null
+          is_safety_block: boolean | null
+          mismatch: string | null
+          n_blocks_edges: number | null
+          n_contra_edges: number | null
+          rule_id: string | null
+          rule_intent: string | null
+          trigger_class: string | null
+        }
+        Insert: {
+          action_text?: never
+          action_type?: string | null
+          blocked_ingredient_ref?: string | null
+          category?: string | null
+          crop_code?: string | null
+          input_class?: string | null
+          is_safety_block?: boolean | null
+          mismatch?: never
+          n_blocks_edges?: never
+          n_contra_edges?: never
+          rule_id?: string | null
+          rule_intent?: string | null
+          trigger_class?: string | null
+        }
+        Update: {
+          action_text?: never
+          action_type?: string | null
+          blocked_ingredient_ref?: string | null
+          category?: string | null
+          crop_code?: string | null
+          input_class?: string | null
+          is_safety_block?: boolean | null
+          mismatch?: never
+          n_blocks_edges?: never
+          n_contra_edges?: never
+          rule_id?: string | null
+          rule_intent?: string | null
+          trigger_class?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_blocking_rule_semantic_conflict: {
+        Row: {
+          action_type: string | null
+          category: string | null
+          crop_code: string | null
+          problem: string | null
+          rule_id: string | null
+          semantic_class: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_chemical_approval_backlog: {
+        Row: {
+          active_ingredient: string | null
+          category: string | null
+          cause: string | null
+          crop_code: string | null
+          dosage_per_acre: string | null
+          evidence_region: string | null
+          missing_dose: boolean | null
+          missing_phi: boolean | null
+          multi_ingredient_packed: boolean | null
+          phi_days: number | null
+          regulatory_status: string | null
+          risk_level: string | null
+          rule_id: string | null
+          scope_level: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_chemical_serving_gate: {
+        Row: {
+          active_ingredient: string | null
+          block_product_recommendation: boolean | null
+          category: string | null
+          chemical_gate_pass: boolean | null
+          condition_code: string | null
+          crop_code: string | null
+          id: string | null
+          phi_days: number | null
+          phi_status: string | null
+          reentry_interval_hours: number | null
+          rule_id: string | null
+        }
+        Insert: {
+          active_ingredient?: string | null
+          block_product_recommendation?: never
+          category?: string | null
+          chemical_gate_pass?: never
+          condition_code?: string | null
+          crop_code?: string | null
+          id?: string | null
+          phi_days?: number | null
+          phi_status?: string | null
+          reentry_interval_hours?: number | null
+          rule_id?: string | null
+        }
+        Update: {
+          active_ingredient?: string | null
+          block_product_recommendation?: never
+          category?: string | null
+          chemical_gate_pass?: never
+          condition_code?: string | null
+          crop_code?: string | null
+          id?: string | null
+          phi_days?: number | null
+          phi_status?: string | null
+          reentry_interval_hours?: number | null
+          rule_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "fk_decision_rules_condition_code"
+            columns: ["condition_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+        ]
+      }
+      v_chemical_variety_safety_violation: {
+        Row: {
+          active_ingredient: string | null
+          consequence_if_absent: string | null
+          crop_code: string | null
+          currently_servable: boolean | null
+          required_trait: string | null
+          rule_id: string | null
+          severity: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_condition_key_schema_token_leak: {
+        Row: {
+          condition_key: string | null
+          condition_type: string | null
+          crop_group: string | null
+          hypothesis_id: string | null
+          problem: string | null
+          value_json: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
+      v_context_block_contract_violation: {
+        Row: {
+          cultivation_unspecified: boolean | null
+          missing_conflict_edge: boolean | null
+          missing_hypothesis_edge: boolean | null
+          missing_predicate: boolean | null
+          missing_safety_classification: boolean | null
+          rule_id: string | null
+        }
+        Insert: {
+          cultivation_unspecified?: never
+          missing_conflict_edge?: never
+          missing_hypothesis_edge?: never
+          missing_predicate?: never
+          missing_safety_classification?: never
+          rule_id?: string | null
+        }
+        Update: {
+          cultivation_unspecified?: never
+          missing_conflict_edge?: never
+          missing_hypothesis_edge?: never
+          missing_predicate?: never
+          missing_safety_classification?: never
+          rule_id?: string | null
+        }
+        Relationships: []
+      }
+      v_contradiction_unresolvable: {
+        Row: {
+          contradiction_key: string | null
+          contradiction_type: string | null
+          contradiction_value: string | null
+          crop_group: string | null
+          hypothesis_id: string | null
+          problem: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_contradictions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_contradictions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_contradictions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_contradictions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
+      v_crop_codes: {
+        Row: {
+          code: string | null
+          code_upper: string | null
+          is_active: boolean | null
+          kind: string | null
+          label_en: string | null
+          label_hi: string | null
+          label_mr: string | null
+        }
+        Relationships: []
+      }
+      v_crop_gate_coverage: {
+        Row: {
+          blocking_gates: number | null
+          chemical_rules: number | null
+          crop_code: string | null
+          gates: number | null
+          risk: string | null
+          safety_rules: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_crop_method_calendar_flag_mismatch: {
+        Row: {
+          actual_rows: number | null
+          crop_code: string | null
+          has_stage_calendar: boolean | null
+          method_code: string | null
+        }
+        Insert: {
+          actual_rows?: never
+          crop_code?: string | null
+          has_stage_calendar?: boolean | null
+          method_code?: string | null
+        }
+        Update: {
+          actual_rows?: never
+          crop_code?: string | null
+          has_stage_calendar?: boolean | null
+          method_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_cultivation_methods_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_cultivation_methods_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_cultivation_methods_method_code_fkey"
+            columns: ["method_code"]
+            isOneToOne: false
+            referencedRelation: "cultivation_method_master"
+            referencedColumns: ["method_code"]
+          },
+        ]
+      }
+      v_crop_stage_master_null_method: {
+        Row: {
+          crop_code: string | null
+          crop_cycle: string | null
+          das_max: number | null
+          das_min: number | null
+          growth_stage: string | null
+          id: string | null
+          stage_code: string | null
+        }
+        Insert: {
+          crop_code?: string | null
+          crop_cycle?: string | null
+          das_max?: number | null
+          das_min?: number | null
+          growth_stage?: string | null
+          id?: string | null
+          stage_code?: string | null
+        }
+        Update: {
+          crop_code?: string | null
+          crop_cycle?: string | null
+          das_max?: number | null
+          das_min?: number | null
+          growth_stage?: string | null
+          id?: string | null
+          stage_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_stage_master_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_crop_varieties: {
+        Row: {
+          company_id: string | null
+          company_logo_url: string | null
+          company_name: string | null
+          crop_code: string | null
+          crop_id: string | null
+          crop_label: string | null
+          crop_label_hi: string | null
+          crop_label_mr: string | null
+          disease_resistance: Json | null
+          images: Json | null
+          is_featured: boolean | null
+          label_hi: string | null
+          label_mr: string | null
+          maturity_days_max: number | null
+          maturity_days_min: number | null
+          name: string | null
+          parentage: string | null
+          pest_tolerance: Json | null
+          popularity_score: number | null
+          recommended_regions: Json | null
+          release_year: number | null
+          released_by: string | null
+          season: string | null
+          seed_rate_kg_per_acre: number | null
+          spacing: Json | null
+          status: string | null
+          tenant_scope_id: string | null
+          variety_code: string | null
+          variety_id: string | null
+          visibility: string | null
+          yield_potential_qtl_per_acre: number | null
+        }
+        Relationships: []
+      }
+      v_decision_rules_admin: {
+        Row: {
+          action_type: string | null
+          active_ingredient: string | null
+          bee_toxicity: string | null
+          canonical_group: string | null
+          category: string | null
+          cause: string | null
+          condition_code: string | null
+          conditions_json: Json | null
+          created_at: string | null
+          crop_code: string | null
+          crop_group: string | null
+          icar_package_ref: string | null
+          id: string | null
+          ipm_level: number | null
+          is_active: boolean | null
+          organic_alternative: string | null
+          phi_days: number | null
+          priority: number | null
+          rule_id: string | null
+          scientific_basis: string | null
+          scientific_source: string | null
+          stage_applicable: string[] | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          action_type?: string | null
+          active_ingredient?: string | null
+          bee_toxicity?: string | null
+          canonical_group?: string | null
+          category?: string | null
+          cause?: string | null
+          condition_code?: string | null
+          conditions_json?: Json | null
+          created_at?: string | null
+          crop_code?: string | null
+          crop_group?: string | null
+          icar_package_ref?: string | null
+          id?: string | null
+          ipm_level?: number | null
+          is_active?: boolean | null
+          organic_alternative?: string | null
+          phi_days?: number | null
+          priority?: number | null
+          rule_id?: string | null
+          scientific_basis?: string | null
+          scientific_source?: string | null
+          stage_applicable?: string[] | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          action_type?: string | null
+          active_ingredient?: string | null
+          bee_toxicity?: string | null
+          canonical_group?: string | null
+          category?: string | null
+          cause?: string | null
+          condition_code?: string | null
+          conditions_json?: Json | null
+          created_at?: string | null
+          crop_code?: string | null
+          crop_group?: string | null
+          icar_package_ref?: string | null
+          id?: string | null
+          ipm_level?: number | null
+          is_active?: boolean | null
+          organic_alternative?: string | null
+          phi_days?: number | null
+          priority?: number | null
+          rule_id?: string | null
+          scientific_basis?: string | null
+          scientific_source?: string | null
+          stage_applicable?: string[] | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "fk_decision_rules_condition_code"
+            columns: ["condition_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+        ]
+      }
+      v_dr_audit_metrics: {
+        Row: {
+          chemical: number | null
+          final_verification_status: string | null
+          graph_orphans: number | null
+          in_duplicate_groups: number | null
+          phi_missing: number | null
+          rules: number | null
+        }
+        Relationships: []
+      }
+      v_dr_human_review_queue: {
+        Row: {
+          active_ingredient: string | null
+          category: string | null
+          crop_code: string | null
+          final_verification_status: string | null
+          phi_days: number | null
+          rule_id: string | null
+          rule_pk: string | null
+          safety_status: string | null
+          scientific_source: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_ai_audit_rule_pk_fkey"
+            columns: ["rule_pk"]
+            isOneToOne: false
+            referencedRelation: "decision_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_rules_ai_audit_rule_pk_fkey"
+            columns: ["rule_pk"]
+            isOneToOne: false
+            referencedRelation: "qa_rule_crop_content_mismatch"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_rules_ai_audit_rule_pk_fkey"
+            columns: ["rule_pk"]
+            isOneToOne: false
+            referencedRelation: "v_chemical_serving_gate"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_rules_ai_audit_rule_pk_fkey"
+            columns: ["rule_pk"]
+            isOneToOne: false
+            referencedRelation: "v_decision_rules_admin"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_dsr_suitability_trait_conflict: {
+        Row: {
+          conflict_reason: string | null
+          early_vigour_score: number | null
+          limiting_factor: string | null
+          lodging_resistance_score: number | null
+          name: string | null
+          plant_height_class: string | null
+          suitability_grade: string | null
+          trait_total: number | null
+          variety_code: string | null
+          weed_competitiveness_score: number | null
+        }
+        Relationships: []
+      }
+      v_etl_stage_not_in_vocabulary: {
+        Row: {
+          crop_code: string | null
+          invalid_stage: string | null
+          pest_code: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etl_standards_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "etl_standards_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "etl_standards_pest_code_fk"
+            columns: ["pest_code"]
+            isOneToOne: false
+            referencedRelation: "pest_master"
+            referencedColumns: ["pest_code"]
+          },
+        ]
+      }
+      v_etl_threshold_inconsistent: {
+        Row: {
+          action_threshold: number | null
+          crop_code: string | null
+          etl_unit: string | null
+          etl_value: number | null
+          pest_code: string | null
+          pest_name_en: string | null
+          problem: string | null
+        }
+        Insert: {
+          action_threshold?: number | null
+          crop_code?: string | null
+          etl_unit?: string | null
+          etl_value?: number | null
+          pest_code?: string | null
+          pest_name_en?: string | null
+          problem?: never
+        }
+        Update: {
+          action_threshold?: number | null
+          crop_code?: string | null
+          etl_unit?: string | null
+          etl_value?: number | null
+          pest_code?: string | null
+          pest_name_en?: string | null
+          problem?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etl_standards_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "etl_standards_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "etl_standards_pest_code_fk"
+            columns: ["pest_code"]
+            isOneToOne: false
+            referencedRelation: "pest_master"
+            referencedColumns: ["pest_code"]
+          },
+        ]
+      }
+      v_farm_today: {
+        Row: {
+          alerts_pending: number | null
+          canopy: Json | null
+          computed_at: string | null
+          crop_code: string | null
+          das: number | null
+          dat: number | null
+          decisions: Json | null
+          farmer_id: string | null
+          gaps: string[] | null
+          growth_stage: string | null
+          land_id: string | null
+          observations: Json | null
+          stage_code: string | null
+          stage_confidence: number | null
+          stage_drift_days: number | null
+          stage_source: string | null
+          stage_uuid: string | null
+          stage_window: Json | null
+          state_date: string | null
+          state_version: Json | null
+          tenant_id: string | null
+          thermal: Json | null
+          water: Json | null
+        }
+        Insert: {
+          alerts_pending?: number | null
+          canopy?: Json | null
+          computed_at?: string | null
+          crop_code?: string | null
+          das?: number | null
+          dat?: number | null
+          decisions?: never
+          farmer_id?: string | null
+          gaps?: string[] | null
+          growth_stage?: string | null
+          land_id?: string | null
+          observations?: Json | null
+          stage_code?: string | null
+          stage_confidence?: number | null
+          stage_drift_days?: number | null
+          stage_source?: string | null
+          stage_uuid?: string | null
+          stage_window?: Json | null
+          state_date?: string | null
+          state_version?: Json | null
+          tenant_id?: string | null
+          thermal?: Json | null
+          water?: Json | null
+        }
+        Update: {
+          alerts_pending?: number | null
+          canopy?: Json | null
+          computed_at?: string | null
+          crop_code?: string | null
+          das?: number | null
+          dat?: number | null
+          decisions?: never
+          farmer_id?: string | null
+          gaps?: string[] | null
+          growth_stage?: string | null
+          land_id?: string | null
+          observations?: Json | null
+          stage_code?: string | null
+          stage_confidence?: number | null
+          stage_drift_days?: number | null
+          stage_source?: string | null
+          stage_uuid?: string | null
+          stage_window?: Json | null
+          state_date?: string | null
+          state_version?: Json | null
+          tenant_id?: string | null
+          thermal?: Json | null
+          water?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "land_farm_state_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+        ]
+      }
+      v_gate_taxonomy_drift: {
+        Row: {
+          canonical_group: string | null
+          category: string | null
+          crops: string | null
+          non_blocking: number | null
+          rules: number | null
+          why: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+        ]
+      }
+      v_gdd_pipeline_health: {
+        Row: {
+          bad_base_temp: boolean | null
+          current_crop: string | null
+          current_gdd: number | null
+          daily_rows: number | null
+          gdd_anchor_date: string | null
+          has_null_temp_rows: boolean | null
+          health: string | null
+          land_id: string | null
+          last_positive_gdd: string | null
+          latest_obs: string | null
+          zero_days: number | null
+        }
+        Relationships: []
+      }
+      v_harvest_market_context: {
+        Row: {
+          crop_code: string | null
+          district: string | null
+          harvest_rules_available: number | null
+          market_location: string | null
+          market_name: string | null
+          max_price: number | null
+          min_price: number | null
+          modal_price: number | null
+          price_date: string | null
+          state: string | null
+          unit: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_name_map_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "market_name_map_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_hypothesis_broken_observation_refs: {
+        Row: {
+          breakage_reason: string | null
+          condition_key: string | null
+          condition_type: string | null
+          crop_group: string | null
+          hypothesis_id: string | null
+          is_discriminator: boolean | null
+          is_required: boolean | null
+          missing_observation_code: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
+      v_hypothesis_condition_contract_violation: {
+        Row: {
+          condition_key: string | null
+          condition_type: string | null
+          crop_group: string | null
+          hypothesis_id: string | null
+          operator: string | null
+          value_json: string | null
+          violation: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
+      v_hypothesis_invalid_stage_refs: {
+        Row: {
+          crop_group: string | null
+          hypothesis_id: string | null
+          invalid_stage: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
+      v_intent_missing_vernacular: {
+        Row: {
+          crop_code: string | null
+          hi: number | null
+          intent_category: string | null
+          intent_code: string | null
+          mr: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intent_observation_mapping_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "intent_observation_mapping_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "observation_intent_master_category_fk"
+            columns: ["intent_category"]
+            isOneToOne: false
+            referencedRelation: "intent_category_master"
+            referencedColumns: ["category"]
+          },
+        ]
+      }
+      v_land_economics: {
+        Row: {
+          active_schedule_id: string | null
+          area_acres: number | null
+          computed_at: string | null
+          confidence_score: number | null
+          crop_code: string | null
+          crop_name: string | null
+          cultivation_method: string | null
+          estimate_rows: number | null
+          estimated_due: number | null
+          estimated_remaining: number | null
+          estimates_this_week: number | null
+          expected_harvest_date: string | null
+          explanation: Json | null
+          factors: Json | null
+          farmer_id: string | null
+          gaps: string[] | null
+          harvest_status: Database["public"]["Enums"]["harvest_status"] | null
+          income_high: number | null
+          income_low: number | null
+          income_received: number | null
+          land_id: string | null
+          land_name: string | null
+          model_version: string | null
+          potential_yield_per_acre: number | null
+          predicted_total_high_qtl: number | null
+          predicted_total_low_qtl: number | null
+          predicted_total_qtl: number | null
+          predicted_yield_high_per_acre: number | null
+          predicted_yield_low_per_acre: number | null
+          predicted_yield_per_acre: number | null
+          prev_predicted_per_acre: number | null
+          prev_week_start: string | null
+          price_per_quintal: number | null
+          sowing_date: string | null
+          spent_confirmed: number | null
+          spent_rows: number | null
+          tenant_id: string | null
+          variety: string | null
+          week_start: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lands_active_schedule_fk"
+            columns: ["active_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "crop_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lands_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lands_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+        ]
+      }
+      v_land_region: {
+        Row: {
+          farmer_id: string | null
+          land_id: string | null
+          region_code: string | null
+          state_code: string | null
+          state_name: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lands_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lands_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+        ]
+      }
+      v_learning_loop_health: {
+        Row: {
+          decisions_total: number | null
+          efficacy_updates_applied: number | null
+          efficacy_updates_proposed: number | null
+          followups_overdue: number | null
+          followups_responded: number | null
+          followups_scheduled: number | null
+          outcomes_confounded: number | null
+          outcomes_total: number | null
+          outcomes_usable: number | null
+          suggestions_open: number | null
+        }
+        Relationships: []
+      }
+      v_missing_translations: {
+        Row: {
+          description: string | null
+          has_en: string | null
+          has_hi: string | null
+          has_mr: string | null
+          obs_code: string | null
+          observation_category: string | null
+        }
+        Relationships: []
+      }
+      v_ndvi_decision_grade: {
+        Row: {
+          acquisition_date: string | null
+          acquisition_time: string | null
+          age_days: number | null
+          boundary_contamination_fraction: number | null
+          cloud_cover: number | null
+          confidence_level: string | null
+          coverage_weighted_purity: number | null
+          effective_pixel_count: number | null
+          evidence_confidence: string | null
+          is_fresh: boolean | null
+          land_id: string | null
+          mcari_value: number | null
+          measurement_status: string | null
+          ndmi_value: number | null
+          ndre_value: number | null
+          ndvi_spatial_se: number | null
+          ndvi_spatial_std: number | null
+          ndvi_value: number | null
+          observation_source: string | null
+          quality_score: number | null
+          recency_rank: number | null
+          savi_value: number | null
+          scene_id: string | null
+          spatial_stat_method: string | null
+          tenant_id: string | null
+          uniformity_cv: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_ndvi_data_tenant"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_agent_context"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_a_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_boundary_overlaps"
+            referencedColumns: ["land_b_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "land_tile_coverage"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "lands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "ndvi_data_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+        ]
+      }
+      v_ndvi_stage_coverage: {
+        Row: {
+          crop_code: string | null
+          crop_cycle: string | null
+          cultivation_method: string | null
+          das_reference: string | null
+          missing_ndvi: number | null
+          missing_stage_code: number | null
+          pct_covered: number | null
+          resolvable_stages: number | null
+          stage_role: string | null
+          with_ndvi: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_stage_master_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "crop_stage_master_cultivation_method_fk"
+            columns: ["cultivation_method"]
+            isOneToOne: false
+            referencedRelation: "cultivation_method_master"
+            referencedColumns: ["method_code"]
+          },
+        ]
+      }
+      v_observation_missing_farmer_alias: {
+        Row: {
+          crop_group: string | null
+          description: string | null
+          observation_code: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
       v_recent_scraper_runs: {
         Row: {
           completed_at: string | null
@@ -22456,6 +43428,511 @@ export type Database = {
           status: string | null
         }
         Relationships: []
+      }
+      v_rice_rule_certification: {
+        Row: {
+          category: string | null
+          certification_status: string | null
+          condition_ok: boolean | null
+          dose_ok: boolean | null
+          etl_ok: boolean | null
+          expert_approved: boolean | null
+          is_active: boolean | null
+          is_farmer_servable: boolean | null
+          phi_ok: boolean | null
+          phi_status: string | null
+          policy_ok: boolean | null
+          regulatory_status: string | null
+          rule_class: string | null
+          rule_id: string | null
+          source_ok: boolean | null
+          stage_ok: boolean | null
+          why_ok: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+        ]
+      }
+      v_rice_rule_certification_v2: {
+        Row: {
+          blocking_reason: string | null
+          category: string | null
+          compile_status: string | null
+          cultivation_status: string | null
+          dose_status: string | null
+          etl_status: string | null
+          evidence_status: string | null
+          expert_approved: boolean | null
+          final_certification: string | null
+          is_active: boolean | null
+          is_farmer_servable: boolean | null
+          pest_code: string | null
+          phi_status: string | null
+          phi_status_gate: string | null
+          policy_status: string | null
+          regulatory_status: string | null
+          rule_class: string | null
+          rule_id: string | null
+          runtime_status: string | null
+          safety_status: string | null
+          stage_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_pest_code_fk"
+            columns: ["pest_code"]
+            isOneToOne: false
+            referencedRelation: "pest_master"
+            referencedColumns: ["pest_code"]
+          },
+        ]
+      }
+      v_rule_banned_substance_audit: {
+        Row: {
+          category: string | null
+          crop_code: string | null
+          is_farmer_servable: boolean | null
+          likely_warning_context: boolean | null
+          mention: string | null
+          rule_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          crop_code?: string | null
+          is_farmer_servable?: boolean | null
+          likely_warning_context?: never
+          mention?: never
+          rule_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          crop_code?: string | null
+          is_farmer_servable?: boolean | null
+          likely_warning_context?: never
+          mention?: never
+          rule_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_rule_category_unmapped: {
+        Row: {
+          affected_crops: string | null
+          blocking_rules_silently_downgraded: number | null
+          category: string | null
+          crops: number | null
+          rules: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+        ]
+      }
+      v_rule_coverage_gaps: {
+        Row: {
+          category: string | null
+          crop_code: string | null
+          has_rule: boolean | null
+          stage: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_rule_dose_label_audit: {
+        Row: {
+          action_text: string | null
+          category: string | null
+          crop_code: string | null
+          gl_hi: number | null
+          gl_lo: number | null
+          is_mismatch: boolean | null
+          pct_hi: number | null
+          pct_lo: number | null
+          rule_id: string | null
+          unit: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_rule_governance_status: {
+        Row: {
+          active_rules: number | null
+          approved_pct: number | null
+          crop_code: string | null
+          expert_approved: number | null
+          farmer_servable: number | null
+          reason_pct: number | null
+          with_reason_text: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_rule_id_grammar_violation: {
+        Row: {
+          category: string | null
+          crop_code: string | null
+          rule_id: string | null
+          scope: string | null
+          violation: string | null
+        }
+        Insert: {
+          category?: string | null
+          crop_code?: string | null
+          rule_id?: string | null
+          scope?: string | null
+          violation?: never
+        }
+        Update: {
+          category?: string | null
+          crop_code?: string | null
+          rule_id?: string | null
+          scope?: string | null
+          violation?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_rule_performance_live: {
+        Row: {
+          eligible_for_efficacy_update: boolean | null
+          eligible_for_review_flag: boolean | null
+          failures: number | null
+          rule_id: string | null
+          success_pct: number | null
+          successes: number | null
+          usable_outcomes: number | null
+        }
+        Relationships: []
+      }
+      v_rule_stage_method_mismatch: {
+        Row: {
+          crop_code: string | null
+          cultivation_method_applicable: string[] | null
+          impossible_stage: string | null
+          rule_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_rules_missing_evidence: {
+        Row: {
+          active_ingredient: string | null
+          category: string | null
+          crop_code: string | null
+          expert_approved: boolean | null
+          is_farmer_servable: boolean | null
+          rule_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_rules_ungoverned_servable: {
+        Row: {
+          category: string | null
+          crop_code: string | null
+          has_evidence_row: boolean | null
+          has_freetext_source: boolean | null
+          rule_id: string | null
+          verification_status: string | null
+        }
+        Insert: {
+          category?: string | null
+          crop_code?: string | null
+          has_evidence_row?: never
+          has_freetext_source?: never
+          rule_id?: string | null
+          verification_status?: string | null
+        }
+        Update: {
+          category?: string | null
+          crop_code?: string | null
+          has_evidence_row?: never
+          has_freetext_source?: never
+          rule_id?: string | null
+          verification_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_safety_block_review_queue: {
+        Row: {
+          action_type: string | null
+          blocked_ingredient_ref: string | null
+          category: string | null
+          crop_code: string | null
+          issue: string | null
+          rule_id: string | null
+          uncertainty_handling_mode: string | null
+        }
+        Insert: {
+          action_type?: string | null
+          blocked_ingredient_ref?: string | null
+          category?: string | null
+          crop_code?: string | null
+          issue?: never
+          rule_id?: string | null
+          uncertainty_handling_mode?: string | null
+        }
+        Update: {
+          action_type?: string | null
+          blocked_ingredient_ref?: string | null
+          category?: string | null
+          crop_code?: string | null
+          issue?: never
+          rule_id?: string | null
+          uncertainty_handling_mode?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       v_scraper_performance: {
         Row: {
@@ -22480,126 +43957,917 @@ export type Database = {
           },
         ]
       }
-      weather_with_location: {
+      v_seed_rate_null_trap: {
         Row: {
-          area_acres: number | null
-          center_lat: number | null
-          center_lon: number | null
-          cloud_coverage_percent: number | null
-          created_at: string | null
-          dew_point_celsius: number | null
-          district: string | null
-          farmer_id: string | null
-          feels_like_celsius: number | null
-          humidity_percent: number | null
-          id: string | null
-          land_id: string | null
-          land_name: string | null
-          location_coords: Json | null
-          metadata: Json | null
-          observation_date: string | null
-          observation_time: string | null
-          pressure_hpa: number | null
-          rainfall_mm: number | null
-          temperature_celsius: number | null
-          tenant_id: string | null
-          updated_at: string | null
-          uv_index: number | null
-          village: string | null
-          visibility_km: number | null
-          weather_condition: string | null
-          wind_direction: string | null
-          wind_speed_kmh: number | null
+          name: string | null
+          variety_code: string | null
+          warning: string | null
+        }
+        Relationships: []
+      }
+      v_sources_currency_due: {
+        Row: {
+          authority_tier: number | null
+          last_checked: string | null
+          source_code: string | null
+          title: string | null
+          url: string | null
+        }
+        Insert: {
+          authority_tier?: number | null
+          last_checked?: never
+          source_code?: string | null
+          title?: string | null
+          url?: string | null
+        }
+        Update: {
+          authority_tier?: number | null
+          last_checked?: never
+          source_code?: string | null
+          title?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      v_stage_clock_method_mismatch: {
+        Row: {
+          crop_code: string | null
+          cultivation_method: string | null
+          das_reference: string | null
+          field_clock_reference: string | null
+          nursery_clock_reference: string | null
+          requires_nursery: boolean | null
+          stage_code: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "fk_weather_land"
-            columns: ["land_id"]
+            foreignKeyName: "crop_stage_master_crop_code_registry_fk"
+            columns: ["crop_code"]
             isOneToOne: false
-            referencedRelation: "land_agent_context"
-            referencedColumns: ["land_id"]
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
           },
           {
-            foreignKeyName: "fk_weather_land"
-            columns: ["land_id"]
+            foreignKeyName: "crop_stage_master_crop_code_registry_fk"
+            columns: ["crop_code"]
             isOneToOne: false
-            referencedRelation: "land_boundary_overlaps"
-            referencedColumns: ["land_a_id"]
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
           },
           {
-            foreignKeyName: "fk_weather_land"
-            columns: ["land_id"]
+            foreignKeyName: "crop_stage_master_cultivation_method_fk"
+            columns: ["cultivation_method"]
             isOneToOne: false
-            referencedRelation: "land_boundary_overlaps"
-            referencedColumns: ["land_b_id"]
+            referencedRelation: "cultivation_method_master"
+            referencedColumns: ["method_code"]
+          },
+        ]
+      }
+      v_stage_partition_leaks: {
+        Row: {
+          collides_with: string | null
+          crop_code: string | null
+          overlap_from: number | null
+          overlap_to: number | null
+          wildcard_stage: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_stage_master_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
           },
           {
-            foreignKeyName: "fk_weather_land"
-            columns: ["land_id"]
+            foreignKeyName: "crop_stage_master_crop_code_registry_fk"
+            columns: ["crop_code"]
             isOneToOne: false
-            referencedRelation: "land_tile_coverage"
-            referencedColumns: ["land_id"]
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_stage_transition_invalid: {
+        Row: {
+          confidence: number | null
+          crop_code: string | null
+          from_stage: string | null
+          priority: number | null
+          problem: string | null
+          to_stage: string | null
+          trigger_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stage_transition_conditions_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
           },
           {
-            foreignKeyName: "fk_weather_land"
-            columns: ["land_id"]
+            foreignKeyName: "stage_transition_conditions_crop_code_registry_fk"
+            columns: ["crop_code"]
             isOneToOne: false
-            referencedRelation: "lands"
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_stage_vocab_drift: {
+        Row: {
+          crop_code: string | null
+          rule_id: string | null
+          stage_token: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_translation_transliteration_smell: {
+        Row: {
+          display_text: string | null
+          language_code: string | null
+          observation_code: string | null
+          problem: string | null
+        }
+        Insert: {
+          display_text?: string | null
+          language_code?: string | null
+          observation_code?: string | null
+          problem?: never
+        }
+        Update: {
+          display_text?: string | null
+          language_code?: string | null
+          observation_code?: string | null
+          problem?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observation_translations_observation_code_fkey"
+            columns: ["observation_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+        ]
+      }
+      v_translation_truncated_label: {
+        Row: {
+          description_len: number | null
+          display_text: string | null
+          language_code: string | null
+          len: number | null
+          observation_code: string | null
+          problem: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observation_translations_observation_code_fkey"
+            columns: ["observation_code"]
+            isOneToOne: false
+            referencedRelation: "observation_master"
+            referencedColumns: ["observation_code"]
+          },
+        ]
+      }
+      v_unfirable_hypotheses: {
+        Row: {
+          cause_name_en: string | null
+          crop_group: string | null
+          hypothesis_id: string | null
+          unreachable_required_obs: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
+      v_variety_data_quality: {
+        Row: {
+          crop_id: string | null
+          maturity_inverted: boolean | null
+          missing_climate: boolean | null
+          missing_maturity: boolean | null
+          missing_soil: boolean | null
+          missing_water_demand: boolean | null
+          resistance_rows: number | null
+          resistance_unmapped: number | null
+          variety_completeness_score: number | null
+          variety_id: string | null
+          variety_name: string | null
+        }
+        Insert: {
+          crop_id?: string | null
+          maturity_inverted?: never
+          missing_climate?: never
+          missing_maturity?: never
+          missing_soil?: never
+          missing_water_demand?: never
+          resistance_rows?: never
+          resistance_unmapped?: never
+          variety_completeness_score?: number | null
+          variety_id?: string | null
+          variety_name?: string | null
+        }
+        Update: {
+          crop_id?: string | null
+          maturity_inverted?: never
+          missing_climate?: never
+          missing_maturity?: never
+          missing_soil?: never
+          missing_water_demand?: never
+          resistance_rows?: never
+          resistance_unmapped?: never
+          variety_completeness_score?: number | null
+          variety_id?: string | null
+          variety_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_products_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "crops"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "weather_observations_farmer_id_fkey"
+            foreignKeyName: "master_products_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["crop_id"]
+          },
+        ]
+      }
+      v_variety_method_unservable: {
+        Row: {
+          cultivation_method: string | null
+          is_suitable: boolean | null
+          missing_calendar: boolean | null
+          missing_maturity_days: boolean | null
+          name: string | null
+          variety_code: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variety_cultivation_agronomy_method_fk"
+            columns: ["cultivation_method"]
+            isOneToOne: false
+            referencedRelation: "cultivation_method_master"
+            referencedColumns: ["method_code"]
+          },
+        ]
+      }
+      v_variety_offerings: {
+        Row: {
+          availability_status: string | null
+          brand_name: string | null
+          company_id: string | null
+          company_logo_url: string | null
+          company_name: string | null
+          company_sku: string | null
+          created_at: string | null
+          crop_code: string | null
+          crop_id: string | null
+          crop_label: string | null
+          currency: string | null
+          is_active: boolean | null
+          offering_id: string | null
+          pack_size: number | null
+          pack_unit: string | null
+          price: number | null
+          regions: string[] | null
+          updated_at: string | null
+          variety_code: string | null
+          variety_id: string | null
+          variety_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_products_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "crops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_products_crop_id_fkey"
+            columns: ["crop_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["crop_id"]
+          },
+          {
+            foreignKeyName: "variety_company_offerings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "master_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_company_offerings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "variety_company_offerings_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variety_company_offerings_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_crop_varieties"
+            referencedColumns: ["variety_id"]
+          },
+          {
+            foreignKeyName: "variety_company_offerings_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "v_variety_data_quality"
+            referencedColumns: ["variety_id"]
+          },
+        ]
+      }
+      v_variety_resistance_unwired: {
+        Row: {
+          observation_code: string | null
+          problem: string | null
+          resistance_level: string | null
+          threat_name: string | null
+          threat_type: string | null
+          variety_code: string | null
+        }
+        Relationships: []
+      }
+      v_visibility_blockers: {
+        Row: {
+          active_ingredient: string | null
+          blocked_deprecated: boolean | null
+          blocked_inactive: boolean | null
+          blocked_missing_dosage: boolean | null
+          blocked_missing_phi: boolean | null
+          blocked_needs_expert_approval: boolean | null
+          blocked_regulatory: boolean | null
+          category: string | null
+          crop_code: string | null
+          is_farmer_servable: boolean | null
+          open_qa_findings: number | null
+          rule_id: string | null
+        }
+        Insert: {
+          active_ingredient?: string | null
+          blocked_deprecated?: never
+          blocked_inactive?: never
+          blocked_missing_dosage?: never
+          blocked_missing_phi?: never
+          blocked_needs_expert_approval?: never
+          blocked_regulatory?: never
+          category?: string | null
+          crop_code?: string | null
+          is_farmer_servable?: boolean | null
+          open_qa_findings?: never
+          rule_id?: string | null
+        }
+        Update: {
+          active_ingredient?: string | null
+          blocked_deprecated?: never
+          blocked_inactive?: never
+          blocked_missing_dosage?: never
+          blocked_missing_phi?: never
+          blocked_needs_expert_approval?: never
+          blocked_regulatory?: never
+          category?: string | null
+          crop_code?: string | null
+          is_farmer_servable?: boolean | null
+          open_qa_findings?: never
+          rule_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "rule_category_master"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_category_fk"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "v_rule_coverage_gaps"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_vpp_unlinked_to_stage: {
+        Row: {
+          crop_code: string | null
+          das_max_override: number | null
+          das_min_override: number | null
+          stage_code: string | null
+          variety_name: string | null
+        }
+        Insert: {
+          crop_code?: string | null
+          das_max_override?: number | null
+          das_min_override?: number | null
+          stage_code?: string | null
+          variety_name?: string | null
+        }
+        Update: {
+          crop_code?: string | null
+          das_max_override?: number | null
+          das_min_override?: number | null
+          stage_code?: string | null
+          variety_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variety_phenology_profile_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "variety_phenology_profile_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      v_weather_condition_wrongly_required: {
+        Row: {
+          condition_key: string | null
+          crop_group: string | null
+          hypothesis_id: string | null
+          problem: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
+      v_weather_field_not_supplied: {
+        Row: {
+          crop_group: string | null
+          field: string | null
+          hypothesis_id: string | null
+          operator: string | null
+          problem: string | null
+          threshold: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
+      v_weather_provider_utilisation: {
+        Row: {
+          avg_latency_ms: number | null
+          budget_used_pct: number | null
+          calls: number | null
+          daily_budget: number | null
+          failed_calls: number | null
+          ok_calls: number | null
+          provider: string | null
+          quota_day: string | null
+        }
+        Relationships: []
+      }
+      v_weather_threshold_without_evidence: {
+        Row: {
+          crop_group: string | null
+          hypothesis_id: string | null
+          operator: string | null
+          parameter: string | null
+          problem: string | null
+          threshold: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypotheses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "hypothesis_master"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_conditions_hypothesis_id_fkey"
+            columns: ["hypothesis_id"]
+            isOneToOne: false
+            referencedRelation: "v_unfirable_hypotheses"
+            referencedColumns: ["hypothesis_id"]
+          },
+          {
+            foreignKeyName: "hypothesis_master_crop_group_scope_fk"
+            columns: ["crop_group"]
+            isOneToOne: false
+            referencedRelation: "crop_scope_master"
+            referencedColumns: ["scope_code"]
+          },
+        ]
+      }
+      v_weather_token_status: {
+        Row: {
+          expires_at: string | null
+          is_valid: boolean | null
+          last_error: string | null
+          last_error_at: string | null
+          minutes_remaining: number | null
+          obtained_at: string | null
+          provider: string | null
+          refresh_count: number | null
+          token_length: number | null
+          token_type: string | null
+        }
+        Insert: {
+          expires_at?: string | null
+          is_valid?: never
+          last_error?: string | null
+          last_error_at?: string | null
+          minutes_remaining?: never
+          obtained_at?: string | null
+          provider?: string | null
+          refresh_count?: number | null
+          token_length?: never
+          token_type?: string | null
+        }
+        Update: {
+          expires_at?: string | null
+          is_valid?: never
+          last_error?: string | null
+          last_error_at?: string | null
+          minutes_remaining?: never
+          obtained_at?: string | null
+          provider?: string | null
+          refresh_count?: number | null
+          token_length?: never
+          token_type?: string | null
+        }
+        Relationships: []
+      }
+      vw_latest_soil_data: {
+        Row: {
+          agro_climatic_zone: string | null
+          area_acres: number | null
+          area_guntas: number | null
+          confidence_level: string | null
+          created_at: string | null
+          data_completeness: number | null
+          farmer_id: string | null
+          field_area_ha: number | null
+          id: string | null
+          land_id: string | null
+          moisture_status: string | null
+          nitrogen_kg_per_ha: number | null
+          organic_carbon: number | null
+          ph_level: number | null
+          phosphorus_kg_per_ha: number | null
+          potassium_kg_per_ha: number | null
+          sample_count: number | null
+          soil_moisture_surface_percent: number | null
+          source: string | null
+          temperature_avg_c: number | null
+          tenant_id: string | null
+          test_date: string | null
+          texture: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soil_health_farmer_id_fkey"
             columns: ["farmer_id"]
             isOneToOne: false
             referencedRelation: "farmers"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "weather_observations_farmer_id_fkey"
+            foreignKeyName: "soil_health_farmer_id_fkey"
             columns: ["farmer_id"]
             isOneToOne: false
             referencedRelation: "ndvi_full_view"
             referencedColumns: ["farmer_id"]
           },
           {
-            foreignKeyName: "weather_observations_land_id_fkey"
+            foreignKeyName: "soil_health_land_id_fkey"
             columns: ["land_id"]
             isOneToOne: false
             referencedRelation: "land_agent_context"
             referencedColumns: ["land_id"]
           },
           {
-            foreignKeyName: "weather_observations_land_id_fkey"
+            foreignKeyName: "soil_health_land_id_fkey"
             columns: ["land_id"]
             isOneToOne: false
             referencedRelation: "land_boundary_overlaps"
             referencedColumns: ["land_a_id"]
           },
           {
-            foreignKeyName: "weather_observations_land_id_fkey"
+            foreignKeyName: "soil_health_land_id_fkey"
             columns: ["land_id"]
             isOneToOne: false
             referencedRelation: "land_boundary_overlaps"
             referencedColumns: ["land_b_id"]
           },
           {
-            foreignKeyName: "weather_observations_land_id_fkey"
+            foreignKeyName: "soil_health_land_id_fkey"
             columns: ["land_id"]
             isOneToOne: false
             referencedRelation: "land_tile_coverage"
             referencedColumns: ["land_id"]
           },
           {
-            foreignKeyName: "weather_observations_land_id_fkey"
+            foreignKeyName: "soil_health_land_id_fkey"
             columns: ["land_id"]
             isOneToOne: false
             referencedRelation: "lands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "soil_health_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_gdd_pipeline_health"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "soil_health_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_economics"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "soil_health_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "v_land_region"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "soil_health_land_id_fkey"
+            columns: ["land_id"]
+            isOneToOne: false
+            referencedRelation: "vw_soil_summary"
+            referencedColumns: ["land_id"]
+          },
+          {
+            foreignKeyName: "soil_health_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      vw_rules_by_taxonomy: {
+        Row: {
+          common_tags: string | null
+          crop_category: string | null
+          crop_code: string | null
+          crop_family: string | null
+          diagnosis_rules: number | null
+          ipm_rules: number | null
+          safety_rules: number | null
+          total_rules: number | null
+          treatment_rules: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "crop_code_registry"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "decision_rules_crop_code_registry_fk"
+            columns: ["crop_code"]
+            isOneToOne: false
+            referencedRelation: "v_crop_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      vw_soil_summary: {
+        Row: {
+          agro_climatic_zone: string | null
+          area_acres: number | null
+          area_guntas: number | null
+          bulk_density: number | null
+          cec: number | null
+          clay_percent: number | null
+          confidence_level: string | null
+          created_at: string | null
+          data_completeness: number | null
+          data_quality_flags: Json | null
+          data_quality_warnings: Json | null
+          data_source: string | null
+          farmer_id: string | null
+          field_area_ha: number | null
+          land_id: string | null
+          moisture_status: string | null
+          nitrogen_confidence: string | null
+          nitrogen_kg_per_ha: number | null
+          nitrogen_level: string | null
+          nitrogen_total_kg: number | null
+          organic_carbon: number | null
+          organic_carbon_std: number | null
+          ph_level: number | null
+          ph_std: number | null
+          phosphorus_confidence: string | null
+          phosphorus_kg_per_ha: number | null
+          phosphorus_level: string | null
+          phosphorus_total_kg: number | null
+          potassium_confidence: string | null
+          potassium_kg_per_ha: number | null
+          potassium_level: string | null
+          potassium_total_kg: number | null
+          precipitation_30d_mm: number | null
+          sample_count: number | null
+          sand_percent: number | null
+          silt_percent: number | null
+          soil_moisture_rootzone_percent: number | null
+          soil_moisture_surface_percent: number | null
+          soil_temperature_c: number | null
+          temperature_avg_c: number | null
+          tenant_id: string | null
+          test_date: string | null
+          texture: string | null
+          updated_at: string | null
+          water_balance_mm: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lands_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lands_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "ndvi_full_view"
+            referencedColumns: ["farmer_id"]
+          },
+        ]
+      }
+      vw_zone_statistics: {
+        Row: {
+          agro_climatic_zone: string | null
+          avg_completeness: number | null
+          avg_moisture: number | null
+          avg_nitrogen: number | null
+          avg_oc: number | null
+          avg_ph: number | null
+          avg_phosphorus: number | null
+          avg_potassium: number | null
+          avg_samples: number | null
+          high_confidence_count: number | null
+          stddev_oc: number | null
+          stddev_ph: number | null
+          total_analyses: number | null
+        }
+        Relationships: []
       }
     }
     Functions: {
+      _farmer_plan_default: {
+        Args: { _feature_code: string; _plan_name: string }
+        Returns: {
+          enabled: boolean
+          quota: number
+        }[]
+      }
+      _period_for_unit: {
+        Args: { _tz: string; _unit: string }
+        Returns: string
+      }
       _postgis_deprecate: {
         Args: { newname: string; oldname: string; version: string }
         Returns: undefined
@@ -22689,6 +44957,11 @@ export type Database = {
         Returns: unknown
       }
       _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      accumulate_gdd_batch: { Args: { p_limit?: number }; Returns: Json }
+      accumulate_gdd_for_land: {
+        Args: { p_land_id: string; p_lookback_days?: number }
+        Returns: number
+      }
       addauth: { Args: { "": string }; Returns: boolean }
       addgeometrycolumn:
         | {
@@ -22736,6 +45009,37 @@ export type Database = {
         Returns: Json
       }
       aggregate_weather_data: { Args: never; Returns: undefined }
+      ai_key_pool_usage_today: {
+        Args: never
+        Returns: {
+          calls: number
+          group_key: string
+          key_slot: number
+          provider: string
+          tokens: number
+        }[]
+      }
+      ai_model_group_key: {
+        Args: { p_api_model_id: string; p_provider: string }
+        Returns: string
+      }
+      ai_route_feature_key: { Args: { p_task_key: string }; Returns: string }
+      ai_route_model_problem: {
+        Args: {
+          p_model: Database["public"]["Tables"]["ai_model_catalog"]["Row"]
+          p_route: Database["public"]["Tables"]["ai_task_route"]["Row"]
+        }
+        Returns: string
+      }
+      ai_route_set_steps: {
+        Args: {
+          p_change_reason: string
+          p_model_keys: string[]
+          p_task_key: string
+        }
+        Returns: undefined
+      }
+      apply_stage_transitions: { Args: { p_land_id: string }; Returns: Json }
       archive_tenant_data: {
         Args: {
           p_archive_location: string
@@ -22744,6 +45048,7 @@ export type Database = {
         }
         Returns: Json
       }
+      assert_rag_chunk_crop_integrity: { Args: never; Returns: undefined }
       assign_mgrs_tile_to_land:
         | { Args: never; Returns: Json }
         | { Args: { land_id_param?: string }; Returns: undefined }
@@ -22766,6 +45071,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      build_land_farm_state: {
+        Args: { p_date?: string; p_land_id: string }
+        Returns: Json
+      }
+      calc_day_length_hours: {
+        Args: { p_date: string; p_lat: number }
+        Returns: number
+      }
+      calc_variety_completeness: {
+        Args: { p_variety_id: string }
+        Returns: number
+      }
       calculate_area_km2: { Args: { geom: unknown }; Returns: number }
       calculate_engagement_score: { Args: { post_id: string }; Returns: number }
       calculate_evapotranspiration: {
@@ -22776,6 +45093,16 @@ export type Database = {
           wind_speed_kmh: number
         }
         Returns: number
+      }
+      calculate_field_stats: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          analyzed_fields: number
+          avg_nitrogen: number
+          avg_ph: number
+          fields_need_attention: number
+          total_fields: number
+        }[]
       }
       calculate_growing_degree_days: {
         Args: { base_temp?: number; temp_max: number; temp_min: number }
@@ -22809,6 +45136,53 @@ export type Database = {
       }
       can_create_admin: { Args: never; Returns: boolean }
       can_self_insert: { Args: never; Returns: boolean }
+      change_farmer_plan: {
+        Args: {
+          p_auto_renew?: boolean
+          p_farmer_id: string
+          p_interval: string
+          p_paid_by_tenant?: boolean
+          p_plan_id: string
+          p_tenant_id: string
+          p_trial_days?: number
+        }
+        Returns: {
+          auto_renew: boolean
+          billing_interval: Database["public"]["Enums"]["billing_interval"]
+          cancellation_reason: string | null
+          created_at: string
+          end_date: string | null
+          farmer_id: string
+          grace_period_ends_at: string | null
+          id: string
+          last_payment_amount: number | null
+          last_payment_date: string | null
+          metadata: Json | null
+          next_billing_date: string | null
+          paid_by_tenant: boolean | null
+          paying_tenant_id: string | null
+          payment_method: Json | null
+          payment_method_id: string | null
+          payment_order_id: string | null
+          payment_provider: string | null
+          plan_id: string
+          start_date: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tenant_id: string
+          tenant_subscription_id: string | null
+          trial_days: number | null
+          trial_end_date: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "farmer_subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       check_account_lockout: {
         Args: { p_email: string; p_ip_address?: unknown }
         Returns: Json
@@ -22822,6 +45196,21 @@ export type Database = {
         Returns: undefined
       }
       check_bootstrap_status: { Args: never; Returns: Json }
+      check_farmer_quota: {
+        Args: {
+          _commit?: boolean
+          _delta?: number
+          _farmer: string
+          _feature: string
+          _tokens?: number
+        }
+        Returns: Json
+      }
+      check_farmer_subscription: {
+        Args: { p_farmer_id: string; p_tenant_id: string }
+        Returns: Json
+      }
+      check_germination_gate: { Args: { p_land_id: string }; Returns: Json }
       check_harvest_quota: { Args: { p_tenant_id: string }; Returns: Json }
       check_mobile_number_exists: {
         Args: { mobile_num: string }
@@ -22857,6 +45246,7 @@ export type Database = {
       cleanup_expired_registrations: { Args: never; Returns: number }
       cleanup_expired_sessions: { Args: never; Returns: undefined }
       cleanup_expired_weather_cache: { Args: never; Returns: number }
+      cleanup_observability_data: { Args: never; Returns: undefined }
       cleanup_old_dashboard_updates: { Args: never; Returns: number }
       cleanup_old_data_with_retention: {
         Args: never
@@ -22872,6 +45262,7 @@ export type Database = {
         Returns: number
       }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
+      cleanup_rate_limit_tracking: { Args: never; Returns: number }
       cluster_lands_for_ndvi: {
         Args: {
           p_max_cluster_area_km2?: number
@@ -22892,6 +45283,18 @@ export type Database = {
         Returns: boolean
       }
       complete_bootstrap_safely: { Args: never; Returns: Json }
+      compute_land_yield_estimate: {
+        Args: { p_as_of?: string; p_land_id: string }
+        Returns: Json
+      }
+      confirm_test_payment: {
+        Args: {
+          p_intent_id: string
+          p_payment_method: string
+          p_safe_payment_data?: Json
+        }
+        Returns: Json
+      }
       convert_lead_to_tenant: {
         Args: {
           p_admin_email?: string
@@ -22958,6 +45361,22 @@ export type Database = {
           jwt_present: boolean
         }[]
       }
+      derive_biological_stage_transitions: {
+        Args: { p_crop_code?: string }
+        Returns: Json
+      }
+      derive_farm_decisions: {
+        Args: {
+          p_date?: string
+          p_land_id: string
+          p_obs_lookback_days?: number
+        }
+        Returns: Json
+      }
+      derive_stage_transition_conditions: {
+        Args: { p_crop_code?: string }
+        Returns: Json
+      }
       detect_land_overlaps: {
         Args: { p_tenant: string }
         Returns: {
@@ -22999,6 +45418,8 @@ export type Database = {
         | { Args: { schema_name: string; table_name: string }; Returns: string }
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
+      enforce_germination_gate: { Args: { p_land_id: string }; Returns: Json }
+      ensure_env_partitions: { Args: never; Returns: undefined }
       ensure_onboarding_workflow: {
         Args: { p_tenant_id: string }
         Returns: string
@@ -23017,11 +45438,81 @@ export type Database = {
         }
         Returns: boolean
       }
+      evaluate_stage_transitions: {
+        Args: { p_from_stage?: string; p_land_id: string }
+        Returns: {
+          confidence: number
+          evidence: Json
+          from_stage_uuid: string
+          matched: boolean
+          priority: number
+          rule_id: string
+          to_stage_uuid: string
+          trigger_type: string
+        }[]
+      }
+      evaluate_stage_validation: {
+        Args: { p_land_id: string; p_target_stage: string }
+        Returns: Json
+      }
+      exec_governance_count: { Args: { sql_text: string }; Returns: number }
+      expert_approve_rules: {
+        Args: { p_approver: string; p_basis: string; p_rule_ids: string[] }
+        Returns: {
+          result: string
+          rule_id: string
+        }[]
+      }
+      expire_farmer_subscriptions: { Args: never; Returns: Json }
       expire_old_invites: { Args: never; Returns: number }
+      extend_farmer_subscription: {
+        Args: {
+          p_additional_days: number
+          p_subscription_id: string
+          p_tenant_id: string
+        }
+        Returns: {
+          auto_renew: boolean
+          billing_interval: Database["public"]["Enums"]["billing_interval"]
+          cancellation_reason: string | null
+          created_at: string
+          end_date: string | null
+          farmer_id: string
+          grace_period_ends_at: string | null
+          id: string
+          last_payment_amount: number | null
+          last_payment_date: string | null
+          metadata: Json | null
+          next_billing_date: string | null
+          paid_by_tenant: boolean | null
+          paying_tenant_id: string | null
+          payment_method: Json | null
+          payment_method_id: string | null
+          payment_order_id: string | null
+          payment_provider: string | null
+          plan_id: string
+          start_date: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tenant_id: string
+          tenant_subscription_id: string | null
+          trial_days: number | null
+          trial_end_date: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "farmer_subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       extract_numeric_quantity: {
         Args: { resources: Json; task_type: string }
         Returns: number
       }
+      finalize_payment: { Args: { p_intent_id: string }; Returns: Json }
       find_intersecting_districts: {
         Args: { tile_geom: unknown }
         Returns: {
@@ -23056,6 +45547,152 @@ export type Database = {
           tile_area_sqm: number
           tile_id: string
         }[]
+      }
+      fn_calculate_seed_rate: {
+        Args: {
+          p_cultivation_method: string
+          p_germination_pct?: number
+          p_implement_code?: string
+          p_purity_pct?: number
+          p_variety_id: string
+        }
+        Returns: {
+          field_emergence_factor: number
+          germination_pct: number
+          implement_factor: number
+          purity_pct: number
+          rationale: string
+          seed_rate_kg_per_acre: number
+          seed_rate_kg_per_ha: number
+          target_plants_per_m2: number
+          tgw_source: string
+          tgw_used_g: number
+        }[]
+      }
+      fn_check_resurgence_risk: {
+        Args: { p_active_ingredient: string; p_crop_code: string }
+        Returns: {
+          induces_resurgence_of: string
+          mechanism: string
+          resurgence_ratio: number
+          risk_level: string
+        }[]
+      }
+      fn_effective_method: {
+        Args: { p_crop_code: string; p_method_code: string }
+        Returns: string
+      }
+      fn_effective_rules: {
+        Args: {
+          p_crop_code: string
+          p_region_code?: string
+          p_tenant_id?: string
+        }
+        Returns: {
+          action_text: string
+          action_type: string
+          category: string
+          priority: number
+          rule_id: string
+          scope: string
+        }[]
+      }
+      fn_is_chemical_safe_for_variety: {
+        Args: {
+          p_active_ingredient: string
+          p_crop_code: string
+          p_variety_id: string
+        }
+        Returns: boolean
+      }
+      fn_is_rule_trait_safe: {
+        Args: { p_rule_id: string; p_variety_id: string }
+        Returns: boolean
+      }
+      fn_observations_for_intent_ci: {
+        Args: {
+          p_crop_code: string
+          p_growth_stage?: string
+          p_intent_code: string
+        }
+        Returns: {
+          confidence_rank: number
+          observation_code: string
+        }[]
+      }
+      fn_resolve_recommendations: {
+        Args: {
+          p_category?: string
+          p_crop_code: string
+          p_crop_cycle?: string
+          p_cultivation_method?: string
+          p_das: number
+          p_das_reference?: string
+        }
+        Returns: {
+          action_text: string
+          active_ingredient: string
+          category: string
+          confidence_score: number
+          dosage_per_acre: string
+          evidence_tier: string
+          is_safety_block: boolean
+          phi_days: number
+          rule_id: string
+          scientific_source: string
+          stage_code: string
+          stage_role: string
+        }[]
+      }
+      fn_resolve_stage: {
+        Args: {
+          p_crop_code: string
+          p_crop_cycle?: string
+          p_cultivation_method?: string
+          p_das: number
+          p_das_reference?: string
+        }
+        Returns: {
+          das_max: number
+          das_min: number
+          expected_ndvi_max: number
+          expected_ndvi_min: number
+          gdd_max: number
+          gdd_min: number
+          growth_stage: string
+          stage_code: string
+          stage_role: string
+        }[]
+      }
+      fn_resolve_stage_v: {
+        Args: {
+          p_crop_code: string
+          p_crop_cycle?: string
+          p_cultivation_method: string
+          p_das: number
+          p_das_reference: string
+          p_variety_id?: string
+        }
+        Returns: {
+          calendar_source: string
+          das_max: number
+          das_min: number
+          growth_stage: string
+          stage_code: string
+          stage_role: string
+        }[]
+      }
+      fn_rule_semantics: {
+        Args: { p_category: string }
+        Returns: {
+          can_block: boolean
+          is_gate: boolean
+          semantic_class: string
+        }[]
+      }
+      fn_variety_resistance_modifier: {
+        Args: { p_hypothesis_id: string; p_variety_id: string }
+        Returns: number
       }
       generate_credit_note_number: { Args: never; Returns: string }
       generate_farmer_code: { Args: { p_tenant_id: string }; Returns: string }
@@ -23248,6 +45885,43 @@ export type Database = {
       get_current_user_email: { Args: never; Returns: string }
       get_current_user_id: { Args: never; Returns: string }
       get_farmer_id_from_header: { Args: never; Returns: string }
+      get_farmer_subscription_plans: {
+        Args: { p_tenant_id?: string }
+        Returns: {
+          billing_interval: string | null
+          created_at: string | null
+          created_by_tenant_id: string | null
+          description: string | null
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          is_custom: boolean | null
+          is_custom_plan: boolean | null
+          is_public: boolean | null
+          limits: Json | null
+          name: string
+          parent_plan_id: string | null
+          plan_category: string | null
+          plan_type: Database["public"]["Enums"]["subscription_plan_type"]
+          price_annually: number | null
+          price_half_yearly: number | null
+          price_monthly: number | null
+          price_quarterly: number | null
+          sort_order: number | null
+          stripe_price_id_annually: string | null
+          stripe_price_id_monthly: string | null
+          stripe_product_id: string | null
+          tenant_id: string | null
+          trial_days: number | null
+          updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "subscription_plans"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_geometry_bbox: { Args: { geom: unknown }; Returns: number[] }
       get_header_farmer_id: { Args: never; Returns: string }
       get_header_tenant_id: { Args: never; Returns: string }
@@ -23308,6 +45982,21 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      get_latest_soil_data: {
+        Args: { p_land_id: string }
+        Returns: {
+          confidence_level: string
+          moisture_status: string
+          nitrogen_kg_per_ha: number
+          organic_carbon: number
+          ph_level: number
+          phosphorus_kg_per_ha: number
+          potassium_kg_per_ha: number
+          soil_health_id: string
+          source: string
+          test_date: string
+        }[]
+      }
       get_location_context: {
         Args: { lat: number; lng: number }
         Returns: Json
@@ -23346,6 +46035,7 @@ export type Database = {
         Returns: number
       }
       get_super_admin_count: { Args: never; Returns: number }
+      get_sweep_key: { Args: { p_name: string }; Returns: string }
       get_tenant_api_costs: {
         Args: {
           p_end_date?: string
@@ -23362,6 +46052,14 @@ export type Database = {
           total_data_mb: number
           total_processing_units: number
         }[]
+      }
+      get_tenant_revenue: {
+        Args: { p_date_from?: string; p_date_to?: string; p_tenant_id: string }
+        Returns: number
+      }
+      get_tenant_subscription_lifecycle_counts: {
+        Args: { p_tenant_id: string }
+        Returns: Json
       }
       get_tenant_tiles: {
         Args: { p_tenant_id: string }
@@ -23463,7 +46161,142 @@ export type Database = {
         }[]
       }
       gettransactionid: { Args: never; Returns: unknown }
+      governance_bulk_transition: {
+        Args: { p_new_state: string; p_note?: string; p_workflow_ids: string[] }
+        Returns: {
+          result: string
+          rule_id: string
+        }[]
+      }
+      governance_resolve_finding: {
+        Args: { p_finding_id: string; p_note?: string }
+        Returns: {
+          created_at: string
+          detail: string
+          detected_value: string | null
+          expected_value: string | null
+          finding_type: string
+          id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          rule_id: string
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "decision_rule_qa_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      governance_rollback_rule_to_version: {
+        Args: { p_notes?: string; p_version_id: string }
+        Returns: {
+          agronomist_notes: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          proposed_payload: Json | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          rule_id: string
+          rule_version_id: string | null
+          state: string
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rule_approval_workflow"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      governance_simulate_rule: {
+        Args: { p_rule_id: string; p_sample_input: Json }
+        Returns: Json
+      }
+      governance_submit_rule_for_review: {
+        Args: { p_note?: string; p_rule_uuid: string }
+        Returns: {
+          agronomist_notes: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          proposed_payload: Json | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          rule_id: string
+          rule_version_id: string | null
+          state: string
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rule_approval_workflow"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      governance_transition_approval_state: {
+        Args: { p_new_state: string; p_notes?: string; p_workflow_id: string }
+        Returns: {
+          agronomist_notes: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          proposed_payload: Json | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          rule_id: string
+          rule_version_id: string | null
+          state: string
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rule_approval_workflow"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      governance_update_rule_fields: {
+        Args: { p_fields: Json; p_rule_id: string }
+        Returns: Json
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _tenant_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_tenant_access: { Args: { check_tenant_id: string }; Returns: boolean }
+      hash_session_token: { Args: { _token: string }; Returns: string }
+      increment_usage: {
+        Args: {
+          p_farmer_id: string
+          p_metric_name: string
+          p_quantity?: number
+          p_subscription_id: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
+      initialize_crop_cycle_stage: {
+        Args: { p_land_id: string }
+        Returns: Json
+      }
       insert_land_with_geometry: {
         Args: {
           p_area_acres: number
@@ -23494,7 +46327,9 @@ export type Database = {
         }
         Returns: Json
       }
-      is_admin_user: { Args: { _user_id: string }; Returns: boolean }
+      is_admin_user:
+        | { Args: never; Returns: boolean }
+        | { Args: { _user_id: string }; Returns: boolean }
       is_authenticated_admin: { Args: never; Returns: boolean }
       is_bootstrap_completed: { Args: never; Returns: boolean }
       is_bootstrap_required: { Args: never; Returns: boolean }
@@ -23504,6 +46339,7 @@ export type Database = {
         Args: { _farmer_id: string; _group_id: string }
         Returns: boolean
       }
+      is_impersonating: { Args: never; Returns: boolean }
       is_invite_valid: { Args: { invite_token: string }; Returns: boolean }
       is_moderator: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
@@ -23519,6 +46355,8 @@ export type Database = {
         Args: { p_community_id: string; p_farmer_id: string }
         Returns: Json
       }
+      jsonb_normalize_upper_tokens: { Args: { data: Json }; Returns: Json }
+      land_cell_key: { Args: { p_lat: number; p_lon: number }; Returns: string }
       leave_community: {
         Args: { p_community_id: string; p_farmer_id: string }
         Returns: Json
@@ -23612,6 +46450,58 @@ export type Database = {
         Args: never
         Returns: undefined
       }
+      ndvi_stage_anomaly: {
+        Args: {
+          p_as_of?: string
+          p_crop_code: string
+          p_crop_cycle?: string
+          p_cultivation_method: string
+          p_current_gdd?: number
+          p_land_id?: string
+          p_ndvi: number
+          p_sow_date: string
+          p_transplant_date?: string
+          p_variety_id?: string
+        }
+        Returns: {
+          current_das: number
+          current_dat: number
+          evidence_sources: string[]
+          expected_ndvi_max: number
+          expected_ndvi_min: number
+          growth_stage: string
+          ndvi_confidence: number
+          phenology_index: number
+          reason: string
+          reference_system: string
+          stage_code: string
+          stage_confidence: number
+          stage_source: string
+          status: string
+          z_score: number
+        }[]
+      }
+      nearest_lands_summary: {
+        Args: {
+          p_lat: number
+          p_lng: number
+          p_radius_m: number
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
+      persist_ai_crop_schedule_atomic: {
+        Args: { p_land: Json; p_schedule: Json; p_tasks: Json }
+        Returns: {
+          schedule_id: string
+          task_count: number
+        }[]
+      }
+      photo_evidence_record: { Args: { p_upload_id: string }; Returns: Json }
+      photo_training_consent: {
+        Args: { p_farmer_id: string }
+        Returns: boolean
+      }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
         | { Args: { use_typmod?: boolean }; Returns: string }
@@ -23652,16 +46542,127 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      rag_search_fulltext: {
+        Args: {
+          p_crops?: string[]
+          p_doc_types?: string[]
+          p_limit?: number
+          p_query: string
+          p_states?: string[]
+          p_tenant?: string
+          p_topics?: string[]
+        }
+        Returns: {
+          authority_tier: string
+          chunk_id: string
+          chunk_text: string
+          doc_type: string
+          doc_version: string
+          document_id: string
+          language: string
+          page_number: number
+          publisher: string
+          score: number
+          section_path: string
+          title: string
+          topic_codes: string[]
+        }[]
+      }
+      rag_search_vector: {
+        Args: {
+          p_crops?: string[]
+          p_doc_types?: string[]
+          p_embedding: string
+          p_limit?: number
+          p_states?: string[]
+          p_tenant?: string
+          p_topics?: string[]
+        }
+        Returns: {
+          authority_tier: string
+          chunk_id: string
+          chunk_text: string
+          doc_type: string
+          doc_version: string
+          document_id: string
+          language: string
+          page_number: number
+          publisher: string
+          score: number
+          section_path: string
+          title: string
+          topic_codes: string[]
+        }[]
+      }
       reactivate_tenant: { Args: { p_tenant_id: string }; Returns: Json }
+      reanchor_land_gdd: {
+        Args: {
+          p_anchor_date: string
+          p_anchor_type: string
+          p_land_id: string
+        }
+        Returns: number
+      }
       reassign_lead: {
         Args: { p_lead_id: string; p_new_admin_id: string; p_reason?: string }
         Returns: boolean
+      }
+      recompute_land_gdd_daily: {
+        Args: { p_from?: string; p_land_id: string }
+        Returns: number
+      }
+      reconcile_schedule_for_land: {
+        Args: { p_land_id: string }
+        Returns: Json
       }
       record_failed_login: {
         Args: { p_email: string; p_ip_address?: unknown }
         Returns: Json
       }
+      record_germination: {
+        Args: {
+          p_confirmed: boolean
+          p_land_id: string
+          p_observed_date?: string
+        }
+        Returns: Json
+      }
+      record_irrigation: {
+        Args: {
+          p_alert_id?: string
+          p_land_id: string
+          p_observed_date?: string
+        }
+        Returns: Json
+      }
+      record_transplant: {
+        Args: { p_land_id: string; p_transplant_date?: string }
+        Returns: Json
+      }
+      redeem_promo_code: {
+        Args: { p_code: string; p_intent_id: string }
+        Returns: Json
+      }
+      reels_bump_counter: {
+        Args: { _col: string; _delta: number; _reel_id: string }
+        Returns: undefined
+      }
+      reels_record_view: {
+        Args: {
+          _completed?: boolean
+          _farmer_id: string
+          _reel_id: string
+          _watched_seconds?: number
+        }
+        Returns: undefined
+      }
+      reels_visible_to_farmer: {
+        Args: { _farmer_id: string; _reel_id: string }
+        Returns: boolean
+      }
       refresh_farmer_upcoming_needs: { Args: never; Returns: undefined }
+      refresh_my_farm_decisions: { Args: { p_land_id: string }; Returns: Json }
+      refresh_my_yield_estimate: { Args: { p_land_id: string }; Returns: Json }
       refresh_organization_analytics: {
         Args: { p_tenant_id: string }
         Returns: undefined
@@ -23670,9 +46671,166 @@ export type Database = {
         Args: { p_workflow_id: string }
         Returns: Json
       }
+      resolve_biological_profile: {
+        Args: { p_as_of?: string; p_land_id: string }
+        Returns: {
+          crop_code: string
+          crop_cycle: string
+          cultivation_method: string
+          current_gdd: number
+          establishment_method: string
+          evidence: string[]
+          planting_method: string
+          production_system: string
+          sowing_date: string
+          sowing_source: string
+          transplant_date: string
+          variety_id: string
+        }[]
+      }
+      resolve_crop_phenology:
+        | {
+            Args: {
+              p_as_of?: string
+              p_crop_code: string
+              p_crop_cycle: string
+              p_cultivation_method: string
+              p_current_gdd: number
+              p_land_id?: string
+              p_sow_date: string
+              p_transplant_date: string
+              p_variety_id: string
+            }
+            Returns: {
+              confidence: number
+              crop_code: string
+              crop_cycle: string
+              cultivation_method: string
+              current_das: number
+              current_dat: number
+              current_gdd: number
+              evidence_sources: string[]
+              expected_height_cm_max: number
+              expected_height_cm_min: number
+              expected_leaf_count_max: number
+              expected_leaf_count_min: number
+              expected_ndvi_max: number
+              expected_ndvi_min: number
+              expected_transition_date: string
+              growth_stage: string
+              next_stage_uuid: string
+              phenology_index: number
+              phenology_model: string
+              previous_stage_uuid: string
+              reference_system: string
+              resolver_version: number
+              source: string
+              stage_code: string
+              stage_uuid: string
+            }[]
+          }
+        | {
+            Args: { p_land_id: string }
+            Returns: {
+              confidence: number
+              crop_code: string
+              crop_cycle: string
+              cultivation_method: string
+              current_das: number
+              current_dat: number
+              current_gdd: number
+              evidence_sources: string[]
+              expected_height_cm_max: number
+              expected_height_cm_min: number
+              expected_leaf_count_max: number
+              expected_leaf_count_min: number
+              expected_ndvi_max: number
+              expected_ndvi_min: number
+              expected_transition_date: string
+              growth_stage: string
+              next_stage_uuid: string
+              phenology_index: number
+              phenology_model: string
+              previous_stage_uuid: string
+              reference_system: string
+              resolver_version: number
+              source: string
+              stage_code: string
+              stage_uuid: string
+            }[]
+          }
+      resolve_crop_phenology_for_land: {
+        Args: { p_as_of?: string; p_land_id: string }
+        Returns: {
+          confidence: number
+          crop_code: string
+          crop_cycle: string
+          cultivation_method: string
+          current_das: number
+          current_dat: number
+          current_gdd: number
+          evidence_sources: string[]
+          expected_height_cm_max: number
+          expected_height_cm_min: number
+          expected_leaf_count_max: number
+          expected_leaf_count_min: number
+          expected_ndvi_max: number
+          expected_ndvi_min: number
+          expected_transition_date: string
+          growth_stage: string
+          next_stage_uuid: string
+          phenology_index: number
+          phenology_model: string
+          previous_stage_uuid: string
+          reference_system: string
+          resolver_version: number
+          source: string
+          stage_code: string
+          stage_uuid: string
+        }[]
+      }
+      resolve_crop_stage_full: {
+        Args: { p_as_of?: string; p_land_id: string }
+        Returns: {
+          crop_code: string
+          das: number
+          growth_stage: string
+          next_stage_id: string
+          phenology_index: number
+          prev_stage_id: string
+          source: string
+          stage_code: string
+          stage_uuid: string
+        }[]
+      }
+      resolve_farmer_entitlements: {
+        Args: { p_farmer: string; p_tenant: string }
+        Returns: Json
+      }
+      resolve_farmer_features: { Args: { _farmer: string }; Returns: Json }
+      resolve_germination_anchor: { Args: { p_land_id: string }; Returns: Json }
+      resolve_observation_canonical: {
+        Args: { _language?: string; _raw: string }
+        Returns: {
+          canonical_code: string
+          match_type: string
+          similarity: number
+        }[]
+      }
+      resolve_tenant_by_slug: { Args: { p_slug: string }; Returns: Json }
+      resolve_tenant_features: { Args: { _tenant: string }; Returns: Json }
+      run_daily_farm_decisions: { Args: { p_date?: string }; Returns: Json }
+      run_daily_farm_state: { Args: { p_date?: string }; Returns: Json }
+      run_daily_phenology: { Args: never; Returns: Json }
+      run_env_verification: { Args: never; Returns: Json }
+      run_weekly_yield_estimates: { Args: { p_as_of?: string }; Returns: Json }
       sanitize_white_label_config: {
         Args: { config_data: Json }
         Returns: Json
+      }
+      seed_tenant_farmer_plan_features: {
+        Args: { _plan?: string; _tenant: string }
+        Returns: undefined
       }
       send_admin_notification: {
         Args: {
@@ -23690,6 +46848,20 @@ export type Database = {
           p_farmer_id: string
           p_session_token?: string
           p_tenant_id: string
+        }
+        Returns: undefined
+      }
+      set_farm_decision_status: {
+        Args: { p_id: string; p_status: string }
+        Returns: Json
+      }
+      set_farmer_plan_feature: {
+        Args: {
+          _enabled: boolean
+          _feature: string
+          _plan: string
+          _quota: number
+          _tenant: string
         }
         Returns: undefined
       }
@@ -24286,11 +47458,110 @@ export type Database = {
             Returns: Json
           }
         | { Args: { p_tenant_id: string; p_version?: number }; Returns: string }
+      stc_eval_single: {
+        Args: {
+          p_cfg: Json
+          p_das: number
+          p_dat: number
+          p_gdd: number
+          p_land_id: string
+          p_type: string
+        }
+        Returns: boolean
+      }
       suspend_tenant: {
         Args: { p_reason?: string; p_tenant_id: string }
         Returns: Json
       }
+      system_health_snapshot: { Args: never; Returns: Json }
+      tenant_assign_farmer_subscription:
+        | {
+            Args: {
+              p_billing_interval: string
+              p_collection_method: string
+              p_farmer_id: string
+              p_idempotency_key?: string
+              p_notes?: string
+              p_plan_id: string
+              p_promo_code?: string
+              p_proof_url?: string
+              p_reference_number?: string
+              p_tenant_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_billing_interval: string
+              p_collection_method: string
+              p_farmer_id: string
+              p_idempotency_key?: string
+              p_notes?: string
+              p_paid_by_tenant?: boolean
+              p_plan_id: string
+              p_promo_code?: string
+              p_proof_url?: string
+              p_reference_number?: string
+              p_tenant_id: string
+            }
+            Returns: Json
+          }
+      tenant_create_api_key: {
+        Args: {
+          p_expires_at?: string
+          p_key_name: string
+          p_permissions?: string[]
+          p_rate_limit_per_hour?: number
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
+      tenant_create_farmer: {
+        Args: {
+          p_farmer_code?: string
+          p_farmer_name: string
+          p_farming_experience_years?: number
+          p_has_irrigation?: boolean
+          p_has_storage?: boolean
+          p_has_tractor?: boolean
+          p_irrigation_type?: string
+          p_language_preference?: string
+          p_metadata?: Json
+          p_mobile_number: string
+          p_notes?: string
+          p_pin?: string
+          p_primary_crops?: string[]
+          p_tenant_id: string
+          p_total_land_acres?: number
+        }
+        Returns: Json
+      }
+      tenant_regenerate_api_key: {
+        Args: {
+          p_api_key_id: string
+          p_expires_at?: string
+          p_rate_limit_per_hour?: number
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
+      tenant_revoke_api_key: {
+        Args: { p_api_key_id: string; p_tenant_id: string }
+        Returns: boolean
+      }
+      tenant_validate_farmer_login: {
+        Args: { p_mobile_number: string; p_pin: string; p_tenant_id: string }
+        Returns: Json
+      }
       test_lead_auto_assignment: { Args: never; Returns: Json }
+      toggle_post_like: {
+        Args: { p_farmer_id: string; p_post_id: string }
+        Returns: boolean
+      }
+      toggle_post_save: {
+        Args: { p_farmer_id: string; p_post_id: string }
+        Returns: boolean
+      }
       track_admin_session: { Args: { session_data?: Json }; Returns: undefined }
       track_failed_login: {
         Args: {
@@ -24310,6 +47581,18 @@ export type Database = {
       }
       unlockrows: { Args: { "": string }; Returns: number }
       update_community_trending_score: { Args: never; Returns: undefined }
+      update_tenant_basics: {
+        Args: {
+          p_business_address?: Json
+          p_business_registration?: string
+          p_name: string
+          p_owner_email?: string
+          p_owner_name?: string
+          p_owner_phone?: string
+          p_tenant_id: string
+        }
+        Returns: boolean
+      }
       update_tenant_verification: {
         Args: { p_tenant_id: string; p_verification_data: Json }
         Returns: boolean
@@ -24332,6 +47615,29 @@ export type Database = {
           table_name: string
         }
         Returns: string
+      }
+      upsert_farm_decision: {
+        Args: {
+          p_action: string
+          p_alert: string
+          p_cat: string
+          p_date: string
+          p_evidence: Json
+          p_farmer: string
+          p_key: string
+          p_land: string
+          p_prio: string
+          p_rule: string
+          p_sched: string
+          p_source: string
+          p_status: string
+          p_task: string
+          p_tenant: string
+          p_text: string
+          p_title: string
+          p_valid_until: string
+        }
+        Returns: undefined
       }
       upsert_tenant_branding: {
         Args: {
@@ -24373,14 +47679,25 @@ export type Database = {
         Args: { _schedule_id: string; _user_id: string }
         Returns: boolean
       }
+      validate_admin_invite_token: {
+        Args: { p_token: string }
+        Returns: {
+          email: string
+          expires_at: string
+          id: string
+          is_valid: boolean
+          role: string
+          status: string
+        }[]
+      }
       validate_admin_registration_token: {
         Args: { p_token: string }
         Returns: {
           email: string
           expires_at: string
-          invite_id: string
+          id: string
+          is_valid: boolean
           role: string
-          valid: boolean
         }[]
       }
       validate_farmer_pin:
@@ -24404,13 +47721,22 @@ export type Database = {
         }[]
       }
       validate_invite_token: {
-        Args: { token: string }
+        Args: { p_token: string }
         Returns: {
           email: string
           expires_at: string
-          invite_id: string
+          id: string
           is_valid: boolean
           role: string
+        }[]
+      }
+      validate_iom_semantic_class: {
+        Args: { p_intent_code: string; p_observation_code: string }
+        Returns: {
+          allowed: string[]
+          is_valid: boolean
+          obs_class: string
+          reason: string
         }[]
       }
       validate_photo_location: {
@@ -24426,9 +47752,31 @@ export type Database = {
           validation_level: string
         }[]
       }
+      validate_promo_code: {
+        Args: {
+          p_base_amount?: number
+          p_billing_interval: string
+          p_code: string
+          p_farmer_id: string
+          p_plan_id: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       validate_registration_token_secure: {
         Args: { p_token: string }
         Returns: Json
+      }
+      validate_team_invitation_token: {
+        Args: { p_token: string }
+        Returns: {
+          email: string
+          expires_at: string
+          id: string
+          is_valid: boolean
+          role: string
+          tenant_id: string
+        }[]
       }
       validate_tenant_ownership: {
         Args: { p_email: string }
@@ -24445,6 +47793,16 @@ export type Database = {
         Args: { config_data: Json }
         Returns: Json
       }
+      verified_farmer_id: { Args: never; Returns: string }
+      verified_session_context: {
+        Args: never
+        Returns: {
+          farmer_id: string
+          session_id: string
+          tenant_id: string
+        }[]
+      }
+      verified_tenant_id: { Args: never; Returns: string }
       verify_admin_user_setup: {
         Args: never
         Returns: {
@@ -24455,10 +47813,29 @@ export type Database = {
           user_id: string
         }[]
       }
+      verify_otp_session: {
+        Args: { p_otp: string; p_session_id: string }
+        Returns: {
+          id: string
+          is_valid: boolean
+          user_id: string
+        }[]
+      }
+      verify_proactive_evaluator_cron_secret: {
+        Args: { p_secret: string }
+        Returns: boolean
+      }
+      water_signal_since_anchor: { Args: { p_land_id: string }; Returns: Json }
+      weather_ingest_health: { Args: never; Returns: Json }
     }
     Enums: {
       alert_severity: "low" | "medium" | "high" | "critical" | "info"
       alert_status: "active" | "acknowledged" | "resolved"
+      app_role:
+        | "super_admin"
+        | "tenant_admin"
+        | "tenant_manager"
+        | "tenant_viewer"
       billing_interval:
         | "monthly"
         | "quarterly"
@@ -24472,6 +47849,31 @@ export type Database = {
         | "practice"
         | "market"
         | "problem_solving"
+      crop_schedule_lifecycle_status:
+        | "PLANNED"
+        | "SOWN"
+        | "GROWING"
+        | "MATURITY_REACHED"
+        | "WAITING_HARVEST_CONFIRMATION"
+        | "HARVESTED"
+        | "ABANDONED"
+      harvest_confirmation_request_status:
+        | "PENDING"
+        | "RESPONDED"
+        | "EXPIRED"
+        | "CANCELLED"
+      harvest_status:
+        | "NOT_STARTED"
+        | "PARTIALLY_HARVESTED"
+        | "FULLY_HARVESTED"
+        | "ABANDONED"
+      land_lifecycle_status:
+        | "AVAILABLE"
+        | "PREPARING"
+        | "CROP_ACTIVE"
+        | "READY_FOR_HARVEST"
+        | "WAITING_HARVEST_CONFIRMATION"
+        | "HARVEST_COMPLETED"
       language_code:
         | "en"
         | "hi"
@@ -24496,6 +47898,7 @@ export type Database = {
         | "msme_certificate"
         | "other"
       metric_type: "system" | "usage" | "ai_model" | "financial" | "custom"
+      ndvi_observation_type: "observed" | "interpolated" | "composite"
       onboarding_step_status:
         | "pending"
         | "in_progress"
@@ -24512,6 +47915,24 @@ export type Database = {
         | "chargeback"
       post_status: "draft" | "published" | "moderated" | "deleted"
       post_type: "text" | "image" | "video" | "poll"
+      reel_moderation_status: "pending" | "approved" | "rejected" | "flagged"
+      reel_publish_status: "draft" | "published" | "archived"
+      reel_report_reason:
+        | "spam"
+        | "misinformation"
+        | "abuse"
+        | "copyright"
+        | "unsafe"
+        | "other"
+      reel_transcoding_status:
+        | "not_required"
+        | "queued"
+        | "processing"
+        | "ready"
+        | "failed"
+      reel_uploader_role: "saas_admin" | "tenant_admin"
+      reel_video_source: "youtube" | "upload" | "external"
+      reel_visibility: "global" | "tenant"
       subscription_plan:
         | "Kisan_Basic"
         | "Shakti_Growth"
@@ -24550,6 +47971,7 @@ export type Database = {
         | "dealer"
         | "agent"
         | "farmer"
+        | "tenant_viewer"
       verification_status:
         | "pending"
         | "under_review"
@@ -24579,12 +48001,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -24608,11 +48030,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -24633,11 +48055,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -24658,11 +48080,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -24675,11 +48097,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -24693,6 +48115,12 @@ export const Constants = {
     Enums: {
       alert_severity: ["low", "medium", "high", "critical", "info"],
       alert_status: ["active", "acknowledged", "resolved"],
+      app_role: [
+        "super_admin",
+        "tenant_admin",
+        "tenant_manager",
+        "tenant_viewer",
+      ],
       billing_interval: [
         "monthly",
         "quarterly",
@@ -24707,6 +48135,35 @@ export const Constants = {
         "practice",
         "market",
         "problem_solving",
+      ],
+      crop_schedule_lifecycle_status: [
+        "PLANNED",
+        "SOWN",
+        "GROWING",
+        "MATURITY_REACHED",
+        "WAITING_HARVEST_CONFIRMATION",
+        "HARVESTED",
+        "ABANDONED",
+      ],
+      harvest_confirmation_request_status: [
+        "PENDING",
+        "RESPONDED",
+        "EXPIRED",
+        "CANCELLED",
+      ],
+      harvest_status: [
+        "NOT_STARTED",
+        "PARTIALLY_HARVESTED",
+        "FULLY_HARVESTED",
+        "ABANDONED",
+      ],
+      land_lifecycle_status: [
+        "AVAILABLE",
+        "PREPARING",
+        "CROP_ACTIVE",
+        "READY_FOR_HARVEST",
+        "WAITING_HARVEST_CONFIRMATION",
+        "HARVEST_COMPLETED",
       ],
       language_code: [
         "en",
@@ -24734,6 +48191,7 @@ export const Constants = {
         "other",
       ],
       metric_type: ["system", "usage", "ai_model", "financial", "custom"],
+      ndvi_observation_type: ["observed", "interpolated", "composite"],
       onboarding_step_status: [
         "pending",
         "in_progress",
@@ -24752,6 +48210,26 @@ export const Constants = {
       ],
       post_status: ["draft", "published", "moderated", "deleted"],
       post_type: ["text", "image", "video", "poll"],
+      reel_moderation_status: ["pending", "approved", "rejected", "flagged"],
+      reel_publish_status: ["draft", "published", "archived"],
+      reel_report_reason: [
+        "spam",
+        "misinformation",
+        "abuse",
+        "copyright",
+        "unsafe",
+        "other",
+      ],
+      reel_transcoding_status: [
+        "not_required",
+        "queued",
+        "processing",
+        "ready",
+        "failed",
+      ],
+      reel_uploader_role: ["saas_admin", "tenant_admin"],
+      reel_video_source: ["youtube", "upload", "external"],
+      reel_visibility: ["global", "tenant"],
       subscription_plan: [
         "Kisan_Basic",
         "Shakti_Growth",
@@ -24794,6 +48272,7 @@ export const Constants = {
         "dealer",
         "agent",
         "farmer",
+        "tenant_viewer",
       ],
       verification_status: [
         "pending",

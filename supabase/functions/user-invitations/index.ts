@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { requireSuperAdmin, withCors, auditAdminAction, guardLastSuperAdmin } from "../_shared/requireSuperAdmin.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -277,20 +278,58 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Route to appropriate handler
     switch (action) {
-      case 'send':
-        return invitationType === 'admin' 
-          ? await sendAdminInvite(supabase, body) 
-          : await sendUserInvite(supabase, body);
+      case 'send': {
+        // Never trust inviter identity from the request body: bind it to the verified JWT.
+        if (invitationType === 'admin') {
+          let caller;
+          try { caller = await requireSuperAdmin(req); } catch (e) {
+            if (e instanceof Response) return withCors(e, corsHeaders);
+            throw e;
+          }
+          if (!caller.isServiceRole) body.invitedBy = caller.userId;
+          return await sendAdminInvite(supabase, body);
+        }
+        const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+        const { data: authUser } = token ? await supabase.auth.getUser(token) : { data: { user: null } };
+        if (!authUser?.user) {
+          return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
+            status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          });
+        }
+        body.userId = authUser.user.id;
+        return await sendUserInvite(supabase, body);
+      }
       
       case 'verify':
+        // Token may arrive in the query string or the POST body.
+        if (body?.token && !url.searchParams.get('token')) url.searchParams.set('token', String(body.token));
         return await verifyInvite(supabase, url, invitationType);
       
       case 'accept':
         return await acceptInvite(supabase, body, invitationType);
       
-      case 'validate':
-        // New action: direct validation endpoint
+      case 'validate': {
+        // Validation reveals account/role existence: super_admin only.
+        try { await requireSuperAdmin(req); } catch (e) {
+          if (e instanceof Response) return withCors(e, corsHeaders);
+          throw e;
+        }
         return await handleValidate(supabase, body);
+      }
+
+      // ---- Super-admin directory & lifecycle (server-authorized) ----
+      case 'admin_list':
+      case 'admin_cancel':
+      case 'admin_resend':
+      case 'admin_set_role':
+      case 'admin_set_active': {
+        let caller;
+        try { caller = await requireSuperAdmin(req); } catch (e) {
+          if (e instanceof Response) return withCors(e, corsHeaders);
+          throw e;
+        }
+        return await handleAdminDirectory(supabase, action, body, caller, req);
+      }
       
       default:
         return new Response(JSON.stringify({ 
@@ -311,6 +350,104 @@ const handler = async (req: Request): Promise<Response> => {
     });
   }
 };
+
+const ADMIN_ROLES = ['admin', 'platform_admin', 'super_admin'];
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+
+function adminSiteUrl(): string {
+  return (Deno.env.get('ADMIN_SITE_URL') || Deno.env.get('SITE_URL') || 'https://admin.kisanshaktiai.in').replace(/\/+$/, '');
+}
+
+async function handleAdminDirectory(supabase: any, action: string, body: any, caller: any, req: Request): Promise<Response> {
+  const ip = req.headers.get('x-forwarded-for');
+  const ua = req.headers.get('user-agent');
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (action === 'admin_list') {
+    const [{ data: admins, error: aErr }, { data: invites, error: iErr }] = await Promise.all([
+      supabase.from('admin_users').select('id, email, full_name, role, is_active, created_at, updated_at').order('created_at', { ascending: false }),
+      supabase.from('admin_invites').select('id, email, role, status, expires_at, accepted_at, created_at, invited_by').order('created_at', { ascending: false }).limit(200),
+    ]);
+    if (aErr || iErr) return json({ error: (aErr || iErr).message }, 500);
+
+    // Enrich with auth status (email verified, last sign-in) per admin id.
+    const enriched = await Promise.all((admins || []).map(async (a: any) => {
+      const { data } = await supabase.auth.admin.getUserById(a.id);
+      const u = data?.user;
+      return {
+        ...a,
+        email_confirmed_at: u?.email_confirmed_at ?? null,
+        last_sign_in_at: u?.last_sign_in_at ?? null,
+        auth_missing: !u,
+        banned_until: (u as any)?.banned_until ?? null,
+      };
+    }));
+    const now = Date.now();
+    const inv = (invites || []).map((i: any) => ({
+      ...i,
+      status: i.status === 'pending' && new Date(i.expires_at).getTime() < now ? 'expired' : i.status,
+    }));
+    return json({ admins: enriched, invites: inv, caller_id: caller.userId });
+  }
+
+  if (action === 'admin_cancel') {
+    if (!uuidRe.test(body?.inviteId || '')) return json({ error: 'Invalid invite id' }, 400);
+    const { data, error } = await supabase.from('admin_invites')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', body.inviteId).eq('status', 'pending').select('id, email').maybeSingle();
+    if (error) return json({ error: error.message }, 500);
+    if (!data) return json({ error: 'Invite is not pending' }, 409);
+    await auditAdminAction({ caller, action: 'admin_invite_cancelled', details: { invite_id: data.id, email: data.email }, ip, userAgent: ua });
+    return json({ success: true });
+  }
+
+  if (action === 'admin_resend') {
+    if (!uuidRe.test(body?.inviteId || '')) return json({ error: 'Invalid invite id' }, 400);
+    const { data: old } = await supabase.from('admin_invites').select('id, email, role, status').eq('id', body.inviteId).maybeSingle();
+    if (!old) return json({ error: 'Invite not found' }, 404);
+    if (old.status === 'accepted') return json({ error: 'Invite already accepted' }, 409);
+    await supabase.from('admin_invites').update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('email', old.email).eq('status', 'pending');
+    const res = await sendAdminInvite(supabase, { email: old.email, role: old.role, invitedBy: caller.isServiceRole ? null : caller.userId });
+    if (res.ok) await auditAdminAction({ caller, action: 'admin_invite_resent', details: { email: old.email, role: old.role }, ip, userAgent: ua });
+    return res;
+  }
+
+  const targetId = body?.adminId;
+  if (!uuidRe.test(targetId || '')) return json({ error: 'Invalid admin id' }, 400);
+  if (!caller.isServiceRole && targetId === caller.userId) {
+    return json({ error: 'You cannot change your own role or access' }, 403);
+  }
+
+  if (action === 'admin_set_role') {
+    const role = body?.role;
+    if (!ADMIN_ROLES.includes(role)) return json({ error: 'Invalid role' }, 400);
+    const lock = await guardLastSuperAdmin(supabase, targetId, { newRole: role });
+    if (lock) return withCors(lock, corsHeaders);
+    const { data, error } = await supabase.from('admin_users')
+      .update({ role, updated_at: new Date().toISOString() }).eq('id', targetId).select('id, email, role').maybeSingle();
+    if (error) return json({ error: error.message }, 500);
+    if (!data) return json({ error: 'Admin not found' }, 404);
+    await auditAdminAction({ caller, action: 'admin_role_changed', targetAdminId: targetId, details: { new_role: role }, ip, userAgent: ua });
+    return json({ success: true, admin: data });
+  }
+
+  // admin_set_active
+  const active = body?.active === true;
+  const lock = await guardLastSuperAdmin(supabase, targetId, { deactivating: !active });
+  if (lock) return withCors(lock, corsHeaders);
+  const { data, error } = await supabase.from('admin_users')
+    .update({ is_active: active, updated_at: new Date().toISOString() }).eq('id', targetId).select('id, email, is_active').maybeSingle();
+  if (error) return json({ error: error.message }, 500);
+  if (!data) return json({ error: 'Admin not found' }, 404);
+  // Deactivation also revokes live sessions so access ends immediately.
+  if (!active) {
+    try { await supabase.auth.admin.signOut(targetId, 'global'); } catch (_) { /* best effort */ }
+  }
+  await auditAdminAction({ caller, action: active ? 'admin_reactivated' : 'admin_deactivated', targetAdminId: targetId, details: {}, ip, userAgent: ua });
+  return json({ success: true, admin: data });
+}
 
 // Handle direct validation requests (replacement for validate-user-invitation function)
 async function handleValidate(supabase: any, body: any): Promise<Response> {
@@ -408,7 +545,7 @@ async function sendAdminInvite(supabase: any, body: any): Promise<Response> {
     throw new Error(`Failed to create invite: ${inviteError.message}`);
   }
 
-  const siteUrl = Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com') || 'https://app.kisanshaktiai.in';
+  const siteUrl = adminSiteUrl();
   const inviteUrl = `${siteUrl}/register?invite=${inviteToken}`;
 
   // Call send-auth-email function instead of using Resend directly
@@ -722,6 +859,29 @@ async function acceptInvite(supabase: any, body: any, invitationType: string): P
     });
   }
 
+  if (String(password).length < 8 || String(fullName).trim().length < 2) {
+    return json({ error: 'Password must be at least 8 characters and full name is required' }, 400);
+  }
+  if (invitationType === 'admin' && !ADMIN_ROLES.includes(invite.role)) {
+    return json({ error: 'Invite carries an invalid role' }, 400);
+  }
+
+  // Atomically claim the token (single use, race-safe) before creating anything.
+  const { data: claimed } = await supabase
+    .from(table)
+    .update({ status: 'accepted', accepted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq(tokenField, token)
+    .eq('status', invite.status)
+    .select('id')
+    .maybeSingle();
+  if (!claimed) return json({ error: 'Invite has already been used' }, 410);
+
+  const releaseClaim = () => supabase.from(table)
+    .update({ status: invite.status, accepted_at: null, updated_at: new Date().toISOString() })
+    .eq(tokenField, token);
+
+  // Clicking the emailed link proves ownership of the address → account is
+  // created email-verified and active immediately.
   const { data: userData, error: userError } = await supabase.auth.admin.createUser({
     email: invite.email,
     password,
@@ -734,7 +894,9 @@ async function acceptInvite(supabase: any, body: any, invitationType: string): P
   });
 
   if (userError) {
-    throw new Error(`Failed to create user: ${userError.message}`);
+    await releaseClaim();
+    const exists = /already|registered|exists/i.test(userError.message);
+    return json({ error: exists ? 'An account with this email already exists. Please sign in or reset your password.' : `Failed to create user: ${userError.message}` }, exists ? 409 : 500);
   }
 
   if (invitationType === 'admin') {
@@ -750,18 +912,16 @@ async function acceptInvite(supabase: any, body: any, invitationType: string): P
 
     if (adminError) {
       await supabase.auth.admin.deleteUser(userData.user.id);
+      await releaseClaim();
       throw new Error(`Failed to create admin user: ${adminError.message}`);
     }
+    await auditAdminAction({
+      caller: { userId: userData.user.id, email: invite.email },
+      action: 'admin_invite_accepted',
+      targetAdminId: userData.user.id,
+      details: { role: invite.role, invite_id: invite.id, invited_by: invite.invited_by },
+    });
   }
-
-  await supabase
-    .from(table)
-    .update({
-      status: 'accepted',
-      accepted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq(tokenField, token);
 
   return new Response(JSON.stringify({
     success: true,

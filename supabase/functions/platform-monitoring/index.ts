@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { handleError } from '../_shared/errorHandler.ts';
+import { requireSuperAdmin, withCors } from '../_shared/requireSuperAdmin.ts';
 
 interface MonitoringRequest {
   action: 'collect-metrics' | 'get-realtime-metrics' | 'get-analytics' | 'get-activity-feed';
@@ -17,6 +18,11 @@ const handler = async (req: Request): Promise<Response> => {
   if (corsResponse) return corsResponse;
 
   const corsHeaders = getCorsHeaders(req);
+
+  try { await requireSuperAdmin(req); } catch (e) {
+    if (e instanceof Response) return withCors(e, corsHeaders);
+    throw e;
+  }
 
   try {
     const supabaseClient = createClient(
@@ -348,10 +354,10 @@ async function handleGetRealtimeMetrics(
 
   // Calculate metrics
   const totalApiCalls = recentApiLogs?.length || 0;
-  const errorCalls = recentApiLogs?.filter(log => log.status_code >= 400).length || 0;
-  const validLogs = recentApiLogs?.filter(log => log.response_time_ms != null) || [];
+  const errorCalls = recentApiLogs?.filter((log: any) => log.status_code >= 400).length || 0;
+  const validLogs = recentApiLogs?.filter((log: any) => log.response_time_ms != null) || [];
   const avgResponseTime = validLogs.length > 0 
-    ? validLogs.reduce((sum, log) => sum + (log.response_time_ms || 0), 0) / validLogs.length 
+    ? validLogs.reduce((sum: number, log: any) => sum + (log.response_time_ms || 0), 0) / validLogs.length 
     : 0;
   const errorRate = totalApiCalls > 0 ? (errorCalls / totalApiCalls) * 100 : 0;
 
@@ -502,7 +508,7 @@ async function handleGetAnalytics(
     .order('created_at', { ascending: true });
 
   const totalApiCalls = apiLogs?.length || 0;
-  const errorCalls = apiLogs?.filter(log => log.status_code >= 400).length || 0;
+  const errorCalls = apiLogs?.filter((log: any) => log.status_code >= 400).length || 0;
   const avgResponseTime = (apiLogs?.reduce((sum: number, log: any) => sum + (log.response_time_ms || 0), 0) || 0) / Math.max(totalApiCalls, 1);
 
   // Generate time series helper
@@ -538,7 +544,7 @@ async function handleGetAnalytics(
       success: true,
       period,
       usage_trends: {
-        farmers: generateTimeSeries(activationLogs?.filter(log => log.success) || [], 'created_at'),
+        farmers: generateTimeSeries(activationLogs?.filter((log: any) => log.success) || [], 'created_at'),
         api_usage: generateTimeSeries(apiLogs || [], 'created_at'),
         revenue: {
           data: Array.from({ length: periodDays }, () => Math.floor(Math.random() * 1000) + 500),
@@ -635,7 +641,7 @@ async function handleGetActivityFeed(
 
   // Process API logs
   if (apiLogsResult.data) {
-    activities.push(...apiLogsResult.data.map(log => ({
+    activities.push(...apiLogsResult.data.map((log: any) => ({
       id: log.id,
       type: 'api_activity',
       title: `API ${log.method} ${log.endpoint}`,
@@ -648,7 +654,7 @@ async function handleGetActivityFeed(
 
   // Process admin audit logs
   if (adminAuditResult.data) {
-    activities.push(...adminAuditResult.data.map(log => ({
+    activities.push(...adminAuditResult.data.map((log: any) => ({
       id: log.id,
       type: 'admin_action',
       title: `Admin Action: ${log.action}`,
@@ -662,7 +668,7 @@ async function handleGetActivityFeed(
 
   // Process security events
   if (securityEventsResult.data) {
-    activities.push(...securityEventsResult.data.map(event => ({
+    activities.push(...securityEventsResult.data.map((event: any) => ({
       id: event.id,
       type: 'security_event',
       title: `Security Event: ${event.event_type}`,
@@ -676,7 +682,7 @@ async function handleGetActivityFeed(
 
   // Process activation logs
   if (activationLogsResult.data) {
-    activities.push(...activationLogsResult.data.map(log => ({
+    activities.push(...activationLogsResult.data.map((log: any) => ({
       id: log.id,
       type: 'activation',
       title: log.success ? 'Activation Successful' : 'Activation Failed',

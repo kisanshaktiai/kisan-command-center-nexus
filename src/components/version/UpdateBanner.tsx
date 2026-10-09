@@ -23,7 +23,7 @@ interface UpdateBannerProps {
 }
 
 export function UpdateBanner({ className = '' }: UpdateBannerProps) {
-  const { status, latestVersion, updatePolicy, releaseNotes } = useAppVersionCheck();
+  const { status, latestVersion, updatePolicy, releaseNotes, applyUpdate } = useAppVersionCheck();
   const [dismissed, setDismissed] = useState(false);
 
   // Show blocking modal for required updates
@@ -51,7 +51,7 @@ export function UpdateBanner({ className = '' }: UpdateBannerProps) {
           )}
 
           <DialogFooter>
-            <Button onClick={() => window.location.reload()} className="w-full">
+            <Button onClick={applyUpdate} className="w-full">
               <Download className="h-4 w-4 mr-2" />
               Update Now
             </Button>
@@ -98,7 +98,7 @@ export function UpdateBanner({ className = '' }: UpdateBannerProps) {
           variant="secondary"
           size="sm"
           className="mt-3"
-          onClick={() => window.location.reload()}
+          onClick={applyUpdate}
         >
           <Download className="h-4 w-4 mr-2" />
           Update

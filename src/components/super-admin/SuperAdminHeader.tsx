@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
+import { LanguageSwitcher } from '@/components/super-admin/LanguageSwitcher';
 
 interface SuperAdminHeaderProps {
   setSidebarOpen: (open: boolean) => void;
@@ -100,6 +101,7 @@ export function SuperAdminHeader({ setSidebarOpen, adminUser, sidebarOpen }: Sup
         </div>
 
         <div className="flex items-center gap-4">
+          <LanguageSwitcher />
           {/* Dark Mode Toggle */}
           <Button 
             variant="ghost" 

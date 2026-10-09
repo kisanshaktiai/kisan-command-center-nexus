@@ -20,14 +20,34 @@ import {
   Package,
   Layers,
   Satellite,
-  Info
+  Info,
+  Brain,
+  HardDrive,
+  Gavel,
+  BookOpen,
+  Lightbulb,
+  Eye,
+  ShieldAlert,
+  FlaskConical,
+  ClipboardCheck,
+  Wand2,
+  ScanSearch,
+  Wrench,
+  FileCode2,
+  Library,
+  UploadCloud,
+  FileStack,
+  Route,
+  Cpu,
+  History,
+  KeyRound
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
-import { APP_VERSION, APP_BUILD_HASH } from '@/hooks/useAppVersionCheck';
+import { useAppVersionCheck } from '@/hooks/useAppVersionCheck';
 
 const navigationItems = [
   {
@@ -42,12 +62,50 @@ const navigationItems = [
     ]
   },
   {
+    // 2026-10-01 — AI control plane Phase 1: the AI model registry (what the farmer app's AI
+    // features run on). "AI Costs" moved here from Platform Management; its route is unchanged.
+    title: 'AI Control',
+    items: [
+      { title: 'AI Feature Routing', tab: 'ai-feature-routing', route: '/super-admin/ai-control/routing', icon: Route },
+      { title: 'AI Models', tab: 'ai-models', route: '/super-admin/ai-control/models', icon: Cpu },
+      { title: 'AI API Keys', tab: 'ai-api-keys', route: '/super-admin/ai-control/keys', icon: KeyRound },
+      { title: 'AI Usage & Costs', tab: 'ai-costs', route: '/super-admin/ai-costs', icon: Brain },
+      { title: 'AI Change History', tab: 'ai-change-history', route: '/super-admin/ai-control/history', icon: History },
+    ]
+  },
+  {
+    title: 'AI Knowledge Base',
+    items: [
+      { title: 'Knowledge Sources', tab: 'knowledge-sources', route: '/super-admin/governance/knowledge?tab=sources', icon: Library },
+      { title: 'Upload Document', tab: 'knowledge-upload', route: '/super-admin/governance/knowledge?tab=upload', icon: UploadCloud },
+      { title: 'Ingested Documents', tab: 'knowledge-documents', route: '/super-admin/governance/knowledge?tab=documents', icon: FileStack },
+    ]
+  },
+  {
+    title: 'Governance & Operations',
+    items: [
+
+      { title: 'Backups', tab: 'backups', route: '/super-admin/backups', icon: HardDrive },
+      { title: 'Governance Reports', tab: 'governance-reports', route: '/super-admin/governance/reports', icon: Gavel },
+      { title: 'Rules Console', tab: 'rules-console', route: '/super-admin/governance/rules', icon: BookOpen },
+      { title: 'Hypothesis Console', tab: 'hypothesis-console', route: '/super-admin/governance/hypotheses', icon: Lightbulb },
+      { title: 'Observation Console', tab: 'observation-console', route: '/super-admin/governance/observations', icon: Eye },
+      { title: 'Safety & Regulatory', tab: 'safety-console', route: '/super-admin/governance/safety', icon: ShieldAlert },
+      { title: 'Simulation Sandbox', tab: 'simulation-sandbox', route: '/super-admin/governance/simulate', icon: FlaskConical },
+      { title: 'Approval Queue', tab: 'approval-queue', route: '/super-admin/governance/queue', icon: ClipboardCheck },
+      { title: 'AI Rule Builder', tab: 'ai-rule-builder', route: '/super-admin/governance/rules/new', icon: Wand2 },
+      { title: 'AI Prompt Templates', tab: 'ai-prompt-templates', route: '/super-admin/governance/prompts', icon: FileCode2 },
+      { title: 'Narration Validation', tab: 'narration-validation', route: '/super-admin/governance/narration', icon: ScanSearch },
+      { title: 'Hardening & Cron', tab: 'hardening', route: '/super-admin/governance/hardening', icon: Wrench },
+    ]
+  },
+  {
     title: 'Master Data',
     items: [
       { title: 'Master Companies', tab: 'master-companies', route: '/super-admin/master-companies', icon: Building },
       { title: 'Product Categories', tab: 'product-categories', route: '/super-admin/product-categories', icon: Layers },
       { title: 'Master Products', tab: 'master-products', route: '/super-admin/master-products', icon: Package },
-      { title: 'NDVI Data Status', tab: 'ndvi-data-status', route: '/super-admin/ndvi-data-status', icon: Satellite },
+      { title: 'Satellite / NDVI Operations', tab: 'ndvi-data-status', route: '/super-admin/ndvi-data-status', icon: Satellite },
     ]
   },
   {
@@ -76,16 +134,32 @@ interface SuperAdminSidebarProps {
 
 export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }: SuperAdminSidebarProps) {
   const { signOut } = useAuth();
-  const [openGroups, setOpenGroups] = useState<string[]>(['Platform Management']);
+  const appKey = 'admin_portal';
+  const { currentVersion, buildHash, isLoading } = useAppVersionCheck(appKey);
+  const versionLabel = currentVersion ? `v${currentVersion}` : isLoading ? 'v…' : 'v—';
+  const buildLabel = buildHash ? buildHash.slice(0, 7) : isLoading ? '…' : '—';
   const location = useLocation();
 
+  const activeGroup = navigationItems.find(g =>
+    g.items.some(i => i.route.split('?')[0] === location.pathname)
+  )?.title ?? 'Platform Management';
+  const [openGroups, setOpenGroups] = useState<string[]>([activeGroup]);
+
+  // Keep the group containing the active route expanded on navigation.
+  React.useEffect(() => {
+    setOpenGroups(prev =>
+      prev.includes(activeGroup) ? prev : [...prev, activeGroup]
+    );
+  }, [activeGroup]);
+
   const toggleGroup = (groupTitle: string) => {
-    setOpenGroups(prev => 
-      prev.includes(groupTitle) 
-        ? prev.filter(title => title !== groupTitle)
+    setOpenGroups(prev =>
+      prev.includes(groupTitle)
+        ? prev.filter(g => g !== groupTitle)
         : [...prev, groupTitle]
     );
   };
+
 
   const closeSidebar = () => setIsOpen(false);
 
@@ -102,7 +176,11 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
   };
 
   const NavItem = ({ item }: { item: any }) => {
-    const isActive = location.pathname === item.route;
+    const [itemPath, itemSearch] = item.route.split('?');
+    const isActive = itemSearch
+      ? location.pathname === itemPath &&
+        (location.search.replace(/^\?/, '') || 'tab=sources') === itemSearch
+      : location.pathname === item.route;
     
     const itemContent = (
       <Link
@@ -158,12 +236,12 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 bg-gradient-to-b from-slate-900 to-slate-800 border-r border-slate-700 shadow-2xl transform transition-all duration-300 ease-in-out",
+        "fixed inset-y-0 left-0 z-50 flex flex-col bg-gradient-to-b from-slate-900 to-slate-800 border-r border-slate-700 shadow-2xl transform transition-all duration-300 ease-in-out",
         isOpen ? "w-72" : "w-16",
         "translate-x-0"
       )}>
         {/* Header */}
-        <div className="border-b border-slate-700 p-4">
+        <div className="border-b border-slate-700 p-4 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
               <Settings className="w-5 h-5 text-white" />
@@ -178,7 +256,7 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
         </div>
 
         {/* Navigation with ScrollArea */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col">
           <ScrollArea className={cn("flex-1 py-2", isOpen ? "px-4" : "px-2")}>
             <div className={cn(isOpen ? "space-y-2" : "space-y-3")}>
               {navigationItems.map((group) => (
@@ -223,7 +301,7 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
         </div>
 
         {/* Footer - Version & Sign Out */}
-        <div className="border-t border-slate-700 p-4 space-y-3">
+        <div className="border-t border-slate-700 p-4 space-y-3 flex-shrink-0">
           {/* Version Display */}
           <TooltipProvider>
             <Tooltip>
@@ -238,15 +316,15 @@ export function SuperAdminSidebar({ isOpen, setIsOpen, activeTab, onTabChange }:
                   <Info className="w-3.5 h-3.5 flex-shrink-0" />
                   {isOpen && (
                     <span className="font-mono">
-                      v{APP_VERSION} <span className="text-slate-500">({APP_BUILD_HASH.slice(0, 7)})</span>
+                      {versionLabel} <span className="text-slate-500">({buildLabel})</span>
                     </span>
                   )}
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="right" className="ml-2">
                 <div className="text-xs">
-                  <p>Version: {APP_VERSION}</p>
-                  <p className="text-muted-foreground">Build: {APP_BUILD_HASH}</p>
+                  <p>Version: {currentVersion || (isLoading ? '…' : '—')}</p>
+                  <p className="text-muted-foreground">Build: {buildHash || (isLoading ? '…' : '—')}</p>
                 </div>
               </TooltipContent>
             </Tooltip>

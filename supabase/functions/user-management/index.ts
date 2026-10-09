@@ -1,6 +1,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { RateLimiter, RATE_LIMITS } from '../_shared/rateLimiter.ts';
+import {
+  requireSuperAdmin,
+  withCors as addCors,
+  auditAdminAction,
+  guardLastSuperAdmin,
+  type Caller,
+} from '../_shared/requireSuperAdmin.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,22 +86,35 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // SECURITY: privileged operations must prove the caller is an active
+    // super_admin (verify_jwt=false + service-role client bypasses RLS).
+    const PRIVILEGED = new Set(['update', 'deactivate', 'list', 'register']);
+    let caller: Caller | null = null;
+    if (PRIVILEGED.has(operation)) {
+      try {
+        caller = await requireSuperAdmin(req);
+      } catch (e) {
+        if (e instanceof Response) return addCors(e, { ...corsHeaders, ...rateLimitHeaders });
+        throw e;
+      }
+    }
+
     switch (operation) {
       case 'check-exists':
         return await checkUserExists(supabase, body, rateLimitHeaders);
       
       case 'get-by-email':
       case 'get':
-        return await getUserByEmail(supabase, body, rateLimitHeaders);
+        return await getUserByEmail(supabase, body, rateLimitHeaders, req);
       
       case 'register':
-        return await registerUser(supabase, body, rateLimitHeaders);
+        return await registerUser(supabase, body, rateLimitHeaders, caller);
       
       case 'update':
-        return await updateUser(supabase, body, rateLimitHeaders);
+        return await updateUser(supabase, body, rateLimitHeaders, caller, req);
       
       case 'deactivate':
-        return await deactivateUser(supabase, body, rateLimitHeaders);
+        return await deactivateUser(supabase, body, rateLimitHeaders, caller, req);
       
       case 'list':
         return await listUsers(supabase, body, rateLimitHeaders);
@@ -180,8 +200,7 @@ async function checkUserExists(supabase: any, body: any, rateLimitHeaders: any):
 
   if (!user) {
     return new Response(JSON.stringify({ 
-      exists: false,
-      email: emailToCheck
+      exists: false
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders, ...rateLimitHeaders }
@@ -195,15 +214,12 @@ async function checkUserExists(supabase: any, body: any, rateLimitHeaders: any):
     .eq('id', user.id)
     .maybeSingle();
 
-  const isAdmin = !adminError && adminData;
+  const isAdmin = !!(!adminError && adminData);
 
+  // Unauthenticated (pre-auth) endpoint: return existence only, no PII/roles.
   return new Response(JSON.stringify({ 
     exists: true,
-    isAdmin,
-    userId: user.id,
-    email: user.email,
-    userStatus: user.email_confirmed_at ? 'confirmed' : 'pending',
-    created_at: user.created_at
+    isAdmin
   }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', ...corsHeaders, ...rateLimitHeaders }
@@ -213,7 +229,11 @@ async function checkUserExists(supabase: any, body: any, rateLimitHeaders: any):
 /**
  * Get user by email
  */
-async function getUserByEmail(supabase: any, body: any, rateLimitHeaders: any): Promise<Response> {
+async function getUserByEmail(supabase: any, body: any, rateLimitHeaders: any, req: Request): Promise<Response> {
+  // Full records are only for super_admins; unauthenticated callers (invite /
+  // bootstrap existence checks) get a boolean.
+  let isSuperAdmin = false;
+  try { await requireSuperAdmin(req); isSuperAdmin = true; } catch { isSuperAdmin = false; }
   const { email, user_email } = body;
   const emailToGet = email || user_email;
 
@@ -246,7 +266,14 @@ async function getUserByEmail(supabase: any, body: any, rateLimitHeaders: any): 
   const user = users.users.find((u: any) => u.email === emailToGet);
 
   if (!user) {
-    return new Response(JSON.stringify([]), {
+    return new Response(JSON.stringify(isSuperAdmin ? [] : { exists: false }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders, ...rateLimitHeaders }
+    });
+  }
+
+  if (!isSuperAdmin) {
+    return new Response(JSON.stringify({ exists: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders, ...rateLimitHeaders }
     });
@@ -267,7 +294,7 @@ async function getUserByEmail(supabase: any, body: any, rateLimitHeaders: any): 
 /**
  * Register a new user with optional welcome email
  */
-async function registerUser(supabase: any, body: any, rateLimitHeaders: any): Promise<Response> {
+async function registerUser(supabase: any, body: any, rateLimitHeaders: any, caller: Caller | null): Promise<Response> {
   const { 
     email, 
     password, 
@@ -405,7 +432,7 @@ async function registerUser(supabase: any, body: any, rateLimitHeaders: any): Pr
 /**
  * Update user metadata
  */
-async function updateUser(supabase: any, body: any, rateLimitHeaders: any): Promise<Response> {
+async function updateUser(supabase: any, body: any, rateLimitHeaders: any, caller: Caller | null, req: Request): Promise<Response> {
   const { user_id, email, metadata } = body;
 
   if (!user_id && !email) {
@@ -438,6 +465,12 @@ async function updateUser(supabase: any, body: any, rateLimitHeaders: any): Prom
     userId = user.id;
   }
 
+  // Never let an update strip the last active super_admin.
+  const updLockout = await guardLastSuperAdmin(supabase, userId, {
+    newRole: metadata?.role ?? null,
+  });
+  if (updLockout) return addCors(updLockout, { ...corsHeaders, ...rateLimitHeaders });
+
   // Update user metadata
   const { error: updateError } = await supabase.auth.admin.updateUserById(
     userId,
@@ -456,6 +489,15 @@ async function updateUser(supabase: any, body: any, rateLimitHeaders: any): Prom
     });
   }
 
+  await auditAdminAction({
+    caller,
+    action: 'user_updated',
+    targetAdminId: userId,
+    details: { metadata },
+    ip: req.headers.get('x-forwarded-for'),
+    userAgent: req.headers.get('user-agent'),
+  });
+
   return new Response(JSON.stringify({ 
     success: true,
     userId,
@@ -469,7 +511,7 @@ async function updateUser(supabase: any, body: any, rateLimitHeaders: any): Prom
 /**
  * Deactivate user account
  */
-async function deactivateUser(supabase: any, body: any, rateLimitHeaders: any): Promise<Response> {
+async function deactivateUser(supabase: any, body: any, rateLimitHeaders: any, caller: Caller | null, req: Request): Promise<Response> {
   const { user_id, email } = body;
 
   if (!user_id && !email) {
@@ -502,6 +544,10 @@ async function deactivateUser(supabase: any, body: any, rateLimitHeaders: any): 
     userId = user.id;
   }
 
+  // Never deactivate the last active super_admin.
+  const deacLockout = await guardLastSuperAdmin(supabase, userId, { deactivating: true });
+  if (deacLockout) return addCors(deacLockout, { ...corsHeaders, ...rateLimitHeaders });
+
   // Delete user (soft delete in Supabase means disabling)
   const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
 
@@ -516,6 +562,15 @@ async function deactivateUser(supabase: any, body: any, rateLimitHeaders: any): 
       headers: { 'Content-Type': 'application/json', ...corsHeaders, ...rateLimitHeaders }
     });
   }
+
+  await auditAdminAction({
+    caller,
+    action: 'user_deactivated',
+    targetAdminId: userId,
+    details: { requested_by_email: caller?.email ?? null },
+    ip: req.headers.get('x-forwarded-for'),
+    userAgent: req.headers.get('user-agent'),
+  });
 
   return new Response(JSON.stringify({ 
     success: true,

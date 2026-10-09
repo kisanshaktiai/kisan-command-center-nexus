@@ -6,6 +6,7 @@ import { EnhancedActivityFeed } from '@/components/super-admin/EnhancedActivityF
 import { ActiveSessionsMonitor } from '@/components/super-admin/ActiveSessionsMonitor';
 import { NotificationCenter } from '@/components/super-admin/NotificationCenter';
 import { CompactMetricCard } from '@/components/super-admin/CompactMetricCard';
+import { KnowledgeBaseShortcutCard } from '@/components/super-admin/KnowledgeBaseShortcutCard';
 import { useRealtimeSubscriptions } from '@/hooks/useRealtimeSubscriptions';
 import { Activity, TrendingUp } from 'lucide-react';
 
@@ -84,6 +85,11 @@ const Overview = () => {
 
           {/* System Resources Panel */}
           <SystemResourcesPanel />
+        </div>
+
+        {/* Knowledge base + resources row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <KnowledgeBaseShortcutCard />
         </div>
 
         {/* Main Content Grid */}

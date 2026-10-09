@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { requireSuperAdmin, withCors } from "../_shared/requireSuperAdmin.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +17,12 @@ serve(async (req) => {
   
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Server-side authorization: only active super_admins (or trusted service-role callers).
+  try { await requireSuperAdmin(req); } catch (e) {
+    if (e instanceof Response) return withCors(e, corsHeaders);
+    throw e;
   }
 
   const startTime = Date.now();
@@ -119,7 +126,7 @@ serve(async (req) => {
       // Billing Operations
       case 'billing':
       case 'subscriptions':
-        response = await handleSubscriptionsBilling(supabaseClient, tenantId);
+        response = await handleSubscriptionsBilling(supabaseClient, tenantId ?? undefined);
         break;
       
       default:
@@ -614,20 +621,20 @@ async function handleSubscriptionsBilling(supabaseClient: any, tenantId?: string
   }
 
   // Calculate billing summary
-  const completedPayments = payments?.filter(p => p.status === 'completed') || [];
-  const totalRevenue = completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const completedPayments = payments?.filter((p: any) => p.status === 'completed') || [];
+  const totalRevenue = completedPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
   
   const thisMonthStart = new Date();
   thisMonthStart.setDate(1);
   thisMonthStart.setHours(0, 0, 0, 0);
   
   const monthlyRevenue = completedPayments
-    .filter(p => new Date(p.created_at) >= thisMonthStart)
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
+    .filter((p: any) => new Date(p.created_at) >= thisMonthStart)
+    .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
 
   const outstandingAmount = invoices
-    ?.filter(i => i.status === 'sent' || i.status === 'overdue')
-    .reduce((sum, i) => sum + (i.amount || 0), 0) || 0;
+    ?.filter((i: any) => i.status === 'sent' || i.status === 'overdue')
+    .reduce((sum: number, i: any) => sum + (i.amount || 0), 0) || 0;
 
   return {
     active_subscriptions: subscriptions?.map((sub: any) => ({

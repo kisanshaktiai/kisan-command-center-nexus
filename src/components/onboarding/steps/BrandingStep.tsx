@@ -110,7 +110,7 @@ export const BrandingStep: React.FC<BrandingStepProps> = ({
           favicon_url: formData.faviconUrl,
           custom_css: formData.customCss,
           updated_at: new Date().toISOString()
-        }, {
+        } as any, {
           onConflict: 'tenant_id'
         });
 

@@ -1,17 +1,16 @@
 import React from 'react';
-import { AdminInviteManager } from '@/components/super-admin/AdminInviteManager';
+import { AdminAccessManager } from '@/components/super-admin/AdminAccessManager';
 
 export default function AdminUserManagement() {
   return (
     <div className="space-y-6">
-      <div className="border-b border-gray-200 pb-4">
-        <h1 className="text-3xl font-bold text-gray-900">Admin User Management</h1>
-        <p className="text-gray-600 mt-2">
-          Manage admin users, send invitations, and control system access
+      <div className="border-b border-border pb-4">
+        <h1 className="text-3xl font-bold text-foreground">Admin User Management</h1>
+        <p className="text-muted-foreground mt-2">
+          Invite administrators, control their role and portal access, and track every invitation
         </p>
       </div>
-      
-      <AdminInviteManager />
+      <AdminAccessManager />
     </div>
   );
 }

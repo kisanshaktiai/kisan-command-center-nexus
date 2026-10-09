@@ -67,7 +67,7 @@ export class FeatureService {
     try {
       const { error } = await supabase
         .from('tenant_features')
-        .update({ [featureName]: enabled, updated_at: new Date().toISOString() })
+        .update({ [featureName]: enabled, updated_at: new Date().toISOString() } as any)
         .eq('tenant_id', tenantId);
 
       if (error) {

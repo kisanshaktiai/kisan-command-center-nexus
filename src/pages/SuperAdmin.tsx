@@ -19,6 +19,25 @@ import MasterCompanies from './super-admin/MasterCompanies';
 import MasterProducts from './super-admin/MasterProducts';
 import ProductCategories from './super-admin/ProductCategories';
 import NdviDataStatus from './super-admin/NdviDataStatus';
+import AiCostDashboard from './super-admin/AiCostDashboard';
+import AiFeatureRouting from './super-admin/AiFeatureRouting';
+import AiModels from './super-admin/AiModels';
+import AiChangeHistory from './super-admin/AiChangeHistory';
+import AiApiKeys from './super-admin/AiApiKeys';
+import BackupStatus from './super-admin/BackupStatus';
+import GovernanceReports from './super-admin/GovernanceReports';
+import RulesConsole from './super-admin/RulesConsole';
+import RuleReview from './super-admin/RuleReview';
+import HypothesisConsole from './super-admin/HypothesisConsole';
+import ObservationConsole from './super-admin/ObservationConsole';
+import SafetyConsole from './super-admin/SafetyConsole';
+import SimulationSandbox from './super-admin/SimulationSandbox';
+import ApprovalQueue from './super-admin/ApprovalQueue';
+import AIRuleBuilder from './super-admin/AIRuleBuilder';
+import AIPromptTemplates from './super-admin/AIPromptTemplates';
+import NarrationValidation from './super-admin/NarrationValidation';
+import HardeningConsole from './super-admin/HardeningConsole';
+import KnowledgeSources from './super-admin/KnowledgeSources';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,10 +54,12 @@ const SuperAdmin = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
+      // Revoked (inactive) admins must not reach the portal.
       const { data: adminData, error } = await supabase
         .from('admin_users')
         .select('*')
-        .eq('email', user.email)
+        .eq('id', user.id)
+        .eq('is_active', true)
         .single();
 
       if (error) throw error;
@@ -102,6 +123,25 @@ const SuperAdmin = () => {
             <Route path="/master-products" element={<MasterProducts />} />
             <Route path="/product-categories" element={<ProductCategories />} />
             <Route path="/ndvi-data-status" element={<NdviDataStatus />} />
+            <Route path="/ai-costs" element={<AiCostDashboard />} />
+            <Route path="/ai-control/routing" element={<AiFeatureRouting />} />
+            <Route path="/ai-control/models" element={<AiModels />} />
+            <Route path="/ai-control/history" element={<AiChangeHistory />} />
+            <Route path="/ai-control/keys" element={<AiApiKeys />} />
+            <Route path="/backups" element={<BackupStatus />} />
+            <Route path="/governance/reports" element={<GovernanceReports />} />
+            <Route path="/governance/rules" element={<RulesConsole />} />
+            <Route path="/governance/review/:ruleUuid" element={<RuleReview />} />
+            <Route path="/governance/hypotheses" element={<HypothesisConsole />} />
+            <Route path="/governance/observations" element={<ObservationConsole />} />
+            <Route path="/governance/safety" element={<SafetyConsole />} />
+            <Route path="/governance/simulate" element={<SimulationSandbox />} />
+            <Route path="/governance/queue" element={<ApprovalQueue />} />
+            <Route path="/governance/rules/new" element={<AIRuleBuilder />} />
+            <Route path="/governance/prompts" element={<AIPromptTemplates />} />
+            <Route path="/governance/narration" element={<NarrationValidation />} />
+            <Route path="/governance/hardening" element={<HardeningConsole />} />
+            <Route path="/governance/knowledge" element={<KnowledgeSources />} />
           </Routes>
         </main>
       </div>

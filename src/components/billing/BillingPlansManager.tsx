@@ -102,7 +102,7 @@ export function BillingPlansManager() {
       try {
         const { data, error } = await supabase
           .from('billing_plans')
-          .insert([planData])
+          .insert([planData as any])
           .select()
           .single();
         
@@ -143,7 +143,7 @@ export function BillingPlansManager() {
 
         const { data, error } = await supabase
           .from('billing_plans')
-          .update(updateData)
+          .update(updateData as any)
           .eq('id', id)
           .select()
           .single();
