@@ -10,18 +10,20 @@ permissions:
 
 jobs:
   repair:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - name: Checkout repair branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: fix/admin-deploy-lockfile-20261010
 
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Regenerate package-lock.json
         run: npm install --package-lock-only
