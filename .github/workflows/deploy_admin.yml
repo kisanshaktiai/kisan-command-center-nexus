@@ -5,48 +5,44 @@ on:
     branches: [ main, production ]
   workflow_dispatch:
 
+# Prevent two releases from racing semantic-version allocation or
+# overwriting the same Hostinger document root concurrently.
+concurrency:
+  group: admin-production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Pin the OS image so ubuntu-latest cannot silently change under this workflow.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     steps:
-      # --------------------------------------------------
-      # Checkout
-      # --------------------------------------------------
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      # --------------------------------------------------
-      # Node setup
-      # --------------------------------------------------
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
 
-      # --------------------------------------------------
-      # Install + Build
-      # --------------------------------------------------
       - name: Install dependencies
         run: npm ci
 
       - name: Build project
         run: npm run build
 
-      # --------------------------------------------------
-      # Generate build hash
-      # --------------------------------------------------
       - name: Generate build hash
         id: build
         run: |
-          echo "build_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          echo "build_hash=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      # --------------------------------------------------
-      # 🔢 Compute NEXT semantic version (AUTO INCREMENT)
-      # --------------------------------------------------
       - name: Compute next version
         id: next_version
         env:
@@ -54,21 +50,26 @@ jobs:
           SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           APP_KEY: admin_portal
         run: |
-          LAST_VERSION=$(curl -s \
+          set -euo pipefail
+
+          RESPONSE=$(curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors --connect-timeout 10 --max-time 30 \
             "$SUPABASE_URL/rest/v1/app_versions?app_key=eq.$APP_KEY&select=version&order=created_at.desc&limit=1" \
             -H "apikey: $SERVICE_KEY" \
-            -H "Authorization: Bearer $SERVICE_KEY" \
-            | jq -r '.[0].version // "1.0.0"')
+            -H "Authorization: Bearer $SERVICE_KEY")
+
+          LAST_VERSION=$(jq -er '.[0].version // "1.0.0"' <<< "$RESPONSE")
+          if [[ ! "$LAST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid stored semantic version: $LAST_VERSION" >&2
+            exit 1
+          fi
 
           IFS='.' read -r MAJOR MINOR PATCH <<< "$LAST_VERSION"
           PATCH=$((PATCH + 1))
           NEXT_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Next admin version: $NEXT_VERSION"
 
-          echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-
-      # --------------------------------------------------
-      # 🚀 Deploy to Hostinger (NO dist folder)
-      # --------------------------------------------------
       - name: Deploy Admin via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -76,16 +77,11 @@ jobs:
           username: ${{ secrets.ADMIN_SSH_USER }}
           key: ${{ secrets.ADMIN_SSH_KEY }}
           port: ${{ secrets.ADMIN_SSH_PORT }}
-
           source: "dist/*"
           target: ${{ secrets.ADMIN_REMOTE_DIR }}
-
           strip_components: 1
           overwrite: true
 
-      # --------------------------------------------------
-      # 🧾 Register version in Supabase (UPSERT)
-      # --------------------------------------------------
       - name: Register version in Supabase
         if: success()
         env:
@@ -95,34 +91,46 @@ jobs:
           VERSION: ${{ steps.next_version.outputs.version }}
           BUILD_HASH: ${{ steps.build.outputs.build_hash }}
         run: |
-          RELEASE_NOTES=$(git log -1 --pretty=%B | sed ':a;N;$!ba;s/\n/ /g')
-      
-          curl -X POST "$SUPABASE_URL/rest/v1/app_versions?on_conflict=build_hash" \
+          set -euo pipefail
+          RELEASE_NOTES=$(git log -1 --pretty=%B | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')
+          DEPLOYED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          jq -n \
+            --arg app_key "$APP_KEY" \
+            --arg version "$VERSION" \
+            --arg build_hash "$BUILD_HASH" \
+            --arg release_notes "$RELEASE_NOTES" \
+            --arg deployed_at "$DEPLOYED_AT" \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg commit "$GITHUB_SHA" \
+            --arg workflow "$GITHUB_WORKFLOW" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            '{
+              app_key: $app_key,
+              version: $version,
+              build_hash: $build_hash,
+              release_notes: $release_notes,
+              features_added: [],
+              bugs_fixed: [],
+              breaking_changes: [],
+              deployed_at: $deployed_at,
+              metadata: {
+                repo: $repo,
+                commit: $commit,
+                workflow: $workflow,
+                run_id: $run_id
+              }
+            }' > /tmp/app_version.json
+
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors --connect-timeout 10 --max-time 30 \
+            -X POST "$SUPABASE_URL/rest/v1/app_versions?on_conflict=build_hash" \
             -H "apikey: $SERVICE_KEY" \
             -H "Authorization: Bearer $SERVICE_KEY" \
             -H "Content-Type: application/json" \
             -H "Prefer: resolution=merge-duplicates,return=minimal" \
-            -d '{
-              "app_key": "'"$APP_KEY"'",
-              "version": "'"$VERSION"'",
-              "build_hash": "'"$BUILD_HASH"'",
-              "release_notes": "'"$RELEASE_NOTES"'",
-              "features_added": [],
-              "bugs_fixed": [],
-              "breaking_changes": [],
-              "deployed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
-              "metadata": {
-                "repo": "'"$GITHUB_REPOSITORY"'",
-                "commit": "'"$GITHUB_SHA"'",
-                "workflow": "'"$GITHUB_WORKFLOW"'",
-                "run_id": "'"$GITHUB_RUN_ID"'"
-              }
-            }'
+            --data-binary @/tmp/app_version.json
 
-
-      # --------------------------------------------------
-      # ⭐ Mark this version as CURRENT (trigger-safe)
-      # --------------------------------------------------
       - name: Mark version as current
         if: success()
         env:
@@ -130,21 +138,21 @@ jobs:
           SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           BUILD_HASH: ${{ steps.build.outputs.build_hash }}
         run: |
-          curl -X PATCH "$SUPABASE_URL/rest/v1/app_versions?build_hash=eq.$BUILD_HASH" \
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors --connect-timeout 10 --max-time 30 \
+            -X PATCH "$SUPABASE_URL/rest/v1/app_versions?build_hash=eq.$BUILD_HASH" \
             -H "apikey: $SERVICE_KEY" \
             -H "Authorization: Bearer $SERVICE_KEY" \
             -H "Content-Type: application/json" \
             -H "Prefer: return=minimal" \
-            -d '{ "is_current": true }'
+            --data '{"is_current":true}'
 
-      # --------------------------------------------------
-      # Success message
-      # --------------------------------------------------
       - name: Deployment success
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Admin panel deployed successfully"
           echo "📦 Version: ${{ steps.next_version.outputs.version }}"
           echo "🔖 Build:   ${{ steps.build.outputs.build_hash }}"
-          echo "🌍 URL: https://admin.kisanshakti.in"
+          echo "🌍 URL: https://admin.kisanshaktiai.in"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
