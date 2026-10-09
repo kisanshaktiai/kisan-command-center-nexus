@@ -5,7 +5,7 @@ on:
     branches: [ main, production ]
   workflow_dispatch:
 
-# Prevent two releases from racing the semantic-version allocation or
+# Prevent two releases from racing semantic-version allocation or
 # overwriting the same Hostinger document root concurrently.
 concurrency:
   group: admin-production-deploy
@@ -16,47 +16,33 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Pin the OS image so ubuntu-latest cannot silently change under this workflow.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     steps:
-      # --------------------------------------------------
-      # Checkout
-      # --------------------------------------------------
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      # --------------------------------------------------
-      # Node setup
-      # --------------------------------------------------
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
 
-      # --------------------------------------------------
-      # Install + Build
-      # --------------------------------------------------
       - name: Install dependencies
         run: npm ci
 
       - name: Build project
         run: npm run build
 
-      # --------------------------------------------------
-      # Generate build hash
-      # --------------------------------------------------
       - name: Generate build hash
         id: build
         run: |
           set -euo pipefail
           echo "build_hash=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      # --------------------------------------------------
-      # Compute NEXT semantic version
-      # --------------------------------------------------
       - name: Compute next version
         id: next_version
         env:
@@ -73,7 +59,6 @@ jobs:
             -H "Authorization: Bearer $SERVICE_KEY")
 
           LAST_VERSION=$(jq -er '.[0].version // "1.0.0"' <<< "$RESPONSE")
-
           if [[ ! "$LAST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid stored semantic version: $LAST_VERSION" >&2
             exit 1
@@ -82,13 +67,9 @@ jobs:
           IFS='.' read -r MAJOR MINOR PATCH <<< "$LAST_VERSION"
           PATCH=$((PATCH + 1))
           NEXT_VERSION="$MAJOR.$MINOR.$PATCH"
-
           echo "version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
           echo "Next admin version: $NEXT_VERSION"
 
-      # --------------------------------------------------
-      # Deploy to Hostinger
-      # --------------------------------------------------
       - name: Deploy Admin via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -101,9 +82,6 @@ jobs:
           strip_components: 1
           overwrite: true
 
-      # --------------------------------------------------
-      # Register version in Supabase
-      # --------------------------------------------------
       - name: Register version in Supabase
         if: success()
         env:
@@ -114,7 +92,6 @@ jobs:
           BUILD_HASH: ${{ steps.build.outputs.build_hash }}
         run: |
           set -euo pipefail
-
           RELEASE_NOTES=$(git log -1 --pretty=%B | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')
           DEPLOYED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
@@ -154,9 +131,6 @@ jobs:
             -H "Prefer: resolution=merge-duplicates,return=minimal" \
             --data-binary @/tmp/app_version.json
 
-      # --------------------------------------------------
-      # Mark this version as CURRENT
-      # --------------------------------------------------
       - name: Mark version as current
         if: success()
         env:
@@ -165,7 +139,6 @@ jobs:
           BUILD_HASH: ${{ steps.build.outputs.build_hash }}
         run: |
           set -euo pipefail
-
           curl --fail-with-body --silent --show-error \
             --retry 3 --retry-all-errors --connect-timeout 10 --max-time 30 \
             -X PATCH "$SUPABASE_URL/rest/v1/app_versions?build_hash=eq.$BUILD_HASH" \
@@ -175,9 +148,6 @@ jobs:
             -H "Prefer: return=minimal" \
             --data '{"is_current":true}'
 
-      # --------------------------------------------------
-      # Success message
-      # --------------------------------------------------
       - name: Deployment success
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
