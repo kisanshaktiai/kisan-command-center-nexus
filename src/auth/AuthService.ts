@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { AuthState, TenantData } from '@/types/auth';
@@ -28,19 +27,14 @@ export class AuthService {
     return AuthService.instance;
   }
 
-  /**
-   * Initialize the auth service
-   */
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
     try {
-      // Get initial session
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { error } = await supabase.auth.getSession();
       if (error) {
         console.error('AuthService: Failed to get initial session:', error);
       }
-      
       this.initialized = true;
       console.log('AuthService: Initialized successfully');
     } catch (error) {
@@ -49,9 +43,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Get current session
-   */
   async getCurrentSession(): Promise<Session | null> {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
@@ -63,17 +54,10 @@ export class AuthService {
     }
   }
 
-  /**
-   * Refresh session
-   */
   async refreshSession(): Promise<AuthServiceResult<Session>> {
     try {
       const { data, error } = await supabase.auth.refreshSession();
-      
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
+      if (error) return { success: false, error: error.message };
       return { success: true, data: data.session };
     } catch (error) {
       return {
@@ -84,17 +68,13 @@ export class AuthService {
   }
 
   /**
-   * Admin sign in with validation and error handling
+   * Authenticate an existing administrator. This is the normal production login path.
    */
   async signInAdmin(email: string, password: string): Promise<AuthServiceResult<AuthState>> {
     try {
       console.log('AuthService: Attempting admin sign in for:', email);
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
 
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         console.error('AuthService: Sign in error:', error);
         return { success: false, error: error.message };
@@ -104,19 +84,12 @@ export class AuthService {
         return { success: false, error: 'Invalid credentials' };
       }
 
-      console.log('AuthService: Sign in successful, checking admin status');
-
-      // Check admin status using the correct admin_users table
       const adminStatus = await this.checkAdminStatus(data.user.id);
-      
       if (!adminStatus.isAdmin) {
-        console.log('AuthService: User is not an admin, signing out');
-        // Sign out non-admin user
+        console.log('AuthService: User is not an active admin, signing out');
         await supabase.auth.signOut();
         return { success: false, error: 'Access denied: Admin privileges required' };
       }
-
-      console.log('AuthService: Admin verification successful');
 
       const authState: AuthState = {
         user: data.user,
@@ -131,43 +104,44 @@ export class AuthService {
       return { success: true, data: authState };
     } catch (error) {
       console.error('AuthService: Unexpected error during sign in:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: 'An unexpected error occurred during authentication'
       };
     }
   }
 
   /**
-   * Bootstrap super admin creation
+   * First-installation bootstrap. This must fail closed if bootstrap status
+   * cannot be verified. It is not used by the normal admin login route.
    */
   async bootstrapSuperAdmin(email: string, password: string, fullName: string): Promise<AuthServiceResult<AuthState>> {
     try {
       console.log('AuthService: Starting bootstrap for:', email);
-      
-      // Check if bootstrap is needed using the safe database function
-      const { data: bootstrapStatus } = await supabase.rpc('get_bootstrap_status');
-      
-      // Safely check the completed property with type guards
-      const isBootstrapCompleted = bootstrapStatus && 
-        typeof bootstrapStatus === 'object' && 
-        'completed' in bootstrapStatus && 
+
+      const { data: bootstrapStatus, error: bootstrapStatusError } =
+        await supabase.rpc('get_bootstrap_status');
+
+      if (bootstrapStatusError) {
+        console.error('AuthService: Cannot verify bootstrap status:', bootstrapStatusError);
+        return { success: false, error: 'System initialization status could not be verified' };
+      }
+
+      const isBootstrapCompleted = bootstrapStatus &&
+        typeof bootstrapStatus === 'object' &&
+        'completed' in bootstrapStatus &&
         Boolean((bootstrapStatus as BootstrapStatusResponse).completed);
-      
+
       if (isBootstrapCompleted) {
         return { success: false, error: 'System is already initialized' };
       }
 
-      // Create auth user with better error handling
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth`,
-          data: {
-            full_name: fullName,
-            registration_type: 'bootstrap'
-          }
+          data: { full_name: fullName, registration_type: 'bootstrap' }
         }
       });
 
@@ -180,9 +154,6 @@ export class AuthService {
         return { success: false, error: 'Failed to create user account' };
       }
 
-      console.log('AuthService: Auth user created, creating admin record');
-
-      // Create admin user record in admin_users table (which has is_active field)
       const { error: adminError } = await supabase
         .from('admin_users')
         .insert({
@@ -190,7 +161,7 @@ export class AuthService {
           email,
           full_name: fullName,
           role: 'super_admin',
-          is_active: true // This field exists in admin_users table
+          is_active: true
         });
 
       if (adminError) {
@@ -198,12 +169,10 @@ export class AuthService {
         return { success: false, error: 'Failed to create admin record' };
       }
 
-      console.log('AuthService: Admin record created, completing bootstrap');
-
-      // Complete bootstrap using the database function
-      const { error: bootstrapError } = await supabase.rpc('complete_bootstrap');
-      if (bootstrapError) {
-        console.warn('AuthService: Bootstrap completion warning:', bootstrapError);
+      const { error: completeError } = await supabase.rpc('complete_bootstrap');
+      if (completeError) {
+        console.error('AuthService: Bootstrap completion failed:', completeError);
+        return { success: false, error: 'System initialization could not be completed' };
       }
 
       const authState: AuthState = {
@@ -220,65 +189,56 @@ export class AuthService {
       return { success: true, data: authState };
     } catch (error) {
       console.error('AuthService: Bootstrap failed with error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Bootstrap failed' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Bootstrap failed'
       };
     }
   }
 
-  /**
-   * Sign out
-   */
   async signOut(): Promise<AuthServiceResult> {
     try {
       const { error } = await supabase.auth.signOut();
-      if (error) {
-        return { success: false, error: error.message };
-      }
+      if (error) return { success: false, error: error.message };
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Sign out failed' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Sign out failed'
       };
     }
   }
 
   /**
-   * Check if bootstrap is needed using the safe database function
+   * Bootstrap status is fail-closed. A status/RPC failure must never expose
+   * first-admin registration in a production system.
    */
   async isBootstrapNeeded(): Promise<boolean> {
     try {
       const { data, error } = await supabase.rpc('get_bootstrap_status');
       if (error) {
         console.error('AuthService: Bootstrap check error:', error);
-        return true; // Default to showing bootstrap if check fails
+        return false;
       }
-      
-      // Safely check the completed property with type guards
-      const isCompleted = data && 
-        typeof data === 'object' && 
-        'completed' in data && 
+
+      const isCompleted = data &&
+        typeof data === 'object' &&
+        'completed' in data &&
         Boolean((data as BootstrapStatusResponse).completed);
-      
+
       return !isCompleted;
     } catch (error) {
       console.error('AuthService: Bootstrap check exception:', error);
-      return true;
+      return false;
     }
   }
 
-  /**
-   * Check admin status for a user using the admin_users table (which has is_active field)
-   */
   private async checkAdminStatus(userId: string): Promise<{
     isAdmin: boolean;
     isSuperAdmin: boolean;
     adminRole: string | null;
   }> {
     try {
-      // Query admin_users table which has the is_active field
       const { data, error } = await supabase
         .from('admin_users')
         .select('role, is_active')
@@ -291,7 +251,6 @@ export class AuthService {
       }
 
       if (!data || !data.is_active) {
-        console.log('AuthService: User is not an active admin');
         return { isAdmin: false, isSuperAdmin: false, adminRole: null };
       }
 

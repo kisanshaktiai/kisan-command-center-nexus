@@ -1,0 +1,158 @@
+name: Deploy Admin (Hostinger)
+
+on:
+  push:
+    branches: [ main, production ]
+  workflow_dispatch:
+
+# Prevent two releases from racing semantic-version allocation or
+# overwriting the same Hostinger document root concurrently.
+concurrency:
+  group: admin-production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Pin the OS image so ubuntu-latest cannot silently change under this workflow.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Generate build hash
+        id: build
+        run: |
+          set -euo pipefail
+          echo "build_hash=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Compute next version
+        id: next_version
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          APP_KEY: admin_portal
+        run: |
+          set -euo pipefail
+
+          RESPONSE=$(curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors --connect-timeout 10 --max-time 30 \
+            "$SUPABASE_URL/rest/v1/app_versions?app_key=eq.$APP_KEY&select=version&order=created_at.desc&limit=1" \
+            -H "apikey: $SERVICE_KEY" \
+            -H "Authorization: Bearer $SERVICE_KEY")
+
+          LAST_VERSION=$(jq -er '.[0].version // "1.0.0"' <<< "$RESPONSE")
+          if [[ ! "$LAST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid stored semantic version: $LAST_VERSION" >&2
+            exit 1
+          fi
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$LAST_VERSION"
+          PATCH=$((PATCH + 1))
+          NEXT_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Next admin version: $NEXT_VERSION"
+
+      - name: Deploy Admin via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ADMIN_SSH_HOST }}
+          username: ${{ secrets.ADMIN_SSH_USER }}
+          key: ${{ secrets.ADMIN_SSH_KEY }}
+          port: ${{ secrets.ADMIN_SSH_PORT }}
+          source: "dist/*"
+          target: ${{ secrets.ADMIN_REMOTE_DIR }}
+          strip_components: 1
+          overwrite: true
+
+      - name: Register version in Supabase
+        if: success()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          APP_KEY: admin_portal
+          VERSION: ${{ steps.next_version.outputs.version }}
+          BUILD_HASH: ${{ steps.build.outputs.build_hash }}
+        run: |
+          set -euo pipefail
+          RELEASE_NOTES=$(git log -1 --pretty=%B | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')
+          DEPLOYED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          jq -n \
+            --arg app_key "$APP_KEY" \
+            --arg version "$VERSION" \
+            --arg build_hash "$BUILD_HASH" \
+            --arg release_notes "$RELEASE_NOTES" \
+            --arg deployed_at "$DEPLOYED_AT" \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg commit "$GITHUB_SHA" \
+            --arg workflow "$GITHUB_WORKFLOW" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            '{
+              app_key: $app_key,
+              version: $version,
+              build_hash: $build_hash,
+              release_notes: $release_notes,
+              features_added: [],
+              bugs_fixed: [],
+              breaking_changes: [],
+              deployed_at: $deployed_at,
+              metadata: {
+                repo: $repo,
+                commit: $commit,
+                workflow: $workflow,
+                run_id: $run_id
+              }
+            }' > /tmp/app_version.json
+
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors --connect-timeout 10 --max-time 30 \
+            -X POST "$SUPABASE_URL/rest/v1/app_versions?on_conflict=build_hash" \
+            -H "apikey: $SERVICE_KEY" \
+            -H "Authorization: Bearer $SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates,return=minimal" \
+            --data-binary @/tmp/app_version.json
+
+      - name: Mark version as current
+        if: success()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          BUILD_HASH: ${{ steps.build.outputs.build_hash }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors --connect-timeout 10 --max-time 30 \
+            -X PATCH "$SUPABASE_URL/rest/v1/app_versions?build_hash=eq.$BUILD_HASH" \
+            -H "apikey: $SERVICE_KEY" \
+            -H "Authorization: Bearer $SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            --data '{"is_current":true}'
+
+      - name: Deployment success
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Admin panel deployed successfully"
+          echo "📦 Version: ${{ steps.next_version.outputs.version }}"
+          echo "🔖 Build:   ${{ steps.build.outputs.build_hash }}"
+          echo "🌍 URL: https://admin.kisanshaktiai.in"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
