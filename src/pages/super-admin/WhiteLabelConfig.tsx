@@ -218,8 +218,9 @@ export default function WhiteLabelConfig() {
     },
     enabled: !!selectedTenantRow?.subscription_plan,
   });
-  // get_tenant_master_themes lists the default first; everything after it is the bucket.
-  const bucketCount = Math.max(0, tenantThemes.length - 1);
+  // get_tenant_master_themes lists the default first, then the chosen themes;
+  // the quota counts all of them, default included.
+  const bucketCount = tenantThemes.length;
 
   // Use the custom hook for white-label config management
   const { 
@@ -562,7 +563,7 @@ export default function WhiteLabelConfig() {
               <p className="text-sm text-muted-foreground pt-1">
                 Plan: <Badge variant="outline">{selectedTenantPlanLabel}</Badge>
                 {' '}&middot; Bucket: {bucketCount} of {themeQuota === null || themeQuota === undefined ? 'unlimited' : themeQuota} themes
-                (+ the default) available in the Mobile tab and in this tenant's own portal.
+                (default included) available in the Mobile tab and in this tenant's own portal.
                 Change the bucket on the Tenant Themes page; change the quota by changing the tenant's plan.
               </p>
             )}

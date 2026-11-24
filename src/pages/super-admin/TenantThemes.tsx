@@ -16,10 +16,12 @@ import type { PresetTheme } from '@/lib/whitelabel-types/themeMapping';
  * may pick, by dragging themes from the catalogue into the tenant's bucket.
  *
  * - The tenant's subscription plan sets only HOW MANY themes the bucket may
- *   hold (public.plan_theme_quota; NULL = unlimited). The database enforces
- *   this with a trigger, so the UI check here is only for a friendly message.
+ *   hold in TOTAL, default included (public.plan_theme_quota; NULL =
+ *   unlimited): Basic 5 = default + 4 chosen, Growth 10 = default + 9 chosen.
+ *   The database enforces this with a trigger; the UI check is only for a
+ *   friendly message.
  * - The house default theme (master_themes.is_default) is always in every
- *   bucket, is pinned first, cannot be removed, and never counts.
+ *   bucket, is pinned first and cannot be removed; it takes one slot.
  * - Removing a theme from a bucket is a soft remove: the link row in
  *   public.tenant_theme_assignments gets removed_at set (history kept);
  *   putting it back clears removed_at. The theme itself is never touched.
@@ -195,7 +197,8 @@ export default function TenantThemes() {
     [catalogue, bucketIds]
   );
 
-  const used = bucketThemes.length;
+  // Total held = chosen themes + the pinned default (which takes one slot).
+  const used = bucketThemes.length + (defaultTheme ? 1 : 0);
   const isFull = quota !== null && used >= quota;
 
   const invalidate = () => {
@@ -281,8 +284,8 @@ export default function TenantThemes() {
           Tenant Themes
         </h1>
         <p className="text-muted-foreground">
-          Drag themes from the catalogue into a tenant's bucket. The tenant's plan sets how many it can hold;
-          the default theme is always included and never counts.
+          Drag themes from the catalogue into a tenant's bucket. The tenant's plan sets how many it can hold
+          in total; the default theme is always included and takes one of those slots.
         </p>
       </div>
 
@@ -306,7 +309,7 @@ export default function TenantThemes() {
                 Plan: <Badge variant="outline">{planLabel(tenant.subscription_plan)}</Badge>
                 {' '}&middot; Bucket: <strong>{used}</strong> of{' '}
                 <strong>{quota === null ? 'unlimited' : quota}</strong>
-                {defaultTheme ? ` (+ ${defaultTheme.name} as default)` : ''}
+                {defaultTheme ? ` (including ${defaultTheme.name} as default)` : ''}
               </p>
             )}
           </div>
