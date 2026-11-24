@@ -361,8 +361,35 @@ export default function WhiteLabelConfig() {
     }
   };
 
-  const updateConfig = (section: keyof WhiteLabelConfig, field: string, value: any) => {
+  const updateConfig = (section: keyof WhiteLabelConfig | '__bulk_theme__', field: string, value: any) => {
     if (!config) return;
+
+    // Bulk theme staging from EnhancedMobileThemePanel: merge every JSONB
+    // group the mobile app reads in ONE state update. Functional form, so the
+    // merge is against the latest state rather than this render's closure —
+    // several plain setConfig({...config}) calls in a row overwrite each other.
+    if (section === '__bulk_theme__') {
+      const {
+        app_store_config_mobile_theme,
+        api_version,
+        is_validated,
+        validation_errors,
+        ...groups
+      } = value || {};
+      setConfig(prev => prev ? {
+        ...prev,
+        brand_identity: { ...(prev.brand_identity || {}), ...(groups.brand_identity || {}) },
+        mobile_theme: { ...(prev.mobile_theme || {}), ...(groups.mobile_theme || {}) },
+        theme_colors: { ...(prev.theme_colors || {}), ...(groups.theme_colors || {}) },
+        app_customization: { ...(prev.app_customization || {}), ...(groups.app_customization || {}) },
+        app_store_config: { ...(prev.app_store_config || {}), mobile_theme: app_store_config_mobile_theme },
+        api_version,
+        is_validated,
+        validation_errors,
+      } : prev);
+      setHasUnsavedChanges(true);
+      return;
+    }
     
     // Special handling for root-level fields like theme_colors and mobile_theme
     if ((section === 'theme_colors' || section === 'mobile_theme') && field === '') {

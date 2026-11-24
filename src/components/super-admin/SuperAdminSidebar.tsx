@@ -121,6 +121,7 @@ const navigationItems = [
       { title: 'Feature Flags', tab: 'feature-flags', route: '/super-admin/feature-flags', icon: Flag },
       { title: 'White Label Config', tab: 'white-label-config', route: '/super-admin/white-label-config', icon: Palette },
       { title: 'White Label Data Fix', tab: 'white-label-data-fix', route: '/super-admin/white-label-data-fix', icon: Palette },
+      { title: 'Master Themes', tab: 'master-themes', route: '/super-admin/master-themes', icon: Palette },
     ]
   }
 ];

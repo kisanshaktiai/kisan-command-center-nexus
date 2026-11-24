@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { MobileAppPreview } from './MobileAppPreview';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { WhiteLabelConfigData } from '@/hooks/useWhiteLabelConfig';
+import { useMasterThemes } from '@/hooks/useMasterThemes';
+import { expandPresetToFullConfig } from '@/lib/whitelabel-types/themeMapping';
 
 interface Modern2025Theme {
   core: {
@@ -132,124 +134,10 @@ const defaultTheme: Modern2025Theme = {
   }
 };
 
-const presetThemes = [
-  {
-    id: 'neo-minimal',
-    name: 'Neo Minimal',
-    description: 'Clean white/gray with subtle blue accents',
-    theme: {
-      ...defaultTheme,
-      core: {
-        primary: "220 93% 60%",
-        primary_variant: "220 93% 50%",
-        secondary: "0 0% 96%",
-        secondary_variant: "0 0% 90%",
-        tertiary: "220 14% 71%",
-        accent: "220 83% 54%"
-      },
-      neutral: {
-        background: "0 0% 100%",
-        surface: "0 0% 98%",
-        on_background: "222 47% 11%",
-        on_surface: "222 47% 20%",
-        border: "220 13% 91%"
-      }
-    }
-  },
-  {
-    id: 'dark-elegance',
-    name: 'Dark Elegance',
-    description: 'Professional dark mode with purple accents',
-    theme: {
-      ...defaultTheme,
-      core: {
-        primary: "271 91% 65%",
-        primary_variant: "271 91% 55%",
-        secondary: "290 87% 47%",
-        secondary_variant: "290 87% 37%",
-        tertiary: "250 84% 67%",
-        accent: "271 76% 71%"
-      },
-      neutral: {
-        background: "222 47% 11%",
-        surface: "222 47% 15%",
-        on_background: "210 40% 98%",
-        on_surface: "210 40% 95%",
-        border: "217 19% 27%"
-      }
-    }
-  },
-  {
-    id: 'nature-fresh',
-    name: 'Nature Fresh',
-    description: 'Green earth tones for agriculture apps',
-    theme: {
-      ...defaultTheme,
-      core: {
-        primary: "142 76% 36%",
-        primary_variant: "142 76% 26%",
-        secondary: "88 61% 47%",
-        secondary_variant: "88 61% 37%",
-        tertiary: "55 83% 64%",
-        accent: "25 95% 53%"
-      },
-      neutral: {
-        background: "60 20% 99%",
-        surface: "60 7% 97%",
-        on_background: "222 47% 11%",
-        on_surface: "222 47% 20%",
-        border: "142 16% 90%"
-      }
-    }
-  },
-  {
-    id: 'sunrise-warmth',
-    name: 'Sunrise Warmth',
-    description: 'Orange/coral gradients with warm tones',
-    theme: {
-      ...defaultTheme,
-      core: {
-        primary: "24 95% 53%",
-        primary_variant: "24 95% 43%",
-        secondary: "11 91% 71%",
-        secondary_variant: "11 91% 61%",
-        tertiary: "48 96% 53%",
-        accent: "346 77% 55%"
-      },
-      neutral: {
-        background: "20 14% 99%",
-        surface: "24 24% 97%",
-        on_background: "222 47% 11%",
-        on_surface: "222 47% 20%",
-        border: "24 11% 91%"
-      }
-    }
-  },
-  {
-    id: 'ocean-depth',
-    name: 'Ocean Depth',
-    description: 'Deep blues and teals with aqua accents',
-    theme: {
-      ...defaultTheme,
-      core: {
-        primary: "199 89% 48%",
-        primary_variant: "199 89% 38%",
-        secondary: "187 94% 43%",
-        secondary_variant: "187 94% 33%",
-        tertiary: "174 72% 56%",
-        accent: "166 76% 49%"
-      },
-      neutral: {
-        background: "199 18% 98%",
-        surface: "199 32% 96%",
-        on_background: "222 47% 11%",
-        on_surface: "222 47% 20%",
-        border: "199 18% 89%"
-      }
-    }
-  }
-];
-
+// Quick Start themes are no longer hardcoded here. They come from the
+// platform catalogue table public.master_themes (managed on the Master
+// Themes page) via useMasterThemes(tenantId), which returns only the themes
+// the selected tenant's subscription plan allows.
 export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> = ({
   config,
   updateConfig,
@@ -257,6 +145,9 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
   appName,
   logoUrl
 }) => {
+  // Quick Start themes for the selected tenant, read from public.master_themes
+  const { presetThemes, isLoading: presetsLoading, error: presetsError } = useMasterThemes(tenantId);
+
   // Get theme from config or use default - ensure complete structure
   const getThemeFromConfig = () => {
     // First check if we have mobile_theme with proper structure
@@ -465,21 +356,26 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
       tenantId: config?.tenant_id
     });
 
-    // Save mobile theme with proper structure
-    updateConfig('mobile_theme', '', currentTheme);
+    // Expand the theme into every JSONB group the mobile app reads
+    // (brand_identity / mobile_theme / theme_colors / app_customization) and
+    // stage them in ONE write. Without the expansion the mobile app only saw
+    // mobile_theme change while theme_colors / brand_identity kept old values.
+    // One write matters: updateConfig() spreads the page's `config` closure,
+    // so several calls in a row each overwrote the previous one.
+    const bundle = expandPresetToFullConfig(currentTheme, {
+      existingBrandIdentity: config?.brand_identity,
+    });
+    updateConfig('__bulk_theme__', '', {
+      ...bundle,
+      // keep app_store_config.mobile_theme in step for backward compatibility
+      app_store_config_mobile_theme: currentTheme,
+      api_version: 'v1',
+      is_validated: true,
+      validation_errors: [],
+    });
     setHasLocalChanges(false); // Reset local changes flag after save
-    toast.success('Mobile theme saved! Click "Save Theme Configuration" to persist changes.');
-    
-    // Also update app_store_config for backward compatibility
-    updateConfig('app_store_config', 'mobile_theme', currentTheme);
-    
-    // Set validation flags
-    updateConfig('api_version', '', 'v1');
-    updateConfig('is_validated', '', true);
-    updateConfig('validation_errors', '', []);
-    
     setValidationErrors([]);
-    toast.success('Mobile theme configuration saved');
+    toast.success('Mobile theme staged. Click "Save Theme Configuration" to persist changes.');
   };
 
   const copyThemeJSON = () => {
@@ -540,6 +436,18 @@ export const EnhancedMobileThemePanel: React.FC<EnhancedMobileThemePanelProps> =
               <CardDescription>Select a preset theme to start with</CardDescription>
             </CardHeader>
             <CardContent>
+              {presetsLoading && (
+                <p className="text-sm text-muted-foreground">Loading themes...</p>
+              )}
+              {presetsError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>Could not load the theme catalogue for this tenant.</AlertDescription>
+                </Alert>
+              )}
+              {!presetsLoading && !presetsError && presetThemes.length === 0 && (
+                <p className="text-sm text-muted-foreground">No themes available for this tenant's plan.</p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 {presetThemes.map(preset => (
                   <Button
