@@ -20,8 +20,9 @@ import type { PresetTheme } from '@/lib/whitelabel-types/themeMapping';
  *   this with a trigger, so the UI check here is only for a friendly message.
  * - The house default theme (master_themes.is_default) is always in every
  *   bucket, is pinned first, cannot be removed, and never counts.
- * - Removing a theme from a bucket deletes only the link row in
- *   public.tenant_theme_assignments; the theme itself is never deleted.
+ * - Removing a theme from a bucket is a soft remove: the link row in
+ *   public.tenant_theme_assignments gets removed_at set (history kept);
+ *   putting it back clears removed_at. The theme itself is never touched.
  *
  * The tenant sees exactly this bucket in its own portal (White Label >
  * Mobile) through get_tenant_master_themes(tenant_id). Drag-and-drop
@@ -159,6 +160,7 @@ export default function TenantThemes() {
         .from('tenant_theme_assignments' as any)
         .select('theme_id, sort_order')
         .eq('tenant_id', selectedTenant)
+        .is('removed_at', null)
         .order('sort_order', { ascending: true });
       if (error) throw error;
       return (data || []) as unknown as Assignment[];
@@ -207,9 +209,13 @@ export default function TenantThemes() {
 
   const assignMutation = useMutation({
     mutationFn: async ({ theme, index }: { theme: CatalogueTheme; index: number }) => {
+      // Upsert: a theme removed earlier comes back by clearing removed_at.
       const { error } = await supabase
         .from('tenant_theme_assignments' as any)
-        .insert({ tenant_id: selectedTenant, theme_id: theme.id, sort_order: index + 1 } as any);
+        .upsert(
+          { tenant_id: selectedTenant, theme_id: theme.id, sort_order: index + 1, removed_at: null } as any,
+          { onConflict: 'tenant_id,theme_id' }
+        );
       if (error) throw error;
       const next = [...bucketThemes];
       next.splice(index, 0, theme);
@@ -223,7 +229,7 @@ export default function TenantThemes() {
     mutationFn: async (theme: CatalogueTheme) => {
       const { error } = await supabase
         .from('tenant_theme_assignments' as any)
-        .delete()
+        .update({ removed_at: new Date().toISOString() } as any)
         .eq('tenant_id', selectedTenant)
         .eq('theme_id', theme.id);
       if (error) throw error;
