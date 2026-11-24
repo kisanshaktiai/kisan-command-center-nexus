@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Search, Palette, Edit, Upload, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Search, Palette, Edit, Upload, CheckCircle, XCircle, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,17 +12,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { subscriptionPlanOptions, type SubscriptionPlanValue } from '@/types/tenant/enums';
 import type { PresetTheme } from '@/lib/whitelabel-types/themeMapping';
 
 /**
  * Master Themes — the platform-wide mobile theme catalogue (public.master_themes).
  *
- * The SaaS admin owns this list. Each theme carries `min_plan`, the lowest
- * tenant subscription plan allowed to use it; a tenant sees every theme at or
- * below its own plan in its portal's White Label > Mobile tab, picks one, and
- * that writes only that tenant's white_label_configs row.
+ * The SaaS admin owns this list. Which themes a given tenant may pick is
+ * decided on the Tenant Themes page (drag-and-drop into the tenant's bucket);
+ * the tenant's plan only sets how many it can hold. One theme is the house
+ * default (`is_default`): every tenant always has it and it never counts.
  *
  * Nothing is ever deleted here — retire a theme with Active = off.
  * `theme` holds the SOURCE shape only (core / neutral / status / support /
@@ -37,7 +35,7 @@ interface MasterThemeRow {
   name: string;
   description: string | null;
   theme: PresetTheme;
-  min_plan: SubscriptionPlanValue;
+  is_default: boolean;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -80,14 +78,10 @@ const parseThemeJson = (text: string): { theme?: PresetTheme; error?: string } =
 const generateSlug = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-const planLabel = (value: string) =>
-  subscriptionPlanOptions.find(o => o.value === value)?.label ?? value;
-
 const emptyForm = {
   name: '',
   slug: '',
   description: '',
-  min_plan: 'Kisan_Basic' as SubscriptionPlanValue,
   sort_order: 0,
   is_active: true,
   theme_json: '',
@@ -134,7 +128,6 @@ export default function MasterThemes() {
       name: data.name.trim(),
       slug: data.slug.trim(),
       description: data.description.trim() || null,
-      min_plan: data.min_plan,
       sort_order: Number(data.sort_order) || 0,
       is_active: data.is_active,
       theme,
@@ -179,6 +172,21 @@ export default function MasterThemes() {
     },
   });
 
+  const setDefaultMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc('set_default_master_theme' as any, { p_theme_id: id } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['master-themes-catalogue'] });
+      toast.success('Default theme updated');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to set default theme');
+    },
+  });
+
   const resetForm = () => {
     setFormData(emptyForm);
     setThemeError(null);
@@ -190,7 +198,6 @@ export default function MasterThemes() {
       name: theme.name,
       slug: theme.slug,
       description: theme.description || '',
-      min_plan: theme.min_plan,
       sort_order: theme.sort_order,
       is_active: theme.is_active,
       theme_json: JSON.stringify(theme.theme, null, 2),
@@ -225,19 +232,6 @@ export default function MasterThemes() {
     }
   };
 
-  // How many active themes each plan tier can pick (cumulative: a tier sees
-  // every theme at or below it, in the same order as the subscription_plan enum).
-  const tierOrder = subscriptionPlanOptions.map(o => o.value as string);
-  const tierSummary = subscriptionPlanOptions
-    .filter(o => o.value !== 'custom')
-    .map(o => {
-      const tierIdx = tierOrder.indexOf(o.value);
-      const count = (themes || []).filter(t =>
-        t.is_active && tierOrder.indexOf(t.min_plan) !== -1 && tierOrder.indexOf(t.min_plan) <= tierIdx
-      ).length;
-      return { label: o.label, count };
-    });
-
   const closeDialog = () => {
     setIsAddModalOpen(false);
     setIsEditModalOpen(false);
@@ -266,7 +260,7 @@ export default function MasterThemes() {
             Master Themes
           </h1>
           <p className="text-muted-foreground">
-            Mobile theme catalogue for all tenants. Each theme's minimum plan decides which tenants can pick it.
+            Mobile theme catalogue. Give themes to tenants on the Tenant Themes page; the starred theme is the house default every tenant always has.
           </p>
         </div>
         <Button onClick={() => { resetForm(); setIsAddModalOpen(true); }}>
@@ -293,19 +287,6 @@ export default function MasterThemes() {
             />
           </div>
 
-          {!isLoading && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {tierSummary.map(t => (
-                <Badge key={t.label} variant="secondary" className="font-normal">
-                  {t.label}: {t.count} {t.count === 1 ? 'theme' : 'themes'}
-                </Badge>
-              ))}
-              <span className="text-xs text-muted-foreground self-center">
-                Tenants on a plan see every theme at that plan or lower. Custom-plan tenants see all.
-              </span>
-            </div>
-          )}
-
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading themes...</p>
           ) : (
@@ -316,7 +297,7 @@ export default function MasterThemes() {
                   <TableHead>Colours</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Slug</TableHead>
-                  <TableHead>Minimum plan</TableHead>
+                  <TableHead>Default</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -333,7 +314,20 @@ export default function MasterThemes() {
                       )}
                     </TableCell>
                     <TableCell className="font-mono text-xs">{theme.slug}</TableCell>
-                    <TableCell><Badge variant="outline">{planLabel(theme.min_plan)}</Badge></TableCell>
+                    <TableCell>
+                      {theme.is_default ? (
+                        <Badge variant="default" className="gap-1"><Star className="h-3 w-3" />Default</Badge>
+                      ) : theme.is_active ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDefaultMutation.mutate(theme.id)}
+                          disabled={setDefaultMutation.isPending}
+                        >
+                          Set as default
+                        </Button>
+                      ) : null}
+                    </TableCell>
                     <TableCell>
                       {theme.is_active ? (
                         <Badge variant="default" className="gap-1"><CheckCircle className="h-3 w-3" />Active</Badge>
@@ -408,27 +402,6 @@ export default function MasterThemes() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="min_plan">Minimum plan</Label>
-                  <Select
-                    value={formData.min_plan}
-                    onValueChange={(value) => setFormData({ ...formData, min_plan: value as SubscriptionPlanValue })}
-                  >
-                    <SelectTrigger id="min_plan">
-                      <SelectValue placeholder="Select minimum plan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subscriptionPlanOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Tenants on this plan or higher can pick this theme.
-                  </p>
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="sort_order">Sort order</Label>
                   <Input

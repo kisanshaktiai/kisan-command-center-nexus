@@ -197,26 +197,29 @@ export default function WhiteLabelConfig() {
     }
   });
 
-  // Theme entitlement for the selected tenant: its plan decides which of the
-  // master themes it can pick (see Master Themes page, "Minimum plan").
+  // Theme entitlement for the selected tenant: its bucket (Tenant Themes page)
+  // plus the house default; its plan sets only how many the bucket may hold.
   const selectedTenantRow = tenants.find(t => t.id === selectedTenant);
   const selectedTenantPlanLabel = selectedTenantRow
     ? (subscriptionPlanOptions.find(o => o.value === selectedTenantRow.subscription_plan)?.label
         ?? selectedTenantRow.subscription_plan ?? 'No plan set')
     : '';
   const { presetThemes: tenantThemes } = useMasterThemes(selectedTenant || null);
-  const { data: activeThemeTotal } = useQuery({
-    queryKey: ['master-themes-active-count'],
+  const { data: themeQuota } = useQuery({
+    queryKey: ['plan-theme-quota', selectedTenantRow?.subscription_plan],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from('master_themes' as any)
-        .select('id', { count: 'exact', head: true })
-        .eq('is_active', true);
+      const { data, error } = await supabase
+        .from('plan_theme_quota' as any)
+        .select('max_themes')
+        .eq('plan', selectedTenantRow?.subscription_plan)
+        .maybeSingle();
       if (error) throw error;
-      return count ?? 0;
+      return (data as { max_themes: number | null } | null)?.max_themes ?? null;
     },
-    enabled: !!selectedTenant,
+    enabled: !!selectedTenantRow?.subscription_plan,
   });
+  // get_tenant_master_themes lists the default first; everything after it is the bucket.
+  const bucketCount = Math.max(0, tenantThemes.length - 1);
 
   // Use the custom hook for white-label config management
   const { 
@@ -558,10 +561,9 @@ export default function WhiteLabelConfig() {
             {selectedTenant && (
               <p className="text-sm text-muted-foreground pt-1">
                 Plan: <Badge variant="outline">{selectedTenantPlanLabel}</Badge>
-                {' '}&rarr; {tenantThemes.length}
-                {typeof activeThemeTotal === 'number' ? ` of ${activeThemeTotal}` : ''} master themes available
-                in the Mobile tab and in this tenant's own portal. To change this, change the tenant's
-                subscription plan in Tenant Management.
+                {' '}&middot; Bucket: {bucketCount} of {themeQuota === null || themeQuota === undefined ? 'unlimited' : themeQuota} themes
+                (+ the default) available in the Mobile tab and in this tenant's own portal.
+                Change the bucket on the Tenant Themes page; change the quota by changing the tenant's plan.
               </p>
             )}
           </div>
