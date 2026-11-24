@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor, Code, Settings, Save, Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { useMasterThemes } from '@/hooks/useMasterThemes';
+import { subscriptionPlanOptions } from '@/types/tenant/enums';
 import { toast } from 'sonner';
 import { useWhiteLabelConfig } from '@/hooks/useWhiteLabelConfig';
 import { WhiteLabelSyncStatus } from '@/components/super-admin/WhiteLabelSyncStatus';
@@ -165,6 +167,7 @@ interface WhiteLabelConfig {
 interface Tenant {
   id: string;
   name: string;
+  subscription_plan: string | null;
 }
 
 export default function WhiteLabelConfig() {
@@ -185,13 +188,34 @@ export default function WhiteLabelConfig() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, name')
+        .select('id, name, subscription_plan')
         .eq('status', 'active')
         .order('name');
       
       if (error) throw error;
       return (data || []) as Tenant[];
     }
+  });
+
+  // Theme entitlement for the selected tenant: its plan decides which of the
+  // master themes it can pick (see Master Themes page, "Minimum plan").
+  const selectedTenantRow = tenants.find(t => t.id === selectedTenant);
+  const selectedTenantPlanLabel = selectedTenantRow
+    ? (subscriptionPlanOptions.find(o => o.value === selectedTenantRow.subscription_plan)?.label
+        ?? selectedTenantRow.subscription_plan ?? 'No plan set')
+    : '';
+  const { presetThemes: tenantThemes } = useMasterThemes(selectedTenant || null);
+  const { data: activeThemeTotal } = useQuery({
+    queryKey: ['master-themes-active-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('master_themes' as any)
+        .select('id', { count: 'exact', head: true })
+        .eq('is_active', true);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!selectedTenant,
   });
 
   // Use the custom hook for white-label config management
@@ -531,6 +555,15 @@ export default function WhiteLabelConfig() {
                 </option>
               ))}
             </select>
+            {selectedTenant && (
+              <p className="text-sm text-muted-foreground pt-1">
+                Plan: <Badge variant="outline">{selectedTenantPlanLabel}</Badge>
+                {' '}&rarr; {tenantThemes.length}
+                {typeof activeThemeTotal === 'number' ? ` of ${activeThemeTotal}` : ''} master themes available
+                in the Mobile tab and in this tenant's own portal. To change this, change the tenant's
+                subscription plan in Tenant Management.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

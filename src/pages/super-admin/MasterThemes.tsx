@@ -225,6 +225,19 @@ export default function MasterThemes() {
     }
   };
 
+  // How many active themes each plan tier can pick (cumulative: a tier sees
+  // every theme at or below it, in the same order as the subscription_plan enum).
+  const tierOrder = subscriptionPlanOptions.map(o => o.value as string);
+  const tierSummary = subscriptionPlanOptions
+    .filter(o => o.value !== 'custom')
+    .map(o => {
+      const tierIdx = tierOrder.indexOf(o.value);
+      const count = (themes || []).filter(t =>
+        t.is_active && tierOrder.indexOf(t.min_plan) !== -1 && tierOrder.indexOf(t.min_plan) <= tierIdx
+      ).length;
+      return { label: o.label, count };
+    });
+
   const closeDialog = () => {
     setIsAddModalOpen(false);
     setIsEditModalOpen(false);
@@ -279,6 +292,19 @@ export default function MasterThemes() {
               className="max-w-sm"
             />
           </div>
+
+          {!isLoading && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {tierSummary.map(t => (
+                <Badge key={t.label} variant="secondary" className="font-normal">
+                  {t.label}: {t.count} {t.count === 1 ? 'theme' : 'themes'}
+                </Badge>
+              ))}
+              <span className="text-xs text-muted-foreground self-center">
+                Tenants on a plan see every theme at that plan or lower. Custom-plan tenants see all.
+              </span>
+            </div>
+          )}
 
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading themes...</p>
