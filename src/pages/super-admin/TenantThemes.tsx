@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +27,11 @@ import type { PresetTheme } from '@/lib/whitelabel-types/themeMapping';
  * The tenant sees exactly this bucket in its own portal (White Label >
  * Mobile) through get_tenant_master_themes(tenant_id). Drag-and-drop
  * follows the same @hello-pangea/dnd pattern as DraggableLeadKanban.
+ *
+ * The library needs the lists to change synchronously on drop (otherwise it
+ * animates the card back to where it came from), so the bucket is held in
+ * local state, moved immediately, persisted in ONE request, and then
+ * re-synced from the server. On a failed save the server state wins.
  */
 
 interface Tenant {
@@ -174,12 +179,16 @@ export default function TenantThemes() {
   const defaultTheme = catalogue.find(t => t.is_default) ?? null;
   const byId = useMemo(() => new Map(catalogue.map(t => [t.id, t])), [catalogue]);
 
-  const bucketThemes = useMemo(
+  const serverBucket = useMemo(
     () => assignments
       .map(a => byId.get(a.theme_id))
       .filter((t): t is CatalogueTheme => !!t && !t.is_default),
     [assignments, byId]
   );
+  // Local copy of the bucket so a drop is reflected instantly; re-synced
+  // whenever the server list changes (after every save, and on tenant switch).
+  const [bucketThemes, setBucketThemes] = useState<CatalogueTheme[]>([]);
+  useEffect(() => { setBucketThemes(serverBucket); }, [serverBucket]);
   const bucketIds = useMemo(() => new Set(bucketThemes.map(t => t.id)), [bucketThemes]);
   const catalogueThemes = useMemo(
     () => catalogue.filter(t => !t.is_default && !bucketIds.has(t.id)),
@@ -195,84 +204,72 @@ export default function TenantThemes() {
     queryClient.invalidateQueries({ queryKey: ['master-themes'] });
   };
 
-  // Persist the bucket order as 1..n so the tenant portal lists it the same way.
-  const renumber = async (ordered: CatalogueTheme[]) => {
-    for (let i = 0; i < ordered.length; i++) {
-      const { error } = await supabase
-        .from('tenant_theme_assignments' as any)
-        .update({ sort_order: i + 1 } as any)
-        .eq('tenant_id', selectedTenant)
-        .eq('theme_id', ordered[i].id);
-      if (error) throw error;
-    }
-  };
-
-  const assignMutation = useMutation({
-    mutationFn: async ({ theme, index }: { theme: CatalogueTheme; index: number }) => {
-      // Upsert: a theme removed earlier comes back by clearing removed_at.
-      const { error } = await supabase
-        .from('tenant_theme_assignments' as any)
-        .upsert(
-          { tenant_id: selectedTenant, theme_id: theme.id, sort_order: index + 1, removed_at: null } as any,
-          { onConflict: 'tenant_id,theme_id' }
-        );
-      if (error) throw error;
-      const next = [...bucketThemes];
-      next.splice(index, 0, theme);
-      await renumber(next);
+  // Persist the whole bucket in one request: every listed theme is (re)added
+  // with its position; `removed` (if any) is soft-removed. The quota trigger
+  // in the database still has the final say.
+  const persistMutation = useMutation({
+    mutationFn: async ({ next, removed }: { next: CatalogueTheme[]; removed?: CatalogueTheme }) => {
+      if (removed) {
+        const { error } = await supabase
+          .from('tenant_theme_assignments' as any)
+          .update({ removed_at: new Date().toISOString() } as any)
+          .eq('tenant_id', selectedTenant)
+          .eq('theme_id', removed.id);
+        if (error) throw error;
+      }
+      if (next.length > 0) {
+        const { error } = await supabase
+          .from('tenant_theme_assignments' as any)
+          .upsert(
+            next.map((t, i) => ({ tenant_id: selectedTenant, theme_id: t.id, sort_order: i + 1, removed_at: null })) as any,
+            { onConflict: 'tenant_id,theme_id' }
+          );
+        if (error) throw error;
+      }
     },
-    onSuccess: () => { invalidate(); toast.success('Theme added to tenant'); },
-    onError: (error: any) => toast.error(error.message || 'Failed to add theme'),
+    onSuccess: (_data, vars) => {
+      invalidate();
+      toast.success(vars.removed ? 'Theme removed from tenant' : 'Tenant bucket updated');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Could not save the bucket');
+      invalidate(); // server state wins
+    },
   });
 
-  const unassignMutation = useMutation({
-    mutationFn: async (theme: CatalogueTheme) => {
-      const { error } = await supabase
-        .from('tenant_theme_assignments' as any)
-        .update({ removed_at: new Date().toISOString() } as any)
-        .eq('tenant_id', selectedTenant)
-        .eq('theme_id', theme.id);
-      if (error) throw error;
-      await renumber(bucketThemes.filter(t => t.id !== theme.id));
-    },
-    onSuccess: () => { invalidate(); toast.success('Theme removed from tenant'); },
-    onError: (error: any) => toast.error(error.message || 'Failed to remove theme'),
-  });
-
-  const reorderMutation = useMutation({
-    mutationFn: async ({ from, to }: { from: number; to: number }) => {
-      const next = [...bucketThemes];
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
-      await renumber(next);
-    },
-    onSuccess: () => invalidate(),
-    onError: (error: any) => toast.error(error.message || 'Failed to reorder'),
-  });
-
-  const busy = assignMutation.isPending || unassignMutation.isPending || reorderMutation.isPending;
+  const busy = persistMutation.isPending;
 
   const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
     if (!destination || busy) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
+    const theme = byId.get(draggableId);
+    if (!theme) return;
+
     if (source.droppableId === CATALOGUE && destination.droppableId === BUCKET) {
       if (isFull) {
         toast.error(`Quota reached: this plan allows ${quota} theme${quota === 1 ? '' : 's'}.`);
         return;
       }
-      const theme = byId.get(draggableId);
-      if (theme) assignMutation.mutate({ theme, index: destination.index });
+      const next = [...bucketThemes];
+      next.splice(destination.index, 0, theme);
+      setBucketThemes(next);                      // card lands immediately
+      persistMutation.mutate({ next });
       return;
     }
     if (source.droppableId === BUCKET && destination.droppableId === CATALOGUE) {
-      const theme = byId.get(draggableId);
-      if (theme) unassignMutation.mutate(theme);
+      const next = bucketThemes.filter(t => t.id !== theme.id);
+      setBucketThemes(next);                      // card leaves immediately; catalogue shows it
+      persistMutation.mutate({ next, removed: theme });
       return;
     }
     if (source.droppableId === BUCKET && destination.droppableId === BUCKET) {
-      reorderMutation.mutate({ from: source.index, to: destination.index });
+      const next = [...bucketThemes];
+      const [moved] = next.splice(source.index, 1);
+      next.splice(destination.index, 0, moved);
+      setBucketThemes(next);
+      persistMutation.mutate({ next });
     }
   };
 
