@@ -11,6 +11,7 @@ import TenantOnboarding from './super-admin/TenantOnboarding';
 import AdminUserManagement from './super-admin/AdminUserManagement';
 import BillingManagement from './super-admin/BillingManagement';
 import SubscriptionManagement from './super-admin/SubscriptionManagement';
+import ActivationCodes from './super-admin/ActivationCodes';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
 import FeatureFlags from './super-admin/FeatureFlags';
 import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
@@ -117,6 +118,7 @@ const SuperAdmin = () => {
             <Route path="/admin-user-management" element={<AdminUserManagement />} />
             <Route path="/billing-management" element={<BillingManagement />} />
             <Route path="/subscription-management" element={<SubscriptionManagement />} />
+            <Route path="/activation-codes" element={<ActivationCodes />} />
             <Route path="/platform-monitoring" element={<PlatformMonitoring />} />
             <Route path="/feature-flags" element={<FeatureFlags />} />
             <Route path="/white-label-config" element={<WhiteLabelConfig />} />

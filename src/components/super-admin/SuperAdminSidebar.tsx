@@ -40,7 +40,8 @@ import {
   Route,
   Cpu,
   History,
-  KeyRound
+  KeyRound,
+  QrCode
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -112,6 +113,7 @@ const navigationItems = [
     title: 'Billing & Revenue',
     items: [
       { title: 'Subscription Management', tab: 'subscription-management', route: '/super-admin/subscription-management', icon: DollarSign },
+      { title: 'Activation Codes', tab: 'activation-codes', route: '/super-admin/activation-codes', icon: QrCode },
       { title: 'Billing Management', tab: 'billing-management', route: '/super-admin/billing-management', icon: CreditCard },
     ]
   },
