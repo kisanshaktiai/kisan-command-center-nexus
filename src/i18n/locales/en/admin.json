@@ -382,7 +382,8 @@
       "batch": "Batch",
       "expires": "Expires",
       "activatedOn": "Activated on",
-      "farmer": "Farmer"
+      "farmer": "Farmer",
+      "capped": "Showing the newest {{count}} codes. Pick a batch or a state to narrow the list."
     },
     "history": {
       "note": "Permanent record. Rows cannot be edited or deleted by anyone.",

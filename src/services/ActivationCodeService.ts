@@ -4,6 +4,9 @@
 // CHANGE LOG
 // 2026-11-25 — Farmer activation codes: thin client over the activation_* database functions
 //   (migrations farmer_activation_core and farmer_activation_licence_lock in the farmer-app repo).
+// 2026-11-25 (2) — Per-batch counts now read every code of the tenant page by page. The API returns
+//   at most 1000 rows per request, so a tenant with more than 1000 codes showed wrong counts.
+//   The Codes list is capped at CODES_LIST_LIMIT rows and says so (exported for the page).
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -143,6 +146,11 @@ export interface RevealedCode {
 const CODE_COLUMNS =
   'id, tenant_id, batch_id, code_hint, state, expires_at, created_at, released_at, redeemed_by, redeemed_at, revoked_at, revoke_reason, expired_at';
 
+const API_PAGE = 1000;      // the API returns at most this many rows per request
+const MAX_SCAN = 200_000;   // upper bound for the whole-tenant scan below
+/** The Codes tab lists at most this many rows; narrow by batch or state to see others. */
+export const CODES_LIST_LIMIT = 1000;
+
 export class ActivationCodeService {
   static async getTenants(): Promise<ActivationTenant[]> {
     const { data, error } = await supabase
@@ -185,24 +193,30 @@ export class ActivationCodeService {
   }
 
   static async getBatchStateCounts(tenantId: string): Promise<Record<string, BatchStateCounts>> {
-    const { data, error } = await supabase
-      .from('activation_codes' as never)
-      .select('batch_id, state')
-      .eq('tenant_id', tenantId);
-    if (error) throw error;
     const out: Record<string, BatchStateCounts> = {};
-    for (const row of (data || []) as unknown as Array<{ batch_id: string | null; state: ActivationState }>) {
-      if (!row.batch_id) continue;
-      const c = (out[row.batch_id] ??= {
-        batch_id: row.batch_id, generated: 0, available: 0, activated: 0, expired: 0, revoked: 0,
-      });
-      switch (row.state) {
-        case 'GENERATED': c.generated++; break;
-        case 'AVAILABLE': c.available++; break;
-        case 'ACTIVATED': c.activated++; break;
-        case 'EXPIRED': c.expired++; break;
-        case 'REVOKED': c.revoked++; break;
+    for (let from = 0; from < MAX_SCAN; from += API_PAGE) {
+      const { data, error } = await supabase
+        .from('activation_codes' as never)
+        .select('batch_id, state')
+        .eq('tenant_id', tenantId)
+        .order('id')
+        .range(from, from + API_PAGE - 1);
+      if (error) throw error;
+      const rows = (data || []) as unknown as Array<{ batch_id: string | null; state: ActivationState }>;
+      for (const row of rows) {
+        if (!row.batch_id) continue;
+        const c = (out[row.batch_id] ??= {
+          batch_id: row.batch_id, generated: 0, available: 0, activated: 0, expired: 0, revoked: 0,
+        });
+        switch (row.state) {
+          case 'GENERATED': c.generated++; break;
+          case 'AVAILABLE': c.available++; break;
+          case 'ACTIVATED': c.activated++; break;
+          case 'EXPIRED': c.expired++; break;
+          case 'REVOKED': c.revoked++; break;
+        }
       }
+      if (rows.length < API_PAGE) break;
     }
     return out;
   }
@@ -213,7 +227,7 @@ export class ActivationCodeService {
       .select(CODE_COLUMNS)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
-      .limit(2000);
+      .limit(CODES_LIST_LIMIT);
     if (batchId) q = q.eq('batch_id' as never, batchId as never);
     if (state) q = q.eq('state' as never, state as never);
     const { data, error } = await q;

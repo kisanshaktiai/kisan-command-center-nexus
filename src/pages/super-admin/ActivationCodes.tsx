@@ -2,6 +2,7 @@
 // PATH: src/pages/super-admin/ActivationCodes.tsx
 //
 // CHANGE LOG
+// 2026-11-25 (2) — Codes tab says when its list is cut at 1000 rows.
 // 2026-11-25 — Farmer activation codes (SaaS admin). Pick a tenant, record what it bought (licences
 //   and validity), generate a batch of single-use codes inside the licences left, release the batch
 //   to the tenant, download the printable sheet (one QR per code) or a CSV, revoke unused codes, and
@@ -37,7 +38,7 @@ import {
   useFarmerPlans, useGenerateBatch, useReleaseBatch, useRevokeCodes, useSetEntitlement,
 } from '@/hooks/useActivationCodes';
 import {
-  ActivationCodeService, activationErrorKey,
+  ActivationCodeService, activationErrorKey, CODES_LIST_LIMIT,
   type ActivationBatch, type ActivationState, type BatchStateCounts, type SubscriptionInterval,
 } from '@/services/ActivationCodeService';
 
@@ -366,6 +367,9 @@ export default function ActivationCodes() {
                         ))}
                       </TableBody>
                     </Table>
+                  )}
+                  {(codesQ.data?.length || 0) >= CODES_LIST_LIMIT && (
+                    <p className="text-xs text-muted-foreground pt-3">{t('activation.codes.capped', { count: CODES_LIST_LIMIT })}</p>
                   )}
                 </CardContent>
               </Card>
