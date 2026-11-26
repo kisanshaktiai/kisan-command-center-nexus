@@ -214,7 +214,7 @@ export default function WhiteLabelConfig() {
         .eq('plan', selectedTenantRow?.subscription_plan)
         .maybeSingle();
       if (error) throw error;
-      return (data as { max_themes: number | null } | null)?.max_themes ?? null;
+      return (data as unknown as { max_themes: number | null } | null)?.max_themes ?? null;
     },
     enabled: !!selectedTenantRow?.subscription_plan,
   });

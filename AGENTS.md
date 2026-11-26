@@ -1,0 +1,2 @@
+# Architecture rules
+- Keep shared RAG gateway recovery in `_shared/ragAdmin.ts` for both entrypoints; recover worker-limit failures only against the exact uploaded file and nonterminal document states to avoid altering completed documents.

@@ -191,6 +191,10 @@ async function extractError(error: unknown): Promise<string> {
     try {
       const body = await ctx.clone().json();
       if (body?.error) return String(body.error);
+      if (body?.code === 'WORKER_RESOURCE_LIMIT') {
+        return 'The PDF processing service exceeded its compute limit. Your file was uploaded, but processing did not finish. Do not repeatedly upload the same file; check its document status first.';
+      }
+      if (body?.message) return String(body.message);
     } catch {
       /* not JSON */
     }
