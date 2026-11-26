@@ -49,14 +49,40 @@ export interface RagTopic {
   sort_order: number;
   is_active: boolean;
 }
-/** Extensions the bucket + create_upload accept (storage level). */
-export const RAG_ALLOWED_EXTENSIONS = ['pdf', 'md', 'txt'] as const;
+/** Extensions create_upload accepts — the same list rag-ingest can read. */
+export const RAG_ALLOWED_EXTENSIONS = [
+  'pdf',
+  'png',
+  'jpg',
+  'jpeg',
+  'tif',
+  'tiff',
+] as const;
 /**
  * Extensions rag-ingest can actually parse today. The `ingest` action rejects
  * anything else AFTER the file has landed in the bucket, so the picker must be
  * limited to this list to avoid orphan objects.
  */
-export const RAG_INGESTABLE_EXTENSIONS = ['pdf'] as const;
+export const RAG_INGESTABLE_EXTENSIONS = RAG_ALLOWED_EXTENSIONS;
+
+/** Page-level extraction progress of a document that needed OCR (rag_pages). */
+export interface RagOcrProgress {
+  total: number;
+  /** pages read from the PDF's own text layer */
+  text_pages: number;
+  /** pages read by OCR */
+  ocr_pages: number;
+  /** pages still queued */
+  pending: number;
+  empty: number;
+  /** read below the confidence floor — kept out of the index */
+  low_confidence: number;
+  failed: number;
+  failed_pages?: number[];
+  low_confidence_pages?: number[];
+  /** engine-reported average over OCR pages; null when the engine reported none */
+  avg_confidence: number | null;
+}
 
 // ── Row shapes returned by the function ─────────────────────────────────────
 export interface RagSource {
@@ -109,6 +135,8 @@ export interface RagDocument {
   publication_date: string | null;
   created_at: string | null;
   tenant_id: string | null;
+  /** null for documents whose every page had a text layer */
+  ocr?: RagOcrProgress | null;
   rag_source_registry: {
     source_code: string;
     publisher: string;
@@ -147,6 +175,12 @@ export interface RagIngestResult {
   embedding?: string;
   /** Same content hash already ingested — no new document created. */
   deduplicated?: boolean;
+  /** Present when the document had pages without a text layer. */
+  ocr?: RagOcrProgress;
+  /** Last OCR engine error of the request, when pages are still queued. */
+  ocr_error?: string | null;
+  /** The same file is already mid-OCR; this is its current progress. */
+  in_progress?: boolean;
   message?: string;
   upstream_status?: number;
   error?: string;
@@ -171,7 +205,11 @@ export interface RagRetrievalStats {
   avg_latency_ms: number;
 }
 
-export type RagUploadStage = 'signing' | 'uploading' | 'ingesting';
+export type RagUploadStage = 'signing' | 'uploading' | 'ingesting' | 'ocr';
+
+/** Consecutive OCR rounds without a single page read before the panel stops asking. */
+const OCR_MAX_IDLE_ROUNDS = 3;
+const OCR_MAX_ROUNDS = 400;
 
 export interface RagListSourcesResponse {
   sources: RagSource[];
@@ -299,7 +337,7 @@ export const ragAdminService = {
   async uploadAndIngest(
     file: File,
     meta: RagIngestMeta,
-    onStage?: (stage: RagUploadStage) => void
+    onStage?: (stage: RagUploadStage, ocr?: RagOcrProgress) => void
   ): Promise<RagIngestResult> {
     onStage?.('signing');
     const { storagePath, token } = await call<{
@@ -326,7 +364,57 @@ export const ragAdminService = {
     // NOT `call`: a documented processing failure (SCANNED_OR_EMPTY_PDF…) comes
     // back as 200 with `error` + `processing_status: 'failed'` and must reach
     // the UI as a result, not an exception.
-    return invoke<RagIngestResult>('ingest', { storagePath, ...meta });
+    const first = await invoke<RagIngestResult>('ingest', {
+      storagePath,
+      ...meta,
+    });
+    if (first.processing_status !== 'parsing' || !first.documentId)
+      return first;
+    // Scanned pages are read in batches; keep asking until none are queued.
+    return ragAdminService.runOcrToCompletion(first, {
+      embed: meta.embed,
+      onProgress: (ocr) => onStage?.('ocr', ocr),
+    });
+  },
+
+  /** One bounded OCR round for a document (or re-queue its failed pages). */
+  ocrContinue: (
+    documentId: string,
+    opts: { retry?: boolean; embed?: boolean } = {}
+  ) => invoke<RagIngestResult>('ocr_continue', { documentId, ...opts }),
+
+  /**
+   * Call ocr_continue until the document leaves 'parsing'. Stops — returning
+   * the still-parsing result — when several rounds in a row read nothing, so a
+   * misconfigured or unavailable OCR engine cannot spin forever; the document
+   * can be resumed later from the documents list.
+   */
+  async runOcrToCompletion(
+    start: RagIngestResult,
+    opts: {
+      retry?: boolean;
+      embed?: boolean;
+      onProgress?: (ocr: RagOcrProgress) => void;
+    } = {}
+  ): Promise<RagIngestResult> {
+    let last = start;
+    let idle = 0;
+    let retry = opts.retry === true;
+    if (last.ocr) opts.onProgress?.(last.ocr);
+    for (let round = 0; round < OCR_MAX_ROUNDS; round++) {
+      const before = last.ocr?.pending ?? Number.POSITIVE_INFINITY;
+      const next = await ragAdminService.ocrContinue(start.documentId, {
+        retry,
+        embed: opts.embed,
+      });
+      retry = false;
+      last = { ...next, documentId: next.documentId ?? start.documentId };
+      if (last.ocr) opts.onProgress?.(last.ocr);
+      if (last.processing_status !== 'parsing') return last;
+      idle = (last.ocr?.pending ?? before) < before ? 0 : idle + 1;
+      if (idle >= OCR_MAX_IDLE_ROUNDS) return last;
+    }
+    return last;
   },
 };
 

@@ -55,6 +55,7 @@ import { RagDocumentUploadCard } from '@/components/rag/RagDocumentUploadCard';
 import { RagRetrievalStatsStrip } from '@/components/rag/RagRetrievalStatsStrip';
 import {
   useBackfillRagEmbeddings,
+  useResumeRagOcr,
   useRagDocuments,
   useRagSources,
   useRagTopicsLookup,
@@ -64,7 +65,7 @@ import {
 import type { RagSource } from '@/services/ragAdminService';
 
 const ALL = '__all__';
-const STATUSES = ['completed', 'processing', 'pending', 'failed'];
+const STATUSES = ['completed', 'parsing', 'processing', 'pending', 'failed'];
 
 export default function KnowledgeSources() {
   const { isSuperAdmin } = useAuth();
@@ -99,6 +100,7 @@ export default function KnowledgeSources() {
   });
   const setActive = useSetRagDocumentActive();
   const backfill = useBackfillRagEmbeddings();
+  const resumeOcr = useResumeRagOcr();
 
   const sources = useMemo(() => sourcesQ.data?.sources ?? [], [sourcesQ.data]);
   const enums = sourcesQ.data?.enums;
@@ -515,6 +517,16 @@ export default function KnowledgeSources() {
                         !d.embedding_model;
                       const isEmbedding =
                         backfill.isPending && backfill.variables === d.id;
+                      // OCR can be resumed while pages are queued, and retried
+                      // when pages failed (also on a completed document).
+                      const ocrResumable =
+                        !!d.ocr &&
+                        (d.ocr.pending > 0 ||
+                          d.ocr.failed > 0 ||
+                          d.processing_status === 'parsing');
+                      const isOcrRunning =
+                        resumeOcr.isPending &&
+                        resumeOcr.variables?.documentId === d.id;
                       return (
                         <TableRow
                           key={d.id}
@@ -531,6 +543,45 @@ export default function KnowledgeSources() {
                               <p className="truncate text-xs text-muted-foreground">
                                 {d.crop_codes!.join(', ')}
                               </p>
+                            )}
+                            {d.ocr && (
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  OCR {d.ocr.total - d.ocr.pending}/{d.ocr.total}{' '}
+                                  pages
+                                  {d.ocr.ocr_pages > 0 &&
+                                    ` · ${d.ocr.ocr_pages} by OCR`}
+                                  {d.ocr.avg_confidence != null &&
+                                    ` · ${Math.round(d.ocr.avg_confidence * 100)}% confidence`}
+                                  {d.ocr.failed > 0 &&
+                                    ` · ${d.ocr.failed} failed`}
+                                  {d.ocr.low_confidence > 0 &&
+                                    ` · ${d.ocr.low_confidence} low confidence`}
+                                </span>
+                                {ocrResumable && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 px-2 text-xs"
+                                    disabled={resumeOcr.isPending}
+                                    onClick={() =>
+                                      resumeOcr.mutate({
+                                        documentId: d.id,
+                                        retry: d.ocr!.failed > 0,
+                                      })
+                                    }
+                                  >
+                                    {isOcrRunning ? (
+                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="mr-1 h-3 w-3" />
+                                    )}
+                                    {d.ocr.failed > 0 && d.ocr.pending === 0
+                                      ? 'Retry failed pages'
+                                      : 'Resume OCR'}
+                                  </Button>
+                                )}
+                              </div>
                             )}
                           </TableCell>
                           <TableCell>

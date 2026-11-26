@@ -87,6 +87,9 @@ export function ProcessingStatusBadge({
       return <Badge variant="destructive">failed</Badge>;
     case 'processing':
     case 'pending':
+    case 'parsing':
+    case 'chunking':
+    case 'embedding':
       return <Badge variant="warning">{status}</Badge>;
     default:
       return <Badge variant="outline">{status || 'unknown'}</Badge>;
