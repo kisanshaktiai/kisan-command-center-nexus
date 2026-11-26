@@ -314,5 +314,168 @@
       "restore": "Restore",
       "export": "Logical export"
     }
+  },
+  "activation": {
+    "title": "Activation Codes",
+    "subtitle": "Generate single-use farmer activation codes for a tenant, inside the licences it bought.",
+    "tenant": "Tenant",
+    "selectTenant": "Select a tenant",
+    "pickTenantFirst": "Select a tenant to see its licences and codes.",
+    "notEnforced": "Activation is switched off (feature flag farmer_activation_required). Codes can be prepared now; farmers can redeem them only after it is switched on.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "reasonLabel": "Reason (required, min 5 characters; kept in the audit trail)",
+    "licence": {
+      "title": "Licences",
+      "subtitle": "What this tenant bought, and how much of it is used.",
+      "set": "Set licences",
+      "purchased": "Licences purchased",
+      "activated": "Farmers activated",
+      "remaining": "Licences remaining",
+      "unusedCodes": "Unused codes",
+      "canIssue": "Can still issue",
+      "subscription": "Subscription",
+      "active": "Active",
+      "inactive": "Not active",
+      "validUntil": "valid until {{date}}",
+      "noSubscription": "no subscription recorded; set licences first"
+    },
+    "tabs": {
+      "batches": "Batches",
+      "codes": "Codes",
+      "history": "History"
+    },
+    "states": {
+      "GENERATED": "Not released",
+      "AVAILABLE": "Unused",
+      "ACTIVATED": "Activated",
+      "EXPIRED": "Expired",
+      "REVOKED": "Revoked"
+    },
+    "intervals": {
+      "biannual": "Half-yearly",
+      "annually": "Annual"
+    },
+    "batches": {
+      "empty": "No codes have been generated for this tenant yet.",
+      "batch": "Batch",
+      "codes": "Codes",
+      "plan": "Farmer plan",
+      "expires": "Codes expire",
+      "released": "Released to tenant",
+      "notReleased": "Not released",
+      "actions": "Actions",
+      "unnamed": "Unnamed batch",
+      "release": "Release",
+      "pdf": "PDF with QR",
+      "csv": "CSV",
+      "view": "View codes",
+      "revoke": "Revoke"
+    },
+    "codes": {
+      "note": "Only the last 4 characters of a code are stored in readable form. The full code is on the downloaded sheet.",
+      "allBatches": "Show all batches",
+      "allStates": "All states",
+      "empty": "No codes match.",
+      "code": "Code",
+      "state": "State",
+      "batch": "Batch",
+      "expires": "Expires",
+      "activatedOn": "Activated on",
+      "farmer": "Farmer",
+      "capped": "Showing the newest {{count}} codes. Pick a batch or a state to narrow the list."
+    },
+    "history": {
+      "note": "Permanent record. Rows cannot be edited or deleted by anyone.",
+      "empty": "Nothing recorded for this tenant yet.",
+      "when": "When",
+      "event": "Event",
+      "result": "Result",
+      "farmer": "Farmer",
+      "by": "Done by",
+      "batch": "Batch",
+      "ip": "IP address"
+    },
+    "events": {
+      "ENTITLEMENT_SET": "Licences set",
+      "BATCH_GENERATED": "Batch generated",
+      "BATCH_RELEASED": "Batch released",
+      "CODES_REVEALED": "Codes downloaded",
+      "CODE_REVOKED": "Code revoked",
+      "CODE_EXPIRED": "Code expired",
+      "REDEEM_SUCCESS": "Farmer activated",
+      "REDEEM_FAILED": "Wrong or unusable code",
+      "REDEEM_BLOCKED": "Activation blocked",
+      "REDEEM_ERROR": "Activation error"
+    },
+    "entitlement": {
+      "title": "Set licences for {{tenant}}",
+      "description": "Record what the tenant bought. This sets the farmer seat limit and the subscription validity that activation checks.",
+      "licences": "Number of licences",
+      "licencesHint": "Cannot be below the {{used}} farmers already active.",
+      "validUntil": "Subscription valid until",
+      "reasonPlaceholder": "Order or invoice reference"
+    },
+    "generate": {
+      "open": "Generate codes",
+      "title": "Generate codes for {{tenant}}",
+      "description": "{{count}} licences are free to issue. Each code activates one farmer, once.",
+      "count": "Number of codes",
+      "countHint": "1 to {{max}} in one batch",
+      "expires": "Codes expire on",
+      "plan": "Farmer plan",
+      "planPlaceholder": "Select a plan",
+      "interval": "Farmer subscription length",
+      "label": "Batch name (optional)",
+      "labelPlaceholder": "Shown to you and the tenant",
+      "note": "New codes are not usable until you release the batch. The tenant sees them only after release.",
+      "submit": "Generate",
+      "working": "Generating…"
+    },
+    "revoke": {
+      "title": "Revoke {{count}} unused code(s)?",
+      "description": "Revoked codes can never be used again and cannot be restored. Codes already activated are not affected.",
+      "confirm": "Revoke"
+    },
+    "download": {
+      "title": "Download the codes?",
+      "warning": "The file contains the full codes. Anyone holding it can activate farmers on this tenant's licences. This download is recorded with your name. Send it only to the tenant, over a private channel.",
+      "confirm": "Download",
+      "building": "Preparing…",
+      "none": "This batch has no unused codes to download."
+    },
+    "sheet": {
+      "title": "Farmer activation codes",
+      "validUntil": "Valid until",
+      "sheet": "Sheet",
+      "of": "of",
+      "printed": "Printed",
+      "cardNote": "One farmer, one time. Scan in the app or type the code."
+    },
+    "toast": {
+      "entitlementSaved": "Licences saved.",
+      "generated": "{{count}} codes generated. Release the batch to make them usable.",
+      "released": "{{count}} codes released to the tenant.",
+      "revoked": "{{count}} codes revoked.",
+      "downloaded": "{{count}} codes downloaded."
+    },
+    "errors": {
+      "unknown": "The action failed. Nothing was changed.",
+      "not_authorized": "You are not allowed to do this.",
+      "invalid_count": "A batch holds 1 to 2000 codes.",
+      "invalid_expiry": "The expiry date must be in the future and within 3 years.",
+      "invalid_interval": "Choose half-yearly or annual.",
+      "tenant_not_eligible": "This tenant is not active.",
+      "invalid_farmer_plan": "This farmer plan cannot be used for this tenant.",
+      "batch_not_found": "Batch not found.",
+      "nothing_to_revoke": "Nothing to revoke.",
+      "reason_required": "A reason is required.",
+      "exceeds_licences": "Not enough licences left for this many codes.",
+      "subscription_inactive": "This tenant has no active subscription. Set its licences first.",
+      "licences_below_used": "The licence count cannot be below the farmers already active.",
+      "invalid_licences": "Enter a licence count between 0 and 1,000,000.",
+      "invalid_valid_until": "The validity date must be in the future and within 5 years.",
+      "licence_locked": "Only the platform admin can change licences."
+    }
   }
 }

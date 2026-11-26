@@ -146,6 +146,7 @@ export function RagDocumentUploadCard({
   const handleSubmit = async () => {
     if (!file || !source) return;
     setResult(null);
+    try {
     const r = await upload.mutateAsync({
       file,
       meta: {
@@ -168,6 +169,10 @@ export function RagDocumentUploadCard({
       setTitle('');
       setCropCodes([]);
       setTopicCodes([]);
+    }
+    } catch {
+      // The mutation owns the error state/toast; consume the promise rejection
+      // so a processing failure cannot escape the click handler.
     }
   };
 
@@ -575,6 +580,14 @@ export function RagDocumentUploadCard({
                 </p>
               )}
             </AlertDescription>
+          </Alert>
+        )}
+
+        {upload.isError && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Upload or processing failed</AlertTitle>
+            <AlertDescription>{upload.error.message}</AlertDescription>
           </Alert>
         )}
 

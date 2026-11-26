@@ -285,7 +285,26 @@ export async function handleRagAdmin(req: Request, preParsedBody?: Record<string
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
           body: JSON.stringify(payload),
         });
-        const result = await res.json().catch(() => ({ error: 'rag-ingest returned non-JSON' }));
+        let result = await res.json().catch(() => ({ error: 'rag-ingest returned non-JSON' }));
+
+        // A killed upstream worker cannot run its failure handler. Recover only
+        // the row for this exact uploaded object, never a completed document.
+        if (res.status === 546 && result?.code === 'WORKER_RESOURCE_LIMIT') {
+          const processingError = 'WORKER_RESOURCE_LIMIT: PDF processing exceeded the compute limit. The uploaded file is retained; use a smaller text-searchable PDF or apply OCR if it has no text layer.';
+          const { data: interrupted, error: recoveryError } = await sb.from('rag_documents')
+            .update({ processing_status: 'failed', processing_error: processingError, updated_at: new Date().toISOString() })
+            .eq('file_url', `${BUCKET}/${storagePath}`)
+            .in('processing_status', ['pending', 'processing', 'parsing', 'chunking', 'embedding'])
+            .select('id');
+          if (recoveryError) console.warn('[rag-admin] interrupted document recovery failed:', recoveryError.message);
+          result = {
+            ...result,
+            error: processingError,
+            processing_status: 'failed',
+            processing_error: processingError,
+            ...(interrupted?.length === 1 ? { documentId: interrupted[0].id } : {}),
+          };
+        }
 
         // Persist topic_codes on the document and its chunks. rag-ingest v1
         // ignores `topicCodes` (it destructures a fixed field list), so this
@@ -312,8 +331,8 @@ export async function handleRagAdmin(req: Request, preParsedBody?: Record<string
         // (e.g. SCANNED_OR_EMPTY_PDF). supabase-js turns any non-2xx into an opaque
         // FunctionsHttpError, so relay documented outcomes as 200 and let the panel
         // read processing_status / error. Genuine upstream faults stay non-2xx.
-        const documented = res.ok || (res.status === 422 && result?.documentId);
-        return json(documented ? 200 : res.status, { ...result, upstream_status: res.status });
+        const documented = res.ok || ((res.status === 422 || res.status === 546) && result?.documentId);
+        return json(documented ? 200 : res.status === 546 ? 503 : res.status, { ...result, upstream_status: res.status });
       }
 
       // ───────────────────────────────────────────── list_documents

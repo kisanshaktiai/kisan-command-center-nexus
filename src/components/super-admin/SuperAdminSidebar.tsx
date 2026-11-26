@@ -40,7 +40,8 @@ import {
   Route,
   Cpu,
   History,
-  KeyRound
+  KeyRound,
+  QrCode
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -112,6 +113,7 @@ const navigationItems = [
     title: 'Billing & Revenue',
     items: [
       { title: 'Subscription Management', tab: 'subscription-management', route: '/super-admin/subscription-management', icon: DollarSign },
+      { title: 'Activation Codes', tab: 'activation-codes', route: '/super-admin/activation-codes', icon: QrCode },
       { title: 'Billing Management', tab: 'billing-management', route: '/super-admin/billing-management', icon: CreditCard },
     ]
   },
@@ -121,6 +123,8 @@ const navigationItems = [
       { title: 'Feature Flags', tab: 'feature-flags', route: '/super-admin/feature-flags', icon: Flag },
       { title: 'White Label Config', tab: 'white-label-config', route: '/super-admin/white-label-config', icon: Palette },
       { title: 'White Label Data Fix', tab: 'white-label-data-fix', route: '/super-admin/white-label-data-fix', icon: Palette },
+      { title: 'Master Themes', tab: 'master-themes', route: '/super-admin/master-themes', icon: Palette },
+      { title: 'Tenant Themes', tab: 'tenant-themes', route: '/super-admin/tenant-themes', icon: Palette },
     ]
   }
 ];

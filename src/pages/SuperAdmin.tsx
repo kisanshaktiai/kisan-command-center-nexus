@@ -11,10 +11,13 @@ import TenantOnboarding from './super-admin/TenantOnboarding';
 import AdminUserManagement from './super-admin/AdminUserManagement';
 import BillingManagement from './super-admin/BillingManagement';
 import SubscriptionManagement from './super-admin/SubscriptionManagement';
+import ActivationCodes from './super-admin/ActivationCodes';
 import PlatformMonitoring from './super-admin/PlatformMonitoring';
 import FeatureFlags from './super-admin/FeatureFlags';
 import WhiteLabelConfig from './super-admin/WhiteLabelConfig';
 import WhiteLabelDataFix from './super-admin/WhiteLabelDataFix';
+import MasterThemes from './super-admin/MasterThemes';
+import TenantThemes from './super-admin/TenantThemes';
 import MasterCompanies from './super-admin/MasterCompanies';
 import MasterProducts from './super-admin/MasterProducts';
 import ProductCategories from './super-admin/ProductCategories';
@@ -115,10 +118,13 @@ const SuperAdmin = () => {
             <Route path="/admin-user-management" element={<AdminUserManagement />} />
             <Route path="/billing-management" element={<BillingManagement />} />
             <Route path="/subscription-management" element={<SubscriptionManagement />} />
+            <Route path="/activation-codes" element={<ActivationCodes />} />
             <Route path="/platform-monitoring" element={<PlatformMonitoring />} />
             <Route path="/feature-flags" element={<FeatureFlags />} />
             <Route path="/white-label-config" element={<WhiteLabelConfig />} />
             <Route path="/white-label-data-fix" element={<WhiteLabelDataFix />} />
+            <Route path="/master-themes" element={<MasterThemes />} />
+            <Route path="/tenant-themes" element={<TenantThemes />} />
             <Route path="/master-companies" element={<MasterCompanies />} />
             <Route path="/master-products" element={<MasterProducts />} />
             <Route path="/product-categories" element={<ProductCategories />} />

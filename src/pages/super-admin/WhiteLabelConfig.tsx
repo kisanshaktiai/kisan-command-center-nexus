@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Upload, Download, Eye, Palette, Globe, Mail, Smartphone, Monitor, Code, Settings, Save, Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { useMasterThemes } from '@/hooks/useMasterThemes';
+import { subscriptionPlanOptions } from '@/types/tenant/enums';
 import { toast } from 'sonner';
 import { useWhiteLabelConfig } from '@/hooks/useWhiteLabelConfig';
 import { WhiteLabelSyncStatus } from '@/components/super-admin/WhiteLabelSyncStatus';
@@ -165,6 +167,7 @@ interface WhiteLabelConfig {
 interface Tenant {
   id: string;
   name: string;
+  subscription_plan: string | null;
 }
 
 export default function WhiteLabelConfig() {
@@ -185,7 +188,7 @@ export default function WhiteLabelConfig() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, name')
+        .select('id, name, subscription_plan')
         .eq('status', 'active')
         .order('name');
       
@@ -193,6 +196,31 @@ export default function WhiteLabelConfig() {
       return (data || []) as Tenant[];
     }
   });
+
+  // Theme entitlement for the selected tenant: its bucket (Tenant Themes page)
+  // plus the house default; its plan sets only how many the bucket may hold.
+  const selectedTenantRow = tenants.find(t => t.id === selectedTenant);
+  const selectedTenantPlanLabel = selectedTenantRow
+    ? (subscriptionPlanOptions.find(o => o.value === selectedTenantRow.subscription_plan)?.label
+        ?? selectedTenantRow.subscription_plan ?? 'No plan set')
+    : '';
+  const { presetThemes: tenantThemes } = useMasterThemes(selectedTenant || null);
+  const { data: themeQuota } = useQuery({
+    queryKey: ['plan-theme-quota', selectedTenantRow?.subscription_plan],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('plan_theme_quota' as any)
+        .select('max_themes')
+        .eq('plan', selectedTenantRow?.subscription_plan)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as unknown as { max_themes: number | null } | null)?.max_themes ?? null;
+    },
+    enabled: !!selectedTenantRow?.subscription_plan,
+  });
+  // get_tenant_master_themes lists the default first, then the chosen themes;
+  // the quota counts all of them, default included.
+  const bucketCount = tenantThemes.length;
 
   // Use the custom hook for white-label config management
   const { 
@@ -361,8 +389,35 @@ export default function WhiteLabelConfig() {
     }
   };
 
-  const updateConfig = (section: keyof WhiteLabelConfig, field: string, value: any) => {
+  const updateConfig = (section: keyof WhiteLabelConfig | '__bulk_theme__', field: string, value: any) => {
     if (!config) return;
+
+    // Bulk theme staging from EnhancedMobileThemePanel: merge every JSONB
+    // group the mobile app reads in ONE state update. Functional form, so the
+    // merge is against the latest state rather than this render's closure —
+    // several plain setConfig({...config}) calls in a row overwrite each other.
+    if (section === '__bulk_theme__') {
+      const {
+        app_store_config_mobile_theme,
+        api_version,
+        is_validated,
+        validation_errors,
+        ...groups
+      } = value || {};
+      setConfig(prev => prev ? {
+        ...prev,
+        brand_identity: { ...(prev.brand_identity || {}), ...(groups.brand_identity || {}) },
+        mobile_theme: { ...(prev.mobile_theme || {}), ...(groups.mobile_theme || {}) },
+        theme_colors: { ...(prev.theme_colors || {}), ...(groups.theme_colors || {}) },
+        app_customization: { ...(prev.app_customization || {}), ...(groups.app_customization || {}) },
+        app_store_config: { ...(prev.app_store_config || {}), mobile_theme: app_store_config_mobile_theme },
+        api_version,
+        is_validated,
+        validation_errors,
+      } : prev);
+      setHasUnsavedChanges(true);
+      return;
+    }
     
     // Special handling for root-level fields like theme_colors and mobile_theme
     if ((section === 'theme_colors' || section === 'mobile_theme') && field === '') {
@@ -504,6 +559,14 @@ export default function WhiteLabelConfig() {
                 </option>
               ))}
             </select>
+            {selectedTenant && (
+              <p className="text-sm text-muted-foreground pt-1">
+                Plan: <Badge variant="outline">{selectedTenantPlanLabel}</Badge>
+                {' '}&middot; Bucket: {bucketCount} of {themeQuota === null || themeQuota === undefined ? 'unlimited' : themeQuota} themes
+                (default included) available in the Mobile tab and in this tenant's own portal.
+                Change the bucket on the Tenant Themes page; change the quota by changing the tenant's plan.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

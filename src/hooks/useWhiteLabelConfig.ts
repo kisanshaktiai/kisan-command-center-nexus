@@ -163,31 +163,15 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         }
         
         const data = result.data;
-        const error = null;
         
-        // Create audit log entry for update
-        const auditEntry = {
-          white_label_id: config.id,
-          tenant_id: tenantId,
-          change_type: 'UPDATE',
-          changed_by: user?.id || null,
-          full_snapshot: data,
-          created_at: now
-        };
-        
-        const { error: auditError } = await supabase
-          .from('white_label_audit_log')
-          .insert([auditEntry]);
-          
-        if (auditError) {
-          console.error('Error creating audit log:', auditError);
-          // Don't fail the operation if audit logging fails
-        }
+        // Audit row is written server-side by the white_label_configs trigger
+        // (audit_white_label_changes, SECURITY DEFINER). The client cannot
+        // insert into white_label_audit_log — its INSERT policy is
+        // service_role only — so the former client-side insert always failed.
         
         console.log('Updated config result:', {
           hasMobileTheme: !!data?.mobile_theme,
-          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : [],
-          auditLogged: !auditError
+          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : []
         });
         
         return data;
@@ -205,31 +189,13 @@ export const useWhiteLabelConfig = (tenantId: string | null) => {
         }
         
         const data = result.data;
-        const error = null;
         
-        // Create audit log entry for creation
-        const auditEntry = {
-          white_label_id: data.id,
-          tenant_id: tenantId,
-          change_type: 'CREATE',
-          changed_by: user?.id || null,
-          full_snapshot: data,
-          created_at: now
-        };
-        
-        const { error: auditError } = await supabase
-          .from('white_label_audit_log')
-          .insert([auditEntry]);
-          
-        if (auditError) {
-          console.error('Error creating audit log:', auditError);
-          // Don't fail the operation if audit logging fails
-        }
+        // Audit row is written server-side by the white_label_configs trigger
+        // (see note in the update path above).
         
         console.log('Created config result:', {
           hasMobileTheme: !!data?.mobile_theme,
-          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : [],
-          auditLogged: !auditError
+          mobileThemeKeys: data?.mobile_theme ? Object.keys(data.mobile_theme) : []
         });
         
         return data;
