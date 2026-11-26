@@ -60,7 +60,8 @@ interface RagDocumentUploadCardProps {
 const STAGES: { key: RagUploadStage; label: string; pct: number }[] = [
   { key: 'signing', label: 'Requesting signed upload URL', pct: 20 },
   { key: 'uploading', label: 'Uploading to private bucket', pct: 55 },
-  { key: 'ingesting', label: 'Parsing, chunking & embedding', pct: 85 },
+  { key: 'ingesting', label: 'Parsing, chunking & embedding', pct: 70 },
+  { key: 'ocr', label: 'Reading scanned pages (OCR)', pct: 85 },
 ];
 
 const ACCEPT = RAG_INGESTABLE_EXTENSIONS.map((e) => `.${e}`).join(',');
@@ -179,11 +180,15 @@ export function RagDocumentUploadCard({
   const stageIdx = STAGES.findIndex((s) => s.key === upload.stage);
   const failed =
     !!result && (result.processing_status === 'failed' || !!result.error);
+  // OCR still has pages queued (engine unavailable or the panel stopped asking).
+  const ocrPaused = !!result && !failed && result.processing_status === 'parsing';
   const needsOcr =
     failed &&
     /SCANNED_OR_EMPTY_PDF/i.test(
       result?.processing_error ?? result?.error ?? ''
     );
+  const ocrLive = upload.stage === 'ocr' ? upload.ocrProgress : null;
+  const ocrRead = ocrLive ? ocrLive.total - ocrLive.pending : 0;
 
   return (
     <Card>
@@ -498,9 +503,22 @@ export function RagDocumentUploadCard({
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
               <span className="font-medium">
                 {STAGES[stageIdx]?.label ?? 'Starting…'}
+                {ocrLive && ocrLive.total > 0 && (
+                  <>
+                    {' '}
+                    — page {ocrRead} of {ocrLive.total}
+                    {ocrLive.failed > 0 && ` · ${ocrLive.failed} failed`}
+                  </>
+                )}
               </span>
             </div>
-            <Progress value={STAGES[stageIdx]?.pct ?? 5} />
+            <Progress
+              value={
+                ocrLive && ocrLive.total > 0
+                  ? 70 + Math.round((ocrRead / ocrLive.total) * 28)
+                  : (STAGES[stageIdx]?.pct ?? 5)
+              }
+            />
             <div className="flex justify-between text-xs text-muted-foreground">
               {STAGES.map((s, i) => (
                 <span
@@ -529,7 +547,25 @@ export function RagDocumentUploadCard({
           </Alert>
         )}
 
-        {result && !failed && !result.deduplicated && (
+        {ocrPaused && (
+          <Alert>
+            <ScanLine className="h-4 w-4" />
+            <AlertTitle>OCR not finished</AlertTitle>
+            <AlertDescription>
+              {result.ocr
+                ? `${result.ocr.total - result.ocr.pending} of ${result.ocr.total} pages are read; ${result.ocr.pending} are still queued.`
+                : 'Scanned pages are still queued.'}{' '}
+              {result.ocr_error && `Last OCR error: ${result.ocr_error}. `}
+              The file is stored and nothing is lost — use “Resume OCR” on
+              this document in the documents list. Do not upload it again.
+              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                {result.documentId}
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {result && !failed && !ocrPaused && !result.deduplicated && (
           <Alert className="border-success/40 bg-success/5">
             <CheckCircle2 className="h-4 w-4 text-success" />
             <AlertTitle>Ingested</AlertTitle>
@@ -540,6 +576,21 @@ export function RagDocumentUploadCard({
                 <Stat label="Sections" value={result.sectionsDetected} />
                 <Stat label="Tables" value={result.tables} />
               </div>
+              {result.ocr && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  OCR: {result.ocr.ocr_pages} page
+                  {result.ocr.ocr_pages === 1 ? '' : 's'} read by OCR,{' '}
+                  {result.ocr.text_pages} from the text layer
+                  {result.ocr.avg_confidence != null &&
+                    ` · average confidence ${Math.round(result.ocr.avg_confidence * 100)}%`}
+                  {result.ocr.empty > 0 && ` · ${result.ocr.empty} empty`}
+                </p>
+              )}
+              {result.processing_error && (
+                <p className="mt-2 text-xs text-[hsl(var(--small-text-warning))]">
+                  {result.processing_error}
+                </p>
+              )}
               {result.topic_codes && result.topic_codes.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {result.topic_codes.map((c, i) => (
@@ -568,12 +619,10 @@ export function RagDocumentUploadCard({
               <AlertTriangle className="h-4 w-4" />
             )}
             <AlertTitle>
-              {needsOcr ? 'Needs OCR' : 'Processing failed'}
+              {needsOcr ? 'Scanned file could not be read' : 'Processing failed'}
             </AlertTitle>
             <AlertDescription>
-              {needsOcr
-                ? 'No extractable text was found — this looks like a scanned PDF. Run it through OCR (e.g. ocrmypdf) and re-upload the text layer.'
-                : (result.processing_error ?? result.error ?? 'Unknown error')}
+              {result.processing_error ?? result.error ?? 'Unknown error'}
               {result.documentId && (
                 <p className="mt-1 font-mono text-xs opacity-80">
                   {result.documentId}

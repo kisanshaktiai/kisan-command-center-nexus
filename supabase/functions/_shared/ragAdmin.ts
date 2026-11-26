@@ -22,7 +22,10 @@
  *                  cropCodes?, docType?, publicationDate?, validFrom?, validUntil?,
  *                  tenantId?, embed?}
  *                                    → server-side call to rag-ingest (service role)
- *  list_documents {sourceCode?, status?, topicCode?, limit?}
+ *  ocr_continue   {documentId, retry?, embed?}
+ *                                    → server-side call to rag-ingest ocr_continue: reads the next batch of
+ *                                      scanned pages (or re-queues failed ones) and finalises when none are left
+ *  list_documents {sourceCode?, status?, topicCode?, limit?}   (+ per-document `ocr` progress from rag_pages)
  *  set_document_active {documentId, isActive}
  *  backfill_embeddings {documentId}   → server-side call to rag-ingest backfill_embeddings; embeds the
  *                                      document's chunks that have no vector (no re-upload, no re-chunk)
@@ -53,8 +56,13 @@ const BUCKET = 'rag-documents';
 const AUTHORITY_TIERS = ['central_govt', 'icar', 'state_agri_university', 'state_govt', 'kvk', 'other'] as const;
 const DOC_TYPES = ['scheme', 'package_of_practices', 'advisory', 'faq', 'regulation', 'other'] as const;
 const SOURCE_CODE_RE = /^[A-Z0-9_]{3,64}$/;
-const ALLOWED_EXT = ['pdf', 'md', 'txt'];
+// What rag-ingest can actually read (its INGESTABLE_EXTENSIONS): PDFs, and
+// images through OCR. Upload and ingest both check THIS list, so a file that
+// cannot be ingested is refused before it lands in the bucket.
+const ALLOWED_EXT = ['pdf', 'png', 'jpg', 'jpeg', 'tif', 'tiff'];
 const SIGNED_UPLOAD_TTL_S = 600;
+
+interface OcrSummary { total: number; text_pages: number; ocr_pages: number; pending: number; empty: number; low_confidence: number; failed: number; avg_confidence: number | null; _sum: number; _n: number }
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -247,7 +255,7 @@ export async function handleRagAdmin(req: Request, preParsedBody?: Record<string
         const { storagePath, sourceCode, title } = body;
         if (!storagePath || !sourceCode || !title) return json(400, { error: 'storagePath, sourceCode and title are required' });
         const ext = String(storagePath).split('.').pop()?.toLowerCase() || '';
-        if (ext !== 'pdf') return json(400, { error: `rag-ingest currently accepts PDF only (got .${ext}); markdown/text ingestion not deployed yet` });
+        if (!ALLOWED_EXT.includes(ext)) return json(400, { error: `Only ${ALLOWED_EXT.join(', ')} files can be ingested (got .${ext})` });
 
         // Validate crop codes against SSOT so bad metadata never reaches rag_documents
         let cropCodes: string[] | null = null;
@@ -335,6 +343,33 @@ export async function handleRagAdmin(req: Request, preParsedBody?: Record<string
         return json(documented ? 200 : res.status === 546 ? 503 : res.status, { ...result, upstream_status: res.status });
       }
 
+      // ───────────────────────────────────────────── ocr_continue
+      // Resume (or, with retry, re-queue the failed pages of) a document whose
+      // scanned pages are still being read. Server-side relay to rag-ingest,
+      // like `ingest`; the panel calls it until the document leaves 'parsing'.
+      case 'ocr_continue': {
+        const documentId = String(body.documentId || '');
+        if (!documentId) return json(400, { error: 'documentId is required' });
+        const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/rag-ingest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+          body: JSON.stringify({ action: 'ocr_continue', documentId, retry: body.retry === true, embed: body.embed !== false }),
+        });
+        let result = await res.json().catch(() => ({ error: 'rag-ingest returned non-JSON' }));
+        if (res.status === 546 && result?.code === 'WORKER_RESOURCE_LIMIT') {
+          // The worker was killed mid-batch. Pages it had claimed are released
+          // by rag-ingest after its stale-claim window; nothing is lost.
+          result = { documentId, processing_status: 'parsing', ocr_error: 'WORKER_RESOURCE_LIMIT: the OCR request exceeded the compute limit and will be resumed.' };
+        }
+        // rag-ingest sets chunk topic_codes from the document when it finalises;
+        // nothing to copy here.
+        if (body.retry === true || result?.processing_status !== 'parsing') {
+          await audit(sb, adminId, 'ocr_continue', { document_id: documentId, retry: body.retry === true, status: res.status, processing_status: result?.processing_status ?? null, chunks: result?.chunks ?? null, ocr: result?.ocr ?? null, error: result?.error ?? result?.ocr_error ?? null }, Date.now() - t0, req);
+        }
+        const documented = res.ok || res.status === 546 || (res.status === 422 && result?.documentId);
+        return json(documented ? 200 : res.status, { ...result, upstream_status: res.status });
+      }
+
       // ───────────────────────────────────────────── list_documents
       case 'list_documents': {
         let q = sb.from('rag_documents')
@@ -346,7 +381,32 @@ export async function handleRagAdmin(req: Request, preParsedBody?: Record<string
         if (body.topicCode) q = q.contains('topic_codes', [String(body.topicCode).toLowerCase()]);
         const { data, error } = await q;
         if (error) return json(500, { error: error.message });
-        return json(200, { documents: data });
+        // OCR progress per document, from rag_pages (present only for documents
+        // that had pages without a text layer).
+        const ids = (data || []).map((d) => d.id);
+        const ocrByDoc: Record<string, OcrSummary> = {};
+        if (ids.length) {
+          const { data: pages, error: pErr } = await sb.from('rag_pages')
+            .select('document_id, status, extraction_method, ocr_confidence').in('document_id', ids).limit(50000);
+          if (pErr) console.warn('[rag-admin] rag_pages read failed:', pErr.message);
+          for (const pg of pages || []) {
+            const o = (ocrByDoc[pg.document_id] ??= { total: 0, text_pages: 0, ocr_pages: 0, pending: 0, empty: 0, low_confidence: 0, failed: 0, avg_confidence: null, _sum: 0, _n: 0 });
+            o.total++;
+            if (pg.status === 'pending' || pg.status === 'processing') o.pending++;
+            else if (pg.status === 'failed') o.failed++;
+            else if (pg.status === 'empty') o.empty++;
+            else if (pg.status === 'low_confidence') o.low_confidence++;
+            else if (pg.extraction_method === 'ocr') { o.ocr_pages++; if (pg.ocr_confidence != null) { o._sum += Number(pg.ocr_confidence); o._n++; } }
+            else o.text_pages++;
+          }
+        }
+        const documents = (data || []).map((d) => {
+          const o = ocrByDoc[d.id];
+          if (!o) return { ...d, ocr: null };
+          const { _sum, _n, ...rest } = o;
+          return { ...d, ocr: { ...rest, avg_confidence: _n ? +(_sum / _n).toFixed(4) : null } };
+        });
+        return json(200, { documents });
       }
 
       // ───────────────────────────────────────────── set_document_active
@@ -423,3 +483,4 @@ export async function handleRagAdmin(req: Request, preParsedBody?: Record<string
 
 // deploy 2026-08-27
 // 2026-09-21 — retrieval_stats excludes GOLDEN_EVAL runs and error retrievals from the gap rate (RAG Phase 0)
+// 2026-11-26 — OCR: images accepted (md/txt, which rag-ingest never read, no longer are); ocr_continue relay; list_documents returns OCR progress

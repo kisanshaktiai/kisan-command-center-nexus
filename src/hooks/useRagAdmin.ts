@@ -6,6 +6,7 @@ import {
   ragAdminService,
   type RagIngestMeta,
   type RagIngestResult,
+  type RagOcrProgress,
   type RagSourceInput,
   type RagUploadStage,
 } from '@/services/ragAdminService';
@@ -105,15 +106,27 @@ export function useRagRetrievalStats(days = 7) {
 export function useRagUploadAndIngest() {
   const qc = useQueryClient();
   const [stage, setStage] = useState<RagUploadStage | null>(null);
+  const [ocrProgress, setOcrProgress] = useState<RagOcrProgress | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (vars: { file: File; meta: RagIngestMeta }) =>
-      ragAdminService.uploadAndIngest(vars.file, vars.meta, setStage),
+    mutationFn: (vars: { file: File; meta: RagIngestMeta }) => {
+      setOcrProgress(null);
+      return ragAdminService.uploadAndIngest(vars.file, vars.meta, (s, ocr) => {
+        setStage(s);
+        if (ocr) setOcrProgress(ocr);
+      });
+    },
     onSuccess: (r: RagIngestResult) => {
-      if (r.processing_status === 'failed' || r.error || r.processing_error) {
+      if (r.processing_status === 'failed' || r.error) {
         toast.warning(
           'Document stored, but processing failed — see result card'
         );
+      } else if (r.processing_status === 'parsing') {
+        toast.warning(
+          'OCR is not finished — resume it from the documents list'
+        );
+      } else if (r.processing_error) {
+        toast.warning('Ingested, but some pages could not be read — see result card');
       } else if (r.deduplicated) {
         toast.info('Identical file already ingested — categories merged');
       } else {
@@ -126,7 +139,38 @@ export function useRagUploadAndIngest() {
     onSettled: () => setStage(null),
   });
 
-  return { ...mutation, stage };
+  return { ...mutation, stage, ocrProgress };
+}
+
+/** Resume OCR for a document still in 'parsing', or retry its failed pages. */
+export function useResumeRagOcr() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { documentId: string; retry?: boolean }) =>
+      ragAdminService.runOcrToCompletion(
+        {
+          documentId: vars.documentId,
+          processing_status: 'parsing',
+        } as RagIngestResult,
+        { retry: vars.retry, embed: true }
+      ),
+    onSuccess: (r) => {
+      if (r.processing_status === 'completed') {
+        toast.success(
+          r.processing_error
+            ? 'OCR finished — some pages could not be read'
+            : `OCR finished: ${r.chunks} chunks indexed`
+        );
+      } else if (r.processing_status === 'failed' || r.error) {
+        toast.error(r.error ?? r.processing_error ?? 'OCR failed');
+      } else {
+        toast.warning(r.ocr_error ?? 'OCR is still pending — try again later');
+      }
+      qc.invalidateQueries({ queryKey: ['rag-admin', 'documents'] });
+      qc.invalidateQueries({ queryKey: ragQueryKeys.sources });
+    },
+    onError: (e: Error) => toast.error(e.message ?? 'OCR resume failed'),
+  });
 }
 
 // ── SSOT lookups (read-only tables, RLS allows authenticated SELECT) ────────
